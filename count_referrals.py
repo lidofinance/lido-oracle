@@ -3,8 +3,11 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
+import os
+import sys
 
 Base = declarative_base()
+
 
 class DepositCalculator:
     class Deposit(Base):
@@ -33,3 +36,44 @@ class DepositCalculator:
             .filter(self.Deposit.referral != None)\
             .scalar()
         return(result)
+
+
+def main(argv=None, env=[]):
+    if argv is None:
+        argv = sys.argv
+    if env == []:
+        env = os.environ
+    try:
+        START_BLOCK = argv[1]
+    except IndexError:
+        START_BLOCK = 0
+    try:
+        END_BLOCK = argv[2]
+    except IndexError:
+        END_BLOCK = None
+    try:
+        ETH1_NODE = env['ETH1_NODE']
+    except KeyError:
+        print("need to set ETH1_NODE env variable")
+        exit()
+    try:
+        DEPOOL_ABI = env['DEPOOL_ABI']
+    except KeyError:
+        print("need to set DEPOOL_ABI env variable")
+        exit()
+    try:
+        DEPOOL_ADDR = env['DEPOOL_ADDR']
+    except KeyError:
+        print("need to set DEPOOL_ADDR env variable")
+        exit()
+    print(f"""
+    START_BLOCK = {START_BLOCK}
+    END_BLOCK = {END_BLOCK}
+    ETH1_NODE = {ETH1_NODE}
+    DEPOOL_ABI = {DEPOOL_ABI}
+    DEPOOL_ADDR = {DEPOOL_ADDR}
+    """)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
