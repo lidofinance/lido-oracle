@@ -5,8 +5,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 import os
 import sys
+from web3 import Web3
+import json
 
 Base = declarative_base()
+SCAN_STEP = 100
 
 
 class DepositCalculator:
@@ -37,6 +40,10 @@ class DepositCalculator:
             .scalar()
         return(result)
 
+    def add_deposit(self, addr=None, amount=None, referral=None):
+        deposit = self.Deposit(addr=addr, amount=amount, referral=referral)
+        self.session.add(deposit)
+
 
 def main(argv=None, env=[]):
     if argv is None:
@@ -44,11 +51,11 @@ def main(argv=None, env=[]):
     if env == []:
         env = os.environ
     try:
-        START_BLOCK = argv[1]
+        START_BLOCK = int(argv[1])
     except IndexError:
         START_BLOCK = 0
     try:
-        END_BLOCK = argv[2]
+        END_BLOCK = int(argv[2])
     except IndexError:
         END_BLOCK = None
     try:
@@ -73,6 +80,40 @@ def main(argv=None, env=[]):
     DEPOOL_ABI = {DEPOOL_ABI}
     DEPOOL_ADDR = {DEPOOL_ADDR}
     """)
+    w3 = Web3(Web3.HTTPProvider(ETH1_NODE))
+    with open(DEPOOL_ABI, 'r') as abi:
+        depool_abi = json.loads(abi.read())['abi']
+    depool_contract = w3.eth.contract(
+        address=DEPOOL_ADDR,
+        abi=depool_abi
+    )
+    if not END_BLOCK:
+        END_BLOCK = w3.eth.getBlock('latest')['number']
+    current_block = START_BLOCK
+    calc = DepositCalculator()
+    from_block = START_BLOCK
+    total_events = 0
+    while True:
+        to_block = from_block + SCAN_STEP - 1
+        if to_block > END_BLOCK:
+            to_block = END_BLOCK
+        print(f'Scanning blocks {from_block} to {to_block}', end='')
+        events = depool_contract.events.Submitted.getLogs(
+            fromBlock=from_block, toBlock=to_block)
+        if len(events) > 0:
+            print(from_block, to_block, events)
+            for event in events:
+                calc.add_deposit(
+                    addr=event.args.sender,
+                    amount=event.args.amount/1e18,
+                    referral=event.args.referral)
+            total_events += len(events)
+            print(f' found:{len(events)} total:{total_events}')
+        else:
+            print('')
+        from_block = to_block + 1
+        if from_block > END_BLOCK:
+            break
 
 
 if __name__ == "__main__":
