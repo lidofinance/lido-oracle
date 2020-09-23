@@ -10,6 +10,7 @@ import json
 
 Base = declarative_base()
 SCAN_STEP = 100
+ZERO_ADDRESS = "0x"+"0"*40
 
 
 class DepositCalculator:
@@ -43,6 +44,8 @@ class DepositCalculator:
         return(result)
 
     def add_deposit(self, addr=None, amount=None, referral=None):
+        if referral == ZERO_ADDRESS:
+            referral = None
         deposit = self.Deposit(addr=addr, amount=amount, referral=referral)
         self.session.add(deposit)
 
