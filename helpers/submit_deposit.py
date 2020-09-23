@@ -74,7 +74,7 @@ assert w3.eth.getBalance(account) > 0, \
 assert len(w3.eth.getCode(depool_address)) > 0, \
     "There is no contract by given address"
 
-tx = depool.functions.submit(account).buildTransaction({
+tx = depool.functions.submit(Web3.toChecksumAddress(referral)).buildTransaction({
     'gasPrice': w3.eth.gasPrice,
     'nonce': w3.eth.getTransactionCount(account, 'latest'),
     'from': account,
