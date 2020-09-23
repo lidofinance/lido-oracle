@@ -27,7 +27,9 @@ class DepositCalculator:
         self.session = Session()
 
     def get_depo_amounts_grouped_by_referral(self):
-        result = self.session.query(self.Deposit.referral, func.sum(self.Deposit.amount).label("sum"))\
+        result = self.session.query(
+                self.Deposit.referral,
+                func.sum(self.Deposit.amount).label("sum"))\
             .filter(self.Deposit.referral != None)\
             .group_by(self.Deposit.referral)\
             .order_by(desc("sum"))\
@@ -48,8 +50,17 @@ class DepositCalculator:
 def main(argv=None, env=[]):
     if argv is None:
         argv = sys.argv
+
     if env == []:
         env = os.environ
+
+    envs = ['ETH1_NODE', 'DEPOOL_CONTRACT', 'DEPOOL_ABI_FILE']
+
+    for env in envs:
+        if env not in os.environ:
+            print(env, 'is missing')
+            exit(1)
+
     try:
         START_BLOCK = int(argv[1])
     except IndexError:
@@ -58,38 +69,27 @@ def main(argv=None, env=[]):
         END_BLOCK = int(argv[2])
     except IndexError:
         END_BLOCK = None
-    try:
-        ETH1_NODE = env['ETH1_NODE']
-    except KeyError:
-        print("need to set ETH1_NODE env variable")
-        exit()
-    try:
-        DEPOOL_ABI = env['DEPOOL_ABI']
-    except KeyError:
-        print("need to set DEPOOL_ABI env variable")
-        exit()
-    try:
-        DEPOOL_ADDR = env['DEPOOL_ADDR']
-    except KeyError:
-        print("need to set DEPOOL_ADDR env variable")
-        exit()
+
+    depool_abi_path = os.environ['DEPOOL_ABI_FILE']
+    eth1_provider = os.environ['ETH1_NODE']
+    depool_address = os.environ['DEPOOL_CONTRACT']
+
     print(f"""
-    START_BLOCK = {START_BLOCK}
-    END_BLOCK = {END_BLOCK}
-    ETH1_NODE = {ETH1_NODE}
-    DEPOOL_ABI = {DEPOOL_ABI}
-    DEPOOL_ADDR = {DEPOOL_ADDR}
+    START_BLOCK = {START_BLOCK} (from command line)
+    END_BLOCK = {END_BLOCK} (from command line)
+    ETH1_NODE = {eth1_provider}
+    DEPOOL_ABI = {depool_abi_path}
+    DEPOOL_ADDR = {depool_address}
     """)
-    w3 = Web3(Web3.HTTPProvider(ETH1_NODE))
-    with open(DEPOOL_ABI, 'r') as abi:
+    w3 = Web3(Web3.HTTPProvider(eth1_provider))
+    with open(depool_abi_path, 'r') as abi:
         depool_abi = json.loads(abi.read())['abi']
     depool_contract = w3.eth.contract(
-        address=DEPOOL_ADDR,
+        address=depool_address,
         abi=depool_abi
     )
     if not END_BLOCK:
         END_BLOCK = w3.eth.getBlock('latest')['number']
-    current_block = START_BLOCK
     calc = DepositCalculator()
     from_block = START_BLOCK
     total_events = 0
@@ -101,7 +101,6 @@ def main(argv=None, env=[]):
         events = depool_contract.events.Submitted.getLogs(
             fromBlock=from_block, toBlock=to_block)
         if len(events) > 0:
-            print(from_block, to_block, events)
             for event in events:
                 calc.add_deposit(
                     addr=event.args.sender,
