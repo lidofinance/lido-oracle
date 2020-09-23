@@ -46,6 +46,19 @@ class DepositCalculator:
         deposit = self.Deposit(addr=addr, amount=amount, referral=referral)
         self.session.add(deposit)
 
+    def print_stats(self):
+        depo_amounts = self.get_depo_amounts_grouped_by_referral()
+        depo_total_sum = self.get_total_referral_deposits_sum()
+        print('\n\nResult:')
+        if len(depo_amounts) > 0 and depo_total_sum > 0.0:
+            print('referral address                              amount       percentage')
+            for depo in depo_amounts:
+                percentage = depo[1]*100/depo_total_sum
+                print(f'{depo[0]:42} {depo[1]:9.4f} eth  {percentage:9.4f}%')
+            print(f'                                    total: {depo_total_sum:9.4f} eth')
+        else:
+            print('No deposits')
+
 
 def main(argv=None, env=[]):
     if argv is None:
@@ -113,6 +126,7 @@ def main(argv=None, env=[]):
         from_block = to_block + 1
         if from_block > END_BLOCK:
             break
+    calc.print_stats()
 
 
 if __name__ == "__main__":
