@@ -14,14 +14,30 @@ Pythonic oracle daemon for DePool decentralized staking service. Periodically re
 
 define the environment variables
 
-```
-export ETH1_NODE='http://127.0.0.1:8139'
-export ETH2_NODE='http://127.0.0.1:8140'
-export DEPOOL_CONTRACT='0xdeadbeef'
-export REPORT_INTVL_EPOCHS=7200 
+```sh
+export ETH1_NODE='http://127.0.0.1:8545'
+export BEACON_NODE='http://127.0.0.1:5052'
+export DEPOOL_ABI='dePool.abi'
+export ORACLE_ABI='oracle.abi'
+export DEPOOL_ADDR='0xfe18BCBeDD6f46e0DfbB3Aea02090F23ED1c4a28'
+export ORACLE_ADDR='0x2e25c8F88c5cCcbC9400e5bc86cF9C58C7604327'
+export SENDER_PRIV_KEY=0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563
 python3 oracle.py
 ```
 
 ## Test
 
 WIP
+
+## Helpers
+
+### Referral counter
+
+Parses submission events on PoW side and counts referral statistics
+
+```sh
+export ETH1_NODE='http://127.0.0.1:8545'
+export DEPOOL_ABI='dePool.abi'
+export DEPOOL_ADDR='0xfe18BCBeDD6f46e0DfbB3Aea02090F23ED1c4a28'
+python3 count_referrals.py <start block> <end block>
+```
