@@ -1,18 +1,19 @@
 import math
 import os
-import requests
 import time
 import json
+
 from web3 import Web3, WebsocketProvider, HTTPProvider
-from requests.compat import urljoin
+
+from beacon import get_beacon, get_actual_slots
+from contracts import get_validators_keys
 
 SECONDS_PER_SLOT = 12
-SLOTS_PER_EPOCH = 1
+SLOTS_PER_EPOCH = 32
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
-HALF_EPOCH_DURATION = EPOCH_DURATION / 2
 
 envs = ['ETH1_NODE', 'ETH2_NODE', 'DEPOOL_CONTRACT', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY', 'DEPOOL_ABI_FILE',
-        'ORACLE_ABI_FILE', 'REPORT_INTVL_EPOCHS']
+        'ORACLE_ABI_FILE', 'REPORT_INTVL_SLOTS']
 for env in envs:
     if env not in os.environ:
         print(env, 'is missing')
@@ -25,15 +26,26 @@ eth2_provider = os.environ['ETH2_NODE']
 oracle_address = os.environ['ORACLE_CONTRACT']
 depool_address = os.environ['DEPOOL_CONTRACT']
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
+report_interval_slots = int(os.environ['REPORT_INTVL_SLOTS'])
 
-api_genesis = '/beacon/state/genesis'
+beacon = get_beacon(eth2_provider)
+print(beacon)
+
+provider = None
 
 if eth1_provider.startswith('http'):
-    w3 = Web3(HTTPProvider(eth1_provider))
+    provider = HTTPProvider(eth1_provider)
 elif eth1_provider.starstwith('ws'):
-    w3 = Web3(WebsocketProvider(eth1_provider))
+    provider = WebsocketProvider(eth1_provider)
 else:
     print('Unsupported provider')
+    exit(1)
+
+w3 = Web3(provider)
+
+if not w3.isConnected():
+    print('ETH Node connection error')
+    exit(1)
 
 with open(dp_abi_path, 'r') as file:
     a = file.read()
@@ -42,32 +54,60 @@ depool = w3.eth.contract(abi=abi['abi'], address=depool_address)
 
 w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
-response = requests.get(urljoin(eth2_provider, api_genesis))
-genesis_time = response.json()['genesis_time']
-current_epoch = math.floor((int(time.time()) - genesis_time) / (SECONDS_PER_SLOT * SLOTS_PER_EPOCH))
+# Get actual slot and last finalized slot from beacon head data
+last_slots = get_actual_slots(beacon, eth2_provider)
+last_finalized_slot = last_slots['finalized_slot']
+actual_slot = last_slots['actual_slot']
+print('Last finalized slot', last_finalized_slot)
+print('Actual slot', actual_slot)
+
+# Get current epoch
+current_epoch = math.floor(actual_slot / SLOTS_PER_EPOCH)
 print('Oracle daemon start epoch:', current_epoch)
 
+# Get first slot of current epoch
+start_slot_current_epoch = current_epoch * SLOTS_PER_EPOCH
+
 # Wait till the next epoch start
-print('Wait next epoch seconds:', (genesis_time + ((current_epoch + 1) * EPOCH_DURATION)) - int(time.time()))
-time.sleep((genesis_time + ((current_epoch + 1) * EPOCH_DURATION)) - int(time.time()))
-current_epoch += 1
+
+# Get first slot of next epoch
+start_slot_next_epoch = start_slot_current_epoch + SLOTS_PER_EPOCH
+print('Next epoch first slot', start_slot_next_epoch)
+
+await_time = (start_slot_next_epoch - actual_slot) * SECONDS_PER_SLOT
+print('Wait next epoch seconds:', await_time)
+time.sleep(await_time)
+
+# Get actual slot and last finalized slot from beacon head data
+last_slots = get_actual_slots(beacon, eth2_provider)
 print('The oracle daemon is started!')
 
-while True:
-    # Wait for the half of the epoch
-    print('Wait for the half of the epoch seconds:',
-          genesis_time + (current_epoch * EPOCH_DURATION + HALF_EPOCH_DURATION) - int(time.time()))
-    time.sleep(genesis_time + (current_epoch * EPOCH_DURATION + HALF_EPOCH_DURATION) - int(time.time()))
-    validators_keys_count = depool.functions.getTotalSigningKeyCount().call({'from': w3.eth.defaultAccount.address})
-    if validators_keys_count > 0:
-        validators_keys_list = []
-        for index in range(validators_keys_count):
-            validator_key = depool.functions.getSigningKey(index).call({'from': w3.eth.defaultAccount.address})
-            validators_keys_list.append(validator_key[0])
-            index += 1
+# Get last epoch on 7200x slot
+before_report_epoch = math.floor(
+    last_slots['actual_slot'] / report_interval_slots) * report_interval_slots / SLOTS_PER_EPOCH
+print('before 7200 slots epoch', before_report_epoch)
 
-        print('Validators keys list:', validators_keys_list)
-        # TODO pushData to Oracle contract
-    print('Wait next epoch seconds:', genesis_time + ((current_epoch + 1) * EPOCH_DURATION) - int(time.time()))
-    time.sleep(genesis_time + ((current_epoch + 1) * EPOCH_DURATION) - int(time.time()))
-    current_epoch += 1
+# If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
+if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
+    validators_keys = get_validators_keys(depool, w3)
+    # TODO get balances and push to oracle
+    print(validators_keys)
+else:
+    print('Wait next epoch on 7200x slot')
+
+next_report_epoch = math.floor(before_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
+# Sleep while last finalized slot reach expected epoch
+print('Next slot first slot', next_report_epoch * SLOTS_PER_EPOCH)
+while True:
+    time.sleep(EPOCH_DURATION)
+    # Get actual slot and last finalized slot from beacon head data
+    last_slots = get_actual_slots(beacon, eth2_provider)
+    calc_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
+    print('Wait epoch', next_report_epoch)
+    print('Now epoch', calc_epoch)
+
+    if next_report_epoch == calc_epoch:
+        validators_keys = get_validators_keys(depool, w3)
+        # TODO get balances and push to oracle
+        next_report_epoch = math.floor(before_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
+        print('Next report epoch after report', next_report_epoch)
