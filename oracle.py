@@ -56,9 +56,9 @@ w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
 # Get actual slot and last finalized slot from beacon head data
 last_slots = get_actual_slots(beacon, eth2_provider)
-last_finalyzed_slot = last_slots['finalized_slot']
+last_finalized_slot = last_slots['finalized_slot']
 actual_slot = last_slots['actual_slot']
-print('Last finalized slot', last_finalyzed_slot)
+print('Last finalized slot', last_finalized_slot)
 print('Actual slot', actual_slot)
 
 # Get current epoch
