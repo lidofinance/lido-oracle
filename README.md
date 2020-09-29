@@ -15,13 +15,14 @@ Pythonic oracle daemon for DePool decentralized staking service. Periodically re
 define the environment variables
 
 ```sh
-export ETH1_NODE='http://127.0.0.1:8545'
-export BEACON_NODE='http://127.0.0.1:5052'
-export DEPOOL_ABI='dePool.abi'
-export ORACLE_ABI='oracle.abi'
-export DEPOOL_ADDR='0xfe18BCBeDD6f46e0DfbB3Aea02090F23ED1c4a28'
-export ORACLE_ADDR='0x2e25c8F88c5cCcbC9400e5bc86cF9C58C7604327'
-export SENDER_PRIV_KEY=0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563
+export ETH1_NODE="http://localhost:8545"
+export ETH2_NODE="http://localhost:5052"
+export ORACLE_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
+export DEPOOL_CONTRACT="0x5ec5DDf7A0cdD3235AD1bCC0ad04F059507EC5a3"
+export REPORT_INTVL_SLOTS="7200"
+export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+export DEPOOL_ABI_FILE='./assets/DePool.json'
+export ORACLE_ABI_FILE='./assets/DePoolOracle.json'
 python3 oracle.py
 ```
 
