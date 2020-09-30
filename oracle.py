@@ -5,12 +5,13 @@ import json
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-from beacon import get_beacon, get_actual_slots
+from beacon import get_beacon, get_actual_slots, get_balances
 from contracts import get_validators_keys
 
 SECONDS_PER_SLOT = 12
 SLOTS_PER_EPOCH = 32
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
+ONE_DAY = 60 * 60 * 24
 
 envs = ['ETH1_NODE', 'ETH2_NODE', 'DEPOOL_CONTRACT', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY', 'DEPOOL_ABI_FILE',
         'ORACLE_ABI_FILE', 'REPORT_INTVL_SLOTS']
@@ -52,6 +53,11 @@ with open(dp_abi_path, 'r') as file:
 abi = json.loads(a)
 depool = w3.eth.contract(abi=abi['abi'], address=depool_address)
 
+with open(dp_oracle_abi_path, 'r') as file:
+    a = file.read()
+abi = json.loads(a)
+oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
+
 w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
 # Get actual slot and last finalized slot from beacon head data
@@ -90,7 +96,8 @@ print('before 7200 slots epoch', before_report_epoch)
 # If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
 if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
     validators_keys = get_validators_keys(depool, w3)
-    # TODO get balances and push to oracle
+    sum_balance = get_balances(beacon, eth2_provider, validators_keys)
+    oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact({'from': w3.eth.defaultAccount.address})
     print(validators_keys)
 else:
     print('Wait next epoch on 7200x slot')
@@ -108,6 +115,9 @@ while True:
 
     if next_report_epoch == calc_epoch:
         validators_keys = get_validators_keys(depool, w3)
-        # TODO get balances and push to oracle
+        # Get sum of balances
+        sum_balance = get_balances(beacon, eth2_provider, validators_keys)
+        oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(
+            {'from': w3.eth.defaultAccount.address})
         next_report_epoch = math.floor(before_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
         print('Next report epoch after report', next_report_epoch)

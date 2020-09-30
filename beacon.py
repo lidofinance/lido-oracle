@@ -1,3 +1,7 @@
+import base64
+import binascii
+import json
+
 import requests
 
 from requests.compat import urljoin
@@ -9,10 +13,12 @@ API = {
     'Lighthouse': {
         'api_version': 'node/version',
         'beacon_head': 'beacon/head',
+        'get_balances': 'beacon/validators'
     },
     'Prysm': {
         'api_version': 'eth/v1alpha1/node/version',
         'beacon_head': 'eth/v1alpha1/beacon/chainhead',
+        'get_balances': 'eth/v1alpha1/validators/balances'
     }
 }
 
@@ -42,3 +48,44 @@ def get_actual_slots(beacon, provider):
         actual_slots['finalized_slot'] = response['finalizedSlot']
         return actual_slots
 
+
+def get_balances_lighthouse(eth2_provider, key_list):
+    payload = {}
+    pubkeys = []
+    for key in key_list:
+        pubkeys.append('0x' + binascii.hexlify(key).decode())
+    payload['pubkeys'] = pubkeys
+    data = json.dumps(payload)
+    response = requests.post(urljoin(eth2_provider, API['Lighthouse']['get_balances']), data=data)
+    balance_list = []
+    for validator in response.json():
+        balance_list.append(validator['balance'])
+    balances = sum(balance_list)
+    # Convert Gwei to wei
+    balances *= 10 ** 9
+    return balances
+
+
+def get_balances_prysm(eth2_provider, key_list):
+    payload = {}
+    pubkeys = []
+    for key in key_list:
+        pubkeys.append(base64.b64encode(key).decode())
+    payload['publicKeys'] = pubkeys
+    response = requests.get(urljoin(eth2_provider, API['Prysm']['get_balances']), params=payload)
+    balance_list = []
+    for validator in response.json()['balances']:
+        balance_list.append(int(validator['balance']))
+    balances = sum(balance_list)
+    # Convert Gwei to wei
+    balances *= 10 ** 9
+    return balances
+
+
+def get_balances(beacon, eth2_provider, key_list):
+    if beacon == 'Lighthouse':
+        return get_balances_lighthouse(eth2_provider, key_list)
+    if beacon == 'Prysm':
+        return get_balances_prysm(eth2_provider, key_list)
+    print('Unknown beacon')
+    exit(1)
