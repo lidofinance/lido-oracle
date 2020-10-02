@@ -28,7 +28,15 @@ python3 oracle.py
 
 ## Test
 
-WIP
+To run tests you need all test dependencies installed
+
+```
+pip install -U -r requirements-test.txt
+```
+To run tests just type
+```
+pytest
+``` 
 
 ## Helpers
 
