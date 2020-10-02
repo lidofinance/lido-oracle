@@ -3,7 +3,6 @@ import binascii
 import json
 
 import requests
-
 from requests.compat import urljoin
 
 api_version_lighthouse = 'node/version'
@@ -87,5 +86,4 @@ def get_balances(beacon, eth2_provider, key_list):
         return get_balances_lighthouse(eth2_provider, key_list)
     if beacon == 'Prysm':
         return get_balances_prysm(eth2_provider, key_list)
-    print('Unknown beacon')
-    exit(1)
+    raise ValueError('Unknown beacon name')
