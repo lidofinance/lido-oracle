@@ -105,20 +105,22 @@ logging.info('The oracle daemon is started!')
 # Get last epoch on 7200x slot
 before_report_epoch = math.floor(
     last_slots['actual_slot'] / report_interval_slots) * report_interval_slots / SLOTS_PER_EPOCH
-logging.info('Previous 7200 slots epoch %s', int(before_report_epoch))
+logging.info('Previous 7200x slots epoch %s', int(before_report_epoch))
 
 # If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
 if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
     validators_keys = get_validators_keys(depool, w3)
+    if len(validators_keys) == 0:
+        logging.warning('No keys on depool contract')
     sum_balance = get_balances(beacon, eth2_provider, validators_keys)
     oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact({'from': w3.eth.defaultAccount.address})
     logging.info('Balances pushed!')
 else:
     logging.info('Wait next epoch on 7200x slot')
 
-next_report_epoch = before_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH))
+next_report_epoch = int(before_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH)))
 # Sleep while last finalized slot reach expected epoch
-logging.info('Next epoch %s first slot %s', int(next_report_epoch * SLOTS_PER_EPOCH))
+logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_epoch * SLOTS_PER_EPOCH))
 while True:
     # Get actual slot and last finalized slot from beacon head data
     last_slots = get_actual_slots(beacon, eth2_provider)
@@ -128,6 +130,8 @@ while True:
 
     if next_report_epoch == calc_epoch:
         validators_keys = get_validators_keys(depool, w3)
+        if len(validators_keys) == 0:
+            logging.warning('No keys on depool contract')
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, validators_keys)
         oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(
