@@ -1,5 +1,3 @@
-pytest
-sqlalchemy
 attrs==20.2.0
 base58==2.0.1
 bitarray==1.2.2
