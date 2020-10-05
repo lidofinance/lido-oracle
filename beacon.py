@@ -12,7 +12,8 @@ API = {
     'Lighthouse': {
         'api_version': 'node/version',
         'beacon_head': 'beacon/head',
-        'get_balances': 'beacon/validators'
+        'get_balances': 'beacon/validators',
+        'get_slot': 'beacon/state_root'
     },
     'Prysm': {
         'api_version': 'eth/v1alpha1/node/version',
@@ -48,12 +49,14 @@ def get_actual_slots(beacon, provider):
         return actual_slots
 
 
-def get_balances_lighthouse(eth2_provider, key_list):
+def get_balances_lighthouse(eth2_provider, slot, key_list):
+    state_root = requests.get(urljoin(eth2_provider, API['Lighthouse']['get_slot']), params={'slot': slot}).json()
     payload = {}
     pubkeys = []
     for key in key_list:
         pubkeys.append('0x' + binascii.hexlify(key).decode())
     payload['pubkeys'] = pubkeys
+    payload['state_root'] = state_root
     data = json.dumps(payload)
     response = requests.post(urljoin(eth2_provider, API['Lighthouse']['get_balances']), data=data)
     balance_list = []
@@ -65,12 +68,13 @@ def get_balances_lighthouse(eth2_provider, key_list):
     return balances
 
 
-def get_balances_prysm(eth2_provider, key_list):
+def get_balances_prysm(eth2_provider, epoch, key_list):
     payload = {}
     pubkeys = []
     for key in key_list:
         pubkeys.append(base64.b64encode(key).decode())
     payload['publicKeys'] = pubkeys
+    payload['epoch'] = epoch
     response = requests.get(urljoin(eth2_provider, API['Prysm']['get_balances']), params=payload)
     balance_list = []
     for validator in response.json()['balances']:
@@ -81,9 +85,9 @@ def get_balances_prysm(eth2_provider, key_list):
     return balances
 
 
-def get_balances(beacon, eth2_provider, key_list):
+def get_balances(beacon, eth2_provider, target, key_list):
     if beacon == 'Lighthouse':
-        return get_balances_lighthouse(eth2_provider, key_list)
+        return get_balances_lighthouse(eth2_provider, target, key_list)
     if beacon == 'Prysm':
-        return get_balances_prysm(eth2_provider, key_list)
+        return get_balances_prysm(eth2_provider, target, key_list)
     raise ValueError('Unknown beacon name')
