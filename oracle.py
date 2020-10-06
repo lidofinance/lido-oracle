@@ -6,7 +6,7 @@ import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-from beacon import get_beacon, get_actual_slots, get_balances
+from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
 from contracts import get_validators_keys
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
@@ -114,10 +114,7 @@ if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EP
     validators_keys = get_validators_keys(spr_id, spr, w3)
     if len(validators_keys) == 0:
         logging.warning('No keys on Staking Providers Registry contract')
-    if beacon == 'Lighthouse':
-        target = last_slots['finalized_slot']
-    elif beacon == 'Prysm':
-        target = last_slots['finalized_slot'] / SLOTS_PER_EPOCH
+    target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
     sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
     oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact({'from': w3.eth.defaultAccount.address})
     logging.info('Balances pushed!')
@@ -138,10 +135,7 @@ while True:
         validators_keys = get_validators_keys(spr_id, spr, w3)
         if len(validators_keys) == 0:
             logging.warning('No keys on Staking Providers Registry contract')
-        if beacon == 'Lighthouse':
-            target = last_slots['finalized_slot']
-        elif beacon == 'Prysm':
-            target = last_slots['finalized_slot'] / SLOTS_PER_EPOCH
+        target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
         oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(

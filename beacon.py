@@ -91,3 +91,11 @@ def get_balances(beacon, eth2_provider, target, key_list):
     if beacon == 'Prysm':
         return get_balances_prysm(eth2_provider, target, key_list)
     raise ValueError('Unknown beacon name')
+
+
+def get_slot_or_epoch(beacon, slot, slots_per_epoch):
+    if beacon == 'Lighthouse':
+        return slot
+    elif beacon == 'Prysm':
+        return slot / slots_per_epoch
+    raise ValueError('Unknown beacon name')
