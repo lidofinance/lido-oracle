@@ -1,6 +1,7 @@
 import base64
 import binascii
 import json
+import math
 
 import requests
 from requests.compat import urljoin
@@ -97,5 +98,6 @@ def get_slot_or_epoch(beacon, slot, slots_per_epoch):
     if beacon == 'Lighthouse':
         return slot
     elif beacon == 'Prysm':
-        return slot / slots_per_epoch
+        # Rounding when using non-standard epoch lengths
+        return math.floor(slot / slots_per_epoch)
     raise ValueError('Unknown beacon name')

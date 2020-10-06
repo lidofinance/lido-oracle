@@ -41,7 +41,7 @@ if not Web3.isChecksumAddress(oracle_address):
 spr_address = os.environ['SPR_CONTRACT']
 if not Web3.isChecksumAddress(spr_address):
     spr_address = Web3.toChecksumAddress(spr_address)
-spr_id = os.environ['SPR_ID']
+spr_id = int(os.environ['SPR_ID'])
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 report_interval_slots = int(os.environ['REPORT_INTVL_SLOTS'])
 
