@@ -19,7 +19,7 @@ ONE_DAY = 60 * 60 * 24
 
 logging.info('Starting oracle daemon')
 
-envs = ['ETH1_NODE', 'ETH2_NODE', 'SPR_CONTRACT', 'SPR_ABI_FILE', 'SPR_ID', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY',
+envs = ['ETH1_NODE', 'ETH2_NODE', 'SPR_CONTRACT', 'SPR_ABI_FILE', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY',
         'ORACLE_ABI_FILE', 'REPORT_INTVL_SLOTS']
 missing = []
 for env in envs:
@@ -30,7 +30,6 @@ for env in envs:
 if missing:
     exit(1)
 
-# dp_abi_path = os.environ['DEPOOL_ABI_FILE']
 spr_abi_path = os.environ['SPR_ABI_FILE']
 dp_oracle_abi_path = os.environ['ORACLE_ABI_FILE']
 eth1_provider = os.environ['ETH1_NODE']
@@ -41,7 +40,6 @@ if not Web3.isChecksumAddress(oracle_address):
 spr_address = os.environ['SPR_CONTRACT']
 if not Web3.isChecksumAddress(spr_address):
     spr_address = Web3.toChecksumAddress(spr_address)
-spr_id = int(os.environ['SPR_ID'])
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 report_interval_slots = int(os.environ['REPORT_INTVL_SLOTS'])
 
@@ -111,7 +109,7 @@ logging.info('Previous 7200x slots epoch %s', int(before_report_epoch))
 
 # If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
 if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
-    validators_keys = get_validators_keys(spr_id, spr, w3)
+    validators_keys = get_validators_keys(spr, w3)
     if len(validators_keys) == 0:
         logging.warning('No keys on Staking Providers Registry contract')
     target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
@@ -127,15 +125,15 @@ logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_e
 while True:
     # Get actual slot and last finalized slot from beacon head data
     last_slots = get_actual_slots(beacon, eth2_provider)
-    calc_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
-    logging.info('Wait epoch %s', int(next_report_epoch))
-    logging.info('Current epoch %s', calc_epoch)
+    last_finalized_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
+    logging.info('Wait finalized epoch %s', int(next_report_epoch))
+    logging.info('Current finalized epoch %s', last_finalized_epoch)
 
-    if next_report_epoch == calc_epoch:
-        validators_keys = get_validators_keys(spr_id, spr, w3)
+    if next_report_epoch <= last_finalized_epoch:
+        validators_keys = get_validators_keys(spr, w3)
         if len(validators_keys) == 0:
             logging.warning('No keys on Staking Providers Registry contract')
-        target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
+        target = get_slot_or_epoch(beacon, next_report_epoch, SLOTS_PER_EPOCH)
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
         oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(

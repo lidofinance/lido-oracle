@@ -1,11 +1,15 @@
-def get_validators_keys(spr_id, contract, provider):
-    validators_keys_count = contract.functions.getTotalSigningKeyCount(spr_id).call(
+def get_validators_keys(contract, provider):
+    staking_providers_count = contract.functions.getStakingProvidersCount().call(
         {'from': provider.eth.defaultAccount.address})
     validators_keys_list = []
-    if validators_keys_count > 0:
-        for index in range(validators_keys_count):
-            validator_key = contract.functions.getSigningKey(spr_id, index).call(
+    if staking_providers_count > 0:
+        for sp_id in range(staking_providers_count):
+            validators_keys_count = contract.functions.getTotalSigningKeyCount(sp_id).call(
                 {'from': provider.eth.defaultAccount.address})
-            validators_keys_list.append(validator_key[0])
-            index += 1
+            if validators_keys_count > 0:
+                for index in range(validators_keys_count):
+                    validator_key = contract.functions.getSigningKey(sp_id, index).call(
+                        {'from': provider.eth.defaultAccount.address})
+                    validators_keys_list.append(validator_key[0])
+                    index += 1
     return validators_keys_list

@@ -125,16 +125,16 @@ def test_balance_bad(bad_requests):
 
 
 def test_slot_or_epoch_lighthouse():
-    result = get_slot_or_epoch('Lighthouse', 417334, 32)
-    assert result == 417334
+    result = get_slot_or_epoch('Lighthouse', 13041, 32)
+    assert result == 417312
 
 
 def test_slot_or_epoch_prysm():
-    result = get_slot_or_epoch('Prysm', 417334, 32)
+    result = get_slot_or_epoch('Prysm', 13041, 32)
     assert result == 13041
 
 
 def test_slot_or_epoch_bad():
     with pytest.raises(ValueError) as event:
-        get_slot_or_epoch('localhost', 417334, 32)
+        get_slot_or_epoch('localhost', 13041, 32)
     assert event.type == ValueError

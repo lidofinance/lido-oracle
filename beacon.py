@@ -1,7 +1,6 @@
 import base64
 import binascii
 import json
-import math
 
 import requests
 from requests.compat import urljoin
@@ -94,10 +93,10 @@ def get_balances(beacon, eth2_provider, target, key_list):
     raise ValueError('Unknown beacon name')
 
 
-def get_slot_or_epoch(beacon, slot, slots_per_epoch):
+def get_slot_or_epoch(beacon, epoch, slots_per_epoch):
     if beacon == 'Lighthouse':
-        return slot
+        return epoch * slots_per_epoch
     elif beacon == 'Prysm':
         # Rounding when using non-standard epoch lengths
-        return math.floor(slot / slots_per_epoch)
+        return epoch
     raise ValueError('Unknown beacon name')
