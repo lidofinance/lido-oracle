@@ -1,7 +1,7 @@
 import pytest
 import requests
 import json
-from beacon import get_beacon, get_actual_slots, get_balances
+from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
 
 key_list = [
     b"\xa3\x84\xf0\xd7w\x1d\xe0'\x8e\x0e\x9b\x13$\xb1\xa0\x9b\xb8\xb3\xf8\xa6-\xff\xcd\xb87\x06\xe38vM\xe8\x93\xc6H\xd6\xab\xdbN\x02^\xf0\xe8ZQ\x1aw\xa2.",
@@ -24,6 +24,7 @@ def lighthouse_requests(monkeypatch):
     version = "Lighthouse/v0.2.9-c6abc561+/x86_64-linux"
     head = '{"slot":417003,"block_root":"0x583c48d745dfd0545a4f299e66ae2e5777902f4b7abf3501e5b8ae35611d66bc","state_root":"0xc4e99adf863dc3b685135515973614a2c3ac6c3c9674c617e9adc0d313a47e2a","finalized_slot":416928,"finalized_block_root":"0x067ccf3ca686dadef54ed571bc38605f3516b83aa959f966ba8758124bc72d4a","justified_slot":416960,"justified_block_root":"0xa55856ef3cc97cce10a721a2ab84e1d1d47f4fca04252065851ccd25219ff2e7","previous_justified_slot":416928,"previous_justified_block_root":"0x067ccf3ca686dadef54ed571bc38605f3516b83aa959f966ba8758124bc72d4a"}'
     validators = '[{"pubkey":"0xa384f0d7771de0278e0e9b1324b1a09bb8b3f8a62dffcdb83706e338764de893c648d6abdb4e025ef0e85a511a77a22e","validator_index":18275,"balance":638349847291,"validator":{"pubkey":"0xa384f0d7771de0278e0e9b1324b1a09bb8b3f8a62dffcdb83706e338764de893c648d6abdb4e025ef0e85a511a77a22e","withdrawal_credentials":"0x00ea6e10ae09d000fe5c95024603c7c67918fbc08f6628cfabd6b2c9b46a1320","effective_balance":32000000000,"slashed":false,"activation_eligibility_epoch":0,"activation_epoch":0,"exit_epoch":18446744073709551615,"withdrawable_epoch":18446744073709551615}},{"pubkey":"0x91845a12e07f57bd1ca8ba87c297461c2075c76ce600b9bb8899de0088f09279ee5e522b84759f1a857c4a9a048a358b","validator_index":25550,"balance":190257076402,"validator":{"pubkey":"0x91845a12e07f57bd1ca8ba87c297461c2075c76ce600b9bb8899de0088f09279ee5e522b84759f1a857c4a9a048a358b","withdrawal_credentials":"0x004c3f7eb125a38b79f8c7090f1639cdde33c6183190aa7e41f50f19a271be85","effective_balance":32000000000,"slashed":false,"activation_eligibility_epoch":311,"activation_epoch":1404,"exit_epoch":18446744073709551615,"withdrawable_epoch":18446744073709551615}},{"pubkey":"0x81ccb4d136cc2613ad2ace3723acd5aa44f6b272e210e008744efbb24f68e4bf61427f07db99ddc6874610d7e5130868","validator_index":34231,"balance":160324259065,"validator":{"pubkey":"0x81ccb4d136cc2613ad2ace3723acd5aa44f6b272e210e008744efbb24f68e4bf61427f07db99ddc6874610d7e5130868","withdrawal_credentials":"0x0005df936de03f65e436f54507b42694ea591f3a6dec5b2d40e5a76268215b25","effective_balance":32000000000,"slashed":false,"activation_eligibility_epoch":3312,"activation_epoch":3768,"exit_epoch":18446744073709551615,"withdrawable_epoch":18446744073709551615}},{"pubkey":"0xb8cd03fa702ddd47b826a3508651e840665f1868b38c457093cbcb6905f5a83050e31b84702a9f1910c6ffdf90adeb16","validator_index":52757,"balance":159832673271,"validator":{"pubkey":"0xb8cd03fa702ddd47b826a3508651e840665f1868b38c457093cbcb6905f5a83050e31b84702a9f1910c6ffdf90adeb16","withdrawal_credentials":"0x00b8febd229fd6d1b0c8df13ea8094bb90054c7445890b3c70903ce51740897f","effective_balance":32000000000,"slashed":false,"activation_eligibility_epoch":4984,"activation_epoch":8399,"exit_epoch":18446744073709551615,"withdrawable_epoch":18446744073709551615}}]'
+    state_root = '"0xed3f8e6219ba85abe4f5160e56446057d54f003e6fabf7895a028a97dd3e0aa1"'
 
     def mocked_get(uri, *args, **kwargs):
         """A method replacing Requests.get
@@ -34,6 +35,8 @@ def lighthouse_requests(monkeypatch):
             return MockResponse(version, head)
         elif 'beacon/validators' in uri:
             return MockResponse(version, validators)
+        elif 'beacon/state_root' in uri:
+            return MockResponse(version, state_root)
         else:
             return MockResponse(version, '')
 
@@ -91,7 +94,7 @@ def test_head_lighthouse(lighthouse_requests):
 
 
 def test_balance_lighthouse(lighthouse_requests):
-    result = get_balances('Lighthouse', 'localhost', key_list)
+    result = get_balances('Lighthouse', 'localhost', 10, key_list)
     assert result == 1148763856029000000000
 
 
@@ -106,7 +109,7 @@ def test_head_prysm(prysm_requests):
 
 
 def test_balance_prysm(prysm_requests):
-    result = get_balances('Prysm', 'localhost', key_list)
+    result = get_balances('Prysm', 'localhost', 10, key_list)
     assert result == 1148763837967000000000
 
 
@@ -117,5 +120,21 @@ def test_version_bad(bad_requests):
 
 def test_balance_bad(bad_requests):
     with pytest.raises(ValueError) as event:
-        get_balances('None', 'localhost', key_list)
+        get_balances('None', 'localhost', 10, key_list)
+    assert event.type == ValueError
+
+
+def test_slot_or_epoch_lighthouse():
+    result = get_slot_or_epoch('Lighthouse', 13041, 32)
+    assert result == 417312
+
+
+def test_slot_or_epoch_prysm():
+    result = get_slot_or_epoch('Prysm', 13041, 32)
+    assert result == 13041
+
+
+def test_slot_or_epoch_bad():
+    with pytest.raises(ValueError) as event:
+        get_slot_or_epoch('localhost', 13041, 32)
     assert event.type == ValueError

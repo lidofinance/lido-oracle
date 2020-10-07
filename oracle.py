@@ -6,7 +6,7 @@ import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-from beacon import get_beacon, get_actual_slots, get_balances
+from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
 from contracts import get_validators_keys
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
@@ -19,7 +19,7 @@ ONE_DAY = 60 * 60 * 24
 
 logging.info('Starting oracle daemon')
 
-envs = ['ETH1_NODE', 'ETH2_NODE', 'DEPOOL_CONTRACT', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY', 'DEPOOL_ABI_FILE',
+envs = ['ETH1_NODE', 'ETH2_NODE', 'SPR_CONTRACT', 'SPR_ABI_FILE', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY',
         'ORACLE_ABI_FILE', 'REPORT_INTVL_SLOTS']
 missing = []
 for env in envs:
@@ -30,16 +30,16 @@ for env in envs:
 if missing:
     exit(1)
 
-dp_abi_path = os.environ['DEPOOL_ABI_FILE']
+spr_abi_path = os.environ['SPR_ABI_FILE']
 dp_oracle_abi_path = os.environ['ORACLE_ABI_FILE']
 eth1_provider = os.environ['ETH1_NODE']
 eth2_provider = os.environ['ETH2_NODE']
 oracle_address = os.environ['ORACLE_CONTRACT']
 if not Web3.isChecksumAddress(oracle_address):
     oracle_address = Web3.toChecksumAddress(oracle_address)
-depool_address = os.environ['DEPOOL_CONTRACT']
-if not Web3.isChecksumAddress(depool_address):
-    depool_address = Web3.toChecksumAddress(depool_address)
+spr_address = os.environ['SPR_CONTRACT']
+if not Web3.isChecksumAddress(spr_address):
+    spr_address = Web3.toChecksumAddress(spr_address)
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 report_interval_slots = int(os.environ['REPORT_INTVL_SLOTS'])
 
@@ -62,10 +62,10 @@ if not w3.isConnected():
     logging.error('ETH node connection error!')
     exit(1)
 
-with open(dp_abi_path, 'r') as file:
+with open(spr_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-depool = w3.eth.contract(abi=abi['abi'], address=depool_address)
+spr = w3.eth.contract(abi=abi['abi'], address=spr_address)
 
 with open(dp_oracle_abi_path, 'r') as file:
     a = file.read()
@@ -109,10 +109,11 @@ logging.info('Previous 7200x slots epoch %s', int(before_report_epoch))
 
 # If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
 if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
-    validators_keys = get_validators_keys(depool, w3)
+    validators_keys = get_validators_keys(spr, w3)
     if len(validators_keys) == 0:
-        logging.warning('No keys on depool contract')
-    sum_balance = get_balances(beacon, eth2_provider, validators_keys)
+        logging.warning('No keys on Staking Providers Registry contract')
+    target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
+    sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
     oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact({'from': w3.eth.defaultAccount.address})
     logging.info('Balances pushed!')
 else:
@@ -124,16 +125,17 @@ logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_e
 while True:
     # Get actual slot and last finalized slot from beacon head data
     last_slots = get_actual_slots(beacon, eth2_provider)
-    calc_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
-    logging.info('Wait epoch %s', int(next_report_epoch))
-    logging.info('Current epoch %s', calc_epoch)
+    last_finalized_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
+    logging.info('Wait finalized epoch %s', int(next_report_epoch))
+    logging.info('Current finalized epoch %s', last_finalized_epoch)
 
-    if next_report_epoch == calc_epoch:
-        validators_keys = get_validators_keys(depool, w3)
+    if next_report_epoch <= last_finalized_epoch:
+        validators_keys = get_validators_keys(spr, w3)
         if len(validators_keys) == 0:
-            logging.warning('No keys on depool contract')
+            logging.warning('No keys on Staking Providers Registry contract')
+        target = get_slot_or_epoch(beacon, next_report_epoch, SLOTS_PER_EPOCH)
         # Get sum of balances
-        sum_balance = get_balances(beacon, eth2_provider, validators_keys)
+        sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
         oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(
             {'from': w3.eth.defaultAccount.address})
         next_report_epoch = next_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH))
