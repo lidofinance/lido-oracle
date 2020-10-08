@@ -12,10 +12,14 @@ from contracts import get_validators_keys
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
                     datefmt='%m-%d %H:%M:%S')
 
-SECONDS_PER_SLOT = 12
-SLOTS_PER_EPOCH = 32
+MAINNET_SECONDS_PER_SLOT = 12
+MAINNET_SLOTS_PER_EPOCH = 32
+
+SECONDS_PER_SLOT = int(os.getenv('SECONDS_PER_SLOT', MAINNET_SECONDS_PER_SLOT))
+SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
 ONE_DAY = 60 * 60 * 24
+unixday = lambda: int(time.time() / ONE_DAY)
 
 logging.info('Starting oracle daemon')
 
@@ -74,6 +78,19 @@ oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
+logging.info('============ CONFIGURATION ============')
+logging.info(f'ETH1 Node: {eth1_provider}')
+logging.info(f'ETH2 Node: {eth2_provider}')
+logging.info(f'Oracle contract address: {oracle_address}')
+logging.info(f'Registry contract address: {spr_address}')
+logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
+logging.info(f'Report interval: {report_interval_slots} slots')
+if SECONDS_PER_SLOT != MAINNET_SECONDS_PER_SLOT:
+    logging.warning(f'Seconds per slot changed to {SECONDS_PER_SLOT}')
+if SLOTS_PER_EPOCH != MAINNET_SLOTS_PER_EPOCH:
+    logging.warning(f'Slots per epoch changed to {SLOTS_PER_EPOCH}')
+logging.info('=======================================')
+
 # Get actual slot and last finalized slot from beacon head data
 last_slots = get_actual_slots(beacon, eth2_provider)
 last_finalized_slot = last_slots['finalized_slot']
@@ -114,7 +131,9 @@ if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EP
         logging.warning('No keys on Staking Providers Registry contract')
     target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
     sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
-    oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact({'from': w3.eth.defaultAccount.address})
+    # TODO add transaction status check
+    oracle.functions.pushData(unixday(), sum_balance).transact(
+        {'from': w3.eth.defaultAccount.address})
     logging.info('Balances pushed!')
 else:
     logging.info('Wait next epoch on 7200x slot')
@@ -136,7 +155,8 @@ while True:
         target = get_slot_or_epoch(beacon, next_report_epoch, SLOTS_PER_EPOCH)
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
-        oracle.functions.pushData(int(time.time() / ONE_DAY), sum_balance).transact(
+        # TODO add transaction status check
+        oracle.functions.pushData(unixday(), sum_balance).transact(
             {'from': w3.eth.defaultAccount.address})
         next_report_epoch = next_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH))
         logging.info('Next report epoch after report %s', int(next_report_epoch))

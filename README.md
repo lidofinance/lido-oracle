@@ -67,6 +67,8 @@ python3 count_referrals.py <start block> <end block>
     export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
     export SPR_ABI_FILE='./assets/StakingProvidersRegistry.json'
     export ORACLE_ABI_FILE='./assets/DePoolOracle.json'
+    export SECONDS_PER_SLOT=1
+    export SLOTS_PER_EPOCH=8
     python3 oracle.py
     ```
 
@@ -85,8 +87,4 @@ python3 count_referrals.py <start block> <end block>
     pubkey = '810ad9abfc1b1b18e44e52d0dc862d8028c664cbdcadfe301698411386b77b2b1d120c45f688f0d67703286d9dd92910'
     binascii.unhexlify(pubkey) 
     ```
-6. In oracle.py must change constants to values local ETH2 blockchain:
-    * SECONDS_PER_SLOT = 1
-    * SLOTS_PER_EPOCH = 8      
-
-7. ``` python3 oracle.py```
+6. ``` python3 oracle.py```
