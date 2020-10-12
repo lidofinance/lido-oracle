@@ -1,7 +1,7 @@
 FROM python:3-slim
 WORKDIR /app
 COPY assets ./assets
-COPY *.py ./
+COPY app ./
 COPY requirements.txt .
 RUN apt-get update && apt-get install -y gcc
 RUN pip install --trusted-host pypi.python.org -r requirements.txt

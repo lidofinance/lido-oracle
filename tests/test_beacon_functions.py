@@ -1,7 +1,7 @@
 import pytest
 import requests
 import json
-from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
+from app.beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
 
 key_list = [
     b"\xa3\x84\xf0\xd7w\x1d\xe0'\x8e\x0e\x9b\x13$\xb1\xa0\x9b\xb8\xb3\xf8\xa6-\xff\xcd\xb87\x06\xe38vM\xe8\x93\xc6H\xd6\xab\xdbN\x02^\xf0\xe8ZQ\x1aw\xa2.",
