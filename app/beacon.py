@@ -13,8 +13,8 @@ API = {
         'api_version': 'eth/v1/node/version',
         'beacon_head_finalized': 'eth/v1/beacon/headers/finalized',
         'beacon_head_actual': 'eth/v1/beacon/headers/head',
-        'get_balances': 'beacon/validators',
-        'get_slot': 'beacon/state_root'
+        'get_balances': '​eth/v1/beacon/states/{}/validators',
+        'get_slot': 'eth/v1/beacon/states/{}/root'
     },
     'Prysm': {
         'api_version': 'eth/v1alpha1/node/version',
@@ -54,18 +54,17 @@ def get_actual_slots(beacon, provider):
 
 
 def get_balances_lighthouse(eth2_provider, slot, key_list):
-    state_root = requests.get(urljoin(eth2_provider, API['Lighthouse']['get_slot']), params={'slot': slot}).json()
     payload = {}
     pubkeys = []
     for key in key_list:
         pubkeys.append('0x' + binascii.hexlify(key).decode())
-    payload['pubkeys'] = pubkeys
-    payload['state_root'] = state_root
-    data = json.dumps(payload)
-    response = requests.post(urljoin(eth2_provider, API['Lighthouse']['get_balances']), data=data)
+
+    payload['id'] = pubkeys
+    response = requests.get(urljoin(eth2_provider, API['Lighthouse']['get_balances'].format(slot)))
     balance_list = []
-    for validator in response.json():
-        balance_list.append(validator['balance'])
+    for validator in response.json()['data']:
+        if validator['validator']['pubkey'] in pubkeys:
+            balance_list.append(int(validator['balance']))
     balances = sum(balance_list)
     # Convert Gwei to wei
     balances *= 10 ** 9
