@@ -13,7 +13,7 @@ API = {
         'api_version': 'eth/v1/node/version',
         'beacon_head_finalized': 'eth/v1/beacon/headers/finalized',
         'beacon_head_actual': 'eth/v1/beacon/headers/head',
-        'get_balances': '​eth/v1/beacon/states/{}/validators',
+        'get_balances': 'eth/v1/beacon/states/{}/validators',
         'get_slot': 'eth/v1/beacon/states/{}/root'
     },
     'Prysm': {
