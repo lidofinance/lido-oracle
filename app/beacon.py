@@ -1,5 +1,6 @@
 import base64
 import binascii
+import datetime
 import json
 
 import requests
@@ -11,6 +12,7 @@ api_version_prism = 'eth/v1alpha1/node/version'
 API = {
     'Lighthouse': {
         'api_version': 'eth/v1/node/version',
+        'genesis': 'eth/v1/beacon/genesis',
         'beacon_head_finalized': 'eth/v1/beacon/headers/finalized',
         'beacon_head_actual': 'eth/v1/beacon/headers/head',
         'get_balances': 'eth/v1/beacon/states/{}/validators',
@@ -18,6 +20,7 @@ API = {
     },
     'Prysm': {
         'api_version': 'eth/v1alpha1/node/version',
+        'genesis': 'eth/v1alpha1/node/genesis',
         'beacon_head': 'eth/v1alpha1/beacon/chainhead',
         'get_balances': 'eth/v1alpha1/validators/balances'
     }
@@ -51,6 +54,17 @@ def get_actual_slots(beacon, provider):
         actual_slots['actual_slot'] = int(response['headSlot'])
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
+
+
+def get_genesis(beacon, provider):
+    genesis_time = None
+    if beacon == "Lighthouse":
+        genesis_time = requests.get(urljoin(provider, API['Lighthouse']['genesis'])).json()['genesis_time']
+    if beacon == "Prysm":
+        genesis_time = requests.get(urljoin(provider, API['Prysm']['genesis'])).json()['genesisTime']
+        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ')
+        genesis_time = int(genesis_time.timestamp())
+    return genesis_time
 
 
 def get_balances_lighthouse(eth2_provider, slot, key_list):

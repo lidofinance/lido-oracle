@@ -6,7 +6,7 @@ import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
+from beacon import get_beacon, get_genesis, get_actual_slots, get_balances, get_slot_or_epoch
 from contracts import get_validators_keys
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
@@ -19,7 +19,9 @@ SECONDS_PER_SLOT = int(os.getenv('SECONDS_PER_SLOT', MAINNET_SECONDS_PER_SLOT))
 SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
 ONE_DAY = 60 * 60 * 24
-unixday = lambda: int(time.time() / ONE_DAY)
+GENESIS_TIME = None
+
+ts = lambda epoch: int(GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch))
 
 logging.info('Starting oracle daemon')
 
@@ -91,6 +93,9 @@ if SLOTS_PER_EPOCH != MAINNET_SLOTS_PER_EPOCH:
     logging.warning(f'Slots per epoch changed to {SLOTS_PER_EPOCH}')
 logging.info('=======================================')
 
+# Get genesis time of network
+GENESIS_TIME = get_genesis(beacon, eth2_provider)
+
 # Get actual slot and last finalized slot from beacon head data
 last_slots = get_actual_slots(beacon, eth2_provider)
 last_finalized_slot = last_slots['finalized_slot']
@@ -132,7 +137,7 @@ if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EP
     target = get_slot_or_epoch(beacon, before_report_epoch, SLOTS_PER_EPOCH)
     sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
 
-    tx_hash = oracle.functions.pushData(unixday(), sum_balance).buildTransaction(
+    tx_hash = oracle.functions.pushData(ts(before_report_epoch), sum_balance).buildTransaction(
         {'from': w3.eth.defaultAccount.address})
     tx_hash['nonce'] = w3.eth.getTransactionCount(
         w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
@@ -167,7 +172,7 @@ while True:
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
 
-        tx_hash = oracle.functions.pushData(unixday(), sum_balance).buildTransaction(
+        tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
             {'from': w3.eth.defaultAccount.address})
         tx_hash['nonce'] = w3.eth.getTransactionCount(
             w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
