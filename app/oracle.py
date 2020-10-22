@@ -1,12 +1,11 @@
 import json
 import logging
-import math
 import os
 import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-from beacon import get_beacon, get_actual_slots, get_balances, get_slot_or_epoch
+from beacon import get_beacon, get_genesis, get_actual_slots, get_balances, get_slot_or_epoch
 from contracts import get_validators_keys
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
@@ -19,7 +18,9 @@ SECONDS_PER_SLOT = int(os.getenv('SECONDS_PER_SLOT', MAINNET_SECONDS_PER_SLOT))
 SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
 ONE_DAY = 60 * 60 * 24
-unixday = lambda: int(time.time() / ONE_DAY)
+GENESIS_TIME = None
+
+ts = lambda epoch: int(GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch))
 
 logging.info('Starting oracle daemon')
 
@@ -91,13 +92,16 @@ if SLOTS_PER_EPOCH != MAINNET_SLOTS_PER_EPOCH:
     logging.warning(f'Slots per epoch changed to {SLOTS_PER_EPOCH}')
 logging.info('=======================================')
 
+# Get genesis time of network
+GENESIS_TIME = get_genesis(beacon, eth2_provider)
+
 # Get actual slot and last finalized slot from beacon head data
 last_slots = get_actual_slots(beacon, eth2_provider)
 last_finalized_slot = last_slots['finalized_slot']
-last_finalized_epoch = math.floor(last_finalized_slot / SLOTS_PER_EPOCH)
+last_finalized_epoch = int(last_finalized_slot / SLOTS_PER_EPOCH)
 actual_slot = last_slots['actual_slot']
 # Get current epoch
-current_epoch = math.floor(actual_slot / SLOTS_PER_EPOCH)
+current_epoch = int(actual_slot / SLOTS_PER_EPOCH)
 logging.info('Last finalized epoch %s (slot %s)', last_finalized_epoch, last_finalized_slot)
 logging.info('Current epoch %s (slot %s)', current_epoch, actual_slot)
 
@@ -108,7 +112,7 @@ start_slot_current_epoch = current_epoch * SLOTS_PER_EPOCH
 
 # Get first slot of next epoch
 start_slot_next_epoch = start_slot_current_epoch + SLOTS_PER_EPOCH
-next_epoch = math.floor(start_slot_next_epoch / SLOTS_PER_EPOCH)
+next_epoch = int(start_slot_next_epoch / SLOTS_PER_EPOCH)
 logging.info('Next epoch %s (first slot %s)', next_epoch, start_slot_next_epoch)
 
 await_time = (start_slot_next_epoch - actual_slot) * SECONDS_PER_SLOT
@@ -120,31 +124,42 @@ last_slots = get_actual_slots(beacon, eth2_provider)
 logging.info('The oracle daemon is started!')
 
 # Get last epoch on 7200x slot
-before_report_epoch = math.floor(
-    last_slots['actual_slot'] / report_interval_slots) * report_interval_slots / SLOTS_PER_EPOCH
-logging.info('Previous 7200x slots epoch %s', int(before_report_epoch))
+before_report_epoch = int(
+    last_slots['actual_slot'] / report_interval_slots * report_interval_slots / SLOTS_PER_EPOCH)
+logging.info('Previous 7200x slots epoch %s', before_report_epoch)
 
 # If the epoch of the last finalized slot is equal to the before_report_epoch, then report balances
-if before_report_epoch == math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
+if before_report_epoch == int(last_slots['finalized_slot'] / SLOTS_PER_EPOCH):
     validators_keys = get_validators_keys(spr, w3)
     if len(validators_keys) == 0:
         logging.warning('No keys on Staking Providers Registry contract')
-    target = get_slot_or_epoch(beacon, last_slots['finalized_slot'], SLOTS_PER_EPOCH)
+    target = get_slot_or_epoch(beacon, before_report_epoch, SLOTS_PER_EPOCH)
     sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
-    # TODO add transaction status check
-    oracle.functions.pushData(unixday(), sum_balance).transact(
+
+    tx_hash = oracle.functions.pushData(ts(before_report_epoch), sum_balance).buildTransaction(
         {'from': w3.eth.defaultAccount.address})
-    logging.info('Balances pushed!')
+    tx_hash['nonce'] = w3.eth.getTransactionCount(
+        w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
+    signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
+    tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+    logging.info('Transaction in progress...')
+    tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+    if tx_receipt.status == 1:
+        logging.info('Transaction successful')
+        logging.info('Balances pushed!')
+    else:
+        logging.warning('Transaction reverted')
+        # TODO logic when transaction reverted
 else:
     logging.info('Wait next epoch on 7200x slot')
 
-next_report_epoch = int(before_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH)))
+next_report_epoch = int(before_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
 # Sleep while last finalized slot reach expected epoch
 logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_epoch * SLOTS_PER_EPOCH))
 while True:
     # Get actual slot and last finalized slot from beacon head data
     last_slots = get_actual_slots(beacon, eth2_provider)
-    last_finalized_epoch = math.floor(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
+    last_finalized_epoch = int(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
     logging.info('Wait finalized epoch %s', int(next_report_epoch))
     logging.info('Current finalized epoch %s', last_finalized_epoch)
 
@@ -155,9 +170,22 @@ while True:
         target = get_slot_or_epoch(beacon, next_report_epoch, SLOTS_PER_EPOCH)
         # Get sum of balances
         sum_balance = get_balances(beacon, eth2_provider, target, validators_keys)
-        # TODO add transaction status check
-        oracle.functions.pushData(unixday(), sum_balance).transact(
+
+        tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
             {'from': w3.eth.defaultAccount.address})
-        next_report_epoch = next_report_epoch + math.floor((report_interval_slots / SLOTS_PER_EPOCH))
-        logging.info('Next report epoch after report %s', int(next_report_epoch))
+        tx_hash['nonce'] = w3.eth.getTransactionCount(
+            w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
+        signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
+        tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+        logging.info('Transaction in progress...')
+        tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+        if tx_receipt.status == 1:
+            logging.info('Transaction successful')
+            logging.info('Balances pushed!')
+        else:
+            logging.warning('Transaction reverted')
+            # TODO logic when transaction reverted
+
+        next_report_epoch = int(next_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
+        logging.info('Next report epoch after report %s', next_report_epoch)
     time.sleep(EPOCH_DURATION)
