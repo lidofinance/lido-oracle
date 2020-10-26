@@ -1,119 +1,100 @@
 import base64
 import binascii
 import datetime
-import json
 
 import requests
 from requests.compat import urljoin
 
-api_version_lighthouse = 'eth/v1/node/version'
-api_version_prism = 'eth/v1alpha1/node/version'
 
-API = {
-    'Lighthouse': {
-        'api_version': 'eth/v1/node/version',
-        'genesis': 'eth/v1/beacon/genesis',
-        'beacon_head_finalized': 'eth/v1/beacon/headers/finalized',
-        'beacon_head_actual': 'eth/v1/beacon/headers/head',
-        'get_balances': 'eth/v1/beacon/states/{}/validators',
-        'get_slot': 'eth/v1/beacon/states/{}/root'
-    },
-    'Prysm': {
-        'api_version': 'eth/v1alpha1/node/version',
-        'genesis': 'eth/v1alpha1/node/genesis',
-        'beacon_head': 'eth/v1alpha1/beacon/chainhead',
-        'get_balances': 'eth/v1alpha1/validators/balances'
-    }
-}
-
-
-def get_beacon(provider):
-    version = requests.get(urljoin(provider, API['Lighthouse']['api_version'])).text
+def get_beacon(provider, slots_per_epoch):
+    version = requests.get(urljoin(provider, 'eth/v1/node/version')).text
     if 'Lighthouse' in version:
-        return 'Lighthouse'
-    version = requests.get(urljoin(provider, API['Prysm']['api_version'])).text
+        return Lighthouse(provider, slots_per_epoch)
+    version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
-        return 'Prysm'
-    return 'None'
+        return Prysm(provider, slots_per_epoch)
+    raise ValueError('Unknown beacon')
 
 
-def get_actual_slots(beacon, provider):
-    actual_slots = {}
-    if beacon == "Lighthouse":
-        beacon_head_actual = API['Lighthouse']['beacon_head_actual']
-        response = requests.get(urljoin(provider, beacon_head_actual)).json()
+class Lighthouse:
+    api_version = 'eth/v1/node/version'
+    api_genesis = 'eth/v1/beacon/genesis'
+    api_beacon_head_finalized = 'eth/v1/beacon/headers/finalized'
+    api_beacon_head_actual = 'eth/v1/beacon/headers/head'
+    api_get_balances = 'eth/v1/beacon/states/{}/validators'
+    api_get_slot = 'eth/v1/beacon/states/{}/root'
+
+    def __init__(self, url, slots_per_epoch):
+        self.url = url
+        self.slots_per_epoch = slots_per_epoch
+        self.version = requests.get(urljoin(url, self.api_version)).json()
+
+    def get_genesis(self):
+        return int(requests.get(urljoin(self.url, self.api_genesis)).json()['data']['genesis_time'])
+
+    def get_actual_slot(self):
+        actual_slots = {}
+        response = requests.get(urljoin(self.url, self.api_beacon_head_actual)).json()
         actual_slots['actual_slot'] = int(response['data']['header']['message']['slot'])
-
-        beacon_head_finalized = API['Lighthouse']['beacon_head_finalized']
-        response = requests.get(urljoin(provider, beacon_head_finalized)).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head_finalized)).json()
         actual_slots['finalized_slot'] = int(response['data']['header']['message']['slot'])
         return actual_slots
-    if beacon == "Prysm":
-        beacon_head = API['Prysm']['beacon_head']
-        response = requests.get(urljoin(provider, beacon_head)).json()
+
+    def get_balances(self, epoch, key_list):
+        payload = {}
+        pubkeys = []
+        slot = epoch * self.slots_per_epoch
+        for key in key_list:
+            pubkeys.append('0x' + binascii.hexlify(key).decode())
+
+        payload['id'] = pubkeys
+        response = requests.get(urljoin(self.url, self.api_get_balances.format(slot)))
+        balance_list = []
+        for validator in response.json()['data']:
+            if validator['validator']['pubkey'] in pubkeys:
+                balance_list.append(int(validator['balance']))
+        balances = sum(balance_list)
+        # Convert Gwei to wei
+        balances *= 10 ** 9
+        return balances
+
+
+class Prysm:
+    api_version = 'eth/v1alpha1/node/version'
+    api_genesis = 'eth/v1alpha1/node/genesis'
+    api_beacon_head = 'eth/v1alpha1/beacon/chainhead'
+    api_get_balances = 'eth/v1alpha1/validators/balances'
+
+    def __init__(self, url, slots_per_epoch):
+        self.url = url
+        self.slots_per_epoch = slots_per_epoch
+        self.version = requests.get(urljoin(url, self.api_version)).json()
+
+    def get_genesis(self):
+        genesis_time = requests.get(urljoin(self.url, self.api_genesis)).json()['genesisTime']
+        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ')
+        genesis_time = int(genesis_time.timestamp())
+        return genesis_time
+
+    def get_actual_slot(self):
+        actual_slots = {}
+        response = requests.get(urljoin(self.url, self.api_beacon_head)).json()
         actual_slots['actual_slot'] = int(response['headSlot'])
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
 
-
-def get_genesis(beacon, provider):
-    genesis_time = None
-    if beacon == "Lighthouse":
-        genesis_time = requests.get(urljoin(provider, API['Lighthouse']['genesis'])).json()['genesis_time']
-    if beacon == "Prysm":
-        genesis_time = requests.get(urljoin(provider, API['Prysm']['genesis'])).json()['genesisTime']
-        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ')
-        genesis_time = int(genesis_time.timestamp())
-    return genesis_time
-
-
-def get_balances_lighthouse(eth2_provider, slot, key_list):
-    payload = {}
-    pubkeys = []
-    for key in key_list:
-        pubkeys.append('0x' + binascii.hexlify(key).decode())
-
-    payload['id'] = pubkeys
-    response = requests.get(urljoin(eth2_provider, API['Lighthouse']['get_balances'].format(slot)))
-    balance_list = []
-    for validator in response.json()['data']:
-        if validator['validator']['pubkey'] in pubkeys:
+    def get_balances(self, epoch, key_list):
+        params = {}
+        pubkeys = []
+        for key in key_list:
+            pubkeys.append(base64.b64encode(key).decode())
+        params['publicKeys'] = pubkeys
+        params['epoch'] = epoch
+        response = requests.get(urljoin(self.url, self.api_get_balances), params=params)
+        balance_list = []
+        for validator in response.json()['balances']:
             balance_list.append(int(validator['balance']))
-    balances = sum(balance_list)
-    # Convert Gwei to wei
-    balances *= 10 ** 9
-    return balances
-
-
-def get_balances_prysm(eth2_provider, epoch, key_list):
-    payload = {}
-    pubkeys = []
-    for key in key_list:
-        pubkeys.append(base64.b64encode(key).decode())
-    payload['publicKeys'] = pubkeys
-    payload['epoch'] = epoch
-    response = requests.get(urljoin(eth2_provider, API['Prysm']['get_balances']), params=payload)
-    balance_list = []
-    for validator in response.json()['balances']:
-        balance_list.append(int(validator['balance']))
-    balances = sum(balance_list)
-    # Convert Gwei to wei
-    balances *= 10 ** 9
-    return balances
-
-
-def get_balances(beacon, eth2_provider, target, key_list):
-    if beacon == 'Lighthouse':
-        return get_balances_lighthouse(eth2_provider, target, key_list)
-    if beacon == 'Prysm':
-        return get_balances_prysm(eth2_provider, target, key_list)
-    raise ValueError('Unknown beacon name')
-
-
-def get_slot_or_epoch(beacon, epoch, slots_per_epoch):
-    if beacon == 'Lighthouse':
-        return epoch * slots_per_epoch
-    elif beacon == 'Prysm':
-        # Rounding when using non-standard epoch lengths
-        return epoch
-    raise ValueError('Unknown beacon name')
+        balances = sum(balance_list)
+        # Convert Gwei to wei
+        balances *= 10 ** 9
+        return balances
