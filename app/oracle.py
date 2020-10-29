@@ -125,7 +125,7 @@ logging.info('The oracle daemon is started!')
 
 # Get last epoch on 7200x slot
 before_report_epoch = int(
-    (last_slots['finalized_slot'] / report_interval_slots) * (report_interval_slots / SLOTS_PER_EPOCH))
+    (last_slots['finalized_slot'] // report_interval_slots) * (report_interval_slots / SLOTS_PER_EPOCH))
 logging.info('Previous 7200x slots epoch %s', before_report_epoch)
 
 # Check if current finalized slot multiple of report_interval_slots
