@@ -8,7 +8,7 @@ Pythonic oracle daemon for DePool decentralized staking service. Periodically re
 
 * Upon the start and then periodically Oracle polls DePool contract, gets the last known epoch and validators to watch for.
 
-* Oracle periodically scans Beacon node 2.0 for epoch number. Every 7200th epoch it reports the stats for each known validator to the DePool contract.
+* Oracle periodically scans Beacon node 2.0 for epoch number. Every 7200th slot it reports the stats for each known validator to the DePool contract.
 
 ## Run
 
@@ -19,7 +19,6 @@ export ETH1_NODE="http://localhost:8545"
 export ETH2_NODE="http://localhost:5052"
 export ORACLE_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
 export SPR_CONTRACT="0x5ec5DDf7A0cdD3235AD1bCC0ad04F059507EC5a3"
-export REPORT_INTVL_SLOTS="7200"
 export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
 export SPR_ABI_FILE='./assets/StakingProvidersRegistry.json'
 export ORACLE_ABI_FILE='./assets/DePoolOracle.json'
@@ -63,7 +62,6 @@ python3 count_referrals.py <start block> <end block>
     export ETH2_NODE="http://localhost:5052"
     export ORACLE_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
     export SPR_CONTRACT="0x5ec5DDf7A0cdD3235AD1bCC0ad04F059507EC5a3"
-    export REPORT_INTVL_SLOTS="7200"
     export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
     export SPR_ABI_FILE='./assets/StakingProvidersRegistry.json'
     export ORACLE_ABI_FILE='./assets/DePoolOracle.json'

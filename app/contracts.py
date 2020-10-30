@@ -13,3 +13,9 @@ def get_validators_keys(contract, provider):
                     validators_keys_list.append(validator_key[0])
                     index += 1
     return validators_keys_list
+
+
+def get_report_interval(contract, provider):
+    report_interval = contract.functions.getReportIntervalDurationSeconds().call(
+        {'from': provider.eth.defaultAccount.address})
+    return report_interval

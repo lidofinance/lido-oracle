@@ -61,7 +61,6 @@ def prysm_requests(monkeypatch):
         """A method replacing Requests.get
         Returns a mocked response object (with json method)
         """
-        print(uri)
         if 'eth/v1alpha1/node/version' in uri:
             return MockResponse(version)
         if 'eth/v1alpha1/node/genesis' in uri:
