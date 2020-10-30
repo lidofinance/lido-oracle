@@ -1,5 +1,4 @@
-import pytest
-from app.contracts import get_validators_keys
+from app.contracts import get_validators_keys, get_report_interval
 
 key_list = [
     b"\xa3\x84\xf0\xd7w\x1d\xe0'\x8e\x0e\x9b\x13$\xb1\xa0\x9b\xb8\xb3\xf8\xa6-\xff\xcd\xb87\x06\xe38vM\xe8\x93\xc6H\xd6\xab\xdbN\x02^\xf0\xe8ZQ\x1aw\xa2.",
@@ -31,6 +30,9 @@ class MockContract:
             result = self.keys[index]
             return MockContract.FunctionCallable(result)
 
+        def getReportIntervalDurationSeconds(self, *args):
+            return MockContract.FunctionCallable(86400)
+
     def __init__(self, keys):
         self.functions = self.Functions(keys)
 
@@ -55,3 +57,8 @@ spr_id = 1
 
 def test_validators_keys():
     get_validators_keys(contract, provider)
+
+
+def test_get_report_interval():
+    result = get_report_interval(contract, provider)
+    assert result == 86400

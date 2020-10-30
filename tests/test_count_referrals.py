@@ -27,7 +27,6 @@ def filled_depo_calc():
 
 def test_get_depo_amounts_grouped_by_referral(filled_depo_calc):
     result = filled_depo_calc.get_depo_amounts_grouped_by_referral()
-    print(result)
     assert len(result) == 7
 
 

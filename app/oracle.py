@@ -6,7 +6,7 @@ import time
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
 from beacon import get_beacon
-from contracts import get_validators_keys
+from contracts import get_validators_keys, get_report_interval
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
                     datefmt='%m-%d %H:%M:%S')
@@ -17,15 +17,15 @@ MAINNET_SLOTS_PER_EPOCH = 32
 SECONDS_PER_SLOT = int(os.getenv('SECONDS_PER_SLOT', MAINNET_SECONDS_PER_SLOT))
 SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
-ONE_DAY = 60 * 60 * 24
+REPORT_INTERVAL_DURATION = None
 GENESIS_TIME = None
 
-ts = lambda epoch: int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / ONE_DAY)
+ts = lambda epoch: int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / REPORT_INTERVAL_DURATION)
 
 logging.info('Starting oracle daemon')
 
 envs = ['ETH1_NODE', 'ETH2_NODE', 'SPR_CONTRACT', 'SPR_ABI_FILE', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY',
-        'ORACLE_ABI_FILE', 'REPORT_INTVL_SLOTS']
+        'ORACLE_ABI_FILE']
 missing = []
 for env in envs:
     if env not in os.environ:
@@ -46,7 +46,6 @@ spr_address = os.environ['SPR_CONTRACT']
 if not Web3.isChecksumAddress(spr_address):
     spr_address = Web3.toChecksumAddress(spr_address)
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
-report_interval_slots = int(os.environ['REPORT_INTVL_SLOTS'])
 
 beacon = get_beacon(eth2_provider, SLOTS_PER_EPOCH)
 logging.info('Connecting to %s', beacon)
@@ -79,13 +78,16 @@ oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
+REPORT_INTERVAL_DURATION = get_report_interval(oracle, w3)
+REPORT_INTERVAL_SLOTS = int(REPORT_INTERVAL_DURATION / SECONDS_PER_SLOT)
+
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
 logging.info(f'ETH2 Node: {eth2_provider}')
 logging.info(f'Oracle contract address: {oracle_address}')
 logging.info(f'Registry contract address: {spr_address}')
 logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
-logging.info(f'Report interval: {report_interval_slots} slots')
+logging.info(f'Report interval: {REPORT_INTERVAL_SLOTS} slots')
 if SECONDS_PER_SLOT != MAINNET_SECONDS_PER_SLOT:
     logging.warning(f'Seconds per slot changed to {SECONDS_PER_SLOT}')
 if SLOTS_PER_EPOCH != MAINNET_SLOTS_PER_EPOCH:
@@ -123,23 +125,22 @@ time.sleep(await_time)
 last_slots = beacon.get_actual_slot()
 logging.info('The oracle daemon is started!')
 
-# Get last epoch on 7200x slot
+# Get last epoch on REPORT_INTERVAL_SLOTS slot
 before_report_epoch = int(
-    (last_slots['finalized_slot'] // report_interval_slots) * (report_interval_slots / SLOTS_PER_EPOCH))
-logging.info('Previous 7200x slots epoch %s', before_report_epoch)
+    (last_slots['finalized_slot'] // REPORT_INTERVAL_SLOTS) * (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
+logging.info('Previous %s slots epoch %s', REPORT_INTERVAL_SLOTS, before_report_epoch)
 
 # Check if current finalized slot multiple of report_interval_slots
-if last_slots['finalized_slot'] % report_interval_slots == 0:
-    logging.info('Current finalized slot is multiple of %s', report_interval_slots)
+if last_slots['finalized_slot'] % REPORT_INTERVAL_SLOTS == 0:
+    logging.info('Current finalized slot is multiple of %s', REPORT_INTERVAL_SLOTS)
     next_report_epoch = before_report_epoch
 else:
-    logging.info('Wait next epoch on 7200x slot')
-    next_report_epoch = int(before_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
+    logging.info('Wait next epoch on %s slot', REPORT_INTERVAL_SLOTS)
+    next_report_epoch = int(before_report_epoch + (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
 last_finalized_epoch = int(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
 # Sleep while last finalized slot reach expected epoch
 logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_epoch * SLOTS_PER_EPOCH))
 while True:
-    print(next_report_epoch, last_finalized_epoch)
     if next_report_epoch <= last_finalized_epoch:
         validators_keys = get_validators_keys(spr, w3)
         if len(validators_keys) == 0:
@@ -147,7 +148,6 @@ while True:
         # Get sum of balances
         sum_balance = beacon.get_balances(next_report_epoch, validators_keys)
 
-        print(ts(next_report_epoch))
         tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
             {'from': w3.eth.defaultAccount.address})
         tx_hash['nonce'] = w3.eth.getTransactionCount(
@@ -163,7 +163,7 @@ while True:
             logging.warning('Transaction reverted')
             # TODO logic when transaction reverted
 
-        next_report_epoch = int(next_report_epoch + (report_interval_slots / SLOTS_PER_EPOCH))
+        next_report_epoch = int(next_report_epoch + (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
         logging.info('Next report epoch after report %s', next_report_epoch)
     # Get actual slot and last finalized slot from beacon head data
     last_slots = beacon.get_actual_slot()
