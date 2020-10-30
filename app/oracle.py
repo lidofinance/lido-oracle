@@ -19,6 +19,7 @@ SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
 EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
 REPORT_INTERVAL_DURATION = None
 GENESIS_TIME = None
+GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
 
 ts = lambda epoch: int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / REPORT_INTERVAL_DURATION)
 
@@ -149,7 +150,7 @@ while True:
         sum_balance = beacon.get_balances(next_report_epoch, validators_keys)
 
         tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
-            {'from': w3.eth.defaultAccount.address})
+            {'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
         tx_hash['nonce'] = w3.eth.getTransactionCount(
             w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
         signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
