@@ -1,13 +1,13 @@
 """
 Script for creating deposits. Submits given amount of Ether to the
-DePool contract. Used in manual testing procedures.
+Lido contract. Used in manual testing procedures.
 
 Usage:
 1. define environment variables
 
-export DEPOOL_ABI_FILE='./DePool.abi'
+export LIDO_ABI_FILE='./Lido.abi'
 export ETH1_NODE='http://127.0.0.1:8545'
-export DEPOOL_CONTRACT='0x53ac5234FEf1762Fd782d2D79F0D65f47489275e'
+export LIDO_CONTRACT='0x53ac5234FEf1762Fd782d2D79F0D65f47489275e'
 export MANAGER_PRIV_KEY='deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
 
@@ -27,7 +27,7 @@ import sys
 from eth_keys import keys
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
-envs = ['ETH1_NODE', 'DEPOOL_CONTRACT', 'MANAGER_PRIV_KEY', 'DEPOOL_ABI_FILE']
+envs = ['ETH1_NODE', 'LIDO_CONTRACT', 'MANAGER_PRIV_KEY', 'LIDO_ABI_FILE']
 
 for env in envs:
     if env not in os.environ:
@@ -39,15 +39,15 @@ if len(sys.argv) > 2:
 else:
     referral = "0x"+"0"*40
 
-dp_abi_path = os.environ['DEPOOL_ABI_FILE']
+dp_abi_path = os.environ['LIDO_ABI_FILE']
 eth1_provider = os.environ['ETH1_NODE']
-depool_address = os.environ['DEPOOL_CONTRACT']
+lido_address = os.environ['LIDO_CONTRACT']
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 
 print(f"""
-DEPOOL_ABI_FILE = {dp_abi_path}
+LIDO_ABI_FILE = {dp_abi_path}
 ETH1_NODE = {eth1_provider}
-DEPOOL_CONTRACT = {depool_address}
+LIDO_CONTRACT = {lido_address}
 MANAGER_PRIV_KEY = <hidden>
 """)
 
@@ -61,7 +61,7 @@ else:
 with open(dp_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-depool = w3.eth.contract(abi=abi['abi'], address=depool_address)
+lido = w3.eth.contract(abi=abi['abi'], address=lido_address)
 
 private_key_bytes = bytes.fromhex(manager_privkey)
 pk = keys.PrivateKey(private_key_bytes)
@@ -71,10 +71,10 @@ balance = float(w3.eth.getBalance(account))/1e18
 print("ETH balance: %s" % balance)
 assert w3.eth.getBalance(account) > 0, \
     "Not enough balance on address"
-assert len(w3.eth.getCode(depool_address)) > 0, \
+assert len(w3.eth.getCode(lido_address)) > 0, \
     "There is no contract by given address"
 
-tx = depool.functions.submit(Web3.toChecksumAddress(referral)).buildTransaction({
+tx = lido.functions.submit(Web3.toChecksumAddress(referral)).buildTransaction({
     'gasPrice': w3.eth.gasPrice,
     'nonce': w3.eth.getTransactionCount(account, 'latest'),
     'from': account,

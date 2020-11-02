@@ -70,7 +70,7 @@ def main(argv=None, env=[]):
     if env == []:
         env = os.environ
 
-    envs = ['ETH1_NODE', 'DEPOOL_CONTRACT', 'DEPOOL_ABI_FILE']
+    envs = ['ETH1_NODE', 'LIDO_CONTRACT', 'LIDO_ABI_FILE']
 
     for env in envs:
         if env not in os.environ:
@@ -86,23 +86,23 @@ def main(argv=None, env=[]):
     except IndexError:
         END_BLOCK = None
 
-    depool_abi_path = os.environ['DEPOOL_ABI_FILE']
+    lido_abi_path = os.environ['LIDO_ABI_FILE']
     eth1_provider = os.environ['ETH1_NODE']
-    depool_address = os.environ['DEPOOL_CONTRACT']
+    lido_address = os.environ['LIDO_CONTRACT']
 
     print(f"""
     START_BLOCK = {START_BLOCK} (from command line)
     END_BLOCK = {END_BLOCK} (from command line)
     ETH1_NODE = {eth1_provider}
-    DEPOOL_ABI = {depool_abi_path}
-    DEPOOL_ADDR = {depool_address}
+    LIDO_ABI = {lido_abi_path}
+    LIDO_ADDR = {lido_address}
     """)
     w3 = Web3(Web3.HTTPProvider(eth1_provider))
-    with open(depool_abi_path, 'r') as abi:
-        depool_abi = json.loads(abi.read())['abi']
-    depool_contract = w3.eth.contract(
-        address=depool_address,
-        abi=depool_abi
+    with open(lido_abi_path, 'r') as abi:
+        lido_abi = json.loads(abi.read())['abi']
+    lido_contract = w3.eth.contract(
+        address=lido_address,
+        abi=lido_abi
     )
     if not END_BLOCK:
         END_BLOCK = w3.eth.getBlock('latest')['number']
@@ -114,7 +114,7 @@ def main(argv=None, env=[]):
         if to_block > END_BLOCK:
             to_block = END_BLOCK
         print(f'Scanning blocks {from_block} to {to_block}', end='')
-        events = depool_contract.events.Submitted.getLogs(
+        events = lido_contract.events.Submitted.getLogs(
             fromBlock=from_block, toBlock=to_block)
         if len(events) > 0:
             for event in events:
