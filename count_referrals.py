@@ -10,7 +10,7 @@ import json
 
 Base = declarative_base()
 SCAN_STEP = 100
-ZERO_ADDRESS = "0x"+"0"*40
+ZERO_ADDRESS = "0x" + "0" * 40
 
 
 class DepositCalculator:
@@ -28,20 +28,26 @@ class DepositCalculator:
         self.session = Session()
 
     def get_depo_amounts_grouped_by_referral(self):
-        result = self.session.query(
-                self.Deposit.referral,
-                func.sum(self.Deposit.amount).label("sum"))\
-            .filter(self.Deposit.referral != None)\
-            .group_by(self.Deposit.referral)\
-            .order_by(desc("sum"))\
-            .all()
-        return(result)
+        # fmt: off
+        result = (
+            self.session.query(self.Deposit.referral, func.sum(self.Deposit.amount).label("sum"))
+                .filter(self.Deposit.referral != None)  # noqa E711
+                .group_by(self.Deposit.referral)
+                .order_by(desc("sum"))
+                .all()
+        )
+        # fmt: on
+        return result
 
     def get_total_referral_deposits_sum(self):
-        result = self.session.query(func.sum(self.Deposit.amount))\
-            .filter(self.Deposit.referral != None)\
-            .scalar()
-        return(result)
+        # fmt: off
+        result = (
+            self.session.query(func.sum(self.Deposit.amount))
+                .filter(self.Deposit.referral != None)  # noqa E711
+                .scalar()
+        )
+        # fmt: on
+        return result
 
     def add_deposit(self, addr=None, amount=None, referral=None):
         if referral == ZERO_ADDRESS:
@@ -56,7 +62,7 @@ class DepositCalculator:
         if len(depo_amounts) > 0 and depo_total_sum > 0.0:
             print('referral address                              amount       percentage')
             for depo in depo_amounts:
-                percentage = depo[1]*100/depo_total_sum
+                percentage = depo[1] * 100 / depo_total_sum
                 print(f'{depo[0]:42} {depo[1]:9.4f} eth  {percentage:9.4f}%')
             print(f'                                    total: {depo_total_sum:9.4f} eth')
         else:
@@ -90,20 +96,19 @@ def main(argv=None, env=[]):
     eth1_provider = os.environ['ETH1_NODE']
     lido_address = os.environ['LIDO_CONTRACT']
 
-    print(f"""
+    print(
+        f"""
     START_BLOCK = {START_BLOCK} (from command line)
     END_BLOCK = {END_BLOCK} (from command line)
     ETH1_NODE = {eth1_provider}
     LIDO_ABI = {lido_abi_path}
     LIDO_ADDR = {lido_address}
-    """)
+    """
+    )
     w3 = Web3(Web3.HTTPProvider(eth1_provider))
     with open(lido_abi_path, 'r') as abi:
         lido_abi = json.loads(abi.read())['abi']
-    lido_contract = w3.eth.contract(
-        address=lido_address,
-        abi=lido_abi
-    )
+    lido_contract = w3.eth.contract(address=lido_address, abi=lido_abi)
     if not END_BLOCK:
         END_BLOCK = w3.eth.getBlock('latest')['number']
     calc = DepositCalculator()
@@ -114,14 +119,10 @@ def main(argv=None, env=[]):
         if to_block > END_BLOCK:
             to_block = END_BLOCK
         print(f'Scanning blocks {from_block} to {to_block}', end='')
-        events = lido_contract.events.Submitted.getLogs(
-            fromBlock=from_block, toBlock=to_block)
+        events = lido_contract.events.Submitted.getLogs(fromBlock=from_block, toBlock=to_block)
         if len(events) > 0:
             for event in events:
-                calc.add_deposit(
-                    addr=event.args.sender,
-                    amount=event.args.amount/1e18,
-                    referral=event.args.referral)
+                calc.add_deposit(addr=event.args.sender, amount=event.args.amount / 1e18, referral=event.args.referral)
             total_events += len(events)
             print(f' found:{len(events)} total:{total_events}')
         else:

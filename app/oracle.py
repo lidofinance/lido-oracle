@@ -8,8 +8,9 @@ from web3 import Web3, WebsocketProvider, HTTPProvider
 from beacon import get_beacon
 from contracts import get_validators_keys, get_report_interval
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s',
-                    datefmt='%m-%d %H:%M:%S')
+logging.basicConfig(
+    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%m-%d %H:%M:%S'
+)
 
 MAINNET_SECONDS_PER_SLOT = 12
 MAINNET_SLOTS_PER_EPOCH = 32
@@ -21,12 +22,22 @@ REPORT_INTERVAL_DURATION = None
 GENESIS_TIME = None
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
 
-ts = lambda epoch: int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / REPORT_INTERVAL_DURATION)
+
+def ts(epoch):
+    return int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / REPORT_INTERVAL_DURATION)
+
 
 logging.info('Starting oracle daemon')
 
-envs = ['ETH1_NODE', 'ETH2_NODE', 'SPR_CONTRACT', 'SPR_ABI_FILE', 'ORACLE_CONTRACT', 'MANAGER_PRIV_KEY',
-        'ORACLE_ABI_FILE']
+envs = [
+    'ETH1_NODE',
+    'ETH2_NODE',
+    'SPR_CONTRACT',
+    'SPR_ABI_FILE',
+    'ORACLE_CONTRACT',
+    'MANAGER_PRIV_KEY',
+    'ORACLE_ABI_FILE',
+]
 missing = []
 for env in envs:
     if env not in os.environ:
@@ -128,7 +139,8 @@ logging.info('The oracle daemon is started!')
 
 # Get last epoch on REPORT_INTERVAL_SLOTS slot
 before_report_epoch = int(
-    (last_slots['finalized_slot'] // REPORT_INTERVAL_SLOTS) * (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
+    (last_slots['finalized_slot'] // REPORT_INTERVAL_SLOTS) * (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH)
+)
 logging.info('Previous %s slots epoch %s', REPORT_INTERVAL_SLOTS, before_report_epoch)
 
 # Check if current finalized slot multiple of report_interval_slots
@@ -149,9 +161,11 @@ while True:
         # Get sum of balances
         sum_balance = beacon.get_balances(next_report_epoch, validators_keys)
         tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
-            {'from': w3.eth.defaultAccount.address, 'gasLimit': GAS_LIMIT})
+            {'from': w3.eth.defaultAccount.address, 'gasLimit': GAS_LIMIT}
+        )
         tx_hash['nonce'] = w3.eth.getTransactionCount(
-            w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
+            w3.eth.defaultAccount.address
+        )  # Get correct transaction nonce for sender from the node
         signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
         tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
         logging.info('Transaction in progress...')
