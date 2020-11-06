@@ -149,7 +149,7 @@ while True:
         # Get sum of balances
         sum_balance = beacon.get_balances(next_report_epoch, validators_keys)
         tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
-            {'from': w3.eth.defaultAccount.address, 'gasLimit': GAS_LIMIT})
+            {'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
         tx_hash['nonce'] = w3.eth.getTransactionCount(
             w3.eth.defaultAccount.address)  # Get correct transaction nonce for sender from the node
         signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
