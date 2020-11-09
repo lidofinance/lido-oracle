@@ -37,19 +37,21 @@ amount = float(sys.argv[1])
 if len(sys.argv) > 2:
     referral = sys.argv[2]
 else:
-    referral = "0x"+"0"*40
+    referral = "0x" + "0" * 40
 
 dp_abi_path = os.environ['LIDO_ABI_FILE']
 eth1_provider = os.environ['ETH1_NODE']
 lido_address = os.environ['LIDO_CONTRACT']
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 
-print(f"""
+print(
+    f"""
 LIDO_ABI_FILE = {dp_abi_path}
 ETH1_NODE = {eth1_provider}
 LIDO_CONTRACT = {lido_address}
 MANAGER_PRIV_KEY = <hidden>
-""")
+"""
+)
 
 if eth1_provider.startswith('http'):
     w3 = Web3(HTTPProvider(eth1_provider))
@@ -67,19 +69,19 @@ private_key_bytes = bytes.fromhex(manager_privkey)
 pk = keys.PrivateKey(private_key_bytes)
 account = pk.public_key.to_checksum_address()
 print("ETH address: %s" % account)
-balance = float(w3.eth.getBalance(account))/1e18
+balance = float(w3.eth.getBalance(account)) / 1e18
 print("ETH balance: %s" % balance)
-assert w3.eth.getBalance(account) > 0, \
-    "Not enough balance on address"
-assert len(w3.eth.getCode(lido_address)) > 0, \
-    "There is no contract by given address"
+assert w3.eth.getBalance(account) > 0, "Not enough balance on address"
+assert len(w3.eth.getCode(lido_address)) > 0, "There is no contract by given address"
 
-tx = lido.functions.submit(Web3.toChecksumAddress(referral)).buildTransaction({
-    'gasPrice': w3.eth.gasPrice,
-    'nonce': w3.eth.getTransactionCount(account, 'latest'),
-    'from': account,
-    'value': int(amount * 1e18)
-})
+tx = lido.functions.submit(Web3.toChecksumAddress(referral)).buildTransaction(
+    {
+        'gasPrice': w3.eth.gasPrice,
+        'nonce': w3.eth.getTransactionCount(account, 'latest'),
+        'from': account,
+        'value': int(amount * 1e18),
+    }
+)
 tx_signed = w3.eth.account.signTransaction(tx, pk)
 tx_hash = w3.eth.sendRawTransaction(tx_signed.rawTransaction).hex()
 print(f'Transaction {tx_hash} sent')
