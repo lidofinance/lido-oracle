@@ -1,6 +1,7 @@
 import base64
 import binascii
 import datetime
+from datetime import timezone
 
 import requests
 from requests.compat import urljoin
@@ -72,7 +73,7 @@ class Prysm:
 
     def get_genesis(self):
         genesis_time = requests.get(urljoin(self.url, self.api_genesis)).json()['genesisTime']
-        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ')
+        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
         genesis_time = int(genesis_time.timestamp())
         return genesis_time
 
