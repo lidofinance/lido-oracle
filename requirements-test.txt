@@ -38,3 +38,5 @@ varint==1.0.2
 web3==5.12.1
 websockets==8.1
 zipp==3.1.0
+black==20.8b1
+flake8==3.8.4
