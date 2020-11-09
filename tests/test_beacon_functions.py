@@ -128,7 +128,7 @@ def test_version_prysm(prysm_requests):
 def test_genesis_prysm(prysm_requests):
     beacon = get_beacon('localhost', 1)
     result = beacon.get_genesis()
-    assert result == 1596535208
+    assert result == 1596546008
 
 
 def test_head_prysm(prysm_requests):

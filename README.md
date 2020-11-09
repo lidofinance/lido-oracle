@@ -1,6 +1,8 @@
 # Lido-Oracle
 
-Pythonic oracle daemon for Lido decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (validators' balances and statuses) to the Lido dApp contract running on Ethereum 1.0 ledger.
+![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg)
+
+Pythonic oracle daemon for DePool decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (validators' balances and statuses) to the DePool dApp contract running on Ethereum 1.0 ledger.
 
 ## How it works
 
@@ -32,10 +34,12 @@ To run tests you need all test dependencies installed
 ```
 pip install -U -r requirements-test.txt
 ```
+
 To run tests just type
-```
+
+```python
 pytest
-``` 
+```
 
 ## Helpers
 
@@ -52,11 +56,12 @@ python3 count_referrals.py <start block> <end block>
 
 ## Work with e2e environment
 
-1. run e2e enviroment lido-dao project(https://github.com/lidofinance/lido-dao). Testing on commit c63a05fa6bfa8cdf0360c2741c37a780eee0b093 
+1. run e2e enviroment lido-dao project(<https://github.com/lidofinance/lido-dao>). Testing on commit c63a05fa6bfa8cdf0360c2741c37a780eee0b093 
 
-2. Define the environment variables. 
+2. Define the environment variables.
 
-    Contract addresses may not match. The current addresses will be available in the Aragon web interface(http://localhost:3000/#/lido-dao/)
+    Contract addresses may not match. The current addresses will be available in the Aragon web interface(<http://localhost:3000/#/lido-dao/>)
+
     ```bash
     export ETH1_NODE="http://localhost:8545"
     export ETH2_NODE="http://localhost:5052"
@@ -77,12 +82,14 @@ python3 count_referrals.py <start block> <end block>
 4. Make a manager oracle member (Oracle contract function addOracleMember(manager_address))
 5. Add validators keys to SP Registry contract (SP Registry contract function addSigningKeys(quantity, pubkeys, signatures)).
     validators pubkeys are available on lido-dao project folder on path  /lido-dao/data/validators
-    
+
     Keys must be converted. Python example:
+
     ```python
     import binascii
- 
+
     pubkey = '810ad9abfc1b1b18e44e52d0dc862d8028c664cbdcadfe301698411386b77b2b1d120c45f688f0d67703286d9dd92910'
-    binascii.unhexlify(pubkey) 
+    binascii.unhexlify(pubkey)
     ```
-6. ``` python3 oracle.py```
+
+6. ```python3 oracle.py```
