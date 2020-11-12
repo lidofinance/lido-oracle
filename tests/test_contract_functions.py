@@ -30,7 +30,7 @@ class MockContract:
         def getTotalSigningKeyCount(self, *args):
             return MockContract.FunctionCallable(len(self.keys))
 
-        def getSigningKey(self, spr_id, index):
+        def getSigningKey(self, registry_id, index):
             result = self.keys[index]
             return MockContract.FunctionCallable(result)
 
@@ -56,7 +56,7 @@ class MockProvider:
 
 contract = MockContract(key_list)
 provider = MockProvider()
-spr_id = 1
+registry_id = 1
 
 
 def test_validators_keys():
