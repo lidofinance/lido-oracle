@@ -1,25 +1,18 @@
 def get_validators_keys(contract, provider):
-    staking_providers_count = contract.functions.getStakingProvidersCount().call(
+    node_operators_count = contract.functions.getNodeOperatorsCount().call(
         {'from': provider.eth.defaultAccount.address}
     )
     validators_keys_list = []
-    if staking_providers_count > 0:
-        for sp_id in range(staking_providers_count):
-            validators_keys_count = contract.functions.getTotalSigningKeyCount(sp_id).call(
+    if node_operators_count > 0:
+        for no_id in range(node_operators_count):
+            validators_keys_count = contract.functions.getTotalSigningKeyCount(no_id).call(
                 {'from': provider.eth.defaultAccount.address}
             )
             if validators_keys_count > 0:
                 for index in range(validators_keys_count):
-                    validator_key = contract.functions.getSigningKey(sp_id, index).call(
+                    validator_key = contract.functions.getSigningKey(no_id, index).call(
                         {'from': provider.eth.defaultAccount.address}
                     )
                     validators_keys_list.append(validator_key[0])
                     index += 1
     return validators_keys_list
-
-
-def get_report_interval(contract, provider):
-    report_interval = contract.functions.getReportIntervalDurationSeconds().call(
-        {'from': provider.eth.defaultAccount.address}
-    )
-    return report_interval

@@ -12,31 +12,14 @@ logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%m-%d %H:%M:%S'
 )
 
-MAINNET_SECONDS_PER_SLOT = 12
-MAINNET_SLOTS_PER_EPOCH = 32
-
-SECONDS_PER_SLOT = int(os.getenv('SECONDS_PER_SLOT', MAINNET_SECONDS_PER_SLOT))
-SLOTS_PER_EPOCH = int(os.getenv('SLOTS_PER_EPOCH', MAINNET_SLOTS_PER_EPOCH))
-EPOCH_DURATION = SECONDS_PER_SLOT * SLOTS_PER_EPOCH
-REPORT_INTERVAL_DURATION = None
-GENESIS_TIME = None
-GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
-
-
-def ts(epoch):
-    return int((GENESIS_TIME + (SECONDS_PER_SLOT * SLOTS_PER_EPOCH * epoch)) / REPORT_INTERVAL_DURATION)
-
-
-logging.info('Starting oracle daemon')
-
 envs = [
     'ETH1_NODE',
     'ETH2_NODE',
-    'SPR_CONTRACT',
-    'SPR_ABI_FILE',
     'ORACLE_CONTRACT',
-    'MANAGER_PRIV_KEY',
     'ORACLE_ABI_FILE',
+    'POOL_ABI_FILE',
+    'REGISTRY_ABI_FILE',
+    'MANAGER_PRIV_KEY',
 ]
 missing = []
 for env in envs:
@@ -47,22 +30,17 @@ for env in envs:
 if missing:
     exit(1)
 
-spr_abi_path = os.environ['SPR_ABI_FILE']
-dp_oracle_abi_path = os.environ['ORACLE_ABI_FILE']
 eth1_provider = os.environ['ETH1_NODE']
 eth2_provider = os.environ['ETH2_NODE']
 oracle_address = os.environ['ORACLE_CONTRACT']
 if not Web3.isChecksumAddress(oracle_address):
     oracle_address = Web3.toChecksumAddress(oracle_address)
-spr_address = os.environ['SPR_CONTRACT']
-if not Web3.isChecksumAddress(spr_address):
-    spr_address = Web3.toChecksumAddress(spr_address)
+oracle_abi_path = os.environ['ORACLE_ABI_FILE']
+pool_abi_path = os.environ['POOL_ABI_FILE']
+registry_abi_path = os.environ['REGISTRY_ABI_FILE']
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 
-beacon = get_beacon(eth2_provider, SLOTS_PER_EPOCH)
-logging.info('Connecting to %s', beacon)
-
-provider = None
+GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
 
 if eth1_provider.startswith('http'):
     provider = HTTPProvider(eth1_provider)
@@ -78,89 +56,72 @@ if not w3.isConnected():
     logging.error('ETH node connection error!')
     exit(1)
 
-with open(spr_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-spr = w3.eth.contract(abi=abi['abi'], address=spr_address)
+w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
-with open(dp_oracle_abi_path, 'r') as file:
+with open(oracle_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
 oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
-w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
+pool_address = oracle.functions.pool().call({'from': w3.eth.defaultAccount.address})
 
-REPORT_INTERVAL_DURATION = get_report_interval(oracle, w3)
-REPORT_INTERVAL_SLOTS = int(REPORT_INTERVAL_DURATION / SECONDS_PER_SLOT)
+with open(pool_abi_path, 'r') as file:
+    a = file.read()
+abi = json.loads(a)
+pool = w3.eth.contract(abi=abi['abi'], address=pool_address)
 
+registry_address = pool.functions.getOperators().call({'from': w3.eth.defaultAccount.address})
+
+with open(registry_abi_path, 'r') as file:
+    a = file.read()
+abi = json.loads(a)
+registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
+
+# temporary solution
+oracle_abi_path = os.environ['NEW_ORACLE_ABI_FILE']
+oracle_address = '0xa2BE6439d8def6dD6523AeFd02a1356772d15569'
+with open(oracle_abi_path, 'r') as file:
+    a = file.read()
+abi = json.loads(a)
+
+oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
+# end here
+
+beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
+
+slots_per_epoch = beacon_spec[0]
+seconds_per_slot = beacon_spec[1]
+
+# reportable_epoch = oracle.functions.getCurrentReportableEpoch.call({'from': w3.eth.defaultAccount.address})
+reportable_epoch = 1
+
+beacon = get_beacon(eth2_provider, slots_per_epoch)
+
+logging.info('=====The oracle daemon is started!=====')
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
 logging.info(f'ETH2 Node: {eth2_provider}')
+logging.info('Connecting to %s', beacon.__class__.__name__)
 logging.info(f'Oracle contract address: {oracle_address}')
-logging.info(f'Registry contract address: {spr_address}')
+logging.info(f'Registry contract address: {registry_address}')
 logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
-logging.info(f'Report interval: {REPORT_INTERVAL_SLOTS} slots')
-if SECONDS_PER_SLOT != MAINNET_SECONDS_PER_SLOT:
-    logging.warning(f'Seconds per slot changed to {SECONDS_PER_SLOT}')
-if SLOTS_PER_EPOCH != MAINNET_SLOTS_PER_EPOCH:
-    logging.warning(f'Slots per epoch changed to {SLOTS_PER_EPOCH}')
+logging.info(f'Seconds per slot: {seconds_per_slot}')
+logging.info(f'Slots per epoch: {slots_per_epoch}')
 logging.info('=======================================')
 
-# Get genesis time of network
-GENESIS_TIME = beacon.get_genesis()
 
-# Get actual slot and last finalized slot from beacon head data
-last_slots = beacon.get_actual_slot()
-last_finalized_slot = last_slots['finalized_slot']
-last_finalized_epoch = int(last_finalized_slot / SLOTS_PER_EPOCH)
-actual_slot = last_slots['actual_slot']
-# Get current epoch
-current_epoch = int(actual_slot / SLOTS_PER_EPOCH)
-logging.info('Last finalized epoch %s (slot %s)', last_finalized_epoch, last_finalized_slot)
-logging.info('Current epoch %s (slot %s)', current_epoch, actual_slot)
-
-# Get first slot of current epoch
-start_slot_current_epoch = current_epoch * SLOTS_PER_EPOCH
-
-# Wait till the next epoch start
-
-# Get first slot of next epoch
-start_slot_next_epoch = start_slot_current_epoch + SLOTS_PER_EPOCH
-next_epoch = int(start_slot_next_epoch / SLOTS_PER_EPOCH)
-logging.info('Next epoch %s (first slot %s)', next_epoch, start_slot_next_epoch)
-
-await_time = (start_slot_next_epoch - actual_slot) * SECONDS_PER_SLOT
-logging.info('Wait next epoch seconds %s', await_time)
-time.sleep(await_time)
-
-# Get actual slot and last finalized slot from beacon head data
-last_slots = beacon.get_actual_slot()
-logging.info('The oracle daemon is started!')
-
-# Get last epoch on REPORT_INTERVAL_SLOTS slot
-before_report_epoch = int(
-    (last_slots['finalized_slot'] // REPORT_INTERVAL_SLOTS) * (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH)
-)
-logging.info('Previous %s slots epoch %s', REPORT_INTERVAL_SLOTS, before_report_epoch)
-
-# Check if current finalized slot multiple of report_interval_slots
-if last_slots['finalized_slot'] % REPORT_INTERVAL_SLOTS == 0:
-    logging.info('Current finalized slot is multiple of %s', REPORT_INTERVAL_SLOTS)
-    next_report_epoch = before_report_epoch
-else:
-    logging.info('Wait next epoch on %s slot', REPORT_INTERVAL_SLOTS)
-    next_report_epoch = int(before_report_epoch + (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
-last_finalized_epoch = int(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
-# Sleep while last finalized slot reach expected epoch
-logging.info('Next epoch %s first slot %s', next_report_epoch, int(next_report_epoch * SLOTS_PER_EPOCH))
+await_time_const = 5
 while True:
-    if next_report_epoch <= last_finalized_epoch:
-        validators_keys = get_validators_keys(spr, w3)
+    # Get actual slot and last finalized slot from beacon head data
+    last_slots = beacon.get_actual_slot()
+    current_epoch = int(last_slots['finalized_slot'] / slots_per_epoch)
+    if reportable_epoch <= current_epoch:
+        validators_keys = get_validators_keys(registry, w3)
         if len(validators_keys) == 0:
             logging.warning('No keys on Staking Providers Registry contract')
         # Get sum of balances
-        sum_balance = beacon.get_balances(next_report_epoch, validators_keys)
-        tx_hash = oracle.functions.pushData(ts(next_report_epoch), sum_balance).buildTransaction(
+        sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
+        tx_hash = oracle.functions.reportBeacon(reportable_epoch, sum_balance).buildTransaction(
             {'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT}
         )
         tx_hash['nonce'] = w3.eth.getTransactionCount(
@@ -177,12 +138,4 @@ while True:
             logging.warning('Transaction reverted')
             logging.warning(tx_receipt)
             # TODO logic when transaction reverted
-
-        next_report_epoch = int(next_report_epoch + (REPORT_INTERVAL_SLOTS / SLOTS_PER_EPOCH))
-        logging.info('Next report epoch after report %s', next_report_epoch)
-    # Get actual slot and last finalized slot from beacon head data
-    last_slots = beacon.get_actual_slot()
-    last_finalized_epoch = int(last_slots['finalized_slot'] / SLOTS_PER_EPOCH)
-    logging.info('Wait finalized epoch %s', int(next_report_epoch))
-    logging.info('Current finalized epoch %s', last_finalized_epoch)
-    time.sleep(EPOCH_DURATION)
+    time.sleep(await_time_const)
