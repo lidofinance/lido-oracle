@@ -6,7 +6,7 @@ import time
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
 from beacon import get_beacon
-from contracts import get_validators_keys, get_report_interval
+from contracts import get_validators_keys
 
 logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%m-%d %H:%M:%S'
@@ -77,16 +77,6 @@ with open(registry_abi_path, 'r') as file:
 abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
-# temporary solution
-oracle_abi_path = os.environ['NEW_ORACLE_ABI_FILE']
-oracle_address = '0xa2BE6439d8def6dD6523AeFd02a1356772d15569'
-with open(oracle_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-
-oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
-# end here
-
 beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
 
 slots_per_epoch = beacon_spec[0]
@@ -109,7 +99,6 @@ logging.info(f'Seconds per slot: {seconds_per_slot}')
 logging.info(f'Slots per epoch: {slots_per_epoch}')
 logging.info('=======================================')
 
-
 await_time_const = 5
 while True:
     # Get actual slot and last finalized slot from beacon head data
@@ -117,25 +106,32 @@ while True:
     current_epoch = int(last_slots['finalized_slot'] / slots_per_epoch)
     if reportable_epoch <= current_epoch:
         validators_keys = get_validators_keys(registry, w3)
-        if len(validators_keys) == 0:
+        validators_keys_count = len(validators_keys)
+        if validators_keys_count == 0:
             logging.warning('No keys on Staking Providers Registry contract')
-        # Get sum of balances
-        sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
-        tx_hash = oracle.functions.reportBeacon(reportable_epoch, sum_balance).buildTransaction(
-            {'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT}
-        )
-        tx_hash['nonce'] = w3.eth.getTransactionCount(
-            w3.eth.defaultAccount.address
-        )  # Get correct transaction nonce for sender from the node
-        signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
-        tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
-        logging.info('Transaction in progress...')
-        tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-        if tx_receipt.status == 1:
-            logging.info('Transaction successful')
-            logging.info('Balances pushed!')
         else:
-            logging.warning('Transaction reverted')
-            logging.warning(tx_receipt)
-            # TODO logic when transaction reverted
+            # Get sum of balances
+            sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
+            # Check epoch
+            last_reportable_epoch = oracle.functions.lastPushedEpochId.call({'from': w3.eth.defaultAccount.address})
+            if last_reportable_epoch >= reportable_epoch:
+                logging.warning('Current reportable epoch is equal to or less than the last reporting epoch')
+            else:
+                tx_hash = oracle.functions.reportBeacon(
+                    reportable_epoch, validators_keys_count, sum_balance
+                ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
+                tx_hash['nonce'] = w3.eth.getTransactionCount(
+                    w3.eth.defaultAccount.address
+                )  # Get correct transaction nonce for sender from the node
+                signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
+                tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+                logging.info('Transaction in progress...')
+                tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+                if tx_receipt.status == 1:
+                    logging.info('Transaction successful')
+                    logging.info('Balances pushed!')
+                else:
+                    logging.warning('Transaction reverted')
+                    logging.warning(tx_receipt)
+                    # TODO logic when transaction reverted
     time.sleep(await_time_const)
