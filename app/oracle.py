@@ -77,16 +77,6 @@ with open(registry_abi_path, 'r') as file:
 abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
-# temporary solution
-oracle_abi_path = os.environ['NEW_ORACLE_ABI_FILE']
-oracle_address = '0xa2BE6439d8def6dD6523AeFd02a1356772d15569'
-with open(oracle_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-
-oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
-# end here
-
 beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
 
 slots_per_epoch = beacon_spec[0]
