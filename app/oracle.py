@@ -15,10 +15,7 @@ logging.basicConfig(
 envs = [
     'ETH1_NODE',
     'ETH2_NODE',
-    'ORACLE_CONTRACT',
-    'ORACLE_ABI_FILE',
-    'POOL_ABI_FILE',
-    'REGISTRY_ABI_FILE',
+    'LIDO_CONTRACT',
     'MANAGER_PRIV_KEY',
 ]
 missing = []
@@ -30,14 +27,19 @@ for env in envs:
 if missing:
     exit(1)
 
+ARTIFACTS_DIR = './assets'
+ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
+POOL_ARTIFACT_FILE = 'Lido.json'
+REGISTRY_ARTIFACT_FILE = 'StakingProvidersRegistry.json'
+
 eth1_provider = os.environ['ETH1_NODE']
 eth2_provider = os.environ['ETH2_NODE']
-oracle_address = os.environ['ORACLE_CONTRACT']
-if not Web3.isChecksumAddress(oracle_address):
-    oracle_address = Web3.toChecksumAddress(oracle_address)
-oracle_abi_path = os.environ['ORACLE_ABI_FILE']
-pool_abi_path = os.environ['POOL_ABI_FILE']
-registry_abi_path = os.environ['REGISTRY_ABI_FILE']
+pool_address = os.environ['LIDO_CONTRACT']
+if not Web3.isChecksumAddress(pool_address):
+    pool_address = Web3.toChecksumAddress(pool_address)
+oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
+pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
+registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
@@ -58,18 +60,21 @@ if not w3.isConnected():
 
 w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
 
-with open(oracle_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
-
-pool_address = oracle.functions.pool().call({'from': w3.eth.defaultAccount.address})
-
+# Get Pool contract
 with open(pool_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
 pool = w3.eth.contract(abi=abi['abi'], address=pool_address)
 
+# Get Oracle contract
+oracle_address = pool.functions.getOracle().call({'from': w3.eth.defaultAccount.address})
+
+with open(oracle_abi_path, 'r') as file:
+    a = file.read()
+abi = json.loads(a)
+oracle = w3.eth.contract(abi=abi['abi'], address=pool_address)
+
+# Get Registry contract
 registry_address = pool.functions.getOperators().call({'from': w3.eth.defaultAccount.address})
 
 with open(registry_abi_path, 'r') as file:
@@ -77,6 +82,7 @@ with open(registry_abi_path, 'r') as file:
 abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
+# Get Beacon specs from contract
 beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
 
 slots_per_epoch = beacon_spec[0]
@@ -92,6 +98,7 @@ logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
 logging.info(f'ETH2 Node: {eth2_provider}')
 logging.info('Connecting to %s', beacon.__class__.__name__)
+logging.info(f'Pool contract address: {pool_address}')
 logging.info(f'Oracle contract address: {oracle_address}')
 logging.info(f'Registry contract address: {registry_address}')
 logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
