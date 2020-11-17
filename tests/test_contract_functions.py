@@ -1,4 +1,4 @@
-from app.contracts import get_validators_keys, get_report_interval
+from app.contracts import get_validators_keys
 
 # fmt: off
 key_list = [
@@ -24,7 +24,7 @@ class MockContract:
         def __init__(self, keys):
             self.keys = keys
 
-        def getStakingProvidersCount(self, *args):
+        def getNodeOperatorsCount(self, *args):
             return MockContract.FunctionCallable(1)
 
         def getTotalSigningKeyCount(self, *args):
@@ -33,9 +33,6 @@ class MockContract:
         def getSigningKey(self, spr_id, index):
             result = self.keys[index]
             return MockContract.FunctionCallable(result)
-
-        def getReportIntervalDurationSeconds(self, *args):
-            return MockContract.FunctionCallable(86400)
 
     def __init__(self, keys):
         self.functions = self.Functions(keys)
@@ -61,8 +58,3 @@ spr_id = 1
 
 def test_validators_keys():
     get_validators_keys(contract, provider)
-
-
-def test_get_report_interval():
-    result = get_report_interval(contract, provider)
-    assert result == 86400
