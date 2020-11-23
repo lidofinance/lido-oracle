@@ -1,8 +1,20 @@
 FROM python:3.8-slim
+
+RUN apt-get update \
+ && apt-get install -y gcc \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+
+COPY requirements.txt ./
+RUN pip install --trusted-host pypi.python.org -r requirements.txt
+
 COPY assets ./assets
 COPY app ./
-COPY requirements.txt .
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
-CMD ["python3", "-u", "oracle.py"]
+
+ENV ETH1_NODE="" \
+    ETH2_NODE="" \
+    LIDO_CONTRACT="" \
+    MANAGER_PRIV_KEY=""
+
+ENTRYPOINT ["python3", "-u", "oracle.py"]
