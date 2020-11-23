@@ -154,9 +154,9 @@ while True:
         
         finalized_epoch = beacon.get_finalized_epoch()
         
-        # if reportable_epoch > finalized_epoch:
-        #     logging.info(f'Next reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized epoch ({finalized_epoch}), skipping...')
-        #     continue
+        if reportable_epoch > finalized_epoch:
+            logging.info(f'Next reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized epoch ({finalized_epoch}), skipping...')
+            continue
         
         logging.info('=======================================')
         logging.info(f'Reportable epoch: {reportable_epoch}')
