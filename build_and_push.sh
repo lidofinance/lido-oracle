@@ -6,7 +6,7 @@ set -o pipefail
 IMG="lidofinance/oracle:latest"
 
 echo "Building oracle Docker image..."
-docker build -t $IMG --no-cache .
+docker build -t $IMG .
 
 echo "Pushing image to the Docker Hub"
 docker push $IMG
