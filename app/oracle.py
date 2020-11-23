@@ -30,7 +30,7 @@ if missing:
 ARTIFACTS_DIR = './assets'
 ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
-REGISTRY_ARTIFACT_FILE = 'StakingProvidersRegistry.json'
+REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
 
 eth1_provider = os.environ['ETH1_NODE']
 eth2_provider = os.environ['ETH2_NODE']
@@ -72,7 +72,7 @@ oracle_address = pool.functions.getOracle().call({'from': w3.eth.defaultAccount.
 with open(oracle_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-oracle = w3.eth.contract(abi=abi['abi'], address=pool_address)
+oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 # Get Registry contract
 registry_address = pool.functions.getOperators().call({'from': w3.eth.defaultAccount.address})
@@ -88,8 +88,8 @@ beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.
 slots_per_epoch = beacon_spec[0]
 seconds_per_slot = beacon_spec[1]
 
-# reportable_epoch = oracle.functions.getCurrentReportableEpoch.call({'from': w3.eth.defaultAccount.address})
-reportable_epoch = 1
+current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+reportable_epoch = current_frame[0]
 
 beacon = get_beacon(eth2_provider, slots_per_epoch)
 
@@ -115,7 +115,7 @@ while True:
         validators_keys = get_validators_keys(registry, w3)
         validators_keys_count = len(validators_keys)
         if validators_keys_count == 0:
-            logging.warning('No keys on Staking Providers Registry contract')
+            logging.warning('No keys on Node Operators Registry contract')
         else:
             # Get sum of balances
             sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
@@ -137,6 +137,8 @@ while True:
                 if tx_receipt.status == 1:
                     logging.info('Transaction successful')
                     logging.info('Balances pushed!')
+                    current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+                    reportable_epoch = current_frame[0]
                 else:
                     logging.warning('Transaction reverted')
                     logging.warning(tx_receipt)
