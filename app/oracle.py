@@ -1,3 +1,6 @@
+import sys
+import traceback
+import binascii
 import json
 import logging
 import os
@@ -20,7 +23,7 @@ envs = [
 ]
 missing = []
 for env in envs:
-    if env not in os.environ:
+    if env not in os.environ or os.environ[env] == '':
         missing.append(env)
         logging.error('Variable %s is missing', env)
 
@@ -84,16 +87,22 @@ registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get Beacon specs from contract
 beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
-
-slots_per_epoch = beacon_spec[0]
-seconds_per_slot = beacon_spec[1]
-
-current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
-reportable_epoch = current_frame[0]
+slots_per_epoch = beacon_spec[1]
+seconds_per_slot = beacon_spec[2]
 
 beacon = get_beacon(eth2_provider, slots_per_epoch)
 
-logging.info('=====The oracle daemon is started!=====')
+isDaemon = '--daemon' in sys.argv
+shouldSubmitTx = '--submit-tx' in sys.argv
+
+if not shouldSubmitTx:
+    logging.info('Running in a DRY RUN mode! Pass the --submit-tx flag to perform actual reporting.')
+
+if isDaemon:
+    logging.info('=====The oracle daemon is started!=====')
+else:
+    logging.info('Pass the --daemon flag to run as a daemon.')
+
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
 logging.info(f'ETH2 Node: {eth2_provider}')
@@ -106,36 +115,81 @@ logging.info(f'Seconds per slot: {seconds_per_slot}')
 logging.info(f'Slots per epoch: {slots_per_epoch}')
 logging.info('=======================================')
 
-await_time_const = 5
+def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
+    return oracle.functions.reportBeacon(
+        reportable_epoch, sum_balance, validators_on_beacon 
+    ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
+
+def sign_and_send_tx(tx):
+    logging.info('Prepearing to send a tx...')
+    
+    if not isDaemon:
+        time.sleep(5) # To be able to Ctrl + C
+
+    tx['nonce'] = w3.eth.getTransactionCount(
+        w3.eth.defaultAccount.address
+    )  # Get correct transaction nonce for sender from the node
+    signed = w3.eth.account.signTransaction(tx, w3.eth.defaultAccount.privateKey)
+    
+    tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+    logging.info('Transaction in progress...')
+    
+    tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+
+    str_tx_hash = '0x' + binascii.hexlify(tx_receipt.transactionHash).decode()
+    logging.info(f'Transaction hash: {str_tx_hash}')
+    
+    if tx_receipt.status == 1:
+        logging.info('Transaction successful')
+        logging.info('Balances pushed!')
+    else:
+        logging.warning('Transaction reverted')
+        logging.warning(tx_receipt)
+
+await_time_in_sec = 60
 while True:
-    # Get actual slot and last finalized slot from beacon head data
-    last_slots = beacon.get_actual_slot()
-    current_epoch = int(last_slots['finalized_slot'] / slots_per_epoch)
-    if reportable_epoch <= current_epoch:
+    try:
+        current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+        reportable_epoch = current_frame[0]
+        
+        finalized_epoch = beacon.get_finalized_epoch()
+        
+        # if reportable_epoch > finalized_epoch:
+        #     logging.info(f'Next reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized epoch ({finalized_epoch}), skipping...')
+        #     continue
+        
+        logging.info('=======================================')
+        logging.info(f'Reportable epoch: {reportable_epoch}')
+        logging.info(f'Beacon finalized epoch: {finalized_epoch}')
+        
+        slot = reportable_epoch * slots_per_epoch
+        logging.info(f'Beacon finalized slot: {slot}')
+        
         validators_keys = get_validators_keys(registry, w3)
-        validators_keys_count = len(validators_keys)
-        if validators_keys_count == 0:
-            logging.warning('No keys on Node Operators Registry contract')
+        logging.info(f'Total validator keys in registry: {len(validators_keys)}')
+        
+        sum_balance, validators_on_beacon = beacon.get_balances(slot, validators_keys)
+        
+        logging.info(f'ReportBeacon transaction arguments:')
+        logging.info(f'Reportable epoch: {reportable_epoch}')
+        logging.info(f'Sum balance in wei: {sum_balance}')
+        logging.info(f'Validators number on Beacon chain: {validators_on_beacon}')
+
+        tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
+        
+        w3.eth.call(tx)
+        
+        logging.info('Calling tx locally is succeeded')
+
+        if shouldSubmitTx:
+            sign_and_send_tx(tx)
         else:
-            # Get sum of balances
-            sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
-            tx_hash = oracle.functions.reportBeacon(
-                reportable_epoch, validators_keys_count, sum_balance
-            ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
-            tx_hash['nonce'] = w3.eth.getTransactionCount(
-                w3.eth.defaultAccount.address
-            )  # Get correct transaction nonce for sender from the node
-            signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
-            tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
-            logging.info('Transaction in progress...')
-            tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-            if tx_receipt.status == 1:
-                logging.info('Transaction successful')
-                logging.info('Balances pushed!')
-                current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
-                reportable_epoch = current_frame[0]
-            else:
-                logging.warning('Transaction reverted')
-                logging.warning(tx_receipt)
-                # TODO logic when transaction reverted
-time.sleep(await_time_const)
+            logging.info('DRY RUN! The tx hasnt been sent to the oracle contract!')
+    except:
+        logging.error('unexcpected exception, skipping')
+        traceback.print_exc()
+    finally:
+        if isDaemon:
+            time.sleep(await_time_in_sec)
+        else:
+            exit(0)

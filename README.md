@@ -14,14 +14,31 @@ Pythonic oracle daemon for DePool decentralized staking service. Periodically re
 
 ## Run
 
-define the environment variables
+define the environment variables:
 
 ```sh
 export ETH1_NODE="http://localhost:8545"
 export ETH2_NODE="http://localhost:5052"
 export LIDO_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
 export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+```
+
+dry run without actually sending a tx:
+
+```sh
 python3 oracle.py
+```
+
+run as a command line util, push reportBeacon tx once and exit after that:
+
+```sh
+python3 oracle.py --submit-tx
+```
+
+run as a daemon:
+
+```sh
+python3 oracle.py --daemon --submit-tx
 ```
 
 ## Test
