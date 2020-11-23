@@ -119,28 +119,23 @@ while True:
         else:
             # Get sum of balances
             sum_balance = beacon.get_balances(reportable_epoch, validators_keys)
-            # Check epoch
-            last_reportable_epoch = oracle.functions.lastPushedEpochId.call({'from': w3.eth.defaultAccount.address})
-            if last_reportable_epoch >= reportable_epoch:
-                logging.warning('Current reportable epoch is equal to or less than the last reporting epoch')
+            tx_hash = oracle.functions.reportBeacon(
+                reportable_epoch, validators_keys_count, sum_balance
+            ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
+            tx_hash['nonce'] = w3.eth.getTransactionCount(
+                w3.eth.defaultAccount.address
+            )  # Get correct transaction nonce for sender from the node
+            signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
+            tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+            logging.info('Transaction in progress...')
+            tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+            if tx_receipt.status == 1:
+                logging.info('Transaction successful')
+                logging.info('Balances pushed!')
+                current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+                reportable_epoch = current_frame[0]
             else:
-                tx_hash = oracle.functions.reportBeacon(
-                    reportable_epoch, validators_keys_count, sum_balance
-                ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
-                tx_hash['nonce'] = w3.eth.getTransactionCount(
-                    w3.eth.defaultAccount.address
-                )  # Get correct transaction nonce for sender from the node
-                signed = w3.eth.account.signTransaction(tx_hash, w3.eth.defaultAccount.privateKey)
-                tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
-                logging.info('Transaction in progress...')
-                tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-                if tx_receipt.status == 1:
-                    logging.info('Transaction successful')
-                    logging.info('Balances pushed!')
-                    current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
-                    reportable_epoch = current_frame[0]
-                else:
-                    logging.warning('Transaction reverted')
-                    logging.warning(tx_receipt)
-                    # TODO logic when transaction reverted
-    time.sleep(await_time_const)
+                logging.warning('Transaction reverted')
+                logging.warning(tx_receipt)
+                # TODO logic when transaction reverted
+time.sleep(await_time_const)
