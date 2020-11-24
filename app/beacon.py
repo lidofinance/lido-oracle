@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Lido <info@lido.fi>
+
+# SPDX-License-Identifier: GPL-3.0
+
 import base64
 import binascii
 import datetime
