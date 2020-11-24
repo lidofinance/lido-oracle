@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+import traceback
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
@@ -184,11 +185,19 @@ while True:
     logging.info(f'Lido validators on Beacon chain: {validators_on_beacon}')
     logging.info(f'Tx call data: oracle.reportBeacon({reportable_epoch}, {sum_balance}, {validators_on_beacon})')
     if not dry_run:
-        # Create the tx and execute it locally to check validity
-        tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
-        w3.eth.call(tx)
-        logging.info('Calling tx locally is succeeded. Sending it to the network')
-        sign_and_send_tx(tx)
+        try:
+            tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
+            # Create the tx and execute it locally to check validity
+            w3.eth.call(tx)
+            logging.info('Calling tx locally is succeeded. Sending it to the network')
+            sign_and_send_tx(tx)
+        except:
+            logging.error('Unexpected exception. ')
+            traceback.print_exc()
+            if run_as_daemon:
+                logging.info(f'Sleep {await_time_in_sec} s.')
+                time.sleep(await_time_in_sec)
+                continue
     else:
         logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
         logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
