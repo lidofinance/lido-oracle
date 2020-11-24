@@ -61,7 +61,7 @@ if not w3.isConnected():
     logging.error('ETH node connection error!')
     exit(1)
 
-w3.eth.defaultAccount = w3.eth.account.privateKeyToAccount(manager_privkey)
+account = w3.eth.account.privateKeyToAccount(manager_privkey)
 
 # Get Pool contract
 with open(pool_abi_path, 'r') as file:
@@ -70,7 +70,7 @@ abi = json.loads(a)
 pool = w3.eth.contract(abi=abi['abi'], address=pool_address)
 
 # Get Oracle contract
-oracle_address = pool.functions.getOracle().call({'from': w3.eth.defaultAccount.address})
+oracle_address = pool.functions.getOracle().call()
 
 with open(oracle_abi_path, 'r') as file:
     a = file.read()
@@ -78,7 +78,7 @@ abi = json.loads(a)
 oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 # Get Registry contract
-registry_address = pool.functions.getOperators().call({'from': w3.eth.defaultAccount.address})
+registry_address = pool.functions.getOperators().call()
 
 with open(registry_abi_path, 'r') as file:
     a = file.read()
@@ -86,7 +86,7 @@ abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get Beacon specs from contract
-beacon_spec = oracle.functions.beaconSpec().call({'from': w3.eth.defaultAccount.address})
+beacon_spec = oracle.functions.beaconSpec().call()
 slots_per_epoch = beacon_spec[1]
 seconds_per_slot = beacon_spec[2]
 
@@ -110,7 +110,7 @@ logging.info('Connecting to %s', beacon.__class__.__name__)
 logging.info(f'Pool contract address: {pool_address}')
 logging.info(f'Oracle contract address: {oracle_address}')
 logging.info(f'Registry contract address: {registry_address}')
-logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
+logging.info(f'Manager account: {account.address}')
 logging.info(f'Seconds per slot: {seconds_per_slot}')
 logging.info(f'Slots per epoch: {slots_per_epoch}')
 logging.info('=======================================')
@@ -118,7 +118,7 @@ logging.info('=======================================')
 def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
     return oracle.functions.reportBeacon(
         reportable_epoch, sum_balance, validators_on_beacon 
-    ).buildTransaction({'from': w3.eth.defaultAccount.address, 'gas': GAS_LIMIT})
+    ).buildTransaction({'from': defaultAccount.address, 'gas': GAS_LIMIT})
 
 def sign_and_send_tx(tx):
     logging.info('Prepearing to send a tx...')
@@ -147,10 +147,12 @@ def sign_and_send_tx(tx):
         logging.warning(tx_receipt)
 
 await_time_in_sec = 60
+
+# The main loop. Runs infinitely if isDaemon==true or once if not 
 while True:
 
     # Get the frame and validators keys from ETH1 side
-    current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+    current_frame = oracle.functions.getCurrentFrame().call()
     reportable_epoch = current_frame[0]
     logging.info(f'Reportable epoch: {reportable_epoch}')
     validators_keys = get_validators_keys(registry, w3)
