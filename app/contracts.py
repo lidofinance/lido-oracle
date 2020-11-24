@@ -20,7 +20,7 @@ def get_validators_keys(contract):
         for no_id in range(node_operators_count):
             validators_keys_count = contract.functions.getTotalSigningKeyCount(no_id).call()
 
-            logging.info(f'Node operator {no_id} -> {validators_keys_count} keys')
+            logging.info(f'Node operator ID: {no_id} Keys: {validators_keys_count}')
 
             if validators_keys_count > 0:
                 for index in range(validators_keys_count):

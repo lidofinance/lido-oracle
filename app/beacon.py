@@ -73,9 +73,9 @@ class Lighthouse:
                 found_on_beacon_pubkeys.append(json['data']['validator']['pubkey'])
 
         # Log all validators along with balance
-        logging.info(f'Validator balances on beacon for slot {slot}')
+        logging.info(f'Validator balances on beacon for slot: {slot}')
         for pubkey, balance in zip(found_on_beacon_pubkeys, balance_list):
-            logging.info(f'{pubkey} -> {balance} Gwei')
+            logging.info(f'Pubkey: {pubkey[:12]} Balance: {balance} Gwei')
         balances = sum(balance_list)
         logging.info(f'Validator balances sum: {balances} Gwei')
 

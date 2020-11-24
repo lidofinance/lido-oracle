@@ -41,7 +41,7 @@ oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
-await_time_in_sec = os.getenv('SLEEP', 60)
+await_time_in_sec = int(os.getenv('SLEEP', 60))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
 
@@ -63,8 +63,12 @@ if not w3.isConnected():
     logging.error('ETH node connection error!')
     exit(1)
 
-if not dry_run:
+if dry_run:
+    logging.info('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
+else:
+    logging.info('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
     account = w3.eth.account.privateKeyToAccount(member_privkey)
+    logging.info(f'Member account: {account.address}')
 
 # Get Pool contract
 with open(pool_abi_path, 'r') as file:
@@ -95,29 +99,21 @@ seconds_per_slot = beacon_spec[2]
 
 beacon = get_beacon(beacon_provider, slots_per_epoch)
 
-if dry_run:
-    logging.warning('Running in a DRY RUN mode!')
 
 if run_as_daemon:
     logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
 else:
     logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
 
-logging.info('============ CONFIGURATION ============')
-logging.info(f'ETH1 Node: {eth1_provider}')
-logging.info(f'Beacon Node: {beacon_provider}')
-logging.info('Connecting to %s', beacon.__class__.__name__)
-logging.info(f'Pool contract address: {pool_address}')
-logging.info(f'Oracle contract address: {oracle_address}')
-logging.info(f'Registry contract address: {registry_address}')
-if dry_run:
-    logging.info(f'Member account not set in DRY RUN mode')
-else:
-    logging.info(f'Member account: {account.address}')
-
-logging.info(f'Seconds per slot: {seconds_per_slot}')
-logging.info(f'Slots per epoch: {slots_per_epoch}')
-logging.info('=======================================')
+logging.info(f'ETH1_NODE={eth1_provider}')
+logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
+logging.info(f'SLEEP={await_time_in_sec} s')
+logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
+logging.info(f'POOL_CONTRACT={pool_address}')
+logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
+logging.info(f'Registry contract address: {registry_address} (auto-discovered)')
+logging.info(f'Seconds per slot: {seconds_per_slot} (auto-discovered)')
+logging.info(f'Slots per epoch: {slots_per_epoch} (auto-discovered)')
 
 
 def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
@@ -147,12 +143,11 @@ def sign_and_send_tx(tx):
 
     if tx_receipt.status == 1:
         logging.info('Transaction successful')
-        logging.info('Balances pushed!')
     else:
         logging.warning('Transaction reverted')
         logging.warning(tx_receipt)
 
-
+logging.info('Starting the main loop')
 while True:
 
     # Get the frame and validators keys from ETH1 side
@@ -166,13 +161,13 @@ while True:
     while True:
 
         finalized_epoch = beacon.get_finalized_epoch()
-        slot = reportable_epoch * slots_per_epoch
+        reportable_slot = reportable_epoch * slots_per_epoch
 
         if reportable_epoch > finalized_epoch:
             # The reportable epoch received from the contract
             # is not finalized on the beacon chain so we are waiting
             logging.info(
-                f'Reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized (epoch: {finalized_epoch} slot: {slot}). Wait {await_time_in_sec} s'
+                f'Reportable epoch: {reportable_epoch} is not finalized on Beacon. Finalized: {finalized_epoch}. Wait {await_time_in_sec} s'
             )
             time.sleep(await_time_in_sec)
             continue
@@ -182,11 +177,11 @@ while True:
 
     # At this point the slot is finalized on the beacon
     # so we are able to retrieve validators set and balances
-    sum_balance, validators_on_beacon = beacon.get_balances(slot, validators_keys)
+    sum_balance, validators_on_beacon = beacon.get_balances(reportable_slot, validators_keys)
     logging.info(f'ReportBeacon transaction arguments:')
-    logging.info(f'Reportable epoch: {reportable_epoch}')
+    logging.info(f'Reportable epoch: {reportable_epoch} Slot: {reportable_slot}')
     logging.info(f'Sum balance in wei: {sum_balance}')
-    logging.info(f'Validators number on Beacon chain: {validators_on_beacon}')
+    logging.info(f'Lido validators on Beacon chain: {validators_on_beacon}')
     logging.info(f'Tx call data: oracle.reportBeacon({reportable_epoch}, {sum_balance}, {validators_on_beacon})')
     if not dry_run:
         # Create the tx and execute it locally to check validity
@@ -195,7 +190,8 @@ while True:
         logging.info('Calling tx locally is succeeded. Sending it to the network')
         sign_and_send_tx(tx)
     else:
-        logging.info('DRY RUN mode. The tx hasn\'t been actually sent to the oracle contract!')
+        logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
+        logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
