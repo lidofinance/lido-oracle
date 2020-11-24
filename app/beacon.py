@@ -8,7 +8,7 @@ import requests
 from requests.compat import urljoin
 
 logging.basicConfig(
-    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%m-%d %H:%M:%S'
+    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 )
 
 def get_beacon(provider, slots_per_epoch):
@@ -19,8 +19,8 @@ def get_beacon(provider, slots_per_epoch):
     if 'Prysm' in version:
         logging.error(f'Not supporting Prysm beacon node')
         exit(1)
-        # TODO: fix me 
-        # return Prysm(provider, slots_per_epoch) 
+        # TODO: fix me
+        # return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
 
@@ -56,12 +56,12 @@ class Lighthouse:
         pubkeys = []
         for key in key_list:
             pubkeys.append('0x' + binascii.hexlify(key).decode())
-        
+
         return pubkeys
 
     def get_balances(self, slot, key_list):
         pubkeys = self._convert_key_list_to_str_arr(key_list)
-        
+
         logging.info(f'Fetching validators from Beacon node...')
         balance_list = []
         found_on_beacon_pubkeys = []
@@ -69,12 +69,12 @@ class Lighthouse:
             json = requests.get(
                 urljoin(self.url, self.api_get_balance.format(slot, pubkey))
             ).json()
-            
+
             if 'data' in json:
                 balance_list.append(int(json['data']['balance']))
                 found_on_beacon_pubkeys.append(json['data']['validator']['pubkey'])
 
-        # Log all validators along with balance      
+        # Log all validators along with balance
         logging.info(f'Validator balances on beacon for slot {slot}')
         for pubkey, balance in zip(found_on_beacon_pubkeys, balance_list):
             logging.info(f'{pubkey} -> {balance} Gwei')

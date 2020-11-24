@@ -18,9 +18,9 @@ define the environment variables:
 
 ```sh
 export ETH1_NODE="http://localhost:8545"
-export ETH2_NODE="http://localhost:5052"
-export LIDO_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+export BEACON_NODE="http://localhost:5052"
+export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
+export MEMBER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
 ```
 
 dry run without actually sending a tx:
@@ -78,9 +78,9 @@ python3 count_referrals.py <start block> <end block>
 
     ```bash
     export ETH1_NODE="http://localhost:8545"
-    export ETH2_NODE="http://localhost:5052"
-    export LIDO_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-    export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+    export BEACON_NODE="http://localhost:5052"
+    export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
+    export MEMBER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
     python3 oracle.py
     ```
 

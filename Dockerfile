@@ -12,9 +12,4 @@ RUN pip install --trusted-host pypi.python.org -r requirements.txt
 COPY assets ./assets
 COPY app ./
 
-ENV ETH1_NODE="" \
-    ETH2_NODE="" \
-    LIDO_CONTRACT="" \
-    MANAGER_PRIV_KEY=""
-
 ENTRYPOINT ["python3", "-u", "oracle.py"]
