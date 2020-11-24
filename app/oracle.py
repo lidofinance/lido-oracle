@@ -99,9 +99,9 @@ if dry_run:
     logging.warning('Running in a DRY RUN mode!')
 
 if run_as_daemon:
-    logging.info('=====The oracle started as daemon!=====')
+    logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
 else:
-    logging.info('=====The oracle started in single run mode!=====')
+    logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
 
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
@@ -197,6 +197,9 @@ while True:
     else:
         logging.info('DRY RUN mode. The tx hasn\'t been actually sent to the oracle contract!')
 
-    if run_as_daemon:
-        logging.info(f'Process not daemonized so we exit.')
+    if not run_as_daemon:
+        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
         break
+    
+    logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s.')
+    time.sleep(await_time_in_sec)
