@@ -148,48 +148,49 @@ def sign_and_send_tx(tx):
 
 await_time_in_sec = 60
 while True:
-    try:
-        current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
-        reportable_epoch = current_frame[0]
+
+    # Get the frame and validators keys from ETH1 side
+    current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
+    reportable_epoch = current_frame[0]
+    logging.info(f'Reportable epoch: {reportable_epoch}')
+    validators_keys = get_validators_keys(registry, w3)
+    logging.info(f'Total validator keys in registry: {len(validators_keys)}')
+
+    # Wait for the epoch finalization on the beacon chain
+    while True:
         
         finalized_epoch = beacon.get_finalized_epoch()
-        
-        if reportable_epoch > finalized_epoch:
-            logging.info(f'Next reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized epoch ({finalized_epoch}), skipping...')
-            continue
-        
-        logging.info('=======================================')
-        logging.info(f'Reportable epoch: {reportable_epoch}')
         logging.info(f'Beacon finalized epoch: {finalized_epoch}')
-        
         slot = reportable_epoch * slots_per_epoch
         logging.info(f'Beacon finalized slot: {slot}')
         
-        validators_keys = get_validators_keys(registry, w3)
-        logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-        
-        sum_balance, validators_on_beacon = beacon.get_balances(slot, validators_keys)
-        
-        logging.info(f'ReportBeacon transaction arguments:')
-        logging.info(f'Reportable epoch: {reportable_epoch}')
-        logging.info(f'Sum balance in wei: {sum_balance}')
-        logging.info(f'Validators number on Beacon chain: {validators_on_beacon}')
-
-        tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
-        
-        w3.eth.call(tx)
-        
-        logging.info('Calling tx locally is succeeded')
-
-        if shouldSubmitTx:
-            sign_and_send_tx(tx)
-        else:
-            logging.info('DRY RUN! The tx hasnt been sent to the oracle contract!')
-    except:
-        logging.error('unexcpected exception, skipping')
-        traceback.print_exc()
-    finally:
-        if isDaemon:
+        if reportable_epoch > finalized_epoch:
+            # The reportable epoch received from the contract
+            # is not finalized on the beacon chain so we are waiting
+            logging.info(f'Reportable epoch ({reportable_epoch}) is greater than Beacon chain finalized epoch ({finalized_epoch}). Wait {await_time_in_sec} s')
             time.sleep(await_time_in_sec)
+            continue
         else:
-            exit(0)
+            logging.info(f'Reportable epoch ({reportable_epoch}) is finalized on beacon chain.')
+            break
+
+    # At this point the slot is finalized on the beacon
+    # so we are able to retrieve validators set and balances
+    sum_balance, validators_on_beacon = beacon.get_balances(slot, validators_keys)
+    logging.info(f'ReportBeacon transaction arguments:')
+    logging.info(f'Reportable epoch: {reportable_epoch}')
+    logging.info(f'Sum balance in wei: {sum_balance}')
+    logging.info(f'Validators number on Beacon chain: {validators_on_beacon}')
+    logging.info(f'Tx call data: oracle.reportBeacon({reportable_epoch}, {sum_balance}, {validators_on_beacon})')
+    if shouldSubmitTx:
+        # Create the tx and execute it locally to check validity
+        tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
+        w3.eth.call(tx)
+        logging.info('Calling tx locally is succeeded. Sending it to the network')
+        sign_and_send_tx(tx)
+    else:
+        logging.info('DRYRUN mode. The tx hasnt been actually sent to the oracle contract!')
+    
+    if isDaemon is False:
+        logging.info(f'Process not daemonized so we exit.')
+        break
