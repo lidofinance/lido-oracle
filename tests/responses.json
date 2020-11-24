@@ -12,6 +12,22 @@
         "genesis_fork_version": "0x00000001"
       }
     },
+    "finalized_epoch": {
+      "data": {
+        "previous_justified": {
+          "epoch": "23718",
+          "root": "0x8815d0e4bec947b4530dac989e8c137ad7f1ec804fd0d9834a576144915c41ef"
+        },
+        "current_justified": {
+          "epoch": "23718",
+          "root": "0x8815d0e4bec947b4530dac989e8c137ad7f1ec804fd0d9834a576144915c41ef"
+        },
+        "finalized": {
+          "epoch": "23714",
+          "root": "0xf04aaa4e208a3cb14f4d1e57f45e92c7c2ca568eeb431956a5b1de5ce744b407"
+        }
+      }
+    },
     "head_actual": {
       "data": {
         "root": "0xe363cadf644e5614384022f797cf95f6b372e758e64d19448b3018e38ccf1275",
@@ -45,23 +61,74 @@
       }
     },
     "validators": {
-      "data": [
-        {
+      "0xa384f0d7771de0278e0e9b1324b1a09bb8b3f8a62dffcdb83706e338764de893c648d6abdb4e025ef0e85a511a77a22e": {
+        "data": {
           "index": "18275",
-          "balance": "31986354237",
-          "status": "Active",
+          "balance": "30794584145",
+          "status": "active",
           "validator": {
             "pubkey": "0xa384f0d7771de0278e0e9b1324b1a09bb8b3f8a62dffcdb83706e338764de893c648d6abdb4e025ef0e85a511a77a22e",
             "withdrawal_credentials": "0x00ea6e10ae09d000fe5c95024603c7c67918fbc08f6628cfabd6b2c9b46a1320",
-            "effective_balance": 32000000000,
+            "effective_balance": "31000000000",
             "slashed": false,
-            "activation_eligibility_epoch": 0,
-            "activation_epoch": 0,
-            "exit_epoch": 18446744073709551615,
-            "withdrawable_epoch": 18446744073709551615
+            "activation_eligibility_epoch": "0",
+            "activation_epoch": "0",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
           }
         }
-      ]
+      },
+      "0x91845a12e07f57bd1ca8ba87c297461c2075c76ce600b9bb8899de0088f09279ee5e522b84759f1a857c4a9a048a358b": {
+        "data": {
+          "index": "25550",
+          "balance": "190943678165",
+          "status": "active",
+          "validator": {
+            "pubkey": "0x91845a12e07f57bd1ca8ba87c297461c2075c76ce600b9bb8899de0088f09279ee5e522b84759f1a857c4a9a048a358b",
+            "withdrawal_credentials": "0x004c3f7eb125a38b79f8c7090f1639cdde33c6183190aa7e41f50f19a271be85",
+            "effective_balance": "32000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "311",
+            "activation_epoch": "1404",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        }
+      },
+      "0x81ccb4d136cc2613ad2ace3723acd5aa44f6b272e210e008744efbb24f68e4bf61427f07db99ddc6874610d7e5130868": {
+        "data": {
+          "index": "34231",
+          "balance": "64000000000",
+          "status": "waiting_for_eligibility",
+          "validator": {
+            "pubkey": "0x81ccb4d136cc2613ad2ace3723acd5aa44f6b272e210e008744efbb24f68e4bf61427f07db99ddc6874610d7e5130868",
+            "withdrawal_credentials": "0x0005df936de03f65e436f54507b42694ea591f3a6dec5b2d40e5a76268215b25",
+            "effective_balance": "32000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "18446744073709551615",
+            "activation_epoch": "18446744073709551615",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        }
+      },
+      "0xb8cd03fa702ddd47b826a3508651e840665f1868b38c457093cbcb6905f5a83050e31b84702a9f1910c6ffdf90adeb16": {
+        "data": {
+          "index": "52757",
+          "balance": "160000000000",
+          "status": "waiting_for_eligibility",
+          "validator": {
+            "pubkey": "0xb8cd03fa702ddd47b826a3508651e840665f1868b38c457093cbcb6905f5a83050e31b84702a9f1910c6ffdf90adeb16",
+            "withdrawal_credentials": "0x00b8febd229fd6d1b0c8df13ea8094bb90054c7445890b3c70903ce51740897f",
+            "effective_balance": "32000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "18446744073709551615",
+            "activation_epoch": "18446744073709551615",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        }
+      }
     }
   },
   "prysm": {

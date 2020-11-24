@@ -11,16 +11,14 @@ logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+
 def get_beacon(provider, slots_per_epoch):
     version = requests.get(urljoin(provider, 'eth/v1/node/version')).text
     if 'Lighthouse' in version:
         return Lighthouse(provider, slots_per_epoch)
     version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
-        logging.error(f'Not supporting Prysm beacon node')
-        exit(1)
-        # TODO: fix me
-        # return Prysm(provider, slots_per_epoch)
+        return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
 
@@ -85,7 +83,7 @@ class Lighthouse:
         balances *= 10 ** 9
         total_validators_on_beacon = len(found_on_beacon_pubkeys)
 
-        return (balances, total_validators_on_beacon)
+        return balances, total_validators_on_beacon
 
 
 class Prysm:
@@ -98,6 +96,10 @@ class Prysm:
         self.url = url
         self.slots_per_epoch = slots_per_epoch
         self.version = requests.get(urljoin(url, self.api_version)).json()
+
+    def get_finalized_epoch(self):
+        finalized_epoch = int(requests.get(urljoin(self.url, self.api_beacon_head)).json()['finalizedEpoch'])
+        return finalized_epoch
 
     def get_genesis(self):
         genesis_time = requests.get(urljoin(self.url, self.api_genesis)).json()['genesisTime']
