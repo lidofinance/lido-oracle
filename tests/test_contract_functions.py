@@ -1,3 +1,5 @@
+import os
+
 from app.contracts import get_validators_keys
 
 # fmt: off
@@ -31,7 +33,7 @@ class MockContract:
             return MockContract.FunctionCallable(len(self.keys))
 
         def getSigningKey(self, spr_id, index):
-            result = self.keys[index]
+            result = self.keys[index], os.urandom(32), os.urandom(1).isalpha()
             return MockContract.FunctionCallable(result)
 
     def __init__(self, keys):
@@ -57,4 +59,5 @@ spr_id = 1
 
 
 def test_validators_keys():
-    get_validators_keys(contract, provider)
+    result = get_validators_keys(contract)
+    assert result.sort() == key_list.sort()

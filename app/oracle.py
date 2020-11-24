@@ -159,7 +159,7 @@ while True:
     current_frame = oracle.functions.getCurrentFrame().call()
     reportable_epoch = current_frame[0]
     logging.info(f'Reportable epoch: {reportable_epoch}')
-    validators_keys = get_validators_keys(registry, w3)
+    validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
 
     # Wait for the epoch finalization on the beacon chain

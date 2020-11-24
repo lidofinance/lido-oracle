@@ -4,10 +4,12 @@ logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+
 def dedup_validators_keys(validators_keys_list):
     return list(set(validators_keys_list))
 
-def get_validators_keys(contract, provider):
+
+def get_validators_keys(contract):
     node_operators_count = contract.functions.getNodeOperatorsCount().call()
 
     logging.info(f'Quering NodeOperatorsRegistry...')
