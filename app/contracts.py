@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Lido <info@lido.fi>
+
+# SPDX-License-Identifier: GPL-3.0
+
 def get_validators_keys(contract, provider):
     staking_providers_count = contract.functions.getStakingProvidersCount().call(
         {'from': provider.eth.defaultAccount.address}

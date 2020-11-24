@@ -1,6 +1,7 @@
 # Lido-Oracle
 
 ![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Pythonic oracle daemon for DePool decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (validators' balances and statuses) to the DePool dApp contract running on Ethereum 1.0 ledger.
 
@@ -93,3 +94,19 @@ python3 count_referrals.py <start block> <end block>
     ```
 
 6. ```python3 oracle.py```
+
+# License
+
+2020 Lido <info@lido.fi>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the [GNU General Public License](LICENSE)
+along with this program. If not, see <https://www.gnu.org/licenses/>.
