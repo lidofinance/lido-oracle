@@ -5,8 +5,12 @@ import json
 import logging
 import os
 import time
+import random
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
+from web3.exceptions import (
+    SolidityError
+)
 
 from beacon import get_beacon
 from contracts import get_validators_keys
@@ -103,6 +107,8 @@ if isDaemon:
 else:
     logging.info('Pass the --daemon flag to run as a daemon.')
 
+oracle_sleep_duration = seconds_per_slot * slots_per_epoch
+
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
 logging.info(f'ETH2 Node: {eth2_provider}')
@@ -113,6 +119,7 @@ logging.info(f'Registry contract address: {registry_address}')
 logging.info(f'Manager account: {w3.eth.defaultAccount.address}')
 logging.info(f'Seconds per slot: {seconds_per_slot}')
 logging.info(f'Slots per epoch: {slots_per_epoch}')
+logging.info(f'Oracle sleep duration after each step: {oracle_sleep_duration} secs')
 logging.info('=======================================')
 
 def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
@@ -146,7 +153,6 @@ def sign_and_send_tx(tx):
         logging.warning('Transaction reverted')
         logging.warning(tx_receipt)
 
-await_time_in_sec = 60
 while True:
     try:
         current_frame = oracle.functions.getCurrentFrame().call({'from': w3.eth.defaultAccount.address})
@@ -175,6 +181,12 @@ while True:
         logging.info(f'Sum balance in wei: {sum_balance}')
         logging.info(f'Validators number on Beacon chain: {validators_on_beacon}')
 
+        if isDaemon:
+            # To randomize tx submission moment in case of simultaneous
+            # launch of several oracles
+            random_wait_in_sec = random.randrange(1, 120)
+            time.sleep(random_wait_in_sec)
+
         tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
         
         w3.eth.call(tx)
@@ -185,11 +197,19 @@ while True:
             sign_and_send_tx(tx)
         else:
             logging.info('DRY RUN! The tx hasnt been sent to the oracle contract!')
+    except SolidityError as sl:
+        str_sl = str(sl)
+        if "EPOCH_IS_TOO_OLD" in str_sl:
+            logging.info(f'Frame already finalized, skipping...')
+        elif "ALREADY_SUBMITTED" in str_sl:
+            logging.info(f'Frame already reported, skipping...')
+        else:
+            logging.error(f'Running tx failed: {str_sl}')
     except:
         logging.error('unexcpected exception, skipping')
         traceback.print_exc()
     finally:
         if isDaemon:
-            time.sleep(await_time_in_sec)
+            time.sleep(oracle_sleep_duration)
         else:
             exit(0)
