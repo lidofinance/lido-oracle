@@ -8,9 +8,6 @@ import time
 import random
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
-from web3.exceptions import (
-    SolidityError
-)
 
 from beacon import get_beacon
 from contracts import get_validators_keys
@@ -197,7 +194,7 @@ while True:
             sign_and_send_tx(tx)
         else:
             logging.info('DRY RUN! The tx hasnt been sent to the oracle contract!')
-    except SolidityError as sl:
+    except web3.exceptions.SolidityError as sl:
         str_sl = str(sl)
         if "EPOCH_IS_TOO_OLD" in str_sl:
             logging.info(f'Frame already finalized, skipping...')
