@@ -6,7 +6,9 @@ import logging
 import os
 import time
 import random
+import requests
 
+import web3
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
 from beacon import get_beacon
@@ -202,6 +204,8 @@ while True:
             logging.info(f'Frame already reported, skipping...')
         else:
             logging.error(f'Running tx failed: {str_sl}')
+    except requests.exceptions.ReadTimeout as rt:
+        logging.error(f'Request to the Beacon node is timed out: {rt}')
     except:
         logging.error('unexcpected exception, skipping')
         traceback.print_exc()

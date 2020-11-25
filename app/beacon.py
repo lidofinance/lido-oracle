@@ -11,6 +11,9 @@ logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%m-%d %H:%M:%S'
 )
 
+
+req_timeout = 90 # 1.5 minute
+
 def get_beacon(provider, slots_per_epoch):
     version = requests.get(urljoin(provider, 'eth/v1/node/version')).text
     if 'Lighthouse' in version:
@@ -36,19 +39,19 @@ class Lighthouse:
     def __init__(self, url, slots_per_epoch):
         self.url = url
         self.slots_per_epoch = slots_per_epoch
-        self.version = requests.get(urljoin(url, self.api_version)).json()
+        self.version = requests.get(urljoin(url, self.api_version), timeout=req_timeout).json()
 
     def get_finalized_epoch(self):
-        return int(requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints)).json()['data']['finalized']['epoch'])
+        return int(requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints), timeout=req_timeout).json()['data']['finalized']['epoch'])
 
     def get_genesis(self):
-        return int(requests.get(urljoin(self.url, self.api_genesis)).json()['data']['genesis_time'])
+        return int(requests.get(urljoin(self.url, self.api_genesis), timeout=req_timeout).json()['data']['genesis_time'])
 
     def get_actual_slot(self):
         actual_slots = {}
-        response = requests.get(urljoin(self.url, self.api_beacon_head_actual)).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head_actual), timeout=req_timeout).json()
         actual_slots['actual_slot'] = int(response['data']['header']['message']['slot'])
-        response = requests.get(urljoin(self.url, self.api_beacon_head_finalized)).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head_finalized), timeout=req_timeout).json()
         actual_slots['finalized_slot'] = int(response['data']['header']['message']['slot'])
         return actual_slots
 
@@ -68,7 +71,7 @@ class Lighthouse:
         for pubkey in pubkeys:
             json = requests.get(
                 urljoin(self.url, self.api_get_balance.format(slot, pubkey))
-            ).json()
+            , timeout=req_timeout).json()
             
             if 'data' in json:
                 balance_list.append(int(json['data']['balance']))
@@ -97,17 +100,17 @@ class Prysm:
     def __init__(self, url, slots_per_epoch):
         self.url = url
         self.slots_per_epoch = slots_per_epoch
-        self.version = requests.get(urljoin(url, self.api_version)).json()
+        self.version = requests.get(urljoin(url, self.api_version), timeout=req_timeout).json()
 
     def get_genesis(self):
-        genesis_time = requests.get(urljoin(self.url, self.api_genesis)).json()['genesisTime']
+        genesis_time = requests.get(urljoin(self.url, self.api_genesis), timeout=req_timeout).json()['genesisTime']
         genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
         genesis_time = int(genesis_time.timestamp())
         return genesis_time
 
     def get_actual_slot(self):
         actual_slots = {}
-        response = requests.get(urljoin(self.url, self.api_beacon_head)).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head), timeout=req_timeout).json()
         actual_slots['actual_slot'] = int(response['headSlot'])
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
