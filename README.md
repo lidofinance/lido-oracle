@@ -1,6 +1,6 @@
 # Lido-Oracle daemon
 
-![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg)
+[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 
 Pythonic oracle daemon for [Lido](https://lido.fi) decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the DePool dApp contract running on Ethereum 1.0.
 
