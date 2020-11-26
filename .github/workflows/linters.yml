@@ -28,5 +28,6 @@ jobs:
         pip install  -r requirements-test.txt
     - name: Lint
       run: ./check_code.sh
+      continue-on-error: true
     - name: Test with pytest
       run: pytest
