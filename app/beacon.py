@@ -2,6 +2,7 @@ import base64
 import binascii
 import datetime
 import logging
+import math
 from datetime import timezone
 
 import requests
@@ -18,7 +19,10 @@ def get_beacon(provider, slots_per_epoch):
         return Lighthouse(provider, slots_per_epoch)
     version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
-        return Prysm(provider, slots_per_epoch)
+        logging.error(f'Not supporting Prysm beacon node')
+        exit(1)
+        # TODO: fix me
+        # return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
 
@@ -114,18 +118,26 @@ class Prysm:
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
 
-    def get_balances(self, epoch, key_list):
+    def get_balances(self, slot, key_list):
         params = {}
         pubkeys = []
+        found_on_beacon_pubkeys = []
         for key in key_list:
             pubkeys.append(base64.b64encode(key).decode())
+
+        epoch = math.ceil(slot / self.slots_per_epoch)  # Round up in case of missing slots
+
         params['publicKeys'] = pubkeys
         params['epoch'] = epoch
         response = requests.get(urljoin(self.url, self.api_get_balances), params=params)
         balance_list = []
         for validator in response.json()['balances']:
-            balance_list.append(int(validator['balance']))
+            if validator['publicKey'] in pubkeys:
+                found_on_beacon_pubkeys.append(validator['publicKey'])
+                balance_list.append(int(validator['balance']))
         balances = sum(balance_list)
         # Convert Gwei to wei
         balances *= 10 ** 9
-        return balances
+        total_validators_on_beacon = len(found_on_beacon_pubkeys)
+
+        return balances, total_validators_on_beacon
