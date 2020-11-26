@@ -7,6 +7,7 @@ import os
 import time
 import random
 import requests
+import math
 
 import web3
 from web3 import Web3, WebsocketProvider, HTTPProvider
@@ -106,7 +107,7 @@ if isDaemon:
 else:
     logging.info('Pass the --daemon flag to run as a daemon.')
 
-oracle_sleep_duration = seconds_per_slot * slots_per_epoch
+oracle_sleep_duration = math.ceil(seconds_per_slot * slots_per_epoch / 2)
 
 logging.info('============ CONFIGURATION ============')
 logging.info(f'ETH1 Node: {eth1_provider}')
