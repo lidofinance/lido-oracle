@@ -1,28 +1,50 @@
-# Lido-Oracle
+# Lido-Oracle daemon
 
 ![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg)
 
-Pythonic oracle daemon for DePool decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (validators' balances and statuses) to the DePool dApp contract running on Ethereum 1.0 ledger.
+Pythonic oracle daemon for [Lido](https://lido.fi) decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the DePool dApp contract running on Ethereum 1.0.
 
 ## How it works
 
-* After the start Oracle connects to both nodes: Ethereum 1.0 and Ethereum 2.0 beaconchain.
+* Upon the start daemon gets the last reportable epoch (from the Oracle contract) and retrieves the list of validator keys to watch for (from the Node Operators Registry).
 
-* Upon the start and then periodically Oracle polls Lido contract, gets the last known epoch and validators to watch for.
+* When the reportable epoch gets finalized on the beacon, it retrieves the Lido's validators and summarizes their balances.
 
-* Oracle periodically scans Beacon node 2.0 for epoch number. Every 7200th slot it reports the stats for each known validator to the Lido contract.
+* Tx containing the `epochId`, `beaconBalance`, and `beaconValidators` gets constructed
 
-## Run
+* If the daemon has `MEMBER_PRIV_KEY` in its environment (i.e. isn't in dry-run mode), it signs and sends the transaction to the oracle contract and waits it's get included into the block.
 
-define the environment variables
+* If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
+
+
+## Run in DryRun mode
+
+The minimal export 
 
 ```sh
 export ETH1_NODE="http://localhost:8545"
-export ETH2_NODE="http://localhost:5052"
-export LIDO_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+export BEACON_NODE="http://localhost:5052"
+export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
 python3 oracle.py
 ```
+
+## Run as the daemon in production mode
+
+To allow the daemon sending transacions, you need to provide hex-encoded private Ethereum key by defining `MEMBER_PRIV_KEY` environment var. WARNING: Keep the secret safe. The key should never be exposed outside your environment.
+
+Example:
+```sh
+export MEMBER_PRIV_KEY="0xdead4b2d8197beef19bb8a084031be71835580a01e70a45a13babd16c9bcdead"
+export ETH1_NODE="http://localhost:8545"
+export BEACON_NODE="http://localhost:5052"
+export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
+python3 oracle.py
+```
+
+## Other optional parameters
+
+* `SLEEP` - the pause between consecutive runs in the loop in seconds. Should be a fraction of the inter-report interval (frame) length. Default value: 60
+* `GAS_LIMIT` - the `gas` field of the composed transaction. Default value: `1000000` gas units
 
 ## Test
 
@@ -61,9 +83,9 @@ python3 count_referrals.py <start block> <end block>
 
     ```bash
     export ETH1_NODE="http://localhost:8545"
-    export ETH2_NODE="http://localhost:5052"
-    export LIDO_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-    export MANAGER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
+    export BEACON_NODE="http://localhost:5052"
+    export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
+    export MEMBER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
     python3 oracle.py
     ```
 
