@@ -20,10 +20,7 @@ def get_beacon(provider, slots_per_epoch):
         return Lighthouse(provider, slots_per_epoch)
     version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
-        logging.error(f'Not supporting Prysm beacon node')
-        exit(1)
-        # TODO: fix me 
-        # return Prysm(provider, slots_per_epoch) 
+        return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
 
@@ -113,6 +110,10 @@ class Prysm:
         actual_slots['actual_slot'] = int(response['headSlot'])
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
+
+    def get_finalized_epoch(self):
+        response = requests.get(urljoin(self.url, self.api_beacon_head), timeout=req_timeout).json()
+        return int(response['finalizedEpoch'])
 
     def get_balances(self, epoch, key_list):
         params = {}
