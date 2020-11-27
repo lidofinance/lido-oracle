@@ -172,7 +172,7 @@ while True:
         logging.info(f'Beacon finalized slot: {slot}')
         
         validators_keys = get_validators_keys(registry, w3)
-        logging.info(f'Total validator keys in registry: {len(validators_keys)}')
+        logging.info(f'Total validator used keys in registry: {len(validators_keys)}')
         
         sum_balance, validators_on_beacon = beacon.get_balances(slot, validators_keys)
         
