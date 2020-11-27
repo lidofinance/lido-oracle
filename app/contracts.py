@@ -31,7 +31,7 @@ def get_validators_keys(contract, provider):
             logging.info(f'Node operator {no_id} -> {validators_used_key_count}/{validators_keys_count} keys')
 
             if validators_used_key_count > 0:
-                for index in range(validators_keys_count):
+                for index in range(validators_used_key_count):
                     validator_key = contract.functions.getSigningKey(no_id, index).call(
                         {'from': provider.eth.defaultAccount.address}
                     )
