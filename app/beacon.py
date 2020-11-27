@@ -115,18 +115,20 @@ class Prysm:
         response = requests.get(urljoin(self.url, self.api_beacon_head), timeout=req_timeout).json()
         return int(response['finalizedEpoch'])
 
-    def get_balances(self, epoch, key_list):
+    def get_balances(self, slot, key_list):
         params = {}
         pubkeys = []
         for key in key_list:
             pubkeys.append(base64.b64encode(key).decode())
         params['publicKeys'] = pubkeys
-        params['epoch'] = epoch
+        params['epoch'] = int(slot / self.slots_per_epoch)
         response = requests.get(urljoin(self.url, self.api_get_balances), params=params)
         balance_list = []
         for validator in response.json()['balances']:
+            if validator["status"] == "UNKNOWN":
+                continue
             balance_list.append(int(validator['balance']))
         balances = sum(balance_list)
         # Convert Gwei to wei
         balances *= 10 ** 9
-        return balances
+        return (balances, len(balance_list))
