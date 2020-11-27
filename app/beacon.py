@@ -34,6 +34,7 @@ class Lighthouse:
     api_beacon_head_finalized = 'eth/v1/beacon/headers/finalized'
     api_beacon_head_actual = 'eth/v1/beacon/headers/head'
     api_get_balance = 'eth/v1/beacon/states/{}/validators/{}'
+    api_get_balances = 'eth/v1/beacon/states/{}/validators'
     api_get_slot = 'eth/v1/beacon/states/{}/root'
 
     def __init__(self, url, slots_per_epoch):
@@ -65,18 +66,15 @@ class Lighthouse:
     def get_balances(self, slot, key_list):
         pubkeys = self._convert_key_list_to_str_arr(key_list)
         
-        logging.info(f'Fetching validators from Beacon node...')
+        logging.info(f'Fetching validators from Beacon node...')        
+        response = requests.get(urljoin(self.url, self.api_get_balances.format(slot)))
+        
         balance_list = []
         found_on_beacon_pubkeys = []
-        for pubkey in pubkeys:
-            logging.info(f'Fetching validator stats for {pubkey}')
-            json = requests.get(
-                urljoin(self.url, self.api_get_balance.format(slot, pubkey))
-            , timeout=req_timeout).json()
-            
-            if 'data' in json:
-                balance_list.append(int(json['data']['balance']))
-                found_on_beacon_pubkeys.append(json['data']['validator']['pubkey'])
+        for validator in response.json()['data']:
+            if validator['validator']['pubkey'] in pubkeys:
+                balance_list.append(int(validator['balance']))
+                found_on_beacon_pubkeys.append(validator['validator']['pubkey'])
 
         # Log all validators along with balance      
         logging.info(f'Validator balances on beacon for slot {slot}')
