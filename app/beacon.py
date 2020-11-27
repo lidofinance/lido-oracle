@@ -69,6 +69,7 @@ class Lighthouse:
         balance_list = []
         found_on_beacon_pubkeys = []
         for pubkey in pubkeys:
+            logging.info(f'Fetching validator stats for {pubkey}')
             json = requests.get(
                 urljoin(self.url, self.api_get_balance.format(slot, pubkey))
             , timeout=req_timeout).json()

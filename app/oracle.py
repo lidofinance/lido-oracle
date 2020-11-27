@@ -49,7 +49,7 @@ pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 manager_privkey = os.environ['MANAGER_PRIV_KEY']
 
-GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
+GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1500000))
 
 if eth1_provider.startswith('http'):
     provider = HTTPProvider(eth1_provider)

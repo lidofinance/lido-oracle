@@ -21,17 +21,23 @@ def get_validators_keys(contract, provider):
             validators_keys_count = contract.functions.getTotalSigningKeyCount(no_id).call(
                 {'from': provider.eth.defaultAccount.address}
             )
-            
-            logging.info(f'Node operator {no_id} -> {validators_keys_count} keys')
 
-            if validators_keys_count > 0:
+            validators_unused_keys_count = contract.functions.getUnusedSigningKeyCount(no_id).call(
+                {'from': provider.eth.defaultAccount.address}
+            )
+            
+            validators_used_key_count = validators_keys_count - validators_unused_keys_count
+
+            logging.info(f'Node operator {no_id} -> {validators_used_key_count}/{validators_keys_count} keys')
+
+            if validators_used_key_count > 0:
                 for index in range(validators_keys_count):
                     validator_key = contract.functions.getSigningKey(no_id, index).call(
                         {'from': provider.eth.defaultAccount.address}
                     )
                     validators_keys_list.append(validator_key[0])
                     index += 1
-    
+
     dedupped = dedup_validators_keys(validators_keys_list)
     
     if len(dedupped) != len(validators_keys_list):
