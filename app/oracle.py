@@ -52,7 +52,7 @@ run_as_daemon = int(os.getenv('DAEMON', 0))
 
 dry_run = member_privkey is None
 
-GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1000000))
+GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1_500_000))
 
 if eth1_provider.startswith('http'):
     provider = HTTPProvider(eth1_provider)
@@ -79,10 +79,10 @@ else:
 with open(pool_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-pool = w3.eth.contract(abi=abi['abi'], address=pool_address)
+pool = w3.eth.contract(abi=abi['abi'], address=pool_address)  # contract object
 
 # Get Oracle contract
-oracle_address = pool.functions.getOracle().call()
+oracle_address = pool.functions.getOracle().call()  # oracle contract
 
 with open(oracle_abi_path, 'r') as file:
     a = file.read()
@@ -102,7 +102,7 @@ beacon_spec = oracle.functions.beaconSpec().call()
 slots_per_epoch = beacon_spec[1]
 seconds_per_slot = beacon_spec[2]
 
-beacon = get_beacon(beacon_provider, slots_per_epoch)
+beacon = get_beacon(beacon_provider, slots_per_epoch)  # >>lighthouse<< / prism implementation of ETH 2.0
 
 
 if run_as_daemon:
@@ -121,7 +121,7 @@ logging.info(f'Seconds per slot: {seconds_per_slot} (auto-discovered)')
 logging.info(f'Slots per epoch: {slots_per_epoch} (auto-discovered)')
 
 
-def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
+def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):  # hash tx
     return oracle.functions.reportBeacon(
         reportable_epoch, sum_balance, validators_on_beacon
     ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
@@ -165,8 +165,8 @@ while True:
     # Wait for the epoch finalization on the beacon chain
     while True:
 
-        finalized_epoch = beacon.get_finalized_epoch()
-        reportable_slot = reportable_epoch * slots_per_epoch
+        finalized_epoch = beacon.get_finalized_epoch()  # take into account only finalized epoch
+        reportable_slot = reportable_epoch * slots_per_epoch  # it's possible that in epoch there are less slots
 
         if reportable_epoch > finalized_epoch:
             # The reportable epoch received from the contract
