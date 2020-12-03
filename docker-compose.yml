@@ -3,6 +3,7 @@ services:
   oracle:
     build: .
     environment:
+      SLEEP: 3600
       ETH1_NODE: http://192.168.1.36:8545
       BEACON_NODE: http://192.168.1.36:5052
       POOL_CONTRACT: "0xD8e196c1AECE9dCc657bf60aE0762FA63de20018"
