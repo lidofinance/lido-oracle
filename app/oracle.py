@@ -195,9 +195,17 @@ while True:
             w3.eth.call(tx)
             logging.info('Calling tx locally is succeeded. Sending it to the network')
             sign_and_send_tx(tx)
-        except:
-            logging.error('Unexpected exception. ')
-            traceback.print_exc()
+        except Exception as exc:
+            if isinstance(exc, ValueError) and 'execution reverted: EPOCH_IS_TOO_OLD' in str(exc):
+                # e.g. {
+                #   'code': 3,
+                #   'message':
+                #   'execution reverted: EPOCH_IS_TOO_OLD',
+                #   'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001045504f43485f49535f544f4f5f4f4c4400000000000000000000000000000000'
+                # }
+                logging.warning(f'execution reverted: EPOCH_IS_TOO_OLD')
+            else:
+                logging.exception(f'Unexpected exception. {type(exc)}')
             if run_as_daemon:
                 logging.info(f'Sleep {await_time_in_sec} s.')
                 time.sleep(await_time_in_sec)
