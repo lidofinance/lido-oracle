@@ -17,10 +17,9 @@ Pythonic oracle daemon for [Lido](https://lido.fi) decentralized staking service
 
 * If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
 
-
 ## Run in DryRun mode
 
-The minimal export 
+The minimal export
 
 ```sh
 export ETH1_NODE="http://localhost:8545"
@@ -34,6 +33,7 @@ python3 oracle.py
 To allow the daemon sending transacions, you need to provide hex-encoded private Ethereum key by defining `MEMBER_PRIV_KEY` environment var. WARNING: Keep the secret safe. The key should never be exposed outside your environment.
 
 Example:
+
 ```sh
 export MEMBER_PRIV_KEY="0xdead4b2d8197beef19bb8a084031be71835580a01e70a45a13babd16c9bcdead"
 export ETH1_NODE="http://localhost:8545"
@@ -41,6 +41,38 @@ export BEACON_NODE="http://localhost:5052"
 export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
 python3 oracle.py
 ```
+
+## Run Docker container
+
+Add or edit variables in [docker-compose.yml](docker-compose.yml) file
+
+To run in interactive mode
+
+```bash
+docker-compose run oracle
+```
+
+Closing console will terminate the process
+
+**To run in background**
+
+```bash
+docker-compose up -d
+```
+
+**To view container logs**
+
+ ```bash
+docker-compose logs
+```
+
+**To access process inside container in interactive mode**
+
+```bash
+docker attach $(docker-compose ps --filter "name=oracle" -q)
+```
+
+To safely exit container, leaving process running, press `Ctrl+Q` or `Ctrl+P`
 
 ## Other optional parameters
 
@@ -51,7 +83,7 @@ python3 oracle.py
 
 To run tests you need all test dependencies installed
 
-```
+```bash
 pip install -U -r requirements-test.txt
 ```
 
@@ -76,7 +108,7 @@ python3 count_referrals.py <start block> <end block>
 
 ## Work with e2e environment
 
-1. run e2e enviroment lido-dao project(<https://github.com/lidofinance/lido-dao>). Testing on commit c63a05fa6bfa8cdf0360c2741c37a780eee0b093 
+1. run e2e enviroment lido-dao project(<https://github.com/lidofinance/lido-dao>). Testing on commit c63a05fa6bfa8cdf0360c2741c37a780eee0b093
 
 2. Define the environment variables.
 

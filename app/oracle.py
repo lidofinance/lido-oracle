@@ -104,7 +104,6 @@ seconds_per_slot = beacon_spec[2]
 
 beacon = get_beacon(beacon_provider, slots_per_epoch)  # >>lighthouse<< / prism implementation of ETH 2.0
 
-
 if run_as_daemon:
     logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
 else:
@@ -152,6 +151,20 @@ def sign_and_send_tx(tx):
         logging.warning('Transaction reverted')
         logging.warning(tx_receipt)
 
+
+def prompt(prompt_message, prompt_end):
+    logging.warning(prompt_message)
+    while True:
+        choice = input().lower()
+        if choice == 'y':
+            return True
+        elif choice == 'n':
+            return False
+        else:
+            print('Please respond with [y or n]: ', end=prompt_end)
+            continue
+
+
 logging.info('Starting the main loop')
 while True:
 
@@ -194,7 +207,12 @@ while True:
             # Create the tx and execute it locally to check validity
             w3.eth.call(tx)
             logging.info('Calling tx locally is succeeded. Sending it to the network')
-            sign_and_send_tx(tx)
+            if run_as_daemon:
+                sign_and_send_tx(tx)
+            else:
+                logging.info(f'Tx data: {tx.__repr__()}')
+                if prompt('Should we sent this TX? [y/n]: ', ''):
+                    sign_and_send_tx(tx)
         except:
             logging.error('Unexpected exception. ')
             traceback.print_exc()
@@ -209,6 +227,6 @@ while True:
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
         break
-    
+
     logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s.')
     time.sleep(await_time_in_sec)
