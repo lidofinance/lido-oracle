@@ -153,7 +153,7 @@ def sign_and_send_tx(tx):
 
 
 def prompt(prompt_message, prompt_end):
-    print(prompt_message, end=prompt_end)
+    logging.warning(prompt_message)
     while True:
         choice = input().lower()
         if choice == 'y':

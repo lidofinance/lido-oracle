@@ -2,8 +2,10 @@ version: '3.7'
 services:
   oracle:
     build: .
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
     environment:
       ETH1_NODE: http://192.168.1.36:8545
       BEACON_NODE: http://192.168.1.36:5052
-      POOL_CONTRACT: "0xD8e196c1AECE9dCc657bf60aE0762FA63de20018"
-      DAEMON: 1
+      POOL_CONTRACT: "0xc12e8e7adcEaF31c1Ca5F8aFD99AB88439628183"
+      MEMBER_PRIV_KEY: "0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
