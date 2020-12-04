@@ -1,16 +1,16 @@
 --- /home/klyaus/PycharmProjects/otherblyat/lido-oracle/app/oracle.py	2020-12-02 20:05:59.563340884 +0300
 +++ /home/klyaus/PycharmProjects/new3/lido-oracle/app/oracle.py	2020-12-02 20:56:33.695780428 +0300
 @@ -11,13 +11,17 @@
- 
+
  from web3 import Web3, WebsocketProvider, HTTPProvider
- 
+
 -from beacon import get_beacon
 -from contracts import get_validators_keys
- 
+
  logging.basicConfig(
      level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
  )
- 
+
 +os.environ['ETH1_NODE'] = 'http://localhost:8545'
 +os.environ['BEACON_NODE'] = 'http://localhost:5052'
 +os.environ['POOL_CONTRACT'] = '0xc12e8e7adcEaF31c1Ca5F8aFD99AB88439628183'
@@ -21,9 +21,9 @@
      'ETH1_NODE',
      'BEACON_NODE',
 @@ -64,16 +68,10 @@
- 
+
  w3 = Web3(provider)
- 
+
 -if not w3.isConnected():
 -    logging.error('ETH node connection error!')
 -    exit(1)
@@ -34,43 +34,43 @@
      logging.info('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
 -    account = w3.eth.account.privateKeyToAccount(member_privkey)
 -    logging.info(f'Member account: {account.address}')
- 
+
  # Get Pool contract
  with open(pool_abi_path, 'r') as file:
 @@ -82,15 +80,14 @@
- pool = w3.eth.contract(abi=abi['abi'], address=pool_address)
- 
+ pool = w3.eth.contract(abi=abi['abi'], address=pool_address)  # contract object
+
  # Get Oracle contract
--oracle_address = pool.functions.getOracle().call()
+-oracle_address = pool.functions.getOracle().call()  # oracle contract
 -
 +oracle_address = '0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A'
  with open(oracle_abi_path, 'r') as file:
      a = file.read()
  abi = json.loads(a)
  oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
- 
+
  # Get Registry contract
 -registry_address = pool.functions.getOperators().call()
 +registry_address = '0x5ec5DDf7A0cdD3235AD1bCC0ad04F059507EC5a3'
- 
+
  with open(registry_abi_path, 'r') as file:
      a = file.read()
 @@ -98,11 +95,10 @@
  registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
- 
+
  # Get Beacon specs from contract
 -beacon_spec = oracle.functions.beaconSpec().call()
 +beacon_spec = [1, 8, 1]
  slots_per_epoch = beacon_spec[1]
  seconds_per_slot = beacon_spec[2]
- 
--beacon = get_beacon(beacon_provider, slots_per_epoch)
- 
+
+-beacon = get_beacon(beacon_provider, slots_per_epoch)  # >>lighthouse<< / prism implementation of ETH 2.0
+
  if run_as_daemon:
      logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
 @@ -110,7 +106,7 @@
      logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
- 
+
  logging.info(f'ETH1_NODE={eth1_provider}')
 -logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
 +logging.info(f'BEACON_NODE={beacon_provider} Lighthouse API)')
@@ -79,9 +79,9 @@
  logging.info(f'POOL_CONTRACT={pool_address}')
 @@ -120,38 +116,6 @@
  logging.info(f'Slots per epoch: {slots_per_epoch} (auto-discovered)')
- 
- 
--def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
+
+
+-def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):  # hash tx
 -    return oracle.functions.reportBeacon(
 -        reportable_epoch, sum_balance, validators_on_beacon
 -    ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
@@ -118,7 +118,7 @@
      while True:
 @@ -169,16 +133,22 @@
  while True:
- 
+
      # Get the frame and validators keys from ETH1 side
 -    current_frame = oracle.functions.getCurrentFrame().call()
 +    # current_frame = oracle.functions.getCurrentFrame().call()
@@ -133,17 +133,17 @@
 +        b'\xb8\xcd\x03\xfap-\xddG\xb8&\xa3P\x86Q\xe8@f_\x18h\xb3\x8cEp\x93\xcb\xcbi\x05\xf5\xa80P\xe3\x1b\x84p*\x9f\x19\x10\xc6\xff\xdf\x90\xad\xeb\x16'  # noqa E501
 +    ]
      logging.info(f'Total validator keys in registry: {len(validators_keys)}')
- 
+
      # Wait for the epoch finalization on the beacon chain
      while True:
- 
--        finalized_epoch = beacon.get_finalized_epoch()
+
+-        finalized_epoch = beacon.get_finalized_epoch()  # take into account only finalized epoch
 +        finalized_epoch = 23714
-         reportable_slot = reportable_epoch * slots_per_epoch
- 
+         reportable_slot = reportable_epoch * slots_per_epoch  # it's possible that in epoch there are less slots
+
          if reportable_epoch > finalized_epoch:
 @@ -195,7 +165,7 @@
- 
+
      # At this point the slot is finalized on the beacon
      # so we are able to retrieve validators set and balances
 -    sum_balance, validators_on_beacon = beacon.get_balances(reportable_slot, validators_keys)
