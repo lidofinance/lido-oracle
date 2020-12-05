@@ -99,8 +99,10 @@ registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get Beacon specs from contract
 beacon_spec = oracle.functions.beaconSpec().call()
+epochs_per_frame = beacon_spec[0]
 slots_per_epoch = beacon_spec[1]
 seconds_per_slot = beacon_spec[2]
+genesis_time = beacon_spec[3]
 
 beacon = get_beacon(beacon_provider, slots_per_epoch)  # >>lighthouse<< / prism implementation of ETH 2.0
 
@@ -118,6 +120,8 @@ logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
 logging.info(f'Registry contract address: {registry_address} (auto-discovered)')
 logging.info(f'Seconds per slot: {seconds_per_slot} (auto-discovered)')
 logging.info(f'Slots per epoch: {slots_per_epoch} (auto-discovered)')
+logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
+logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
 def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):  # hash tx
@@ -127,33 +131,28 @@ def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):
 
 
 def sign_and_send_tx(tx):
-    logging.info('Prepearing to send a tx...')
-
-    if not run_as_daemon:
-        time.sleep(5)  # To be able to Ctrl + C
-
+    logging.info('Preparing TX... CTRL-C to abort')
+    time.sleep(3)  # To be able to Ctrl + C
     tx['nonce'] = w3.eth.getTransactionCount(
         account.address
     )  # Get correct transaction nonce for sender from the node
     signed = w3.eth.account.signTransaction(tx, account.privateKey)
-
+    logging.info(f'TX hash: {signed.hash.hex()} ... CTRL-C to abort')
+    time.sleep(3)
+    logging.info(f'Sending TX... CTRL-C to abort')
+    time.sleep(3)
     tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
-    logging.info('Transaction in progress...')
-
+    logging.info('TX has been sent. Waiting for receipt...')
     tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-
-    str_tx_hash = '0x' + binascii.hexlify(tx_receipt.transactionHash).decode()
-    logging.info(f'Transaction hash: {str_tx_hash}')
-
     if tx_receipt.status == 1:
-        logging.info('Transaction successful')
+        logging.info('TX successful')
     else:
-        logging.warning('Transaction reverted')
+        logging.warning('TX reverted')
         logging.warning(tx_receipt)
 
 
 def prompt(prompt_message, prompt_end):
-    logging.warning(prompt_message)
+    print(prompt_message, end='')
     while True:
         choice = input().lower()
         if choice == 'y':
@@ -167,50 +166,33 @@ def prompt(prompt_message, prompt_end):
 
 logging.info('Starting the main loop')
 while True:
-
-    # Get the frame and validators keys from ETH1 side
+    # Get the the epoch that is both finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
-    reportable_epoch = current_frame[0]
-    logging.info(f'Reportable epoch: {reportable_epoch}')
+    potentially_reportable_epoch = current_frame[0]
+    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
+    finalized_epoch_beacon = beacon.get_finalized_epoch()
+    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
+    reportable_epoch = min(finalized_epoch_beacon, potentially_reportable_epoch) // epochs_per_frame * epochs_per_frame
+    reportable_slot = reportable_epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{reportable_epoch} slot:{reportable_slot}')
+
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-
-    # Wait for the epoch finalization on the beacon chain
-    while True:
-
-        finalized_epoch = beacon.get_finalized_epoch()  # take into account only finalized epoch
-        reportable_slot = reportable_epoch * slots_per_epoch  # it's possible that in epoch there are less slots
-
-        if reportable_epoch > finalized_epoch:
-            # The reportable epoch received from the contract
-            # is not finalized on the beacon chain so we are waiting
-            logging.info(
-                f'Reportable epoch: {reportable_epoch} is not finalized on Beacon. Finalized: {finalized_epoch}. Wait {await_time_in_sec} s'
-            )
-            time.sleep(await_time_in_sec)
-            continue
-        else:
-            logging.info(f'Reportable epoch ({reportable_epoch}) is finalized on beacon chain.')
-            break
-
-    # At this point the slot is finalized on the beacon
-    # so we are able to retrieve validators set and balances
     sum_balance, validators_on_beacon = beacon.get_balances(reportable_slot, validators_keys)
-    logging.info(f'ReportBeacon transaction arguments:')
-    logging.info(f'Reportable epoch: {reportable_epoch} Slot: {reportable_slot}')
-    logging.info(f'Sum balance in wei: {sum_balance}')
-    logging.info(f'Lido validators on Beacon chain: {validators_on_beacon}')
+
+    logging.info(f'Total balance on Beacon: {sum_balance} wei')
+    logging.info(f'Lido validators on Beacon: {validators_on_beacon}')
     logging.info(f'Tx call data: oracle.reportBeacon({reportable_epoch}, {sum_balance}, {validators_on_beacon})')
     if not dry_run:
         try:
             tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
             # Create the tx and execute it locally to check validity
             w3.eth.call(tx)
-            logging.info('Calling tx locally is succeeded. Sending it to the network')
+            logging.info('Calling tx locally is succeeded.')
             if run_as_daemon:
                 sign_and_send_tx(tx)
             else:
-                logging.info(f'Tx data: {tx.__repr__()}')
+                print(f'Tx data: {tx.__repr__()}')
                 if prompt('Should we sent this TX? [y/n]: ', ''):
                     sign_and_send_tx(tx)
         except Exception as exc:
@@ -232,5 +214,5 @@ while True:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
         break
 
-    logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s.')
+    logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s and continue')
     time.sleep(await_time_in_sec)
