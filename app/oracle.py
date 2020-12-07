@@ -17,6 +17,20 @@ logging.basicConfig(
     level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+VERSION_JSON_PATH = os.environ.get('VERSION_JSON_PATH', '/version.json')
+if os.path.exists(VERSION_JSON_PATH):
+    with open(VERSION_JSON_PATH) as version_file:
+        version_info = json.load(version_file)
+    logging.info('version: %s' % version_info.get('version'))
+    logging.info('commit_message: %s' % version_info.get('commit_message'))
+    logging.info('commit_hash: %s' % version_info.get('commit_hash'))
+    logging.info('commit_datetime: %s' % version_info.get('commit_datetime'))
+    logging.info('build_datetime: %s' % version_info.get('build_datetime'))
+    logging.info('tags: %s' % version_info.get('tags'))
+    logging.info('branch: %s' % version_info.get('branch'))
+else:
+    logging.info('version json file does not exist')
+
 envs = [
     'ETH1_NODE',
     'BEACON_NODE',

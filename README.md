@@ -17,6 +17,18 @@ Pythonic oracle daemon for [Lido](https://lido.fi) decentralized staking service
 
 * If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
 
+## Build Docker
+
+```bash
+./build.sh
+```
+
+to build and push use
+
+```bash
+./build.sh --push
+```
+
 ## Run in DryRun mode
 
 The minimal export
