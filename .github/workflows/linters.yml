@@ -29,5 +29,8 @@ jobs:
     - name: Lint
       run: ./check_code.sh
       continue-on-error: true
-    - name: Test with pytest
-      run: ./run_tests.sh
+    - name: Test with pytest and Lighthouse beacon
+      run: ./run_tests.sh Lighthouse
+
+    - name: Test with pytest and Prysm beacon
+      run: ./run_tests.sh Prysm
