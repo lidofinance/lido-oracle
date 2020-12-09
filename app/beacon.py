@@ -84,14 +84,12 @@ class Lighthouse:
         logging.info(f'Validator balances on beacon for slot: {slot}')
         for pubkey, balance in zip(found_on_beacon_pubkeys, balance_list):
             logging.info(f'Pubkey: {pubkey[:12]} Balance: {balance} Gwei')
-        balances = sum(balance_list)
-        logging.info(f'Validator balances sum: {balances} Gwei')
+        balance = sum(balance_list)
 
         # Convert Gwei to wei
-        balances *= 10 ** 9
-        total_validators_on_beacon = len(found_on_beacon_pubkeys)
-
-        return balances, total_validators_on_beacon
+        balance *= 10 ** 9
+        validators = len(found_on_beacon_pubkeys)
+        return balance, validators
 
 
 class Prysm:

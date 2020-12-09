@@ -8,6 +8,8 @@ import logging
 import os
 import time
 import traceback
+import datetime
+import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
 
@@ -128,7 +130,7 @@ else:
 
 logging.info(f'ETH1_NODE={eth1_provider}')
 logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
-logging.info(f'SLEEP={await_time_in_sec} s')
+logging.info(f'SLEEP={await_time_in_sec} s (pause between iterations in DAEMON mode)')
 logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
 logging.info(f'POOL_CONTRACT={pool_address}')
 logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
@@ -139,9 +141,9 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
-def build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon):  # hash tx
+def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
-        reportable_epoch, sum_balance, validators_on_beacon
+        epoch, balance, validators
     ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
 
 
@@ -179,36 +181,82 @@ def prompt(prompt_message, prompt_end):
             continue
 
 
+def get_previous_frame():
+    """Since the contract lacks a method that returns the time of last report and the reported numbers
+    we are using web3.py filtering to fetch it from the contract events."""
+    logging.info('Getting previously reported numbers (will be fetched from events)...')
+    SECONDS_PER_ETH1_BLOCK = 14
+    latest_block = w3.eth.getBlock('latest')
+    #Calculate earliest block to limit scanning depth
+    from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
+    events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
+    if events:
+        event = events[-1]
+        epoch = event['args']['epochId']
+        balance = event['args']['beaconBalance']
+        beacon_validators = event['args']['beaconValidators']
+        timestamp = w3.eth.getBlock(event['blockHash'])['timestamp']
+        return (epoch, balance, beacon_validators, timestamp)
+    else:
+        logging.warning('No events on the contract')
+        return False
+
 logging.info('Starting the main loop')
 while True:
+    # Get previously reported data 
+    prev_frame = get_previous_frame()
+    if prev_frame:
+        prev_epoch, prev_balance, prev_validators, prev_timestamp = prev_frame
+        logging.info(f'Previously reported epoch: {prev_epoch}')
+        logging.info(f'Previously reported beaconBalance: {prev_balance} wei or {prev_balance/1e18} ETH')
+        logging.info(f'Previously reported beaconValidators: {prev_validators}')
+        logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_timestamp)} or {prev_timestamp}')
+
     # Get the the epoch that is both finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
     potentially_reportable_epoch = current_frame[0]
     logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
     finalized_epoch_beacon = beacon.get_finalized_epoch()
     logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    reportable_epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-    reportable_slot = reportable_epoch * slots_per_epoch
-    logging.info(f'Reportable state: epoch:{reportable_epoch} slot:{reportable_slot}')
+    epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+    slot = epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{epoch} slot:{slot}')
 
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-    sum_balance, validators_on_beacon = beacon.get_balances(reportable_slot, validators_keys)
+    balance, validators = beacon.get_balances(slot, validators_keys)
 
-    logging.info(f'Total balance on Beacon: {sum_balance} wei')
-    logging.info(f'Lido validators on Beacon: {validators_on_beacon}')
-    logging.info(f'Tx call data: oracle.reportBeacon({reportable_epoch}, {sum_balance}, {validators_on_beacon})')
+    logging.info(f'Lido validators\' sum. balance on Beacon: {balance} wei or {balance/1e18} ETH')
+    logging.info(f'Lido validators visible on Beacon: {validators}')
+
+    if prev_frame:
+        balance_change = balance - prev_balance
+        delta_seconds = int(time.time()) - prev_timestamp
+        logging.info(f'Time since previous report: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
+        logging.info(f'Balance change since previous report: {balance_change:+} wei or {(balance_change / 1e18):+} ETH')
+        if balance_change < 0:
+            logging.warning('Balance decreased! Validators were either slashed or suffered penalties!')
+        validators_change = validators - prev_validators
+        logging.info(f'Validators change since previus report: {validators_change:+}')
+        if validators_change < 0:
+            logging.warning('The number of beacon validators unexpectedly decreased!')
+            if run_as_daemon:
+                logging.warning('Can\'t proceed further. Restarting and hope for the best...')
+            else:
+                raise Exception('Number of beacon validators unexpectedly decreased')
+
+    logging.info(f'Tx call data: oracle.reportBeacon({epoch}, {balance}, {validators})')
     if not dry_run:
         try:
-            tx = build_report_beacon_tx(reportable_epoch, sum_balance, validators_on_beacon)
+            tx = build_report_beacon_tx(epoch, balance, validators)
             # Create the tx and execute it locally to check validity
             w3.eth.call(tx)
-            logging.info('Calling tx locally is succeeded.')
+            logging.info('Calling tx locally succeeded.')
             if run_as_daemon:
                 sign_and_send_tx(tx)
             else:
                 print(f'Tx data: {tx.__repr__()}')
-                if prompt('Should we sent this TX? [y/n]: ', ''):
+                if prompt('Should we send this TX? [y/n]: ', ''):
                     sign_and_send_tx(tx)
         except Exception as exc:
             if isinstance(exc, ValueError) and 'execution reverted: EPOCH_IS_TOO_OLD' in str(exc):
