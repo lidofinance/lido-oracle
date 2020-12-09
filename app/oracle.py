@@ -187,7 +187,7 @@ while True:
     logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
     finalized_epoch_beacon = beacon.get_finalized_epoch()
     logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    reportable_epoch = min(finalized_epoch_beacon, potentially_reportable_epoch) // epochs_per_frame * epochs_per_frame
+    reportable_epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
     reportable_slot = reportable_epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{reportable_epoch} slot:{reportable_slot}')
 
