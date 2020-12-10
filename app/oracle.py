@@ -175,6 +175,13 @@ def compare_pool_metrics(previous, current):
     total_pooled_eth_increase = current.getTotalPooledEther() - previous.getTotalPooledEther()
     if total_pooled_eth_increase > 0:
         logging.info(f'totalPooledEther will increase by {total_pooled_eth_increase} wei or {total_pooled_eth_increase/1e18} ETH')
+        # APR calculation
+        days = delta_seconds / 60 / 60 / 24
+        daily_interest_rate = total_pooled_eth_increase / previous.getTotalPooledEther() / days
+        apr = daily_interest_rate * 365
+        logging.info(f'Increase since last report: {total_pooled_eth_increase / previous.getTotalPooledEther() * 100:.4f} %')
+        logging.info(f'Expected APR: {apr * 100:.4f} %')
+
     elif total_pooled_eth_increase < 0:
         logging.warning(f'totalPooledEther will decrease by {-total_pooled_eth_increase} wei or {-total_pooled_eth_increase/1e18} ETH')
         logging.warning('Validators were either slashed or suffered penalties!')
