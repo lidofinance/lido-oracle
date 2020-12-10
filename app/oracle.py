@@ -2,12 +2,9 @@
 
 # SPDX-License-Identifier: GPL-3.0
 
-import binascii
 import json
 import logging
 import os
-import time
-import traceback
 import datetime
 import time
 
@@ -72,16 +69,16 @@ if not w3.isConnected():
 
 # See EIP-155 for the list of other well-known Net IDs
 networks = {
-    1: {'name': 'Mainnet', 'engine':'PoW'},
-    5: {'name': 'Goerli', 'engine':'PoA'},
-    1337: {'name': 'E2E', 'engine':'PoA'}
+    1: {'name': 'Mainnet', 'engine': 'PoW'},
+    5: {'name': 'Goerli', 'engine': 'PoA'},
+    1337: {'name': 'E2E', 'engine': 'PoA'}
 }
 
 network_id = w3.eth.chainId
 if network_id in networks.keys():
     logging.info(f"Connected to {networks[network_id]['name']} network ({networks[network_id]['engine']} engine)")
     if networks[network_id]['engine'] == 'PoA':
-        logging.info(f"Injecting PoA compatibility middleware")
+        logging.info("Injecting PoA compatibility middleware")
         from web3.middleware import geth_poa_middleware
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
@@ -141,6 +138,50 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
+class PoolMetrics:
+    DEPOSIT_SIZE = int(32 * 1e18)
+    epoch = 0
+    beaconBalance = 0
+    beaconValidators = 0
+    timestamp = 0
+    bufferedBalance = 0
+    depositedValidators = 0
+
+    def getTotalPooledEther(self):
+        return self.bufferedBalance + self.beaconBalance + self.getTransientBalance()
+
+    def getTransientValidators(self):
+        assert(self.depositedValidators >= self.beaconValidators)
+        return self.depositedValidators - self.beaconValidators
+
+    def getTransientBalance(self):
+        return self.getTransientValidators() * self.DEPOSIT_SIZE
+
+
+def compare_pool_metrics(previous, current):
+    """Describes the economics of metrics change.
+    Helps the Node operator to understand the effect of firing composed TX"""
+    delta_seconds = current.timestamp - previous.timestamp
+    logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
+    logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
+    if current.beaconValidators < previous.beaconValidators:
+        logging.warning('The number of beacon validators unexpectedly decreased!')
+    logging.info(f'beaconValidators before:{previous.beaconValidators} after:{current.beaconValidators} change:{current.beaconValidators - previous.beaconValidators}')
+    logging.info(f'transientValidators before:{previous.getTransientValidators()} after:{current.getTransientValidators()} change:{current.getTransientValidators() - previous.getTransientValidators()}')
+    logging.info(f'beaconBalance before:{previous.beaconBalance} after:{current.beaconBalance} change:{current.beaconBalance - previous.beaconBalance}')
+    logging.info(f'bufferedBalance before:{previous.bufferedBalance} after:{current.bufferedBalance} change:{current.bufferedBalance - previous.bufferedBalance}')
+    logging.info(f'transientBalance before:{previous.getTransientBalance()} after:{current.getTransientBalance()} change:{current.getTransientBalance() - previous.getTransientBalance()}')
+    logging.info(f'totalPooledEther before:{previous.getTotalPooledEther()} after:{current.getTotalPooledEther()} ')
+    total_pooled_eth_increase = current.getTotalPooledEther() - previous.getTotalPooledEther()
+    if total_pooled_eth_increase > 0:
+        logging.info(f'totalPooledEther will increase by {total_pooled_eth_increase} wei or {total_pooled_eth_increase/1e18} ETH')
+    elif total_pooled_eth_increase < 0:
+        logging.warning(f'totalPooledEther will decrease by {-total_pooled_eth_increase} wei or {-total_pooled_eth_increase/1e18} ETH')
+        logging.warning('Validators were either slashed or suffered penalties!')
+    else:
+        logging.info('totalPooledEther will stay intact. This won\'t have any economical impact on the pool.')
+
+
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
         epoch, balance, validators
@@ -156,7 +197,7 @@ def sign_and_send_tx(tx):
     signed = w3.eth.account.signTransaction(tx, account.privateKey)
     logging.info(f'TX hash: {signed.hash.hex()} ... CTRL-C to abort')
     time.sleep(3)
-    logging.info(f'Sending TX... CTRL-C to abort')
+    logging.info('Sending TX... CTRL-C to abort')
     time.sleep(3)
     tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
     logging.info('TX has been sent. Waiting for receipt...')
@@ -181,97 +222,106 @@ def prompt(prompt_message, prompt_end):
             continue
 
 
-def get_previous_frame():
+def get_previous_metrics():
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
     SECONDS_PER_ETH1_BLOCK = 14
     latest_block = w3.eth.getBlock('latest')
-    #Calculate earliest block to limit scanning depth
+    # Calculate earliest block to limit scanning depth
     from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
     events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
     if events:
+        result = PoolMetrics()
         event = events[-1]
-        epoch = event['args']['epochId']
-        balance = event['args']['beaconBalance']
-        beacon_validators = event['args']['beaconValidators']
-        timestamp = w3.eth.getBlock(event['blockHash'])['timestamp']
-        return (epoch, balance, beacon_validators, timestamp)
+        result.epoch = event['args']['epochId']
+        result.beaconBalance = event['args']['beaconBalance']
+        result.beaconValidators = event['args']['beaconValidators']
+        block = w3.eth.getBlock(event['blockHash'])
+        result.timestamp = block['timestamp']
+        result.bufferedBalance = pool.functions.getBufferedEther().call(block_identifier=block.number)
+        deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call(block_identifier=block.number)
+        assert beaconValidators == result.beaconValidators
+        assert beaconBalance == result.beaconBalance
+        result.depositedValidators = deposited_validators
+        assert result.getTotalPooledEther() == pool.functions.getTotalPooledEther().call(block_identifier=block.number)
+        return result
     else:
-        logging.warning('No events on the contract')
+        logging.info('No events on the contract. It\'s ok if it\'s the first run.')
         return False
 
-logging.info('Starting the main loop')
-while True:
-    # Get previously reported data 
-    prev_frame = get_previous_frame()
-    if prev_frame:
-        prev_epoch, prev_balance, prev_validators, prev_timestamp = prev_frame
-        logging.info(f'Previously reported epoch: {prev_epoch}')
-        logging.info(f'Previously reported beaconBalance: {prev_balance} wei or {prev_balance/1e18} ETH')
-        logging.info(f'Previously reported beaconValidators: {prev_validators}')
-        logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_timestamp)} or {prev_timestamp}')
 
+def get_current_metrics():
+    result = PoolMetrics()
     # Get the the epoch that is both finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
     potentially_reportable_epoch = current_frame[0]
     logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
     finalized_epoch_beacon = beacon.get_finalized_epoch()
     logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-    slot = epoch * slots_per_epoch
-    logging.info(f'Reportable state: epoch:{epoch} slot:{slot}')
+    result.epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+    slot = result.epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{result.epoch} slot:{slot}')
 
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-    balance, validators = beacon.get_balances(slot, validators_keys)
 
-    logging.info(f'Lido validators\' sum. balance on Beacon: {balance} wei or {balance/1e18} ETH')
-    logging.info(f'Lido validators visible on Beacon: {validators}')
+    result.timestamp = w3.eth.getBlock('latest')['timestamp']
+    result.beaconBalance, result.beaconValidators = beacon.get_balances(slot, validators_keys)
+    result.depositedValidators = pool.functions.getBeaconStat().call()[0]
+    result.bufferedBalance = pool.functions.getBufferedEther().call()
+    logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
+    logging.info(f'Lido validators visible on Beacon: {result.beaconValidators}')
+    return result
 
-    if prev_frame:
-        balance_change = balance - prev_balance
-        delta_seconds = int(time.time()) - prev_timestamp
-        logging.info(f'Time since previous report: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
-        logging.info(f'Balance change since previous report: {balance_change:+} wei or {(balance_change / 1e18):+} ETH')
-        if balance_change < 0:
-            logging.warning('Balance decreased! Validators were either slashed or suffered penalties!')
-        validators_change = validators - prev_validators
-        logging.info(f'Validators change since previus report: {validators_change:+}')
-        if validators_change < 0:
-            logging.warning('The number of beacon validators unexpectedly decreased!')
-            if run_as_daemon:
-                logging.warning('Can\'t proceed further. Restarting and hope for the best...')
-            else:
-                raise Exception('Number of beacon validators unexpectedly decreased')
 
-    logging.info(f'Tx call data: oracle.reportBeacon({epoch}, {balance}, {validators})')
-    if not dry_run:
-        try:
-            tx = build_report_beacon_tx(epoch, balance, validators)
-            # Create the tx and execute it locally to check validity
-            w3.eth.call(tx)
-            logging.info('Calling tx locally succeeded.')
-            if run_as_daemon:
-                sign_and_send_tx(tx)
-            else:
-                print(f'Tx data: {tx.__repr__()}')
-                if prompt('Should we send this TX? [y/n]: ', ''):
-                    sign_and_send_tx(tx)
-        except Exception as exc:
-            if isinstance(exc, ValueError) and 'execution reverted: EPOCH_IS_TOO_OLD' in str(exc):
-                # e.g. {
-                #   'code': 3,
-                #   'message':
-                #   'execution reverted: EPOCH_IS_TOO_OLD',
-                #   'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001045504f43485f49535f544f4f5f4f4c4400000000000000000000000000000000'
-                # }
-                logging.warning(f'execution reverted: EPOCH_IS_TOO_OLD')
-            else:
-                logging.exception(f'Unexpected exception. {type(exc)}')
+logging.info('Starting the main loop')
+while True:
+    # Get previously reported data
+    prev_metrics = get_previous_metrics()
+    if prev_metrics:
+        logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
+        logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
+        logging.info(f'Previously reported bufferedBalance: {prev_metrics.bufferedBalance} wei or {prev_metrics.bufferedBalance/1e18} ETH')
+        logging.info(f'Previous validator metrics: depositedValidators:{prev_metrics.depositedValidators}')
+        logging.info(f'Previous validator metrics: transientValidators:{prev_metrics.getTransientValidators()}')
+        logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
+        logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
+
+    current_metrics = get_current_metrics()
+
+    if prev_metrics and current_metrics.epoch <= prev_metrics.epoch:
+        logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
     else:
-        logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
-        logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+        if prev_metrics:
+            compare_pool_metrics(prev_metrics, current_metrics)
+        logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
+        if not dry_run:
+            try:
+                tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
+                # Create the tx and execute it locally to check validity
+                w3.eth.call(tx)
+                logging.info('Calling tx locally succeeded.')
+                if run_as_daemon:
+                    sign_and_send_tx(tx)
+                else:
+                    print(f'Tx data: {tx.__repr__()}')
+                    if prompt('Should we send this TX? [y/n]: ', ''):
+                        sign_and_send_tx(tx)
+            except Exception as exc:
+                if isinstance(exc, ValueError) and 'execution reverted: EPOCH_IS_TOO_OLD' in str(exc):
+                    # e.g. {
+                    #   'code': 3,
+                    #   'message':
+                    #   'execution reverted: EPOCH_IS_TOO_OLD',
+                    #   'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001045504f43485f49535f544f4f5f4f4c4400000000000000000000000000000000'
+                    # }
+                    logging.warning('execution reverted: EPOCH_IS_TOO_OLD')
+                else:
+                    logging.exception(f'Unexpected exception. {type(exc)}')
+        else:
+            logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
+            logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
