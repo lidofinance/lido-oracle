@@ -86,7 +86,7 @@ if dry_run:
     logging.info('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
 else:
     logging.info('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
-    account = w3.eth.account.privateKeyToAccount(member_privkey)
+    account = w3.eth.account.from_key(member_privkey)
     logging.info(f'Member account: {account.address}')
 
 # Get Pool contract
