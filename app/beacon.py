@@ -123,19 +123,32 @@ class Prysm:
         params = {}
         pubkeys = []
         found_on_beacon_pubkeys = []
+        balance_list = []
+        key_dict = {}
         for key in key_list:
-            pubkeys.append(base64.b64encode(key).decode())
+            base64_key = base64.b64encode(key).decode()
+            hex_key = '0x' + binascii.hexlify(key).decode()
+            key_dict[base64_key] = hex_key[:12]
+            pubkeys.append(base64_key)
 
         epoch = math.ceil(slot / self.slots_per_epoch)  # Round up in case of missing slots
 
-        params['publicKeys'] = pubkeys
-        params['epoch'] = epoch
-        response = requests.get(urljoin(self.url, self.api_get_balances), params=params)
-        balance_list = []
-        for validator in response.json()['balances']:
+        for pk in pubkeys:
+            params['publicKeys'] = pk
+            params['epoch'] = epoch
+            response = requests.get(urljoin(self.url, self.api_get_balances), params=params)
+            if 'error' in response.json():
+                logging.error(f'Pubkey {key_dict[pk]} return error')
+                continue
+            validator = response.json()['balances'][0]
             if validator['publicKey'] in pubkeys:
                 found_on_beacon_pubkeys.append(validator['publicKey'])
-                balance_list.append(int(validator['balance']))
+                balance = int(validator['balance'])
+                balance_list.append(balance)
+                logging.info(f'Pubkey: {key_dict[pk]} Balance: {balance} Gwei')
+            elif validator['status'] == 'UNKNOWN':
+                logging.warning(f'Pubkey {key_dict[pk]} status UNKNOWN')
+
         balances = sum(balance_list)
         # Convert Gwei to wei
         balances *= 10 ** 9
