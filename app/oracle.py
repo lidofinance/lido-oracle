@@ -9,6 +9,7 @@ import datetime
 import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
+from web3.exceptions import SolidityError
 
 from beacon import get_beacon
 from contracts import get_validators_keys
@@ -317,17 +318,27 @@ while True:
                     print(f'Tx data: {tx.__repr__()}')
                     if prompt('Should we send this TX? [y/n]: ', ''):
                         sign_and_send_tx(tx)
-            except Exception as exc:
-                if isinstance(exc, ValueError) and 'execution reverted: EPOCH_IS_TOO_OLD' in str(exc):
-                    # e.g. {
-                    #   'code': 3,
-                    #   'message':
-                    #   'execution reverted: EPOCH_IS_TOO_OLD',
-                    #   'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001045504f43485f49535f544f4f5f4f4c4400000000000000000000000000000000'
-                    # }
-                    logging.warning('execution reverted: EPOCH_IS_TOO_OLD')
+
+            except SolidityError as sl:
+                str_sl = str(sl)
+                if "EPOCH_IS_TOO_OLD" in str_sl:
+                    logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
+                elif "ALREADY_SUBMITTED" in str_sl:
+                    logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
+                elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
+                    logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
+                elif "MEMBER_NOT_FOUND" in str_sl:
+                    logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
+                elif "REPORTED_MORE_DEPOSITED" in str_sl:
+                    logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
+                elif "REPORTED_LESS_VALIDATORS" in str_sl:
+                    logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
                 else:
-                    logging.exception(f'Unexpected exception. {type(exc)}')
+                    logging.error(f'Calling tx locally failed: {str_sl}')
+
+            except Exception as exc:
+                logging.exception(f'Unexpected exception. {type(exc)}')
+
         else:
             logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
             logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
