@@ -1,17 +1,64 @@
+import json
 from time import sleep
 from aiohttp import web
+
 routes = web.RouteTableDef()
+
+with open('tests/responses.json', 'r') as file:
+    responses = json.loads(file.read())
+
+lighthouse_responses = responses['lighthouse']
+prysm_responses = responses['prysm']
+
+
+@routes.get('/mock/set/{beacon}')
+async def set_beacon(request):
+    beacon = int(request.match_info['beacon'])
+    if beacon == 1:
+        request.app['ligthouse'] = True
+        request.app['prysm'] = not request.app['ligthouse']
+        print('mock set to Lighthouse')
+        return web.json_response('mock set to Lighthouse')
+    else:
+        request.app['prysm'] = True
+        request.app['ligthouse'] = not request.app['prysm']
+        print('mock set to Prysm')
+        return web.json_response('mock set to Prysm')
 
 
 @routes.get('/eth/v1/node/version')
 async def beacon_ver(request):
-    req = request.json()
-    return (web.json_response({"data": {"version": "Lighthouse/v0.3.5-7e4ee5872/x86_64-linux"}}))
+    if request.app['ligthouse']:
+        return web.json_response(lighthouse_responses['version'])
+    return web.json_response('404: Not Found')
 
 
 @routes.get('/eth/v1/beacon/states/head/finality_checkpoints')
 async def beacon_cp(request):
-    return (web.json_response({"data": {"previous_justified": {"epoch": "1157", "root": "0x46ea7a6abb05670a379f0df70377160e8baa074a390ef6541500ec3d71dd8512"}, "current_justified": {"epoch": "1158", "root": "0x96c360e66b761f2d6c794adcebff8a1152afbff466bd13070b32c1d28a0ce4ac"}, "finalized": {"epoch": "1157", "root": "0x46ea7a6abb05670a379f0df70377160e8baa074a390ef6541500ec3d71dd8512"}}}))
+    if request.app['ligthouse']:
+        return web.json_response(lighthouse_responses['finalized_epoch'])
+    return web.json_response('404: Not Found')
+
+
+@routes.get('/eth/v1alpha1/node/version')
+async def prysm_ver(request):
+    if request.app['prysm']:
+        return web.json_response(prysm_responses['version'])
+    return web.json_response('404: Not Found')
+
+
+@routes.get('/eth/v1alpha1/beacon/chainhead')
+async def beacon_prysm__cp(request):
+    if request.app['prysm']:
+        return web.json_response(prysm_responses['head'])
+    return web.json_response('404: Not Found')
+
+
+@routes.get('/eth/v1alpha1/validators/balances')
+async def validators_prysm(request):
+    if request.app['prysm']:
+        return web.json_response(prysm_responses['validators'])
+    return web.json_response('404: Not Found')
 
 
 @routes.post('/')
@@ -67,6 +114,8 @@ async def eth1(request):
 
 def main(argv):
     app = web.Application()
+    app['ligthouse'] = True
+    app['prysm'] = not app['ligthouse']
     app.add_routes(routes)
     web.run_app(app)
     return app

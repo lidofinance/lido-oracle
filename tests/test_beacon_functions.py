@@ -130,37 +130,36 @@ def test_balance_lighthouse(lighthouse_requests):
     assert result == (445738262310000000000, 4)
 
 
-# TODO Update Prysm logic
-# def test_version_prysm(prysm_requests):
-#     beacon = get_beacon('localhost', 1)
-#     assert "Prysm" in str(beacon.version)
-#
-#
-# def test_genesis_prysm(prysm_requests):
-#     beacon = get_beacon('localhost', 1)
-#     result = beacon.get_genesis()
-#     assert result == 1596546008
-#
-#
-# def test_finalized_epoch_prysm(prysm_requests):
-#     beacon = get_beacon('localhost', 1)
-#     result = beacon.get_finalized_epoch()
-#     assert result == 15614
-#
-#
-# def test_head_prysm(prysm_requests):
-#     beacon = get_beacon('localhost', 1)
-#     result = beacon.get_actual_slot()
-#     assert int(result['actual_slot']) == 604444 and int(result['finalized_slot']) == 499648
-#
-#
-# def test_balance_prysm(prysm_requests):
-#     beacon = get_beacon('localhost', 1)
-#     result = beacon.get_balances(10, key_list)
-#     assert result == (1148763837967000000000, 4)
-#
-#
-# def test_version_bad(bad_requests):
-#     with pytest.raises(ValueError) as event:
-#         get_beacon('localhost', 1)
-#     assert event.type == ValueError
+def test_version_prysm(prysm_requests):
+    beacon = get_beacon('localhost', 1)
+    assert "Prysm" in str(beacon.version)
+
+
+def test_genesis_prysm(prysm_requests):
+    beacon = get_beacon('localhost', 1)
+    result = beacon.get_genesis()
+    assert result == 1596546008
+
+
+def test_finalized_epoch_prysm(prysm_requests):
+    beacon = get_beacon('localhost', 1)
+    result = beacon.get_finalized_epoch()
+    assert result == 15614
+
+
+def test_head_prysm(prysm_requests):
+    beacon = get_beacon('localhost', 1)
+    result = beacon.get_actual_slot()
+    assert int(result['actual_slot']) == 604444 and int(result['finalized_slot']) == 499648
+
+
+def test_balance_prysm(prysm_requests):
+    beacon = get_beacon('localhost', 1)
+    result = beacon.get_balances(10, key_list)
+    assert result == (1148763837967000000000, 4)
+
+
+def test_version_bad(bad_requests):
+    with pytest.raises(ValueError) as event:
+        get_beacon('localhost', 1)
+    assert event.type == ValueError

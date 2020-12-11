@@ -87,10 +87,10 @@ To run tests you need all test dependencies installed
 pip install -U -r requirements-test.txt
 ```
 
-To run tests just type
+To run tests
 
-```python
-pytest
+```bash
+./run_tests.sh
 ```
 
 ## Helpers

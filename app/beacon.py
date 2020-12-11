@@ -23,10 +23,7 @@ def get_beacon(provider, slots_per_epoch):
         return Lighthouse(provider, slots_per_epoch)
     version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
-        logging.error(f'Not supporting Prysm beacon node')
-        exit(1)
-        # TODO: fix me
-        # return Prysm(provider, slots_per_epoch)
+        return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
 
