@@ -61,8 +61,8 @@
       }
     },
     "validators": {
-      "0xa384f0d7771de0278e0e9b1324b1a09bb8b3f8a62dffcdb83706e338764de893c648d6abdb4e025ef0e85a511a77a22e": {
-        "data": {
+      "data": [
+        {
           "index": "18275",
           "balance": "30794584145",
           "status": "active",
@@ -76,10 +76,8 @@
             "exit_epoch": "18446744073709551615",
             "withdrawable_epoch": "18446744073709551615"
           }
-        }
-      },
-      "0x91845a12e07f57bd1ca8ba87c297461c2075c76ce600b9bb8899de0088f09279ee5e522b84759f1a857c4a9a048a358b": {
-        "data": {
+        },
+        {
           "index": "25550",
           "balance": "190943678165",
           "status": "active",
@@ -93,10 +91,8 @@
             "exit_epoch": "18446744073709551615",
             "withdrawable_epoch": "18446744073709551615"
           }
-        }
-      },
-      "0x81ccb4d136cc2613ad2ace3723acd5aa44f6b272e210e008744efbb24f68e4bf61427f07db99ddc6874610d7e5130868": {
-        "data": {
+        },
+        {
           "index": "34231",
           "balance": "64000000000",
           "status": "waiting_for_eligibility",
@@ -110,10 +106,8 @@
             "exit_epoch": "18446744073709551615",
             "withdrawable_epoch": "18446744073709551615"
           }
-        }
-      },
-      "0xb8cd03fa702ddd47b826a3508651e840665f1868b38c457093cbcb6905f5a83050e31b84702a9f1910c6ffdf90adeb16": {
-        "data": {
+        },
+        {
           "index": "52757",
           "balance": "160000000000",
           "status": "waiting_for_eligibility",
@@ -128,7 +122,7 @@
             "withdrawable_epoch": "18446744073709551615"
           }
         }
-      }
+      ]
     }
   },
   "prysm": {

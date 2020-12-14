@@ -15,28 +15,35 @@ prysm_responses = responses['prysm']
 async def set_beacon(request):
     beacon = int(request.match_info['beacon'])
     if beacon == 1:
-        request.app['ligthouse'] = True
-        request.app['prysm'] = not request.app['ligthouse']
+        request.app['lighthouse'] = True
+        request.app['prysm'] = not request.app['lighthouse']
         print('mock set to Lighthouse')
         return web.json_response('mock set to Lighthouse')
     else:
         request.app['prysm'] = True
-        request.app['ligthouse'] = not request.app['prysm']
+        request.app['lighthouse'] = not request.app['prysm']
         print('mock set to Prysm')
         return web.json_response('mock set to Prysm')
 
 
 @routes.get('/eth/v1/node/version')
 async def beacon_ver(request):
-    if request.app['ligthouse']:
+    if request.app['lighthouse']:
         return web.json_response(lighthouse_responses['version'])
     return web.json_response('404: Not Found')
 
 
 @routes.get('/eth/v1/beacon/states/head/finality_checkpoints')
 async def beacon_cp(request):
-    if request.app['ligthouse']:
+    if request.app['lighthouse']:
         return web.json_response(lighthouse_responses['finalized_epoch'])
+    return web.json_response('404: Not Found')
+
+
+@routes.get('/eth/v1/beacon/states/9120/validators')
+async def validators_lighthouse(request):
+    if request.app['lighthouse']:
+        return web.json_response(lighthouse_responses['validators'])
     return web.json_response('404: Not Found')
 
 
@@ -128,8 +135,8 @@ async def eth1(request):
 
 def main(argv):
     app = web.Application()
-    app['ligthouse'] = True
-    app['prysm'] = not app['ligthouse']
+    app['lighthouse'] = True
+    app['prysm'] = not app['lighthouse']
     app.add_routes(routes)
     web.run_app(app)
     return app
