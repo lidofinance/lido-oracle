@@ -77,7 +77,9 @@ def prysm_requests(monkeypatch):
         if 'eth/v1alpha1/beacon/chainhead' in uri:
             return MockResponse(head)
         if 'eth/v1alpha1/validators/balances' in uri:
-            return MockResponse(validators)
+            pubKey = kwargs['params']['publicKeys']
+            validator = json.loads(validators)[pubKey]
+            return MockResponse(json.dumps(validator))
         else:
             return MockResponse('')
 
