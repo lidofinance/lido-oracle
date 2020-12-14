@@ -35,6 +35,8 @@ ARTIFACTS_DIR = './assets'
 ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
+DEFAULT_SLEEP = 60
+DEFAULT_GAS_LIMIT = 1_500_000
 
 eth1_provider = os.environ['ETH1_NODE']
 beacon_provider = os.environ['BEACON_NODE']
@@ -45,13 +47,13 @@ oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
-await_time_in_sec = int(os.getenv('SLEEP', 60))
+await_time_in_sec = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
 
 dry_run = member_privkey is None
 
-GAS_LIMIT = int(os.getenv('GAS_LIMIT', 1_500_000))
+GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
 if eth1_provider.startswith('http'):
     provider = HTTPProvider(eth1_provider)
