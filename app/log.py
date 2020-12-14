@@ -15,17 +15,15 @@ def _setup_logger(
         fmt: str = '%(levelname)8s %(asctime)s <daemon> %(message)s',
         datefmt: str = '%Y-%m-%d %H:%M:%S',
 ):
-    logger.setLevel(logging.DEBUG)
-
     formatter = logging.Formatter(fmt, datefmt=datefmt)
 
     h_stdout = logging.StreamHandler(sys.stdout)
-    h_stdout.setLevel(logging.DEBUG)
-    h_stdout.addFilter(lambda record: record.levelno <= logging.INFO)
+    h_stdout.setLevel(logging.NOTSET)
+    h_stdout.addFilter(lambda record: record.levelno <= logging.WARNING)
     h_stdout.setFormatter(formatter)
     logger.addHandler(h_stdout)
 
-    h_stderr = logging.StreamHandler()
-    h_stderr.setLevel(logging.WARNING)
+    h_stderr = logging.StreamHandler(sys.stderr)
+    h_stderr.setLevel(logging.ERROR)
     h_stderr.setFormatter(formatter)
     logger.addHandler(h_stderr)

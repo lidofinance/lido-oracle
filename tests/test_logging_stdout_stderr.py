@@ -1,10 +1,11 @@
 import logging
 
-from log import _setup_logger
+from app.log import _setup_logger
 
 
 def test_debug_stdout(capsys):
     logger = logging.getLogger('test_debug_stdout')
+    logger.setLevel(logging.DEBUG)
     _setup_logger(logger, '%(levelname)s %(message)s')
     logger.debug('some debug log')
     captured = capsys.readouterr()
@@ -14,6 +15,7 @@ def test_debug_stdout(capsys):
 
 def test_info_stdout(capsys):
     logger = logging.getLogger('test_info_stdout')
+    logger.setLevel(logging.INFO)
     _setup_logger(logger, '%(levelname)s %(message)s')
     logger.info('some info log')
     captured = capsys.readouterr()
@@ -26,8 +28,8 @@ def test_warning_stdout(capsys):
     _setup_logger(logger, '%(levelname)s %(message)s')
     logger.warning('some warning log')
     captured = capsys.readouterr()
-    assert captured.out == ""
-    assert captured.err == "WARNING some warning log\n"
+    assert captured.out == "WARNING some warning log\n"
+    assert captured.err == ""
 
 
 def test_error_stdout(capsys):
