@@ -13,10 +13,10 @@ from web3.exceptions import SolidityError
 
 from beacon import get_beacon
 from contracts import get_validators_keys
+from log import init_log
 
-logging.basicConfig(
-    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-)
+init_log()
+logger = logging.getLogger(__name__)
 
 envs = [
     'ETH1_NODE',
