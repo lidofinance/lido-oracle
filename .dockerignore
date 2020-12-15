@@ -2,3 +2,4 @@
 !/app/
 !/assets/
 !requirements.txt
+!version.json
