@@ -15,6 +15,10 @@ def _setup_logger(
         fmt: str = '%(levelname)8s %(asctime)s <daemon> %(message)s',
         datefmt: str = '%Y-%m-%d %H:%M:%S',
 ):
+    # Remove default handler
+    if logger.handlers:
+        logger.handlers = []
+
     formatter = logging.Formatter(fmt, datefmt=datefmt)
 
     h_stdout = logging.StreamHandler(sys.stdout)

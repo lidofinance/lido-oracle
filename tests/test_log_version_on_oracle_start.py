@@ -33,7 +33,7 @@ def test_show_version_with_correct_file():
         n_lines = 7
         lines = []
         while time.time() < start_at + TIMEOUT and len(lines) < n_lines:
-            line = proc.stderr.readline()  # todo: change to stdout after merge with #57
+            line = proc.stdout.readline()
             line = line.strip()
             if line:
                 lines.append(line)
@@ -64,7 +64,7 @@ def test_show_version_with_incorrect_file():
         n_lines = 1
         lines = []
         while time.time() < start_at + TIMEOUT and len(lines) < n_lines:
-            line = proc.stderr.readline()  # todo: change to stdout after merge with #57
+            line = proc.stdout.readline()
             line = line.strip()
             if line:
                 lines.append(line)
