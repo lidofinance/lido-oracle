@@ -33,7 +33,7 @@ class Lighthouse:
     api_beacon_head_finality_checkpoints = 'eth/v1/beacon/states/head/finality_checkpoints'
     api_beacon_head_finalized = 'eth/v1/beacon/headers/finalized'
     api_beacon_head_actual = 'eth/v1/beacon/headers/head'
-    api_get_balance = 'eth/v1/beacon/states/{}/validators/{}'
+    api_get_balances = 'eth/v1/beacon/states/{}/validators'
     api_get_slot = 'eth/v1/beacon/states/{}/root'
 
     def __init__(self, url, slots_per_epoch):
@@ -66,21 +66,20 @@ class Lighthouse:
         pubkeys = self._convert_key_list_to_str_arr(key_list)
 
         logging.info(f'Fetching validators from Beacon node...')
+        response_json = requests.get(urljoin(self.url, self.api_get_balances.format(slot))).json()
         balance_list = []
         found_on_beacon_pubkeys = []
-        for pubkey in pubkeys:
-            json = requests.get(
-                urljoin(self.url, self.api_get_balance.format(slot, pubkey))
-            ).json()
-
-            if 'data' in json:
-                balance_list.append(int(json['data']['balance']))
-                found_on_beacon_pubkeys.append(json['data']['validator']['pubkey'])
-
-        # Log all validators along with balance
         logging.info(f'Validator balances on beacon for slot: {slot}')
-        for pubkey, balance in zip(found_on_beacon_pubkeys, balance_list):
-            logging.info(f'Pubkey: {pubkey[:12]} Balance: {balance} Gwei')
+        for validator in response_json['data']:
+            pubkey = validator['validator']['pubkey']
+            # Log all validators along with balance
+            if pubkey in pubkeys:
+                validator_balance = int(validator['balance'])
+                balance_list.append(validator_balance)
+                found_on_beacon_pubkeys.append(validator['validator']['pubkey'])
+                logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')
+            elif validator['status'] == 'UNKNOWN':
+                logging.warning(f'Pubkey {pubkey[:12]} status UNKNOWN')
         balance = sum(balance_list)
 
         # Convert Gwei to wei

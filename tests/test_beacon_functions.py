@@ -49,8 +49,7 @@ def lighthouse_requests(monkeypatch):
         if 'eth/v1/beacon/headers/finalized' in uri:
             return MockResponse(head_finalized)
         if 'validators' in uri:
-            validator = json.loads(validators)[uri.split('/')[-1]]
-            return MockResponse(json.dumps(validator))
+            return MockResponse(validators)
         else:
             return MockResponse('')
 
