@@ -190,7 +190,7 @@ def compare_pool_metrics(previous, current):
     logging.info(f'transientBalance before:{previous.getTransientBalance()} after:{current.getTransientBalance()} change:{current.getTransientBalance() - previous.getTransientBalance()}')
     logging.info(f'totalPooledEther before:{previous.getTotalPooledEther()} after:{current.getTotalPooledEther()} ')
     total_pooled_eth_increase = current.getTotalPooledEther() - previous.getTotalPooledEther()
-    if total_pooled_eth_increase > 0:
+    if total_pooled_eth_increase > 0 and previous.getTotalPooledEther() > 0:
         logging.info(f'totalPooledEther will increase by {total_pooled_eth_increase} wei or {total_pooled_eth_increase/1e18} ETH')
         # APR calculation
         days = delta_seconds / 60 / 60 / 24
