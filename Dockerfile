@@ -11,13 +11,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --trusted-host pypi.python.org -r requirements.txt
 
-COPY assets ./assets
-COPY app ./
-
-ENTRYPOINT ["python3", "-u", "oracle.py"]
-
 # Set metadata
-
 ARG VERSION
 ARG COMMIT_DATETIME
 ARG BUILD_DATETIME
@@ -32,4 +26,16 @@ LABEL TAGS="$TAGS"
 LABEL BRANCH="$BRANCH"
 LABEL COMMIT_MESSAGE="$COMMIT_MESSAGE"
 LABEL COMMIT_HASH="$COMMIT_HASH"
-COPY ./version.json /version.json
+
+ENV VERSION=${VERSION}
+ENV COMMIT_DATETIME=${COMMIT_DATETIME}
+ENV BUILD_DATETIME=${BUILD_DATETIME}
+ENV TAGS=${TAGS}
+ENV BRANCH=${BRANCH}
+ENV COMMIT_MESSAGE=${COMMIT_MESSAGE}
+ENV COMMIT_HASH=${COMMIT_HASH}
+
+COPY assets ./assets
+COPY app ./
+
+ENTRYPOINT ["python3", "-u", "oracle.py"]

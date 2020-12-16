@@ -11,27 +11,23 @@ regex_str = r"^v(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\
 regex = re.compile(regex_str, flags=re.MULTILINE)
 
 
-class TooMuchSemVerTags(Exception):
-    pass
-
-
 def shell(cmd: t.List[str]) -> str:
-    process = subprocess.run(cmd, capture_output=True)
+    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='UTF-8')
     assert process.returncode == 0, \
-        f"failed with stdout: {process.stdout.decode('utf-8')}, stderr: {process.stderr.decode('utf-8')}"
-    return process.stdout.decode('utf-8').strip()
+        f"failed with stdout: {process.stdout}, stderr: {process.stderr}"
+    return process.stdout.strip()
 
 
 def get_semver_tag(tags_raw: str) -> t.Optional[str]:
     """ try to get SemVer tag from `tags` with regexp
-    :param tags_raw: 
-    :return: 
+    :param tags_raw:
+    :return:
     """
     groups = list(regex.finditer(tags_raw))
     if len(groups) > 1:
         print('too much semver tags')
         print('groups: %s' % '\n'.join(g[0] for g in groups))
-        raise TooMuchSemVerTags()
+        raise ValueError('Too Much SemVer Tags')
     elif len(groups) == 0:
         return None
     else:
@@ -77,7 +73,7 @@ def get_commit_timestamp(ref) -> float:
 
 
 def get_branch() -> str:
-    return shell(['git', 'branch', '--show-current'])
+    return shell(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
 
 
 def get_message_first_list(ref) -> str:
@@ -96,15 +92,15 @@ def get_git_info() -> t.Dict:
     tags_list = get_git_tags_list('HEAD')
     commit_timestamp = get_commit_timestamp('HEAD')
     build_timestamp = time.time()
-    commit_datetime = datetime.datetime.utcfromtimestamp(commit_timestamp)
-    build_datetime_utc = datetime.datetime.utcfromtimestamp(build_timestamp)
+    commit_datetime = datetime.datetime.utcfromtimestamp(commit_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
+    build_datetime_utc = datetime.datetime.utcfromtimestamp(build_timestamp).strftime('%Y-%m-%dT%H:%M:%SZ')
     return {
         'version': get_top_semver_tag(),
-        'commit_datetime': commit_datetime.isoformat() + 'Z',
-        'build_datetime': build_datetime_utc.isoformat() + 'Z',
+        'commit_datetime': commit_datetime,
+        'build_datetime': build_datetime_utc,
         'commit_message': get_message_first_list('HEAD'),
         'commit_hash': get_short_ref_hash('HEAD'),
-        'tags': ' '.join(tags_list) if tags_list else None,
+        'tags': ' '.join(tags_list) if tags_list else '',
         'branch': get_branch(),
     }
 

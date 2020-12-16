@@ -1,6 +1,6 @@
 import pytest
 
-from helpers.get_git_info import get_semver_tag, TooMuchSemVerTags
+from helpers.get_git_info import get_semver_tag
 
 
 def test_empty():
@@ -69,7 +69,7 @@ v0.1.2-release
 
 
 def test_several_semver_tags():
-    with pytest.raises(TooMuchSemVerTags):
+    with pytest.raises(ValueError):
         get_semver_tag("""aaa
 some-tag
 v0.1.2-release

@@ -5,13 +5,7 @@ import time
 
 TIMEOUT = 10
 
-
-def test_show_version_with_correct_file():
-    env = os.environ.copy()
-    env['VERSION_JSON_PATH'] = '/tmp/test-version.json'
-    start_at = time.time()
-    with open(env['VERSION_JSON_PATH'], 'w') as fout:
-        sample_version = {
+sample_version = {
             "version": "v0.1.0-rc.1-3295e13",
             "commit_datetime": "2020-12-08T07:50:13Z",
             "build_datetime": "2020-12-08T08:45:14.623010Z",
@@ -20,7 +14,19 @@ def test_show_version_with_correct_file():
             "tags": "some tags",
             "branch": "issue-55-write-version-to-docker-and-file",
         }
-        json.dump(sample_version, fout)
+
+
+def test_show_correct_metadata():
+    env = os.environ.copy()
+    start_at = time.time()
+    env['VERSION'] = sample_version["version"]
+    env['COMMIT_MESSAGE'] = sample_version["commit_message"]
+    env['COMMIT_HASH'] = sample_version["commit_hash"]
+    env['COMMIT_DATETIME'] = sample_version["commit_datetime"]
+    env['BUILD_DATETIME'] = sample_version["build_datetime"]
+    env['TAGS'] = sample_version["tags"]
+    env['BRANCH'] = sample_version["branch"]
+
     with subprocess.Popen(
             ['python3', './app/oracle.py'],
             bufsize=0,
@@ -48,9 +54,8 @@ def test_show_version_with_correct_file():
         assert all(line.startswith('INFO') for line in lines)
 
 
-def test_show_version_with_incorrect_file():
+def test_show_metadata_not_set():
     env = os.environ.copy()
-    env['VERSION_JSON_PATH'] = '/some/path/which/does/not/exist'
     start_at = time.time()
     with subprocess.Popen(
             ['python3', './app/oracle.py'],
@@ -61,7 +66,7 @@ def test_show_version_with_incorrect_file():
             stderr=subprocess.PIPE,
             env=env,
     ) as proc:
-        n_lines = 1
+        n_lines = 7
         lines = []
         while time.time() < start_at + TIMEOUT and len(lines) < n_lines:
             line = proc.stdout.readline()
@@ -69,5 +74,11 @@ def test_show_version_with_incorrect_file():
             if line:
                 lines.append(line)
 
-        assert lines[0].endswith(f'version json file does not exist')
+        assert lines[0].endswith(f'version: Not set')
+        assert lines[1].endswith(f'commit_message: Not set')
+        assert lines[2].endswith(f'commit_hash: Not set')
+        assert lines[3].endswith(f'commit_datetime: Not set')
+        assert lines[4].endswith(f'build_datetime: Not set')
+        assert lines[5].endswith(f'tags: Not set')
+        assert lines[6].endswith(f'branch: Not set')
         assert all(line.startswith('INFO') for line in lines)
