@@ -4,7 +4,9 @@ import logging
 
 def init_log():
     """ initialize root logger """
-    assert not hasattr(init_log, '_called'), 'init_log must be called only once!'
+    if hasattr(init_log, '_called'):
+        # init_log must be called only once!
+        return
     init_log._called = True
     root_logger = logging.getLogger()
     _setup_logger(root_logger)
