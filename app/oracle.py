@@ -14,6 +14,7 @@ from web3.exceptions import SolidityError
 from beacon import get_beacon
 from contracts import get_validators_keys
 from log import init_log
+from metrics import PoolMetrics, compare_pool_metrics
 
 init_log()
 logger = logging.getLogger(__name__)
@@ -147,57 +148,6 @@ logging.info(f'Seconds per slot: {seconds_per_slot} (auto-discovered)')
 logging.info(f'Slots per epoch: {slots_per_epoch} (auto-discovered)')
 logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
-
-
-class PoolMetrics:
-    DEPOSIT_SIZE = int(32 * 1e18)
-    epoch = 0
-    beaconBalance = 0
-    beaconValidators = 0
-    timestamp = 0
-    bufferedBalance = 0
-    depositedValidators = 0
-
-    def getTotalPooledEther(self):
-        return self.bufferedBalance + self.beaconBalance + self.getTransientBalance()
-
-    def getTransientValidators(self):
-        assert(self.depositedValidators >= self.beaconValidators)
-        return self.depositedValidators - self.beaconValidators
-
-    def getTransientBalance(self):
-        return self.getTransientValidators() * self.DEPOSIT_SIZE
-
-
-def compare_pool_metrics(previous, current):
-    """Describes the economics of metrics change.
-    Helps the Node operator to understand the effect of firing composed TX"""
-    delta_seconds = current.timestamp - previous.timestamp
-    logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
-    logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
-    if current.beaconValidators < previous.beaconValidators:
-        logging.warning('The number of beacon validators unexpectedly decreased!')
-    logging.info(f'beaconValidators before:{previous.beaconValidators} after:{current.beaconValidators} change:{current.beaconValidators - previous.beaconValidators}')
-    logging.info(f'transientValidators before:{previous.getTransientValidators()} after:{current.getTransientValidators()} change:{current.getTransientValidators() - previous.getTransientValidators()}')
-    logging.info(f'beaconBalance before:{previous.beaconBalance} after:{current.beaconBalance} change:{current.beaconBalance - previous.beaconBalance}')
-    logging.info(f'bufferedBalance before:{previous.bufferedBalance} after:{current.bufferedBalance} change:{current.bufferedBalance - previous.bufferedBalance}')
-    logging.info(f'transientBalance before:{previous.getTransientBalance()} after:{current.getTransientBalance()} change:{current.getTransientBalance() - previous.getTransientBalance()}')
-    logging.info(f'totalPooledEther before:{previous.getTotalPooledEther()} after:{current.getTotalPooledEther()} ')
-    total_pooled_eth_increase = current.getTotalPooledEther() - previous.getTotalPooledEther()
-    if total_pooled_eth_increase > 0 and previous.getTotalPooledEther() > 0:
-        logging.info(f'totalPooledEther will increase by {total_pooled_eth_increase} wei or {total_pooled_eth_increase/1e18} ETH')
-        # APR calculation
-        days = delta_seconds / 60 / 60 / 24
-        daily_interest_rate = total_pooled_eth_increase / previous.getTotalPooledEther() / days
-        apr = daily_interest_rate * 365
-        logging.info(f'Increase since last report: {total_pooled_eth_increase / previous.getTotalPooledEther() * 100:.4f} %')
-        logging.info(f'Expected APR: {apr * 100:.4f} %')
-
-    elif total_pooled_eth_increase < 0:
-        logging.warning(f'totalPooledEther will decrease by {-total_pooled_eth_increase} wei or {-total_pooled_eth_increase/1e18} ETH')
-        logging.warning('Validators were either slashed or suffered penalties!')
-    else:
-        logging.info('totalPooledEther will stay intact. This won\'t have any economical impact on the pool.')
 
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
