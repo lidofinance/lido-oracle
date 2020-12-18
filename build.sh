@@ -2,7 +2,15 @@
 set +u
 set -o pipefail
 
-IMG="lidofinance/oracle:latest"
+if [[ -z "${TAG}" ]] ; then
+  echo "no TAG env provided. Using default \"latest\"."
+  TAG="latest"
+else
+  echo "TAG=${TAG} (from env)"
+fi
+
+
+IMG="lidofinance/oracle:${TAG}"
 export DOCKER_CONFIG=$HOME/.lidofinance
 
 #### Version info ####
@@ -23,7 +31,7 @@ else
     echo "branch: $(echo ${META_INFO} | jq --raw-output .branch)"
 fi
 
-echo "Building oracle Docker image..."
+echo "Building oracle Docker image ${IMG}..."
 docker build \
   --build-arg VERSION="$(echo ${META_INFO} | jq --raw-output .version)" \
   --build-arg COMMIT_MESSAGE="$(echo ${META_INFO} | jq --raw-output .commit_message)" \
@@ -32,14 +40,14 @@ docker build \
   --build-arg BUILD_DATETIME="$(echo ${META_INFO} | jq --raw-output .build_datetime)" \
   --build-arg TAGS="$(echo ${META_INFO} | jq --raw-output .tags)" \
   --build-arg BRANCH="$(echo ${META_INFO} | jq --raw-output .branch)" \
-  -t $IMG \
+  -t ${IMG} \
   .
 echo "The image \"${IMG}\" was built"
 
-case "$PUSH" in
+case "${PUSH}" in
     "1")
     echo "Pushing image to the Docker Hub"
-    docker push $IMG
+    docker push ${IMG}
     ;;
     "0"|"")
     echo "Skip pushing the image to the Docker Hub"
