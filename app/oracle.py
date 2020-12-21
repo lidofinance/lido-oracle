@@ -124,7 +124,7 @@ abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get Beacon specs from contract
-beacon_spec = oracle.functions.getBeaconSpec().call()
+beacon_spec = oracle.functions.beaconSpec().call()
 epochs_per_frame = beacon_spec[0]
 slots_per_epoch = beacon_spec[1]
 seconds_per_slot = beacon_spec[2]
