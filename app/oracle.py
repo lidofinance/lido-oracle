@@ -207,12 +207,21 @@ def get_previous_metrics():
         result.beaconValidators = event['args']['beaconValidators']
         block = w3.eth.getBlock(event['blockHash'])
         result.timestamp = block['timestamp']
-        result.bufferedBalance = pool.functions.getBufferedEther().call(block_identifier=block.number)
-        deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call(block_identifier=block.number)
+        try:
+            """Try to fetch the state from last event's block.
+            Depending on the block depth and node configuration (sync and garbage collection configs), it 
+            may return the following error {'code': -32000, 'message': 'missing trie node ...'}"""
+            result.bufferedBalance = pool.functions.getBufferedEther().call(block_identifier=block.number)
+            deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call(block_identifier=block.number)
+        except ValueError:
+            logging.warning('Trie node for the last report is unavailable due to conservative ETH1 node GC/sync options.')
+            logging.warning('If you use geth, run it with --gcmode=archive --syncmode=full for better accuracy')
+            logging.warning('Polling the same from the latest state. Previous data may be inaccurate.')
+            result.bufferedBalance = pool.functions.getBufferedEther().call()
+            deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call()
         assert beaconValidators == result.beaconValidators
         assert beaconBalance == result.beaconBalance
         result.depositedValidators = deposited_validators
-        assert result.getTotalPooledEther() == pool.functions.getTotalPooledEther().call(block_identifier=block.number)
         return result
     else:
         logging.info('No events on the contract. It\'s ok if it\'s the first run.')
