@@ -8,6 +8,7 @@ import datetime
 import logging
 import math
 from datetime import timezone
+import json
 
 import requests
 from requests.compat import urljoin
@@ -137,6 +138,8 @@ class Prysm:
 
         epoch = math.ceil(slot / self.slots_per_epoch)  # Round up in case of missing slots
 
+        active_validators_balance = 0
+
         for pk in pubkeys:
             params['publicKeys'] = pk
             params['epoch'] = epoch
@@ -145,9 +148,13 @@ class Prysm:
                 logging.error(f'Pubkey {key_dict[pk]} return error')
                 continue
             validator = response.json()['balances'][0]
+            
             if validator['publicKey'] in pubkeys:
                 found_on_beacon_pubkeys.append(validator['publicKey'])
                 balance = int(validator['balance'])
+                if validator['status'] == 'ACTIVE':
+                    active_validators_balance += balance
+
                 balance_list.append(balance)
                 logging.info(f'Pubkey: {key_dict[pk]} Balance: {balance} Gwei')
             elif validator['status'] == 'UNKNOWN':
@@ -156,7 +163,8 @@ class Prysm:
         balances = sum(balance_list)
         # Convert Gwei to wei
         balances *= 10 ** 9
+        active_validators_balance *= 10 ** 9
         total_validators_on_beacon = len(found_on_beacon_pubkeys)
 
         #TODO: active validator balance
-        return balances, total_validators_on_beacon
+        return balances, total_validators_on_beacon, active_validators_balance
