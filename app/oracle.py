@@ -9,11 +9,11 @@ import datetime
 import time
 
 from web3 import Web3, WebsocketProvider, HTTPProvider
-from web3.exceptions import SolidityError
+from web3.exceptions import SolidityError, TimeExhausted
 
 from beacon import get_beacon
 from contracts import get_validators_keys
-from log import init_log
+from log import init_log, print_tx_receipt
 from metrics import PoolMetrics, compare_pool_metrics
 
 init_log()
@@ -47,6 +47,8 @@ POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
 DEFAULT_SLEEP = 60
 DEFAULT_GAS_LIMIT = 1_500_000
+WEB3_TIMEOUT = 5
+PAUSE_BEFORE_SENDING_TX = 1 # to be able to CTRL-C
 
 eth1_provider = os.environ['ETH1_NODE']
 beacon_provider = os.environ['BEACON_NODE']
@@ -158,23 +160,25 @@ def build_report_beacon_tx(epoch, balance, validators):  # hash tx
 
 def sign_and_send_tx(tx):
     logging.info('Preparing TX... CTRL-C to abort')
-    time.sleep(3)  # To be able to Ctrl + C
+    time.sleep(PAUSE_BEFORE_SENDING_TX)  # To be able to Ctrl + C
     tx['nonce'] = w3.eth.getTransactionCount(
         account.address
     )  # Get correct transaction nonce for sender from the node
     signed = w3.eth.account.signTransaction(tx, account.privateKey)
     logging.info(f'TX hash: {signed.hash.hex()} ... CTRL-C to abort')
-    time.sleep(3)
+    time.sleep(PAUSE_BEFORE_SENDING_TX)
     logging.info('Sending TX... CTRL-C to abort')
-    time.sleep(3)
+    time.sleep(PAUSE_BEFORE_SENDING_TX)
     tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
     logging.info('TX has been sent. Waiting for receipt...')
-    tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-    if tx_receipt.status == 1:
-        logging.info('TX successful')
-    else:
-        logging.warning('TX reverted')
-        logging.warning(tx_receipt)
+    while True:
+        try:
+            tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash, timeout=WEB3_TIMEOUT)
+            print_tx_receipt(tx_receipt)
+            break
+        except TimeExhausted:
+            print('.', end='')
+            pass
 
 
 def prompt(prompt_message, prompt_end):

@@ -33,3 +33,14 @@ def _setup_logger(
     h_stderr.setLevel(logging.ERROR)
     h_stderr.setFormatter(formatter)
     logger.addHandler(h_stderr)
+
+def print_tx_receipt(tx_rcpt):
+    """Print human-readable TX receipt"""
+    if tx_rcpt:
+        logging.info('Tx status: 1 (Success)')
+    else:
+        logging.warning('Tx status: 0 (Failed)')
+    logging.info(f'Tx mined in block: {tx_rcpt.blockNumber}')
+    logging.info(f'Tx gas used: {tx_rcpt.gasUsed}')
+    if tx_rcpt.logs:
+        logging.info(f'Tx Logs: {len(tx_rcpt.logs)}')

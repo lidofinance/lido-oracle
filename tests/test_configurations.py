@@ -135,9 +135,10 @@ def test_with_priv_key_with_daemon_no_sleep():
         #   'gas': 42, 'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229',
         #   'data': '0x62eeb732000000000000000000000000000000000000000000000000000000000000047400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
         # }
-        tx_line = lines[-2]
+        tx_line = ''.join(lines[-4:-1])
         sleep_line = lines[-1]
-        assert 'TX successful' in tx_line
+        print(tx_line)
+        assert 'Tx status: 1 (Success)' in tx_line
         assert 'We are in DAEMON mode. Sleep' in sleep_line
         sleep = float(sleep_line.split('Sleep')[-1].split('s and continue')[0])
         assert sleep == DEFAULT_SLEEP
@@ -174,9 +175,9 @@ def test_with_priv_key_with_daemon_with_sleep():
         #   'gas': 42, 'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229',
         #   'data': '0x62eeb732000000000000000000000000000000000000000000000000000000000000047400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
         # }
-        tx_line = lines[-2]
+        tx_line = ''.join(lines[-4:-1])
         sleep_line = lines[-1]
-        assert 'TX successful' in tx_line
+        assert 'Tx status: 1 (Success)' in tx_line
         assert 'We are in DAEMON mode. Sleep' in sleep_line
         sleep = float(sleep_line.split('Sleep')[-1].split('s and continue')[0])
         assert sleep == custom_sleep
