@@ -148,7 +148,7 @@ class Prysm:
                 logging.error(f'Pubkey {key_dict[pk]} return error')
                 continue
             validator = response.json()['balances'][0]
-            
+
             if validator['publicKey'] in pubkeys:
                 found_on_beacon_pubkeys.append(validator['publicKey'])
                 balance = int(validator['balance'])
@@ -166,5 +166,4 @@ class Prysm:
         active_validators_balance *= 10 ** 9
         total_validators_on_beacon = len(found_on_beacon_pubkeys)
 
-        #TODO: active validator balance
         return balances, total_validators_on_beacon, active_validators_balance
