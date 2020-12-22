@@ -70,11 +70,16 @@ class Lighthouse:
         balance_list = []
         found_on_beacon_pubkeys = []
         logging.info(f'Validator balances on beacon for slot: {slot}')
+        active_validators_balance = 0
         for validator in response_json['data']:
             pubkey = validator['validator']['pubkey']
             # Log all validators along with balance
             if pubkey in pubkeys:
                 validator_balance = int(validator['balance'])
+
+                if validator['status'] == 'active':
+                    active_validators_balance += validator_balance
+
                 balance_list.append(validator_balance)
                 found_on_beacon_pubkeys.append(validator['validator']['pubkey'])
                 logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')
@@ -84,8 +89,10 @@ class Lighthouse:
 
         # Convert Gwei to wei
         balance *= 10 ** 9
+        active_validators_balance *= 10 ** 9
+
         validators = len(found_on_beacon_pubkeys)
-        return balance, validators
+        return balance, validators, active_validators_balance
 
 
 class Prysm:
@@ -151,4 +158,5 @@ class Prysm:
         balances *= 10 ** 9
         total_validators_on_beacon = len(found_on_beacon_pubkeys)
 
+        #TODO: active validator balance
         return balances, total_validators_on_beacon

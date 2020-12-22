@@ -196,36 +196,29 @@ def get_previous_metrics():
     logging.info('Getting previously reported numbers (will be fetched from events)...')
     SECONDS_PER_ETH1_BLOCK = 14
     latest_block = w3.eth.getBlock('latest')
+
+    result = PoolMetrics()
+    deposited_validators, beacon_validators, beacon_balance = pool.functions.getBeaconStat().call()
+    result.beaconValidators = beacon_validators
+    result.depositedValidators = deposited_validators
+    result.beaconBalance = beacon_balance
+    result.bufferedBalance = pool.functions.getBufferedEther().call()
+
     # Calculate earliest block to limit scanning depth
     from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
     events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
     if events:
-        result = PoolMetrics()
         event = events[-1]
         result.epoch = event['args']['epochId']
-        result.beaconBalance = event['args']['beaconBalance']
-        result.beaconValidators = event['args']['beaconValidators']
         block = w3.eth.getBlock(event['blockHash'])
         result.timestamp = block['timestamp']
-        try:
-            """Try to fetch the state from last event's block.
-            Depending on the block depth and node configuration (sync and garbage collection configs), it 
-            may return the following error {'code': -32000, 'message': 'missing trie node ...'}"""
-            result.bufferedBalance = pool.functions.getBufferedEther().call(block_identifier=block.number)
-            deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call(block_identifier=block.number)
-        except ValueError:
-            logging.warning('Trie node for the last report is unavailable due to conservative ETH1 node GC/sync options.')
-            logging.warning('If you use geth, run it with --gcmode=archive --syncmode=full for better accuracy')
-            logging.warning('Polling the same from the latest state. Previous data may be inaccurate.')
-            result.bufferedBalance = pool.functions.getBufferedEther().call()
-            deposited_validators, beaconValidators, beaconBalance = pool.functions.getBeaconStat().call()
-        assert beaconValidators == result.beaconValidators
-        assert beaconBalance == result.beaconBalance
-        result.depositedValidators = deposited_validators
-        return result
     else:
-        logging.info('No events on the contract. It\'s ok if it\'s the first run.')
-        return False
+        #first time
+        result.epoch = 0
+        result.timestamp = genesis_time
+
+    return result
+    
 
 
 def get_current_metrics():
@@ -244,7 +237,7 @@ def get_current_metrics():
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
 
     result.timestamp = w3.eth.getBlock('latest')['timestamp']
-    result.beaconBalance, result.beaconValidators = beacon.get_balances(slot, validators_keys)
+    result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(slot, validators_keys)
     result.depositedValidators = pool.functions.getBeaconStat().call()[0]
     result.bufferedBalance = pool.functions.getBufferedEther().call()
     logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
@@ -267,11 +260,11 @@ while True:
 
     current_metrics = get_current_metrics()
 
-    if prev_metrics and current_metrics.epoch <= prev_metrics.epoch:
+    compare_pool_metrics(prev_metrics, current_metrics)
+
+    if current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
     else:
-        if prev_metrics:
-            compare_pool_metrics(prev_metrics, current_metrics)
         logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
         if not dry_run:
             try:
