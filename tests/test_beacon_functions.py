@@ -128,7 +128,7 @@ def test_head_lighthouse(lighthouse_requests):
 def test_balance_lighthouse(lighthouse_requests):
     beacon = get_beacon('localhost', 1)
     result = beacon.get_balances(10, key_list)
-    assert result == (445738262310000000000, 4)
+    assert result == (445738262310000000000, 4, 221738262310000000000)
 
 
 def test_version_prysm(prysm_requests):
@@ -157,7 +157,7 @@ def test_head_prysm(prysm_requests):
 def test_balance_prysm(prysm_requests):
     beacon = get_beacon('localhost', 1)
     result = beacon.get_balances(10, key_list)
-    assert result == (1148763837967000000000, 4)
+    assert result == (1148763837967000000000, 4, 1148763837967000000000,)
 
 
 def test_version_bad(bad_requests):
