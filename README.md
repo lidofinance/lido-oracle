@@ -23,12 +23,10 @@ The oracle daemon requires fully-syncedd ETH1.0 and Beacon nodes. We highly reco
 [geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
 [Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
 
-Note1: Prysm beacon client is also supported, but has less API performance.
-
-Note2: For better economical metrics output (like daily interest and APR since previous report) it's good to have full archived node (`--syncmode=full --gcmode=archive`). This allows to fetch the previously reported numbers from historical state and calculate the difference with improved precision. If hisorical state unavailable, the oracle uses 'latest' one. These settings don't affect the numbers oracle actually reports.
+Note: Prysm beacon client is also supported, but has less API performance.
 
 ```sh
-docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0 --syncmode=full --gcmode=archive
+docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0
 docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9000 -p 5052:5052 sigp/lighthouse lighthouse beacon --http --http-address 0.0.0.0
 ```
 
