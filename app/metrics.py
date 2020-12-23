@@ -30,7 +30,9 @@ class PoolMetrics:
 
 def compare_pool_metrics(previous, current):
     """Describes the economics of metrics change.
-    Helps the Node operator to understand the effect of firing composed TX"""
+    Helps the Node operator to understand the effect of firing composed TX
+    Returns true on suspicious metrics"""
+    warnings = False
     assert previous.DEPOSIT_SIZE == current.DEPOSIT_SIZE
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
@@ -39,6 +41,7 @@ def compare_pool_metrics(previous, current):
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
     
     if current.beaconValidators < previous.beaconValidators:
+        warnings = True
         logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         logging.warning('The number of beacon validators unexpectedly decreased!')
         logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
@@ -72,16 +75,19 @@ def compare_pool_metrics(previous, current):
         logging.info(f'Daily staking reward rate for active validators: {daily_reward_rate * 100:.8f} %')
         logging.info(f'Staking APR for active validators: {apr * 100:.4f} %')
         if (apr > current.MAX_APR):
+            warnings = True
             logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             logging.warning(f'Staking APR too high! Talk to your fellow oracles before submitting!')
             logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
         if (apr < current.MIN_APR):
+            warnings = True
             logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             logging.warning(f'Staking APR too low! Talk to your fellow oracles before submitting!')
             logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
     else:
+        warnings = True
         logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         logging.warning(f'Penalties will decrease totalPooledEther by {-reward} wei or {-reward/1e18} ETH')
         logging.warning('Validators were either slashed or suffered penalties!')
@@ -90,3 +96,5 @@ def compare_pool_metrics(previous, current):
 
     if reward == 0:
         logging.info('Beacon balances stay intact (neither slashed nor rewarded). So this report won\'t have any economical impact on the pool.')
+    
+    return warnings
