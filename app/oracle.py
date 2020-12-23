@@ -259,10 +259,10 @@ while True:
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
     current_metrics = get_current_metrics()
-
-    compare_pool_metrics(prev_metrics, current_metrics)
-
-    if current_metrics.epoch <= prev_metrics.epoch:
+    warnings = compare_pool_metrics(prev_metrics, current_metrics)
+    if warnings and run_as_daemon:
+        logging.warning(f'Cannot report suspicious data as a daemon. Run manually and confirm.')
+    elif current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
     else:
         logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
