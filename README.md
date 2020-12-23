@@ -3,155 +3,99 @@
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-Pythonic oracle daemon for [Lido](https://lido.fi) decentralized staking service. Periodically reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the DePool dApp contract running on Ethereum 1.0.
+Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side.
 
 ## How it works
 
-* Upon the start daemon gets the last reportable epoch (from the Oracle contract) and retrieves the list of validator keys to watch for (from the Node Operators Registry).
+* Upon the start daemon determines the reportable epoch and retrieves the list of validator keys to watch for.
 
-* When the reportable epoch gets finalized on the beacon, it retrieves the Lido's validators and summarizes their balances.
+* Then it Gets the Lido-controlled validators from the reportable beacon state and summarizes their balances.
 
-* Tx containing the `epochId`, `beaconBalance`, and `beaconValidators` gets constructed
+* Constructs the transaction containing the `epochId`, `beaconBalance`, and `beaconValidators`.
 
-* If the daemon has `MEMBER_PRIV_KEY` in its environment (i.e. isn't in dry-run mode), it signs and sends the transaction to the oracle contract and waits it's get included into the block.
+* If the daemon has `MEMBER_PRIV_KEY` in its environment (i.e. isn't running in dry-run mode), it signs and sends the transaction to the oracle contract (asking for user confirmation if running interactively).
 
 * If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
 
-## Build Docker
+## Setup
 
-```bash
-./build.sh
-```
+The oracle daemon requires fully-syncedd ETH1.0 and Beacon nodes. We highly recommend using
+[geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
+[Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
 
-to build and push use
-
-```bash
-./build.sh --push
-```
-
-## Run in DryRun mode
-
-The minimal export
+Note: Prysm beacon client is also supported, but has less API performance.
 
 ```sh
-export ETH1_NODE="http://localhost:8545"
-export BEACON_NODE="http://localhost:5052"
-export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-python3 oracle.py
+docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0
+docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9000 -p 5052:5052 sigp/lighthouse lighthouse beacon --http --http-address 0.0.0.0
 ```
 
-## Run as the daemon in production mode
+## Run
 
-To allow the daemon sending transacions, you need to provide hex-encoded private Ethereum key by defining `MEMBER_PRIV_KEY` environment var. WARNING: Keep the secret safe. The key should never be exposed outside your environment.
-
-Example:
+The oracle receives its configuration via ENVironment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
 
 ```sh
-export MEMBER_PRIV_KEY="0xdead4b2d8197beef19bb8a084031be71835580a01e70a45a13babd16c9bcdead"
-export ETH1_NODE="http://localhost:8545"
-export BEACON_NODE="http://localhost:5052"
-export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-python3 oracle.py
+export ETH1_NODE=http://localhost:8545
+export BEACON_NODE=http://lighthouse:5052/eth/v1
+export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export DAEMON=0
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:latest
 ```
 
-## Run Docker container
+Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
 
-Add or edit variables in [docker-compose.yml](docker-compose.yml) file
+See **Other examples** below for transactable modes.
 
-To run in interactive mode
+## Full list of configuration options
 
-```bash
-docker-compose run oracle
-```
+* `ETH1_NODE` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
+* `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
+* `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A`
+* `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
+* `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
+* `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
+* `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
 
-Closing console will terminate the process
+## Other examples
 
-**To run in background**
+* WARNING: The examples below are **transactable** and can potentially break the Lido. You must understand the protocol and what you are doing.
+* WARNING: Keep your `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
+* WARNING: Never use the `MEMBER_PRIV_KEY` value given below. You will definitely lose all your Ethers if reuse that private key.
 
-```bash
-docker-compose up -d
-```
+### Interactive supervised mode
 
-**To view container logs**
-
- ```bash
-docker-compose logs
-```
-
-**To access process inside container in interactive mode**
-
-```bash
-docker attach $(docker-compose ps --filter "name=oracle" -q)
-```
-
-To safely exit container, leaving process running, press `Ctrl+Q` or `Ctrl+P`
-
-## Other optional parameters
-
-* `SLEEP` - the pause between consecutive runs in the loop in seconds. Should be a fraction of the inter-report interval (frame) length. Default value: 60
-* `GAS_LIMIT` - the `gas` field of the composed transaction. Default value: `1000000` gas units
-
-## Test
-
-To run tests you need all test dependencies installed
-
-```bash
-pip install -U -r requirements-test.txt
-```
-
-To run tests
-
-```bash
-./run_tests.sh
-```
-
-## Helpers
-
-### Referral counter
-
-Parses submission events on PoW side and counts referral statistics
+This mode is intended for controlled start and allows to double-check the report and its effects before its actual sending. Runs the single iteration and asks for confirmation via interactive `[y/n]` prompt before sending real TX to the network. You should be connected (attached) to the terminal to see this.
 
 ```sh
-export ETH1_NODE='http://127.0.0.1:8545'
-export LIDO_ABI='Lido.abi'
-export LIDO_ADDR='0xfe18BCBeDD6f46e0DfbB3Aea02090F23ED1c4a28'
-python3 count_referrals.py <start block> <end block>
+export ETH1_NODE=http://localhost:8545
+export BEACON_NODE=http://lighthouse:5052/eth/v1
+export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+export DAEMON=0
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:latest
 ```
 
-## Work with e2e environment
+### Autonomous mode
 
-1. run e2e enviroment lido-dao project(<https://github.com/lidofinance/lido-dao>). Testing on commit c63a05fa6bfa8cdf0360c2741c37a780eee0b093
+Runs in the background with 1-hour pauses between consecutive iterations. To be used without human supervision (on later stages).
 
-2. Define the environment variables.
+```sh
+export ETH1_NODE=http://localhost:8545
+export BEACON_NODE=http://lighthouse:5052/eth/v1
+export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+export DAEMON=1
+export SLEEP=3600
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:latest
+```
 
-    Contract addresses may not match. The current addresses will be available in the Aragon web interface(<http://localhost:3000/#/lido-dao/>)
+## Build yourself
 
-    ```bash
-    export ETH1_NODE="http://localhost:8545"
-    export BEACON_NODE="http://localhost:5052"
-    export POOL_CONTRACT="0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A"
-    export MEMBER_PRIV_KEY="0xa8a54b2d8197bc0b19bb8a084031be71835580a01e70a45a13babd16c9bc1563"
-    python3 oracle.py
-    ```
+Instead of downloading the image from dockerhub, you can build it yourself. This requires git and python3.8+.
 
-3. Add permissions to the manager account:
-    * SP Registry: Manage signing keys
-    * Oracle: Add or remove oracle committee members
-
-4. Make a manager oracle member (Oracle contract function addOracleMember(manager_address))
-5. Add validators keys to SP Registry contract (SP Registry contract function addSigningKeys(quantity, pubkeys, signatures)).
-    validators pubkeys are available on lido-dao project folder on path  /lido-dao/data/validators
-
-    Keys must be converted. Python example:
-
-    ```python
-    import binascii
-
-    pubkey = '810ad9abfc1b1b18e44e52d0dc862d8028c664cbdcadfe301698411386b77b2b1d120c45f688f0d67703286d9dd92910'
-    binascii.unhexlify(pubkey)
-    ```
-
-6. ```python3 oracle.py```
+```sh
+./build.sh [--push]
+```
 
 # License
 
