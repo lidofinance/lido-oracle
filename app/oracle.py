@@ -60,6 +60,7 @@ member_privkey = os.getenv('MEMBER_PRIV_KEY')
 await_time_in_sec = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
+force = int(os.getenv('FORCE', 0))
 
 dry_run = member_privkey is None
 
@@ -136,6 +137,10 @@ if run_as_daemon:
     logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
 else:
     logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
+
+if force:
+    logging.info('FORCE=1 Running in enforced mode.')
+    logging.warning("In enforced mode TX gets always sent even if it looks suspicious. NEVER use it in production!")
 
 logging.info(f'ETH1_NODE={eth1_provider}')
 logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
@@ -260,9 +265,7 @@ while True:
 
     current_metrics = get_current_metrics()
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
-    if warnings and run_as_daemon:
-        logging.warning(f'Cannot report suspicious data as a daemon. Run manually and confirm.')
-    elif current_metrics.epoch <= prev_metrics.epoch:
+    if current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
     else:
         logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
@@ -273,7 +276,15 @@ while True:
                 w3.eth.call(tx)
                 logging.info('Calling tx locally succeeded.')
                 if run_as_daemon:
-                    sign_and_send_tx(tx)
+                    if warnings:
+                        if force:
+                            sign_and_send_tx(tx)
+                        else:
+                            logging.warning(f'Cannot report suspicious data in DAEMON mode for safety reasons.')
+                            logging.warning(f'You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
+                            logging.warning(f"In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+                    else:
+                        sign_and_send_tx(tx)
                 else:
                     print(f'Tx data: {tx.__repr__()}')
                     if prompt('Should we send this TX? [y/n]: ', ''):
