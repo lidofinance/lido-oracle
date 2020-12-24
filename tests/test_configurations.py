@@ -113,6 +113,7 @@ def test_with_priv_key_with_daemon_no_sleep():
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     assert 'SLEEP' not in env, 'SLEEP must not be set in environment variables'
     env['DAEMON'] = '1'
+    env['FORCE'] = '1'
     with subprocess.Popen(
             ['python3', '-u', './app/oracle.py'],
             bufsize=0,
@@ -150,6 +151,7 @@ def test_with_priv_key_with_daemon_with_sleep():
     env = os.environ.copy()
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     env['DAEMON'] = '1'
+    env['FORCE'] = '1'
     custom_sleep = 42
     env['SLEEP'] = f'{custom_sleep}'
     with subprocess.Popen(
