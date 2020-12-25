@@ -12,9 +12,8 @@ from web3 import Web3, WebsocketProvider, HTTPProvider
 from web3.exceptions import SolidityError
 
 from beacon import get_beacon
-from contracts import get_validators_keys
 from log import init_log
-from metrics import PoolMetrics, compare_pool_metrics
+from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
 
 init_log()
 logger = logging.getLogger(__name__)
@@ -195,65 +194,10 @@ def prompt(prompt_message, prompt_end):
             continue
 
 
-def get_previous_metrics():
-    """Since the contract lacks a method that returns the time of last report and the reported numbers
-    we are using web3.py filtering to fetch it from the contract events."""
-    logging.info('Getting previously reported numbers (will be fetched from events)...')
-    SECONDS_PER_ETH1_BLOCK = 14
-    latest_block = w3.eth.getBlock('latest')
-
-    result = PoolMetrics()
-    deposited_validators, beacon_validators, beacon_balance = pool.functions.getBeaconStat().call()
-    result.beaconValidators = beacon_validators
-    result.depositedValidators = deposited_validators
-    result.beaconBalance = beacon_balance
-    result.bufferedBalance = pool.functions.getBufferedEther().call()
-
-    # Calculate earliest block to limit scanning depth
-    from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
-    events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
-    if events:
-        event = events[-1]
-        result.epoch = event['args']['epochId']
-        block = w3.eth.getBlock(event['blockHash'])
-        result.timestamp = block['timestamp']
-    else:
-        #first time
-        result.epoch = 0
-        result.timestamp = genesis_time
-
-    return result
-    
-
-
-def get_current_metrics():
-    result = PoolMetrics()
-    # Get the the epoch that is both finalized and reportable
-    current_frame = oracle.functions.getCurrentFrame().call()
-    potentially_reportable_epoch = current_frame[0]
-    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
-    finalized_epoch_beacon = beacon.get_finalized_epoch()
-    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    result.epoch = min(potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-    slot = result.epoch * slots_per_epoch
-    logging.info(f'Reportable state: epoch:{result.epoch} slot:{slot}')
-
-    validators_keys = get_validators_keys(registry)
-    logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-
-    result.timestamp = w3.eth.getBlock('latest')['timestamp']
-    result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(slot, validators_keys)
-    result.depositedValidators = pool.functions.getBeaconStat().call()[0]
-    result.bufferedBalance = pool.functions.getBufferedEther().call()
-    logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
-    logging.info(f'Lido validators visible on Beacon: {result.beaconValidators}')
-    return result
-
-
 logging.info('Starting the main loop')
 while True:
     # Get previously reported data
-    prev_metrics = get_previous_metrics()
+    prev_metrics = get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame)
     if prev_metrics:
         logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
         logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
@@ -263,7 +207,7 @@ while True:
         logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
-    current_metrics = get_current_metrics()
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, epochs_per_frame, slots_per_epoch)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
     if current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
@@ -280,9 +224,9 @@ while True:
                         if force:
                             sign_and_send_tx(tx)
                         else:
-                            logging.warning(f'Cannot report suspicious data in DAEMON mode for safety reasons.')
-                            logging.warning(f'You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                            logging.warning(f"In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+                            logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
+                            logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
+                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
                     else:
                         sign_and_send_tx(tx)
                 else:
