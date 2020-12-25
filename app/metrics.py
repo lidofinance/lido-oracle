@@ -4,6 +4,8 @@
 
 import logging
 import datetime
+from contracts import get_validators_keys
+
 
 class PoolMetrics:
     DEPOSIT_SIZE = int(32 * 1e18)
@@ -28,6 +30,61 @@ class PoolMetrics:
         return self.getTransientValidators() * self.DEPOSIT_SIZE
 
 
+def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame):
+    """Since the contract lacks a method that returns the time of last report and the reported numbers
+    we are using web3.py filtering to fetch it from the contract events."""
+    logging.info('Getting previously reported numbers (will be fetched from events)...')
+
+    result = PoolMetrics()
+    result.depositedValidators, result.beaconValidators, result.beaconBalance = pool.functions.getBeaconStat().call()
+    result.bufferedBalance = pool.functions.getBufferedEther().call()
+
+    # Calculate earliest block to limit scanning depth
+    SECONDS_PER_ETH1_BLOCK = 14
+    latest_block = w3.eth.getBlock('latest')
+    from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
+
+    # Fetch and parse 'Completed' events from the contract.
+    events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
+    if events:
+        event = events[-1]
+        result.epoch = event['args']['epochId']
+        block = w3.eth.getBlock(event['blockHash'])
+        result.timestamp = block['timestamp']
+    else:
+        # If the list of events is empty, we consider it's the first run
+        result.epoch = 0
+        result.timestamp = block['timestamp']
+
+    return result
+
+
+def get_current_metrics(w3, beacon, pool, oracle, registry, epochs_per_frame, slots_per_epoch):
+    result = PoolMetrics()
+    # Get the the epoch that is both finalized and reportable
+    current_frame = oracle.functions.getCurrentFrame().call()
+    potentially_reportable_epoch = current_frame[0]
+    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
+    finalized_epoch_beacon = beacon.get_finalized_epoch()
+    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
+    result.epoch = min(potentially_reportable_epoch,
+                       (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+    slot = result.epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{result.epoch} slot:{slot}')
+
+    validators_keys = get_validators_keys(registry)
+    logging.info(f'Total validator keys in registry: {len(validators_keys)}')
+
+    result.timestamp = w3.eth.getBlock('latest')['timestamp']
+    result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(
+        slot, validators_keys)
+    result.depositedValidators = pool.functions.getBeaconStat().call()[0]
+    result.bufferedBalance = pool.functions.getBufferedEther().call()
+    logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
+    logging.info(f'Lido validators visible on Beacon: {result.beaconValidators}')
+    return result
+
+
 def compare_pool_metrics(previous, current):
     """Describes the economics of metrics change.
     Helps the Node operator to understand the effect of firing composed TX
@@ -39,12 +96,12 @@ def compare_pool_metrics(previous, current):
     appeared_validators = current.beaconValidators - previous.beaconValidators
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
-    
+
     if current.beaconValidators < previous.beaconValidators:
         warnings = True
-        logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         logging.warning('The number of beacon validators unexpectedly decreased!')
-        logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
     logging.info(f'beaconValidators before:{previous.beaconValidators} after:{current.beaconValidators} change:{appeared_validators}')
     logging.info(f'transientValidators before:{previous.getTransientValidators()} after:{current.getTransientValidators()} change:{current.getTransientValidators() - previous.getTransientValidators()}')
@@ -57,7 +114,7 @@ def compare_pool_metrics(previous, current):
     reward_base = appeared_validators * DEPOSIT_SIZE + previous.beaconBalance
     reward = current.beaconBalance - reward_base
     if not previous.getTotalPooledEther():
-        logging.info(f'The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited')
+        logging.info('The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited')
         return
 
     # APR calculation
@@ -66,7 +123,7 @@ def compare_pool_metrics(previous, current):
     else:
         days = delta_seconds / 60 / 60 / 24
         daily_reward_rate = reward / current.activeValidatorBalance / days
-    
+
     apr = daily_reward_rate * 365
 
     if reward >= 0:
@@ -76,25 +133,25 @@ def compare_pool_metrics(previous, current):
         logging.info(f'Staking APR for active validators: {apr * 100:.4f} %')
         if (apr > current.MAX_APR):
             warnings = True
-            logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            logging.warning(f'Staking APR too high! Talk to your fellow oracles before submitting!')
-            logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            logging.warning('Staking APR too high! Talk to your fellow oracles before submitting!')
+            logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
         if (apr < current.MIN_APR):
             warnings = True
-            logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            logging.warning(f'Staking APR too low! Talk to your fellow oracles before submitting!')
-            logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            logging.warning('Staking APR too low! Talk to your fellow oracles before submitting!')
+            logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
     else:
         warnings = True
-        logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         logging.warning(f'Penalties will decrease totalPooledEther by {-reward} wei or {-reward/1e18} ETH')
         logging.warning('Validators were either slashed or suffered penalties!')
         logging.warning('Talk to your fellow oracles before submitting!')
-        logging.warning(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
     if reward == 0:
         logging.info('Beacon balances stay intact (neither slashed nor rewarded). So this report won\'t have any economical impact on the pool.')
-    
+
     return warnings
