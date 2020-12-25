@@ -1,4 +1,4 @@
-# Lido-Oracle daemon
+# Lido-Oracle daemon (Goerli-Pyrmont testnet release)
 
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -39,7 +39,7 @@ export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052/eth/v1
 export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export DAEMON=0
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:latest
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:goerli-pyrmont
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -73,7 +73,7 @@ export BEACON_NODE=http://lighthouse:5052/eth/v1
 export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:latest
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:goerli-pyrmont
 ```
 
 ### Autonomous mode
@@ -87,7 +87,7 @@ export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:latest
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:goerli-pyrmont
 ```
 
 ## Build yourself
