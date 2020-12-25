@@ -166,7 +166,7 @@ def sign_and_send_tx(tx):
     tx['nonce'] = w3.eth.getTransactionCount(
         account.address
     )  # Get correct transaction nonce for sender from the node
-    signed = w3.eth.account.signTransaction(tx, account.privateKey)
+    signed = w3.eth.account.sign_transaction(tx, account.key)
     logging.info(f'TX hash: {signed.hash.hex()} ... CTRL-C to abort')
     time.sleep(3)
     logging.info('Sending TX... CTRL-C to abort')
