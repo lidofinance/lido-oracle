@@ -53,6 +53,7 @@ See **Other examples** below for transactable modes.
 * `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
 * `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
+* `FORCE` - The oracle makes the sanity checks on the collected data before reporting. Running in `DAEMON` mode, if data look suspicious, it skips sending TX. In enforced mode it gets reported even if it looks suspicious. It's unsafe and used for smoke testing purposes, NEVER use it in production!  **Optional**. Default: `0`
 * `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
 * `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
 
