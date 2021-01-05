@@ -37,7 +37,7 @@ The oracle receives its configuration via ENVironment variables. You need to pro
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
 docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.2
@@ -72,7 +72,7 @@ This mode is intended for controlled start and allows to double-check the report
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
@@ -86,7 +86,7 @@ Runs in the background with 1-hour pauses between consecutive iterations. To be 
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
+export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
