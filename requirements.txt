@@ -1,3 +1,4 @@
+wheel==0.36.2
 attrs==20.3.0
 base58==2.0.1
 bitarray==1.2.2
