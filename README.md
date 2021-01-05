@@ -39,7 +39,8 @@ export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export DAEMON=0
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:latest
+export ORACLE_FROM_BLOCK=11595281
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.2
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -56,6 +57,7 @@ See **Other examples** below for transactable modes.
 * `FORCE` - The oracle makes the sanity checks on the collected data before reporting. Running in `DAEMON` mode, if data look suspicious, it skips sending TX. In enforced mode it gets reported even if it looks suspicious. It's unsafe and used for smoke testing purposes, NEVER use it in production!  **Optional**. Default: `0`
 * `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
 * `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
+* `ORACLE_FROM_BLOCK` - The earlist block to check for oracle events. Needed on mainnet first run to skip 5 minutes of scanning blockchain for events that are not there, recommended to be set to 11595281 on mainnet deployments
 
 ## Other examples
 
@@ -73,7 +75,8 @@ export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:latest
+export ORACLE_FROM_BLOCK=11595281
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.2
 ```
 
 ### Autonomous mode
@@ -87,7 +90,8 @@ export POOL_CONTRACT=0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:latest
+export ORACLE_FROM_BLOCK=11595281
+docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.2
 ```
 
 ## Build yourself
