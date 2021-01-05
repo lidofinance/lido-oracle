@@ -65,6 +65,8 @@ dry_run = member_privkey is None
 
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
+ORACLE_FROM_BLOCK = int(os.getenv('ORACLE_FROM_BLOCK', 0))
+
 if eth1_provider.startswith('http'):
     provider = HTTPProvider(eth1_provider)
 elif eth1_provider.startswith('ws'):
@@ -197,7 +199,7 @@ def prompt(prompt_message, prompt_end):
 logging.info('Starting the main loop')
 while True:
     # Get previously reported data
-    prev_metrics = get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame)
+    prev_metrics = get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame, ORACLE_FROM_BLOCK)
     if prev_metrics:
         logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
         logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')

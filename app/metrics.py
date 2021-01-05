@@ -30,7 +30,7 @@ class PoolMetrics:
         return self.getTransientValidators() * self.DEPOSIT_SIZE
 
 
-def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame):
+def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame, from_block = 0):
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
@@ -42,20 +42,22 @@ def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame):
     # Calculate earliest block to limit scanning depth
     SECONDS_PER_ETH1_BLOCK = 14
     latest_block = w3.eth.getBlock('latest')
-    from_block = int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK)
-
+    from_block = max(from_block, int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK))
+    step = 10000
     # Fetch and parse 'Completed' events from the contract.
-    events = oracle.events.Completed.getLogs(fromBlock=from_block, toBlock='latest')
-    if events:
-        event = events[-1]
-        result.epoch = event['args']['epochId']
-        block = w3.eth.getBlock(event['blockHash'])
-        result.timestamp = block['timestamp']
-    else:
-        # If the list of events is empty, we consider it's the first run
-        result.epoch = 0
-        result.timestamp = block['timestamp']
+    for end in range(latest_block['number'], from_block, -step):
+        start = max(end - step + 1, from_block)
+        events = oracle.events.Completed.getLogs(fromBlock=start, toBlock=end)
+        if events:
+            event = events[-1]
+            result.epoch = event['args']['epochId']
+            block = w3.eth.getBlock(event['blockHash'])
+            result.timestamp = block['timestamp']
+            return result
 
+    # If the list of events is empty, we consider it's the first run
+    result.epoch = 0
+    result.timestamp = latest_block['timestamp']
     return result
 
 
