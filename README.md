@@ -37,7 +37,7 @@ The oracle receives its configuration via ENVironment variables. You need to pro
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
+export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
 docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.2
@@ -51,7 +51,7 @@ See **Other examples** below for transactable modes.
 
 * `ETH1_NODE` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
 * `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
-* `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0x12aa6ec7d603dc79eD663792E40a520B54A7ae6A`
+* `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
 * `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
 * `FORCE` - The oracle makes the sanity checks on the collected data before reporting. Running in `DAEMON` mode, if data look suspicious, it skips sending TX. In enforced mode it gets reported even if it looks suspicious. It's unsafe and used for smoke testing purposes, NEVER use it in production!  **Optional**. Default: `0`
@@ -72,7 +72,7 @@ This mode is intended for controlled start and allows to double-check the report
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
+export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
@@ -86,7 +86,7 @@ Runs in the background with 1-hour pauses between consecutive iterations. To be 
 ```sh
 export ETH1_NODE=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
-export POOL_CONTRACT=0xae7ab96520de3a18e5e111b5eaab095312d7fe84
+export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
@@ -99,7 +99,13 @@ docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV
 Instead of downloading the image from dockerhub, you can build it yourself. This requires git and python3.8+.
 
 ```sh
-./build.sh [--push]
+./build.sh
+```
+
+To build and push with the given version tag to the dockerhub:
+
+```sh
+TAG=0.1.3 PUSH=1 ./build.sh
 ```
 
 # License
