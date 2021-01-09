@@ -30,11 +30,10 @@ class PoolMetrics:
         return self.getTransientValidators() * self.DEPOSIT_SIZE
 
 
-def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block = 0):
+def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
-    epochs_per_frame = beacon_spec[0]
     genesis_time = beacon_spec[3]
     result = PoolMetrics()
     result.depositedValidators, result.beaconValidators, result.beaconBalance = pool.functions.getBeaconStat().call()
@@ -122,7 +121,7 @@ def compare_pool_metrics(previous, current):
     if not previous.getTotalPooledEther():
         logging.info('The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited')
         return
-    
+
     if not delta_seconds:
         logging.info('No time delta between current and previous epochs. Skip APR calculations.')
         assert(reward == 0)

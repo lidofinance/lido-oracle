@@ -8,7 +8,6 @@ import datetime
 import logging
 import math
 from datetime import timezone
-import json
 
 import requests
 from requests.compat import urljoin
@@ -66,7 +65,7 @@ class Lighthouse:
     def get_balances(self, slot, key_list):
         pubkeys = self._convert_key_list_to_str_arr(key_list)
 
-        logging.info(f'Fetching validators from Beacon node...')
+        logging.info('Fetching validators from Beacon node...')
         response_json = requests.get(urljoin(self.url, self.api_get_balances.format(slot))).json()
         balance_list = []
         found_on_beacon_pubkeys = []
