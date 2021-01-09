@@ -125,6 +125,9 @@ def compare_pool_metrics(previous, current):
     
     if not delta_seconds:
         logging.info('No time delta between current and previous epochs. Skip APR calculations.')
+        assert(reward == 0)
+        assert(current.beaconValidators == previous.beaconValidators)
+        assert(current.beaconBalance == current.beaconBalance)
         return
 
     # APR calculation
