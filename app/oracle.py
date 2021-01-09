@@ -210,56 +210,63 @@ while True:
         logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
+    # Get minimal metrics that are available without polling
     current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
-    warnings = compare_pool_metrics(prev_metrics, current_metrics)
     if current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
-    else:
-        logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
-        if not dry_run:
-            try:
-                tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
-                # Create the tx and execute it locally to check validity
-                w3.eth.call(tx)
-                logging.info('Calling tx locally succeeded.')
-                if run_as_daemon:
-                    if warnings:
-                        if force:
-                            sign_and_send_tx(tx)
-                        else:
-                            logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
-                            logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+        if not run_as_daemon:
+            logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
+            break
+    
+    # Get full metrics using polling (get keys from reggistry, get balances from beacon)
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+    warnings = compare_pool_metrics(prev_metrics, current_metrics)
+
+    logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
+    if not dry_run:
+        try:
+            tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
+            # Create the tx and execute it locally to check validity
+            w3.eth.call(tx)
+            logging.info('Calling tx locally succeeded.')
+            if run_as_daemon:
+                if warnings:
+                    if force:
+                        sign_and_send_tx(tx)
                     else:
-                        sign_and_send_tx(tx)
+                        logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
+                        logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
+                        logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
                 else:
-                    print(f'Tx data: {tx.__repr__()}')
-                    if prompt('Should we send this TX? [y/n]: ', ''):
-                        sign_and_send_tx(tx)
+                    sign_and_send_tx(tx)
+            else:
+                print(f'Tx data: {tx.__repr__()}')
+                if prompt('Should we send this TX? [y/n]: ', ''):
+                    sign_and_send_tx(tx)
 
-            except SolidityError as sl:
-                str_sl = str(sl)
-                if "EPOCH_IS_TOO_OLD" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
-                elif "ALREADY_SUBMITTED" in str_sl:
-                    logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
-                elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
-                elif "MEMBER_NOT_FOUND" in str_sl:
-                    logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
-                elif "REPORTED_MORE_DEPOSITED" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
-                elif "REPORTED_LESS_VALIDATORS" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
-                else:
-                    logging.error(f'Calling tx locally failed: {str_sl}')
+        except SolidityError as sl:
+            str_sl = str(sl)
+            if "EPOCH_IS_TOO_OLD" in str_sl:
+                logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
+            elif "ALREADY_SUBMITTED" in str_sl:
+                logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
+            elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
+                logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
+            elif "MEMBER_NOT_FOUND" in str_sl:
+                logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
+            elif "REPORTED_MORE_DEPOSITED" in str_sl:
+                logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
+            elif "REPORTED_LESS_VALIDATORS" in str_sl:
+                logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
+            else:
+                logging.error(f'Calling tx locally failed: {str_sl}')
 
-            except Exception as exc:
-                logging.exception(f'Unexpected exception. {type(exc)}')
+        except Exception as exc:
+            logging.exception(f'Unexpected exception. {type(exc)}')
 
-        else:
-            logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
-            logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+    else:
+        logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
+        logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
