@@ -16,7 +16,7 @@ def dedup_validators_keys(validators_keys_list):
 def get_validators_keys(contract):
     node_operators_count = contract.functions.getNodeOperatorsCount().call()
 
-    logging.info(f'Quering NodeOperatorsRegistry...')
+    logging.info('Quering NodeOperatorsRegistry...')
     logging.info(f'Node operators in registry: {node_operators_count}')
 
     validators_keys_list = []
@@ -35,6 +35,6 @@ def get_validators_keys(contract):
     dedupped = dedup_validators_keys(validators_keys_list)
 
     if len(dedupped) != len(validators_keys_list):
-        logging.error(f'Alert! Validators keys contain duplicates.')
+        logging.error('Alert! Validators keys contain duplicates.')
 
     return dedupped

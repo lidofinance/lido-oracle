@@ -85,7 +85,7 @@ if not w3.isConnected():
 networks = {
     1: {'name': 'Mainnet', 'engine': 'PoW'},
     5: {'name': 'Goerli', 'engine': 'PoA'},
-    1337: {'name': 'E2E', 'engine': 'PoA'}
+    1337: {'name': 'E2E', 'engine': 'PoA'},
 }
 
 network_id = w3.eth.chainId
@@ -94,6 +94,7 @@ if network_id in networks.keys():
     if networks[network_id]['engine'] == 'PoA':
         logging.info("Injecting PoA compatibility middleware")
         from web3.middleware import geth_poa_middleware
+
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 if dry_run:
