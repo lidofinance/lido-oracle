@@ -81,7 +81,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec):
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
 
-    result.timestamp = w3.eth.getBlock('latest')['timestamp']
+    result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
     result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(
         slot, validators_keys)
     result.depositedValidators = pool.functions.getBeaconStat().call()[0]
@@ -121,6 +121,10 @@ def compare_pool_metrics(previous, current):
     reward = current.beaconBalance - reward_base
     if not previous.getTotalPooledEther():
         logging.info('The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited')
+        return
+    
+    if not delta_seconds:
+        logging.info('No time delta between current and previous epochs. Skip APR calculations.')
         return
 
     # APR calculation
