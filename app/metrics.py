@@ -9,7 +9,7 @@ from contracts import get_validators_keys
 
 class PoolMetrics:
     DEPOSIT_SIZE = int(32 * 1e18)
-    MAX_APR = 0.1
+    MAX_APR = 0.15
     MIN_APR = 0.01
     epoch = 0
     beaconBalance = 0

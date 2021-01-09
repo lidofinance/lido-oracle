@@ -6,7 +6,7 @@ DAY = 24 * 60 * 60 # seconds
 
 def test_pool_metrics_constants():
     pm = PoolMetrics()
-    assert pm.MAX_APR == 0.1
+    assert pm.MAX_APR == 0.15
     assert pm.MIN_APR == 0.01
 
 def test_pool_metrics_get_total_pooled_ether_empty():
@@ -116,8 +116,8 @@ def test_compare_pool_metrics_complex_reasonable_apr(caplog):
     # Since that time the active validators rewarded 100 ETH
     curr = PoolMetrics()
     curr.timestamp = 1600000000 + DAY * 365
-    curr.beaconBalance = 1100 * ETH
-    curr.activeValidatorBalance = 1100 * ETH
+    curr.beaconBalance = 1175 * ETH
+    curr.activeValidatorBalance = 1175 * ETH
     curr.beaconValidators = 31 # Doesn't matter
     curr.depositedValidators = 67 # Doesn't matter
     curr.bufferedBalance = 678 * ETH  # Doesn't matter
@@ -125,7 +125,7 @@ def test_compare_pool_metrics_complex_reasonable_apr(caplog):
     # so it produced 100.0/1100 ~= 9.0909% APR
     compare_pool_metrics(prev, curr)
     assert "Time delta: 365 days, 0:00:00 or 31536000 s" in caplog.text
-    assert "Staking APR for active validators: 9.0909 %" in caplog.text
+    assert "Staking APR for active validators: 14.8936 %" in caplog.text
     # Output doesn't produce any warnings
     assert "Staking APR too " not in caplog.text
 
