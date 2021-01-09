@@ -1,5 +1,5 @@
 import pytest
-from app.metrics import PoolMetrics, compare_pool_metrics
+from app.metrics import PoolMetrics, compare_pool_metrics, get_timestamp_by_epoch
 import logging
 ETH = 10 ** 18
 DAY = 24 * 60 * 60 # seconds
@@ -207,3 +207,14 @@ def test_compare_pool_metrics_0_balance_0_apr(caplog):
     assert "Staking APR for active validators: 0.0000 %" in caplog.text
     assert "Staking APR too low! Talk to your fellow oracles before submitting!" in caplog.text
     assert "Beacon balances stay intact (neither slashed nor rewarded). So this report won't have any economical impact on the pool." in caplog.text
+
+
+def test_get_timestamp_by_epoch():
+    # Mainnet's spec
+    beacon_spec = [225, 32, 12, 1606824023]
+    # Genesis epoch of mainnet
+    assert get_timestamp_by_epoch(beacon_spec, 0) == 1606824023
+    # One of mainnet-reported epochs. Checked against beaconcha.in
+    assert get_timestamp_by_epoch(beacon_spec, 8550) == 1610107223
+    # One of latest epochs. Checked against beaconcha.in
+    assert get_timestamp_by_epoch(beacon_spec, 8749) == 1610183639

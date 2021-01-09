@@ -157,3 +157,11 @@ def compare_pool_metrics(previous, current):
         logging.info('Beacon balances stay intact (neither slashed nor rewarded). So this report won\'t have any economical impact on the pool.')
 
     return warnings
+
+
+def get_timestamp_by_epoch(beacon_spec, epoch_id):
+    """Required to calculate time-bound values such as APR"""
+    slots_per_epoch = beacon_spec[1]
+    seconds_per_slot = beacon_spec[2]
+    genesis_time = beacon_spec[3]
+    return genesis_time + slots_per_epoch * seconds_per_slot * epoch_id
