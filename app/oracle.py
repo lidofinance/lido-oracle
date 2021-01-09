@@ -199,7 +199,7 @@ def prompt(prompt_message, prompt_end):
 logging.info('Starting the main loop')
 while True:
     # Get previously reported data
-    prev_metrics = get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame, ORACLE_FROM_BLOCK)
+    prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
     if prev_metrics:
         logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
         logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
@@ -209,7 +209,7 @@ while True:
         logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, epochs_per_frame, slots_per_epoch)
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
     if current_metrics.epoch <= prev_metrics.epoch:
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')

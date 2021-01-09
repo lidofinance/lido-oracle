@@ -30,11 +30,12 @@ class PoolMetrics:
         return self.getTransientValidators() * self.DEPOSIT_SIZE
 
 
-def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame, from_block = 0):
+def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block = 0):
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
-
+    epochs_per_frame = beacon_spec[0]
+    genesis_time = beacon_spec[3]
     result = PoolMetrics()
     result.depositedValidators, result.beaconValidators, result.beaconBalance = pool.functions.getBeaconStat().call()
     result.bufferedBalance = pool.functions.getBufferedEther().call()
@@ -44,24 +45,27 @@ def get_previous_metrics(w3, pool, oracle, genesis_time, epochs_per_frame, from_
     latest_block = w3.eth.getBlock('latest')
     from_block = max(from_block, int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK))
     step = 10000
-    # Fetch and parse 'Completed' events from the contract.
+    # Try to fetch and parse last 'Completed' event from the contract.
     for end in range(latest_block['number'], from_block, -step):
         start = max(end - step + 1, from_block)
         events = oracle.events.Completed.getLogs(fromBlock=start, toBlock=end)
         if events:
             event = events[-1]
             result.epoch = event['args']['epochId']
-            block = w3.eth.getBlock(event['blockHash'])
-            result.timestamp = block['timestamp']
-            return result
+            break
 
-    # If the list of events is empty, we consider it's the first run
-    result.epoch = 0
-    result.timestamp = latest_block['timestamp']
+    # If the epoch has been assigned from the last event (not the first run)
+    if result.epoch:
+        result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
+    else:
+        # If it's the first run, we set timestamp to genesis time
+        result.timestamp = genesis_time
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, epochs_per_frame, slots_per_epoch):
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec):
+    epochs_per_frame = beacon_spec[0]
+    slots_per_epoch = beacon_spec[1]
     result = PoolMetrics()
     # Get the the epoch that is both finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
