@@ -5,32 +5,11 @@
 import logging
 import datetime
 from contracts import get_validators_keys
+from pool_metrics import PoolMetrics
+from prometheus_metrics import metrics_exporter_state
 
 
-class PoolMetrics:
-    DEPOSIT_SIZE = int(32 * 1e18)
-    MAX_APR = 0.15
-    MIN_APR = 0.01
-    epoch = 0
-    beaconBalance = 0
-    beaconValidators = 0
-    timestamp = 0
-    bufferedBalance = 0
-    depositedValidators = 0
-    activeValidatorBalance = 0
-
-    def getTotalPooledEther(self):
-        return self.bufferedBalance + self.beaconBalance + self.getTransientBalance()
-
-    def getTransientValidators(self):
-        assert(self.depositedValidators >= self.beaconValidators)
-        return self.depositedValidators - self.beaconValidators
-
-    def getTransientBalance(self):
-        return self.getTransientValidators() * self.DEPOSIT_SIZE
-
-
-def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
+def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMetrics:
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
@@ -62,7 +41,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec):
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec) -> PoolMetrics:
     epochs_per_frame = beacon_spec[0]
     slots_per_epoch = beacon_spec[1]
     result = PoolMetrics()
@@ -79,6 +58,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec):
 
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
+    result.validatorsKeysNumber = len(validators_keys)
 
     result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
     result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(
@@ -98,7 +78,9 @@ def compare_pool_metrics(previous, current):
     assert previous.DEPOSIT_SIZE == current.DEPOSIT_SIZE
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
+    metrics_exporter_state.deltaSeconds.set(delta_seconds)
     appeared_validators = current.beaconValidators - previous.beaconValidators
+    metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
 

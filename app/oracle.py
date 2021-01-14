@@ -8,12 +8,17 @@ import os
 import datetime
 import time
 
+from prometheus_client import start_http_server, Gauge
+from prometheus_client.metrics import Gauge, Histogram
 from web3 import Web3, WebsocketProvider, HTTPProvider
 from web3.exceptions import SolidityError
 
 from beacon import get_beacon
+from contracts import get_total_supply
 from log import init_log
 from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
+from pool_metrics import PoolMetrics
+from prometheus_metrics import metrics_exporter_state
 
 init_log()
 logger = logging.getLogger(__name__)
@@ -46,6 +51,8 @@ POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
 DEFAULT_SLEEP = 60
 DEFAULT_GAS_LIMIT = 1_500_000
+
+prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
 
 eth1_provider = os.environ['ETH1_NODE']
 beacon_provider = os.environ['BEACON_NODE']
@@ -157,6 +164,17 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
+METRIC_TOTAL_SUPPLY = Gauge('totalSupply', 'totalSupply')
+METRIC_TX_SUCCESS = Histogram('tx_success', 'Successful transactions')
+METRIC_TX_REVERTED = Histogram('tx_revert', 'Reverted transactions')
+
+@METRIC_TOTAL_SUPPLY.time()
+def process_get_total_supply():
+    return get_total_supply(registry)
+
+
+
+
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
         epoch, balance, validators
@@ -179,9 +197,11 @@ def sign_and_send_tx(tx):
     tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
     if tx_receipt.status == 1:
         logging.info('TX successful')
+        METRIC_TX_SUCCESS.observe(1)
     else:
         logging.warning('TX reverted')
         logging.warning(tx_receipt)
+        METRIC_TX_REVERTED.observe(1)
 
 
 def prompt(prompt_message, prompt_end):
@@ -196,74 +216,93 @@ def prompt(prompt_message, prompt_end):
             print('Please respond with [y or n]: ', end=prompt_end)
             continue
 
+def main():
+    logger.info(f'start prometheus metrics server on the port: {prometheus_metrics_port}')
+    start_http_server(prometheus_metrics_port)
 
-logging.info('Starting the main loop')
-while True:
-    # Get previously reported data
-    prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
-    if prev_metrics:
-        logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
-        logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
-        logging.info(f'Previously reported bufferedBalance: {prev_metrics.bufferedBalance} wei or {prev_metrics.bufferedBalance/1e18} ETH')
-        logging.info(f'Previous validator metrics: depositedValidators:{prev_metrics.depositedValidators}')
-        logging.info(f'Previous validator metrics: transientValidators:{prev_metrics.getTransientValidators()}')
-        logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
-        logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
+    logging.info('Starting the main loop')
+    while True:
+        # Get previously reported data
+        prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
+        metrics_exporter_state.set_prev_pool_metrics(prev_metrics)
+        metrics_exporter_state.ethV1Blocknumber.set(w3.eth.getBlock('latest')['number'])
+        if prev_metrics:
+            logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
+            logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
+            logging.info(f'Previously reported bufferedBalance: {prev_metrics.bufferedBalance} wei or {prev_metrics.bufferedBalance/1e18} ETH')
+            logging.info(f'Previous validator metrics: depositedValidators:{prev_metrics.depositedValidators}')
+            logging.info(f'Previous validator metrics: transientValidators:{prev_metrics.getTransientValidators()}')
+            logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
+            logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
-    warnings = compare_pool_metrics(prev_metrics, current_metrics)
-    if current_metrics.epoch <= prev_metrics.epoch:
-        logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
-    else:
-        logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
-        if not dry_run:
-            try:
-                tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
-                # Create the tx and execute it locally to check validity
-                w3.eth.call(tx)
-                logging.info('Calling tx locally succeeded.')
-                if run_as_daemon:
-                    if warnings:
-                        if force:
-                            sign_and_send_tx(tx)
-                        else:
-                            logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
-                            logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
-                    else:
-                        sign_and_send_tx(tx)
-                else:
-                    print(f'Tx data: {tx.__repr__()}')
-                    if prompt('Should we send this TX? [y/n]: ', ''):
-                        sign_and_send_tx(tx)
-
-            except SolidityError as sl:
-                str_sl = str(sl)
-                if "EPOCH_IS_TOO_OLD" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
-                elif "ALREADY_SUBMITTED" in str_sl:
-                    logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
-                elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
-                elif "MEMBER_NOT_FOUND" in str_sl:
-                    logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
-                elif "REPORTED_MORE_DEPOSITED" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
-                elif "REPORTED_LESS_VALIDATORS" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
-                else:
-                    logging.error(f'Calling tx locally failed: {str_sl}')
-
-            except Exception as exc:
-                logging.exception(f'Unexpected exception. {type(exc)}')
-
+        current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
+        metrics_exporter_state.set_current_pool_metrics(current_metrics)
+        warnings = compare_pool_metrics(prev_metrics, current_metrics)
+        if current_metrics.epoch <= prev_metrics.epoch:
+            logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
         else:
-            logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
-            logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+            logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
+            if not dry_run:
+                try:
+                    metrics_exporter_state.reportableFrame.set(True)
+                    tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
+                    # Create the tx and execute it locally to check validity
+                    w3.eth.call(tx)
+                    logging.info('Calling tx locally succeeded.')
+                    if run_as_daemon:
+                        if warnings:
+                            if force:
+                                sign_and_send_tx(tx)
+                            else:
+                                logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
+                                logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
+                                logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+                        else:
+                            sign_and_send_tx(tx)
+                    else:
+                        print(f'Tx data: {tx.__repr__()}')
+                        if prompt('Should we send this TX? [y/n]: ', ''):
+                            sign_and_send_tx(tx)
 
-    if not run_as_daemon:
-        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
-        break
+                except SolidityError as sl:
+                    str_sl = str(sl)
+                    if "EPOCH_IS_TOO_OLD" in str_sl:
+                        logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
+                    elif "ALREADY_SUBMITTED" in str_sl:
+                        logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
+                    elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
+                        logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
+                    elif "MEMBER_NOT_FOUND" in str_sl:
+                        logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
+                    elif "REPORTED_MORE_DEPOSITED" in str_sl:
+                        logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
+                    elif "REPORTED_LESS_VALIDATORS" in str_sl:
+                        logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
+                    else:
+                        logging.error(f'Calling tx locally failed: {str_sl}')
 
-    logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s and continue')
-    time.sleep(await_time_in_sec)
+                except Exception as exc:
+                    logging.exception(f'Unexpected exception. {type(exc)}')
+
+            else:
+                logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
+                logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+
+        if not run_as_daemon:
+            logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
+            break
+
+        logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s and continue')
+
+        # sleep and countdown
+        awake_at = time.time() + await_time_in_sec
+        while time.time() < awake_at:
+            time.sleep(10)
+            countdown = awake_at - time.time()
+            metrics_exporter_state.reportableFrame.set(False)
+            metrics_exporter_state.daemonCountDown.set(countdown)
+            metrics_exporter_state.ethV1Blocknumber.set(w3.eth.getBlock('latest')['number'])
+
+
+if __name__ == '__main__':
+    main()

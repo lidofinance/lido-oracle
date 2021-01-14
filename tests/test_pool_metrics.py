@@ -1,5 +1,6 @@
 import pytest
-from app.metrics import PoolMetrics, compare_pool_metrics, get_timestamp_by_epoch
+from app.metrics import compare_pool_metrics, get_timestamp_by_epoch
+from pool_metrics import PoolMetrics
 import logging
 ETH = 10 ** 18
 DAY = 24 * 60 * 60 # seconds

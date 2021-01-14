@@ -13,6 +13,10 @@ def dedup_validators_keys(validators_keys_list):
     return list(set(validators_keys_list))
 
 
+def get_total_supply(contract):
+    return contract.functions.totalSupply().call()
+
+
 def get_validators_keys(contract):
     node_operators_count = contract.functions.getNodeOperatorsCount().call()
 
