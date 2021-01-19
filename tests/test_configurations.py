@@ -25,8 +25,9 @@ def test_no_priv_key():
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
+        out, err = proc.communicate(timeout=30)
         proc.wait()
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'invalid returncode, stdout: {out}, stderr: {err}'
 
 
 def test_with_priv_key_with_gaslimit_no_daemon():
@@ -66,7 +67,7 @@ def test_with_priv_key_with_gaslimit_no_daemon():
         assert tx_data['gas'] == custom_gas
         assert expected_prompt in prompt_line
         proc.stdin.write('n\n')
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'output {lines}'
 
 
 def test_with_priv_key_no_gaslimit_no_daemon():
@@ -105,7 +106,7 @@ def test_with_priv_key_no_gaslimit_no_daemon():
         assert tx_data['gas'] == DEFAULT_GAS_LIMIT
         assert expected_prompt in prompt_line
         proc.stdin.write('n\n')
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'output {lines}'
 
 
 def test_with_priv_key_with_daemon_no_sleep():
@@ -144,7 +145,7 @@ def test_with_priv_key_with_daemon_no_sleep():
         assert sleep == DEFAULT_SLEEP
         proc.kill()
         proc.wait()
-    assert proc.returncode == -9
+    assert proc.returncode == -9, f'output {lines}'
 
 
 def test_with_priv_key_with_daemon_with_sleep():
@@ -184,4 +185,4 @@ def test_with_priv_key_with_daemon_with_sleep():
         assert sleep == custom_sleep
         proc.kill()
         proc.wait()
-    assert proc.returncode == -9
+    assert proc.returncode == -9, f'output {lines}'

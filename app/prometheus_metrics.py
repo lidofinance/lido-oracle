@@ -58,7 +58,8 @@ class MetricsExporterState:
         self.currentTransientValidators.set(metrics.getTransientValidators())
         self.currentTransientBalance.set(metrics.getTransientBalance())
 
-        self.validatorsKeysNumber.set(metrics.validatorsKeysNumber)
+        if metrics.validatorsKeysNumber is not None:
+            self.validatorsKeysNumber.set(metrics.validatorsKeysNumber)
 
     def set_prev_pool_metrics(self, metrics: PoolMetrics):
         self.prevEpoch.set(metrics.epoch)
