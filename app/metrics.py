@@ -41,33 +41,39 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec) -> PoolMetrics:
-    epochs_per_frame = beacon_spec[0]
-    slots_per_epoch = beacon_spec[1]
-    result = PoolMetrics()
-    # Get the the epoch that is both finalized and reportable
-    current_frame = oracle.functions.getCurrentFrame().call()
-    potentially_reportable_epoch = current_frame[0]
-    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
-    finalized_epoch_beacon = beacon.get_finalized_epoch()
-    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    result.epoch = min(potentially_reportable_epoch,
-                       (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-    slot = result.epoch * slots_per_epoch
-    logging.info(f'Reportable state: epoch:{result.epoch} slot:{slot}')
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=None) -> PoolMetrics:
+    """If the result of previous get_current_metrics call isn't given
+    create and return partial metric.mSince it doesn't get keys from
+    registry and doesn't retrieve beacon state, it's much faster."""
+    if not partial_metrics:
+        epochs_per_frame = beacon_spec[0]
+        partial_metrics = PoolMetrics()
+        # Get the the epoch that is both finalized and reportable
+        current_frame = oracle.functions.getCurrentFrame().call()
+        potentially_reportable_epoch = current_frame[0]
+        logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
+        finalized_epoch_beacon = beacon.get_finalized_epoch()
+        logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
+        partial_metrics.epoch = min(potentially_reportable_epoch,
+                        (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+        partial_metrics.timestamp = get_timestamp_by_epoch(beacon_spec, partial_metrics.epoch)
+        partial_metrics.depositedValidators = pool.functions.getBeaconStat().call()[0]
+        partial_metrics.bufferedBalance = pool.functions.getBufferedEther().call()
+        return partial_metrics
 
+    """If partial result provided, the oracle fetches all the required states from ETH1 and ETH2"""
+    slots_per_epoch = beacon_spec[1]
+    slot = partial_metrics.epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
     validators_keys = get_validators_keys(registry)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-    result.validatorsKeysNumber = len(validators_keys)
-
-    result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
-    result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(
+    full_metrics = partial_metrics
+    full_metrics.validatorsKeysNumber = len(validators_keys)
+    full_metrics.beaconBalance, full_metrics.beaconValidators, full_metrics.activeValidatorBalance = beacon.get_balances(
         slot, validators_keys)
-    result.depositedValidators = pool.functions.getBeaconStat().call()[0]
-    result.bufferedBalance = pool.functions.getBufferedEther().call()
-    logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
-    logging.info(f'Lido validators visible on Beacon: {result.beaconValidators}')
-    return result
+    logging.info(f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH')
+    logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
+    return full_metrics
 
 
 def compare_pool_metrics(previous, current):
@@ -78,7 +84,7 @@ def compare_pool_metrics(previous, current):
     assert previous.DEPOSIT_SIZE == current.DEPOSIT_SIZE
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
-    metrics_exporter_state.deltaSeconds.set(delta_seconds)
+    metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
