@@ -131,8 +131,6 @@ Use it to monitor this system process.
 | ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **txSuccess**                     <br> *histogram* | number of succes transactions                           | every SLEEP seconds             |                                       |
 | **txRevert**                      <br> *histogram* | number of failed transactions                           | every SLEEP seconds             |                                       |
-| **resourceUTime**                 <br> *gauge* | total process user time                                 | every call             |                                                |
-| **resourceSTime**                 <br> *gauge* | total process system time                               | every call             |                                                |
 | **process_virtual_memory_bytes**  <br> *gauge* | Virtual memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
 | **process_resident_memory_bytes** <br> *gauge* | Resident memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
 | **process_start_time_seconds**    <br> *gauge* | Start time of the process since unix epoch in seconds.                               | every call             | |
