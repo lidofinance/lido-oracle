@@ -30,6 +30,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
         if events:
             event = events[-1]
             result.epoch = event['args']['epochId']
+            result.blockNumber = event.blockNumber
             break
 
     # If the epoch has been assigned from the last event (not the first run)
@@ -45,6 +46,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec) -> Pool
     epochs_per_frame = beacon_spec[0]
     slots_per_epoch = beacon_spec[1]
     result = PoolMetrics()
+    result.blockNumber = w3.eth.getBlock('latest')['number']
     # Get the the epoch that is both finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
     potentially_reportable_epoch = current_frame[0]
