@@ -12,10 +12,6 @@ from datetime import timezone
 import requests
 from requests.compat import urljoin
 
-logging.basicConfig(
-    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-)
-
 
 def get_beacon(provider, slots_per_epoch):
     version = requests.get(urljoin(provider, 'eth/v1/node/version')).text

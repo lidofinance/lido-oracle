@@ -8,8 +8,7 @@ import os
 import datetime
 import time
 
-from prometheus_client import start_http_server, Gauge
-from prometheus_client.metrics import Gauge, Histogram
+from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
 from web3.exceptions import SolidityError
 
@@ -17,11 +16,10 @@ from beacon import get_beacon
 from contracts import get_total_supply
 from log import init_log
 from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
-from pool_metrics import PoolMetrics
 from prometheus_metrics import metrics_exporter_state
 
-init_log()
-logger = logging.getLogger(__name__)
+init_log(stdout_level=os.environ.get('LOG_LEVEL_STDOUT', 'INFO'))
+logger = logging.getLogger()
 
 meta_envs = ['VERSION', 'COMMIT_MESSAGE', 'COMMIT_HASH', 'COMMIT_DATETIME', 'BUILD_DATETIME', 'TAGS', 'BRANCH']
 
@@ -50,6 +48,7 @@ ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
 DEFAULT_SLEEP = 60
+DEFAULT_COUNTDOWN_SLEEP = 10
 DEFAULT_GAS_LIMIT = 1_500_000
 
 prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
@@ -63,7 +62,8 @@ oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
-await_time_in_sec = int(os.getenv('SLEEP', DEFAULT_SLEEP))
+SLEEP = int(os.getenv('SLEEP', DEFAULT_SLEEP))
+COUNTDOWN_SLEEP = int(os.getenv('COUNTDOWN_SLEEP', DEFAULT_COUNTDOWN_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
 force = int(os.getenv('FORCE', 0))
@@ -116,7 +116,6 @@ with open(pool_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
 pool = w3.eth.contract(abi=abi['abi'], address=pool_address)  # contract object
-
 # Get Oracle contract
 oracle_address = pool.functions.getOracle().call()  # oracle contract
 
@@ -153,7 +152,7 @@ if force:
 
 logging.info(f'ETH1_NODE={eth1_provider}')
 logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
-logging.info(f'SLEEP={await_time_in_sec} s (pause between iterations in DAEMON mode)')
+logging.info(f'SLEEP={SLEEP} s (pause between iterations in DAEMON mode)')
 logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
 logging.info(f'POOL_CONTRACT={pool_address}')
 logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
@@ -164,14 +163,11 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
-METRIC_TOTAL_SUPPLY = Gauge('totalSupply', 'totalSupply')
-METRIC_TX_SUCCESS = Histogram('tx_success', 'Successful transactions')
-METRIC_TX_REVERTED = Histogram('tx_revert', 'Reverted transactions')
-
-@METRIC_TOTAL_SUPPLY.time()
-def process_get_total_supply():
-    return get_total_supply(registry)
-
+# fixme
+# @metrics_exporter_state.totalSupply.time()
+# def process_get_total_supply():
+#     return get_total_supply(pool)
+# print(f'{get_total_supply(oracle)=}')
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
@@ -195,11 +191,11 @@ def sign_and_send_tx(tx):
     tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
     if tx_receipt.status == 1:
         logging.info('TX successful')
-        METRIC_TX_SUCCESS.observe(1)
+        metrics_exporter_state.txSuccess.observe(1)
     else:
         logging.warning('TX reverted')
         logging.warning(tx_receipt)
-        METRIC_TX_REVERTED.observe(1)
+        metrics_exporter_state.txRevert.observe(1)
 
 
 def prompt(prompt_message, prompt_end):
@@ -214,6 +210,7 @@ def prompt(prompt_message, prompt_end):
             print('Please respond with [y or n]: ', end=prompt_end)
             continue
 
+
 def main():
     logger.info(f'start prometheus metrics server on the port: {prometheus_metrics_port}')
     start_http_server(prometheus_metrics_port)
@@ -223,7 +220,6 @@ def main():
         # Get previously reported data
         prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
         metrics_exporter_state.set_prev_pool_metrics(prev_metrics)
-        metrics_exporter_state.ethV1Blocknumber.set(w3.eth.getBlock('latest')['number'])
         if prev_metrics:
             logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
             logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
@@ -236,7 +232,7 @@ def main():
         # Get minimal metrics that are available without polling
         current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
         metrics_exporter_state.set_current_pool_metrics(current_metrics)
-        if current_metrics.epoch <= prev_metrics.epoch:
+        if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
             logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
             if not run_as_daemon:
                 logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
@@ -297,16 +293,20 @@ def main():
             logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
             break
 
-        logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s and continue')
+        logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
         # sleep and countdown
-        awake_at = time.time() + await_time_in_sec
+        awake_at = time.time() + SLEEP
         while time.time() < awake_at:
-            time.sleep(10)
+            time.sleep(COUNTDOWN_SLEEP)
             countdown = awake_at - time.time()
+            if countdown < 0:
+                break
             metrics_exporter_state.reportableFrame.set(False)
             metrics_exporter_state.daemonCountDown.set(countdown)
-            metrics_exporter_state.ethV1Blocknumber.set(w3.eth.getBlock('latest')['number'])
+            blocknumber = w3.eth.getBlock('latest')['number']
+            metrics_exporter_state.nowEthV1BlockNumber.set(blocknumber)
+            logger.info(f'{awake_at=} {countdown=} {blocknumber=}')
 
 
 if __name__ == '__main__':

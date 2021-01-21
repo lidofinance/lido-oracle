@@ -4,16 +4,13 @@
 
 import logging
 
-logging.basicConfig(
-    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-)
-
 
 def dedup_validators_keys(validators_keys_list):
     return list(set(validators_keys_list))
 
 
 def get_total_supply(contract):
+    print(f'{contract.all_functions()=}')
     return contract.functions.totalSupply().call()
 
 

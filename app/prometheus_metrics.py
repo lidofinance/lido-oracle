@@ -1,7 +1,9 @@
 import os
 import logging
+import resource
 
 from prometheus_client import start_http_server, Gauge, Summary
+from prometheus_client.metrics import Gauge, Histogram
 
 from pool_metrics import PoolMetrics
 
@@ -17,12 +19,14 @@ class MetricsExporterState:
         return cls._instance
 
     def __init__(self):
-        self.ethV1Blocknumber = Gauge('ethV1Blocknumber', 'ethV1Blocknumber')
+        self.prevEthV1BlockNumber = Gauge('prevEthV1BlockNumber', 'prevEthV1BlockNumber')  # fixme
+        self.currentEthV1BlockNumber = Gauge('currentEthV1BlockNumber', 'currentEthV1BlockNumber')  # fixme
+        self.nowEthV1BlockNumber = Gauge('nowEthV1BlockNumber', 'nowEthV1BlockNumber')  # fixme
+
         self.daemonCountDown = Gauge('daemonCountDown', 'daemonCountDown')
         self.deltaSeconds = Gauge('deltaSeconds', 'deltaSeconds')
         self.appearedValidators = Gauge('appearedValidators', 'appearedValidators')
         self.reportableFrame = Gauge('reportableFrame', 'reportableFrame')
-        self.validatorsKeysNumber = Gauge('validatorsKeysNumber', 'validatorsKeysNumber')
 
         self.currentEpoch = Gauge('currentEpoch', 'Current epoch')
         self.currentBeaconBalance = Gauge('currentBeaconBalance', 'currentBeaconBalance')
@@ -34,6 +38,7 @@ class MetricsExporterState:
         self.currentTotalPooledEther = Gauge('currentTotalPooledEther', 'currentTotalPooledEther')
         self.currentTransientValidators = Gauge('currentTransientValidators', 'currentTransientValidators')
         self.currentTransientBalance = Gauge('currentTransientBalance', 'currentTransientBalance')
+        self.currentValidatorsKeysNumber = Gauge('validatorsKeysNumber', 'validatorsKeysNumber')
 
         self.prevEpoch = Gauge('prevEpoch', 'prevEpoch')
         self.prevBeaconBalance = Gauge('prevBeaconBalance', 'prevBeaconBalance')
@@ -46,7 +51,17 @@ class MetricsExporterState:
         self.prevTransientValidators = Gauge('prevTransientValidators', 'prevTransientValidators')
         self.prevTransientBalance = Gauge('prevTransientBalance', 'prevTransientBalance')
 
+        # self.totalSupply = Gauge('totalSupply', 'totalSupply')  # fixme
+        self.txSuccess = Histogram('txSuccess', 'Successful transactions')
+        self.txRevert = Histogram('txRevert', 'Reverted transactions')
+        # self.resourceUTime = Gauge('resourceUTime', 'resourceUTime')
+        # self.resourceSTime = Gauge('resourceSTime', 'resourceSTime')
+        # self.resourceMaxResidentSetSize = Gauge('resourceMaxResidentSetSize', 'resourceMaxResidentSetSize')
+        # self.resourceSharedMemorySize = Gauge('resourceSharedMemorySize', 'resourceSharedMemorySize')
+        # self.resourceUnsharedMemorySize = Gauge('resourceUnsharedMemorySize', 'resourceUnsharedMemorySize')
+
     def set_current_pool_metrics(self, metrics: PoolMetrics):
+        self.currentEthV1BlockNumber.set(metrics.blockNumber)
         self.currentEpoch.set(metrics.epoch)
         self.currentBeaconBalance.set(metrics.beaconBalance)
         self.currentBeaconValidators.set(metrics.beaconValidators)
@@ -59,9 +74,10 @@ class MetricsExporterState:
         self.currentTransientBalance.set(metrics.getTransientBalance())
 
         if metrics.validatorsKeysNumber is not None:
-            self.validatorsKeysNumber.set(metrics.validatorsKeysNumber)
+            self.currentValidatorsKeysNumber.set(metrics.validatorsKeysNumber)
 
     def set_prev_pool_metrics(self, metrics: PoolMetrics):
+        self.prevEthV1BlockNumber.set(metrics.blockNumber)
         self.prevEpoch.set(metrics.epoch)
         self.prevBeaconBalance.set(metrics.beaconBalance)
         self.prevBeaconValidators.set(metrics.beaconValidators)
@@ -75,3 +91,28 @@ class MetricsExporterState:
 
 
 metrics_exporter_state = MetricsExporterState()
+
+
+# @metrics_exporter_state.resourceUTime.time()
+# def getResourceUTime():
+#     return resource.getrusage(resource.RUSAGE_SELF).ru_utime
+#
+#
+# @metrics_exporter_state.resourceSTime.time()
+# def getResourceSTime():
+#     return resource.getrusage(resource.RUSAGE_SELF).ru_stime
+#
+#
+# @metrics_exporter_state.resourceMaxResidentSetSize.time()
+# def getResourceMaxResidentSetSize():
+#     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+#
+#
+# @metrics_exporter_state.resourceSharedMemorySize.time()
+# def getResourceSharedMemorySize():
+#     return resource.getrusage(resource.RUSAGE_SELF).ru_ixrss
+#
+#
+# @metrics_exporter_state.resourceUnsharedMemorySize.time()
+# def getResourceUnsharedMemorySize():
+#     return resource.getrusage(resource.RUSAGE_SELF).ru_idrss

@@ -6,6 +6,7 @@ class PoolMetrics:
     beaconBalance = 0
     beaconValidators = 0
     timestamp = 0
+    blockNumber = 0
     bufferedBalance = 0
     depositedValidators = 0
     activeValidatorBalance = 0
