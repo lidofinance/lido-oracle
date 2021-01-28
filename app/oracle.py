@@ -118,6 +118,7 @@ abi = json.loads(a)
 pool = w3.eth.contract(abi=abi['abi'], address=pool_address)  # contract object
 # Get Oracle contract
 oracle_address = pool.functions.getOracle().call()  # oracle contract
+logger.info(f'{oracle_address=}')
 
 with open(oracle_abi_path, 'r') as file:
     a = file.read()
@@ -126,6 +127,7 @@ oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 # Get Registry contract
 registry_address = pool.functions.getOperators().call()
+logger.info(f'{registry_address=}')
 
 with open(registry_abi_path, 'r') as file:
     a = file.read()
@@ -240,6 +242,7 @@ def main():
 
         # Get full metrics using polling (get keys from reggistry, get balances from beacon)
         current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+        metrics_exporter_state.set_current_pool_metrics(current_metrics)
         warnings = compare_pool_metrics(prev_metrics, current_metrics)
 
         logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')

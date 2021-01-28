@@ -2,40 +2,36 @@
 
 # SPDX-License-Identifier: GPL-3.0
 
+import typing as t
 import logging
+
+from lido import fetch_and_validate
 
 
 def dedup_validators_keys(validators_keys_list):
     return list(set(validators_keys_list))
 
 
-def get_total_supply(contract):
+def get_total_supply(contract):  # fixme
     print(f'{contract.all_functions()=}')
     return contract.functions.totalSupply().call()
 
 
-def get_validators_keys(contract):
-    node_operators_count = contract.functions.getNodeOperatorsCount().call()
-
-    logging.info('Quering NodeOperatorsRegistry...')
-    logging.info(f'Node operators in registry: {node_operators_count}')
-
-    validators_keys_list = []
-    if node_operators_count > 0:
-        for no_id in range(node_operators_count):
-            validators_keys_count = contract.functions.getTotalSigningKeyCount(no_id).call()
-
-            logging.info(f'Node operator ID: {no_id} Keys: {validators_keys_count}')
-
-            if validators_keys_count > 0:
-                for index in range(validators_keys_count):
-                    validator_key = contract.functions.getSigningKey(no_id, index).call()
-                    validators_keys_list.append(validator_key[0])
-                    index += 1
-
-    dedupped = dedup_validators_keys(validators_keys_list)
-
-    if len(dedupped) != len(validators_keys_list):
-        logging.error('Alert! Validators keys contain duplicates.')
-
-    return dedupped
+def get_validators_keys(contract) -> t.List[bytes]:
+    """ fetch keys
+    apply crypto validation
+    apply duplicates finding
+    raise on any check's fail
+    return list of keys
+    """
+    operators = fetch_and_validate(registry_address=contract.address)
+    keys = []
+    for op in operators:
+        for key_item in op['keys']:
+            key = key_item['key']
+            if key_item['duplicate']:
+                raise ValueError(f'bad key {key_item}')
+            if not key_item['valid_signature']:
+                raise ValueError(f'invalid signature {key_item}')
+            keys.append(key)
+    return keys

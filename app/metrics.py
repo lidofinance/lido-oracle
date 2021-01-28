@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2020 Lido <info@lido.fi>
 
 # SPDX-License-Identifier: GPL-3.0
-
+import typing as t
 import logging
 import datetime
 from contracts import get_validators_keys
@@ -66,18 +66,18 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
-    validators_keys = get_validators_keys(registry)
+    validators_keys: t.List[bytes] = get_validators_keys(registry)  # deduplicated
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
     full_metrics = partial_metrics
     full_metrics.validatorsKeysNumber = len(validators_keys)
-    full_metrics.beaconBalance, full_metrics.beaconValidators, full_metrics.activeValidatorBalance = beacon.get_balances(
-        slot, validators_keys)
+    full_metrics.beaconBalance, full_metrics.beaconValidators, full_metrics.activeValidatorBalance = \
+        beacon.get_balances(slot, validators_keys)
     logging.info(f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH')
     logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
     return full_metrics
 
 
-def compare_pool_metrics(previous, current):
+def compare_pool_metrics(previous, current) -> bool:
     """Describes the economics of metrics change.
     Helps the Node operator to understand the effect of firing composed TX
     Returns true on suspicious metrics"""

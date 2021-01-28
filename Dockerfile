@@ -11,6 +11,9 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --trusted-host pypi.python.org -r requirements.txt
 
+#COPY lido/ /lido
+#RUN python /lido/setup.py install
+
 # Set metadata
 ARG VERSION
 ARG COMMIT_DATETIME
