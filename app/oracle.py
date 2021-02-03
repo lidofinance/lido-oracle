@@ -30,7 +30,7 @@ for env in meta_envs:
     logging.info(f'{env.lower()}: {value}')
 
 envs = [
-    'ETH1_NODE',
+    'WEB3_PROVIDER_URI',
     'BEACON_NODE',
     'POOL_CONTRACT',
 ]
@@ -53,7 +53,7 @@ DEFAULT_GAS_LIMIT = 1_500_000
 
 prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
 
-eth1_provider = os.environ['ETH1_NODE']
+eth1_provider = os.environ['WEB3_PROVIDER_URI']
 beacon_provider = os.environ['BEACON_NODE']
 pool_address = os.environ['POOL_CONTRACT']
 if not Web3.isChecksumAddress(pool_address):

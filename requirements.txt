@@ -30,7 +30,7 @@ six==1.15.0
 toolz==0.11.1
 urllib3==1.26.2
 varint==1.0.2
-web3==5.13.1
+web3==5.15.0
 websockets==8.1
 prometheus-client==0.9.0
 Lido==0.1.1

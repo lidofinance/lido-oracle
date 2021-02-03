@@ -24,7 +24,7 @@ def get_validators_keys(contract) -> t.List[bytes]:
     raise on any check's fail
     return list of keys
     """
-    operators = fetch_and_validate(registry_address=contract.address)
+    operators = fetch_and_validate(registry_address=contract.address, max_multicall=30)
     keys = []
     for op in operators:
         for key_item in op['keys']:
