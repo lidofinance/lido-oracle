@@ -5,6 +5,7 @@
 import json
 import logging
 import os
+os.environ['WEB3_PROVIDER_URI'] = os.environ['ETH1_NODE']  # fixme tests in CI
 import datetime
 import time
 
