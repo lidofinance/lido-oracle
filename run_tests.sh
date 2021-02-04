@@ -1,5 +1,5 @@
 #!/bin/sh
-export ETH1_NODE=http://127.0.0.1:8080
+export WEB3_PROVIDER_URI=http://127.0.0.1:8080
 export BEACON_NODE=http://127.0.0.1:8080
 export POOL_CONTRACT=0xdead00000000000000000000000000000000beef
 export PYTHONPATH=app/

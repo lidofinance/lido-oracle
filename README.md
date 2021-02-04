@@ -35,12 +35,12 @@ docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9
 The oracle receives its configuration via ENVironment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.3
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -49,7 +49,7 @@ See **Other examples** below for transactable modes.
 
 ## Full list of configuration options
 
-* `ETH1_NODE` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
+* `WEB3_PROVIDER_URI` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
 * `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
 * `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
@@ -70,13 +70,13 @@ See **Other examples** below for transactable modes.
 This mode is intended for controlled start and allows to double-check the report and its effects before its actual sending. Runs the single iteration and asks for confirmation via interactive `[y/n]` prompt before sending real TX to the network. You should be connected (attached) to the terminal to see this.
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.3
 ```
 
 ### Autonomous mode
@@ -84,14 +84,14 @@ docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV
 Runs in the background with 1-hour pauses between consecutive iterations. To be used without human supervision (on later stages).
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.3
 ```
 
 ## Build yourself
