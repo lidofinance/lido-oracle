@@ -10,6 +10,7 @@ from tests.utils import get_log_lines
 def test_no_priv_key():
     env = os.environ.copy()
     env.pop('MEMBER_PRIV_KEY', None)
+    env.pop('DAEMON', None)
     with subprocess.Popen(
             ['python3', '-u', './app/oracle.py'],
             bufsize=0,
