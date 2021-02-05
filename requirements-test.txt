@@ -53,4 +53,4 @@ web3==5.16.0
 websockets==8.1
 yarl==1.6.3
 prometheus-client==0.9.0
-Lido==0.1.1
+Lido-vsmelov==0.2.1

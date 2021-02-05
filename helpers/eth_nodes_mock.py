@@ -1,6 +1,8 @@
 import json
 from time import sleep
 from aiohttp import web
+from eth_abi.codec import ABICodec
+from web3._utils.abi import build_default_registry
 
 routes = web.RouteTableDef()
 
@@ -85,39 +87,48 @@ async def eth1(request):
     print(f"Received ETH1 request: {req}")
     if req['method'] == 'eth_chainId':
         resp["result"] = "0x5"
-        print(f"Response: {resp}")
-    if req['method'] == 'eth_gasPrice':
+    elif req['method'] == 'web3_clientVersion':
+        pass
+    elif req['method'] == 'eth_gasPrice':
         resp["result"] = '0x3b9aca00'
-    if req['method'] == 'eth_getTransactionCount':
+    elif req['method'] == 'eth_getTransactionCount':
         resp["result"] = '0x2'
-    if req['method'] == 'eth_sendRawTransaction':
+    elif req['method'] == 'eth_sendRawTransaction':
         resp["result"] = '0x2'
-    if req['method'] == 'eth_getTransactionReceipt':
+    elif req['method'] == 'eth_getTransactionReceipt':
         resp['result'] = {"blockHash": "0xa3a679373fa4f98bb4bd638042f2550ecff5171194a1a9d132a6d7237b50fe0d", "blockNumber": "0x1079", "contractAddress": None, "cumulativeGasUsed": "0x18d3c", "from": "0x656e544deab532e9f5b8b8079b3809aa1757fb0d", "gasUsed": "0x18d3c", "logs": [
         ], "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "status": "0x1", "to": "0xcd3db5ca818a645359e09543cc0e5b7bb9593229", "transactionHash": "0x4624ea5e5f8512a994abf68a5999bc921bd47cafec48920f58306b5c3afefda3", "transactionIndex": "0x0"}
-    if req['method'] == 'eth_call':
-        if req['params'][0]['data'] == '0x833b1fce':
+    elif req['method'] == 'eth_call':
+        if req['params'][0]['data'] == '0x833b1fce':  # getOracle
             resp["result"] = "0x000000000000000000000000cd3db5ca818a645359e09543cc0e5b7bb9593229"
-        elif req['params'][0]['data'] == '0x27a099d8':
+        elif req['params'][0]['data'] == '0x27a099d8':  # getOperators
             resp["result"] = "0x0000000000000000000000007faf80e96530e5cd13a1f35701fcc6b334b2fd75"
-        elif req['params'][0]['data'] == '0xe547c77c':
+        elif req['params'][0]['data'] == '0xe547c77c':  # getBeaconSpec
             resp["result"] = "0x000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000005fcbcdd0"
-        elif req['params'][0]['data'] == '0x72f79b13':
+        elif req['params'][0]['data'] == '0xae2e3538':  # getBeaconStat
+            resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000003bd3ddd3b714c00800"
+        elif req['params'][0]['data'] == '0x47b714e0':  # getBufferedEther
+            resp["result"] = "0x00000000000000000000000000000000000000000000000176b344f2a78c0000"
+        elif req['params'][0]['data'] == '0x72f79b13':  # getCurrentFrame
             resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000474000000000000000000000000000000000000000000000000000000005fcbf170000000000000000000000000000000000000000000000000000000005fcbf20f"
-        elif req['params'][0]['data'] == '0xa70c70e4':
-            resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000000"
+        elif req['params'][0]['data'] == '0xa70c70e4':  # getNodeOperatorsCount
+            resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000000"  # fixme, count == 0
         elif req['params'][0]['data'] == '0xdb9887ea0000000000000000000000000000000000000000000000000000000000000000':
             resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000000"
         elif req['params'][0]['data'] == '0xb449402a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000':
             resp["result"] = "0x000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000308e7ebb0d21a59d2197c0d42fecb115fade630873995db96830174efbc5f2ab26fa6d1e5d2725738e2870c311e852e89d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060a25beab0a9f2077f97e4b3244362b3b71f533287d76fd5c74d862130f4951a6af5aff74e15298074ba05946e8526bf3b116658f001890ecfe440ac576e84dede95ff80c478695606eb7e315c25731c14b0c9330cd49108b5df5e833d1f24db21"
-        elif req['params'][0]['data'] == '0xa70c70e4':
+        elif req['params'][0]['data'] == '0xa70c70e4':  # fixme duplicated (see above)
             resp["result"] = "0x00000000000000000000000000000000000000000000000176b344f2a78c0000"
-        elif req['params'][0]['data'] == '0x47b714e0':
-            resp["result"] = "0x00000000000000000000000000000000000000000000000176b344f2a78c0000"
-        elif req['params'][0]['data'] == '0xae2e3538':
-            resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000003bd3ddd3b714c00800"
         elif req['params'][0]['data'] == '0x37cfdaca':
             resp["result"] = "0x00000000000000000000000000000000000000000000003d4a9118a9bc4c0800"
+        elif req['params'] == [{'to': '0xA5d26F68130c989ef3e063c9bdE33BC50a86629D', 'data': '0x56396715'}, 'latest']:  # withdrawal_credentials
+            resp["result"] = "0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e"
+            codec = ABICodec(build_default_registry())
+            # codec.decode_abi(output_types, return_data)
+            resp["result"] = codec.encode_abi(['bytes'], [
+                b'\x00\x96\x90\xe5\xd4G,|\r\xbd\xf4\x90B]\x89\x86%5\xd2\xa5/\xb6\x863?:\n\x9f\xf5\xd2\x12^']).hex()
+            # resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000001"  # withdrawal_credentials
+            # resp["result"] = b'\x00\x96\x90\xe5\xd4G,|\r\xbd\xf4\x90B]\x89\x86%5\xd2\xa5/\xb6\x863?:\n\x9f\xf5\xd2\x12^'  # withdrawal_credentials
         elif 'gas' in req['params'][0].keys():
             resp["result"] = "0x"
         else:
