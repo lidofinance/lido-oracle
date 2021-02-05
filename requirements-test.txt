@@ -35,9 +35,9 @@ pathspec==0.8.1
 pluggy==0.13.1
 protobuf==3.14.0
 py==1.9.0
-pycryptodome
+pycryptodome==3.9.9
 pyparsing==2.4.7
-pyrsistent==0.16.1
+pyrsistent==0.17.3
 pytest==6.2.2
 regex==2020.11.13
 requests==2.25.1
