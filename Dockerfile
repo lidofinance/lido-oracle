@@ -9,7 +9,8 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+COPY requirements-test.txt ./
+RUN pip install --trusted-host pypi.python.org -r requirements.txt -r requirements-test.txt
 
 # Set metadata
 ARG VERSION
