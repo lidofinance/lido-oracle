@@ -4,8 +4,12 @@
 
 import typing as t
 import logging
+import os
 
 from lido import fetch_and_validate
+
+DEFAULT_MAX_MULTICALL = 30
+MAX_MULTICALL = int(os.environ.get('MAX_MULTICALL', DEFAULT_MAX_MULTICALL))
 
 
 def dedup_validators_keys(validators_keys_list):
@@ -24,7 +28,7 @@ def get_validators_keys(contract) -> t.List[bytes]:
     raise on any check's fail
     return list of keys
     """
-    operators = fetch_and_validate(registry_address=contract.address, max_multicall=30)
+    operators = fetch_and_validate(registry_address=contract.address, max_multicall=MAX_MULTICALL)
     keys = []
     for op in operators:
         for key_item in op['keys']:
