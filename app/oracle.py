@@ -308,7 +308,7 @@ def run_once():
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
-        break
+        raise StopIteration()
 
     logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
