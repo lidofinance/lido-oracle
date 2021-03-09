@@ -62,7 +62,9 @@ class Lighthouse:
         pubkeys = self._convert_key_list_to_str_arr(key_list)
 
         logging.info('Fetching validators from Beacon node...')
-        response_json = requests.get(urljoin(self.url, self.api_get_balances.format(slot))).json()
+        url = urljoin(self.url, self.api_get_balances.format(slot))
+        logging.info(f'using url "{url}"')
+        response_json = requests.get(url).json()
         balance_list = []
         found_on_beacon_pubkeys = []
         logging.info(f'Validator balances on beacon for slot: {slot}')
@@ -78,7 +80,7 @@ class Lighthouse:
 
                 balance_list.append(validator_balance)
                 found_on_beacon_pubkeys.append(validator['validator']['pubkey'])
-                logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')
+                # logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')  # todo uncomment
             elif validator['status'] == 'UNKNOWN':
                 logging.warning(f'Pubkey {pubkey[:12]} status UNKNOWN')
         balance = sum(balance_list)
@@ -151,7 +153,7 @@ class Prysm:
                     active_validators_balance += balance
 
                 balance_list.append(balance)
-                logging.info(f'Pubkey: {key_dict[pk]} Balance: {balance} Gwei')
+                # logging.info(f'Pubkey: {key_dict[pk]} Balance: {balance} Gwei')  # todo uncomment
             elif validator['status'] == 'UNKNOWN':
                 logging.warning(f'Pubkey {key_dict[pk]} status UNKNOWN')
 
