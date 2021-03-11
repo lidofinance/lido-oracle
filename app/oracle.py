@@ -31,6 +31,12 @@ envs = [
     'BEACON_NODE',
     'POOL_CONTRACT',
 ]
+if os.getenv('FORCE'):
+    logging.error('The flag "FORCE" is obsolete in favour of '
+                  '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
+                  'please NEVER use it in production')
+    exit(1)
+
 missing = []
 for env in envs:
     if env not in os.environ or os.environ[env] == '':
@@ -59,7 +65,7 @@ member_privkey = os.getenv('MEMBER_PRIV_KEY')
 await_time_in_sec = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
-force = int(os.getenv('FORCE', 0))
+force = int(os.getenv('FORCE_DO_NOT_USE_IN_PRODUCTION', 0))
 
 dry_run = member_privkey is None
 
@@ -141,7 +147,7 @@ else:
     logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
 
 if force:
-    logging.info('FORCE=1 Running in enforced mode.')
+    logging.info('FORCE_DO_NOT_USE_IN_PRODUCTION=1 Running in enforced mode.')
     logging.warning("In enforced mode TX gets always sent even if it looks suspicious. NEVER use it in production!")
 
 logging.info(f'ETH1_NODE={eth1_provider}')
@@ -229,7 +235,7 @@ while True:
                         else:
                             logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
                             logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production.")
                     else:
                         sign_and_send_tx(tx)
                 else:
