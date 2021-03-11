@@ -31,6 +31,12 @@ envs = [
     'BEACON_NODE',
     'POOL_CONTRACT',
 ]
+if os.getenv('FORCE'):
+    logging.error('The flag "FORCE" is obsolete in favour of '
+                  '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
+                  'please NEVER use it in production')
+    exit(1)
+
 missing = []
 for env in envs:
     if env not in os.environ or os.environ[env] == '':
