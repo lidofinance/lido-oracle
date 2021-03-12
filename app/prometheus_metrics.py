@@ -25,6 +25,7 @@ class MetricsExporterState:
 
         self.daemonCountDown = Gauge('daemonCountDown', 'daemonCountDown')
         self.deltaSeconds = Gauge('deltaSeconds', 'deltaSeconds')
+        self.finalizedMinusPreviousEpoch = Gauge('finalizedMinusPreviousEpoch', 'finalizedMinusPreviousEpoch')
         self.appearedValidators = Gauge('appearedValidators', 'appearedValidators')
         self.reportableFrame = Gauge('reportableFrame', 'reportableFrame')
 

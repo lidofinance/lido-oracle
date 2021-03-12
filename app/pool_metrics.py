@@ -3,6 +3,7 @@ class PoolMetrics:
     MAX_APR = 0.15
     MIN_APR = 0.01
     epoch = 0
+    finalized_epoch_beacon = 0
     beaconBalance = 0
     beaconValidators = 0
     timestamp = 0

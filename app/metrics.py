@@ -42,11 +42,12 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=None) -> PoolMetrics:
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
+                        partial_metrics: t.Optional[PoolMetrics] = None) -> PoolMetrics:
     """If the result of previous get_current_metrics call isn't given
     create and return partial metric.mSince it doesn't get keys from
     registry and doesn't retrieve beacon state, it's much faster."""
-    if not partial_metrics:
+    if partial_metrics is None:
         epochs_per_frame = beacon_spec[0]
         partial_metrics = PoolMetrics()
         partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
@@ -54,6 +55,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial
         potentially_reportable_epoch = current_frame[0]
         logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
         finalized_epoch_beacon = beacon.get_finalized_epoch()
+        partial_metrics.finalized_epoch_beacon = finalized_epoch_beacon
         logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
         partial_metrics.epoch = min(potentially_reportable_epoch,
                         (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
@@ -77,7 +79,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial
     return full_metrics
 
 
-def compare_pool_metrics(previous, current) -> bool:
+def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     """Describes the economics of metrics change.
     Helps the Node operator to understand the effect of firing composed TX
     Returns true on suspicious metrics"""
@@ -86,6 +88,7 @@ def compare_pool_metrics(previous, current) -> bool:
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
     metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
+    metrics_exporter_state.finalizedMinusPreviousEpoch.set(current.finalized_epoch_beacon - previous.epoch)
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
