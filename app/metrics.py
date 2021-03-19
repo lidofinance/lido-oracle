@@ -55,7 +55,6 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
         potentially_reportable_epoch = current_frame[0]
         logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
         finalized_epoch_beacon = beacon.get_finalized_epoch()
-        partial_metrics.finalized_epoch_beacon = finalized_epoch_beacon
         logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
         partial_metrics.epoch = min(potentially_reportable_epoch,
                         (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
@@ -88,7 +87,6 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
     metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
-    metrics_exporter_state.finalizedMinusPreviousEpoch.set(current.finalized_epoch_beacon - previous.epoch)
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')

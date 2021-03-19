@@ -122,6 +122,7 @@ Use them to check that the Oracle is running correctly right now.
 | **reportableFrame** <br> *gauge*      | is the current metrics build  on reportable frame or not         |  |                                         |
 | **nowEthV1BlockNumber**  <br> *gauge* | blockchain last block                                            | every COUNTDOWN_SLEEP seconds             | blocks on Ethereum are committed approximately once every 15 seconds so this value should be constantly updated  and be aligned with these https://etherscan.io/blocks |
 | **daemonCountDown** <br> *gauge*      | time till the next oracle run                                    | every COUNTDOWN_SLEEP seconds             | should be decreasing to 0                                                                                                                                              |
+| **finalizedEpoch** <br> *gauge*       | eth2 last finalized epoch        | every COUNTDOWN_SLEEP seconds |                                         | should go up at rate of 1 per six munites
 
 
 ### 2. Overall metrics of this Oracle system process

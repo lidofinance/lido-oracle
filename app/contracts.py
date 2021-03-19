@@ -6,7 +6,7 @@ import typing as t
 import logging
 import os
 
-from lido import fetch_and_validate
+from lido import get_operators_data, get_operators_keys
 
 DEFAULT_MAX_MULTICALL = 30
 MAX_MULTICALL = int(os.environ.get('MAX_MULTICALL', DEFAULT_MAX_MULTICALL))
@@ -28,14 +28,20 @@ def get_validators_keys(contract) -> t.List[bytes]:
     raise on any check's fail
     return list of keys
     """
-    operators = fetch_and_validate(registry_address=contract.address, max_multicall=MAX_MULTICALL)
+
+    operators_data = get_operators_data(
+        registry_address=contract.address
+    )
+
+    operators = get_operators_keys(
+        operators=operators_data,
+        registry_address=contract.address, 
+        max_multicall=MAX_MULTICALL
+    )
+
     keys = []
     for op in operators:
         for key_item in op['keys']:
             key = key_item['key']
-            if key_item['duplicate']:
-                raise ValueError(f'bad key {key_item}')
-            if not key_item['valid_signature']:
-                raise ValueError(f'invalid signature {key_item}')
             keys.append(key)
     return keys
