@@ -1,3 +1,4 @@
+import os
 import json
 from time import sleep
 from aiohttp import web
@@ -149,5 +150,5 @@ def main(argv):
     app['lighthouse'] = True
     app['prysm'] = not app['lighthouse']
     app.add_routes(routes)
-    web.run_app(app)
+    web.run_app(app, port=os.getenv('PORT', 8080))
     return app
