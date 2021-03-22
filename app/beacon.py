@@ -75,7 +75,7 @@ class Lighthouse:
             if pubkey in pubkeys:
                 validator_balance = int(validator['balance'])
 
-                if validator['status'] == 'active':
+                if validator['status'] in ['active', 'active_ongoing']:
                     active_validators_balance += validator_balance
 
                 balance_list.append(validator_balance)

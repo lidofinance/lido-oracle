@@ -39,7 +39,7 @@ py-ecc==5.1.0
 
 ### test requirements ###
 
-aiohttp==3.7.3
+aiohttp==3.7.4
 appdirs==1.4.4
 async-timeout==3.0.1
 black==20.8b1

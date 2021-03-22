@@ -34,6 +34,12 @@ envs = [
     'BEACON_NODE',
     'POOL_CONTRACT',
 ]
+if os.getenv('FORCE'):
+    logging.error('The flag "FORCE" is obsolete in favour of '
+                  '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
+                  'please NEVER use it in production')
+    exit(1)
+
 missing = []
 for env in envs:
     if env not in os.environ or os.environ[env] == '':
@@ -66,7 +72,7 @@ SLEEP = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 COUNTDOWN_SLEEP = int(os.getenv('COUNTDOWN_SLEEP', DEFAULT_COUNTDOWN_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
-force = int(os.getenv('FORCE', 0))
+force = int(os.getenv('FORCE_DO_NOT_USE_IN_PRODUCTION', 0))
 
 dry_run = member_privkey is None
 
@@ -149,7 +155,7 @@ else:
     logging.info('DAEMON=0 Running in single iteration mode (will exit after reporting).')
 
 if force:
-    logging.info('FORCE=1 Running in enforced mode.')
+    logging.info('FORCE_DO_NOT_USE_IN_PRODUCTION=1 Running in enforced mode.')
     logging.warning("In enforced mode TX gets always sent even if it looks suspicious. NEVER use it in production!")
 
 logging.info(f'WEB3_PROVIDER_URI={eth1_provider}')
@@ -254,6 +260,7 @@ def run_once():
             logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
             raise StopIteration()  # maybe use some other exception class?
 
+
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
     current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
@@ -274,7 +281,7 @@ def run_once():
                     else:
                         logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
                         logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                        logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE=1). Never use it in production.")
+                        logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production.")
                 else:
                     sign_and_send_tx(tx)
             else:
