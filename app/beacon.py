@@ -85,6 +85,10 @@ class Lighthouse:
                 logging.warning(f'Pubkey {pubkey[:12]} status UNKNOWN')
         balance = sum(balance_list)
 
+        # Convert Gwei to wei
+        balance *= 10 ** 9
+        active_validators_balance *= 10 ** 9
+
         validators = len(found_on_beacon_pubkeys)
         return balance, validators, active_validators_balance
 
@@ -154,6 +158,9 @@ class Prysm:
                 logging.warning(f'Pubkey {key_dict[pk]} status UNKNOWN')
 
         balances = sum(balance_list)
+        # Convert Gwei to wei
+        balances *= 10 ** 9
+        active_validators_balance *= 10 ** 9
         total_validators_on_beacon = len(found_on_beacon_pubkeys)
 
         return balances, total_validators_on_beacon, active_validators_balance
