@@ -42,11 +42,12 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=None) -> PoolMetrics:
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
+                        partial_metrics: t.Optional[PoolMetrics] = None) -> PoolMetrics:
     """If the result of previous get_current_metrics call isn't given
     create and return partial metric.mSince it doesn't get keys from
     registry and doesn't retrieve beacon state, it's much faster."""
-    if not partial_metrics:
+    if partial_metrics is None:
         epochs_per_frame = beacon_spec[0]
         partial_metrics = PoolMetrics()
         partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
@@ -77,7 +78,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial
     return full_metrics
 
 
-def compare_pool_metrics(previous, current) -> bool:
+def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     """Describes the economics of metrics change.
     Helps the Node operator to understand the effect of firing composed TX
     Returns true on suspicious metrics"""

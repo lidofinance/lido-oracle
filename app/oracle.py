@@ -227,6 +227,7 @@ def main():
     while True:
         try:
             run_once()
+            sleep()
         except StopIteration:
             break
         except CannotHandleRequest as exc:
@@ -259,6 +260,8 @@ def run_once():
         if not run_as_daemon:
             logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
             raise StopIteration()  # maybe use some other exception class?
+        else:
+            return
 
 
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
@@ -319,6 +322,7 @@ def run_once():
 
     logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
+def sleep():
     # sleep and countdown
     awake_at = time.time() + SLEEP
     while time.time() < awake_at:
@@ -328,9 +332,13 @@ def run_once():
             break
         metrics_exporter_state.reportableFrame.set(False)
         metrics_exporter_state.daemonCountDown.set(countdown)
-        blocknumber = w3.eth.getBlock('latest')['number']
+        blocknumber = w3.eth.getBlock('latest')['number']        
         metrics_exporter_state.nowEthV1BlockNumber.set(blocknumber)
-        logger.info(f'{awake_at=} {countdown=} {blocknumber=}')
+        finalized_epoch_beacon = beacon.get_finalized_epoch()
+        metrics_exporter_state.finalizedEpoch.set(finalized_epoch_beacon)
+
+
+        logger.info(f'{awake_at=} {countdown=} {blocknumber=} {finalized_epoch_beacon=}')
 
 
 if __name__ == '__main__':
