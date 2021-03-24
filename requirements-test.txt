@@ -29,7 +29,7 @@ requests==2.25.1
 rlp==2.0.1
 six==1.15.0
 toolz==0.11.1
-typed-ast==1.4.1
+typed-ast==1.4.2
 typing-extensions==3.7.4.3
 urllib3==1.26.3
 varint==1.0.2
@@ -59,6 +59,5 @@ pyparsing==2.4.7
 pytest==6.2.2
 regex==2020.11.13
 toml==0.10.2
-typed-ast==1.4.2
 typing-extensions==3.7.4.3
 yarl==1.6.3
