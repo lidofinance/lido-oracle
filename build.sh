@@ -18,7 +18,8 @@ META_INFO=$(python ./helpers/get_git_info.py 2>&1)
 
 if [[ $? != 0 ]]
 then
-    echo "python script error"
+    echo "ERROR: python script get_git_info.py"
+    echo "$META_INFO"
     META_INFO=""
 else
     #### Show info ####

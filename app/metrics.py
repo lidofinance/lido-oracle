@@ -1,36 +1,15 @@
 # SPDX-FileCopyrightText: 2020 Lido <info@lido.fi>
 
 # SPDX-License-Identifier: GPL-3.0
-
+import typing as t
 import logging
 import datetime
 from contracts import get_validators_keys
+from pool_metrics import PoolMetrics
+from prometheus_metrics import metrics_exporter_state
 
 
-class PoolMetrics:
-    DEPOSIT_SIZE = int(32 * 1e18)
-    MAX_APR = 0.15
-    MIN_APR = 0.01
-    epoch = 0
-    beaconBalance = 0
-    beaconValidators = 0
-    timestamp = 0
-    bufferedBalance = 0
-    depositedValidators = 0
-    activeValidatorBalance = 0
-
-    def getTotalPooledEther(self):
-        return self.bufferedBalance + self.beaconBalance + self.getTransientBalance()
-
-    def getTransientValidators(self):
-        assert(self.depositedValidators >= self.beaconValidators)
-        return self.depositedValidators - self.beaconValidators
-
-    def getTransientBalance(self):
-        return self.getTransientValidators() * self.DEPOSIT_SIZE
-
-
-def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
+def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMetrics:
     """Since the contract lacks a method that returns the time of last report and the reported numbers
     we are using web3.py filtering to fetch it from the contract events."""
     logging.info('Getting previously reported numbers (will be fetched from events)...')
@@ -51,6 +30,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
         if events:
             event = events[-1]
             result.epoch = event['args']['epochId']
+            result.blockNumber = event.blockNumber
             break
 
     # If the epoch has been assigned from the last event (not the first run)
@@ -62,35 +42,43 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0):
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec):
-    epochs_per_frame = beacon_spec[0]
+def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
+                        partial_metrics: t.Optional[PoolMetrics] = None) -> PoolMetrics:
+    """If the result of previous get_current_metrics call isn't given
+    create and return partial metric.mSince it doesn't get keys from
+    registry and doesn't retrieve beacon state, it's much faster."""
+    if partial_metrics is None:
+        epochs_per_frame = beacon_spec[0]
+        partial_metrics = PoolMetrics()
+        partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
+        current_frame = oracle.functions.getCurrentFrame().call()
+        potentially_reportable_epoch = current_frame[0]
+        logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
+        finalized_epoch_beacon = beacon.get_finalized_epoch()
+        logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
+        partial_metrics.epoch = min(potentially_reportable_epoch,
+                        (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+        partial_metrics.timestamp = get_timestamp_by_epoch(beacon_spec, partial_metrics.epoch)
+        partial_metrics.depositedValidators = pool.functions.getBeaconStat().call()[0]
+        partial_metrics.bufferedBalance = pool.functions.getBufferedEther().call()
+        return partial_metrics
+
+    """If partial result provided, the oracle fetches all the required states from ETH1 and ETH2"""
     slots_per_epoch = beacon_spec[1]
-    result = PoolMetrics()
-    # Get the the epoch that is both finalized and reportable
-    current_frame = oracle.functions.getCurrentFrame().call()
-    potentially_reportable_epoch = current_frame[0]
-    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
-    finalized_epoch_beacon = beacon.get_finalized_epoch()
-    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    result.epoch = min(potentially_reportable_epoch,
-                       (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-    slot = result.epoch * slots_per_epoch
-    logging.info(f'Reportable state: epoch:{result.epoch} slot:{slot}')
-
-    validators_keys = get_validators_keys(registry)
+    slot = partial_metrics.epoch * slots_per_epoch
+    logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
+    validators_keys: t.List[bytes] = get_validators_keys(registry)  # deduplicated
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
-
-    result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
-    result.beaconBalance, result.beaconValidators, result.activeValidatorBalance = beacon.get_balances(
-        slot, validators_keys)
-    result.depositedValidators = pool.functions.getBeaconStat().call()[0]
-    result.bufferedBalance = pool.functions.getBufferedEther().call()
-    logging.info(f'Lido validators\' sum. balance on Beacon: {result.beaconBalance} wei or {result.beaconBalance/1e18} ETH')
-    logging.info(f'Lido validators visible on Beacon: {result.beaconValidators}')
-    return result
+    full_metrics = partial_metrics
+    full_metrics.validatorsKeysNumber = len(validators_keys)
+    full_metrics.beaconBalance, full_metrics.beaconValidators, full_metrics.activeValidatorBalance = \
+        beacon.get_balances(slot, validators_keys)
+    logging.info(f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH')
+    logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
+    return full_metrics
 
 
-def compare_pool_metrics(previous, current):
+def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     """Describes the economics of metrics change.
     Helps the Node operator to understand the effect of firing composed TX
     Returns true on suspicious metrics"""
@@ -98,7 +86,9 @@ def compare_pool_metrics(previous, current):
     assert previous.DEPOSIT_SIZE == current.DEPOSIT_SIZE
     DEPOSIT_SIZE = previous.DEPOSIT_SIZE
     delta_seconds = current.timestamp - previous.timestamp
+    metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
     appeared_validators = current.beaconValidators - previous.beaconValidators
+    metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
 

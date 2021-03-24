@@ -35,12 +35,12 @@ docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9
 The oracle receives its configuration via ENVironment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.3
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -49,7 +49,7 @@ See **Other examples** below for transactable modes.
 
 ## Full list of configuration options
 
-* `ETH1_NODE` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
+* `WEB3_PROVIDER_URI` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
 * `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
 * `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
@@ -71,13 +71,13 @@ See **Other examples** below for transactable modes.
 This mode is intended for controlled start and allows to double-check the report and its effects before its actual sending. Runs the single iteration and asks for confirmation via interactive `[y/n]` prompt before sending real TX to the network. You should be connected (attached) to the terminal to see this.
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.3
 ```
 
 ### Autonomous mode
@@ -85,14 +85,14 @@ docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV
 Runs in the background with 1-hour pauses between consecutive iterations. To be used without human supervision (on later stages).
 
 ```sh
-export ETH1_NODE=http://localhost:8545
+export WEB3_PROVIDER_URI=http://localhost:8545
 export BEACON_NODE=http://lighthouse:5052
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 export DAEMON=1
 export SLEEP=3600
 export ORACLE_FROM_BLOCK=11595281
-docker run -e ETH1_NODE -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.3
 ```
 
 ## Build yourself
@@ -108,6 +108,68 @@ To build and push with the given version tag to the dockerhub:
 ```sh
 TAG=0.1.3 PUSH=1 ./build.sh
 ```
+
+## Prometheus metrics
+
+There are 3 logical groups of metrics
+
+
+### 1. Status right now
+
+Use them to check that the Oracle is running correctly right now.
+
+| name                            | description                                                      | frequency                                 | goal                                                                                                                                                                   |
+|---------------------------------|------------------------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **reportableFrame** <br> *gauge*      | is the current metrics build  on reportable frame or not         |  |                                         |
+| **nowEthV1BlockNumber**  <br> *gauge* | blockchain last block                                            | every COUNTDOWN_SLEEP seconds             | blocks on Ethereum are committed approximately once every 15 seconds so this value should be constantly updated  and be aligned with these https://etherscan.io/blocks |
+| **daemonCountDown** <br> *gauge*      | time till the next oracle run                                    | every COUNTDOWN_SLEEP seconds             | should be decreasing to 0                                                                                                                                              |
+| **finalizedEpoch** <br> *gauge*       | eth2 last finalized epoch        | every COUNTDOWN_SLEEP seconds |                                         | should go up at rate of 1 per six munites
+
+
+### 2. Overall metrics of this Oracle system process
+Use it to monitor this system process.
+
+| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
+| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **txSuccess**                     <br> *histogram* | number of succes transactions                           | every SLEEP seconds             |                                       |
+| **txRevert**                      <br> *histogram* | number of failed transactions                           | every SLEEP seconds             |                                       |
+| **process_virtual_memory_bytes**  <br> *gauge* | Virtual memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
+| **process_resident_memory_bytes** <br> *gauge* | Resident memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
+| **process_start_time_seconds**    <br> *gauge* | Start time of the process since unix epoch in seconds.                               | every call             | |
+| **process_cpu_seconds_total**     <br> *counter* | Total user and system CPU time spent in seconds.                              | every call             | |
+| **process_open_fds**              <br> *gauge* | Number of open file descriptors.             | every call             | |
+| **process_max_fds**               <br> *gauge* | Maximum number of open file descriptors.     | every call             | |
+
+### 3. Frame state on the last oracle invocation
+Consists previous and current frame variables, which are used by the Oracle to do computations.
+
+| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
+| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **deltaSeconds**                  <br> *gauge* | current.timestamp - previous.timestamp                           | every SLEEP seconds                       | should be approximately equals to the reports delay  |
+| **appearedValidators**            <br> *gauge* | current.beaconValidators - previous.beaconValidators             | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentEthV1BlockNumber**       <br> *gauge* | blockchain last block on the previous calculations of the oracle | every SLEEP seconds                       | blocks on Ethereum are committed approximately once every 15 seconds so this value should be constantly updated  and be aligned with these https://etherscan.io/blocks |
+| **currentValidatorsKeysNumber**   <br> *gauge* | len(validators_keys)                                             | every time there is an unreported frame (1/day or potentially rarer)                       |                                                                                                                                                                        |
+| **currentEpoch**                  <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentTimestamp**              <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentBeaconValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentBeaconBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentBufferedBalance**        <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentDepositedValidators**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentActiveValidatorBalance** <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentTotalPooledEther**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentTransientValidators**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentTransientBalance**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **currentEthV1BlockNumber**       <br> *gauge* | blockchain last block on the previous calculations of the oracle | every SLEEP seconds                       | blocks on Ethereum are committed approximately once every 15 seconds so this value should be constantly updated  and be aligned with these https://etherscan.io/blocks |
+| **prevEpoch**                     <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevTimestamp**                 <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevBeaconValidators**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevBeaconBalance**             <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevBufferedBalance**           <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevDepositedValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevActiveValidatorBalance**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevTotalPooledEther**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevTransientValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| **prevTransientBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
 
 # License
 

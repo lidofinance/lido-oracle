@@ -6,7 +6,7 @@ from app.log import _setup_logger
 def test_debug_stdout(capsys):
     logger = logging.getLogger('test_debug_stdout')
     logger.setLevel(logging.DEBUG)
-    _setup_logger(logger, '%(levelname)s %(message)s')
+    _setup_logger(logger, '%(levelname)s %(message)s', stdout_level='DEBUG')
     logger.debug('some debug log')
     captured = capsys.readouterr()
     assert captured.out == "DEBUG some debug log\n"
