@@ -25,7 +25,7 @@ protobuf==3.14.0
 pycryptodome==3.10.1
 pyrsistent==0.16.1
 requests==2.25.1
-rlp==2.0.1
+rlp==1.1.0
 six==1.15.0
 toolz==0.11.1
 urllib3==1.26.3
@@ -35,3 +35,4 @@ websockets==8.1
 prometheus-client==0.9.0
 Lido==0.2.2
 py-ecc==5.1.0
+ethereum==2.3.2
