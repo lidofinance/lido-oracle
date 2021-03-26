@@ -66,7 +66,7 @@ DEFAULT_GAS_LIMIT = 1_500_000
 prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
 
 stable_swap_state_update_threshold = int(os.getenv('STABLE_SWAP_STATE_UPDATE_THRESHOLD', 5))
-block_number_delta = int(os.getenv('BLOCK_NUMBER_DELTA', 15))
+block_number_shift = int(os.getenv('BLOCK_NUMBER_SHIFT', 15))
 eth1_provider = os.environ['WEB3_PROVIDER_URI']
 beacon_provider = os.environ['BEACON_NODE']
 
@@ -377,7 +377,7 @@ def update_stable_swap_state_oracle_data():
         logging.info(f'Stable swap oracle state outdated (prices difference >= {stable_swap_state_update_threshold}%). Submiting new one...')
         proof_params = stable_swap_state_oracle.functions.getProofParams().call()
 
-        block_number = w3.eth.block_number - block_number_delta
+        block_number = w3.eth.block_number - block_number_shift
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
         tx = stable_swap_state_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
