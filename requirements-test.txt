@@ -38,6 +38,7 @@ websockets==8.1
 prometheus-client==0.9.0
 Lido==0.2.2
 py-ecc==5.1.0
+ethereum==2.3.2
 
 ### test requirements ###
 
