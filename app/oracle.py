@@ -272,7 +272,7 @@ def main():
 
 
 def run_once():
-    update_swap_price()
+    update_stable_swap_state_oracle_data()
 
     # Get previously reported data
     prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
@@ -357,25 +357,24 @@ def run_once():
     logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
 
-def update_swap_price():
+def update_stable_swap_state_oracle_data():
     logging.info('Check stable swap oracle state')
-
-    oracle_price = stable_swap_state_oracle.functions.stethPrice().call()
-    pool_price = stable_swap_pool.functions.get_dy(1, 0, 10**18).call()
-    percentage_diff = 100 * abs(1 - oracle_price / pool_price)
-    logging.info(f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)')
-
-    is_state_actual = percentage_diff < stable_swap_state_update_threshold
-    if is_state_actual:
-        logging.info(f'Stable swap oracle state valid (prices difference < {stable_swap_state_update_threshold}%). No update required.')
-        return
-
-    if dry_run:
-        logging.warning("Running in dry run mode. Can't submit new state.")
-        return
-
-    logging.info(f'Stable swap oracle state outdated (prices difference >= {stable_swap_state_update_threshold}%). Submiting new one...')
     try:
+        oracle_price = stable_swap_state_oracle.functions.stethPrice().call()
+        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10**18).call()
+        percentage_diff = 100 * abs(1 - oracle_price / pool_price)
+        logging.info(f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)')
+
+        is_state_actual = percentage_diff < stable_swap_state_update_threshold
+        if is_state_actual:
+            logging.info(f'Stable swap oracle state valid (prices difference < {stable_swap_state_update_threshold}%). No update required.')
+            return
+
+        if dry_run:
+            logging.warning("Running in dry run mode. Can't submit new state.")
+            return
+
+        logging.info(f'Stable swap oracle state outdated (prices difference >= {stable_swap_state_update_threshold}%). Submiting new one...')
         proof_params = stable_swap_state_oracle.functions.getProofParams().call()
 
         block_number = w3.eth.block_number - block_number_delta
@@ -389,9 +388,9 @@ def update_swap_price():
         sign_and_send_tx(tx)
     except SolidityError as sl:
         str_sl = str(sl)
-        logging.error(f'Calling tx locally failed: {str_sl}')
+        logging.error(f'Tx call failed : {str_sl}')
     except Exception as exc:
-        logging.exception(f'Unexpected exception. {type(exc)}')
+        logging.error(f'Unexpected exception. {type(exc)}')
 
 
 def sleep():
