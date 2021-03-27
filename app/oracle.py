@@ -179,7 +179,7 @@ logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
-        epoch, balance, validators
+        epoch, balance // 10 ** 9, validators
     ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
 
 
