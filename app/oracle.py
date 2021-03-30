@@ -384,7 +384,7 @@ def update_stable_swap_state_oracle_data():
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
         tx = stable_swap_state_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
-            {'gas': 3_000_000}
+            {'gas': 2_000_000}
         )
 
         w3.eth.call(tx)
