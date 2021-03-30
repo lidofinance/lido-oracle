@@ -39,8 +39,8 @@ envs = [
 ]
 if os.getenv('FORCE'):
     logging.error('The flag "FORCE" is obsolete in favour of '
-                  '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
-                  'please NEVER use it in production')
+        '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
+        'please NEVER use it in production')
     exit(1)
 
 missing = []
@@ -65,7 +65,6 @@ DEFAULT_GAS_LIMIT = 1_500_000
 
 prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
 
-stable_swap_state_update_threshold = int(os.getenv('STABLE_SWAP_STATE_UPDATE_THRESHOLD', 5))
 block_number_shift = int(os.getenv('BLOCK_NUMBER_SHIFT', 15))
 eth1_provider = os.environ['WEB3_PROVIDER_URI']
 beacon_provider = os.environ['BEACON_NODE']
@@ -272,8 +271,17 @@ def main():
 
 
 def run_once():
+    update_beacon_data()
     update_stable_swap_state_oracle_data()
 
+    if not run_as_daemon:
+        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
+        raise StopIteration()
+
+    logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
+
+
+def update_beacon_data():
     # Get previously reported data
     prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
     metrics_exporter_state.set_prev_pool_metrics(prev_metrics)
@@ -291,11 +299,7 @@ def run_once():
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
-        if not run_as_daemon:
-            logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
-            raise StopIteration()  # maybe use some other exception class?
-        else:
-            return
+        return
 
 
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
@@ -350,31 +354,30 @@ def run_once():
         logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
         logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
 
-    if not run_as_daemon:
-        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
-        raise StopIteration()
-
-    logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
-
 
 def update_stable_swap_state_oracle_data():
     logging.info('Check stable swap oracle state')
     try:
         oracle_price = stable_swap_state_oracle.functions.stethPrice().call()
-        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10**18).call()
+        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10 ** 18).call()
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
-        logging.info(f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)')
+        logging.info(
+            f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
+        )
 
-        is_state_actual = percentage_diff < stable_swap_state_update_threshold
+        # Returns value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
+        price_update_threshold = stable_swap_state_oracle.functions.priceUpdateThreshold().call() / 100
+        is_state_actual = percentage_diff < price_update_threshold
+
         if is_state_actual:
-            logging.info(f'Stable swap oracle state valid (prices difference < {stable_swap_state_update_threshold}%). No update required.')
+            logging.info(f'Stable swap oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.')
             return
 
         if dry_run:
-            logging.warning("Running in dry run mode. Can't submit new state.")
+            logging.warning("Running in dry run mode. New state will not be submitted.")
             return
 
-        logging.info(f'Stable swap oracle state outdated (prices difference >= {stable_swap_state_update_threshold}%). Submiting new one...')
+        logging.info(f'Stable swap oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
         proof_params = stable_swap_state_oracle.functions.getProofParams().call()
 
         block_number = w3.eth.block_number - block_number_shift
@@ -387,8 +390,7 @@ def update_stable_swap_state_oracle_data():
         w3.eth.call(tx)
         sign_and_send_tx(tx)
     except SolidityError as sl:
-        str_sl = str(sl)
-        logging.error(f'Tx call failed : {str_sl}')
+        logging.error(f'Tx call failed : {sl}')
     except Exception as exc:
         logging.error(f'Unexpected exception. {type(exc)}')
 
@@ -407,7 +409,6 @@ def sleep():
         metrics_exporter_state.nowEthV1BlockNumber.set(blocknumber)
         finalized_epoch_beacon = beacon.get_finalized_epoch()
         metrics_exporter_state.finalizedEpoch.set(finalized_epoch_beacon)
-
 
         logger.info(f'{awake_at=} {countdown=} {blocknumber=} {finalized_epoch_beacon=}')
 

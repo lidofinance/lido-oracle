@@ -1,10 +1,21 @@
 [
   {
     "inputs": [],
+    "name": "priceUpdateThreshold",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "stethPrice",
     "outputs": [
       {
-        "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
@@ -15,12 +26,10 @@
   {
     "inputs": [
       {
-        "internalType": "bytes",
         "name": "_blockHeaderRlpBytes",
         "type": "bytes"
       },
       {
-        "internalType": "bytes",
         "name": "_proofRlpBytes",
         "type": "bytes"
       }
@@ -72,6 +81,10 @@
       {
         "type": "bytes32",
         "name": "stethBeaconValidatorsPos"
+      },
+      {
+        "type": "uint256",
+        "name": "advisedPriceUpdateThreshold"
       }
     ],
     "inputs": [],
