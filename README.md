@@ -54,7 +54,6 @@ See **Other examples** below for transactable modes.
 * `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
 * `STABLE_SWAP_POOL_CONTRACT` - address of Curve ETH/stETH stable swap pool. **Required**.
 * `STABLE_SWAP_STATE_ORACLE_CONTRACT` - address of Lido's stable swap state oracle. **Required**.
-* `STABLE_SWAP_STATE_UPDATE_THRESHOLD` - max difference in percents between last reported stETH price in stable swap oracle and current stETH price in stable swap pool. **Optional**. Default: `5`
 * `BLOCK_NUMBER_SHIFT` - indent from `latest` block number to be used in computation of new state for stable swap. **Optional**. Default: `15`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
 * `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
