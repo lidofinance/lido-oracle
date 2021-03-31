@@ -365,8 +365,10 @@ def update_stable_swap_state_oracle_data():
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
 
-        # Returns value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
-        price_update_threshold = stable_swap_state_oracle.functions.priceUpdateThreshold().call() / 100
+        proof_params = stable_swap_state_oracle.functions.getProofParams().call()
+
+        # proof_params[-1] contains priceUpdateThreshold value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
+        price_update_threshold = proof_params[-1] / 100
         is_state_actual = percentage_diff < price_update_threshold
 
         if is_state_actual:
@@ -378,7 +380,6 @@ def update_stable_swap_state_oracle_data():
             return
 
         logging.info(f'Stable swap oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
-        proof_params = stable_swap_state_oracle.functions.getProofParams().call()
 
         block_number = w3.eth.block_number - block_number_shift
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)

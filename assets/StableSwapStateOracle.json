@@ -1,18 +1,6 @@
 [
   {
     "inputs": [],
-    "name": "priceUpdateThreshold",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "stethPrice",
     "outputs": [
       {
