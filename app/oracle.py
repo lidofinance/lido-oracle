@@ -358,8 +358,10 @@ def update_beacon_data():
 def update_stable_swap_state_oracle_data():
     logging.info('Check stable swap oracle state')
     try:
+        block_number = w3.eth.block_number - block_number_shift
+
         oracle_price = stable_swap_state_oracle.functions.stethPrice().call()
-        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10 ** 18).call()
+        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
@@ -381,7 +383,6 @@ def update_stable_swap_state_oracle_data():
 
         logging.info(f'Stable swap oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
 
-        block_number = w3.eth.block_number - block_number_shift
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
         tx = stable_swap_state_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
