@@ -65,7 +65,7 @@ DEFAULT_GAS_LIMIT = 1_500_000
 
 prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
 
-block_number_shift = int(os.getenv('BLOCK_NUMBER_SHIFT', 15))
+steth_price_oracle_block_number_shift = int(os.getenv('STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT', 15))
 eth1_provider = os.environ['WEB3_PROVIDER_URI']
 beacon_provider = os.environ['BEACON_NODE']
 
@@ -358,7 +358,7 @@ def update_beacon_data():
 def update_steth_price_oracle_data():
     logging.info('Check StETH Price Oracle state')
     try:
-        block_number = w3.eth.block_number - block_number_shift
+        block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
 
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
