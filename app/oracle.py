@@ -34,8 +34,8 @@ envs = [
     'WEB3_PROVIDER_URI',
     'BEACON_NODE',
     'POOL_CONTRACT',
-    'STABLE_SWAP_POOL_CONTRACT',
-    'STABLE_SWAP_STATE_ORACLE_CONTRACT',
+    'STETH_CURVE_POOL_CONTRACT',
+    'STETH_PRICE_ORACLE_CONTRACT',
 ]
 if os.getenv('FORCE'):
     logging.error('The flag "FORCE" is obsolete in favour of '
@@ -56,8 +56,8 @@ ARTIFACTS_DIR = './assets'
 ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
-STABLE_SWAP_POOL_FILE = 'StableSwapPool.json'
-STABLE_SWAP_STATE_ORACLE_FILE = 'StableSwapStateOracle.json'
+STETH_CURVE_POOL_FILE = 'StableSwapPool.json'
+STETH_PRICE_ORACLE_FILE = 'StableSwapStateOracle.json'
 
 DEFAULT_SLEEP = 60
 DEFAULT_COUNTDOWN_SLEEP = 10
@@ -73,19 +73,19 @@ pool_address = os.environ['POOL_CONTRACT']
 if not Web3.isChecksumAddress(pool_address):
     pool_address = Web3.toChecksumAddress(pool_address)
 
-stable_swap_pool_address = os.environ['STABLE_SWAP_POOL_CONTRACT']
-if not Web3.isChecksumAddress(stable_swap_pool_address):
-    stable_swap_pool_address = Web3.toChecksumAddress(stable_swap_pool_address)
+steth_curve_pool_address = os.environ['STETH_CURVE_POOL_CONTRACT']
+if not Web3.isChecksumAddress(steth_curve_pool_address):
+    steth_curve_pool_address = Web3.toChecksumAddress(steth_curve_pool_address)
 
-stable_swap_state_oracle_address = os.environ['STABLE_SWAP_STATE_ORACLE_CONTRACT']
-if not Web3.isChecksumAddress(stable_swap_state_oracle_address):
-    stable_swap_state_oracle_address = Web3.toChecksumAddress(stable_swap_state_oracle_address)
+steth_price_oracle_address = os.environ['STETH_PRICE_ORACLE_CONTRACT']
+if not Web3.isChecksumAddress(steth_price_oracle_address):
+    steth_price_oracle_address = Web3.toChecksumAddress(steth_price_oracle_address)
 
 oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
-stable_swap_pool_abi_path = os.path.join(ARTIFACTS_DIR, STABLE_SWAP_POOL_FILE)
-stable_swap_state_oracle_abi_path = os.path.join(ARTIFACTS_DIR, STABLE_SWAP_STATE_ORACLE_FILE)
+steth_curve_pool_abi_path = os.path.join(ARTIFACTS_DIR, STETH_CURVE_POOL_FILE)
+steth_price_oracle_abi_path = os.path.join(ARTIFACTS_DIR, STETH_PRICE_ORACLE_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
 SLEEP = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 COUNTDOWN_SLEEP = int(os.getenv('COUNTDOWN_SLEEP', DEFAULT_COUNTDOWN_SLEEP))
@@ -159,17 +159,17 @@ with open(registry_abi_path, 'r') as file:
 abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
-# Get StableSwapPool contract
-with open(stable_swap_pool_abi_path, 'r') as file:
+# Get StETHCurvePool contract
+with open(steth_curve_pool_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-stable_swap_pool = w3.eth.contract(abi=abi, address=stable_swap_pool_address)
+steth_curve_pool = w3.eth.contract(abi=abi, address=steth_curve_pool_address)
 
-# Get StableSwapStateOracle contract
-with open(stable_swap_state_oracle_abi_path, 'r') as file:
+# Get StETHPriceOracle contract
+with open(steth_price_oracle_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
-stable_swap_state_oracle = w3.eth.contract(abi=abi, address=stable_swap_state_oracle_address)
+steth_price_oracle = w3.eth.contract(abi=abi, address=steth_price_oracle_address)
 
 # Get Beacon specs from contract
 beacon_spec = oracle.functions.getBeaconSpec().call()
@@ -272,7 +272,7 @@ def main():
 
 def run_once():
     update_beacon_data()
-    update_stable_swap_state_oracle_data()
+    update_steth_price_oracle_data()
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
@@ -355,37 +355,37 @@ def update_beacon_data():
         logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
 
 
-def update_stable_swap_state_oracle_data():
-    logging.info('Check stable swap oracle state')
+def update_steth_price_oracle_data():
+    logging.info('Check StETH Price Oracle state')
     try:
         block_number = w3.eth.block_number - block_number_shift
 
-        oracle_price = stable_swap_state_oracle.functions.stethPrice().call()
-        pool_price = stable_swap_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
+        oracle_price = steth_price_oracle.functions.stethPrice().call()
+        pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
 
-        proof_params = stable_swap_state_oracle.functions.getProofParams().call()
+        proof_params = steth_price_oracle.functions.getProofParams().call()
 
         # proof_params[-1] contains priceUpdateThreshold value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
         price_update_threshold = proof_params[-1] / 100
         is_state_actual = percentage_diff < price_update_threshold
 
         if is_state_actual:
-            logging.info(f'Stable swap oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.')
+            logging.info(f'StETH Price Oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.')
             return
 
         if dry_run:
             logging.warning("Running in dry run mode. New state will not be submitted.")
             return
 
-        logging.info(f'Stable swap oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
+        logging.info(f'StETH Price Oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
 
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
-        tx = stable_swap_state_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
+        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
             {'gas': 2_000_000}
         )
 
