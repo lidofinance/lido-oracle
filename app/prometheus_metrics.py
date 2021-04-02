@@ -98,8 +98,8 @@ class MetricsExporterState:
     def set_steth_pool_metrics(self, oraclePrice, poolPrice, poolEthBalance, poolStethBalance):
         self.stethOraclePrice.set(oraclePrice)
         self.stethPoolPrice.set(poolPrice)
-        self.stethPoolEthBalance(poolEthBalance)
-        self.stethPoolStethBalance(poolStethBalance)
+        self.stethPoolEthBalance.set(poolEthBalance)
+        self.stethPoolStethBalance.set(poolStethBalance)
 
 
 metrics_exporter_state = MetricsExporterState()
