@@ -402,8 +402,6 @@ def update_steth_price_oracle_data():
         sign_and_send_tx(tx)
     except SolidityError as sl:
         logging.error(f'Tx call failed : {sl}')
-    except Exception as exc:
-        logging.error(f'Unexpected exception. {type(exc)}')
 
 
 def sleep():
