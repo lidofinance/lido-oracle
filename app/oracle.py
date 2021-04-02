@@ -399,9 +399,12 @@ def update_steth_price_oracle_data():
         )
 
         w3.eth.call(tx)
+        logging.info('Calling tx locally succeeded.')
         sign_and_send_tx(tx)
     except SolidityError as sl:
         logging.error(f'Tx call failed : {sl}')
+    except Exception as exc:
+        logging.exception(f'Unexpected exception. {type(exc)}')
 
 
 def sleep():
