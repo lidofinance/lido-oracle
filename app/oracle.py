@@ -363,12 +363,18 @@ def update_steth_price_oracle_data():
     try:
         block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
 
+
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
+
+        pool_eth_balance = steth_curve_pool.functions.balances(0).call()
+        pool_steth_balance = steth_curve_pool.functions.balances(1).call()
+        
+        metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price, pool_eth_balance, pool_steth_balance)
 
         proof_params = steth_price_oracle.functions.getProofParams().call()
 

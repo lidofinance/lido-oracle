@@ -174,6 +174,16 @@ Consists previous and current frame variables, which are used by the Oracle to d
 | **prevTransientValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
 | **prevTransientBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
 
+### 4. stETH oracle state
+Consists pool and oracle stETH peg.
+
+| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
+| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **stethOraclePrice**              <br> *gauge* | | every SLEEP seconds | |
+| **stethPoolPrice**                <br> *gauge* | | every SLEEP seconds | |
+| **stethPoolEthBalance**           <br> *gauge* | | every SLEEP seconds | |
+| **stethPoolStethBalance**         <br> *gauge* | | every SLEEP seconds | |
+
 # License
 
 2020 Lido <info@lido.fi>

@@ -61,6 +61,11 @@ class MetricsExporterState:
         # self.resourceSharedMemorySize = Gauge('resourceSharedMemorySize', 'resourceSharedMemorySize')
         # self.resourceUnsharedMemorySize = Gauge('resourceUnsharedMemorySize', 'resourceUnsharedMemorySize')
 
+        self.stethOraclePrice = Gauge('stethOraclePrice', 'stethOraclePrice')
+        self.stethPoolPrice = Gauge('stethPoolPrice', 'stethPoolPrice')
+        self.stethPoolEthBalance = Gauge('stethPoolEthBalance', 'stethPoolEthBalance')
+        self.stethPoolStethBalance = Gauge('stethPoolStethBalance', 'stethPoolStethBalance')
+
     def set_current_pool_metrics(self, metrics: PoolMetrics):
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
         self.currentEpoch.set(metrics.epoch)
@@ -89,6 +94,12 @@ class MetricsExporterState:
         self.prevTotalPooledEther.set(metrics.getTotalPooledEther())
         self.prevTransientValidators.set(metrics.getTransientValidators())
         self.prevTransientBalance.set(metrics.getTransientBalance())
+
+    def set_steth_pool_metrics(self, oraclePrice, poolPrice, poolEthBalance, poolStethBalance):
+        self.stethOraclePrice.set(oraclePrice)
+        self.stethPoolPrice.set(poolPrice)
+        self.stethPoolEthBalance(poolEthBalance)
+        self.stethPoolStethBalance(poolStethBalance)
 
 
 metrics_exporter_state = MetricsExporterState()
