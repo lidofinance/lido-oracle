@@ -63,8 +63,6 @@ class MetricsExporterState:
 
         self.stethOraclePrice = Gauge('stethOraclePrice', 'stethOraclePrice')
         self.stethPoolPrice = Gauge('stethPoolPrice', 'stethPoolPrice')
-        self.stethPoolEthBalance = Gauge('stethPoolEthBalance', 'stethPoolEthBalance')
-        self.stethPoolStethBalance = Gauge('stethPoolStethBalance', 'stethPoolStethBalance')
 
     def set_current_pool_metrics(self, metrics: PoolMetrics):
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
@@ -95,11 +93,9 @@ class MetricsExporterState:
         self.prevTransientValidators.set(metrics.getTransientValidators())
         self.prevTransientBalance.set(metrics.getTransientBalance())
 
-    def set_steth_pool_metrics(self, oraclePrice, poolPrice, poolEthBalance, poolStethBalance):
+    def set_steth_pool_metrics(self, oraclePrice, poolPrice):
         self.stethOraclePrice.set(oraclePrice)
         self.stethPoolPrice.set(poolPrice)
-        self.stethPoolEthBalance.set(poolEthBalance)
-        self.stethPoolStethBalance.set(poolStethBalance)
 
 
 metrics_exporter_state = MetricsExporterState()
