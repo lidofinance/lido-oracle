@@ -9,13 +9,12 @@ import datetime
 import time
 import sys
 
-from handled_exception import HandledException
+from exceptions import BeaconConnectionTimeoutException
 
 from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
 from web3.exceptions import SolidityError, CannotHandleRequest
 
-from requests.exceptions import ConnectTimeout
 
 from beacon import get_beacon
 from contracts import get_total_supply
@@ -278,12 +277,9 @@ def main():
                 continue
             else:
                 raise
-        except HandledException as exc:
+        except BeaconConnectionTimeoutException as exc:
             logging.exception(exc)
-            if ( 
-                isinstance(exc.args[0]["parent_exception"], ConnectTimeout)
-                and run_as_daemon
-            ):
+            if ( run_as_daemon ):
                 metrics_exporter_state.beaconNodeTimeoutCount.inc()
                 if ( 
                     MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS == 0 
