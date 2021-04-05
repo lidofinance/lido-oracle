@@ -23,8 +23,6 @@ from metrics import compare_pool_metrics, get_current_metrics, get_previous_metr
 from prometheus_metrics import metrics_exporter_state
 from state_proof import encode_proof_data
 
-MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS = int(os.getenv('MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS', 0))
-
 init_log(stdout_level=os.environ.get('LOG_LEVEL_STDOUT', 'INFO'))
 logger = logging.getLogger()
 
@@ -281,13 +279,7 @@ def main():
             logging.exception(exc)
             if ( run_as_daemon ):
                 metrics_exporter_state.beaconNodeTimeoutCount.inc()
-                if ( 
-                    MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS == 0 
-                    or metrics_exporter_state.beaconNodeTimeoutCount._value.get() < MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS
-                ):
-                    continue            
-                else:
-                    raise
+                continue
             else:
                 raise
 
