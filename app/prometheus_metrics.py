@@ -64,6 +64,8 @@ class MetricsExporterState:
         self.stethOraclePrice = Gauge('stethOraclePrice', 'stethOraclePrice')
         self.stethPoolPrice = Gauge('stethPoolPrice', 'stethPoolPrice')
 
+        self.beaconNodeTimeoutCount = Gauge('beaconNodeTimeoutCount', 'beaconNodeTimeoutCount')
+
     def set_current_pool_metrics(self, metrics: PoolMetrics):
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
         self.currentEpoch.set(metrics.epoch)

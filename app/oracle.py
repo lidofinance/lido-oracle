@@ -7,6 +7,7 @@ import logging
 import os
 import datetime
 import time
+import sys
 
 from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
@@ -18,6 +19,8 @@ from log import init_log
 from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
 from prometheus_metrics import metrics_exporter_state
 from state_proof import encode_proof_data
+
+MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS = int(os.getenv('MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS', 0))
 
 init_log(stdout_level=os.environ.get('LOG_LEVEL_STDOUT', 'INFO'))
 logger = logging.getLogger()
@@ -271,7 +274,22 @@ def main():
                 continue
             else:
                 raise
-
+        except Exception as exc:
+            logging.exception(exc)
+            if (
+                str(sys.exc_info()[1]).startswith('Handled exception: ConnectTimeout')
+                and run_as_daemon
+            ):
+                metrics_exporter_state.beaconNodeTimeoutCount.inc()
+                if ( 
+                    MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS == 0 
+                    or metrics_exporter_state.beaconNodeTimeoutCount._value.get() < MAX_BEACON_NODE_TIMEOUT_EXCEPTIONS
+                ):
+                    continue            
+                else:
+                    raise
+            else:
+                raise
 
 def run_once():
     update_beacon_data()
