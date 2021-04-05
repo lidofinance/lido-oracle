@@ -12,6 +12,8 @@ from datetime import timezone
 import requests
 from requests.compat import urljoin
 
+from handled_exception import HandledException
+
 
 def get_beacon(provider, slots_per_epoch):
     version = requests.get(urljoin(provider, 'eth/v1/node/version')).text
@@ -27,7 +29,7 @@ def error_handler(func):
         try:
             return func(*args, **kwargs)
         except Exception as exc:
-            raise Exception(f'Handled exception: {type(exc).__name__}: {str(exc)}') from exc
+            raise HandledException({"parent_exception": exc}) from exc
     return inner
 
 
