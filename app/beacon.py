@@ -12,7 +12,8 @@ from datetime import timezone
 import requests
 from requests.compat import urljoin
 
-from handled_exception import HandledException
+from requests.exceptions import ConnectTimeout
+from exceptions import BeaconConnectionTimeoutException
 
 
 def get_beacon(provider, slots_per_epoch):
@@ -24,12 +25,12 @@ def get_beacon(provider, slots_per_epoch):
         return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
-def error_handler(func):
+def proxy_connect_timeout_exception(func):
     def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as exc:
-            raise HandledException({"parent_exception": exc}) from exc
+        except ConnectTimeout as exc:
+            raise BeaconConnectionTimeoutException() from exc
     return inner
 
 
@@ -48,15 +49,15 @@ class Lighthouse:
         self.version = requests.get(urljoin(url, self.api_version)).json()
 
     
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
         return int(requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints)).json()['data']['finalized']['epoch'])
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_genesis(self):
         return int(requests.get(urljoin(self.url, self.api_genesis)).json()['data']['genesis_time'])
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_actual_slot(self):
         actual_slots = {}
         response = requests.get(urljoin(self.url, self.api_beacon_head_actual)).json()
@@ -65,7 +66,7 @@ class Lighthouse:
         actual_slots['finalized_slot'] = int(response['data']['header']['message']['slot'])
         return actual_slots
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def _convert_key_list_to_str_arr(self, key_list):
         pubkeys = []
         for key in key_list:
@@ -73,7 +74,7 @@ class Lighthouse:
 
         return pubkeys
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_balances(self, slot, key_list):
         pubkeys = self._convert_key_list_to_str_arr(key_list)
 
@@ -120,19 +121,19 @@ class Prysm:
         self.slots_per_epoch = slots_per_epoch
         self.version = requests.get(urljoin(url, self.api_version)).json()
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
         finalized_epoch = int(requests.get(urljoin(self.url, self.api_beacon_head)).json()['finalizedEpoch'])
         return finalized_epoch
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_genesis(self):
         genesis_time = requests.get(urljoin(self.url, self.api_genesis)).json()['genesisTime']
         genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
         genesis_time = int(genesis_time.timestamp())
         return genesis_time
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_actual_slot(self):
         actual_slots = {}
         response = requests.get(urljoin(self.url, self.api_beacon_head)).json()
@@ -140,7 +141,7 @@ class Prysm:
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
 
-    @error_handler
+    @proxy_connect_timeout_exception
     def get_balances(self, slot, key_list):
         params = {}
         pubkeys = []
