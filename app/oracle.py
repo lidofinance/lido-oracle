@@ -370,11 +370,8 @@ def update_steth_price_oracle_data():
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
-
-        pool_eth_balance = steth_curve_pool.functions.balances(0).call()
-        pool_steth_balance = steth_curve_pool.functions.balances(1).call()
         
-        metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price, pool_eth_balance, pool_steth_balance)
+        metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price)
 
         proof_params = steth_price_oracle.functions.getProofParams().call()
 
