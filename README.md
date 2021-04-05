@@ -183,6 +183,7 @@ Consists pool and oracle stETH peg.
 | **stethPoolPrice**                <br> *gauge* | | every SLEEP seconds | |
 | **stethPoolEthBalance**           <br> *gauge* | | every SLEEP seconds | |
 | **stethPoolStethBalance**         <br> *gauge* | | every SLEEP seconds | |
+| **beaconNodeTimeoutCount**         <br> *gauge* | | every SLEEP seconds | |
 
 # License
 
