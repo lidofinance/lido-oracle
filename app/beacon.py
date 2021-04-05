@@ -22,9 +22,6 @@ def get_beacon(provider, slots_per_epoch):
         return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
-class HandledException(Exception):
-    pass
-
 def error_handler(func):
     def inner(*args, **kwargs):
         try:
