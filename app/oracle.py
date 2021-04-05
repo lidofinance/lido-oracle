@@ -279,7 +279,7 @@ def main():
             else:
                 raise
         except HandledException as exc:
-            # logging.exception(exc)
+            logging.exception(exc)
             if ( 
                 isinstance(exc.args[0]["parent_exception"], ConnectTimeout)
                 and run_as_daemon
