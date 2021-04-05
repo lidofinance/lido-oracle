@@ -9,5 +9,12 @@
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "name": "balances",
+    "outputs": [{ "type": "uint256", "name": "" }],
+    "inputs": [{ "type": "uint256", "name": "i" }],
+    "stateMutability": "view",
+    "type": "function"
   }
 ]

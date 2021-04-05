@@ -7,10 +7,14 @@ import logging
 import os
 import datetime
 import time
+import sys
+
+from exceptions import BeaconConnectionTimeoutException
 
 from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
 from web3.exceptions import SolidityError, CannotHandleRequest
+
 
 from beacon import get_beacon
 from contracts import get_total_supply
@@ -271,7 +275,13 @@ def main():
                 continue
             else:
                 raise
-
+        except BeaconConnectionTimeoutException as exc:
+            logging.exception(exc)
+            if ( run_as_daemon ):
+                metrics_exporter_state.beaconNodeTimeoutCount.inc()
+                continue
+            else:
+                raise
 
 def run_once():
     update_beacon_data()
@@ -363,12 +373,15 @@ def update_steth_price_oracle_data():
     try:
         block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
 
+
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
+        
+        metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price)
 
         proof_params = steth_price_oracle.functions.getProofParams().call()
 
@@ -393,11 +406,12 @@ def update_steth_price_oracle_data():
         )
 
         w3.eth.call(tx)
+        logging.info('Calling tx locally succeeded.')
         sign_and_send_tx(tx)
     except SolidityError as sl:
         logging.error(f'Tx call failed : {sl}')
     except Exception as exc:
-        logging.error(f'Unexpected exception. {type(exc)}')
+        logging.exception(f'Unexpected exception. {type(exc)}')
 
 
 def sleep():
