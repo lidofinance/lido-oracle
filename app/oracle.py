@@ -38,8 +38,6 @@ envs = [
     'WEB3_PROVIDER_URI',
     'BEACON_NODE',
     'POOL_CONTRACT',
-    'STETH_CURVE_POOL_CONTRACT',
-    'STETH_PRICE_ORACLE_CONTRACT',
 ]
 if os.getenv('FORCE'):
     logging.error('The flag "FORCE" is obsolete in favour of '
@@ -77,12 +75,12 @@ pool_address = os.environ['POOL_CONTRACT']
 if not Web3.isChecksumAddress(pool_address):
     pool_address = Web3.toChecksumAddress(pool_address)
 
-steth_curve_pool_address = os.environ['STETH_CURVE_POOL_CONTRACT']
-if not Web3.isChecksumAddress(steth_curve_pool_address):
+steth_curve_pool_address = os.environ.get('STETH_CURVE_POOL_CONTRACT')
+if steth_curve_pool_address and not Web3.isChecksumAddress(steth_curve_pool_address):
     steth_curve_pool_address = Web3.toChecksumAddress(steth_curve_pool_address)
 
-steth_price_oracle_address = os.environ['STETH_PRICE_ORACLE_CONTRACT']
-if not Web3.isChecksumAddress(steth_price_oracle_address):
+steth_price_oracle_address = os.environ.get('STETH_PRICE_ORACLE_CONTRACT')
+if steth_price_oracle_address and not Web3.isChecksumAddress(steth_price_oracle_address):
     steth_price_oracle_address = Web3.toChecksumAddress(steth_price_oracle_address)
 
 oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
@@ -164,16 +162,20 @@ abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get StETHCurvePool contract
-with open(steth_curve_pool_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-steth_curve_pool = w3.eth.contract(abi=abi, address=steth_curve_pool_address)
+steth_curve_pool = None
+if steth_curve_pool_address:
+    with open(steth_curve_pool_abi_path, 'r') as file:
+        a = file.read()
+    abi = json.loads(a)
+    steth_curve_pool = w3.eth.contract(abi=abi, address=steth_curve_pool_address)
 
 # Get StETHPriceOracle contract
-with open(steth_price_oracle_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-steth_price_oracle = w3.eth.contract(abi=abi, address=steth_price_oracle_address)
+steth_price_oracle = None
+if steth_price_oracle_address:
+    with open(steth_price_oracle_abi_path, 'r') as file:
+        a = file.read()
+    abi = json.loads(a)
+    steth_price_oracle = w3.eth.contract(abi=abi, address=steth_price_oracle_address)
 
 # Get Beacon specs from contract
 beacon_spec = oracle.functions.getBeaconSpec().call()
@@ -198,8 +200,17 @@ logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
 logging.info(f'SLEEP={SLEEP} s (pause between iterations in DAEMON mode)')
 logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
 logging.info(f'POOL_CONTRACT={pool_address}')
-logging.info(f'STETH_CURVE_POOL_CONTRACT={steth_curve_pool_address}')
-logging.info(f'STETH_PRICE_ORACLE_CONTRACT={steth_price_oracle_address}')
+
+if steth_curve_pool_address:
+    logging.info(f'STETH_CURVE_POOL_CONTRACT={steth_curve_pool_address}')
+else:
+    logging.info('STETH_CURVE_POOL_CONTRACT was not provided. Price oracle is disabled')
+
+if steth_price_oracle_address:
+    logging.info(f'STETH_PRICE_ORACLE_CONTRACT={steth_price_oracle_address}')
+else:
+    logging.info('STETH_PRICE_ORACLE_CONTRACT was not provided. Price oracle is disabled')
+
 logging.info(f'STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT={steth_price_oracle_block_number_shift}')
 logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
 logging.info(f'Registry contract address: {registry_address} (auto-discovered)')
@@ -285,7 +296,8 @@ def main():
 
 def run_once():
     update_beacon_data()
-    update_steth_price_oracle_data()
+    if steth_price_oracle and steth_curve_pool:
+        update_steth_price_oracle_data()
 
     if not run_as_daemon:
         logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
@@ -373,14 +385,13 @@ def update_steth_price_oracle_data():
     try:
         block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
 
-
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
         )
-        
+
         metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price)
 
         proof_params = steth_price_oracle.functions.getProofParams().call()
