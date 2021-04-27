@@ -189,6 +189,7 @@ Consists pool and oracle stETH peg.
 | **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced          |
 | **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                            |
 | **beaconNodeTimeoutCount**        <br> *gauge* | count of node connection timeouts                                 |
+| **exceptionsCount**               <br> *gauge* | count of all other exceptions                                     |
 
 # License
 

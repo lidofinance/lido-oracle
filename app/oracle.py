@@ -311,6 +311,7 @@ def main():
         except Exception as exc:
             if run_as_daemon:
                 logging.exception(exc)
+                metrics_exporter_state.exceptionsCount.inc()
             else:
                 raise
 
@@ -396,10 +397,12 @@ def update_beacon_data():
             if args["code"] == -32000:
                 raise
             else:
+                metrics_exporter_state.exceptionsCount.inc()
                 logging.exception(f'Unexpected exception. {type(exc)}')
         except TimeExhausted as exc:
             raise
         except Exception as exc:
+            metrics_exporter_state.exceptionsCount.inc()
             logging.exception(f'Unexpected exception. {type(exc)}')
 
     else:
@@ -447,16 +450,19 @@ def update_steth_price_oracle_data():
         logging.info('Calling tx locally succeeded.')
         sign_and_send_tx(tx)
     except SolidityError as sl:
+        metrics_exporter_state.exceptionsCount.inc()
         logging.error(f'Tx call failed : {sl}')
     except ValueError as exc:
         (args, ) = exc.args
         if args["code"] == -32000:
             raise
         else:
+            metrics_exporter_state.exceptionsCount.inc()
             logging.exception(exc)
     except TimeExhausted as exc:
         raise
     except Exception as exc:
+        metrics_exporter_state.exceptionsCount.inc()
         logging.exception(f'Unexpected exception. {type(exc)}')
 
 
