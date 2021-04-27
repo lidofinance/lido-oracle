@@ -114,7 +114,7 @@ TAG=0.1.3 PUSH=1 ./build.sh
 
 ## Prometheus metrics
 
-There are 3 logical groups of metrics
+There are 5 logical groups of metrics
 
 
 ### 1. Status right now
@@ -179,11 +179,16 @@ Consists pool and oracle stETH peg.
 
 | name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
 | ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **stethOraclePrice**              <br> *gauge* | | every SLEEP seconds | |
-| **stethPoolPrice**                <br> *gauge* | | every SLEEP seconds | |
-| **stethPoolEthBalance**           <br> *gauge* | | every SLEEP seconds | |
-| **stethPoolStethBalance**         <br> *gauge* | | every SLEEP seconds | |
-| **beaconNodeTimeoutCount**         <br> *gauge* | | every SLEEP seconds | |
+| **stethOraclePrice**              <br> *gauge* | | every call | |
+| **stethPoolPrice**                <br> *gauge* | | every call | |
+
+### 5. Exceptions
+
+| name                                           | description                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------|
+| **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced          |
+| **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                            |
+| **beaconNodeTimeoutCount**        <br> *gauge* | count of node connection timeouts                                 |
 
 # License
 
