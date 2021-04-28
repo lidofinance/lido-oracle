@@ -13,7 +13,7 @@ from exceptions import BeaconConnectionTimeoutException
 
 from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
-from web3.exceptions import SolidityError, CannotHandleRequest
+from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 
 from beacon import get_beacon
@@ -287,10 +287,31 @@ def main():
             else:
                 raise
         except BeaconConnectionTimeoutException as exc:
-            logging.exception(exc)
-            if ( run_as_daemon ):
+            if run_as_daemon:
+                logging.exception(exc)
                 metrics_exporter_state.beaconNodeTimeoutCount.inc()
                 continue
+            else:
+                raise
+        except ValueError as exc:
+            (args, ) = exc.args
+            if run_as_daemon and args["code"] == -32000:
+                logging.exception(exc)
+                metrics_exporter_state.underpricedExceptionsCount.inc()
+                continue
+            else:
+                raise
+        except TimeExhausted as exc:
+            if run_as_daemon:
+                logging.exception(exc)
+                metrics_exporter_state.timeExhaustedExceptionsCount.inc()
+                continue
+            else:
+                raise
+        except Exception as exc:
+            if run_as_daemon:
+                logging.exception(exc)
+                metrics_exporter_state.exceptionsCount.inc()
             else:
                 raise
 
@@ -371,8 +392,17 @@ def update_beacon_data():
                 logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
             else:
                 logging.error(f'Calling tx locally failed: {str_sl}')
-
+        except ValueError as exc:
+            (args, ) = exc.args
+            if args["code"] == -32000:
+                raise
+            else:
+                metrics_exporter_state.exceptionsCount.inc()
+                logging.exception(f'Unexpected exception. {type(exc)}')
+        except TimeExhausted as exc:
+            raise
         except Exception as exc:
+            metrics_exporter_state.exceptionsCount.inc()
             logging.exception(f'Unexpected exception. {type(exc)}')
 
     else:
@@ -420,8 +450,19 @@ def update_steth_price_oracle_data():
         logging.info('Calling tx locally succeeded.')
         sign_and_send_tx(tx)
     except SolidityError as sl:
+        metrics_exporter_state.exceptionsCount.inc()
         logging.error(f'Tx call failed : {sl}')
+    except ValueError as exc:
+        (args, ) = exc.args
+        if args["code"] == -32000:
+            raise
+        else:
+            metrics_exporter_state.exceptionsCount.inc()
+            logging.exception(exc)
+    except TimeExhausted as exc:
+        raise
     except Exception as exc:
+        metrics_exporter_state.exceptionsCount.inc()
         logging.exception(f'Unexpected exception. {type(exc)}')
 
 

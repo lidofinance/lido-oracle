@@ -65,6 +65,9 @@ class MetricsExporterState:
         self.stethPoolPrice = Gauge('stethPoolPrice', 'stethPoolPrice')
 
         self.beaconNodeTimeoutCount = Gauge('beaconNodeTimeoutCount', 'beaconNodeTimeoutCount')
+        self.timeExhaustedExceptionsCount = Gauge('timeExhaustedExceptionsCount', 'timeExhaustedExceptionsCount')
+        self.underpricedExceptionsCount = Gauge('underpricedExceptionsCount', 'underpricedExceptionsCount')
+        self.exceptionsCount = Gauge('exceptionsCount', 'exceptionsCount')
 
     def set_current_pool_metrics(self, metrics: PoolMetrics):
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
