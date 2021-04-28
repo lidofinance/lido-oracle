@@ -10,6 +10,7 @@ from tests.utils import get_log_lines
 def test_no_priv_key():
     env = os.environ.copy()
     env.pop('MEMBER_PRIV_KEY', None)
+    env.pop('DAEMON', None)
     with subprocess.Popen(
             ['python3', '-u', './app/oracle.py'],
             bufsize=0,
@@ -21,12 +22,13 @@ def test_no_priv_key():
     ) as proc:
         lines = get_log_lines(proc, n_lines=10)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
-        assert len(match) == 1
+        assert len(match) == 1, f'bad output {lines}'
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
+        out, err = proc.communicate(timeout=30)
         proc.wait()
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'invalid returncode, stdout: {out}, stderr: {err}'
 
 
 def test_with_priv_key_with_gaslimit_no_daemon():
@@ -47,7 +49,7 @@ def test_with_priv_key_with_gaslimit_no_daemon():
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, stop_on_substring=expected_prompt)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
-        assert len(match) == 1
+        assert len(match) == 1, f'bad output {lines}'
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
@@ -66,7 +68,7 @@ def test_with_priv_key_with_gaslimit_no_daemon():
         assert tx_data['gas'] == custom_gas
         assert expected_prompt in prompt_line
         proc.stdin.write('n\n')
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'output {lines}'
 
 
 def test_with_priv_key_no_gaslimit_no_daemon():
@@ -86,7 +88,7 @@ def test_with_priv_key_no_gaslimit_no_daemon():
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, stop_on_substring=expected_prompt)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
-        assert len(match) == 1
+        assert len(match) == 1, f'bad output {lines}'
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
@@ -105,7 +107,7 @@ def test_with_priv_key_no_gaslimit_no_daemon():
         assert tx_data['gas'] == DEFAULT_GAS_LIMIT
         assert expected_prompt in prompt_line
         proc.stdin.write('n\n')
-    assert proc.returncode == 0
+    assert proc.returncode == 0, f'output {lines}'
 
 
 def test_with_priv_key_with_daemon_no_sleep():
@@ -125,7 +127,8 @@ def test_with_priv_key_with_daemon_no_sleep():
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, timeout=30, stop_on_substring='We are in DAEMON mode. Sleep')
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
-        assert len(match) == 1
+
+        assert len(match) == 1, f'bad output {lines}'
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
@@ -136,15 +139,16 @@ def test_with_priv_key_with_daemon_no_sleep():
         #   'gas': 42, 'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229',
         #   'data': '0x62eeb732000000000000000000000000000000000000000000000000000000000000047400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
         # }
-        tx_line = lines[-2]
+        tx_line = lines[-14]
         sleep_line = lines[-1]
+        print(tx_line, sleep_line)
         assert 'TX successful' in tx_line
         assert 'We are in DAEMON mode. Sleep' in sleep_line
         sleep = float(sleep_line.split('Sleep')[-1].split('s and continue')[0])
         assert sleep == DEFAULT_SLEEP
         proc.kill()
         proc.wait()
-    assert proc.returncode == -9
+    assert proc.returncode == -9, f'output {lines}'
 
 
 def test_with_priv_key_with_daemon_with_sleep():
@@ -165,7 +169,7 @@ def test_with_priv_key_with_daemon_with_sleep():
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, timeout=30, stop_on_substring='We are in DAEMON mode. Sleep')
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
-        assert len(match) == 1
+        assert len(match) == 1, f'bad output {lines}'
         index = match[0]
         assert lines[index+1].endswith('Injecting PoA compatibility middleware')
         assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
@@ -176,7 +180,7 @@ def test_with_priv_key_with_daemon_with_sleep():
         #   'gas': 42, 'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229',
         #   'data': '0x62eeb732000000000000000000000000000000000000000000000000000000000000047400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
         # }
-        tx_line = lines[-2]
+        tx_line = lines[-14]
         sleep_line = lines[-1]
         assert 'TX successful' in tx_line
         assert 'We are in DAEMON mode. Sleep' in sleep_line
@@ -184,4 +188,4 @@ def test_with_priv_key_with_daemon_with_sleep():
         assert sleep == custom_sleep
         proc.kill()
         proc.wait()
-    assert proc.returncode == -9
+    assert proc.returncode == -9, f'output {lines}'

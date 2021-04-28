@@ -15,6 +15,8 @@ key_list = [
 
 
 class MockContract:
+    address = '0x3f1444316db1Fe87935CD211A3b45d2019600983'  # some random valid address
+
     class FunctionCallable:
         def __init__(self, res):
             self.res = res

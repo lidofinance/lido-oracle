@@ -7,16 +7,24 @@ import logging
 import os
 import datetime
 import time
+import sys
 
+from exceptions import BeaconConnectionTimeoutException
+
+from prometheus_client import start_http_server
 from web3 import Web3, WebsocketProvider, HTTPProvider
-from web3.exceptions import SolidityError
+from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
+
 
 from beacon import get_beacon
+from contracts import get_total_supply
 from log import init_log
 from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
+from prometheus_metrics import metrics_exporter_state
+from state_proof import encode_proof_data
 
-init_log()
-logger = logging.getLogger(__name__)
+init_log(stdout_level=os.environ.get('LOG_LEVEL_STDOUT', 'INFO'))
+logger = logging.getLogger()
 
 meta_envs = ['VERSION', 'COMMIT_MESSAGE', 'COMMIT_HASH', 'COMMIT_DATETIME', 'BUILD_DATETIME', 'TAGS', 'BRANCH']
 
@@ -27,14 +35,14 @@ for env in meta_envs:
     logging.info(f'{env.lower()}: {value}')
 
 envs = [
-    'ETH1_NODE',
+    'WEB3_PROVIDER_URI',
     'BEACON_NODE',
     'POOL_CONTRACT',
 ]
 if os.getenv('FORCE'):
     logging.error('The flag "FORCE" is obsolete in favour of '
-                  '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
-                  'please NEVER use it in production')
+        '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
+        'please NEVER use it in production')
     exit(1)
 
 missing = []
@@ -50,19 +58,39 @@ ARTIFACTS_DIR = './assets'
 ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
 REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
+STETH_CURVE_POOL_FILE = 'StableSwapPool.json'
+STETH_PRICE_ORACLE_FILE = 'StableSwapStateOracle.json'
+
 DEFAULT_SLEEP = 60
+DEFAULT_COUNTDOWN_SLEEP = 10
 DEFAULT_GAS_LIMIT = 1_500_000
 
-eth1_provider = os.environ['ETH1_NODE']
+prometheus_metrics_port = int(os.getenv('PROMETHEUS_METRICS_PORT', 8000))
+
+steth_price_oracle_block_number_shift = int(os.getenv('STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT', 15))
+eth1_provider = os.environ['WEB3_PROVIDER_URI']
 beacon_provider = os.environ['BEACON_NODE']
+
 pool_address = os.environ['POOL_CONTRACT']
 if not Web3.isChecksumAddress(pool_address):
     pool_address = Web3.toChecksumAddress(pool_address)
+
+steth_curve_pool_address = os.environ.get('STETH_CURVE_POOL_CONTRACT')
+if steth_curve_pool_address and not Web3.isChecksumAddress(steth_curve_pool_address):
+    steth_curve_pool_address = Web3.toChecksumAddress(steth_curve_pool_address)
+
+steth_price_oracle_address = os.environ.get('STETH_PRICE_ORACLE_CONTRACT')
+if steth_price_oracle_address and not Web3.isChecksumAddress(steth_price_oracle_address):
+    steth_price_oracle_address = Web3.toChecksumAddress(steth_price_oracle_address)
+
 oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
+steth_curve_pool_abi_path = os.path.join(ARTIFACTS_DIR, STETH_CURVE_POOL_FILE)
+steth_price_oracle_abi_path = os.path.join(ARTIFACTS_DIR, STETH_PRICE_ORACLE_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
-await_time_in_sec = int(os.getenv('SLEEP', DEFAULT_SLEEP))
+SLEEP = int(os.getenv('SLEEP', DEFAULT_SLEEP))
+COUNTDOWN_SLEEP = int(os.getenv('COUNTDOWN_SLEEP', DEFAULT_COUNTDOWN_SLEEP))
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
 force = int(os.getenv('FORCE_DO_NOT_USE_IN_PRODUCTION', 0))
@@ -115,9 +143,9 @@ with open(pool_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
 pool = w3.eth.contract(abi=abi['abi'], address=pool_address)  # contract object
-
 # Get Oracle contract
 oracle_address = pool.functions.getOracle().call()  # oracle contract
+logger.info(f'{oracle_address=}')
 
 with open(oracle_abi_path, 'r') as file:
     a = file.read()
@@ -126,11 +154,28 @@ oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
 # Get Registry contract
 registry_address = pool.functions.getOperators().call()
+logger.info(f'{registry_address=}')
 
 with open(registry_abi_path, 'r') as file:
     a = file.read()
 abi = json.loads(a)
 registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
+
+# Get StETHCurvePool contract
+steth_curve_pool = None
+if steth_curve_pool_address:
+    with open(steth_curve_pool_abi_path, 'r') as file:
+        a = file.read()
+    abi = json.loads(a)
+    steth_curve_pool = w3.eth.contract(abi=abi, address=steth_curve_pool_address)
+
+# Get StETHPriceOracle contract
+steth_price_oracle = None
+if steth_price_oracle_address:
+    with open(steth_price_oracle_abi_path, 'r') as file:
+        a = file.read()
+    abi = json.loads(a)
+    steth_price_oracle = w3.eth.contract(abi=abi, address=steth_price_oracle_address)
 
 # Get Beacon specs from contract
 beacon_spec = oracle.functions.getBeaconSpec().call()
@@ -150,11 +195,23 @@ if force:
     logging.info('FORCE_DO_NOT_USE_IN_PRODUCTION=1 Running in enforced mode.')
     logging.warning("In enforced mode TX gets always sent even if it looks suspicious. NEVER use it in production!")
 
-logging.info(f'ETH1_NODE={eth1_provider}')
+logging.info(f'WEB3_PROVIDER_URI={eth1_provider}')
 logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
-logging.info(f'SLEEP={await_time_in_sec} s (pause between iterations in DAEMON mode)')
+logging.info(f'SLEEP={SLEEP} s (pause between iterations in DAEMON mode)')
 logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
 logging.info(f'POOL_CONTRACT={pool_address}')
+
+if steth_curve_pool_address:
+    logging.info(f'STETH_CURVE_POOL_CONTRACT={steth_curve_pool_address}')
+else:
+    logging.info('STETH_CURVE_POOL_CONTRACT was not provided. Price oracle is disabled')
+
+if steth_price_oracle_address:
+    logging.info(f'STETH_PRICE_ORACLE_CONTRACT={steth_price_oracle_address}')
+else:
+    logging.info('STETH_PRICE_ORACLE_CONTRACT was not provided. Price oracle is disabled')
+
+logging.info(f'STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT={steth_price_oracle_block_number_shift}')
 logging.info(f'Oracle contract address: {oracle_address} (auto-discovered)')
 logging.info(f'Registry contract address: {registry_address} (auto-discovered)')
 logging.info(f'Seconds per slot: {seconds_per_slot} (auto-discovered)')
@@ -163,9 +220,15 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
+# fixme
+# @metrics_exporter_state.totalSupply.time()
+# def process_get_total_supply():
+#     return get_total_supply(pool)
+# print(f'{get_total_supply(oracle)=}')
+
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     return oracle.functions.reportBeacon(
-        epoch, balance, validators
+        epoch, balance // 10 ** 9, validators
     ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
 
 
@@ -185,9 +248,11 @@ def sign_and_send_tx(tx):
     tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
     if tx_receipt.status == 1:
         logging.info('TX successful')
+        metrics_exporter_state.txSuccess.observe(1)
     else:
         logging.warning('TX reverted')
         logging.warning(tx_receipt)
+        metrics_exporter_state.txRevert.observe(1)
 
 
 def prompt(prompt_message, prompt_end):
@@ -203,10 +268,69 @@ def prompt(prompt_message, prompt_end):
             continue
 
 
-logging.info('Starting the main loop')
-while True:
+def main():
+    logger.info(f'start prometheus metrics server on the port: {prometheus_metrics_port}')
+    start_http_server(prometheus_metrics_port)
+
+    logging.info('Starting the main loop')
+    while True:
+        try:
+            run_once()
+            sleep()
+        except StopIteration:
+            break
+        except CannotHandleRequest as exc:
+            if 'Could not discover provider while making request: method:eth_chainId' in str(exc):
+                logger.exception("handle 'Could not discover provider' problem")
+                time.sleep(1)
+                continue
+            else:
+                raise
+        except BeaconConnectionTimeoutException as exc:
+            if run_as_daemon:
+                logging.exception(exc)
+                metrics_exporter_state.beaconNodeTimeoutCount.inc()
+                continue
+            else:
+                raise
+        except ValueError as exc:
+            (args, ) = exc.args
+            if run_as_daemon and args["code"] == -32000:
+                logging.exception(exc)
+                metrics_exporter_state.underpricedExceptionsCount.inc()
+                continue
+            else:
+                raise
+        except TimeExhausted as exc:
+            if run_as_daemon:
+                logging.exception(exc)
+                metrics_exporter_state.timeExhaustedExceptionsCount.inc()
+                continue
+            else:
+                raise
+        except Exception as exc:
+            if run_as_daemon:
+                logging.exception(exc)
+                metrics_exporter_state.exceptionsCount.inc()
+            else:
+                raise
+
+def run_once():
+    update_beacon_data()
+    if steth_price_oracle and steth_curve_pool:
+        update_steth_price_oracle_data()
+
+    if not run_as_daemon:
+        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
+        raise StopIteration()
+
+    logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
+
+
+def update_beacon_data():
     # Get previously reported data
     prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
+    metrics_exporter_state.set_prev_pool_metrics(prev_metrics)
     if prev_metrics:
         logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
         logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
@@ -216,60 +340,149 @@ while True:
         logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
+    # Get minimal metrics that are available without polling
     current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
-    warnings = compare_pool_metrics(prev_metrics, current_metrics)
-    if current_metrics.epoch <= prev_metrics.epoch:
+    metrics_exporter_state.set_current_pool_metrics(current_metrics)
+    if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
-    else:
-        logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
-        if not dry_run:
-            try:
-                tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
-                # Create the tx and execute it locally to check validity
-                w3.eth.call(tx)
-                logging.info('Calling tx locally succeeded.')
-                if run_as_daemon:
-                    if warnings:
-                        if force:
-                            sign_and_send_tx(tx)
-                        else:
-                            logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
-                            logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                            logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production.")
+        return
+
+
+    # Get full metrics using polling (get keys from reggistry, get balances from beacon)
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+    metrics_exporter_state.set_current_pool_metrics(current_metrics)
+    warnings = compare_pool_metrics(prev_metrics, current_metrics)
+
+    logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
+    if not dry_run:
+        try:
+            metrics_exporter_state.reportableFrame.set(True)
+            tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
+            # Create the tx and execute it locally to check validity
+            w3.eth.call(tx)
+            logging.info('Calling tx locally succeeded.')
+            if run_as_daemon:
+                if warnings:
+                    if force:
+                        sign_and_send_tx(tx)
                     else:
-                        sign_and_send_tx(tx)
+                        logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
+                        logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
+                        logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production.")
                 else:
-                    print(f'Tx data: {tx.__repr__()}')
-                    if prompt('Should we send this TX? [y/n]: ', ''):
-                        sign_and_send_tx(tx)
+                    sign_and_send_tx(tx)
+            else:
+                print(f'Tx data: {tx.__repr__()}')
+                if prompt('Should we send this TX? [y/n]: ', ''):
+                    sign_and_send_tx(tx)
 
-            except SolidityError as sl:
-                str_sl = str(sl)
-                if "EPOCH_IS_TOO_OLD" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
-                elif "ALREADY_SUBMITTED" in str_sl:
-                    logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
-                elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
-                    logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
-                elif "MEMBER_NOT_FOUND" in str_sl:
-                    logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
-                elif "REPORTED_MORE_DEPOSITED" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
-                elif "REPORTED_LESS_VALIDATORS" in str_sl:
-                    logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
-                else:
-                    logging.error(f'Calling tx locally failed: {str_sl}')
-
-            except Exception as exc:
+        except SolidityError as sl:
+            str_sl = str(sl)
+            if "EPOCH_IS_TOO_OLD" in str_sl:
+                logging.info('Calling tx locally reverted "EPOCH_IS_TOO_OLD"')
+            elif "ALREADY_SUBMITTED" in str_sl:
+                logging.info('Calling tx locally reverted "ALREADY_SUBMITTED"')
+            elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
+                logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
+            elif "MEMBER_NOT_FOUND" in str_sl:
+                logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
+            elif "REPORTED_MORE_DEPOSITED" in str_sl:
+                logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
+            elif "REPORTED_LESS_VALIDATORS" in str_sl:
+                logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
+            else:
+                logging.error(f'Calling tx locally failed: {str_sl}')
+        except ValueError as exc:
+            (args, ) = exc.args
+            if args["code"] == -32000:
+                raise
+            else:
+                metrics_exporter_state.exceptionsCount.inc()
                 logging.exception(f'Unexpected exception. {type(exc)}')
+        except TimeExhausted as exc:
+            raise
+        except Exception as exc:
+            metrics_exporter_state.exceptionsCount.inc()
+            logging.exception(f'Unexpected exception. {type(exc)}')
 
+    else:
+        logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
+        logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+
+
+def update_steth_price_oracle_data():
+    logging.info('Check StETH Price Oracle state')
+    try:
+        block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
+
+        oracle_price = steth_price_oracle.functions.stethPrice().call()
+        pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
+        percentage_diff = 100 * abs(1 - oracle_price / pool_price)
+        logging.info(
+            f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
+        )
+
+        metrics_exporter_state.set_steth_pool_metrics(oracle_price, pool_price)
+
+        proof_params = steth_price_oracle.functions.getProofParams().call()
+
+        # proof_params[-1] contains priceUpdateThreshold value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
+        price_update_threshold = proof_params[-1] / 100
+        is_state_actual = percentage_diff < price_update_threshold
+
+        if is_state_actual:
+            logging.info(f'StETH Price Oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.')
+            return
+
+        if dry_run:
+            logging.warning("Running in dry run mode. New state will not be submitted.")
+            return
+
+        logging.info(f'StETH Price Oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
+
+        header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
+
+        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
+            {'gas': 2_000_000}
+        )
+
+        w3.eth.call(tx)
+        logging.info('Calling tx locally succeeded.')
+        sign_and_send_tx(tx)
+    except SolidityError as sl:
+        metrics_exporter_state.exceptionsCount.inc()
+        logging.error(f'Tx call failed : {sl}')
+    except ValueError as exc:
+        (args, ) = exc.args
+        if args["code"] == -32000:
+            raise
         else:
-            logging.info('The tx hasn\'t been actually sent to the oracle contract! We are in DRY RUN mode')
-            logging.info('Provide MEMBER_PRIV_KEY to be able to transact')
+            metrics_exporter_state.exceptionsCount.inc()
+            logging.exception(exc)
+    except TimeExhausted as exc:
+        raise
+    except Exception as exc:
+        metrics_exporter_state.exceptionsCount.inc()
+        logging.exception(f'Unexpected exception. {type(exc)}')
 
-    if not run_as_daemon:
-        logging.info('We are in single-iteration mode, so exiting. Set DAEMON=1 env to run in the loop.')
-        break
 
-    logging.info(f'We are in DAEMON mode. Sleep {await_time_in_sec} s and continue')
-    time.sleep(await_time_in_sec)
+def sleep():
+    # sleep and countdown
+    awake_at = time.time() + SLEEP
+    while time.time() < awake_at:
+        time.sleep(COUNTDOWN_SLEEP)
+        countdown = awake_at - time.time()
+        if countdown < 0:
+            break
+        metrics_exporter_state.reportableFrame.set(False)
+        metrics_exporter_state.daemonCountDown.set(countdown)
+        blocknumber = w3.eth.getBlock('latest')['number']
+        metrics_exporter_state.nowEthV1BlockNumber.set(blocknumber)
+        finalized_epoch_beacon = beacon.get_finalized_epoch()
+        metrics_exporter_state.finalizedEpoch.set(finalized_epoch_beacon)
+
+        logger.info(f'{awake_at=} {countdown=} {blocknumber=} {finalized_epoch_beacon=}')
+
+
+if __name__ == '__main__':
+    main()
