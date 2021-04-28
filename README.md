@@ -121,11 +121,11 @@ TAG=0.1.3 PUSH=1 ./build.sh
 
 ## Prometheus metrics
 
-Prometheus exporter is running on port 8000 and provides 5 logical groups of metrics
+Prometheus exporter is running on port 8000 and provides 5 logical groups of metrics.
 
-### 1. Status right now
+### 1. Current status
 
-Use them to check that the Oracle is running correctly right now.
+Current Oracle daemon's state.
 
 | name                            | description                                                      | frequency                                 | goal                                                                                                                                                                   |
 |---------------------------------|------------------------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -135,8 +135,9 @@ Use them to check that the Oracle is running correctly right now.
 | **finalizedEpoch** <br> *gauge*       | last finalized ETH2 epoch                                  | every COUNTDOWN_SLEEP seconds             | should go up at a rate of 1 per six munites                                     |
 
 
-### 2. Overall metrics of this Oracle system process
-Use it to monitor this system process.
+### 2. Oracle process metrics
+
+Oracle process stats.
 
 | name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
 | ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,8 +150,9 @@ Use it to monitor this system process.
 | **process_open_fds**              <br> *gauge* | Number of open file descriptors.             | every call             | |
 | **process_max_fds**               <br> *gauge* | Maximum number of open file descriptors.     | every call             | |
 
-### 3. Frame state on the last oracle invocation
-Consists previous and current frame variables, which are used by the Oracle to do computations.
+### 3. Last oracle invocation frame state
+
+The previous and the current frame variables.
 
 | name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
 | ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -180,8 +182,9 @@ Consists previous and current frame variables, which are used by the Oracle to d
 | **prevTransientValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
 | **prevTransientBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
 
-### 4. stETH oracle state
-Consists pool and oracle stETH peg.
+### 4. stETH Oracle state
+
+Current stETH price in the pool and the price oracle.
 
 | name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
 | ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -189,6 +192,8 @@ Consists pool and oracle stETH peg.
 | **stethPoolPrice**                <br> *gauge* | | every call | |
 
 ### 5. Exceptions
+
+Exception counters.
 
 | name                                           | description                                                       |
 | ---------------------------------------------- | ------------------------------------------------------------------|
