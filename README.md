@@ -35,12 +35,15 @@ docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9
 The oracle receives its configuration via ENVironment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
 
 ```sh
-export WEB3_PROVIDER_URI=http://localhost:8545
-export BEACON_NODE=http://lighthouse:5052
+export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
+export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
+export STETH_PRICE_ORACLE_CONTRACT0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
+export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.0.0
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -74,13 +77,15 @@ See **Other examples** below for transactable modes.
 This mode is intended for controlled start and allows to double-check the report and its effects before its actual sending. Runs the single iteration and asks for confirmation via interactive `[y/n]` prompt before sending real TX to the network. You should be connected (attached) to the terminal to see this.
 
 ```sh
-export WEB3_PROVIDER_URI=http://localhost:8545
-export BEACON_NODE=http://lighthouse:5052
+export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
+export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+export STETH_PRICE_ORACLE_CONTRACT0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
+export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -it lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.0.0
 ```
 
 ### Autonomous mode
@@ -88,14 +93,16 @@ docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEM
 Runs in the background with 1-hour pauses between consecutive iterations. To be used without human supervision (on later stages).
 
 ```sh
-export WEB3_PROVIDER_URI=http://localhost:8545
-export BEACON_NODE=http://lighthouse:5052
+export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
+export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-export MEMBER_PRIV_KEY=0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+export STETH_PRICE_ORACLE_CONTRACT0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
+export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=1
-export SLEEP=3600
+export SLEEP=300
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP lidofinance/oracle:0.1.3
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.0.0
 ```
 
 ## Build yourself
@@ -187,7 +194,7 @@ Consists pool and oracle stETH peg.
 | ---------------------------------------------- | ------------------------------------------------------------------|
 | **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced          |
 | **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                            |
-| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                                 |
+| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                          |
 | **exceptionsCount**               <br> *gauge* | count of all other exceptions                                     |
 
 # License
