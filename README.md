@@ -114,8 +114,7 @@ TAG=0.1.3 PUSH=1 ./build.sh
 
 ## Prometheus metrics
 
-There are 5 logical groups of metrics
-
+Prometheus exporter is running on port 8000 and provides 5 logical groups of metrics
 
 ### 1. Status right now
 
@@ -188,7 +187,7 @@ Consists pool and oracle stETH peg.
 | ---------------------------------------------- | ------------------------------------------------------------------|
 | **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced          |
 | **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                            |
-| **beaconNodeTimeoutCount**        <br> *gauge* | count of node connection timeouts                                 |
+| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                                 |
 | **exceptionsCount**               <br> *gauge* | count of all other exceptions                                     |
 
 # License
