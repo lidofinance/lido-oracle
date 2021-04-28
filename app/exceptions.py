@@ -1,0 +1,2 @@
+class BeaconConnectionTimeoutException(Exception):
+    pass

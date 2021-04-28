@@ -2,39 +2,46 @@
 
 # SPDX-License-Identifier: GPL-3.0
 
+import typing as t
 import logging
+import os
 
-logging.basicConfig(
-    level=logging.INFO, format='%(levelname)8s %(asctime)s <daemon> %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
-)
+from lido import get_operators_data, get_operators_keys
+
+DEFAULT_MAX_MULTICALL = 30
+MAX_MULTICALL = int(os.environ.get('MAX_MULTICALL', DEFAULT_MAX_MULTICALL))
 
 
 def dedup_validators_keys(validators_keys_list):
     return list(set(validators_keys_list))
 
 
-def get_validators_keys(contract):
-    node_operators_count = contract.functions.getNodeOperatorsCount().call()
+def get_total_supply(contract):  # fixme
+    print(f'{contract.all_functions()=}')
+    return contract.functions.totalSupply().call()
 
-    logging.info('Quering NodeOperatorsRegistry...')
-    logging.info(f'Node operators in registry: {node_operators_count}')
 
-    validators_keys_list = []
-    if node_operators_count > 0:
-        for no_id in range(node_operators_count):
-            validators_keys_count = contract.functions.getTotalSigningKeyCount(no_id).call()
+def get_validators_keys(contract) -> t.List[bytes]:
+    """ fetch keys
+    apply crypto validation
+    apply duplicates finding
+    raise on any check's fail
+    return list of keys
+    """
 
-            logging.info(f'Node operator ID: {no_id} Keys: {validators_keys_count}')
+    operators_data = get_operators_data(
+        registry_address=contract.address
+    )
 
-            if validators_keys_count > 0:
-                for index in range(validators_keys_count):
-                    validator_key = contract.functions.getSigningKey(no_id, index).call()
-                    validators_keys_list.append(validator_key[0])
-                    index += 1
+    operators = get_operators_keys(
+        operators=operators_data,
+        registry_address=contract.address, 
+        max_multicall=MAX_MULTICALL
+    )
 
-    dedupped = dedup_validators_keys(validators_keys_list)
-
-    if len(dedupped) != len(validators_keys_list):
-        logging.error('Alert! Validators keys contain duplicates.')
-
-    return dedupped
+    keys = []
+    for op in operators:
+        for key_item in op['keys']:
+            key = key_item['key']
+            keys.append(key)
+    return keys
