@@ -202,6 +202,13 @@ Exception counters.
 | **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                          |
 | **exceptionsCount**               <br> *gauge* | count of all other exceptions                                     |
 
+### Alert examples
+
+Metrics provided allow for multiple useful alerts on oracle health and performance.
+We strongly recommend setting up at least two alerts as follows:
+- There were no Beacon oracle reports about the last finalized Beacon epoch for more than 30 minutes since that epoch has became finalized.
+- Curve stETH pool live price (`stethPoolPrice` gauge) differs from the stETH oracle's price (`stethOraclePrice` gauge) by more than 5% for at least 10 minutes.
+
 # License
 
 2020 Lido <info@lido.fi>
