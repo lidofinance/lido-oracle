@@ -207,7 +207,26 @@ Exception counters.
 Metrics provided allow for multiple useful alerts on oracle health and performance.
 We strongly recommend setting up at least two alerts as follows:
 - There were no Beacon oracle reports about the last finalized Beacon epoch for more than 30 minutes since that epoch has became finalized.
-- Curve stETH pool live price (`stethPoolPrice` gauge) differs from the stETH oracle's price (`stethOraclePrice` gauge) by more than 5% for at least 10 minutes.
+```
+  - alert: reported_frame
+    expr: currentEpoch > prevEpoch 
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: No report for current frame for 30 minutes
+```
+- Curve stETH pool live price (`stethPoolPrice` gauge) differs from the stETH oracle's price (`stethOraclePrice` gauge) by more than 5% for at least 10 minutes. 
+```
+  - alert: peg
+    expr: abs((stethPoolPrice - stethOraclePrice)/stethOraclePrice)  > 0.05
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      title: Peg difference is greater than 5%
+      description: Peg difference is greater than 5% for more than 10 minutes.
+```
 
 # License
 
