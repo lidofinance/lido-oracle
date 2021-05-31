@@ -206,7 +206,7 @@ Exception counters.
 
 Metrics provided allow for multiple useful alerts on oracle health and performance.
 We strongly recommend setting up at least two alerts as follows:
-- There were no Beacon oracle reports about the last finalized Beacon epoch for more than 30 minutes since that epoch has became finalized.
+- There were no Beacon oracle reports about the last finalized Beacon epoch for more than 30 minutes since that epoch has become finalized.
 ```
   - alert: reported_frame
     expr: currentEpoch > prevEpoch 
