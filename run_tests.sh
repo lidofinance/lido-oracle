@@ -30,7 +30,7 @@ then
 fi
 
 echo "Run ETH1/ETH2 mock webservice"
-python -m aiohttp.web -H localhost -P ${PORT} helpers.eth_nodes_mock:main > /dev/null 2>&1 &
+python3 -m aiohttp.web -H localhost -P ${PORT} helpers.eth_nodes_mock:main > /dev/null 2>&1 &
 #sleep 1
 
 if [ "${LIGHTHOUSE}" = 1 ]
