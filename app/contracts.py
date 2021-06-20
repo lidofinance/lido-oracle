@@ -6,7 +6,7 @@ import typing as t
 import logging
 import os
 
-from lido import get_operators_data, get_operators_keys
+from lido import Lido
 
 DEFAULT_MAX_MULTICALL = 30
 MAX_MULTICALL = int(os.environ.get('MAX_MULTICALL', DEFAULT_MAX_MULTICALL))
@@ -21,23 +21,21 @@ def get_total_supply(contract):  # fixme
     return contract.functions.totalSupply().call()
 
 
-def get_validators_keys(contract) -> t.List[bytes]:
+def get_validators_keys(w3, registry_address) -> t.List[bytes]:
     """ fetch keys
     apply crypto validation
     apply duplicates finding
     raise on any check's fail
     return list of keys
     """
+    lido = Lido(
+        w3,
+        registry_address=registry_address,
+        max_multicall=MAX_MULTICALL)
 
-    operators_data = get_operators_data(
-        registry_address=contract.address
-    )
+    operators_data = lido.get_operators_data()
 
-    operators = get_operators_keys(
-        operators=operators_data,
-        registry_address=contract.address, 
-        max_multicall=MAX_MULTICALL
-    )
+    operators = lido.get_operators_keys(operators_data)
 
     keys = []
     for op in operators:

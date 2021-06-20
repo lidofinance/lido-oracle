@@ -57,7 +57,6 @@ if missing:
 ARTIFACTS_DIR = './assets'
 ORACLE_ARTIFACT_FILE = 'LidoOracle.json'
 POOL_ARTIFACT_FILE = 'Lido.json'
-REGISTRY_ARTIFACT_FILE = 'NodeOperatorsRegistry.json'
 STETH_CURVE_POOL_FILE = 'StableSwapPool.json'
 STETH_PRICE_ORACLE_FILE = 'StableSwapStateOracle.json'
 
@@ -85,7 +84,6 @@ if steth_price_oracle_address and not Web3.isChecksumAddress(steth_price_oracle_
 
 oracle_abi_path = os.path.join(ARTIFACTS_DIR, ORACLE_ARTIFACT_FILE)
 pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
-registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 steth_curve_pool_abi_path = os.path.join(ARTIFACTS_DIR, STETH_CURVE_POOL_FILE)
 steth_price_oracle_abi_path = os.path.join(ARTIFACTS_DIR, STETH_PRICE_ORACLE_FILE)
 member_privkey = os.getenv('MEMBER_PRIV_KEY')
@@ -155,11 +153,6 @@ oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 # Get Registry contract
 registry_address = pool.functions.getOperators().call()
 logger.info(f'{registry_address=}')
-
-with open(registry_abi_path, 'r') as file:
-    a = file.read()
-abi = json.loads(a)
-registry = w3.eth.contract(abi=abi['abi'], address=registry_address)
 
 # Get StETHCurvePool contract
 steth_curve_pool = None
@@ -341,7 +334,7 @@ def update_beacon_data():
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
     # Get minimal metrics that are available without polling
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry_address, beacon_spec)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
@@ -349,7 +342,7 @@ def update_beacon_data():
 
 
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry_address, beacon_spec, partial_metrics=current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
 

@@ -42,7 +42,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
+def get_current_metrics(w3, beacon, pool, oracle, registry_address, beacon_spec,
                         partial_metrics: t.Optional[PoolMetrics] = None) -> PoolMetrics:
     """If the result of previous get_current_metrics call isn't given
     create and return partial metric.mSince it doesn't get keys from
@@ -67,7 +67,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
-    validators_keys: t.List[bytes] = get_validators_keys(registry)  # deduplicated
+    validators_keys: t.List[bytes] = get_validators_keys(w3, registry_address)  # deduplicated
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
     full_metrics = partial_metrics
     full_metrics.validatorsKeysNumber = len(validators_keys)
