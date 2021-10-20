@@ -235,7 +235,7 @@ def build_report_beacon_tx(epoch, balance, validators):  # hash tx
 def sign_and_send_tx(tx):
     logging.info('Preparing TX... CTRL-C to abort')
     time.sleep(3)  # To be able to Ctrl + C
-    tx['nonce'] = w3.eth.getTransactionCount(
+    tx['nonce'] = w3.eth.get_transaction_count(
         account.address
     )  # Get correct transaction nonce for sender from the node
     signed = w3.eth.account.sign_transaction(tx, account.key)
@@ -243,9 +243,9 @@ def sign_and_send_tx(tx):
     time.sleep(3)
     logging.info('Sending TX... CTRL-C to abort')
     time.sleep(3)
-    tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+    tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
     logging.info('TX has been sent. Waiting for receipt...')
-    tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     if tx_receipt.status == 1:
         logging.info('TX successful')
         metrics_exporter_state.txSuccess.observe(1)
