@@ -227,9 +227,16 @@ logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 # print(f'{get_total_supply(oracle)=}')
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
+    max_fee_per_gas, max_priority_fee_per_gas = get_gas_params()
+
     return oracle.functions.reportBeacon(
         epoch, balance // 10 ** 9, validators
-    ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
+    ).buildTransaction({
+        'from': account.address,
+        'gas': GAS_LIMIT,
+        'maxFeePerGas': max_fee_per_gas,
+        'maxPriorityFeePerGas': max_priority_fee_per_gas,
+    })
 
 
 def sign_and_send_tx(tx):
@@ -442,9 +449,13 @@ def update_steth_price_oracle_data():
 
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
-        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
-            {'gas': 2_000_000}
-        )
+        max_fee_per_gas, max_priority_fee_per_gas = get_gas_params()
+
+        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction({
+            'gas': 2_000_000,
+            'maxFeePerGas': max_fee_per_gas,
+            'maxPriorityFeePerGas': max_priority_fee_per_gas,
+        })
 
         w3.eth.call(tx)
         logging.info('Calling tx locally succeeded.')
@@ -482,6 +493,15 @@ def sleep():
         metrics_exporter_state.finalizedEpoch.set(finalized_epoch_beacon)
 
         logger.info(f'{awake_at=} {countdown=} {blocknumber=} {finalized_epoch_beacon=}')
+
+
+def get_gas_params():
+    """Return recommended gas fee and priority fee"""
+    base_fee_per_gas = w3.eth.get_block('latest').baseFeePerGas
+    max_priority_fee_per_gas = w3.eth.max_priority_fee * 2
+    max_fee_per_gas = int(base_fee_per_gas * 1.5 + max_priority_fee_per_gas)
+
+    return max_fee_per_gas, max_priority_fee_per_gas
 
 
 if __name__ == '__main__':
