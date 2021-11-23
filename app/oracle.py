@@ -420,8 +420,7 @@ def update_beacon_data():
 def update_steth_price_oracle_data():
     logging.info('Check StETH Price Oracle state')
     try:
-        block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
-
+        block_number = w3.eth.getBlock('latest').number - steth_price_oracle_block_number_shift
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
@@ -464,7 +463,7 @@ def update_steth_price_oracle_data():
         logging.error(f'Tx call failed : {sl}')
     except ValueError as exc:
         (args, ) = exc.args
-        if args["code"] == -32000:
+        if isinstance(args, dict) and args["code"] == -32000:
             raise
         else:
             metrics_exporter_state.exceptionsCount.inc()
