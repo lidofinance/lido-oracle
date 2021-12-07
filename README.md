@@ -19,7 +19,7 @@ Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collect
 
 ## Setup
 
-The oracle daemon requires fully-syncedd ETH1.0 and Beacon nodes. We highly recommend using
+The oracle daemon requires fully-synced ETH1.0 and Beacon nodes. We highly recommend using
 [geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
 [Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
 

@@ -8,6 +8,7 @@ import os
 import datetime
 import time
 import sys
+from typing import Tuple
 
 from exceptions import BeaconConnectionTimeoutException
 
@@ -227,9 +228,15 @@ logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 # print(f'{get_total_supply(oracle)=}')
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
+    max_fee_per_gas, max_priority_fee_per_gas = _get_tx_gas_params()
     return oracle.functions.reportBeacon(
         epoch, balance // 10 ** 9, validators
-    ).buildTransaction({'from': account.address, 'gas': GAS_LIMIT})
+    ).buildTransaction({
+        'from': account.address,
+        'gas': GAS_LIMIT,
+        'maxFeePerGas': max_fee_per_gas,
+        'maxPriorityFeePerGas': max_priority_fee_per_gas,
+    })
 
 
 def sign_and_send_tx(tx):
@@ -413,8 +420,7 @@ def update_beacon_data():
 def update_steth_price_oracle_data():
     logging.info('Check StETH Price Oracle state')
     try:
-        block_number = w3.eth.block_number - steth_price_oracle_block_number_shift
-
+        block_number = w3.eth.getBlock('latest').number - steth_price_oracle_block_number_shift
         oracle_price = steth_price_oracle.functions.stethPrice().call()
         pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
@@ -442,9 +448,12 @@ def update_steth_price_oracle_data():
 
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
-        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
-            {'gas': 2_000_000}
-        )
+        max_fee_per_gas, max_priority_fee_per_gas = _get_tx_gas_params()
+        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction({
+            'gas': 2_000_000,
+            'maxFeePerGas': max_fee_per_gas,
+            'maxPriorityFeePerGas': max_priority_fee_per_gas,
+        })
 
         w3.eth.call(tx)
         logging.info('Calling tx locally succeeded.')
@@ -454,7 +463,7 @@ def update_steth_price_oracle_data():
         logging.error(f'Tx call failed : {sl}')
     except ValueError as exc:
         (args, ) = exc.args
-        if args["code"] == -32000:
+        if isinstance(args, dict) and args["code"] == -32000:
             raise
         else:
             metrics_exporter_state.exceptionsCount.inc()
@@ -482,6 +491,14 @@ def sleep():
         metrics_exporter_state.finalizedEpoch.set(finalized_epoch_beacon)
 
         logger.info(f'{awake_at=} {countdown=} {blocknumber=} {finalized_epoch_beacon=}')
+
+
+def _get_tx_gas_params() -> Tuple[int, int]:
+    """Return tx gas fee and priority fee"""
+    base_fee_per_gas = w3.eth.get_block('latest').baseFeePerGas
+    max_priority_fee_per_gas = w3.eth.max_priority_fee * 2
+    max_fee_per_gas = int(base_fee_per_gas * 2 + max_priority_fee_per_gas)
+    return max_fee_per_gas, max_priority_fee_per_gas
 
 
 if __name__ == '__main__':
