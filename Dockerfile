@@ -1,8 +1,6 @@
 FROM python:3.8-slim as builder
 
-RUN apt-get update \
- && apt-get install -y gcc \
- && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gcc
 
 COPY requirements.txt .
 RUN pip install --trusted-host pypi.python.org -r requirements.txt
