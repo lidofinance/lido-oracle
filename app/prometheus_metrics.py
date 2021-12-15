@@ -1,7 +1,6 @@
 import os
 import logging
 
-from prometheus_client import Gauge
 from prometheus_client.metrics import Gauge, Histogram
 
 from pool_metrics import PoolMetrics
