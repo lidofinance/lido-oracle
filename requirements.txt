@@ -1,5 +1,5 @@
 cytoolz==0.11.2
 eth-rlp==0.2.1
+lido-sdk==2.4.3
 web3==5.25.0
-prometheus-client==0.9.0
-Lido==0.2.2
+prometheus-client==0.12.0

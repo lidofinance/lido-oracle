@@ -3,45 +3,14 @@
 # SPDX-License-Identifier: GPL-3.0
 
 import typing as t
-import logging
-import os
 
-from lido import get_operators_data, get_operators_keys
-
-DEFAULT_MAX_MULTICALL = 30
-MAX_MULTICALL = int(os.environ.get('MAX_MULTICALL', DEFAULT_MAX_MULTICALL))
+from lido_sdk import Lido
+from lido_sdk.methods.typing import OperatorKey
 
 
-def dedup_validators_keys(validators_keys_list):
-    return list(set(validators_keys_list))
-
-
-def get_total_supply(contract):  # fixme
-    print(f'{contract.all_functions()=}')
-    return contract.functions.totalSupply().call()
-
-
-def get_validators_keys(contract) -> t.List[bytes]:
-    """ fetch keys
-    apply crypto validation
-    apply duplicates finding
-    raise on any check's fail
-    return list of keys
-    """
-
-    operators_data = get_operators_data(
-        registry_address=contract.address
-    )
-
-    operators = get_operators_keys(
-        operators=operators_data,
-        registry_address=contract.address, 
-        max_multicall=MAX_MULTICALL
-    )
-
-    keys = []
-    for op in operators:
-        for key_item in op['keys']:
-            key = key_item['key']
-            keys.append(key)
-    return keys
+def get_validators_keys(w3) -> t.List[OperatorKey]:
+    """ Fetch all validator's keys from registry """
+    lido = Lido(w3)
+    lido.get_operators_indexes()
+    lido.get_operators_data()
+    return list(map(lambda x: x['key'], lido.get_operators_keys()))
