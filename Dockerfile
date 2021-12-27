@@ -3,7 +3,7 @@ FROM python:3.8-slim as builder
 RUN apt-get update && apt-get install -y gcc
 
 COPY requirements.txt .
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-use-pep517 --trusted-host pypi.python.org -r requirements.txt
 
 FROM python:3.8-slim as production
 
