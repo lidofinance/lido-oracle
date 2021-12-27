@@ -1,5 +1,5 @@
-import subprocess
 import pytest
+import subprocess
 
 
 def test_interactive_oracle_with_no_response():

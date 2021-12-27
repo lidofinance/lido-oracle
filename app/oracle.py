@@ -7,7 +7,6 @@ import logging
 import os
 import datetime
 import time
-import sys
 from typing import Tuple
 
 from exceptions import BeaconConnectionTimeoutException
@@ -18,11 +17,11 @@ from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 
 from beacon import get_beacon
-from contracts import get_total_supply
 from log import init_log
 from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
 from prometheus_metrics import metrics_exporter_state
 from state_proof import encode_proof_data
+
 
 init_log(stdout_level=os.environ.get('LOG_LEVEL_STDOUT', 'INFO'))
 logger = logging.getLogger()
@@ -221,12 +220,6 @@ logging.info(f'Epochs per frame: {epochs_per_frame} (auto-discovered)')
 logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 
-# fixme
-# @metrics_exporter_state.totalSupply.time()
-# def process_get_total_supply():
-#     return get_total_supply(pool)
-# print(f'{get_total_supply(oracle)=}')
-
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     max_fee_per_gas, max_priority_fee_per_gas = _get_tx_gas_params()
     return oracle.functions.reportBeacon(
@@ -321,6 +314,7 @@ def main():
                 metrics_exporter_state.exceptionsCount.inc()
             else:
                 raise
+
 
 def run_once():
     update_beacon_data()

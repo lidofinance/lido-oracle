@@ -122,7 +122,7 @@ async def eth1(request):
             resp["result"] = "0x00000000000000000000000000000000000000000000000176b344f2a78c0000"
         elif req['params'][0]['data'] == '0x37cfdaca':
             resp["result"] = "0x00000000000000000000000000000000000000000000003d4a9118a9bc4c0800"
-        elif req['params'] == [{'to': '0xA5d26F68130c989ef3e063c9bdE33BC50a86629D', 'data': '0x56396715'}, 'latest']:  # withdrawal_credentials
+        elif req['params'] == [{'to': '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F', 'data': '0x56396715'}, 'latest']:  # withdrawal_credentials
             resp["result"] = "0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e"
             codec = ABICodec(build_default_registry())
             # codec.decode_abi(output_types, return_data)

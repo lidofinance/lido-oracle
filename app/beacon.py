@@ -28,6 +28,7 @@ def get_beacon(provider, slots_per_epoch):
         return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
 
+
 def proxy_connect_timeout_exception(func):
     def inner(*args, **kwargs):
         try:
@@ -85,32 +86,32 @@ class Lighthouse:
         url = urljoin(self.url, self.api_get_balances.format(slot))
         logging.info(f'using url "{url}"')
         response_json = requests.get(url).json()
-        balance_list = []
-        found_on_beacon_pubkeys = []
         logging.info(f'Validator balances on beacon for slot: {slot}')
+
+        found_on_beacon_pubkeys = 0
+        total_balance = 0
         active_validators_balance = 0
+
         for validator in response_json['data']:
             pubkey = validator['validator']['pubkey']
             # Log all validators along with balance
             if pubkey in pubkeys:
                 validator_balance = int(validator['balance'])
+                total_balance += validator_balance
+                found_on_beacon_pubkeys += 1
 
                 if validator['status'] in ['active', 'active_ongoing']:
                     active_validators_balance += validator_balance
 
-                balance_list.append(validator_balance)
-                found_on_beacon_pubkeys.append(validator['validator']['pubkey'])
                 # logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')  # todo uncomment
             elif validator['status'] == 'UNKNOWN':
                 logging.warning(f'Pubkey {pubkey[:12]} status UNKNOWN')
-        balance = sum(balance_list)
 
         # Convert Gwei to wei
-        balance *= 10 ** 9
+        total_balance *= 10 ** 9
         active_validators_balance *= 10 ** 9
 
-        validators = len(found_on_beacon_pubkeys)
-        return balance, validators, active_validators_balance
+        return total_balance, found_on_beacon_pubkeys, active_validators_balance
 
 
 class Prysm:
