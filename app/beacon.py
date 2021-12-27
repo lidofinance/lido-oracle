@@ -20,6 +20,9 @@ def get_beacon(provider, slots_per_epoch):
     version = requests.get(urljoin(provider, 'eth/v1/node/version')).text
     if 'Lighthouse' in version:
         return Lighthouse(provider, slots_per_epoch)
+    # Teku is compatible with Ligthouse API
+    if 'teku' in version:
+        return Lighthouse(provider, slots_per_epoch)
     version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version')).text
     if 'Prysm' in version:
         return Prysm(provider, slots_per_epoch)
