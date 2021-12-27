@@ -52,7 +52,6 @@ class Lighthouse:
         self.slots_per_epoch = slots_per_epoch
         self.version = requests.get(urljoin(url, self.api_version)).json()
 
-    
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
         return int(requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints)).json()['data']['finalized']['epoch'])
@@ -83,8 +82,9 @@ class Lighthouse:
         pubkeys = self._convert_key_list_to_str_arr(key_list)
 
         logging.info('Fetching validators from Beacon node...')
-        url = urljoin(self.url, self.api_get_balances.format(slot))
-        logging.info(f'using url "{url}"')
+        balances_url = self.api_get_balances.format(slot)
+        logging.info(f'using url "{balances_url}"')
+        url = urljoin(self.url, balances_url)
         response_json = requests.get(url).json()
         logging.info(f'Validator balances on beacon for slot: {slot}')
 
