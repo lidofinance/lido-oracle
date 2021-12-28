@@ -92,7 +92,7 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
-    logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
+    logging.info(f'Time delta: {datetime.timedelta(seconds=delta_seconds)} or {delta_seconds} s')
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
 
     if current.beaconValidators < previous.beaconValidators:

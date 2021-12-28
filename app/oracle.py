@@ -195,8 +195,6 @@ if force:
     logging.info('FORCE_DO_NOT_USE_IN_PRODUCTION=1 Running in enforced mode.')
     logging.warning("In enforced mode TX gets always sent even if it looks suspicious. NEVER use it in production!")
 
-logging.info(f'WEB3_PROVIDER_URI={eth1_provider}')
-logging.info(f'BEACON_NODE={beacon_provider} ({beacon.__class__.__name__} API)')
 logging.info(f'SLEEP={SLEEP} s (pause between iterations in DAEMON mode)')
 logging.info(f'GAS_LIMIT={GAS_LIMIT} gas units')
 logging.info(f'POOL_CONTRACT={pool_address}')
