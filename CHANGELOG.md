@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0](https://github.com/lidofinance/lido-python-sdk) - 2022-01-19
 ### Feature
-- Changelog added ()
+- Changelog added ([#0141](https://github.com/lidofinance/lido-oracle/pull/141))
 - Added optional prefixes for prometheus metrics ([#0131](https://github.com/lidofinance/lido-oracle/pull/131))
 - Added support for EIP-1559 ([#0128](https://github.com/lidofinance/lido-oracle/pull/128))
 - Added teku support ([#0135](https://github.com/lidofinance/lido-oracle/pull/135))
