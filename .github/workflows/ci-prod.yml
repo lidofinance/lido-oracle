@@ -1,0 +1,33 @@
+name: CI Build prod image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "!*"
+    tags:
+      - "*"
+    paths-ignore:
+      - '.github/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.4.0
+
+      - name: Branch name
+        id: branch_name
+        run: |
+          echo ::set-output name=TAG::${GITHUB_REF#refs/tags/}
+
+      - name: Build prod image
+        run: .github/dispatch_workflow.py
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          TARGET_REPO: "${{ secrets.TARGET_REPO }}"
+          TAG: "${{ steps.branch_name.outputs.TAG }}"
+          TARGET_WORKFLOW: "build_mainnet_depositor_bot.yaml"
