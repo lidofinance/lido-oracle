@@ -30,4 +30,4 @@ jobs:
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           TARGET_REPO: "${{ secrets.TARGET_REPO }}"
           TAG: "${{ steps.branch_name.outputs.TAG }}"
-          TARGET_WORKFLOW: "build_mainnet_depositor_bot.yaml"
+          TARGET_WORKFLOW: "build_mainnet_lido_oracle.yaml"
