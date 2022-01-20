@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2020 Lido <info@lido.fi>
 
 # SPDX-License-Identifier: GPL-3.0
+
 import typing as t
 import logging
 import datetime
@@ -55,6 +56,8 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
         potentially_reportable_epoch = current_frame[0]
         logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
         finalized_epoch_beacon = beacon.get_finalized_epoch()
+        # For Web3 client
+        # finalized_epoch_beacon = int(beacon.get_finality_checkpoint()['data']['finalized']['epoch'])
         logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
         partial_metrics.epoch = min(potentially_reportable_epoch,
                         (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
@@ -67,7 +70,7 @@ def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
-    validators_keys: t.List[bytes] = get_validators_keys(registry)  # deduplicated
+    validators_keys = get_validators_keys(w3)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
     full_metrics = partial_metrics
     full_metrics.validatorsKeysNumber = len(validators_keys)
@@ -89,7 +92,7 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     metrics_exporter_state.deltaSeconds.set(delta_seconds)  # fixme: get rid of side effects
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
-    logging.info(f'Time delta: {datetime.timedelta(seconds = delta_seconds)} or {delta_seconds} s')
+    logging.info(f'Time delta: {datetime.timedelta(seconds=delta_seconds)} or {delta_seconds} s')
     logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
 
     if current.beaconValidators < previous.beaconValidators:

@@ -1,8 +1,6 @@
 import os
 import logging
-import resource
 
-from prometheus_client import start_http_server, Gauge, Summary
 from prometheus_client.metrics import Gauge, Histogram
 
 from pool_metrics import PoolMetrics
@@ -19,55 +17,57 @@ class MetricsExporterState:
         return cls._instance
 
     def __init__(self):
-        self.prevEthV1BlockNumber = Gauge('prevEthV1BlockNumber', 'prevEthV1BlockNumber')  # fixme
-        self.currentEthV1BlockNumber = Gauge('currentEthV1BlockNumber', 'currentEthV1BlockNumber')  # fixme
-        self.nowEthV1BlockNumber = Gauge('nowEthV1BlockNumber', 'nowEthV1BlockNumber')  # fixme
+        prometheus_prefix = os.getenv('PROMETHEUS_PREFIX', '')
 
-        self.daemonCountDown = Gauge('daemonCountDown', 'daemonCountDown')
-        self.deltaSeconds = Gauge('deltaSeconds', 'deltaSeconds')
-        self.finalizedEpoch = Gauge('finalizedEpoch', 'finalizedEpoch')
-        self.appearedValidators = Gauge('appearedValidators', 'appearedValidators')
-        self.reportableFrame = Gauge('reportableFrame', 'reportableFrame')
+        self.prevEthV1BlockNumber = Gauge(f'{prometheus_prefix}prevEthV1BlockNumber', 'prevEthV1BlockNumber')  # fixme
+        self.currentEthV1BlockNumber = Gauge(f'{prometheus_prefix}currentEthV1BlockNumber', 'currentEthV1BlockNumber')  # fixme
+        self.nowEthV1BlockNumber = Gauge(f'{prometheus_prefix}nowEthV1BlockNumber', 'nowEthV1BlockNumber')  # fixme
 
-        self.currentEpoch = Gauge('currentEpoch', 'Current epoch')
-        self.currentBeaconBalance = Gauge('currentBeaconBalance', 'currentBeaconBalance')
-        self.currentBeaconValidators = Gauge('currentBeaconValidators', 'currentBeaconValidators')
-        self.currentTimestamp = Gauge('currentTimestamp', 'currentTimestamp')
-        self.currentBufferedBalance = Gauge('currentBufferedBalance', 'currentBufferedBalance')
-        self.currentDepositedValidators = Gauge('currentDepositedValidators', 'currentDepositedValidators')
-        self.currentActiveValidatorBalance = Gauge('currentActiveValidatorBalance', 'currentActiveValidatorBalance')
-        self.currentTotalPooledEther = Gauge('currentTotalPooledEther', 'currentTotalPooledEther')
-        self.currentTransientValidators = Gauge('currentTransientValidators', 'currentTransientValidators')
-        self.currentTransientBalance = Gauge('currentTransientBalance', 'currentTransientBalance')
-        self.currentValidatorsKeysNumber = Gauge('validatorsKeysNumber', 'validatorsKeysNumber')
+        self.daemonCountDown = Gauge(f'{prometheus_prefix}daemonCountDown', 'daemonCountDown')
+        self.deltaSeconds = Gauge(f'{prometheus_prefix}deltaSeconds', 'deltaSeconds')
+        self.finalizedEpoch = Gauge(f'{prometheus_prefix}finalizedEpoch', 'finalizedEpoch')
+        self.appearedValidators = Gauge(f'{prometheus_prefix}appearedValidators', 'appearedValidators')
+        self.reportableFrame = Gauge(f'{prometheus_prefix}reportableFrame', 'reportableFrame')
 
-        self.prevEpoch = Gauge('prevEpoch', 'prevEpoch')
-        self.prevBeaconBalance = Gauge('prevBeaconBalance', 'prevBeaconBalance')
-        self.prevBeaconValidators = Gauge('prevBeaconValidators', 'prevBeaconValidators')
-        self.prevTimestamp = Gauge('prevTimestamp', 'prevTimestamp')
-        self.prevBufferedBalance = Gauge('prevBufferedBalance', 'prevBufferedBalance')
-        self.prevDepositedValidators = Gauge('prevDepositedValidators', 'prevDepositedValidators')
-        self.prevActiveValidatorBalance = Gauge('prevActiveValidatorBalance', 'prevActiveValidatorBalance')
-        self.prevTotalPooledEther = Gauge('prevTotalPooledEther', 'prevTotalPooledEther')
-        self.prevTransientValidators = Gauge('prevTransientValidators', 'prevTransientValidators')
-        self.prevTransientBalance = Gauge('prevTransientBalance', 'prevTransientBalance')
+        self.currentEpoch = Gauge(f'{prometheus_prefix}currentEpoch', 'Current epoch')
+        self.currentBeaconBalance = Gauge(f'{prometheus_prefix}currentBeaconBalance', 'currentBeaconBalance')
+        self.currentBeaconValidators = Gauge(f'{prometheus_prefix}currentBeaconValidators', 'currentBeaconValidators')
+        self.currentTimestamp = Gauge(f'{prometheus_prefix}currentTimestamp', 'currentTimestamp')
+        self.currentBufferedBalance = Gauge(f'{prometheus_prefix}currentBufferedBalance', 'currentBufferedBalance')
+        self.currentDepositedValidators = Gauge(f'{prometheus_prefix}currentDepositedValidators', 'currentDepositedValidators')
+        self.currentActiveValidatorBalance = Gauge(f'{prometheus_prefix}currentActiveValidatorBalance', 'currentActiveValidatorBalance')
+        self.currentTotalPooledEther = Gauge(f'{prometheus_prefix}currentTotalPooledEther', 'currentTotalPooledEther')
+        self.currentTransientValidators = Gauge(f'{prometheus_prefix}currentTransientValidators', 'currentTransientValidators')
+        self.currentTransientBalance = Gauge(f'{prometheus_prefix}currentTransientBalance', 'currentTransientBalance')
+        self.currentValidatorsKeysNumber = Gauge(f'{prometheus_prefix}validatorsKeysNumber', 'validatorsKeysNumber')
 
-        # self.totalSupply = Gauge('totalSupply', 'totalSupply')  # fixme
-        self.txSuccess = Histogram('txSuccess', 'Successful transactions')
-        self.txRevert = Histogram('txRevert', 'Reverted transactions')
-        # self.resourceUTime = Gauge('resourceUTime', 'resourceUTime')
-        # self.resourceSTime = Gauge('resourceSTime', 'resourceSTime')
-        # self.resourceMaxResidentSetSize = Gauge('resourceMaxResidentSetSize', 'resourceMaxResidentSetSize')
-        # self.resourceSharedMemorySize = Gauge('resourceSharedMemorySize', 'resourceSharedMemorySize')
-        # self.resourceUnsharedMemorySize = Gauge('resourceUnsharedMemorySize', 'resourceUnsharedMemorySize')
+        self.prevEpoch = Gauge(f'{prometheus_prefix}prevEpoch', 'prevEpoch')
+        self.prevBeaconBalance = Gauge(f'{prometheus_prefix}prevBeaconBalance', 'prevBeaconBalance')
+        self.prevBeaconValidators = Gauge(f'{prometheus_prefix}prevBeaconValidators', 'prevBeaconValidators')
+        self.prevTimestamp = Gauge(f'{prometheus_prefix}prevTimestamp', 'prevTimestamp')
+        self.prevBufferedBalance = Gauge(f'{prometheus_prefix}prevBufferedBalance', 'prevBufferedBalance')
+        self.prevDepositedValidators = Gauge(f'{prometheus_prefix}prevDepositedValidators', 'prevDepositedValidators')
+        self.prevActiveValidatorBalance = Gauge(f'{prometheus_prefix}prevActiveValidatorBalance', 'prevActiveValidatorBalance')
+        self.prevTotalPooledEther = Gauge(f'{prometheus_prefix}prevTotalPooledEther', 'prevTotalPooledEther')
+        self.prevTransientValidators = Gauge(f'{prometheus_prefix}prevTransientValidators', 'prevTransientValidators')
+        self.prevTransientBalance = Gauge(f'{prometheus_prefix}prevTransientBalance', 'prevTransientBalance')
 
-        self.stethOraclePrice = Gauge('stethOraclePrice', 'stethOraclePrice')
-        self.stethPoolPrice = Gauge('stethPoolPrice', 'stethPoolPrice')
+        # self.totalSupply = Gauge(f'{prometheus_prefix}totalSupply', 'totalSupply')  # fixme
+        self.txSuccess = Histogram(f'{prometheus_prefix}txSuccess', 'Successful transactions')
+        self.txRevert = Histogram(f'{prometheus_prefix}txRevert', 'Reverted transactions')
+        # self.resourceUTime = Gauge(f'{prometheus_prefix}resourceUTime', 'resourceUTime')
+        # self.resourceSTime = Gauge(f'{prometheus_prefix}resourceSTime', 'resourceSTime')
+        # self.resourceMaxResidentSetSize = Gauge(f'{prometheus_prefix}resourceMaxResidentSetSize', 'resourceMaxResidentSetSize')
+        # self.resourceSharedMemorySize = Gauge(f'{prometheus_prefix}resourceSharedMemorySize', 'resourceSharedMemorySize')
+        # self.resourceUnsharedMemorySize = Gauge(f'{prometheus_prefix}resourceUnsharedMemorySize', 'resourceUnsharedMemorySize')
 
-        self.beaconNodeTimeoutCount = Gauge('beaconNodeTimeoutCount', 'beaconNodeTimeoutCount')
-        self.timeExhaustedExceptionsCount = Gauge('timeExhaustedExceptionsCount', 'timeExhaustedExceptionsCount')
-        self.underpricedExceptionsCount = Gauge('underpricedExceptionsCount', 'underpricedExceptionsCount')
-        self.exceptionsCount = Gauge('exceptionsCount', 'exceptionsCount')
+        self.stethOraclePrice = Gauge(f'{prometheus_prefix}stethOraclePrice', 'stethOraclePrice')
+        self.stethPoolPrice = Gauge(f'{prometheus_prefix}stethPoolPrice', 'stethPoolPrice')
+
+        self.beaconNodeTimeoutCount = Gauge(f'{prometheus_prefix}beaconNodeTimeoutCount', 'beaconNodeTimeoutCount')
+        self.timeExhaustedExceptionsCount = Gauge(f'{prometheus_prefix}timeExhaustedExceptionsCount', 'timeExhaustedExceptionsCount')
+        self.underpricedExceptionsCount = Gauge(f'{prometheus_prefix}underpricedExceptionsCount', 'underpricedExceptionsCount')
+        self.exceptionsCount = Gauge(f'{prometheus_prefix}exceptionsCount', 'exceptionsCount')
 
     def set_current_pool_metrics(self, metrics: PoolMetrics):
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
