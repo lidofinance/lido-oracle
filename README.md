@@ -32,7 +32,7 @@ docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9
 
 ## Run
 
-The oracle receives its configuration via ENVironment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
+The oracle receives its configuration via Environment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
 
 ```sh
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
@@ -43,7 +43,7 @@ export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.0.0
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.1.0
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -86,7 +86,7 @@ export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.0.0
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.1.0
 ```
 
 ### Autonomous mode
@@ -103,7 +103,7 @@ export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=1
 export SLEEP=300
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.0.0
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.1.0
 ```
 
 ## Build yourself
