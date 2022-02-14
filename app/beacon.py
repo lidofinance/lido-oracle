@@ -70,16 +70,16 @@ class Lighthouse:
         return actual_slots
 
     @proxy_connect_timeout_exception
-    def _convert_key_list_to_str_arr(self, key_list):
-        pubkeys = []
+    def _convert_key_list_to_str_set(self, key_list):
+        pubkeys = set()
         for key in key_list:
-            pubkeys.append('0x' + binascii.hexlify(key).decode())
+            pubkeys.add('0x' + binascii.hexlify(key).decode())
 
         return pubkeys
 
     @proxy_connect_timeout_exception
     def get_balances(self, slot, key_list):
-        pubkeys = self._convert_key_list_to_str_arr(key_list)
+        pubkeys = self._convert_key_list_to_str_set(key_list)
 
         logging.info('Fetching validators from Beacon node...')
         balances_url = self.api_get_balances.format(slot)
