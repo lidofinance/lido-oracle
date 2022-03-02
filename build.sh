@@ -15,32 +15,31 @@ export DOCKER_CONFIG=$HOME/.lidofinance
 
 #### Version info ####
 META_INFO=$(python ./helpers/get_git_info.py 2>&1)
-
-if [[ $? != 0 ]]
-then
-    echo "ERROR: python script get_git_info.py"
+if ! META_INFO=$(python ./helpers/get_git_info.py 2>&1); then
+    echo "Failed to get git info: $META_INFO"
     echo "$META_INFO"
     META_INFO=""
+    exit 1
 else
     #### Show info ####
-    echo "version: $(echo ${META_INFO} | jq --raw-output .version)"
-    echo "commit hash: $(echo ${META_INFO}| jq --raw-output .commit_hash)"
-    echo "commit message: $(echo ${META_INFO} | jq --raw-output .commit_message)"
-    echo "commit datetime: $(echo ${META_INFO}| jq --raw-output .commit_datetime)"
-    echo "build datetime: $(echo ${META_INFO}| jq --raw-output .build_datetime)"
-    echo "tags: $(echo ${META_INFO} | jq --raw-output .tags)"
-    echo "branch: $(echo ${META_INFO} | jq --raw-output .branch)"
+    echo "version: $(echo "${META_INFO}" | jq --raw-output .version)"
+    echo "commit hash: $(echo "${META_INFO}"| jq --raw-output .commit_hash)"
+    echo "commit message: $(echo "${META_INFO}" | jq --raw-output .commit_message)"
+    echo "commit datetime: $(echo "${META_INFO}"| jq --raw-output .commit_datetime)"
+    echo "build datetime: $(echo "${META_INFO}"| jq --raw-output .build_datetime)"
+    echo "tags: $(echo "${META_INFO}" | jq --raw-output .tags)"
+    echo "branch: $(echo "${META_INFO}" | jq --raw-output .branch)"
 fi
 
 echo "Building oracle Docker image ${IMG}..."
-docker build \
-  --build-arg VERSION="$(echo ${META_INFO} | jq --raw-output .version)" \
-  --build-arg COMMIT_MESSAGE="$(echo ${META_INFO} | jq --raw-output .commit_message)" \
-  --build-arg COMMIT_HASH="$(echo ${META_INFO} | jq --raw-output .commit_hash)" \
-  --build-arg COMMIT_DATETIME="$(echo ${META_INFO} | jq --raw-output .commit_datetime)" \
-  --build-arg BUILD_DATETIME="$(echo ${META_INFO} | jq --raw-output .build_datetime)" \
-  --build-arg TAGS="$(echo ${META_INFO} | jq --raw-output .tags)" \
-  --build-arg BRANCH="$(echo ${META_INFO} | jq --raw-output .branch)" \
+COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker build \
+  --build-arg VERSION="$(echo "${META_INFO}" | jq --raw-output .version)" \
+  --build-arg COMMIT_MESSAGE="$(echo "${META_INFO}" | jq --raw-output .commit_message)" \
+  --build-arg COMMIT_HASH="$(echo "${META_INFO}" | jq --raw-output .commit_hash)" \
+  --build-arg COMMIT_DATETIME="$(echo "${META_INFO}" | jq --raw-output .commit_datetime)" \
+  --build-arg BUILD_DATETIME="$(echo "${META_INFO}" | jq --raw-output .build_datetime)" \
+  --build-arg TAGS="$(echo "${META_INFO}" | jq --raw-output .tags)" \
+  --build-arg BRANCH="$(echo "${META_INFO}" | jq --raw-output .branch)" \
   -t ${IMG} \
   .
 echo "The image \"${IMG}\" was built"
