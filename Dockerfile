@@ -1,4 +1,4 @@
-FROM python:3.8-buster-slim as builder
+FROM python:3.8-slim-buster as builder
 
 ENV LANG=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive \
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install --no-install-recommends -qq -y gcc g++ && 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --trusted-host pypi.python.org -r requirements.txt
 
-FROM python:3.8-buster-slim as production
+FROM python:3.8-slim-buster as production
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
