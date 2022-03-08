@@ -1,16 +1,26 @@
-FROM python:3.8-slim as builder
+FROM python:3.8-slim-buster as builder
 
-RUN apt-get update && apt-get install -y gcc && apt-get install -y g++
+ENV LANG=C.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=true
+
+RUN apt-get update && apt-get install --no-install-recommends -qq -y gcc g++ && apt-get clean autoclean \
+  && apt-get autoremove -y \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -f /var/cache/apt/archives/*.deb
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --trusted-host pypi.python.org -r requirements.txt
 
-FROM python:3.8-slim as production
+FROM python:3.8-slim-buster as production
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-RUN mkdir /var/www && chown www-data /var/www && \
-    apt-get update && apt-get install -y curl && \
+RUN mkdir -p /var/www && chown www-data /var/www && \
+    apt-get update && apt-get install --no-install-recommends -qq -y curl && \
     apt-get clean && find /var/lib/apt/lists/ -type f -delete && \
     chown www-data /app/
 
@@ -47,6 +57,7 @@ COPY --from=builder /usr/local/ /usr/local/
 COPY assets ./assets
 COPY app ./
 
-HEALTHCHECK --interval=10s --timeout=3s CMD curl -f http://localhost:8000/healthcheck || exit 1
+HEALTHCHECK --interval=10s --timeout=3s \
+    CMD curl -f http://localhost:8000/healthcheck || exit 1
 
 ENTRYPOINT ["python3", "-u", "oracle.py"]
