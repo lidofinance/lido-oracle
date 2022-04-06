@@ -1,5 +1,5 @@
 cytoolz==0.11.2
 eth-rlp==0.2.1
-lido-sdk==2.4.7
+lido-sdk==2.5.1
 web3==5.25.0
 prometheus-client==0.12.0

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-python-sdk&#41; - 2021-09-15)
 
+## [2.2.0](https://github.com/lidofinance/lido-python-sdk) - 2022-04-06
+### Feature
+- Support kiln testnet([#0151](https://github.com/lidofinance/lido-oracle/pull/151))
+
 ## [2.1.0](https://github.com/lidofinance/lido-python-sdk) - 2022-01-19
 ### Feature
 - Changelog added ([#0141](https://github.com/lidofinance/lido-oracle/pull/141))
