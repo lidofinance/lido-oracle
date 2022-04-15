@@ -1,9 +1,10 @@
-name: Tests
+name: Tests and checks
 
 on: [push]
 
 jobs:
-  build:
+  test:
+    name: App tests
     runs-on: ubuntu-latest
 
     steps:
@@ -35,3 +36,9 @@ jobs:
 
     - name: Test with pytest and Prysm beacon
       run: ./run_tests.sh Prysm
+
+  security:
+    uses: lidofinance/linters/.github/workflows/security.yml@master
+  
+  docker:
+    uses: lidofinance/linters/.github/workflows/docker.yml@master

@@ -4,7 +4,9 @@ ENV LANG=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=true
 
-RUN apt-get update && apt-get install --no-install-recommends -qq -y gcc g++ && apt-get clean autoclean \
+WORKDIR /app
+
+RUN apt-get update && apt-get install --no-install-recommends -qq -y gcc=4:10.2.1-1 g++=4:10.2.1-1 && apt-get clean autoclean \
   && apt-get autoremove -y \
   && rm -rf /var/lib/apt/lists/* \
   && rm -f /var/cache/apt/archives/*.deb
@@ -20,8 +22,8 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 RUN mkdir -p /var/www && chown www-data /var/www && \
-    apt-get update && apt-get install --no-install-recommends -qq -y curl && \
-    apt-get clean && find /var/lib/apt/lists/ -type f -delete && \
+    apt-get update && apt-get install --no-install-recommends -qq -y curl=7.74.0-1.3+deb11u1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
     chown www-data /app/
 
 ENV PATH=$PATH:/usr/local/bin
