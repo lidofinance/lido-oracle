@@ -1,5 +1,0 @@
-pytest==6.2.5
-flake8==3.8.4
-black==21.11b1
-iniconfig==1.1.1
-regex==2021.11.10

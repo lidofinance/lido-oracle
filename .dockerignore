@@ -1,6 +1,6 @@
 *
 !app/
 !assets/
-!requirements.txt
-!requirements-test.txt
+!poetry.lock
+!pyproject.toml
 !version.json
