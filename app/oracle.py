@@ -122,7 +122,7 @@ networks = {
     1337: {'name': 'E2E', 'engine': 'PoA'},
 }
 
-network_id = w3.eth.chainId
+network_id = w3.eth.chain_id
 if network_id in networks.keys():
     logging.info(f"Connected to {networks[network_id]['name']} network ({networks[network_id]['engine']} engine)")
     if networks[network_id]['engine'] == 'PoA':
