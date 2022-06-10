@@ -23,7 +23,6 @@ RUN . /venv/bin/activate && poetry install --no-dev --no-root
 FROM base as production
 
 COPY --from=builder /venv /venv
-COPY . .
 
 RUN mkdir -p /var/www && chown www-data /var/www && \
     apt-get clean && find /var/lib/apt/lists/ -type f -delete && \
