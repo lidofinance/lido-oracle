@@ -8,30 +8,32 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
-    - name: Cache pip
-      uses: actions/cache@v2
-      with:
-        # This path is specific to Ubuntu
-        path: ~/.cache/pip
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-          ${{ runner.os }}-
+        python-version: 3.9
+
+    - name: Setup poetry
+      run: |
+        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-test.txt
+        poetry install --no-interaction
+
     - name: Lint
       run: ./check_code.sh
       continue-on-error: true
+
     - name: Test with pytest and Lighthouse beacon
-      run: ./run_tests.sh Lighthouse
+      run: poetry run ./run_tests.sh Lighthouse
 
     - name: Test with pytest and Prysm beacon
-      run: ./run_tests.sh Prysm
+      run: poetry run ./run_tests.sh Prysm
+
+  security:
+    uses: lidofinance/linters/.github/workflows/security.yml@master
+
+  docker:
+    uses: lidofinance/linters/.github/workflows/docker.yml@master
