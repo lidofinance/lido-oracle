@@ -125,10 +125,6 @@ class Prysm:
         self.slots_per_epoch = slots_per_epoch
         self.version = requests.get(urljoin(url, self.api_version)).json()
 
-        # if send_tx_yesterday than sleep 5 minutes
-        # + poetry
-        # + flashbots
-
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
         finalized_epoch = int(requests.get(urljoin(self.url, self.api_beacon_head)).json()['finalizedEpoch'])
