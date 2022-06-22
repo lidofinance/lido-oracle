@@ -152,16 +152,6 @@ with open(oracle_abi_path, 'r') as file:
 abi = json.loads(a)
 oracle = w3.eth.contract(abi=abi['abi'], address=oracle_address)
 
-quorum_size = oracle.functions.getQuorum().call()
-oracle_members = oracle.functions.getOracleMembers().call()
-
-if not dry_run and account:
-    try:
-        oracle_holder_index = oracle_members.index(account.address)
-    except ValueError:
-        oracle_holder_index = 0
-        logger.warning('Account is not oracle member.')
-
 # Get Registry contract
 registry_address = pool.functions.getOperators().call()
 logger.info(f'{registry_address=}')
@@ -336,6 +326,29 @@ def run_once():
     logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
 
+def is_current_member_in_todays_quorum():
+    """
+    Shuffle oracle reports. It will be easier to check that oracle is ok (working)
+    """
+    quorum_size = oracle.functions.getQuorum().call()
+    oracle_members = oracle.functions.getOracleMembers().call()
+
+    if dry_run or not account:
+        return True
+
+    try:
+        oracle_holder_index = oracle_members.index(account.address)
+    except ValueError:
+        logger.warning('Account is not oracle member.')
+        return True
+
+    current_date = datetime.datetime.today().date().day
+    # Oracles list that should report today
+    quorum_today = [(current_date + x) % len(oracle_members) for x in range(quorum_size)]
+
+    return oracle_holder_index in quorum_today
+
+
 def update_beacon_data():
     # Get previously reported data
     prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
@@ -364,12 +377,7 @@ def update_beacon_data():
     logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
     if not dry_run:
 
-        # Shuffle oracle reports. It will be easier to check that oracle is ok (working)
-        current_date = datetime.today().date().day
-        # Oracles list that should report today
-        quorum_today = [(current_date + x) % len(oracle_members) for x in range(quorum_size)]
-
-        if oracle_holder_index not in quorum_today:
+        if not is_current_member_in_todays_quorum():
             logger.info('Sleep for 5 minutes before sending report.')
             time.sleep(5 * 60)
 
