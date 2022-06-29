@@ -326,6 +326,29 @@ def run_once():
     logging.info(f'We are in DAEMON mode. Sleep {SLEEP} s and continue')
 
 
+def is_current_member_in_todays_quorum():
+    """
+    Shuffle oracle reports. It will be easier to check that oracle is ok (working)
+    """
+    quorum_size = oracle.functions.getQuorum().call()
+    oracle_members = oracle.functions.getOracleMembers().call()
+
+    if dry_run or not account:
+        return True
+
+    try:
+        oracle_holder_index = oracle_members.index(account.address)
+    except ValueError:
+        logger.warning('Account is not oracle member.')
+        return True
+
+    current_date = datetime.datetime.today().date().day
+    # Oracles list that should report today
+    quorum_today = [(current_date + x) % len(oracle_members) for x in range(quorum_size)]
+
+    return oracle_holder_index in quorum_today
+
+
 def update_beacon_data():
     # Get previously reported data
     prev_metrics = get_previous_metrics(w3, pool, oracle, beacon_spec, ORACLE_FROM_BLOCK)
@@ -346,7 +369,6 @@ def update_beacon_data():
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
         return
 
-
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
     current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
@@ -354,6 +376,11 @@ def update_beacon_data():
 
     logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
     if not dry_run:
+
+        if not is_current_member_in_todays_quorum():
+            logger.info('Sleep for 8 minutes before sending report.')
+            time.sleep(8 * 60)
+
         try:
             metrics_exporter_state.reportableFrame.set(True)
             tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)

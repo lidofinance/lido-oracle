@@ -150,58 +150,58 @@
       "previousJustifiedBlockRoot": "Zrpx37KbraJ8P5npgj2sQnL/GgV4FNBnI1M1hXHLAUI="
     },
     "validators": {
-  "o4Tw13cd4CeODpsTJLGgm7iz+KYt/824NwbjOHZN6JPGSNar204CXvDoWlEad6Iu": {
-    "epoch": "13043",
-    "balances": [
-      {
-        "publicKey": "o4Tw13cd4CeODpsTJLGgm7iz+KYt/824NwbjOHZN6JPGSNar204CXvDoWlEad6Iu",
-        "index": "18275",
-        "balance": "638349971821",
-        "status": "ACTIVE"
+      "o4Tw13cd4CeODpsTJLGgm7iz+KYt/824NwbjOHZN6JPGSNar204CXvDoWlEad6Iu": {
+        "epoch": "13043",
+        "balances": [
+          {
+            "publicKey": "o4Tw13cd4CeODpsTJLGgm7iz+KYt/824NwbjOHZN6JPGSNar204CXvDoWlEad6Iu",
+            "index": "18275",
+            "balance": "638349971821",
+            "status": "ACTIVE"
+          }
+        ],
+        "nextPageToken": "",
+        "totalSize": 1
+      },
+      "kYRaEuB/V70cqLqHwpdGHCB1x2zmALm7iJneAIjwknnuXlIrhHWfGoV8SpoEijWL": {
+        "epoch": "13043",
+        "balances": [
+          {
+            "publicKey": "kYRaEuB/V70cqLqHwpdGHCB1x2zmALm7iJneAIjwknnuXlIrhHWfGoV8SpoEijWL",
+            "index": "25550",
+            "balance": "190256940748",
+            "status": "ACTIVE"
+          }
+        ],
+        "nextPageToken": "",
+        "totalSize": 1
+      },
+      "gcy00TbMJhOtKs43I6zVqkT2snLiEOAIdE77sk9o5L9hQn8H25ndxodGENflEwho": {
+        "epoch": "13043",
+        "balances": [
+          {
+            "publicKey": "gcy00TbMJhOtKs43I6zVqkT2snLiEOAIdE77sk9o5L9hQn8H25ndxodGENflEwho",
+            "index": "34231",
+            "balance": "160324387781",
+            "status": "ACTIVE"
+          }
+        ],
+        "nextPageToken": "",
+        "totalSize": 1
+      },
+      "uM0D+nAt3Ue4JqNQhlHoQGZfGGizjEVwk8vLaQX1qDBQ4xuEcCqfGRDG/9+QresW": {
+        "epoch": "13043",
+        "balances": [
+          {
+            "publicKey": "uM0D+nAt3Ue4JqNQhlHoQGZfGGizjEVwk8vLaQX1qDBQ4xuEcCqfGRDG/9+QresW",
+            "index": "52757",
+            "balance": "159832537617",
+            "status": "ACTIVE"
+          }
+        ],
+        "nextPageToken": "",
+        "totalSize": 1
       }
-    ],
-    "nextPageToken": "",
-    "totalSize": 1
-  },
-  "kYRaEuB/V70cqLqHwpdGHCB1x2zmALm7iJneAIjwknnuXlIrhHWfGoV8SpoEijWL": {
-    "epoch": "13043",
-    "balances": [
-      {
-        "publicKey": "kYRaEuB/V70cqLqHwpdGHCB1x2zmALm7iJneAIjwknnuXlIrhHWfGoV8SpoEijWL",
-        "index": "25550",
-        "balance": "190256940748",
-        "status": "ACTIVE"
-      }
-    ],
-    "nextPageToken": "",
-    "totalSize": 1
-  },
-  "gcy00TbMJhOtKs43I6zVqkT2snLiEOAIdE77sk9o5L9hQn8H25ndxodGENflEwho": {
-    "epoch": "13043",
-    "balances": [
-      {
-        "publicKey": "gcy00TbMJhOtKs43I6zVqkT2snLiEOAIdE77sk9o5L9hQn8H25ndxodGENflEwho",
-        "index": "34231",
-        "balance": "160324387781",
-        "status": "ACTIVE"
-      }
-    ],
-    "nextPageToken": "",
-    "totalSize": 1
-  },
-  "uM0D+nAt3Ue4JqNQhlHoQGZfGGizjEVwk8vLaQX1qDBQ4xuEcCqfGRDG/9+QresW": {
-    "epoch": "13043",
-    "balances": [
-      {
-        "publicKey": "uM0D+nAt3Ue4JqNQhlHoQGZfGGizjEVwk8vLaQX1qDBQ4xuEcCqfGRDG/9+QresW",
-        "index": "52757",
-        "balance": "159832537617",
-        "status": "ACTIVE"
-      }
-    ],
-    "nextPageToken": "",
-    "totalSize": 1
-  }
-}
+    }
   }
 }
