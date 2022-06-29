@@ -379,7 +379,7 @@ def update_beacon_data():
 
         if not is_current_member_in_todays_quorum():
             logger.info('Sleep for 5 minutes before sending report.')
-            time.sleep(5 * 60)
+            time.sleep(8 * 60)
 
         try:
             metrics_exporter_state.reportableFrame.set(True)
