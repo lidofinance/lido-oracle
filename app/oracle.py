@@ -18,7 +18,7 @@ from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 from beacon import get_beacon
 from log import init_log
-from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
+from metrics import compare_pool_metrics, get_previous_metrics, get_light_current_metrics, get_full_current_metrics
 from prometheus_metrics import metrics_exporter_state
 from state_proof import encode_proof_data
 
@@ -363,14 +363,15 @@ def update_beacon_data():
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
     # Get minimal metrics that are available without polling
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
+    current_metrics = get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
+
     if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
         return
 
     # Get full metrics using polling (get keys from reggistry, get balances from beacon)
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+    current_metrics = get_full_current_metrics(w3, beacon, beacon_spec, current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
 
