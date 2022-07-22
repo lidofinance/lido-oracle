@@ -9,10 +9,12 @@ import datetime
 import time
 from typing import Tuple
 
+from web3_multi_provider import MultiProvider
+
 from exceptions import BeaconConnectionTimeoutException
 
 from prometheus_client import start_http_server
-from web3 import Web3, WebsocketProvider, HTTPProvider
+from web3 import Web3
 from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 
@@ -101,15 +103,7 @@ GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
 ORACLE_FROM_BLOCK = int(os.getenv('ORACLE_FROM_BLOCK', 0))
 
-if eth1_provider.startswith('http'):
-    provider = HTTPProvider(eth1_provider)
-elif eth1_provider.startswith('ws'):
-    provider = WebsocketProvider(eth1_provider)
-else:
-    logging.error('Unsupported ETH provider!')
-    exit(1)
-
-w3 = Web3(provider)
+w3 = Web3(MultiProvider(eth1_provider.split(',')))
 
 if not w3.isConnected():
     logging.error('ETH node connection error!')

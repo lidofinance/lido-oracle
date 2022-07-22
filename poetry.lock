@@ -835,6 +835,17 @@ linter = ["flake8 (==3.8.3)", "isort (>=4.2.15,<4.3.5)", "mypy (==0.910)", "type
 tester = ["eth-tester[py-evm] (==v0.6.0-beta.6)", "py-geth (>=3.8.0,<4)"]
 
 [[package]]
+name = "web3-multi-provider"
+version = "0.4.1"
+description = "Web3py provider that makes it easy to switch between different blockchain nodes to make sure application will be be online if main blockchain node will be unavailable."
+category = "main"
+optional = false
+python-versions = ">=3.7.10,<4"
+
+[package.dependencies]
+web3 = ">=5.22.0,<6"
+
+[[package]]
 name = "websockets"
 version = "9.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
@@ -869,8 +880,8 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.7.2"
-content-hash = "43d6f824bae08cfd7ba6db06e37d40c4eb5437e0284878fd2a8559f428efc56f"
+python-versions = "^3.7.10,<4.0.0"
+content-hash = "200349c840a7f4b799e58272f93b3793cc774919976367ac70f5b5980d12b773"
 
 [metadata.files]
 aiohttp = [
@@ -1572,6 +1583,7 @@ web3 = [
     {file = "web3-5.29.2-py3-none-any.whl", hash = "sha256:57d64f3bfe1eced1fc48629916bd6679844d26d9186f7cfb140e9c5e75864147"},
     {file = "web3-5.29.2.tar.gz", hash = "sha256:f37b01f3dc32010b176cef01c2107bc25b7cf94b63c3269d4ec52d7e5ded9a36"},
 ]
+web3-multi-provider = []
 websockets = [
     {file = "websockets-9.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:d144b350045c53c8ff09aa1cfa955012dd32f00c7e0862c199edcabb1a8b32da"},
     {file = "websockets-9.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:b4ad84b156cf50529b8ac5cc1638c2cf8680490e3fccb6121316c8c02620a2e4"},
