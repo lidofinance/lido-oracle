@@ -109,6 +109,22 @@ if not w3.isConnected():
     logging.error('ETH node connection error!')
     exit(1)
 
+# See EIP-155 for the list of other well-known Net IDs
+networks = {
+    1: {'name': 'Mainnet', 'engine': 'PoW'},
+    5: {'name': 'Goerli', 'engine': 'PoA'},
+    1337: {'name': 'E2E', 'engine': 'PoA'},
+}
+
+network_id = w3.eth.chain_id
+if network_id in networks.keys():
+    logging.info(f"Connected to {networks[network_id]['name']} network ({networks[network_id]['engine']} engine)")
+    if networks[network_id]['engine'] == 'PoA':
+        logging.info("Injecting PoA compatibility middleware")
+        # MultiProvider already supports PoA, so no need to inject manually
+        # from web3.middleware import geth_poa_middleware
+        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
 if dry_run:
     logging.info('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
 else:
