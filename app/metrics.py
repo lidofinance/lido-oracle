@@ -47,7 +47,7 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     """Fetch current frame, buffered balance and epoch"""
     epochs_per_frame = beacon_spec[0]
     partial_metrics = PoolMetrics()
-    partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
+    partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the epoch that is finalized and reportable
     current_frame = oracle.functions.getCurrentFrame().call()
     potentially_reportable_epoch = current_frame[0]
     logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
