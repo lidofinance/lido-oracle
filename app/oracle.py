@@ -348,7 +348,7 @@ def update_beacon_data():
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
         return
 
-    # Get full metrics using polling (get keys from reggistry, get balances from beacon)
+    # Get full metrics using polling (get keys from registry, get balances from beacon)
     current_metrics = get_full_current_metrics(w3, beacon, beacon_spec, current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
