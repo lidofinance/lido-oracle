@@ -20,7 +20,7 @@ def test_no_priv_key():
             stderr=subprocess.STDOUT,
             env=env,
     ) as proc:
-        lines = get_log_lines(proc, n_lines=10)
+        lines = get_log_lines(proc, n_lines=11)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]

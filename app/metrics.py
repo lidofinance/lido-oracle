@@ -44,9 +44,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
 
 
 def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
-    """If the result of previous get_current_metrics call isn't given
-     create and return partial metric.mSince it doesn't get keys from
-     registry and doesn't retrieve beacon state, it's much faster."""
+    """Fetch current frame, buffered balance and epoch"""
     epochs_per_frame = beacon_spec[0]
     partial_metrics = PoolMetrics()
     partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
@@ -66,7 +64,7 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
 
 
 def get_full_current_metrics(w3, beacon, beacon_spec, partial_metrics) -> PoolMetrics:
-    """If partial result provided, the oracle fetches all the required states from ETH1 and ETH2"""
+    """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
