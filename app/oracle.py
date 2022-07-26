@@ -9,16 +9,18 @@ import datetime
 import time
 from typing import Tuple
 
+from web3_multi_provider import MultiProvider
+
 from exceptions import BeaconConnectionTimeoutException
 
 from prometheus_client import start_http_server
-from web3 import Web3, WebsocketProvider, HTTPProvider
+from web3 import Web3
 from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 
 from beacon import get_beacon
 from log import init_log
-from metrics import compare_pool_metrics, get_current_metrics, get_previous_metrics
+from metrics import compare_pool_metrics, get_previous_metrics, get_light_current_metrics, get_full_current_metrics
 from prometheus_metrics import metrics_exporter_state
 from state_proof import encode_proof_data
 
@@ -101,15 +103,7 @@ GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
 ORACLE_FROM_BLOCK = int(os.getenv('ORACLE_FROM_BLOCK', 0))
 
-if eth1_provider.startswith('http'):
-    provider = HTTPProvider(eth1_provider)
-elif eth1_provider.startswith('ws'):
-    provider = WebsocketProvider(eth1_provider)
-else:
-    logging.error('Unsupported ETH provider!')
-    exit(1)
-
-w3 = Web3(provider)
+w3 = Web3(MultiProvider(eth1_provider.split(',')))
 
 if not w3.isConnected():
     logging.error('ETH node connection error!')
@@ -127,9 +121,9 @@ if network_id in networks.keys():
     logging.info(f"Connected to {networks[network_id]['name']} network ({networks[network_id]['engine']} engine)")
     if networks[network_id]['engine'] == 'PoA':
         logging.info("Injecting PoA compatibility middleware")
-        from web3.middleware import geth_poa_middleware
-
-        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # MultiProvider already supports PoA, so no need to inject manually
+        # from web3.middleware import geth_poa_middleware
+        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 if dry_run:
     logging.info('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
@@ -363,14 +357,15 @@ def update_beacon_data():
         logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
 
     # Get minimal metrics that are available without polling
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec)
+    current_metrics = get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
+
     if current_metrics.epoch <= prev_metrics.epoch:  # commit happens once per day
         logging.info(f'Currently reportable epoch {current_metrics.epoch} has already been reported. Skipping it.')
         return
 
-    # Get full metrics using polling (get keys from reggistry, get balances from beacon)
-    current_metrics = get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec, partial_metrics=current_metrics)
+    # Get full metrics using polling (get keys from registry, get balances from beacon)
+    current_metrics = get_full_current_metrics(w3, beacon, beacon_spec, current_metrics)
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
 

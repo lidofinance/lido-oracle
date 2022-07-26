@@ -1,16 +1,17 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "2.1.1"
+version = "2.3.0"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
 authors = ["Kirill Varlamov", "Smelov Vladimir", "Dmitry Suldin"]
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.7.2"
+python = "^3.7.10,<4.0.0"
 cytoolz = "0.11.2"
 eth-rlp = "0.2.1"
-lido-sdk = "2.5.1"
 prometheus-client = "0.12.0"
+web3-multi-provider = "^0.4.1"
+lido-sdk = "^2.5.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "6.2.5"

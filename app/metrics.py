@@ -43,30 +43,28 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     return result
 
 
-def get_current_metrics(w3, beacon, pool, oracle, registry, beacon_spec,
-                        partial_metrics: t.Optional[PoolMetrics] = None) -> PoolMetrics:
-    """If the result of previous get_current_metrics call isn't given
-    create and return partial metric.mSince it doesn't get keys from
-    registry and doesn't retrieve beacon state, it's much faster."""
-    if partial_metrics is None:
-        epochs_per_frame = beacon_spec[0]
-        partial_metrics = PoolMetrics()
-        partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the the epoch that is both finalized and reportable
-        current_frame = oracle.functions.getCurrentFrame().call()
-        potentially_reportable_epoch = current_frame[0]
-        logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
-        finalized_epoch_beacon = beacon.get_finalized_epoch()
-        # For Web3 client
-        # finalized_epoch_beacon = int(beacon.get_finality_checkpoint()['data']['finalized']['epoch'])
-        logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-        partial_metrics.epoch = min(potentially_reportable_epoch,
-                        (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
-        partial_metrics.timestamp = get_timestamp_by_epoch(beacon_spec, partial_metrics.epoch)
-        partial_metrics.depositedValidators = pool.functions.getBeaconStat().call()[0]
-        partial_metrics.bufferedBalance = pool.functions.getBufferedEther().call()
-        return partial_metrics
+def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
+    """Fetch current frame, buffered balance and epoch"""
+    epochs_per_frame = beacon_spec[0]
+    partial_metrics = PoolMetrics()
+    partial_metrics.blockNumber = w3.eth.getBlock('latest')['number']  # Get the epoch that is finalized and reportable
+    current_frame = oracle.functions.getCurrentFrame().call()
+    potentially_reportable_epoch = current_frame[0]
+    logging.info(f'Potentially reportable epoch: {potentially_reportable_epoch} (from ETH1 contract)')
+    finalized_epoch_beacon = beacon.get_finalized_epoch()
+    # For Web3 client
+    # finalized_epoch_beacon = int(beacon.get_finality_checkpoint()['data']['finalized']['epoch'])
+    logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
+    partial_metrics.epoch = min(potentially_reportable_epoch,
+                                (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+    partial_metrics.timestamp = get_timestamp_by_epoch(beacon_spec, partial_metrics.epoch)
+    partial_metrics.depositedValidators = pool.functions.getBeaconStat().call()[0]
+    partial_metrics.bufferedBalance = pool.functions.getBufferedEther().call()
+    return partial_metrics
 
-    """If partial result provided, the oracle fetches all the required states from ETH1 and ETH2"""
+
+def get_full_current_metrics(w3, beacon, beacon_spec, partial_metrics) -> PoolMetrics:
+    """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
