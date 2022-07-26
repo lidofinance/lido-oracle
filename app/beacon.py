@@ -14,8 +14,11 @@ from requests.compat import urljoin
 
 from requests.exceptions import ConnectTimeout
 
-from app.oracle import DEFAULT_TIMEOUT, LONG_TIMEOUT
 from exceptions import BeaconConnectionTimeoutException
+
+
+DEFAULT_TIMEOUT = 60
+LONG_TIMEOUT = 60*20
 
 
 def get_beacon(provider, slots_per_epoch):
