@@ -13,17 +13,19 @@ import requests
 from requests.compat import urljoin
 
 from requests.exceptions import ConnectTimeout
+
+from app.oracle import DEFAULT_TIMEOUT, LONG_TIMEOUT
 from exceptions import BeaconConnectionTimeoutException
 
 
 def get_beacon(provider, slots_per_epoch):
-    version = requests.get(urljoin(provider, 'eth/v1/node/version'), timeout=60).text
+    version = requests.get(urljoin(provider, 'eth/v1/node/version'), timeout=DEFAULT_TIMEOUT).text
     if 'Lighthouse' in version:
         return Lighthouse(provider, slots_per_epoch)
     # Teku is compatible with Ligthouse API
     if 'teku' in version:
         return Lighthouse(provider, slots_per_epoch)
-    version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version'), timeout=60).text
+    version = requests.get(urljoin(provider, 'eth/v1alpha1/node/version'), timeout=DEFAULT_TIMEOUT).text
     if 'Prysm' in version:
         return Prysm(provider, slots_per_epoch)
     raise ValueError('Unknown beacon')
@@ -50,24 +52,24 @@ class Lighthouse:
     def __init__(self, url, slots_per_epoch):
         self.url = url
         self.slots_per_epoch = slots_per_epoch
-        self.version = requests.get(urljoin(url, self.api_version), timeout=60).json()
+        self.version = requests.get(urljoin(url, self.api_version), timeout=DEFAULT_TIMEOUT).json()
 
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
-        response = requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints), timeout=60)
+        response = requests.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints), timeout=DEFAULT_TIMEOUT)
         return int(response.json()['data']['finalized']['epoch'])
 
     @proxy_connect_timeout_exception
     def get_genesis(self):
-        response = requests.get(urljoin(self.url, self.api_genesis), timeout=60)
+        response = requests.get(urljoin(self.url, self.api_genesis), timeout=DEFAULT_TIMEOUT)
         return int(response.json()['data']['genesis_time'])
 
     @proxy_connect_timeout_exception
     def get_actual_slot(self):
         actual_slots = {}
-        response = requests.get(urljoin(self.url, self.api_beacon_head_actual), timeout=60).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head_actual), timeout=DEFAULT_TIMEOUT).json()
         actual_slots['actual_slot'] = int(response['data']['header']['message']['slot'])
-        response = requests.get(urljoin(self.url, self.api_beacon_head_finalized), timeout=60).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head_finalized), timeout=DEFAULT_TIMEOUT).json()
         actual_slots['finalized_slot'] = int(response['data']['header']['message']['slot'])
         return actual_slots
 
@@ -87,7 +89,7 @@ class Lighthouse:
         balances_url = self.api_get_balances.format(slot)
         logging.info(f'using url "{balances_url}"')
         url = urljoin(self.url, balances_url)
-        response_json = requests.get(url, timeout=60*10).json()
+        response_json = requests.get(url, timeout=LONG_TIMEOUT).json()
         logging.info(f'Validator balances on beacon for slot: {slot}')
 
         found_on_beacon_pubkeys = 0
@@ -125,16 +127,16 @@ class Prysm:
     def __init__(self, url, slots_per_epoch):
         self.url = url
         self.slots_per_epoch = slots_per_epoch
-        self.version = requests.get(urljoin(url, self.api_version), timeout=60).json()
+        self.version = requests.get(urljoin(url, self.api_version), timeout=DEFAULT_TIMEOUT).json()
 
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
-        finalized_epoch = int(requests.get(urljoin(self.url, self.api_beacon_head), timeout=60).json()['finalizedEpoch'])
+        finalized_epoch = int(requests.get(urljoin(self.url, self.api_beacon_head), timeout=DEFAULT_TIMEOUT).json()['finalizedEpoch'])
         return finalized_epoch
 
     @proxy_connect_timeout_exception
     def get_genesis(self):
-        genesis_time = requests.get(urljoin(self.url, self.api_genesis), timeout=60).json()['genesisTime']
+        genesis_time = requests.get(urljoin(self.url, self.api_genesis), timeout=DEFAULT_TIMEOUT).json()['genesisTime']
         genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
         genesis_time = int(genesis_time.timestamp())
         return genesis_time
@@ -142,7 +144,7 @@ class Prysm:
     @proxy_connect_timeout_exception
     def get_actual_slot(self):
         actual_slots = {}
-        response = requests.get(urljoin(self.url, self.api_beacon_head), timeout=60).json()
+        response = requests.get(urljoin(self.url, self.api_beacon_head), timeout=DEFAULT_TIMEOUT).json()
         actual_slots['actual_slot'] = int(response['headSlot'])
         actual_slots['finalized_slot'] = int(response['finalizedSlot'])
         return actual_slots
@@ -167,7 +169,7 @@ class Prysm:
         for pk in pubkeys:
             params['publicKeys'] = pk
             params['epoch'] = epoch
-            response = requests.get(urljoin(self.url, self.api_get_balances), params=params, timeout=60*10)
+            response = requests.get(urljoin(self.url, self.api_get_balances), params=params, timeout=LONG_TIMEOUT)
             if 'error' in response.json():
                 logging.error(f'Pubkey {key_dict[pk]} return error')
                 continue
