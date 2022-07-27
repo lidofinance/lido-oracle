@@ -103,7 +103,8 @@ GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
 ORACLE_FROM_BLOCK = int(os.getenv('ORACLE_FROM_BLOCK', 0))
 
-w3 = Web3(MultiProvider(eth1_provider.split(',')))
+provider = MultiProvider(eth1_provider.split(','))
+w3 = Web3(provider)
 
 if not w3.isConnected():
     logging.error('ETH node connection error!')
