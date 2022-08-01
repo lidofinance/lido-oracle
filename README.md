@@ -66,6 +66,7 @@ See **Other examples** below for transactable modes.
 * `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
 * `ORACLE_FROM_BLOCK` - The earlist block to check for oracle events. Needed on mainnet first run to skip 5 minutes of scanning blockchain for events that are not there, recommended to be set to 11595281 on mainnet deployments
 * `PROMETHEUS_PREFIX` - Prefix for all prometheus metrics. This is good practice having different prefixes for applications (recommended to use `lido_oracle_`) **Optional**. Default ''
+* `PROMETHEUS_METRICS_PORT` - Port for prometheus server. **Optional**. Default '8000'
 
 ## Other examples
 
