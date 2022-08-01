@@ -38,7 +38,7 @@ then
     echo "Switch mock to Lighthouse"
     curl -s http://127.0.0.1:${PORT}/mock/set/1
     echo "Run python tests"
-    pytest
+    poetry run pytest
     CODE=$?
     if [ ${CODE} -ne 0 ]
     then
@@ -52,7 +52,7 @@ if [ "${PRYSM}" = 1 ]
 then
     echo "Switch mock to Prysm"
     curl -s http://127.0.0.1:${PORT}/mock/set/2
-    pytest
+    poetry run pytest
     CODE=$?
     if [ ${CODE} -ne 0 ]
     then

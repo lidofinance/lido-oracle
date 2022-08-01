@@ -1,6 +1,6 @@
 import rlp
 import requests
-from eth_utils import decode_hex, to_canonical_address, to_bytes, to_int, to_hex
+from eth_utils import decode_hex, to_canonical_address, to_bytes, to_int, to_hex, apply_key_map
 
 BLOCK_HEADER_FIELDS = [
     "parentHash",
@@ -55,6 +55,10 @@ def request_block_header(provider, block_number):
 
     block_dict = get_json_rpc_result(r)
     block_number = normalize_int(block_dict["number"])
+
+    if "proofOfAuthorityData" in block_dict:
+        block_dict = dict(apply_key_map({'proofOfAuthorityData': 'extraData'}, block_dict))
+
     block_header_fields = [normalize_bytes(block_dict[f]) for f in BLOCK_HEADER_FIELDS]
     return (block_number, block_header_fields)
 

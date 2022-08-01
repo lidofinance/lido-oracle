@@ -1,6 +1,5 @@
 import os
 import json
-from time import sleep
 from aiohttp import web
 from eth_abi.codec import ABICodec
 from web3._utils.abi import build_default_registry
@@ -130,6 +129,12 @@ async def eth1(request):
                 b'\x00\x96\x90\xe5\xd4G,|\r\xbd\xf4\x90B]\x89\x86%5\xd2\xa5/\xb6\x863?:\n\x9f\xf5\xd2\x12^']).hex()
             # resp["result"] = "0x0000000000000000000000000000000000000000000000000000000000000001"  # withdrawal_credentials
             # resp["result"] = b'\x00\x96\x90\xe5\xd4G,|\r\xbd\xf4\x90B]\x89\x86%5\xd2\xa5/\xb6\x863?:\n\x9f\xf5\xd2\x12^'  # withdrawal_credentials
+        # getQuorum().call()
+        elif req['params'] == [{'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229', 'data': '0xc26c12eb'}, 'latest']:
+            resp['result'] = '0x0000000000000000000000000000000000000000000000000000000000000001'
+        # getOracleMembers().call()
+        elif req['params'] == [{'to': '0xcD3db5ca818a645359e09543Cc0e5b7bB9593229', 'data': '0xdabb5757'}, 'latest']:
+            resp['result'] = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000'
         elif 'gas' in req['params'][0].keys():
             resp["result"] = "0x"
         else:

@@ -52,7 +52,7 @@ See **Other examples** below for transactable modes.
 
 ## Full list of configuration options
 
-* `WEB3_PROVIDER_URI` - HTTP or WS URL of web3 Ethereum node (tested with Geth). **Required**.
+* `WEB3_PROVIDER_URI` - HTTP or WS URL of web3 Ethereum node (tested with Geth). You can use multiply ETH1 endpoints separated with comma. (e.g. `http://example.com,wss://127.0.0.1:9000`)**Required**.
 * `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
 * `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
 * `STETH_CURVE_POOL_CONTRACT` - address of Curve ETH/stETH stable swap pool. If provided together with `STETH_PRICE_ORACLE_CONTRACT` stETH price oracle will be enabled.
