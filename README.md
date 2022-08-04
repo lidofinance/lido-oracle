@@ -3,7 +3,7 @@
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side.
+Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collects and reports Beacon Chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side.
 
 ## How it works
 
@@ -36,7 +36,7 @@ The oracle receives its configuration via Environment variables. You need to pro
 
 ```sh
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
@@ -80,7 +80,7 @@ This mode is intended for controlled start and allows to double-check the report
 
 ```sh
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
@@ -96,7 +96,7 @@ Runs in the background with 1-hour pauses between consecutive iterations. To be 
 
 ```sh
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$ETH2_NODE_RPC_ADDRESS
+export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
@@ -129,80 +129,80 @@ Prometheus exporter is running on port 8000 and provides 5 logical groups of met
 
 Current Oracle daemon's state.
 
-| name                            | description                                                      | frequency                                 | goal                                                                                                                                                                   |
-|---------------------------------|------------------------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **reportableFrame** <br> *gauge*      | the report could be sent or is sending                     |                                           |                                                                                 |
-| **nowEthV1BlockNumber**  <br> *gauge* | ETH1 latest block number                                   | every COUNTDOWN_SLEEP seconds             | should be increasing constantly and be aligned with https://etherscan.io/blocks |
-| **daemonCountDown** <br> *gauge*      | time till the next oracle run in seconds                   | every COUNTDOWN_SLEEP seconds             | should be decreasing down to 0                                                  |
-| **finalizedEpoch** <br> *gauge*       | last finalized ETH2 epoch                                  | every COUNTDOWN_SLEEP seconds             | should go up at a rate of 1 per six munites                                     |
+| name                                  | description                              | frequency                     | goal                                                                            |
+|---------------------------------------|------------------------------------------|-------------------------------|---------------------------------------------------------------------------------|
+| **reportableFrame** <br> *gauge*      | the report could be sent or is sending   |                               |                                                                                 |
+| **nowEthV1BlockNumber**  <br> *gauge* | ETH1 latest block number                 | every COUNTDOWN_SLEEP seconds | should be increasing constantly and be aligned with https://etherscan.io/blocks |
+| **daemonCountDown** <br> *gauge*      | time till the next oracle run in seconds | every COUNTDOWN_SLEEP seconds | should be decreasing down to 0                                                  |
+| **finalizedEpoch** <br> *gauge*       | last finalized Beacon Chain epoch        | every COUNTDOWN_SLEEP seconds | should go up at a rate of 1 per six munites                                     |
 
 
 ### 2. Oracle process metrics
 
 Oracle process stats.
 
-| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
-| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **txSuccess**                     <br> *histogram* | number of successful transactions                           | every SLEEP seconds             |                                       |
-| **txRevert**                      <br> *histogram* | number of failed transactions                           | every SLEEP seconds             |                                       |
-| **process_virtual_memory_bytes**  <br> *gauge* | Virtual memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
-| **process_resident_memory_bytes** <br> *gauge* | Resident memory size in bytes.                               | every call             | normal RAM consumption is ~200Mb               |
-| **process_start_time_seconds**    <br> *gauge* | Start time of the process since unix epoch in seconds.                               | every call             | |
-| **process_cpu_seconds_total**     <br> *counter* | Total user and system CPU time spent in seconds.                              | every call             | |
-| **process_open_fds**              <br> *gauge* | Number of open file descriptors.             | every call             | |
-| **process_max_fds**               <br> *gauge* | Maximum number of open file descriptors.     | every call             | |
+| name                                               | description                                            | frequency           | goal                             |
+|----------------------------------------------------|--------------------------------------------------------|---------------------|----------------------------------|
+| **txSuccess**                     <br> *histogram* | number of successful transactions                      | every SLEEP seconds |                                  |
+| **txRevert**                      <br> *histogram* | number of failed transactions                          | every SLEEP seconds |                                  |
+| **process_virtual_memory_bytes**  <br> *gauge*     | Virtual memory size in bytes.                          | every call          | normal RAM consumption is ~200Mb |
+| **process_resident_memory_bytes** <br> *gauge*     | Resident memory size in bytes.                         | every call          | normal RAM consumption is ~200Mb |
+| **process_start_time_seconds**    <br> *gauge*     | Start time of the process since unix epoch in seconds. | every call          |                                  |
+| **process_cpu_seconds_total**     <br> *counter*   | Total user and system CPU time spent in seconds.       | every call          |                                  |
+| **process_open_fds**              <br> *gauge*     | Number of open file descriptors.                       | every call          |                                  |
+| **process_max_fds**               <br> *gauge*     | Maximum number of open file descriptors.               | every call          |                                  |
 
 ### 3. Last oracle invocation frame state
 
 The previous and the current frame variables.
 
-| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
-| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **deltaSeconds**                  <br> *gauge* | current.timestamp - previous.timestamp                           | every SLEEP seconds                       | should be approximately equal to the delay between reports  |
-| **appearedValidators**            <br> *gauge* | current.beaconValidators - previous.beaconValidators             | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentEthV1BlockNumber**       <br> *gauge* | block number of the most current oracle stats check              | every SLEEP seconds                       | should be constantly updated and be aligned with https://etherscan.io/blocks |
-| **currentValidatorsKeysNumber**   <br> *gauge* | len(validators_keys)                                             | every time there is an unreported frame (1/day or potentially rarer)                       |                                                                                                                                                                        |
-| **currentEpoch**                  <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentTimestamp**              <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentBeaconValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentBeaconBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentBufferedBalance**        <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentDepositedValidators**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentActiveValidatorBalance** <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentTotalPooledEther**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentTransientValidators**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **currentTransientBalance**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevEthV1BlockNumber**          <br> *gauge* | block number of the previous oracle stats check                  | every SLEEP seconds                       | should be constantly updated and be aligned with https://etherscan.io/blocks |
-| **prevEpoch**                     <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevTimestamp**                 <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevBeaconValidators**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevBeaconBalance**             <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevBufferedBalance**           <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevDepositedValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevActiveValidatorBalance**    <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevTotalPooledEther**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevTransientValidators**       <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
-| **prevTransientBalance**          <br> *gauge* |                                                                  | every SLEEP seconds                       |                                                                                                                                                                        |
+| name                                           | description                                          | frequency                                                            | goal                                                                         |
+|------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------|
+| **deltaSeconds**                  <br> *gauge* | current.timestamp - previous.timestamp               | every SLEEP seconds                                                  | should be approximately equal to the delay between reports                   |
+| **appearedValidators**            <br> *gauge* | current.beaconValidators - previous.beaconValidators | every SLEEP seconds                                                  |                                                                              |
+| **currentEthV1BlockNumber**       <br> *gauge* | block number of the most current oracle stats check  | every SLEEP seconds                                                  | should be constantly updated and be aligned with https://etherscan.io/blocks |
+| **currentValidatorsKeysNumber**   <br> *gauge* | len(validators_keys)                                 | every time there is an unreported frame (1/day or potentially rarer) |                                                                              |
+| **currentEpoch**                  <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentTimestamp**              <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentBeaconValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentBeaconBalance**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentBufferedBalance**        <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentDepositedValidators**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentActiveValidatorBalance** <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentTotalPooledEther**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentTransientValidators**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **currentTransientBalance**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevEthV1BlockNumber**          <br> *gauge* | block number of the previous oracle stats check      | every SLEEP seconds                                                  | should be constantly updated and be aligned with https://etherscan.io/blocks |
+| **prevEpoch**                     <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevTimestamp**                 <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevBeaconValidators**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevBeaconBalance**             <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevBufferedBalance**           <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevDepositedValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevActiveValidatorBalance**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevTotalPooledEther**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevTransientValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
+| **prevTransientBalance**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
 
 ### 4. stETH Oracle state
 
 Current stETH price in the pool and the price oracle.
 
-| name                                     | description                                                      | frequency                                 | goal                                                                                                                                                                   |
-| ---------------------------------------- | -----------------------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **stethOraclePrice**              <br> *gauge* | | every call | |
-| **stethPoolPrice**                <br> *gauge* | | every call | |
+| name                                           | description | frequency  | goal |
+|------------------------------------------------|-------------|------------|------|
+| **stethOraclePrice**              <br> *gauge* |             | every call |      |
+| **stethPoolPrice**                <br> *gauge* |             | every call |      |
 
 ### 5. Exceptions
 
 Exception counters.
 
-| name                                           | description                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------------|
-| **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced          |
-| **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                            |
-| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                          |
-| **exceptionsCount**               <br> *gauge* | count of all other exceptions                                     |
+| name                                           | description                                              |
+|------------------------------------------------|----------------------------------------------------------|
+| **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced |
+| **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                   |
+| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                 |
+| **exceptionsCount**               <br> *gauge* | count of all other exceptions                            |
 
 ### Alert examples
 
