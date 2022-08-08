@@ -4,7 +4,7 @@ ENV LANG=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=true
 
-RUN apt-get update && apt-get install -y --no-install-recommends -qq gcc=4:10.2.1-1 g++=4:10.2.1-1 curl=7.74.0-1.3+deb11u1 \
+RUN apt-get update && apt-get install -y --no-install-recommends -qq gcc=4:10.2.1-1 g++=4:10.2.1-1 curl=7.74.0-1.3+deb11u2 \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
