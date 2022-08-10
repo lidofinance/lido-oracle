@@ -26,7 +26,7 @@ LONG_TIMEOUT = 60*20
 retry_strategy = Retry(
     total=5,
     status_forcelist=[418, 429, 500, 502, 503, 504],
-    backoff_factor=0,
+    backoff_factor=2,
 )
 
 adapter = HTTPAdapter(max_retries=retry_strategy)
