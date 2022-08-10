@@ -9,7 +9,7 @@ import logging
 import math
 from datetime import timezone
 
-import requests
+from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.compat import urljoin
 
@@ -30,7 +30,7 @@ retry_strategy = Retry(
 )
 
 adapter = HTTPAdapter(max_retries=retry_strategy)
-session = requests.Session()
+session = Session()
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 

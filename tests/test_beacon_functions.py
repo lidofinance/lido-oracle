@@ -1,6 +1,8 @@
 import pytest
-import requests
 import json
+
+from requests import Session
+
 from app.beacon import get_beacon
 
 with open('tests/responses.json', 'r') as file:
@@ -34,7 +36,7 @@ def lighthouse_requests(monkeypatch):
     head_finalized = json.dumps(responses['lighthouse']['head_finalized'])
     validators = json.dumps(responses['lighthouse']['validators'])
 
-    def mocked_get(uri, *args, **kwargs):
+    def mocked_get(self, uri, *args, **kwargs):
         """A method replacing Requests.get
         Returns a mocked response object (with json method)
         """
@@ -54,9 +56,8 @@ def lighthouse_requests(monkeypatch):
             return MockResponse('')
 
     # finally, patch requests.get and requests.post with patched version
-    monkeypatch.setattr(requests, 'get', mocked_get)
-    monkeypatch.setattr(requests, 'post', mocked_get)
-
+    monkeypatch.setattr(Session, 'get', mocked_get)
+    monkeypatch.setattr(Session, 'post', mocked_get)
 
 @pytest.fixture
 def prysm_requests(monkeypatch):
@@ -65,7 +66,7 @@ def prysm_requests(monkeypatch):
     head = json.dumps(responses['prysm']['head'])
     validators = json.dumps(responses['prysm']['validators'])
 
-    def mocked_get(uri, *args, **kwargs):
+    def mocked_get(self, uri, *args, **kwargs):
         """A method replacing Requests.get
         Returns a mocked response object (with json method)
         """
@@ -83,23 +84,23 @@ def prysm_requests(monkeypatch):
             return MockResponse('')
 
     # finally, patch requests.get and requests.post with patched version
-    monkeypatch.setattr(requests, 'get', mocked_get)
-    monkeypatch.setattr(requests, 'post', mocked_get)
+    monkeypatch.setattr(Session, 'get', mocked_get)
+    monkeypatch.setattr(Session, 'post', mocked_get)
 
 
 @pytest.fixture
 def bad_requests(monkeypatch):
     version = 'Mock'
 
-    def mocked_get(uri, *args, **kwargs):
+    def mocked_get(self, uri, *args, **kwargs):
         """A method replacing Requests.get
         Returns a mocked response object (with json method)
         """
         return MockResponse(version)
 
     # finally, patch requests.get and requests.post with patched version
-    monkeypatch.setattr(requests, 'get', mocked_get)
-    monkeypatch.setattr(requests, 'post', mocked_get)
+    monkeypatch.setattr(Session, 'get', mocked_get)
+    monkeypatch.setattr(Session, 'post', mocked_get)
 
 
 def test_version_lighthouse(lighthouse_requests):
