@@ -9,6 +9,7 @@ import datetime
 import time
 from typing import Tuple
 
+from urllib3.exceptions import MaxRetryError
 from web3_multi_provider import MultiProvider
 
 from exceptions import BeaconConnectionTimeoutException
@@ -279,7 +280,7 @@ def main():
                 continue
             else:
                 raise
-        except BeaconConnectionTimeoutException as exc:
+        except (BeaconConnectionTimeoutException, MaxRetryError) as exc:
             if run_as_daemon:
                 logging.exception(exc)
                 metrics_exporter_state.beaconNodeTimeoutCount.inc()
