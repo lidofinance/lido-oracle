@@ -23,7 +23,7 @@ The oracle daemon requires fully-synced ETH1.0 and Beacon nodes. We highly recom
 [geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
 [Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
 
-Note: Prysm beacon client is also supported, but has less API performance.
+Note: Prysm beacon client is also supported (use with `--grpc-max-msg-size=104857600` param).
 
 ```sh
 docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0
