@@ -48,28 +48,6 @@ async def validators_lighthouse(request):
         return web.json_response(lighthouse_responses['validators'])
     return web.json_response('404: Not Found')
 
-
-@routes.get('/eth/v1alpha1/node/version')
-async def prysm_ver(request):
-    if request.app['prysm']:
-        return web.json_response(prysm_responses['version'])
-    return web.json_response('404: Not Found')
-
-
-@routes.get('/eth/v1alpha1/beacon/chainhead')
-async def beacon_prysm__cp(request):
-    if request.app['prysm']:
-        return web.json_response(prysm_responses['head'])
-    return web.json_response('404: Not Found')
-
-
-@routes.get('/eth/v1alpha1/validators/balances')
-async def validators_prysm(request):
-    if request.app['prysm']:
-        return web.json_response(prysm_responses['validators'])
-    return web.json_response('404: Not Found')
-
-
 @routes.post('/')
 async def eth1(request):
     req = await request.json()
