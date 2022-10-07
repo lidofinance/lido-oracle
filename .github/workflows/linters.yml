@@ -16,7 +16,7 @@ jobs:
 
     - name: Setup poetry
       run: |
-        curl -sSL https://install.python-poetry.org | python - && echo "$POETRY_HOME/bin" >> $GITHUB_PATH
+        curl -sSL https://install.python-poetry.org | python - && echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
       env:
         POETRY_HOME: "/opt/poetry"
         POETRY_VERSION: 1.1.13
@@ -40,3 +40,6 @@ jobs:
 
   docker:
     uses: lidofinance/linters/.github/workflows/docker.yml@master
+
+  actions:
+    uses: lidofinance/linters/.github/workflows/actions.yml@master
