@@ -84,10 +84,10 @@ class BeaconChainClient:
         for validator in all_validators:
             if validator['validator']['pubkey'] in validator_pub_keys:
                 validators_count += 1
-                total_balance += validator['balance']
+                total_balance += int(validator['balance'])
 
                 if validator['validator']['status'] in [ValidatorStatus.ACTIVE, ValidatorStatus.ACTIVE_ONGOING]:
-                    active_validators_balance += validator['balance']
+                    active_validators_balance += int(validator['balance'])
 
         # Convert Gwei to wei
         total_balance *= 10 ** 9
