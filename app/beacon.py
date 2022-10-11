@@ -7,7 +7,6 @@ import logging
 from typing import Tuple, Iterable
 from urllib.parse import urljoin
 
-import pandas as pd
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectTimeout
@@ -73,19 +72,22 @@ class BeaconChainClient:
 
     @proxy_connect_timeout_exception
     def get_balances(self, slot, keys_list) -> Tuple[int, int, int]:
-        all_validators = self._fetch_balances(slot, keys_list)
+        all_validators = self._fetch_balances(slot)
         logging.info(f'Validator balances on beacon for slot: {slot}')
 
         validator_pub_keys = self._from_bytes_to_pub_keys(keys_list)
 
-        df = pd.DataFrame.from_records([{**v, **v['validator']} for v in all_validators])
-        lido_validators = df.loc[df['pubkey'].isin(validator_pub_keys)]
+        validators_count = 0
+        total_balance = 0
+        active_validators_balance = 0
 
-        validators_count = len(lido_validators)
-        total_balance = int(lido_validators['balance'].astype('int').sum())
+        for validator in all_validators:
+            if validator['validator']['pubkey'] in validator_pub_keys:
+                validators_count += 1
+                total_balance += validator['balance']
 
-        active_validators = lido_validators.loc[lido_validators['status'].isin([ValidatorStatus.ACTIVE, ValidatorStatus.ACTIVE_ONGOING])]
-        active_validators_balance = int(active_validators['balance'].astype('int').sum())
+                if validator['validator']['status'] in [ValidatorStatus.ACTIVE, ValidatorStatus.ACTIVE_ONGOING]:
+                    active_validators_balance += validator['balance']
 
         # Convert Gwei to wei
         total_balance *= 10 ** 9
@@ -95,9 +97,10 @@ class BeaconChainClient:
 
     @staticmethod
     def _from_bytes_to_pub_keys(keys_list):
-        return list(set('0x' + binascii.hexlify(key).decode() for key in keys_list))
+        # To make search faster instead of dict we use set
+        return set('0x' + binascii.hexlify(key).decode() for key in keys_list)
 
-    def _fetch_balances(self, slot, keys_list) -> Iterable:
+    def _fetch_balances(self, slot) -> Iterable:
         logging.info('Fetching validators from Beacon node...')
         val_url = urljoin(self.url, self.api_get_validators.format(slot))
         logging.info(f'using url "{val_url}"')
