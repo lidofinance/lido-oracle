@@ -15,8 +15,7 @@ LIGHTHOUSE=1
 
 echo "Run ETH1/ETH2 mock webservice"
 python -m aiohttp.web -H localhost -P ${PORT} helpers.eth_nodes_mock:main > /dev/null 2>&1 &
-#sleep 1one punch man
-
+#sleep 1
 curl -s http://127.0.0.1:${PORT}/mock/set/1
 echo "Run python tests"
 poetry run pytest
