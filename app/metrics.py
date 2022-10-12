@@ -19,7 +19,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     result.depositedValidators, result.beaconValidators, result.beaconBalance = pool.functions.getBeaconStat().call()
     result.bufferedBalance = pool.functions.getBufferedEther().call()
 
-    # Calculate earliest block to limit scanning depth
+    # Calculate the earliest block to limit scanning depth
     SECONDS_PER_ETH1_BLOCK = 14
     latest_block = w3.eth.getBlock('latest')
     from_block = max(from_block, int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK))
