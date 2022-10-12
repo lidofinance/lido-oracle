@@ -2,18 +2,15 @@
 
 # SPDX-License-Identifier: GPL-3.0
 
-import base64
 import binascii
-import datetime
 import logging
-import math
-from datetime import timezone
+from typing import Tuple, Iterable
+from urllib.parse import urljoin
 
 from requests import Session
 from requests.adapters import HTTPAdapter
-from requests.compat import urljoin
-
 from requests.exceptions import ConnectTimeout
+
 from urllib3.util import Retry
 
 from exceptions import BeaconConnectionTimeoutException
@@ -26,7 +23,7 @@ LONG_TIMEOUT = 60*20
 retry_strategy = Retry(
     total=5,
     status_forcelist=[418, 429, 500, 502, 503, 504],
-    backoff_factor=2,
+    backoff_factor=5,
 )
 
 adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -35,21 +32,20 @@ session.mount("https://", adapter)
 session.mount("http://", adapter)
 
 
-def get_beacon(provider, slots_per_epoch):
-    version = session.get(urljoin(provider, 'eth/v1/node/version'), timeout=DEFAULT_TIMEOUT).text
-
-    if 'Lighthouse' in version:
-        return Lighthouse(provider, slots_per_epoch)
-
-    # Teku is compatible with Ligthouse API
-    if 'teku' in version:
-        return Lighthouse(provider, slots_per_epoch)
-
-    version = session.get(urljoin(provider, 'eth/v1alpha1/node/version'), timeout=DEFAULT_TIMEOUT).text
-    if 'Prysm' in version:
-        return Prysm(provider, slots_per_epoch)
-
-    raise ValueError('Unknown beacon')
+class ValidatorStatus:
+    PENDING_INITIALIZED = 'pending_initialized'
+    PENDING_QUEUED = 'pending_queued'
+    ACTIVE_ONGOING = 'active_ongoing'
+    ACTIVE_EXITING = 'active_exiting'
+    ACTIVE_SLASHED = 'active_slashed'
+    EXITED_UNSLASHED = 'exited_unslashed'
+    EXITED_SLASHED = 'exited_slashed'
+    WITHDRAWAL_POSSIBLE = 'withdrawal_possible'
+    WITHDRAWAL_DONE = 'withdrawal_done'
+    ACTIVE = 'active'
+    PENDING = 'pending'
+    EXITED = 'exited'
+    WITHDRAWAL = 'withdrawal'
 
 
 def proxy_connect_timeout_exception(func):
@@ -61,19 +57,13 @@ def proxy_connect_timeout_exception(func):
     return inner
 
 
-class Lighthouse:
-    api_version = 'eth/v1/node/version'
-    api_genesis = 'eth/v1/beacon/genesis'
+class BeaconChainClient:
     api_beacon_head_finality_checkpoints = 'eth/v1/beacon/states/head/finality_checkpoints'
-    api_beacon_head_finalized = 'eth/v1/beacon/headers/finalized'
-    api_beacon_head_actual = 'eth/v1/beacon/headers/head'
-    api_get_balances = 'eth/v1/beacon/states/{}/validators'
-    api_get_slot = 'eth/v1/beacon/states/{}/root'
+    api_get_validators = 'eth/v1/beacon/states/{}/validators'
 
     def __init__(self, url, slots_per_epoch):
         self.url = url
         self.slots_per_epoch = slots_per_epoch
-        self.version = session.get(urljoin(url, self.api_version), timeout=DEFAULT_TIMEOUT).json()
 
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
@@ -81,136 +71,38 @@ class Lighthouse:
         return int(response.json()['data']['finalized']['epoch'])
 
     @proxy_connect_timeout_exception
-    def get_genesis(self):
-        response = session.get(urljoin(self.url, self.api_genesis), timeout=DEFAULT_TIMEOUT)
-        return int(response.json()['data']['genesis_time'])
-
-    @proxy_connect_timeout_exception
-    def get_actual_slot(self):
-        actual_slots = {}
-        response = session.get(urljoin(self.url, self.api_beacon_head_actual), timeout=DEFAULT_TIMEOUT).json()
-        actual_slots['actual_slot'] = int(response['data']['header']['message']['slot'])
-        response = session.get(urljoin(self.url, self.api_beacon_head_finalized), timeout=DEFAULT_TIMEOUT).json()
-        actual_slots['finalized_slot'] = int(response['data']['header']['message']['slot'])
-        return actual_slots
-
-    @proxy_connect_timeout_exception
-    def _convert_key_list_to_str_set(self, key_list):
-        pubkeys = set()
-        for key in key_list:
-            pubkeys.add('0x' + binascii.hexlify(key).decode())
-
-        return pubkeys
-
-    @proxy_connect_timeout_exception
-    def get_balances(self, slot, key_list):
-        pubkeys = self._convert_key_list_to_str_set(key_list)
-
-        logging.info('Fetching validators from Beacon node...')
-        balances_url = self.api_get_balances.format(slot)
-        logging.info(f'using url "{balances_url}"')
-        url = urljoin(self.url, balances_url)
-        response_json = session.get(url, timeout=LONG_TIMEOUT).json()
+    def get_balances(self, slot, keys_list) -> Tuple[int, int, int]:
+        all_validators = self._fetch_balances(slot)
         logging.info(f'Validator balances on beacon for slot: {slot}')
 
-        found_on_beacon_pubkeys = 0
+        validator_pub_keys = self._from_bytes_to_pub_keys(keys_list)
+
+        validators_count = 0
         total_balance = 0
         active_validators_balance = 0
 
-        for validator in response_json['data']:
-            pubkey = validator['validator']['pubkey']
-            # Log all validators along with balance
-            if pubkey in pubkeys:
-                validator_balance = int(validator['balance'])
-                total_balance += validator_balance
-                found_on_beacon_pubkeys += 1
+        for validator in all_validators:
+            if validator['validator']['pubkey'] in validator_pub_keys:
+                validators_count += 1
+                total_balance += int(validator['balance'])
 
-                if validator['status'] in ['active', 'active_ongoing']:
-                    active_validators_balance += validator_balance
-
-                # logging.info(f'Pubkey: {pubkey[:12]} Balance: {validator_balance} Gwei')  # todo uncomment
-            elif validator['status'] == 'UNKNOWN':
-                logging.warning(f'Pubkey {pubkey[:12]} status UNKNOWN')
+                if validator['status'] in [ValidatorStatus.ACTIVE, ValidatorStatus.ACTIVE_ONGOING]:
+                    active_validators_balance += int(validator['balance'])
 
         # Convert Gwei to wei
         total_balance *= 10 ** 9
         active_validators_balance *= 10 ** 9
 
-        return total_balance, found_on_beacon_pubkeys, active_validators_balance
+        return total_balance, validators_count, active_validators_balance
 
+    @staticmethod
+    def _from_bytes_to_pub_keys(keys_list):
+        # To make search faster instead of dict we use set
+        return set('0x' + binascii.hexlify(key).decode() for key in keys_list)
 
-class Prysm:
-    api_version = 'eth/v1alpha1/node/version'
-    api_genesis = 'eth/v1alpha1/node/genesis'
-    api_beacon_head = 'eth/v1alpha1/beacon/chainhead'
-    api_get_balances = 'eth/v1alpha1/validators/balances'
+    def _fetch_balances(self, slot) -> Iterable:
+        logging.info('Fetching validators from Beacon node...')
+        val_url = urljoin(self.url, self.api_get_validators.format(slot))
+        logging.info(f'using url "{val_url}"')
 
-    def __init__(self, url, slots_per_epoch):
-        self.url = url
-        self.slots_per_epoch = slots_per_epoch
-        self.version = session.get(urljoin(url, self.api_version), timeout=DEFAULT_TIMEOUT).json()
-
-    @proxy_connect_timeout_exception
-    def get_finalized_epoch(self):
-        finalized_epoch = int(session.get(urljoin(self.url, self.api_beacon_head), timeout=DEFAULT_TIMEOUT).json()['finalizedEpoch'])
-        return finalized_epoch
-
-    @proxy_connect_timeout_exception
-    def get_genesis(self):
-        genesis_time = session.get(urljoin(self.url, self.api_genesis), timeout=DEFAULT_TIMEOUT).json()['genesisTime']
-        genesis_time = datetime.datetime.strptime(genesis_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
-        genesis_time = int(genesis_time.timestamp())
-        return genesis_time
-
-    @proxy_connect_timeout_exception
-    def get_actual_slot(self):
-        actual_slots = {}
-        response = session.get(urljoin(self.url, self.api_beacon_head), timeout=DEFAULT_TIMEOUT).json()
-        actual_slots['actual_slot'] = int(response['headSlot'])
-        actual_slots['finalized_slot'] = int(response['finalizedSlot'])
-        return actual_slots
-
-    @proxy_connect_timeout_exception
-    def get_balances(self, slot, key_list):
-        params = {}
-        pubkeys = []
-        found_on_beacon_pubkeys = []
-        balance_list = []
-        key_dict = {}
-        for key in key_list:
-            base64_key = base64.b64encode(key).decode()
-            hex_key = '0x' + binascii.hexlify(key).decode()
-            key_dict[base64_key] = hex_key[:12]
-            pubkeys.append(base64_key)
-
-        epoch = math.ceil(slot / self.slots_per_epoch)  # Round up in case of missing slots
-
-        active_validators_balance = 0
-
-        for pk in pubkeys:
-            params['publicKeys'] = pk
-            params['epoch'] = epoch
-            response = session.get(urljoin(self.url, self.api_get_balances), params=params, timeout=LONG_TIMEOUT)
-            if 'error' in response.json():
-                logging.error(f'Pubkey {key_dict[pk]} return error')
-                continue
-            validator = response.json()['balances'][0]
-
-            if validator['publicKey'] in pubkeys:
-                found_on_beacon_pubkeys.append(validator['publicKey'])
-                balance = int(validator['balance'])
-                if validator['status'] == 'ACTIVE':
-                    active_validators_balance += balance
-
-                balance_list.append(balance)
-                # logging.info(f'Pubkey: {key_dict[pk]} Balance: {balance} Gwei')  # todo uncomment
-            elif validator['status'] == 'UNKNOWN':
-                logging.warning(f'Pubkey {key_dict[pk]} status UNKNOWN')
-
-        balances = sum(balance_list)
-        # Convert Gwei to wei
-        balances *= 10 ** 9
-        active_validators_balance *= 10 ** 9
-        total_validators_on_beacon = len(found_on_beacon_pubkeys)
-
-        return balances, total_validators_on_beacon, active_validators_balance
+        return session.get(val_url, timeout=LONG_TIMEOUT).json()['data']

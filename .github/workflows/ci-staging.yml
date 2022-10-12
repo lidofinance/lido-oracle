@@ -11,7 +11,7 @@ on:
 jobs:
   # test:
   #   ...
-  
+
   deploy:
     runs-on: ubuntu-latest
     # needs: test
@@ -27,3 +27,4 @@ jobs:
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           TARGET_REPO: "lidofinance/infra-mainnet"
           TARGET_WORKFLOW: "deploy_staging_mainnet_lido_oracle.yaml"
+          TARGET: "master"

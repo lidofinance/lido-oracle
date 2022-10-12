@@ -23,7 +23,7 @@ The oracle daemon requires fully-synced ETH1.0 and Beacon nodes. We highly recom
 [geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
 [Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
 
-Note: Prysm beacon client is also supported, but has less API performance.
+Note: Prysm beacon client is also supported (use with `--grpc-max-msg-size=104857600` param).
 
 ```sh
 docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0
@@ -245,3 +245,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public License](LICENSE)
 along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+## Release flow
+
+To create new release:
+
+1. Merge all changes to the `master` branch
+1. Navigate to Repo => Actions
+1. Run action "Prepare release" action against `master` branch
+1. When action execution is finished, navigate to Repo => Pull requests
+1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
+1. After merge release action will be triggered automatically
+1. Navigate to Repo => Actions and see last actions logs for further details 

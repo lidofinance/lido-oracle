@@ -19,7 +19,7 @@ from web3 import Web3
 from web3.exceptions import SolidityError, CannotHandleRequest, TimeExhausted
 
 
-from beacon import get_beacon
+from beacon import BeaconChainClient
 from log import init_log
 from metrics import compare_pool_metrics, get_previous_metrics, get_light_current_metrics, get_full_current_metrics
 from prometheus_metrics import metrics_exporter_state
@@ -180,7 +180,7 @@ slots_per_epoch = beacon_spec[1]
 seconds_per_slot = beacon_spec[2]
 genesis_time = beacon_spec[3]
 
-beacon = get_beacon(beacon_provider, slots_per_epoch)  # >>lighthouse<< / prism implementation of ETH 2.0
+beacon = BeaconChainClient(beacon_provider, slots_per_epoch)
 
 if run_as_daemon:
     logging.info('DAEMON=1 Running in daemon mode (in endless loop).')
