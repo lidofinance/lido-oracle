@@ -9,7 +9,7 @@ then
   exit 1
 fi
 
-if ! flake8 $py_files --max-line-length 120; then
+if ! flake8 $py_files --max-line-length 1000; then
   echo "'flake8' returned non-zero code"
   exit 1
 fi

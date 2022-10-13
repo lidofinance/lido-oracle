@@ -2,7 +2,6 @@
 
 # SPDX-License-Identifier: GPL-3.0
 
-import typing as t
 import logging
 import datetime
 from contracts import get_validators_keys

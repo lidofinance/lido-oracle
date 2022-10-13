@@ -440,7 +440,7 @@ def update_beacon_data():
             else:
                 metrics_exporter_state.exceptionsCount.inc()
                 logging.exception(f'Unexpected exception. {type(exc)}')
-        except TimeExhausted as exc:
+        except TimeExhausted:
             raise
         except Exception as exc:
             metrics_exporter_state.exceptionsCount.inc()
@@ -508,7 +508,7 @@ def update_steth_price_oracle_data():
         else:
             metrics_exporter_state.exceptionsCount.inc()
             logging.exception(exc)
-    except TimeExhausted as exc:
+    except TimeExhausted:
         raise
     except Exception as exc:
         metrics_exporter_state.exceptionsCount.inc()

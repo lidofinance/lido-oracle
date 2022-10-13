@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import time
@@ -74,11 +73,11 @@ def test_show_metadata_not_set():
             if line:
                 lines.append(line)
 
-        assert lines[0].endswith(f'version: Not set')
-        assert lines[1].endswith(f'commit_message: Not set')
-        assert lines[2].endswith(f'commit_hash: Not set')
-        assert lines[3].endswith(f'commit_datetime: Not set')
-        assert lines[4].endswith(f'build_datetime: Not set')
-        assert lines[5].endswith(f'tags: Not set')
-        assert lines[6].endswith(f'branch: Not set')
+        assert lines[0].endswith('version: Not set')
+        assert lines[1].endswith('commit_message: Not set')
+        assert lines[2].endswith('commit_hash: Not set')
+        assert lines[3].endswith('commit_datetime: Not set')
+        assert lines[4].endswith('build_datetime: Not set')
+        assert lines[5].endswith('tags: Not set')
+        assert lines[6].endswith('branch: Not set')
         assert all(line.startswith('INFO') for line in lines)
