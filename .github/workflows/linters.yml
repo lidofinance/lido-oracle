@@ -29,11 +29,8 @@ jobs:
       run: ./check_code.sh
       continue-on-error: true
 
-    - name: Test with pytest and Lighthouse beacon
-      run: poetry run ./run_tests.sh Lighthouse
-
-    - name: Test with pytest and Prysm beacon
-      run: poetry run ./run_tests.sh Prysm
+    - name: Test with pytest
+      run: poetry run ./run_tests.sh
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
