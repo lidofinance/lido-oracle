@@ -17,7 +17,7 @@ from exceptions import BeaconConnectionTimeoutException
 
 
 DEFAULT_TIMEOUT = 60
-LONG_TIMEOUT = 60*20
+LONG_TIMEOUT = 60 * 20
 
 
 retry_strategy = Retry(
@@ -54,6 +54,7 @@ def proxy_connect_timeout_exception(func):
             return func(*args, **kwargs)
         except ConnectTimeout as exc:
             raise BeaconConnectionTimeoutException() from exc
+
     return inner
 
 
@@ -94,8 +95,8 @@ class BeaconChainClient:
                     active_validators_balance += int(validator['balance'])
 
         # Convert Gwei to wei
-        total_balance *= 10 ** 9
-        active_validators_balance *= 10 ** 9
+        total_balance *= 10**9
+        active_validators_balance *= 10**9
 
         return total_balance, validators_count, active_validators_balance
 

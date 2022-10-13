@@ -12,20 +12,20 @@ def test_no_priv_key():
     env.pop('MEMBER_PRIV_KEY', None)
     env.pop('DAEMON', None)
     with subprocess.Popen(
-            ['python3', '-u', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
     ) as proc:
         lines = get_log_lines(proc, n_lines=11)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]
-        assert lines[index+1].endswith('Injecting PoA compatibility middleware')
-        assert lines[index+2].endswith('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
+        assert lines[index + 1].endswith('Injecting PoA compatibility middleware')
+        assert lines[index + 2].endswith('MEMBER_PRIV_KEY not provided, running in read-only (DRY RUN) mode')
         out, err = proc.communicate(timeout=30)
         proc.wait()
     assert proc.returncode == 0, f'invalid returncode, stdout: {out}, stderr: {err}'
@@ -39,21 +39,21 @@ def test_with_priv_key_with_gaslimit_no_daemon():
     env['GAS_LIMIT'] = f'{custom_gas}'
     expected_prompt = "Should we send this TX? [y/n]: "
     with subprocess.Popen(
-            ['python3', '-u', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, stop_on_substring=expected_prompt)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]
-        assert lines[index+1].endswith('Injecting PoA compatibility middleware')
-        assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
-        assert regex.match(r'.* Member account\: .*', lines[index+3])
+        assert lines[index + 1].endswith('Injecting PoA compatibility middleware')
+        assert lines[index + 2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
+        assert regex.match(r'.* Member account\: .*', lines[index + 3])
         # expect transaction line to be like
         # Tx data: {
         #   'value': 0, 'gasPrice': 1000000000, 'chainId': 5, 'from': '0xb4124cEB3451635DAcedd11767f004d8a28c6eE7',
@@ -78,21 +78,21 @@ def test_with_priv_key_no_gaslimit_no_daemon():
     env.pop('GAS_LIMIT', None)
     expected_prompt = "Should we send this TX? [y/n]: "
     with subprocess.Popen(
-            ['python3', '-u', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, stop_on_substring=expected_prompt)
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]
-        assert lines[index+1].endswith('Injecting PoA compatibility middleware')
-        assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
-        assert regex.match(r'.* Member account\: .*', lines[index+3])
+        assert lines[index + 1].endswith('Injecting PoA compatibility middleware')
+        assert lines[index + 2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
+        assert regex.match(r'.* Member account\: .*', lines[index + 3])
         # expect transaction line to be like
         # Tx data: {
         #   'value': 0, 'gasPrice': 1000000000, 'chainId': 5, 'from': '0xb4124cEB3451635DAcedd11767f004d8a28c6eE7',
@@ -117,22 +117,22 @@ def test_with_priv_key_with_daemon_no_sleep():
     env['DAEMON'] = '1'
     env['FORCE_DO_NOT_USE_IN_PRODUCTION'] = '1'
     with subprocess.Popen(
-            ['python3', '-u', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
     ) as proc:
         lines = get_log_lines(proc, n_lines=110, timeout=30, stop_on_substring='We are in DAEMON mode. Sleep')
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
 
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]
-        assert lines[index+1].endswith('Injecting PoA compatibility middleware')
-        assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
-        assert regex.match(r'.* Member account\: .*', lines[index+3])
+        assert lines[index + 1].endswith('Injecting PoA compatibility middleware')
+        assert lines[index + 2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
+        assert regex.match(r'.* Member account\: .*', lines[index + 3])
         # expect transaction line to be like
         # Tx data: {
         #   'value': 0, 'gasPrice': 1000000000, 'chainId': 5, 'from': '0xb4124cEB3451635DAcedd11767f004d8a28c6eE7',
@@ -159,21 +159,21 @@ def test_with_priv_key_with_daemon_with_sleep():
     custom_sleep = 42
     env['SLEEP'] = f'{custom_sleep}'
     with subprocess.Popen(
-            ['python3', '-u', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
     ) as proc:
         lines = get_log_lines(proc, n_lines=100, timeout=30, stop_on_substring='We are in DAEMON mode. Sleep')
         match = [i for i, line in enumerate(lines) if regex.match(r'.* Connected to .* network', line)]
         assert len(match) == 1, f'bad output {lines}'
         index = match[0]
-        assert lines[index+1].endswith('Injecting PoA compatibility middleware')
-        assert lines[index+2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
-        assert regex.match(r'.* Member account\: .*', lines[index+3])
+        assert lines[index + 1].endswith('Injecting PoA compatibility middleware')
+        assert lines[index + 2].endswith('MEMBER_PRIV_KEY provided, running in transactable (PRODUCTION) mode')
+        assert regex.match(r'.* Member account\: .*', lines[index + 3])
         # expect transaction line to be like
         # Tx data: {
         #   'value': 0, 'gasPrice': 1000000000, 'chainId': 5, 'from': '0xb4124cEB3451635DAcedd11767f004d8a28c6eE7',

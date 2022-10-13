@@ -17,7 +17,7 @@ class PoolMetrics:
         return self.bufferedBalance + self.beaconBalance + self.getTransientBalance()
 
     def getTransientValidators(self):
-        assert(self.depositedValidators >= self.beaconValidators)
+        assert self.depositedValidators >= self.beaconValidators
         return self.depositedValidators - self.beaconValidators
 
     def getTransientBalance(self):

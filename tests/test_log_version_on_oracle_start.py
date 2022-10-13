@@ -6,14 +6,14 @@ import time
 TIMEOUT = 10
 
 sample_version = {
-            "version": "v0.1.0-rc.1-3295e13",
-            "commit_datetime": "2020-12-08T07:50:13Z",
-            "build_datetime": "2020-12-08T08:45:14.623010Z",
-            "commit_message": "write version.json #55",
-            "commit_hash": "3295e13",
-            "tags": "some tags",
-            "branch": "issue-55-write-version-to-docker-and-file",
-        }
+    "version": "v0.1.0-rc.1-3295e13",
+    "commit_datetime": "2020-12-08T07:50:13Z",
+    "build_datetime": "2020-12-08T08:45:14.623010Z",
+    "commit_message": "write version.json #55",
+    "commit_hash": "3295e13",
+    "tags": "some tags",
+    "branch": "issue-55-write-version-to-docker-and-file",
+}
 
 
 def test_show_correct_metadata():
@@ -28,13 +28,13 @@ def test_show_correct_metadata():
     env['BRANCH'] = sample_version["branch"]
 
     with subprocess.Popen(
-            ['python3', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         n_lines = 7
         lines = []
@@ -58,13 +58,13 @@ def test_show_metadata_not_set():
     env = os.environ.copy()
     start_at = time.time()
     with subprocess.Popen(
-            ['python3', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         n_lines = 7
         lines = []

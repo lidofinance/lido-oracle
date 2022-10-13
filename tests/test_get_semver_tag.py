@@ -9,12 +9,14 @@ def test_empty():
 
 
 def test_nothing():
-    result = get_semver_tag("""aaa
+    result = get_semver_tag(
+        """aaa
 some-tag
 blabla
 0xy789roirjnq
 1-2-3
-""")
+"""
+    )
     assert result is None
 
 
@@ -59,21 +61,25 @@ def test_correct2():
 
 
 def test_one_semver_and_others():
-    result = get_semver_tag("""aaa
+    result = get_semver_tag(
+        """aaa
 some-tag
 v0.1.2-release
 0xy789roirjnq
 1-2-3
-""")
+"""
+    )
     assert result == 'v0.1.2-release'
 
 
 def test_several_semver_tags():
     with pytest.raises(ValueError):
-        get_semver_tag("""aaa
+        get_semver_tag(
+            """aaa
 some-tag
 v0.1.2-release
 0xy789roirjnq
 1-2-3
 v0.1.3
-""")
+"""
+        )

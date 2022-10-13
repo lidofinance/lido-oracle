@@ -9,7 +9,7 @@ from lido_sdk.methods.typing import OperatorKey
 
 
 def get_validators_keys(w3) -> t.List[OperatorKey]:
-    """ Fetch all validator's keys from registry """
+    """Fetch all validator's keys from registry"""
     lido = Lido(w3)
     lido.get_operators_indexes()
     lido.get_operators_data()

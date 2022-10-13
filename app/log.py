@@ -3,7 +3,7 @@ import logging
 
 
 def init_log(stdout_level: str = 'INFO'):
-    """ initialize root logger """
+    """initialize root logger"""
     if hasattr(init_log, '_called'):
         logging.warning(f'init_log must be called only once!')
         return
@@ -13,10 +13,10 @@ def init_log(stdout_level: str = 'INFO'):
 
 
 def _setup_logger(
-        logger: logging.Logger,
-        fmt: str = '%(levelname)8s %(asctime)s <daemon> %(message)s',
-        datefmt: str = '%Y-%m-%d %H:%M:%S',
-        stdout_level: str = 'INFO',
+    logger: logging.Logger,
+    fmt: str = '%(levelname)8s %(asctime)s <daemon> %(message)s',
+    datefmt: str = '%Y-%m-%d %H:%M:%S',
+    stdout_level: str = 'INFO',
 ):
     # Remove default handler
     if logger.handlers:

@@ -22,7 +22,7 @@ def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMet
     # Calculate the earliest block to limit scanning depth
     SECONDS_PER_ETH1_BLOCK = 14
     latest_block = w3.eth.getBlock('latest')
-    from_block = max(from_block, int((latest_block['timestamp']-genesis_time)/SECONDS_PER_ETH1_BLOCK))
+    from_block = max(from_block, int((latest_block['timestamp'] - genesis_time) / SECONDS_PER_ETH1_BLOCK))
     step = 10000
     # Try to fetch and parse last 'Completed' event from the contract.
     for end in range(latest_block['number'], from_block, -step):
@@ -55,8 +55,9 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     # For Web3 client
     # finalized_epoch_beacon = int(beacon.get_finality_checkpoint()['data']['finalized']['epoch'])
     logging.info(f'Last finalized epoch: {finalized_epoch_beacon} (from Beacon)')
-    partial_metrics.epoch = min(potentially_reportable_epoch,
-                                (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame)
+    partial_metrics.epoch = min(
+        potentially_reportable_epoch, (finalized_epoch_beacon // epochs_per_frame) * epochs_per_frame
+    )
     partial_metrics.timestamp = get_timestamp_by_epoch(beacon_spec, partial_metrics.epoch)
     partial_metrics.depositedValidators = pool.functions.getBeaconStat().call()[0]
     partial_metrics.bufferedBalance = pool.functions.getBufferedEther().call()
@@ -72,9 +73,14 @@ def get_full_current_metrics(w3, beacon, beacon_spec, partial_metrics) -> PoolMe
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
     full_metrics = partial_metrics
     full_metrics.validatorsKeysNumber = len(validators_keys)
-    full_metrics.beaconBalance, full_metrics.beaconValidators, full_metrics.activeValidatorBalance = \
-        beacon.get_balances(slot, validators_keys)
-    logging.info(f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH')
+    (
+        full_metrics.beaconBalance,
+        full_metrics.beaconValidators,
+        full_metrics.activeValidatorBalance,
+    ) = beacon.get_balances(slot, validators_keys)
+    logging.info(
+        f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
+    )
     logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
     return full_metrics
 
@@ -91,7 +97,9 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
     appeared_validators = current.beaconValidators - previous.beaconValidators
     metrics_exporter_state.appearedValidators.set(appeared_validators)
     logging.info(f'Time delta: {datetime.timedelta(seconds=delta_seconds)} or {delta_seconds} s')
-    logging.info(f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}')
+    logging.info(
+        f'depositedValidators before:{previous.depositedValidators} after:{current.depositedValidators} change:{current.depositedValidators - previous.depositedValidators}'
+    )
 
     if current.beaconValidators < previous.beaconValidators:
         warnings = True
@@ -99,25 +107,37 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
         logging.warning('The number of beacon validators unexpectedly decreased!')
         logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
-    logging.info(f'beaconValidators before:{previous.beaconValidators} after:{current.beaconValidators} change:{appeared_validators}')
-    logging.info(f'transientValidators before:{previous.getTransientValidators()} after:{current.getTransientValidators()} change:{current.getTransientValidators() - previous.getTransientValidators()}')
-    logging.info(f'beaconBalance before:{previous.beaconBalance} after:{current.beaconBalance} change:{current.beaconBalance - previous.beaconBalance}')
-    logging.info(f'bufferedBalance before:{previous.bufferedBalance} after:{current.bufferedBalance} change:{current.bufferedBalance - previous.bufferedBalance}')
-    logging.info(f'transientBalance before:{previous.getTransientBalance()} after:{current.getTransientBalance()} change:{current.getTransientBalance() - previous.getTransientBalance()}')
+    logging.info(
+        f'beaconValidators before:{previous.beaconValidators} after:{current.beaconValidators} change:{appeared_validators}'
+    )
+    logging.info(
+        f'transientValidators before:{previous.getTransientValidators()} after:{current.getTransientValidators()} change:{current.getTransientValidators() - previous.getTransientValidators()}'
+    )
+    logging.info(
+        f'beaconBalance before:{previous.beaconBalance} after:{current.beaconBalance} change:{current.beaconBalance - previous.beaconBalance}'
+    )
+    logging.info(
+        f'bufferedBalance before:{previous.bufferedBalance} after:{current.bufferedBalance} change:{current.bufferedBalance - previous.bufferedBalance}'
+    )
+    logging.info(
+        f'transientBalance before:{previous.getTransientBalance()} after:{current.getTransientBalance()} change:{current.getTransientBalance() - previous.getTransientBalance()}'
+    )
     logging.info(f'totalPooledEther before:{previous.getTotalPooledEther()} after:{current.getTotalPooledEther()} ')
     logging.info(f'activeValidatorBalance now:{current.activeValidatorBalance} ')
 
     reward_base = appeared_validators * DEPOSIT_SIZE + previous.beaconBalance
     reward = current.beaconBalance - reward_base
     if not previous.getTotalPooledEther():
-        logging.info('The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited')
+        logging.info(
+            'The Lido has no funds under its control. Probably the system has been just deployed and has never been deposited'
+        )
         return
 
     if not delta_seconds:
         logging.info('No time delta between current and previous epochs. Skip APR calculations.')
-        assert(reward == 0)
-        assert(current.beaconValidators == previous.beaconValidators)
-        assert(current.beaconBalance == current.beaconBalance)
+        assert reward == 0
+        assert current.beaconValidators == previous.beaconValidators
+        assert current.beaconBalance == current.beaconBalance
         return
 
     # APR calculation
@@ -131,16 +151,18 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
 
     if reward >= 0:
         logging.info(f'Validators were rewarded {reward} wei or {reward/1e18} ETH')
-        logging.info(f'Rewards will increase Total pooled ethers by: {reward / previous.getTotalPooledEther() * 100:.4f} %')
+        logging.info(
+            f'Rewards will increase Total pooled ethers by: {reward / previous.getTotalPooledEther() * 100:.4f} %'
+        )
         logging.info(f'Daily staking reward rate for active validators: {daily_reward_rate * 100:.8f} %')
         logging.info(f'Staking APR for active validators: {apr * 100:.4f} %')
-        if (apr > current.MAX_APR):
+        if apr > current.MAX_APR:
             warnings = True
             logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             logging.warning('Staking APR too high! Talk to your fellow oracles before submitting!')
             logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
-        if (apr < current.MIN_APR):
+        if apr < current.MIN_APR:
             warnings = True
             logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             logging.warning('Staking APR too low! Talk to your fellow oracles before submitting!')
@@ -155,7 +177,9 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
         logging.warning('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
     if reward == 0:
-        logging.info('Beacon balances stay intact (neither slashed nor rewarded). So this report won\'t have any economical impact on the pool.')
+        logging.info(
+            'Beacon balances stay intact (neither slashed nor rewarded). So this report won\'t have any economical impact on the pool.'
+        )
 
     return warnings
 

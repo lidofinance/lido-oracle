@@ -13,13 +13,12 @@ regex = re.compile(regex_str, flags=re.MULTILINE)
 
 def shell(cmd: t.List[str]) -> str:
     process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='UTF-8')
-    assert process.returncode == 0, \
-        f"failed with stdout: {process.stdout}, stderr: {process.stderr}"
+    assert process.returncode == 0, f"failed with stdout: {process.stdout}, stderr: {process.stderr}"
     return process.stdout.strip()
 
 
 def get_semver_tag(tags_raw: str) -> t.Optional[str]:
-    """ try to get SemVer tag from `tags` with regexp
+    """try to get SemVer tag from `tags` with regexp
     :param tags_raw:
     :return:
     """
@@ -38,18 +37,18 @@ def get_semver_tag(tags_raw: str) -> t.Optional[str]:
 
 
 def get_short_ref_hash(ref: str) -> str:
-    """ get short git hash by reference """
+    """get short git hash by reference"""
     return shell(["git", "rev-parse", "--short", ref])
 
 
 def get_git_tags(commit: str) -> str:
-    """ list of git tags, newline separated """
+    """list of git tags, newline separated"""
     return shell(["git", "tag", "--points-at", commit])
 
 
 def get_top_semver_tag() -> str:
-    """ get SemVer tag from the nearest commit from the HEAD.
-        If the SemVer tag is under the HEAD, adds short git hash to the end.
+    """get SemVer tag from the nearest commit from the HEAD.
+    If the SemVer tag is under the HEAD, adds short git hash to the end.
     """
     deep_index = 0
     commit = f"HEAD~{deep_index}"
