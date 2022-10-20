@@ -1,14 +1,53 @@
-## [2.4.1](https://github.com/lidofinance/lido-oracle/compare/2.4.0...2.4.1) (2022-10-13)
+# CHANGELOG
 
+All notable changes to this project are documented in this file.
 
-### Bug Fixes
+This changelog format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-* add teku support ([e6c3d9c](https://github.com/lidofinance/lido-oracle/commit/e6c3d9cad57932268fe5d77f5fde22b6e656222e))
-* add teku support ([8673b0e](https://github.com/lidofinance/lido-oracle/commit/8673b0e85952cb096b2d6c96f88c73691b85e30e))
-* **docker:** dockerfile improvements ([2bd5087](https://github.com/lidofinance/lido-oracle/commit/2bd5087b978415b4ecf6db49edfbb1196cd1afec))
-* **dockerfile:** 3.8-slim-buster ([82280ed](https://github.com/lidofinance/lido-oracle/commit/82280edf4550e2b936495d920ffb49276c03c233))
-* performance issue ([c1a4f09](https://github.com/lidofinance/lido-oracle/commit/c1a4f09e6b1d42fd463a6a053ebb8729793f418d))
-* testnet deploy ([94d9823](https://github.com/lidofinance/lido-oracle/commit/94d982331e9136ca9f8886913af6b7b3b202f740))
+[comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [2.4.0](https://github.com/lidofinance/lido-oracle/releases/tag/2.4.0) - 2022-10-04
+### Changed
+- Client for Prysm node has been changed to the same as for the lighthouse node.
 
+## [2.3.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.3.0) - 2022-07-22
+### Minor
+- Add backoff for beacon chain failed requests. ([#0162](https://github.com/lidofinance/lido-oracle/pull/162))
 
+## [2.3.0](https://github.com/lidofinance/lido-oracle/releases/tag/2.3.0) - 2022-07-22
+### Feature
+- Support MultiProvider ([#0158](https://github.com/lidofinance/lido-oracle/pull/158))
+- Alternate oracles ([#0156](https://github.com/lidofinance/lido-oracle/pull/156))
+- Switch to poetry ([#0153](https://github.com/lidofinance/lido-oracle/pull/153))
+
+### Minor
+- Change CD/CI ([#0155](https://github.com/lidofinance/lido-oracle/pull/155))
+
+## [2.2.0](https://github.com/lidofinance/lido-oracle/releases/tag/2.2.0) - 2022-04-06
+### Feature
+- Support Kiln testnet ([#0151](https://github.com/lidofinance/lido-oracle/pull/151))
+
+## [2.1.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.1.1) - 2022-02-14
+### Fixed
+- Performance issue ([#0146](https://github.com/lidofinance/lido-oracle/pull/146))
+
+## [2.1.0](https://github.com/lidofinance/lido-oracle/releases/tag/v2.1.0) - 2022-01-19
+### Feature
+- Changelog added ([#0141](https://github.com/lidofinance/lido-oracle/pull/141))
+- Added optional prefixes for prometheus metrics ([#0131](https://github.com/lidofinance/lido-oracle/pull/131))
+- Added support for EIP-1559 ([#0128](https://github.com/lidofinance/lido-oracle/pull/128))
+- Added teku support ([#0135](https://github.com/lidofinance/lido-oracle/pull/135))
+
+### Changed
+- Upgrade lido-sdk library to new one to increase performance ([#0135](https://github.com/lidofinance/lido-oracle/pull/135))
+- Various improves for DockerFile (added multistage, permissions, healthcheck) ([#0132](https://github.com/lidofinance/lido-oracle/pull/132))
+
+### Fixed
+- Upgrade pip in DockerFile ([#0138](https://github.com/lidofinance/lido-oracle/pull/138))
+- Remove secrets from logs ([#0137](https://github.com/lidofinance/lido-oracle/pull/137))
+- Fixed DockerIgnore file ([#0130](https://github.com/lidofinance/lido-oracle/pull/130))
+
+## [2.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/v2.0.0) - 2021-04-29
+### Feature
+- Release 2.0.0 Lido oracle
