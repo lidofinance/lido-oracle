@@ -23,10 +23,10 @@ jobs:
         with:
           git-message: "chore(release): {version}"
           tag-prefix: ""
-          output-file: "CHANGELOG.md"
+          # Changelog generated manually
+          output-file: false
           version-file: pyproject.toml
           version-path: tool.poetry.version
-          release-count: 10 # save all releases in the CHANGELOG.md
           git-push: false
           skip-on-empty: false
           skip-ci: false
