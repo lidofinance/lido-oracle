@@ -43,9 +43,11 @@ envs = [
     'POOL_CONTRACT',
 ]
 if os.getenv('FORCE'):
-    logging.error('The flag "FORCE" is obsolete in favour of '
+    logging.error(
+        'The flag "FORCE" is obsolete in favour of '
         '"FORCE_DO_NOT_USE_IN_PRODUCTION", '
-        'please NEVER use it in production')
+        'please NEVER use it in production'
+    )
     exit(1)
 
 missing = []
@@ -216,22 +218,20 @@ logging.info(f'Genesis time: {genesis_time} (auto-discovered)')
 
 def build_report_beacon_tx(epoch, balance, validators):  # hash tx
     max_fee_per_gas, max_priority_fee_per_gas = _get_tx_gas_params()
-    return oracle.functions.reportBeacon(
-        epoch, balance // 10 ** 9, validators
-    ).buildTransaction({
-        'from': account.address,
-        'gas': GAS_LIMIT,
-        'maxFeePerGas': max_fee_per_gas,
-        'maxPriorityFeePerGas': max_priority_fee_per_gas,
-    })
+    return oracle.functions.reportBeacon(epoch, balance // 10**9, validators).buildTransaction(
+        {
+            'from': account.address,
+            'gas': GAS_LIMIT,
+            'maxFeePerGas': max_fee_per_gas,
+            'maxPriorityFeePerGas': max_priority_fee_per_gas,
+        }
+    )
 
 
 def sign_and_send_tx(tx):
     logging.info('Preparing TX... CTRL-C to abort')
     time.sleep(3)  # To be able to Ctrl + C
-    tx['nonce'] = w3.eth.getTransactionCount(
-        account.address
-    )  # Get correct transaction nonce for sender from the node
+    tx['nonce'] = w3.eth.getTransactionCount(account.address)  # Get correct transaction nonce for sender from the node
     signed = w3.eth.account.sign_transaction(tx, account.key)
     logging.info(f'TX hash: {signed.hash.hex()} ... CTRL-C to abort')
     time.sleep(3)
@@ -288,7 +288,7 @@ def main():
             else:
                 raise
         except ValueError as exc:
-            (args, ) = exc.args
+            (args,) = exc.args
             if run_as_daemon and args["code"] == -32000:
                 logging.exception(exc)
                 metrics_exporter_state.underpricedExceptionsCount.inc()
@@ -351,12 +351,18 @@ def update_beacon_data():
     metrics_exporter_state.set_prev_pool_metrics(prev_metrics)
     if prev_metrics:
         logging.info(f'Previously reported epoch: {prev_metrics.epoch}')
-        logging.info(f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH')
-        logging.info(f'Previously reported bufferedBalance: {prev_metrics.bufferedBalance} wei or {prev_metrics.bufferedBalance/1e18} ETH')
+        logging.info(
+            f'Previously reported beaconBalance: {prev_metrics.beaconBalance} wei or {prev_metrics.beaconBalance/1e18} ETH'
+        )
+        logging.info(
+            f'Previously reported bufferedBalance: {prev_metrics.bufferedBalance} wei or {prev_metrics.bufferedBalance/1e18} ETH'
+        )
         logging.info(f'Previous validator metrics: depositedValidators:{prev_metrics.depositedValidators}')
         logging.info(f'Previous validator metrics: transientValidators:{prev_metrics.getTransientValidators()}')
         logging.info(f'Previous validator metrics: beaconValidators:{prev_metrics.beaconValidators}')
-        logging.info(f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}')
+        logging.info(
+            f'Timestamp of previous report: {datetime.datetime.fromtimestamp(prev_metrics.timestamp)} or {prev_metrics.timestamp}'
+        )
 
     # Get minimal metrics that are available without polling
     current_metrics = get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec)
@@ -371,7 +377,9 @@ def update_beacon_data():
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
 
-    logging.info(f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})')
+    logging.info(
+        f'Tx call data: oracle.reportBeacon({current_metrics.epoch}, {current_metrics.beaconBalance}, {current_metrics.beaconValidators})'
+    )
     if not dry_run:
 
         if not is_current_member_in_todays_quorum():
@@ -380,7 +388,9 @@ def update_beacon_data():
 
         try:
             metrics_exporter_state.reportableFrame.set(True)
-            tx = build_report_beacon_tx(current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators)
+            tx = build_report_beacon_tx(
+                current_metrics.epoch, current_metrics.beaconBalance, current_metrics.beaconValidators
+            )
             # Create the tx and execute it locally to check validity
             w3.eth.call(tx)
             logging.info('Calling tx locally succeeded.')
@@ -391,7 +401,9 @@ def update_beacon_data():
                     else:
                         logging.warning('Cannot report suspicious data in DAEMON mode for safety reasons.')
                         logging.warning('You can submit it interactively (with DAEMON=0) and interactive [y/n] prompt.')
-                        logging.warning("In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production.")
+                        logging.warning(
+                            "In DAEMON mode it's possible with enforcement flag (FORCE_DO_NOT_USE_IN_PRODUCTION=1). Never use it in production."
+                        )
                 else:
                     sign_and_send_tx(tx)
             else:
@@ -408,21 +420,27 @@ def update_beacon_data():
             elif "EPOCH_HAS_NOT_YET_BEGUN" in str_sl:
                 logging.info('Calling tx locally reverted "EPOCH_HAS_NOT_YET_BEGUN"')
             elif "MEMBER_NOT_FOUND" in str_sl:
-                logging.warning('Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?')
+                logging.warning(
+                    'Calling tx locally reverted "MEMBER_NOT_FOUND". Maybe you are using the address that is not in the members list?'
+                )
             elif "REPORTED_MORE_DEPOSITED" in str_sl:
-                logging.warning('Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list')
+                logging.warning(
+                    'Calling tx locally reverted "REPORTED_MORE_DEPOSITED". Something wrong with calculated balances on the beacon or the validators list'
+                )
             elif "REPORTED_LESS_VALIDATORS" in str_sl:
-                logging.warning('Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.')
+                logging.warning(
+                    'Calling tx locally reverted "REPORTED_LESS_VALIDATORS". Oracle can\'t report less validators than seen on the Beacon before.'
+                )
             else:
                 logging.error(f'Calling tx locally failed: {str_sl}')
         except ValueError as exc:
-            (args, ) = exc.args
+            (args,) = exc.args
             if args["code"] == -32000:
                 raise
             else:
                 metrics_exporter_state.exceptionsCount.inc()
                 logging.exception(f'Unexpected exception. {type(exc)}')
-        except TimeExhausted as exc:
+        except TimeExhausted:
             raise
         except Exception as exc:
             metrics_exporter_state.exceptionsCount.inc()
@@ -438,7 +456,7 @@ def update_steth_price_oracle_data():
     try:
         block_number = w3.eth.getBlock('latest').number - steth_price_oracle_block_number_shift
         oracle_price = steth_price_oracle.functions.stethPrice().call()
-        pool_price = steth_curve_pool.functions.get_dy(1, 0, 10 ** 18).call(block_identifier=block_number)
+        pool_price = steth_curve_pool.functions.get_dy(1, 0, 10**18).call(block_identifier=block_number)
         percentage_diff = 100 * abs(1 - oracle_price / pool_price)
         logging.info(
             f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
@@ -453,23 +471,29 @@ def update_steth_price_oracle_data():
         is_state_actual = percentage_diff < price_update_threshold
 
         if is_state_actual:
-            logging.info(f'StETH Price Oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.')
+            logging.info(
+                f'StETH Price Oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.'
+            )
             return
 
         if dry_run:
             logging.warning("Running in dry run mode. New state will not be submitted.")
             return
 
-        logging.info(f'StETH Price Oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...')
+        logging.info(
+            f'StETH Price Oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...'
+        )
 
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
         max_fee_per_gas, max_priority_fee_per_gas = _get_tx_gas_params()
-        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction({
-            'gas': 2_000_000,
-            'maxFeePerGas': max_fee_per_gas,
-            'maxPriorityFeePerGas': max_priority_fee_per_gas,
-        })
+        tx = steth_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
+            {
+                'gas': 2_000_000,
+                'maxFeePerGas': max_fee_per_gas,
+                'maxPriorityFeePerGas': max_priority_fee_per_gas,
+            }
+        )
 
         w3.eth.call(tx)
         logging.info('Calling tx locally succeeded.')
@@ -478,13 +502,13 @@ def update_steth_price_oracle_data():
         metrics_exporter_state.exceptionsCount.inc()
         logging.error(f'Tx call failed : {sl}')
     except ValueError as exc:
-        (args, ) = exc.args
+        (args,) = exc.args
         if isinstance(args, dict) and args["code"] == -32000:
             raise
         else:
             metrics_exporter_state.exceptionsCount.inc()
             logging.exception(exc)
-    except TimeExhausted as exc:
+    except TimeExhausted:
         raise
     except Exception as exc:
         metrics_exporter_state.exceptionsCount.inc()

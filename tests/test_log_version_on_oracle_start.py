@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import time
@@ -6,14 +5,14 @@ import time
 TIMEOUT = 10
 
 sample_version = {
-            "version": "v0.1.0-rc.1-3295e13",
-            "commit_datetime": "2020-12-08T07:50:13Z",
-            "build_datetime": "2020-12-08T08:45:14.623010Z",
-            "commit_message": "write version.json #55",
-            "commit_hash": "3295e13",
-            "tags": "some tags",
-            "branch": "issue-55-write-version-to-docker-and-file",
-        }
+    "version": "v0.1.0-rc.1-3295e13",
+    "commit_datetime": "2020-12-08T07:50:13Z",
+    "build_datetime": "2020-12-08T08:45:14.623010Z",
+    "commit_message": "write version.json #55",
+    "commit_hash": "3295e13",
+    "tags": "some tags",
+    "branch": "issue-55-write-version-to-docker-and-file",
+}
 
 
 def test_show_correct_metadata():
@@ -28,13 +27,13 @@ def test_show_correct_metadata():
     env['BRANCH'] = sample_version["branch"]
 
     with subprocess.Popen(
-            ['python3', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         n_lines = 7
         lines = []
@@ -58,13 +57,13 @@ def test_show_metadata_not_set():
     env = os.environ.copy()
     start_at = time.time()
     with subprocess.Popen(
-            ['python3', './app/oracle.py'],
-            bufsize=0,
-            universal_newlines=True,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         n_lines = 7
         lines = []
@@ -74,11 +73,11 @@ def test_show_metadata_not_set():
             if line:
                 lines.append(line)
 
-        assert lines[0].endswith(f'version: Not set')
-        assert lines[1].endswith(f'commit_message: Not set')
-        assert lines[2].endswith(f'commit_hash: Not set')
-        assert lines[3].endswith(f'commit_datetime: Not set')
-        assert lines[4].endswith(f'build_datetime: Not set')
-        assert lines[5].endswith(f'tags: Not set')
-        assert lines[6].endswith(f'branch: Not set')
+        assert lines[0].endswith('version: Not set')
+        assert lines[1].endswith('commit_message: Not set')
+        assert lines[2].endswith('commit_hash: Not set')
+        assert lines[3].endswith('commit_datetime: Not set')
+        assert lines[4].endswith('build_datetime: Not set')
+        assert lines[5].endswith('tags: Not set')
+        assert lines[6].endswith('branch: Not set')
         assert all(line.startswith('INFO') for line in lines)

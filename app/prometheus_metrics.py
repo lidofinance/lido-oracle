@@ -20,7 +20,9 @@ class MetricsExporterState:
         prometheus_prefix = os.getenv('PROMETHEUS_PREFIX', '')
 
         self.prevEthV1BlockNumber = Gauge(f'{prometheus_prefix}prevEthV1BlockNumber', 'prevEthV1BlockNumber')  # fixme
-        self.currentEthV1BlockNumber = Gauge(f'{prometheus_prefix}currentEthV1BlockNumber', 'currentEthV1BlockNumber')  # fixme
+        self.currentEthV1BlockNumber = Gauge(
+            f'{prometheus_prefix}currentEthV1BlockNumber', 'currentEthV1BlockNumber'
+        )  # fixme
         self.nowEthV1BlockNumber = Gauge(f'{prometheus_prefix}nowEthV1BlockNumber', 'nowEthV1BlockNumber')  # fixme
 
         self.daemonCountDown = Gauge(f'{prometheus_prefix}daemonCountDown', 'daemonCountDown')
@@ -34,10 +36,16 @@ class MetricsExporterState:
         self.currentBeaconValidators = Gauge(f'{prometheus_prefix}currentBeaconValidators', 'currentBeaconValidators')
         self.currentTimestamp = Gauge(f'{prometheus_prefix}currentTimestamp', 'currentTimestamp')
         self.currentBufferedBalance = Gauge(f'{prometheus_prefix}currentBufferedBalance', 'currentBufferedBalance')
-        self.currentDepositedValidators = Gauge(f'{prometheus_prefix}currentDepositedValidators', 'currentDepositedValidators')
-        self.currentActiveValidatorBalance = Gauge(f'{prometheus_prefix}currentActiveValidatorBalance', 'currentActiveValidatorBalance')
+        self.currentDepositedValidators = Gauge(
+            f'{prometheus_prefix}currentDepositedValidators', 'currentDepositedValidators'
+        )
+        self.currentActiveValidatorBalance = Gauge(
+            f'{prometheus_prefix}currentActiveValidatorBalance', 'currentActiveValidatorBalance'
+        )
         self.currentTotalPooledEther = Gauge(f'{prometheus_prefix}currentTotalPooledEther', 'currentTotalPooledEther')
-        self.currentTransientValidators = Gauge(f'{prometheus_prefix}currentTransientValidators', 'currentTransientValidators')
+        self.currentTransientValidators = Gauge(
+            f'{prometheus_prefix}currentTransientValidators', 'currentTransientValidators'
+        )
         self.currentTransientBalance = Gauge(f'{prometheus_prefix}currentTransientBalance', 'currentTransientBalance')
         self.currentValidatorsKeysNumber = Gauge(f'{prometheus_prefix}validatorsKeysNumber', 'validatorsKeysNumber')
 
@@ -47,7 +55,9 @@ class MetricsExporterState:
         self.prevTimestamp = Gauge(f'{prometheus_prefix}prevTimestamp', 'prevTimestamp')
         self.prevBufferedBalance = Gauge(f'{prometheus_prefix}prevBufferedBalance', 'prevBufferedBalance')
         self.prevDepositedValidators = Gauge(f'{prometheus_prefix}prevDepositedValidators', 'prevDepositedValidators')
-        self.prevActiveValidatorBalance = Gauge(f'{prometheus_prefix}prevActiveValidatorBalance', 'prevActiveValidatorBalance')
+        self.prevActiveValidatorBalance = Gauge(
+            f'{prometheus_prefix}prevActiveValidatorBalance', 'prevActiveValidatorBalance'
+        )
         self.prevTotalPooledEther = Gauge(f'{prometheus_prefix}prevTotalPooledEther', 'prevTotalPooledEther')
         self.prevTransientValidators = Gauge(f'{prometheus_prefix}prevTransientValidators', 'prevTransientValidators')
         self.prevTransientBalance = Gauge(f'{prometheus_prefix}prevTransientBalance', 'prevTransientBalance')
@@ -65,8 +75,12 @@ class MetricsExporterState:
         self.stethPoolPrice = Gauge(f'{prometheus_prefix}stethPoolPrice', 'stethPoolPrice')
 
         self.beaconNodeTimeoutCount = Gauge(f'{prometheus_prefix}beaconNodeTimeoutCount', 'beaconNodeTimeoutCount')
-        self.timeExhaustedExceptionsCount = Gauge(f'{prometheus_prefix}timeExhaustedExceptionsCount', 'timeExhaustedExceptionsCount')
-        self.underpricedExceptionsCount = Gauge(f'{prometheus_prefix}underpricedExceptionsCount', 'underpricedExceptionsCount')
+        self.timeExhaustedExceptionsCount = Gauge(
+            f'{prometheus_prefix}timeExhaustedExceptionsCount', 'timeExhaustedExceptionsCount'
+        )
+        self.underpricedExceptionsCount = Gauge(
+            f'{prometheus_prefix}underpricedExceptionsCount', 'underpricedExceptionsCount'
+        )
         self.exceptionsCount = Gauge(f'{prometheus_prefix}exceptionsCount', 'exceptionsCount')
 
     def set_current_pool_metrics(self, metrics: PoolMetrics):

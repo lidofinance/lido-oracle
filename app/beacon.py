@@ -17,7 +17,7 @@ from exceptions import BeaconConnectionTimeoutException
 
 
 DEFAULT_TIMEOUT = 60
-LONG_TIMEOUT = 60*20
+LONG_TIMEOUT = 60 * 20
 
 
 retry_strategy = Retry(
@@ -54,6 +54,7 @@ def proxy_connect_timeout_exception(func):
             return func(*args, **kwargs)
         except ConnectTimeout as exc:
             raise BeaconConnectionTimeoutException() from exc
+
     return inner
 
 
@@ -68,7 +69,11 @@ class BeaconChainClient:
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):
         response = session.get(urljoin(self.url, self.api_beacon_head_finality_checkpoints), timeout=DEFAULT_TIMEOUT)
-        return int(response.json()['data']['finalized']['epoch'])
+        try:
+            return int(response.json()['data']['finalized']['epoch'])
+        except KeyError as error:
+            logging.error(f'Response [{response.status_code}] with text: {str(response.text)} was returned.')
+            raise KeyError from error
 
     @proxy_connect_timeout_exception
     def get_balances(self, slot, keys_list) -> Tuple[int, int, int]:
@@ -90,8 +95,8 @@ class BeaconChainClient:
                     active_validators_balance += int(validator['balance'])
 
         # Convert Gwei to wei
-        total_balance *= 10 ** 9
-        active_validators_balance *= 10 ** 9
+        total_balance *= 10**9
+        active_validators_balance *= 10**9
 
         return total_balance, validators_count, active_validators_balance
 
@@ -105,4 +110,10 @@ class BeaconChainClient:
         val_url = urljoin(self.url, self.api_get_validators.format(slot))
         logging.info(f'using url "{val_url}"')
 
-        return session.get(val_url, timeout=LONG_TIMEOUT).json()['data']
+        response = session.get(val_url, timeout=LONG_TIMEOUT)
+
+        try:
+            return response.json()['data']
+        except KeyError as error:
+            logging.error(f'Response [{response.status_code}] with text: {str(response.text)} was returned.')
+            raise KeyError from error

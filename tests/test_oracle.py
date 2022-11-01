@@ -1,10 +1,15 @@
-import pytest
 import subprocess
 
 
 def test_interactive_oracle_with_no_response():
-    with subprocess.Popen(['python3', './app/oracle.py'], bufsize=0,
-                          universal_newlines=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
+    with subprocess.Popen(
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
         while True:
             if 'Tx data' in proc.stdout.readline():
                 break
@@ -20,8 +25,14 @@ def test_interactive_oracle_with_no_response():
 
 
 def test_interactive_oracle_with_yes_response():
-    with subprocess.Popen(['python3', './app/oracle.py'], bufsize=0,
-                          universal_newlines=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
+    with subprocess.Popen(
+        ['python3', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
         while True:
             if 'Calling tx locally succeeded' in proc.stdout.readline():
                 break

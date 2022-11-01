@@ -3,6 +3,10 @@ name: Prepare release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   prepare-release:
     name: Prepare release and create pre-release PR
@@ -10,17 +14,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
-      - name: Bump version and update CHANGELOG.MD
+      - name: Bump version
         id: changelog
         uses: lidofinance/conventional-changelog-action@v3
         with:
           git-message: "chore(release): {version}"
           tag-prefix: ""
-          output-file: "CHANGELOG.md"
+          # Changelog generated manually
+          output-file: false
           version-file: pyproject.toml
           version-path: tool.poetry.version
-          release-count: 10 # save all releases in the CHANGELOG.md
           git-push: false
           skip-on-empty: false
           skip-ci: false

@@ -1,14 +1,16 @@
-import pytest
 from app.metrics import compare_pool_metrics, get_timestamp_by_epoch
 from pool_metrics import PoolMetrics
 import logging
-ETH = 10 ** 18
-DAY = 24 * 60 * 60 # seconds
+
+ETH = 10**18
+DAY = 24 * 60 * 60  # seconds
+
 
 def test_pool_metrics_constants():
     pm = PoolMetrics()
     assert pm.MAX_APR == 0.15
     assert pm.MIN_APR == 0.01
+
 
 def test_pool_metrics_get_total_pooled_ether_empty():
     pm = PoolMetrics()
@@ -38,14 +40,16 @@ def test_compare_pool_metrics_prev_null_tpe(caplog):
     curr.bufferedBalance = int(100 * 1e18)
     curr.timestamp = 123
     compare_pool_metrics(prev, curr)
-    assert "Time delta: 0:02:03 or 123" in caplog.text # 123 s
+    assert "Time delta: 0:02:03 or 123" in caplog.text  # 123 s
     assert "depositedValidators before:0 after:3 change:3" in caplog.text
     assert "beaconValidators before:0 after:1 change:1" in caplog.text
-    assert "transientValidators before:0 after:2 change:2" in caplog.text # =3-1
+    assert "transientValidators before:0 after:2 change:2" in caplog.text  # =3-1
     assert "beaconBalance before:0 after:33000000000000000000 change:33000000000000000000" in caplog.text
     assert "bufferedBalance before:0 after:100000000000000000000 change:100000000000000000000" in caplog.text
-    assert "transientBalance before:0 after:64000000000000000000 change:64000000000000000000" in caplog.text  # 2 validators * 32
-    assert "totalPooledEther before:0 after:197000000000000000000" in caplog.text # 33 + 2*32 + 100
+    assert (
+        "transientBalance before:0 after:64000000000000000000 change:64000000000000000000" in caplog.text
+    )  # 2 validators * 32
+    assert "totalPooledEther before:0 after:197000000000000000000" in caplog.text  # 33 + 2*32 + 100
     assert "The Lido has no funds under its control" in caplog.text
     assert "activeValidatorBalance now:0" in caplog.text
 
@@ -61,7 +65,7 @@ def test_compare_pool_metrics_loss(caplog):
 
     curr = PoolMetrics()
     curr.timestamp = 1600000001
-    curr.beaconBalance = 1000000 * ETH # loss
+    curr.beaconBalance = 1000000 * ETH  # loss
     curr.beaconValidators = 123
     curr.depositedValidators = 231
     curr.bufferedBalance = 123
@@ -72,7 +76,7 @@ def test_compare_pool_metrics_loss(caplog):
 
 def test_compare_pool_metrics_primitive_1percent_daily_too_high(caplog):
     caplog.set_level(logging.INFO)
-    
+
     # Yesterday the Lido had beaconBalance = 100 ETH
     # and some number of validators (it won't change)
     prev = PoolMetrics()
@@ -94,7 +98,7 @@ def test_compare_pool_metrics_primitive_1percent_daily_too_high(caplog):
     curr.bufferedBalance = 0
     compare_pool_metrics(prev, curr)
     assert "Time delta: 1 day" in caplog.text
-    assert "Rewards will increase Total pooled ethers by: 1.0000 %" in caplog.text 
+    assert "Rewards will increase Total pooled ethers by: 1.0000 %" in caplog.text
     assert "Daily staking reward rate for active validators: 1.00000000 %" in caplog.text
     assert "Staking APR for active validators: 365.0000 %" in caplog.text
     assert "Staking APR too high! Talk to your fellow oracles before submitting!" in caplog.text
@@ -102,7 +106,7 @@ def test_compare_pool_metrics_primitive_1percent_daily_too_high(caplog):
 
 def test_compare_pool_metrics_complex_reasonable_apr(caplog):
     """More complex case with queued validators, deposits
-    and reasonable APR 1-10 percent """
+    and reasonable APR 1-10 percent"""
     caplog.set_level(logging.INFO)
 
     # Last year the Lido had beaconBalance of 1000 ETH
@@ -110,8 +114,8 @@ def test_compare_pool_metrics_complex_reasonable_apr(caplog):
     prev = PoolMetrics()
     prev.timestamp = 1600000000
     prev.beaconBalance = 1000 * ETH
-    prev.beaconValidators = 31 # Doesn't matter
-    prev.depositedValidators = 45 # Doesn't matter
+    prev.beaconValidators = 31  # Doesn't matter
+    prev.depositedValidators = 45  # Doesn't matter
     prev.bufferedBalance = 345 * ETH  # Doesn't matter
 
     # Since that time the active validators rewarded 100 ETH
@@ -119,8 +123,8 @@ def test_compare_pool_metrics_complex_reasonable_apr(caplog):
     curr.timestamp = 1600000000 + DAY * 365
     curr.beaconBalance = 1175 * ETH
     curr.activeValidatorBalance = 1175 * ETH
-    curr.beaconValidators = 31 # Doesn't matter
-    curr.depositedValidators = 67 # Doesn't matter
+    curr.beaconValidators = 31  # Doesn't matter
+    curr.depositedValidators = 67  # Doesn't matter
     curr.bufferedBalance = 678 * ETH  # Doesn't matter
 
     # so it produced 100.0/1100 ~= 9.0909% APR
@@ -140,8 +144,8 @@ def test_compare_pool_metrics_complex_too_low_apr(caplog):
     prev = PoolMetrics()
     prev.timestamp = 1600000000
     prev.beaconBalance = 1000 * ETH
-    prev.beaconValidators = 31 # Doesn't matter
-    prev.depositedValidators = 45 # Doesn't matter
+    prev.beaconValidators = 31  # Doesn't matter
+    prev.depositedValidators = 45  # Doesn't matter
     prev.bufferedBalance = 345 * ETH  # Doesn't matter
 
     # Since that time the active validators rewarded 10 ETH
@@ -149,8 +153,8 @@ def test_compare_pool_metrics_complex_too_low_apr(caplog):
     curr.timestamp = 1600000000 + DAY * 365
     curr.beaconBalance = 1010 * ETH
     curr.activeValidatorBalance = 1010 * ETH
-    curr.beaconValidators = 31 # Doesn't matter
-    curr.depositedValidators = 67 # Doesn't matter
+    curr.beaconValidators = 31  # Doesn't matter
+    curr.depositedValidators = 67  # Doesn't matter
     curr.bufferedBalance = 678 * ETH  # Doesn't matter
 
     # so it produced 10.0/110 ~= 0.99% APR.
@@ -160,6 +164,7 @@ def test_compare_pool_metrics_complex_too_low_apr(caplog):
     assert "Staking APR for active validators: 0.9901 %" in caplog.text
     assert "Staking APR too low!" in caplog.text
 
+
 def test_compare_pool_metrics_validators_decrease(caplog):
     caplog.set_level(logging.INFO)
 
@@ -167,20 +172,21 @@ def test_compare_pool_metrics_validators_decrease(caplog):
     prev.timestamp = 1600000000
     prev.beaconBalance = 1 * ETH
     prev.beaconValidators = 31
-    prev.depositedValidators = 45 # Doesn't matter
+    prev.depositedValidators = 45  # Doesn't matter
     prev.bufferedBalance = 1 * ETH  # Doesn't matter
 
     curr = PoolMetrics()
-    curr.timestamp = 1600000000 + DAY # Doesn't matter
-    curr.beaconBalance = 1 * ETH # Doesn't matter
-    curr.activeValidatorBalance = 1 * ETH # Doesn't matter
+    curr.timestamp = 1600000000 + DAY  # Doesn't matter
+    curr.beaconBalance = 1 * ETH  # Doesn't matter
+    curr.activeValidatorBalance = 1 * ETH  # Doesn't matter
     curr.beaconValidators = 30
-    curr.depositedValidators = 67 # Doesn't matter
+    curr.depositedValidators = 67  # Doesn't matter
     curr.bufferedBalance = 1 * ETH  # Doesn't matter
 
     compare_pool_metrics(prev, curr)
     assert "beaconValidators before:31 after:30 change:-1" in caplog.text
     assert "The number of beacon validators unexpectedly decreased!" in caplog.text
+
 
 def test_compare_pool_metrics_0_balance_0_apr(caplog):
     caplog.set_level(logging.INFO)
@@ -189,15 +195,15 @@ def test_compare_pool_metrics_0_balance_0_apr(caplog):
     prev.timestamp = 1600000000
     prev.beaconBalance = 0
     prev.beaconValidators = 0
-    prev.depositedValidators = 45 # Doesn't matter
+    prev.depositedValidators = 45  # Doesn't matter
     prev.bufferedBalance = 1 * ETH  # Doesn't matter
 
     curr = PoolMetrics()
-    curr.timestamp = 1600000000 + DAY # Doesn't matter
+    curr.timestamp = 1600000000 + DAY  # Doesn't matter
     curr.beaconBalance = 0
     curr.activeValidatorBalance = 0
     curr.beaconValidators = 0
-    curr.depositedValidators = 67 # Doesn't matter
+    curr.depositedValidators = 67  # Doesn't matter
     curr.bufferedBalance = 123 * ETH  # Doesn't matter
 
     compare_pool_metrics(prev, curr)
@@ -207,7 +213,10 @@ def test_compare_pool_metrics_0_balance_0_apr(caplog):
     assert "Daily staking reward rate for active validators: 0.00000000 %" in caplog.text
     assert "Staking APR for active validators: 0.0000 %" in caplog.text
     assert "Staking APR too low! Talk to your fellow oracles before submitting!" in caplog.text
-    assert "Beacon balances stay intact (neither slashed nor rewarded). So this report won't have any economical impact on the pool." in caplog.text
+    assert (
+        "Beacon balances stay intact (neither slashed nor rewarded). So this report won't have any economical impact on the pool."
+        in caplog.text
+    )
 
 
 def test_get_timestamp_by_epoch():
