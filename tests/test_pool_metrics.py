@@ -1,4 +1,4 @@
-from app.metrics import compare_pool_metrics, get_timestamp_by_epoch
+from app.review.metrics import compare_pool_metrics, get_timestamp_by_epoch
 from pool_metrics import PoolMetrics
 import logging
 

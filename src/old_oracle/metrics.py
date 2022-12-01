@@ -9,39 +9,6 @@ from pool_metrics import PoolMetrics
 from prometheus_metrics import metrics_exporter_state
 
 
-def get_previous_metrics(w3, pool, oracle, beacon_spec, from_block=0) -> PoolMetrics:
-    """Since the contract lacks a method that returns the time of last report and the reported numbers
-    we are using web3.py filtering to fetch it from the contract events."""
-    logging.info('Getting previously reported numbers (will be fetched from events)...')
-    genesis_time = beacon_spec[3]
-    result = PoolMetrics()
-    result.depositedValidators, result.beaconValidators, result.beaconBalance = pool.functions.getBeaconStat().call()
-    result.bufferedBalance = pool.functions.getBufferedEther().call()
-
-    # Calculate the earliest block to limit scanning depth
-    SECONDS_PER_ETH1_BLOCK = 14
-    latest_block = w3.eth.getBlock('latest')
-    from_block = max(from_block, int((latest_block['timestamp'] - genesis_time) / SECONDS_PER_ETH1_BLOCK))
-    step = 10000
-    # Try to fetch and parse last 'Completed' event from the contract.
-    for end in range(latest_block['number'], from_block, -step):
-        start = max(end - step + 1, from_block)
-        events = oracle.events.Completed.getLogs(fromBlock=start, toBlock=end)
-        if events:
-            event = events[-1]
-            result.epoch = event['args']['epochId']
-            result.blockNumber = event.blockNumber
-            break
-
-    # If the epoch has been assigned from the last event (not the first run)
-    if result.epoch:
-        result.timestamp = get_timestamp_by_epoch(beacon_spec, result.epoch)
-    else:
-        # If it's the first run, we set timestamp to genesis time
-        result.timestamp = genesis_time
-    return result
-
-
 def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     """Fetch current frame, buffered balance and epoch"""
     epochs_per_frame = beacon_spec[0]

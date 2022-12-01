@@ -66,7 +66,7 @@ USER www-data
 
 COPY --from=builder /usr/local/ /usr/local/
 COPY assets ./assets
-COPY app ./
+COPY src ./
 
 HEALTHCHECK --interval=10s --timeout=3s \
     CMD curl -f http://localhost:$PULSE_SERVER_PORT/healthcheck || exit 1

@@ -65,11 +65,6 @@ class MetricsExporterState:
         # self.totalSupply = Gauge(f'{prometheus_prefix}totalSupply', 'totalSupply')  # fixme
         self.txSuccess = Histogram(f'{prometheus_prefix}txSuccess', 'Successful transactions')
         self.txRevert = Histogram(f'{prometheus_prefix}txRevert', 'Reverted transactions')
-        # self.resourceUTime = Gauge(f'{prometheus_prefix}resourceUTime', 'resourceUTime')
-        # self.resourceSTime = Gauge(f'{prometheus_prefix}resourceSTime', 'resourceSTime')
-        # self.resourceMaxResidentSetSize = Gauge(f'{prometheus_prefix}resourceMaxResidentSetSize', 'resourceMaxResidentSetSize')
-        # self.resourceSharedMemorySize = Gauge(f'{prometheus_prefix}resourceSharedMemorySize', 'resourceSharedMemorySize')
-        # self.resourceUnsharedMemorySize = Gauge(f'{prometheus_prefix}resourceUnsharedMemorySize', 'resourceUnsharedMemorySize')
 
         self.stethOraclePrice = Gauge(f'{prometheus_prefix}stethOraclePrice', 'stethOraclePrice')
         self.stethPoolPrice = Gauge(f'{prometheus_prefix}stethPoolPrice', 'stethPoolPrice')
@@ -118,28 +113,3 @@ class MetricsExporterState:
 
 
 metrics_exporter_state = MetricsExporterState()
-
-
-# @metrics_exporter_state.resourceUTime.time()
-# def getResourceUTime():
-#     return resource.getrusage(resource.RUSAGE_SELF).ru_utime
-#
-#
-# @metrics_exporter_state.resourceSTime.time()
-# def getResourceSTime():
-#     return resource.getrusage(resource.RUSAGE_SELF).ru_stime
-#
-#
-# @metrics_exporter_state.resourceMaxResidentSetSize.time()
-# def getResourceMaxResidentSetSize():
-#     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-#
-#
-# @metrics_exporter_state.resourceSharedMemorySize.time()
-# def getResourceSharedMemorySize():
-#     return resource.getrusage(resource.RUSAGE_SELF).ru_ixrss
-#
-#
-# @metrics_exporter_state.resourceUnsharedMemorySize.time()
-# def getResourceUnsharedMemorySize():
-#     return resource.getrusage(resource.RUSAGE_SELF).ru_idrss

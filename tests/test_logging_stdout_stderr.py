@@ -1,6 +1,6 @@
 import logging
 
-from app.log import _setup_logger
+from app.review.log import _setup_logger
 
 
 def test_debug_stdout(capsys):

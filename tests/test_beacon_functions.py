@@ -3,7 +3,7 @@ import json
 
 from requests import Session
 
-from app.beacon import BeaconChainClient
+from app.review.beacon import BeaconChainClient
 
 with open('tests/responses.json', 'r') as file:
     responses = json.load(file)
