@@ -1,6 +1,69 @@
+import logging
+
+from hexbytes import HexBytes
+from web3 import Web3
+
+from src.contracts import contracts
+from src.modules.interface import OracleModule
+from src.providers.execution import check_transaction, sign_and_send_transaction
+from src.providers.typings import Slot
+from src.variables import ACCOUNT
+
+logger = logging.getLogger(__name__)
+
+
+class StethPriceBalancer(OracleModule):
+    def __init__(self, web3: Web3):
+        logger.info({'msg': 'Initialize Oracle STETH Price Balancer Module.'})
+
+        self._w3 = web3
+
+    def run_module(self, slot: Slot, block_hash: HexBytes):
+        logging.info({'msg': 'Run STETH price balancer.'})
+
+        oracle_price = contracts.merkle_price_oracle.functions.stethPrice().call(block_identifier=block_hash)
+        pool_price = contracts.pool.functions.get_dy(1, 0, 10**18).call(block_identifier=block_hash)
+
+        percentage_diff = 100 * abs(1 - oracle_price / pool_price)
+
+        logging.info(
+            f'StETH stats: (pool price - {pool_price / 1e18:.6f}, oracle price - {oracle_price / 1e18:.6f}, difference - {percentage_diff:.2f}%)'
+        )
+
+        proof_params = contracts.merkle_price_oracle.functions.getProofParams().call(block_identifier=block_hash)
+
+        # proof_params[-1] contains priceUpdateThreshold value in basis points: 10000 BP equal to 100%, 100 BP to 1%.
+        price_update_threshold = proof_params[-1] / 100
+        is_state_actual = percentage_diff < price_update_threshold
+
+        if is_state_actual:
+            logging.info(
+                f'StETH Price Oracle state valid (prices difference < {price_update_threshold:.2f}%). No update required.'
+            )
+            return
+
+        logging.info(
+            f'StETH Price Oracle state outdated (prices difference >= {price_update_threshold:.2f}%). Submiting new one...'
+        )
+
+        header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
+
+        tx = contracts.merkle_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
+            {
+                'gas': 2_000_000,
+                'maxFeePerGas': max_fee_per_gas,
+                'maxPriorityFeePerGas': max_priority_fee_per_gas,
+            }
+        )
+
+        if check_transaction(tx):
+            sign_and_send_transaction(self._w3, tx, ACCOUNT)
+
+
+# ------------------------------TODO review--------------------------------------------------------------
 import rlp
 import requests
-from eth_utils import decode_hex, to_canonical_address, to_bytes, to_int, to_hex, apply_key_map
+from eth_utils import decode_hex, to_bytes, to_int, to_hex, apply_key_map
 
 BLOCK_HEADER_FIELDS = [
     "parentHash",
@@ -89,10 +152,6 @@ def get_json_rpc_result(response):
 
 def normalize_bytes(x):
     return to_bytes(hexstr=x) if isinstance(x, str) else to_bytes(x)
-
-
-def normalize_address(x):
-    return to_canonical_address(x)
 
 
 def normalize_int(x):
