@@ -35,9 +35,12 @@ class Accounting(OracleModule):
         self._update_beacon_specs(block_identifier=block_hash)
 
         if self._is_epoch_reportable(block_hash):
-            tx = self.build_report(slot, block_hash)
+            report_slot, report_block_hash = self._get_slot_and_block_hash_for_report(block_hash)
+            logger.info({'msg': f'Building report with slot: [{report_slot}] and block hash: [{report_block_hash}].'})
 
-            if not self.is_current_member_in_current_frame_quorum(slot, block_hash):
+            tx = self.build_report(report_slot, report_block_hash)
+
+            if not self.is_current_member_in_current_frame_quorum(report_slot, report_block_hash):
                 logger.info({'msg': 'Not in current frame quorum. Sleep for 8 minutes.'})
                 time.sleep(60 * 8)
 
@@ -94,6 +97,13 @@ class Accounting(OracleModule):
         return min(
             potentially_reportable_epoch, (finalized_epoch // self.epochs_per_frame) * self.epochs_per_frame
         )
+
+    def _get_slot_and_block_hash_for_report(self, block_hash) -> Tuple[SlotNumber, HexBytes]:
+        reportable_epoch = self._get_latest_reportable_epoch(block_hash)
+
+        slot = self._beacon_chain_client.get_first_slot_in_epoch(reportable_epoch, self.slots_per_epoch)
+
+        return slot['message']['slot'], slot['message']['body']['eth1_data']['block_hash']
 
     # -----------------------------------------------------------------------
     def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> TxParams:
