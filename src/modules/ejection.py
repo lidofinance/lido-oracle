@@ -12,9 +12,9 @@ from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import ValidatorGroup, Slot, Validator, MergedLidoValidator
+from src.providers.typings import ValidatorGroup, Slot, Validator, MergedLidoValidator, ValidatorStatus
 from src.providers.validators import get_lido_validators
-from src.variables import ACCOUNT
+from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,9 @@ class Ejector(OracleModule):
 
         exiting_validators_balances = self._get_exiting_validators_balances(slot, block_hash)
         logger.info({'msg': 'Get exiting validators balances.', 'value': exiting_validators_balances})
+
+        # Calculate skimmed rewards
+        # ToDo How to calculate with prediction or check validators balances?
 
         result = amount_wei_to_withdraw - buffered_eth - rewards_eth - rewards_till_next_report - exiting_validators_balances
         logger.info({'msg': 'Wei to eject.', 'value': result})
@@ -139,9 +142,13 @@ class Ejector(OracleModule):
         eject_validator_generator = self._get_validator_to_eject(validators)
 
         while current_validators_wei_amount < wei_amount_to_eject:
-            validator = next(eject_validator_generator)
+            try:
+                validator = next(eject_validator_generator)
+            except StopIteration:
+                logger.info({'msg': 'Exited maximum validators.'})
+                return validators_to_eject
 
-            current_validators_wei_amount += validator['balance']
+            current_validators_wei_amount += min(validator['balance'], 32 * 10**18)
 
             validators_to_eject.append(validator)
 
@@ -152,9 +159,10 @@ class Ejector(OracleModule):
         Filter all exiting and exited validators.
         Sort them by index.
         Return by one validator from the node operator that have the largest amount of working validators.
-
         """
-        validators = filter(lambda val: val['validator']['status'] not in ValidatorGroup.GOING_TO_EXIT, lido_validators)
+        # ToDo Get all validators that got event to exit and filter
+        # Contract will store no_id and last validator.index
+        validators = filter(lambda val: val['validator']['status'] in ValidatorStatus.ACTIVE_ONGOING, lido_validators)
         validators = sorted(validators, key=lambda val: val['validator']['index'])
 
         operators_validators = defaultdict(list)
@@ -195,7 +203,7 @@ class Ejector(OracleModule):
 
         tx_params = {
             'from': variables.ACCOUNT.address,
-            'gas': 1_000_000,
+            'gas': GAS_LIMIT,
             'maxFeePerGas': pending_block.baseFeePerGas * 2 + max_priority_fee,
             'maxPriorityFeePerGas': max_priority_fee,
             "nonce": self._w3.eth.get_transaction_count(ACCOUNT.address),

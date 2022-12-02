@@ -7,7 +7,7 @@ from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.execution import check_transaction, sign_and_send_transaction
 from src.providers.typings import Slot
-from src.variables import ACCOUNT
+from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +48,15 @@ class StethPriceBalancer(OracleModule):
 
         header_blob, proofs_blob = encode_proof_data(provider, block_number, proof_params)
 
+        pending_block = self._w3.eth.get_block('pending')
+
         tx = contracts.merkle_price_oracle.functions.submitState(header_blob, proofs_blob).buildTransaction(
             {
-                'gas': 2_000_000,
-                'maxFeePerGas': max_fee_per_gas,
-                'maxPriorityFeePerGas': max_priority_fee_per_gas,
+                'from': ACCOUNT.address,
+                'gas': GAS_LIMIT,
+                'maxFeePerGas': pending_block.baseFeePerGas * 2 + self._w3.eth.max_priority_fee * 2,
+                'maxPriorityFeePerGas': self._w3.eth.max_priority_fee * 2,
+                "nonce": self._w3.eth.get_transaction_count(ACCOUNT.address),
             }
         )
 
@@ -123,7 +127,7 @@ def request_block_header(provider, block_number):
         block_dict = dict(apply_key_map({'proofOfAuthorityData': 'extraData'}, block_dict))
 
     block_header_fields = [normalize_bytes(block_dict[f]) for f in BLOCK_HEADER_FIELDS]
-    return (block_number, block_header_fields)
+    return block_number, block_header_fields
 
 
 def request_account_proof(provider, block_number, address, slots):

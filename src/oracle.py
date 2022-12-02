@@ -9,6 +9,7 @@ from src import variables
 from src.contracts import contracts
 from src.metrics.logging import logging
 from src.metrics.healthcheck_server import start_pulse_server, pulse
+from src.modules.accounting import Accounting
 from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
@@ -27,10 +28,11 @@ class Oracle:
         self._beacon_chain_client = beacon_chain_client
 
         self.modules: List[OracleModule] = [
-            # Accounting(self._w3, self._beacon_chain_client),
+            Accounting(self._w3, self._beacon_chain_client),
             Ejector(self._w3, self._beacon_chain_client),
         ]
 
+    def _fetch_beacon_specs(self):
         self.epochs_per_frame, self.slots_per_epoch, self.seconds_per_slot, self.genesis_time = contracts.oracle.functions.getBeaconSpec().call()
 
     def run_as_daemon(self):
@@ -40,6 +42,7 @@ class Oracle:
             self.run_cycle()
 
     def run_cycle(self):
+        self._fetch_beacon_specs()
         epoch = self._fetch_next_finalized_epoch()
         logger.info({'msg': 'Get finalized epoch.', 'value': epoch})
 

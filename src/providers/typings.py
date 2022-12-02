@@ -1,8 +1,7 @@
 from enum import Enum
 from typing import TypedDict, List, Dict, NewType
 
-from lido_sdk.methods.typing import OperatorKey
-
+from lido_sdk.methods.typing import OperatorKey, Operator
 
 Epoch = NewType('Epoch', int)
 Slot = NewType('Slot', int)
@@ -97,7 +96,7 @@ class SignedBeaconBlock(TypedDict):
     signature: str
 
 
-class ModifiedOperator(OperatorKey):
+class ModifiedOperator(Operator):
     """TODO: Remove as soon as lido_sdk will support module_id"""
     module_id: int
 

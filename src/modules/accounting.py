@@ -38,7 +38,7 @@ class Accounting(OracleModule):
             tx = self.build_report(slot, block_hash)
 
             if check_transaction(tx):
-                if not self.is_current_member_in_current_frame_quorum():
+                if not self.is_current_member_in_current_frame_quorum(slot, block_hash):
                     logger.info({'msg': 'Not in current frame quorum. Sleep for 8 minutes.'})
                     time.sleep(60 * 8)
 
@@ -201,9 +201,7 @@ class Accounting(OracleModule):
 
         operators = get_lido_node_operators(self._w3, block_hash)
         for operator in operators:
-            # ToDo when param will be available fix this
-            # prev_exited_validators = operator['prev_exited_keys']
-            exited_validators_prev = 0
+            exited_validators_prev = operator['stoppedValidators']
 
             exited_validators_current = exited_validators[(operator['module_id'], operator['index'])]
 
@@ -228,7 +226,6 @@ class Accounting(OracleModule):
         last_finalized_request = contracts.withdrawal_queue.functions.finalizedQueueLength().call(block_identifier=block_hash)
         logger.info({'msg': 'Get last finalized request.', 'value': last_finalized_request})
 
-        # TODO queue begins from 0 or from 1
         queue_len = contracts.withdrawal_queue.functions.queueLength().call(block_identifier=block_hash)
         logger.info({'msg': 'Get withdrawal queue len.', 'value': queue_len})
 
@@ -242,6 +239,9 @@ class Accounting(OracleModule):
         for request_id in range(last_finalized_request + 1, queue_len):
             request = contracts.withdrawal_queue.functions.queue(request_id).call(block_identifier=block_hash)
 
+            # req                                  req                      rep
+            # [ ] [ fin slot ] ... [ prev report ] [ ] [ ] [ ] [ ] [ last finalize slot ] .... [ ]
+            #                                                                             here
             pooled_eth = contracts.lido.functions.getTotalPooledEther().call(block_identifier=request.requestBlockNumber)
             shares_amount = contracts.lido.functions.getSharesByPooledEth(pooled_eth).call(block_identifier=request.requestBlockNumber)
 

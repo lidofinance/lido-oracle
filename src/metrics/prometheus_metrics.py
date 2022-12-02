@@ -1,5 +1,9 @@
-# TODO Review this file
-PREFIX = ''
+import os
+
+
+PREFIX = os.getenv('PROMETHEUS_PREFIX', 'lido_oracle')
+
+
 
 
 # class PrometheusMetrics:

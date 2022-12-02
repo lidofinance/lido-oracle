@@ -21,7 +21,7 @@ class PulseRequestHandler(SimpleHTTPRequestHandler):
         if self.path == '/pulse/':
             _last_pulse = datetime.now()
 
-        if datetime.now() - _last_pulse > timedelta(minutes=5):
+        if datetime.now() - _last_pulse > timedelta(minutes=10):
             self.send_response(503)
             self.end_headers()
             self.wfile.write(b'{"metrics": "fail", "reason": "timeout exceeded"}\n')

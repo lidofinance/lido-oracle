@@ -4,7 +4,7 @@ import time
 from web3 import Web3
 
 from src import variables
-
+from src.metrics.healthcheck_server import pulse
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,9 @@ def wait_for_withdrawals(w3: Web3):
 
     while True:
         logger.info({'msg': 'Check protocol ready for Oracle V3 reports.'})
+        pulse()
 
+        # ToDo replace this function
         oracle = lido.functions.getOracle().call()
         logger.info({'msg': 'Call getOracle function.', 'value': oracle})
 
