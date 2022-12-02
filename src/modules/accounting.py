@@ -37,11 +37,11 @@ class Accounting(OracleModule):
         if self._is_epoch_reportable(block_hash):
             tx = self.build_report(slot, block_hash)
 
-            if check_transaction(tx):
-                if not self.is_current_member_in_current_frame_quorum(slot, block_hash):
-                    logger.info({'msg': 'Not in current frame quorum. Sleep for 8 minutes.'})
-                    time.sleep(60 * 8)
+            if not self.is_current_member_in_current_frame_quorum(slot, block_hash):
+                logger.info({'msg': 'Not in current frame quorum. Sleep for 8 minutes.'})
+                time.sleep(60 * 8)
 
+            if check_transaction(tx):
                 sign_and_send_transaction(self._w3, tx, ACCOUNT)
 
     def _update_beacon_specs(self, block_identifier: Union[str, HexBytes] = 'latest'):

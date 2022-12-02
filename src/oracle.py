@@ -15,7 +15,7 @@ from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.providers.beacon import BeaconChainClient
 from src.providers.typings import EpochNumber, SlotNumber
-from src.variables import DAEMON, WEB3_PROVIDER_URIS, BEACON_NODE
+from src.variables import DAEMON, WEB3_PROVIDER_URIS, CONSENSUS_LAYER_API
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class Oracle:
 
                 return current_finalized_epoch
             else:
-                sleep(self.slots_per_epoch * self.seconds_per_slot)
+                sleep(self.slots_per_epoch * self.seconds_per_slot / 4)
 
     def run_once(self, epoch: Optional[EpochNumber] = None):
         if epoch is None:
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     contracts.initialize(w3)
 
     logger.info({'msg': 'Initialize Consensus Layer client.'})
-    beacon_client = BeaconChainClient(BEACON_NODE)
+    beacon_client = BeaconChainClient(CONSENSUS_LAYER_API)
 
     logger.info({'msg': 'Initialize Oracle.'})
     oracle = Oracle(w3, beacon_client)
