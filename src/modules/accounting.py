@@ -11,7 +11,7 @@ from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import ValidatorGroup, Slot, MergedLidoValidator
+from src.providers.typings import ValidatorGroup, SlotNumber, MergedLidoValidator
 
 from src.providers.validators import get_lido_validators, get_lido_node_operators
 from src.variables import GAS_LIMIT, ACCOUNT
@@ -30,7 +30,7 @@ class Accounting(OracleModule):
 
         self._update_beacon_specs()
 
-    def run_module(self, slot: Slot, block_hash: HexBytes):
+    def run_module(self, slot: SlotNumber, block_hash: HexBytes):
         """Check if epoch is reportable and try to send report if it is."""
         self._update_beacon_specs(block_identifier=block_hash)
 
@@ -96,7 +96,7 @@ class Accounting(OracleModule):
         )
 
     # -----------------------------------------------------------------------
-    def build_report(self, slot: Slot, block_hash: HexBytes) -> TxParams:
+    def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> TxParams:
         """
         function handleOracleReport(
             // CL values
@@ -177,11 +177,11 @@ class Accounting(OracleModule):
 
         return transaction
 
-    def _get_beacon_validators_stats(self, slot: Slot, block_hash: HexBytes) -> Tuple[int, int]:
+    def _get_beacon_validators_stats(self, slot: SlotNumber, block_hash: HexBytes) -> Tuple[int, int]:
         lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
         return len(lido_validators), sum(validator['validator']['balance'] for validator in lido_validators)
 
-    def _get_exited_validators(self, slot: Slot, block_hash: HexBytes) -> List[MergedLidoValidator]:
+    def _get_exited_validators(self, slot: SlotNumber, block_hash: HexBytes) -> List[MergedLidoValidator]:
         lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
         return list(filter(lambda validator: validator['status'] in ValidatorGroup.WITHDRAWAL, lido_validators))
 
@@ -258,7 +258,7 @@ class Accounting(OracleModule):
 
         return last_requests_id_to_finalize, finalization_shares_amount, finalization_pooled_ether_amount
 
-    def is_current_member_in_current_frame_quorum(self, slot: Slot, block_hash: HexBytes):
+    def is_current_member_in_current_frame_quorum(self, slot: SlotNumber, block_hash: HexBytes):
         """
         Shuffle oracle reports. It will be easier to check that oracle is ok.
         """

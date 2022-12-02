@@ -6,7 +6,7 @@ from web3 import Web3
 from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import Slot
+from src.providers.typings import SlotNumber
 from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class StethPriceBalancer(OracleModule):
 
         self._w3 = web3
 
-    def run_module(self, slot: Slot, block_hash: HexBytes):
+    def run_module(self, slot: SlotNumber, block_hash: HexBytes):
         logging.info({'msg': 'Run STETH price balancer.'})
 
         oracle_price = contracts.merkle_price_oracle.functions.stethPrice().call(block_identifier=block_hash)

@@ -6,9 +6,13 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.metrics.logging import logging
-from src.providers.typings import StateFinalityCheckpoints, Validator, SignedBeaconBlock
+from src.providers.typings import StateFinalityCheckpoints, Validator, SignedBeaconBlock, Slot
 
 logger = logging.getLogger(__name__)
+
+
+class NoSlotsFound(Exception):
+    pass
 
 
 class BeaconChainClient:
@@ -64,16 +68,14 @@ class BeaconChainClient:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         return self._get(self.api_get_validators.format(slot), params={'id': pub_keys})
 
-    def get_block_details(self, slot: int, get_next_if_missed: True) -> SignedBeaconBlock:
+    def get_first_slot_in_epoch(self, epoch: int, slots_per_epoch: int) -> Slot:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
+        first_slot = epoch * slots_per_epoch
 
-        if get_next_if_missed:
-            for i in range(32):
-                try:
-                    return self._get(self.api_get_block_details.format(slot + i))
-                except KeyError:
-                    logger.warning({'msg': 'Try to get next slot.', 'value': slot + i})
+        for i in range(slots_per_epoch):
+            try:
+                return self._get(self.api_get_block_details.format(first_slot + i))
+            except KeyError:
+                logger.info({'msg': 'Try to get next slot.', 'value': first_slot + i})
 
-        else:
-            return self._get(self.api_get_block_details.format(slot))
-
+        raise NoSlotsFound(f'No slots found for epoch: {epoch}.')

@@ -14,14 +14,14 @@ from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.providers.beacon import BeaconChainClient
-from src.providers.typings import Epoch
+from src.providers.typings import EpochNumber, SlotNumber
 from src.variables import DAEMON, WEB3_PROVIDER_URIS, BEACON_NODE
 
 logger = logging.getLogger(__name__)
 
 
 class Oracle:
-    _last_finalized_epoch: Epoch = 0
+    _last_finalized_epoch: EpochNumber = 0
 
     def __init__(self, web3: Web3, beacon_chain_client: BeaconChainClient):
         self._w3 = web3
@@ -55,9 +55,9 @@ class Oracle:
             logger.error({'msg': 'Unexpected exception.', 'error': error})
             raise Exception from error
 
-    def _fetch_next_finalized_epoch(self) -> Epoch:
+    def _fetch_next_finalized_epoch(self) -> EpochNumber:
         while True:
-            current_finalized_epoch = Epoch(int(self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']))
+            current_finalized_epoch = EpochNumber(int(self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']))
 
             if current_finalized_epoch > self._last_finalized_epoch:
                 self._last_finalized_epoch = current_finalized_epoch
@@ -66,23 +66,24 @@ class Oracle:
             else:
                 sleep(self.slots_per_epoch * self.seconds_per_slot)
 
-    def run_once(self, epoch: Optional[Epoch] = None):
+    def run_once(self, epoch: Optional[EpochNumber] = None):
         if epoch is None:
             epoch = self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']
 
-        slot = epoch * self.slots_per_epoch
+        slot = self._beacon_chain_client.get_first_slot_in_epoch(epoch, self.slots_per_epoch)
+        slot_number = SlotNumber(int(slot['message']['slot']))
+        block_hash = slot['message']['body']['eth1_data']['block_hash']
 
-        logger.info({'msg': 'Execute all modules.', 'epoch': epoch, 'slot': slot})
-
-        block_hash = self._beacon_chain_client.get_block_details(
-            slot,
-            get_next_if_missed=True,
-        )['message']['body']['eth1_data']['block_hash']
-        logger.info({'msg': 'Fetch execution block hash.', 'value': block_hash})
+        logger.info({
+            'msg': 'Fetch first proposed slot in epoch.',
+            'epoch': epoch,
+            'slot': slot_number,
+            'block_hash': block_hash,
+        })
 
         for module in self.modules:
             try:
-                module.run_module(slot, block_hash)
+                module.run_module(slot_number, block_hash)
             except Exception as error:
                 logger.error({'msg': f'Module {module.__class__.__name__} failed.', 'error': str(error)})
 

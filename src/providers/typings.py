@@ -1,10 +1,10 @@
 from enum import Enum
-from typing import TypedDict, List, Dict, NewType
+from typing import TypedDict, NewType
 
 from lido_sdk.methods.typing import OperatorKey, Operator
 
-Epoch = NewType('Epoch', int)
-Slot = NewType('Slot', int)
+EpochNumber = NewType('EpochNumber', int)
+SlotNumber = NewType('SlotNumber', int)
 
 
 class ValidatorStatus(Enum):
@@ -109,3 +109,8 @@ class ModifiedOperatorKey(OperatorKey):
 class MergedLidoValidator(TypedDict):
     validator: Validator
     key: ModifiedOperatorKey
+
+
+class Slot(TypedDict):
+    message: dict
+    signature: str

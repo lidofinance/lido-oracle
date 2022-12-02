@@ -12,7 +12,7 @@ from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import ValidatorGroup, Slot, Validator, MergedLidoValidator, ValidatorStatus
+from src.providers.typings import ValidatorGroup, SlotNumber, Validator, MergedLidoValidator, ValidatorStatus
 from src.providers.validators import get_lido_validators
 from src.variables import ACCOUNT, GAS_LIMIT
 
@@ -41,7 +41,7 @@ class Ejector(OracleModule):
         self._w3 = web3
         self._beacon_chain_client = beacon_client
 
-    def run_module(self, slot: Slot, block_hash: HexBytes):
+    def run_module(self, slot: SlotNumber, block_hash: HexBytes):
         """Get validators count to eject and create ejection event."""
         logger.info({'msg': 'Execute ejector.', 'block_hash': block_hash})
         wei_amount_to_eject = self.calc_wei_amount_to_eject(slot, block_hash)
@@ -50,7 +50,7 @@ class Ejector(OracleModule):
             logger.info({'msg': 'Start ejecting validators.'})
             self.eject_validators(wei_amount_to_eject, slot, block_hash)
 
-    def calc_wei_amount_to_eject(self, slot: Slot, block_hash: HexBytes) -> int:
+    def calc_wei_amount_to_eject(self, slot: SlotNumber, block_hash: HexBytes) -> int:
         """Calculate validators count to eject."""
         amount_wei_to_withdraw = self._get_withdrawal_requests_wei_amount(block_hash)
         logger.info({'msg': 'Calculate wei in withdrawal queue.', 'value': amount_wei_to_withdraw})
@@ -115,7 +115,7 @@ class Ejector(OracleModule):
 
         return result if result > 0 else 0
 
-    def _get_exiting_validators_balances(self, slot: Slot, block_hash: HexBytes) -> int:
+    def _get_exiting_validators_balances(self, slot: SlotNumber, block_hash: HexBytes) -> int:
         validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
 
         exiting_balance = 0
@@ -126,14 +126,14 @@ class Ejector(OracleModule):
 
         return exiting_balance
 
-    def eject_validators(self, wei_amount: int, slot: Slot, block_hash: HexBytes):
+    def eject_validators(self, wei_amount: int, slot: SlotNumber, block_hash: HexBytes):
         validators_to_eject = self._get_keys_to_eject(wei_amount, slot, block_hash)
         logger.info({'msg': f'Get list validators to eject. Validators count: {len(validators_to_eject)}'})
 
         if validators_to_eject:
             self._submit_keys_ejection(validators_to_eject)
 
-    def _get_keys_to_eject(self, wei_amount_to_eject: int, slot: Slot, block_hash: HexBytes) -> List[Validator]:
+    def _get_keys_to_eject(self, wei_amount_to_eject: int, slot: SlotNumber, block_hash: HexBytes) -> List[Validator]:
         """Get NO operator's keys with bigger amount of keys"""
         validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
         current_validators_wei_amount = 0
