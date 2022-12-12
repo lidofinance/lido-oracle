@@ -5,8 +5,8 @@ from web3 import Web3
 
 from src.contracts import contracts
 from src.modules.interface import OracleModule
-from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import SlotNumber
+from src.web3_utils.execution import check_transaction, sign_and_send_transaction
+from src.web3_utils.typings import SlotNumber
 from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)

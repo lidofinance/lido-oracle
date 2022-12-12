@@ -6,7 +6,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.metrics.logging import logging
-from src.providers.typings import StateFinalityCheckpoints, Validator, SignedBeaconBlock, Slot
+from src.web3_utils.typings import StateFinalityCheckpoints, Validator, Slot
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class BeaconChainClient:
             data = response.json()['data']
         except KeyError as error:
             msg = f'Response [{response.status_code}] with text: {str(response.text)} was returned.'
-            logger.error(msg)
+            logger.warning(msg)
             raise KeyError(msg) from error
         except BaseException as error:
             print(response.text)

@@ -4,7 +4,7 @@ import subprocess
 import ast
 
 from oracle import DEFAULT_GAS_LIMIT, DEFAULT_SLEEP
-from tests.utils import get_log_lines
+from tests_old.utils import get_log_lines
 
 
 def test_no_priv_key():

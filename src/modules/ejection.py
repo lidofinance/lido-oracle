@@ -1,19 +1,19 @@
 import logging
-from _typeshed import SupportsNext
 from collections import defaultdict
-from typing import List
+from typing import List, Generator
 
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import TxParams
 
-from src import variables
 from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
-from src.providers.execution import check_transaction, sign_and_send_transaction
-from src.providers.typings import ValidatorGroup, SlotNumber, Validator, MergedLidoValidator, ValidatorStatus
-from src.providers.validators import get_lido_validators
+from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
+
+from src.web3_utils.contract_frame_utils import is_current_epoch_reportable
+from src.web3_utils.typings import ValidatorGroup, SlotNumber, Validator, MergedLidoValidator, ValidatorStatus
+from src.web3_utils.validators import get_lido_validators
 from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,11 @@ class Ejector(OracleModule):
     def run_module(self, slot: SlotNumber, block_hash: HexBytes):
         """Get validators count to eject and create ejection event."""
         logger.info({'msg': 'Execute ejector.', 'block_hash': block_hash})
+
+        if not is_current_epoch_reportable(self._w3, contracts.validator_exit_bus, slot, block_hash):
+            logger.info({'msg': 'Epoch is not reportable.'})
+            return
+
         wei_amount_to_eject = self.calc_wei_amount_to_eject(slot, block_hash)
 
         if wei_amount_to_eject > 0:
@@ -58,25 +63,31 @@ class Ejector(OracleModule):
         buffered_eth = self._get_buffered_eth(block_hash)
         logger.info({'msg': 'Calculate wei in buffer.', 'value': buffered_eth})
 
-        rewards_eth = self._get_rewards_eth(block_hash)
-        logger.info({'msg': 'Calculate rewards.', 'value': rewards_eth})
+        el_rewards_eth = self._get_el_rewards(block_hash)
+        logger.info({'msg': 'Calculate rewards.', 'value': el_rewards_eth})
 
-        rewards_till_next_report = self._get_predicted_eth(block_hash, rewards_eth)
-        logger.info({'msg': 'Predict rewards for next day.', 'value': rewards_till_next_report})
+        # rewards_till_next_report = self._get_predicted_eth(block_hash, rewards_eth)
+        # logger.info({'msg': 'Predict rewards for next day.', 'value': rewards_till_next_report})
+
+        skimmed_rewards = self._get_skimmed_rewards(block_hash)
+        logger.info({'msg': 'Get skimmed rewards.', 'value': skimmed_rewards})
+
+        # skimmed_rewards_till_next_report = self._get_predicted_skimmed_rewards(block_hash)
+        # logger.info({'msg': 'Get skimmed rewards fo next day.', 'value': skimmed_rewards_till_next_report})
 
         exiting_validators_balances = self._get_exiting_validators_balances(slot, block_hash)
         logger.info({'msg': 'Get exiting validators balances.', 'value': exiting_validators_balances})
 
-        # Calculate skimmed rewards
-        # ToDo How to calculate with prediction or check validators balances?
+        current_ether = buffered_eth + el_rewards_eth + skimmed_rewards + exiting_validators_balances
+        logger.info({'msg': 'Calculate ether that will be available to withdraw.', 'value': current_ether})
 
-        result = amount_wei_to_withdraw - buffered_eth - rewards_eth - rewards_till_next_report - exiting_validators_balances
+        result = amount_wei_to_withdraw - current_ether
         logger.info({'msg': 'Wei to eject.', 'value': result})
 
         return result
 
     def _get_withdrawal_requests_wei_amount(self, block_hash: HexBytes) -> int:
-        total_pooled_ether = contracts.pool.functions.getTotalPooledEther().call(block_identifier=block_hash)
+        total_pooled_ether = contracts.lido.functions.getTotalPooledEther().call(block_identifier=block_hash)
         logger.info({'msg': 'Get total pooled ether.', 'value': total_pooled_ether})
 
         last_id_to_finalize = contracts.withdrawal_queue.functions.queueLength().call(block_identifier=block_hash)
@@ -94,26 +105,17 @@ class Ejector(OracleModule):
     def _get_buffered_eth(self, block_hash: HexBytes) -> int:
         return contracts.lido.functions.getBufferedEther().call(block_identifier=block_hash)
 
-    def _get_rewards_eth(self, block_hash: HexBytes) -> int:
+    def _get_el_rewards(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
-            contracts.lido_execution_layer_rewards_vault.address,
+            contracts.lido.functions.getELRewardsVault().call(),
             block_identifier=block_hash,
         )
 
-    def _get_predicted_eth(self, block_hash: HexBytes, current_eth: int) -> int:
-        current_block = self._w3.eth.get_block(block_identifier=block_hash)
-
-        blocks_in_day = int(24 * 60 * 60 / 12)
-
-        previous_day_block_number = current_block['number'] - blocks_in_day
-
-        previous_eth = self._w3.eth.get_balance(
-            contracts.lido_execution_layer_rewards_vault.address,
-            block_identifier=previous_day_block_number,
+    def _get_skimmed_rewards(self, block_hash: HexBytes) -> int:
+        return self._w3.eth.get_balance(
+            contracts.lido.functions.getWithdrawalCredentials().call(),
+            block_identifier=block_hash,
         )
-        result = current_eth - previous_eth
-
-        return result if result > 0 else 0
 
     def _get_exiting_validators_balances(self, slot: SlotNumber, block_hash: HexBytes) -> int:
         validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
@@ -154,7 +156,7 @@ class Ejector(OracleModule):
 
         return validators_to_eject
 
-    def _get_validator_to_eject(self, lido_validators: List[MergedLidoValidator]) -> SupportsNext[Validator]:
+    def _get_validator_to_eject(self, lido_validators: List[MergedLidoValidator]) -> Generator[Validator, None, None]:
         """
         Filter all exiting and exited validators.
         Sort them by index.
@@ -198,28 +200,16 @@ class Ejector(OracleModule):
             node_operators_id.append(validator['operator_index'])
             validators_pub_keys.append(validator['key'])
 
-        pending_block = self._w3.eth.get_block('pending')
-        max_priority_fee = self._w3.eth.max_priority_fee * 2
-
-        tx_params = {
-            'from': variables.ACCOUNT.address,
-            'gas': GAS_LIMIT,
-            'maxFeePerGas': pending_block.baseFeePerGas * 2 + max_priority_fee,
-            'maxPriorityFeePerGas': max_priority_fee,
-            "nonce": self._w3.eth.get_transaction_count(ACCOUNT.address),
-        }
-
         ejection_report = contracts.validator_exit_bus.functions.reportKeysToEject(
             modules_id,
             node_operators_id,
             validators_pub_keys,
-        ).build_transaction(tx_params)
+        )
 
         logger.info({
             'msg': 'Build ejection report.',
             'value': [modules_id, node_operators_id, validators_pub_keys],
         })
-        logger.info({'msg': 'Transaction build.', 'value': tx_params})
 
         return ejection_report
 
@@ -228,5 +218,5 @@ class Ejector(OracleModule):
 
         ejection_report = self._prepare_transaction(validators_list)
 
-        if check_transaction(ejection_report):
-            sign_and_send_transaction(self._w3, ejection_report, ACCOUNT)
+        if check_transaction(ejection_report, ACCOUNT.address):
+            sign_and_send_transaction(self._w3, ejection_report, ACCOUNT, GAS_LIMIT)

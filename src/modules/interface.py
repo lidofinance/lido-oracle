@@ -2,7 +2,7 @@ import abc
 
 from hexbytes import HexBytes
 
-from src.providers.typings import SlotNumber
+from src.web3_utils.typings import SlotNumber
 
 
 class OracleModule(abc.ABC):

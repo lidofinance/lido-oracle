@@ -4,11 +4,11 @@ from typing import List, Dict
 
 from hexbytes import HexBytes
 from lido_sdk import Lido
-from lido_sdk.methods.typing import OperatorKey, Operator
+from lido_sdk.methods.typing import OperatorKey
 from web3 import Web3
 
 from src.providers.beacon import BeaconChainClient
-from src.providers.typings import MergedLidoValidator, ModifiedOperatorKey, ModifiedOperator
+from src.web3_utils.typings import MergedLidoValidator, ModifiedOperatorKey, ModifiedOperator
 
 
 def _get_dict_of_keys(validators: List[OperatorKey]) -> Dict[str, OperatorKey]:

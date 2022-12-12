@@ -4,8 +4,8 @@ from eth_account import Account
 
 
 # Web3 settings
-WEB3_PROVIDER_URIS = os.getenv('WEB3_PROVIDER_URIS', '').split(',')
-CONSENSUS_LAYER_API = os.getenv('CONSENSUS_LAYER_API')
+WEB3_PROVIDER_URI = os.getenv('WEB3_PROVIDER_URI', '').split(',')
+CONSENSUS_LAYER_API = os.getenv('BEACON_NODE')
 
 LIDO_CONTRACT_ADDRESS = os.getenv('LIDO_CONTRACT_ADDRESS')
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 2_000_000))

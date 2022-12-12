@@ -14,8 +14,8 @@ from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.providers.beacon import BeaconChainClient
-from src.providers.typings import EpochNumber, SlotNumber
-from src.variables import DAEMON, WEB3_PROVIDER_URIS, CONSENSUS_LAYER_API
+from src.web3_utils.typings import EpochNumber, SlotNumber
+from src.variables import DAEMON, WEB3_PROVIDER_URI, CONSENSUS_LAYER_API
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class Oracle:
 
         self.modules: List[OracleModule] = [
             Accounting(self._w3, self._beacon_chain_client),
-            Ejector(self._w3, self._beacon_chain_client),
+            # Ejector(self._w3, self._beacon_chain_client),
         ]
 
     def _fetch_beacon_specs(self):
@@ -72,7 +72,7 @@ class Oracle:
 
         slot = self._beacon_chain_client.get_first_slot_in_epoch(epoch, self.slots_per_epoch)
         slot_number = SlotNumber(int(slot['message']['slot']))
-        block_hash = slot['message']['body']['eth1_data']['block_hash']
+        block_hash = slot['message']['body']['execution_payload']['block_hash']
 
         logger.info({
             'msg': 'Fetch first proposed slot in epoch.',
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    w3 = Web3(MultiProvider(WEB3_PROVIDER_URIS))
+    w3 = Web3(MultiProvider(WEB3_PROVIDER_URI))
 
     logger.info({'msg': 'Check protocol version.'})
     wait_for_withdrawals(w3)

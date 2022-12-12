@@ -43,7 +43,7 @@ from prometheus_client.metrics import Gauge, Histogram
 
 from pool_metrics import PoolMetrics
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class MetricsExporterState:

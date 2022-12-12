@@ -36,7 +36,7 @@ class Contracts:
         )
 
         self.validator_exit_bus = w3.eth.contract(
-            address='0x596BBA96Fa92e0A3EAf2ca0B157b06193858ba5E',
+            address='0x8CEE98e5748591d8562d4897c8Bbd244eD51B2eC',
             abi=self._load_abi(abi_path, 'ValidatorExitBus'),
         )
 
@@ -45,15 +45,16 @@ class Contracts:
             abi=self._load_abi(abi_path, 'WithdrawalQueue'),
         )
 
-        self.pool = w3.eth.contract(
-            address=self.oracle.functions.pool().call(),
-            abi=self._load_abi(abi_path, 'Pool'),
-        )
+        # self.pool = w3.eth.contract(
+        #     address=self.oracle.functions.pool().call(),
+        #     address=self.oracle.functions.pool().call(),
+        #     abi=self._load_abi(abi_path, 'Pool'),
+        # )
 
-        self.merkle_price_oracle = w3.eth.contract(
-            address=MERKLE_PRICE_ORACLE_CONTRACT,
-            abi=self._load_abi(abi_path, 'StableSwapStateOracle'),
-        )
+        # self.merkle_price_oracle = w3.eth.contract(
+        #     address=MERKLE_PRICE_ORACLE_CONTRACT,
+        #     abi=self._load_abi(abi_path, 'StableSwapStateOracle'),
+        # )
 
 
 contracts = Contracts()

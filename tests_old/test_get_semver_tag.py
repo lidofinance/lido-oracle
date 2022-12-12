@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import get_semver_tag
+from tests_old.helpers import get_semver_tag
 
 
 def test_empty():
