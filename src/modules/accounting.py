@@ -79,21 +79,22 @@ class Accounting(OracleModule):
     # -----------------------------------------------------------------------
     def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> TxParams:
         """
-        function handleOracleReport(
+        function handleCommitteeMemberReport(
+            // Consensus info
+            uint256 epochId;
             // CL values
-            uint256 _beaconValidators,
-            uint256 _beaconBalance,
-            uint256[] calldata _stackingModuleId,
-            uint256[] calldata _nodeOperatorsWithExitedValidators,
-            uint256[] calldata _exitedValidatorsNumber,
-            uint256 _totalExitedValidators,
+            uint256 beaconValidators;
+            uint64 beaconBalanceGwei;
+            uint256[] stakingModuleIds;
+            uint256[] nodeOperatorsWithExitedValidators;
+            uint64[] exitedValidatorsNumbers;
             // EL values
-            uint256 _wcBufferedEther,
+            uint256 wcBufferedEther;
             // decision
-            uint256 _newDepositBufferWithdrawalsReserve,
-            uint256[] calldata _requestIdToFinalizeUpTo,
-            uint256[] calldata _finalizationSharesAmount,
-            uint256[] calldata _finalizationPooledEtherAmount
+            uint256 newDepositBufferWithdrawalsReserve;
+            uint256[] requestIdToFinalizeUpTo;
+            uint256[] finalizationPooledEtherAmount;
+            uint256[] finalizationSharesAmount;
         ) external;
         """
         beacon_validators_count, beacon_validators_balance = self._get_beacon_validators_stats(slot, block_hash)
@@ -103,17 +104,11 @@ class Accounting(OracleModule):
             'beacon_validators_balance': beacon_validators_balance,
         })
 
-        exited_validators = self._get_exited_validators(slot, block_hash)
-        total_exited_validator = len(exited_validators)
-        logger.info(
-            {'msg': 'Get exited validators. Value is withdrawable validators count.', 'value': total_exited_validator},
-        )
-
         (
             stacking_module_ids,
             no_operators,
             exited_validators,
-        ) = self._get_new_exited_validators(block_hash, exited_validators)
+        ) = self._get_new_exited_validators(slot, block_hash)
         logger.info({
             'msg': 'Fetch Lido exited validators.',
             'stacking_module_ids': stacking_module_ids,
@@ -123,6 +118,8 @@ class Accounting(OracleModule):
 
         wc_buffered_ether = self._get_wc_buffered_ether(block_hash)
         logger.info({'msg': 'Fetch wc buffered ETH.', 'value': wc_buffered_ether})
+
+        buffered_ether_to_reserve = self._get_buffered_ether_to_reserve(block_hash)
 
         (
             last_requests_id_to_finalize,
@@ -136,16 +133,15 @@ class Accounting(OracleModule):
             'finalization_pooled_ether_amount': finalization_pooled_ether_amount,
         })
 
-        transaction = contracts.oracle.functions.reportBeacon((
+        transaction = contracts.oracle.functions.handleCommitteeMemberReport((
             int(slot / self.slots_per_epoch),
             beacon_validators_count,
             beacon_validators_balance,
-            total_exited_validator,
             stacking_module_ids,
             no_operators,
             exited_validators,
             wc_buffered_ether,
-            0,
+            buffered_ether_to_reserve,
             last_requests_id_to_finalize,
             finalization_pooled_ether_amount,
             finalization_shares_amount,
@@ -154,6 +150,7 @@ class Accounting(OracleModule):
         return transaction
 
     def _get_beacon_validators_stats(self, slot: SlotNumber, block_hash: HexBytes) -> Tuple[int, int]:
+        # Should return balance in gwei!
         lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
         return len(lido_validators), sum(int(validator['validator']['balance']) for validator in lido_validators)
 
@@ -166,9 +163,11 @@ class Accounting(OracleModule):
 
     def _get_new_exited_validators(
             self,
+            slot: SlotNumber,
             block_hash: HexBytes,
-            validators: List[MergedLidoValidator],
-    ) -> Tuple[List[int], List[int], List[int]]:
+    ) -> Tuple[List[str], List[int], List[int]]:
+        validators = self._get_exited_validators(slot, block_hash)
+
         exited_validators = defaultdict(int)
 
         for validator in validators:
@@ -197,9 +196,12 @@ class Accounting(OracleModule):
 
     def _get_wc_buffered_ether(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
-            contracts.lido_execution_layer_rewards_vault.address,
+            contracts.lido.functions.getELRewardsVault().call(block_identifier=block_hash),
             block_identifier=block_hash,
         )
+
+    def _get_buffered_ether_to_reserve(self, block_hash: HexBytes) -> int:
+        return 0
 
     def _get_requests_finalization_report(self, block_hash: HexBytes) -> Tuple[List[int], List[int], List[int]]:
         last_finalized_request = contracts.withdrawal_queue.functions.finalizedQueueLength().call(block_identifier=block_hash)

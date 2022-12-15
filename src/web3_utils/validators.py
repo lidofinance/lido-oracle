@@ -23,7 +23,7 @@ def get_lido_node_operators(w3: Web3, block_hash: HexBytes) -> List[ModifiedOper
     # TODO Fix library - add fetch by block configuration and rewrite using not just NO module (in future)
     lido = Lido(w3)
     lido.get_operators_indexes()
-    return [ModifiedOperator(module_id=1, **op) for op in lido.get_operators_data()]
+    return [ModifiedOperator(module_id='0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320', **op) for op in lido.get_operators_data()]
 
 
 @lru_cache(maxsize=2)
@@ -50,7 +50,7 @@ def get_lido_validators(w3: Web3, block_hash: HexBytes, beacon: BeaconChainClien
             result.append(MergedLidoValidator(
                 validator=validator,
                 key=ModifiedOperatorKey(
-                    module_id=1,
+                    module_id='0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
                     **keys[validator['validator']['pubkey']],
                 ),
             ))

@@ -401,8 +401,8 @@ format-nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-
 
 [[package]]
 name = "lido-sdk"
-version = "2.5.3"
-description = "This library consolidates various functions to efficiently load network data for Lido, validate node operator keys and find key duplicates."
+version = "2.7.0"
+description = "This library consolidates various functions to efficiently load network data for Lido, validate node  operator keys and find key duplicates."
 category = "main"
 optional = false
 python-versions = ">=3.7,<4"

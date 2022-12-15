@@ -13,9 +13,9 @@ from src.modules.accounting import Accounting
 from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
-from src.providers.beacon import BeaconChainClient
+from src.providers.beacon import BeaconChainClient, NoSlotsFound
 from src.web3_utils.typings import EpochNumber, SlotNumber
-from src.variables import DAEMON, WEB3_PROVIDER_URI, CONSENSUS_LAYER_API
+from src.variables import DAEMON, WEB3_PROVIDER_URI, BEACON_NODE
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +29,12 @@ class Oracle:
 
         self.modules: List[OracleModule] = [
             Accounting(self._w3, self._beacon_chain_client),
-            # Ejector(self._w3, self._beacon_chain_client),
+            Ejector(self._w3, self._beacon_chain_client),
         ]
 
     def _fetch_beacon_specs(self):
-        self.epochs_per_frame, self.slots_per_epoch, self.seconds_per_slot, self.genesis_time = contracts.oracle.functions.getBeaconSpec().call()
+        _, self.slots_per_epoch, self.seconds_per_slot, _ = contracts.oracle.functions.getBeaconSpec().call()
+        # _, self.slots_per_epoch, self.seconds_per_slot, _ = contracts.validator_exit_bus.functions.getBeaconSpec().call()
 
     def run_as_daemon(self):
         while True:
@@ -51,6 +52,8 @@ class Oracle:
         except KeyboardInterrupt as error:
             logger.error({'msg': 'Key interrupt.', 'error': error})
             raise KeyboardInterrupt from error
+        except NoSlotsFound as error:
+            logger.error({'msg': 'No slots for current epoch.', 'error': error})
         except Exception as error:
             logger.error({'msg': 'Unexpected exception.', 'error': error})
             raise Exception from error
@@ -64,7 +67,9 @@ class Oracle:
 
                 return current_finalized_epoch
             else:
-                sleep(self.slots_per_epoch * self.seconds_per_slot / 4)
+                sleep_time = self.slots_per_epoch * self.seconds_per_slot / 4
+                logger.info({'msg': f'Waiting for next finalized epoch. Sleep for {sleep_time} sec.'})
+                sleep(sleep_time)
 
     def run_once(self, epoch: Optional[EpochNumber] = None):
         if epoch is None:
@@ -107,7 +112,7 @@ if __name__ == '__main__':
     contracts.initialize(w3)
 
     logger.info({'msg': 'Initialize Consensus Layer client.'})
-    beacon_client = BeaconChainClient(CONSENSUS_LAYER_API)
+    beacon_client = BeaconChainClient(BEACON_NODE)
 
     logger.info({'msg': 'Initialize Oracle.'})
     oracle = Oracle(w3, beacon_client)

@@ -98,12 +98,12 @@ class SignedBeaconBlock(TypedDict):
 
 class ModifiedOperator(Operator):
     """TODO: Remove as soon as lido_sdk will support module_id"""
-    module_id: int
+    module_id: str
 
 
 class ModifiedOperatorKey(OperatorKey):
     """TODO: Remove as soon as lido_sdk will support module_id"""
-    module_id: int
+    module_id: str
 
 
 class MergedLidoValidator(TypedDict):

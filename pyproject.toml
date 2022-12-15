@@ -7,7 +7,7 @@ license = "GPL 3.0"
 
 [tool.poetry.dependencies]
 python = "^3.8,<4.0.0"
-lido-sdk = "^2.5.3"
+lido-sdk = "^2.7.0"
 web3-multi-provider = "^0.4.2"
 prometheus-client = "^0.15.0"
 web3 = "^5.31.1"
