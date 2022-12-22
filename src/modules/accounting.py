@@ -172,7 +172,7 @@ class Accounting(OracleModule):
     def _get_exited_validators(self, slot: SlotNumber, block_hash: HexBytes) -> List[MergedLidoValidator]:
         lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
 
-        withdrawable_validators = filter(lambda validator: int(validator['validator']['validator']['exit_epoch'] * 32) <= slot, lido_validators)
+        withdrawable_validators = filter(lambda validator: int(validator['validator']['validator']['exit_epoch'] * self.slots_per_epoch) <= slot, lido_validators)
 
         return list(withdrawable_validators)
 

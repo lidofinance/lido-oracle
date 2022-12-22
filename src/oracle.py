@@ -77,7 +77,7 @@ class Oracle:
 
     def run_once(self, epoch: Optional[EpochNumber] = None):
         if epoch is None:
-            epoch = self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']
+            epoch = EpochNumber(int(self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']))
 
         FINALIZED_EPOCH_NUMBER.set(epoch)
         slot = self._beacon_chain_client.get_first_slot_in_epoch(epoch, self.slots_per_epoch)

@@ -54,5 +54,5 @@ def get_latest_reportable_epoch(contract: Contract, slot: SlotNumber, block_hash
     potentially_reportable_epoch = contract.functions.getCurrentFrame().call(block_identifier=block_hash)[0]
 
     return min(
-        potentially_reportable_epoch, (slot / slots_per_epoch // epochs_per_frame) * epochs_per_frame
+        potentially_reportable_epoch, int((slot / slots_per_epoch // epochs_per_frame) * epochs_per_frame)
     )
