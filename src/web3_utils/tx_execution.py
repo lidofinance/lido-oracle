@@ -6,6 +6,7 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 from web3.types import TxParams
 
+from src.metrics.prometheus.basic import TX_SEND, TX_FAILURE
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ def sign_and_send_transaction(w3: Web3, transaction: TxParams, account: Optional
     signed_tx = w3.eth.account.sign_transaction(tx, account.privateKey)
 
     tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+    TX_SEND.inc()
     logger.info({'msg': 'Transaction sent.', 'value': tx_hash.hex()})
 
     tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
@@ -60,5 +62,8 @@ def sign_and_send_transaction(w3: Web3, transaction: TxParams, account: Optional
         'transactionIndex': tx_receipt.transactionIndex,
         'type': tx_receipt.type,
     })
+
+    if tx_receipt.status != 122:
+        TX_FAILURE.inc()
 
     return tx_receipt

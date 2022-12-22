@@ -8,6 +8,14 @@ from web3 import Web3
 from web3.types import TxParams
 
 from src.contracts import contracts
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_ACTIVE_VALIDATORS,
+    ACCOUNTING_VALIDATORS_BALANCE,
+    ACCOUNTING_EXITED_VALIDATORS,
+    WC_BALANCE,
+    LAST_FINALIZED_WITHDRAWAL_REQUEST,
+    BUFFERED_ETHER_TO_RESERVE,
+)
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
@@ -57,7 +65,6 @@ class Accounting(OracleModule):
             return
 
         report_slot, report_block_hash = self._get_slot_and_block_hash_for_report(slot, block_hash)
-
         logger.info({'msg': f'Building report with slot: [{report_slot}] and block hash: [{report_block_hash}].'})
 
         tx = self.build_report(report_slot, report_block_hash)
@@ -85,7 +92,7 @@ class Accounting(OracleModule):
             // CL values
             uint256 beaconValidators;
             uint64 beaconBalanceGwei;
-            uint256[] stakingModuleIds;
+            address[] stakingModules;
             uint256[] nodeOperatorsWithExitedValidators;
             uint64[] exitedValidatorsNumbers;
             // EL values
@@ -103,6 +110,8 @@ class Accounting(OracleModule):
             'beacon_validators_count': beacon_validators_count,
             'beacon_validators_balance': beacon_validators_balance,
         })
+        ACCOUNTING_ACTIVE_VALIDATORS.set(beacon_validators_count)
+        ACCOUNTING_VALIDATORS_BALANCE.set(beacon_validators_balance)
 
         (
             stacking_module_ids,
@@ -115,11 +124,15 @@ class Accounting(OracleModule):
             'no_operators': no_operators,
             'exited_validators': exited_validators,
         })
+        ACCOUNTING_EXITED_VALIDATORS.set(len(exited_validators))
 
         wc_buffered_ether = self._get_wc_buffered_ether(block_hash)
         logger.info({'msg': 'Fetch wc buffered ETH.', 'value': wc_buffered_ether})
+        WC_BALANCE.set(wc_buffered_ether)
 
         buffered_ether_to_reserve = self._get_buffered_ether_to_reserve(block_hash)
+        logger.info({'msg': 'Calculate buffered ether to reserve.', 'value': buffered_ether_to_reserve})
+        BUFFERED_ETHER_TO_RESERVE.set(buffered_ether_to_reserve)
 
         (
             last_requests_id_to_finalize,
@@ -132,6 +145,8 @@ class Accounting(OracleModule):
             'finalization_shares_amount': finalization_shares_amount,
             'finalization_pooled_ether_amount': finalization_pooled_ether_amount,
         })
+        if last_requests_id_to_finalize:
+            LAST_FINALIZED_WITHDRAWAL_REQUEST.set(last_requests_id_to_finalize[-1])
 
         transaction = contracts.oracle.functions.handleCommitteeMemberReport((
             int(slot / self.slots_per_epoch),

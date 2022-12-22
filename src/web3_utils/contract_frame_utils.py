@@ -39,11 +39,7 @@ def get_last_reported_epoch(w3: Web3, contract: Contract, block_hash: HexBytes) 
     for end in range(block.number, from_block, -step):
         start = max(end - step + 1, from_block)
 
-        # TODO rename when Oracle will switch to "ConsensusReached" naming
-        try:
-            events = contract.events.Completed.getLogs(fromBlock=start, toBlock=end)
-        except:
-            events = contract.events.ConsensusReached.getLogs(fromBlock=start, toBlock=end)
+        events = contract.events.ConsensusReached.getLogs(fromBlock=start, toBlock=end)
 
         if events:
             event = events[-1]

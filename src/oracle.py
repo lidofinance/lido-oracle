@@ -9,11 +9,15 @@ from src import variables
 from src.contracts import contracts
 from src.metrics.logging import logging
 from src.metrics.healthcheck_server import start_pulse_server, pulse
+from src.metrics.prometheus.basic import FINALIZED_EPOCH_NUMBER, SLOT_NUMBER
+
+from src.metrics.prometheus.basic import EXCEPTIONS_COUNT
 from src.modules.accounting import Accounting
 from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.providers.beacon import BeaconChainClient, NoSlotsFound
+from src.providers.web3_middleware import add_requests_metric_middleware
 from src.web3_utils.typings import EpochNumber, SlotNumber
 from src.variables import DAEMON, WEB3_PROVIDER_URI, BEACON_NODE
 
@@ -75,8 +79,10 @@ class Oracle:
         if epoch is None:
             epoch = self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']
 
+        FINALIZED_EPOCH_NUMBER.set(epoch)
         slot = self._beacon_chain_client.get_first_slot_in_epoch(epoch, self.slots_per_epoch)
         slot_number = SlotNumber(int(slot['message']['slot']))
+        SLOT_NUMBER.set(slot_number)
         block_hash = slot['message']['body']['execution_payload']['block_hash']
 
         logger.info({
@@ -90,6 +96,7 @@ class Oracle:
             try:
                 module.run_module(slot_number, block_hash)
             except Exception as error:
+                EXCEPTIONS_COUNT.labels(module.__class__.__name__).inc()
                 logger.error({'msg': f'Module {module.__class__.__name__} failed.', 'error': str(error)})
 
 
@@ -104,6 +111,9 @@ if __name__ == '__main__':
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
     w3 = Web3(MultiProvider(WEB3_PROVIDER_URI))
+
+    logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
+    add_requests_metric_middleware(w3)
 
     logger.info({'msg': 'Check protocol version.'})
     wait_for_withdrawals(w3)

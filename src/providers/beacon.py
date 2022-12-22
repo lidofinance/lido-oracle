@@ -1,11 +1,12 @@
 from typing import Optional, List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.metrics.logging import logging
+from src.metrics.prometheus.basic import ETH2_REQUESTS_DURATION, ETH2_REQUESTS
 from src.web3_utils.typings import StateFinalityCheckpoints, Validator, Slot
 
 logger = logging.getLogger(__name__)
@@ -41,11 +42,12 @@ class BeaconChainClient:
         self.session.mount("http://", adapter)
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
-        response = self.session.get(
-            urljoin(self.host, url),
-            params=params,
-            timeout=self.REQUEST_TIMEOUT,
-        )
+        with ETH2_REQUESTS_DURATION.time():
+            response = self.session.get(
+                urljoin(self.host, url),
+                params=params,
+                timeout=self.REQUEST_TIMEOUT,
+            )
 
         try:
             data = response.json()['data']
@@ -54,9 +56,14 @@ class BeaconChainClient:
             logger.warning(msg)
             raise KeyError(msg) from error
         except BaseException as error:
-            print(response.text)
-            print(urljoin(self.host, url))
+            logger.error(str(error))
             raise error
+        finally:
+            ETH2_REQUESTS.labels(
+                method='get',
+                code=response.status_code,
+                domain=urlparse(self.host).netloc,
+            ).inc()
 
         return data
 

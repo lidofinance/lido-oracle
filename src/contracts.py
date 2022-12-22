@@ -26,8 +26,7 @@ class Contracts:
 
         self.oracle = w3.eth.contract(
             # address=self.lido.functions.getOracle().call(),
-            # address='0x307C5b8483A0ca857128e126F3dFF03a0509119E',
-            address='0x2d3091dF46c27eC572A02e9C1fFFfECD64B97b31',
+            address='0xa71CC47158c15d5D8b3Af4c6390e8608d08c2994',
             abi=self._load_abi(abi_path, 'LidoOracle'),
         )
 

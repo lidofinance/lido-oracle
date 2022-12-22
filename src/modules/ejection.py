@@ -81,25 +81,31 @@ class Ejector(OracleModule):
         amount_wei_to_withdraw = self._get_withdrawal_requests_wei_amount(block_hash)
         logger.info({'msg': 'Calculate wei in withdrawal queue.', 'value': amount_wei_to_withdraw})
 
+        slots_to_exit = self._get_validators_exit_estimation_in_slots(slot, block_hash)
+        logger.info({'msg': 'Calculate predicted time to exit validator in seconds.', 'value': slots_to_exit * 12})
+
         buffered_eth = self._get_buffered_eth(block_hash)
         logger.info({'msg': 'Calculate wei in buffer.', 'value': buffered_eth})
 
         el_rewards_eth = self._get_el_rewards(block_hash)
         logger.info({'msg': 'Calculate rewards.', 'value': el_rewards_eth})
 
-        el_predicted_rewards = self._get_predicted_el_rewards(block_hash)
+        el_predicted_rewards = self._get_predicted_el_rewards(block_hash, slots_to_exit)
         logger.info({'msg': 'Calculate predicted rewards.', 'value': el_predicted_rewards})
 
-        skimmed_rewards = self._get_skimmed_rewards(block_hash)
-        logger.info({'msg': 'Get skimmed rewards.', 'value': skimmed_rewards})
+        wc_balance = self._get_wc_balance(block_hash)
+        logger.info({'msg': 'Get wc balance.', 'value': wc_balance})
 
-        skimmed_predicted_rewards = self._get_predicted_skimmed_rewards(block_hash)
+        skimmed_predicted_rewards = self._get_predicted_skimmed_rewards(block_hash, slots_to_exit)
         logger.info({'msg': 'Get skimmed rewards fo next day.', 'value': skimmed_predicted_rewards})
 
-        exiting_validators_balances = self._get_exiting_validators_balances(slot, block_hash)
+        exiting_validators_balances = self._get_exiting_validators_balances(slot, block_hash, slots_to_exit)
         logger.info({'msg': 'Get exiting validators balances.', 'value': exiting_validators_balances})
 
-        current_ether = buffered_eth + el_rewards_eth + skimmed_rewards + exiting_validators_balances
+        going_to_start_exit_validators_balance = self._get_going_to_start_exit_validators(slot, block_hash)
+        logger.info({'msg': 'Get balance that was asked to exit recently.', 'value': going_to_start_exit_validators_balance})
+
+        current_ether = buffered_eth + el_rewards_eth + wc_balance + exiting_validators_balances + going_to_start_exit_validators_balance
         logger.info({'msg': 'Calculate ether that will be available to withdraw.', 'value': current_ether})
 
         current_and_predicted_eth = current_ether + el_predicted_rewards + skimmed_predicted_rewards
@@ -112,6 +118,10 @@ class Ejector(OracleModule):
         logger.info({'msg': 'Wei to eject.', 'value': result})
 
         return result
+
+    def _get_validators_exit_estimation_in_slots(self, slot: SlotNumber, block_hash: HexBytes) -> int:
+        # https://hackmd.io/q7lQrq49QJm3zY3IFhnmhw?view#How-prediction-works
+        return 7200
 
     def _get_withdrawal_requests_wei_amount(self, block_hash: HexBytes) -> int:
         total_pooled_ether = contracts.lido.functions.getTotalPooledEther().call(block_identifier=block_hash)
@@ -149,23 +159,17 @@ class Ejector(OracleModule):
             block_identifier=block_hash,
         )
 
-    def _get_predicted_el_rewards(self, block_hash: HexBytes) -> int:
-        return self._get_all_income_for_frame_to_address(
-            block_hash,
-            contracts.lido.functions.getELRewardsVault().call(block_identifier=block_hash),
-        )
+    def _get_predicted_el_rewards(self, block_hash: HexBytes, slots_in_future: int) -> int:
+        return 0
 
-    def _get_skimmed_rewards(self, block_hash: HexBytes) -> int:
+    def _get_wc_balance(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
             self._get_wc_address(block_hash),
             block_identifier=block_hash,
         )
 
-    def _get_predicted_skimmed_rewards(self, block_hash: HexBytes) -> int:
-        return self._get_all_income_for_frame_to_address(
-            block_hash,
-            self._get_wc_address(block_hash),
-        )
+    def _get_predicted_skimmed_rewards(self, block_hash: HexBytes, slots_in_future: int) -> int:
+        return 0
 
     def _get_wc_address(self, block_hash: HexBytes):
         wc = contracts.lido.functions.getWithdrawalCredentials().call(block_identifier=block_hash)
@@ -175,19 +179,28 @@ class Ejector(OracleModule):
         return address
 
     def _get_all_income_for_frame_to_address(self, block_hash: HexBytes, address: str) -> int:
-        blocks_in_frame = self.epochs_per_frame * self.slots_per_epoch
         return 0
 
-    def _get_exiting_validators_balances(self, slot: SlotNumber, block_hash: HexBytes) -> int:
+    def _get_exiting_validators_balances(self, slot: SlotNumber, block_hash: HexBytes, slots_to_exit: int) -> int:
         validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
 
         exiting_balance = 0
 
         for validator in validators:
-            if validator['validator']['status'] in ValidatorGroup.GOING_TO_EXIT:
+            if int(validator['validator']['validator']['withdrawable_epoch']) < int((slot + slots_to_exit) / 32):
                 exiting_balance += validator['validator']['balance']
 
         return exiting_balance * 10**9
+
+    def _get_going_to_start_exit_validators(self, slot: SlotNumber, block_hash: HexBytes) -> int:
+        # Get events from contract and check validator status in blockchain to avoid double calculating
+        validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
+
+        # Get all events from smart contract and get all validators that are going_active, but asked to exit in N days
+
+        # contracts.validator_exit_bus.functions.EXIT_PARAM
+
+        return 0
 
     def eject_validators(self, wei_amount: int, slot: SlotNumber, block_hash: HexBytes):
         validators_to_eject = self._get_keys_to_eject(wei_amount, slot, block_hash)
