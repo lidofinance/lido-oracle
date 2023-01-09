@@ -68,6 +68,8 @@ See **Other examples** below for transactable modes.
 * `PROMETHEUS_PREFIX` - Prefix for all prometheus metrics. This is good practice having different prefixes for applications (recommended to use `lido_oracle_`) **Optional**. Default ''
 * `PROMETHEUS_METRICS_PORT` - Port for prometheus server. **Optional**. Default '8000'
 
+Also supports variables from [lido-python-sdk](https://github.com/lidofinance/lido-python-sdk#params-for-lido).
+
 ## Other examples
 
 * WARNING: The examples below are **transactable** and can potentially break the Lido. You must understand the protocol and what you are doing.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [2.4.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.4.1) - 2023-01-10
+### Added
+- Support to lido-python-sdk params. [New variables list](https://github.com/lidofinance/lido-python-sdk#params-for-lido).
+
 ## [2.4.0](https://github.com/lidofinance/lido-oracle/releases/tag/2.4.0) - 2022-10-04
 ### Changed
 - Client for Prysm node has been changed to the same as for the lighthouse node.
