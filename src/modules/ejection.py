@@ -69,9 +69,6 @@ class Ejector(OracleModule):
 
         wei_amount_to_eject = self.calc_wei_amount_to_eject(slot, block_hash)
 
-        # TODO remove
-        wei_amount_to_eject = 10**19
-
         if wei_amount_to_eject > 0:
             logger.info({'msg': 'Start ejecting validators.'})
             self.eject_validators(wei_amount_to_eject, slot, block_hash)
