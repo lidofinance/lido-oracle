@@ -12,7 +12,7 @@ web3-multi-provider = "^0.4.2"
 prometheus-client = "^0.15.0"
 web3 = "^5.31.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
 black = "^22.10.0"
 flake8 = "^5.0.4"
@@ -20,3 +20,6 @@ flake8 = "^5.0.4"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+markers = ["unit: tests that do not require external resources"]
