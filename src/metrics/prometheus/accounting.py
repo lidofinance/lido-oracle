@@ -29,7 +29,7 @@ ACCOUNTING_VALIDATORS_BALANCE = Gauge(
     namespace=PREFIX,
 )
 
-BUFFERED_ETHER_TO_RESERVE = Gauge(
+WEI_TO_RESERVE = Gauge(
     f'{MODULE_PREFIX}reserved_buffered_ether',
     f'{MODULE_NAME}Reserved buffered ether.',
     namespace=PREFIX,

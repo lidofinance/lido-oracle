@@ -7,6 +7,9 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import TxParams
 
+from src.contract_utils.frame import is_current_epoch_reportable, get_latest_reportable_epoch
+from src.contract_utils.lido_keys import get_lido_validators, get_lido_node_operators
+from src.contract_utils.withdrawal_queue import get_withdrawal_requests_wei_amount
 from src.contracts import contracts
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_ACTIVE_VALIDATORS,
@@ -14,16 +17,14 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_EXITED_VALIDATORS,
     WC_BALANCE,
     LAST_FINALIZED_WITHDRAWAL_REQUEST,
-    BUFFERED_ETHER_TO_RESERVE,
+    WEI_TO_RESERVE,
 )
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
 
-from src.web3_utils.contract_frame_utils import is_current_epoch_reportable, get_latest_reportable_epoch
 from src.web3_utils.typings import SlotNumber, MergedLidoValidator
 
-from src.web3_utils.validators import get_lido_validators, get_lido_node_operators
 from src.variables import GAS_LIMIT, ACCOUNT
 
 
@@ -87,21 +88,16 @@ class Accounting(OracleModule):
     def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> TxParams:
         """
         function handleCommitteeMemberReport(
-            // Consensus info
-            uint256 epochId;
-            // CL values
-            uint256 beaconValidators;
-            uint64 beaconBalanceGwei;
-            address[] stakingModules;
-            uint256[] nodeOperatorsWithExitedValidators;
-            uint64[] exitedValidatorsNumbers;
-            // EL values
-            uint256 wcBufferedEther;
-            // decision
-            uint256 newDepositBufferWithdrawalsReserve;
-            uint256[] requestIdToFinalizeUpTo;
-            uint256[] finalizationPooledEtherAmount;
-            uint256[] finalizationSharesAmount;
+            {"internalType":"uint256","name":"epochId","type":"uint256"},
+            {"internalType":"uint256","name":"beaconValidators","type":"uint256"},
+            {"internalType":"uint64","name":"beaconBalanceGwei","type":"uint64"},
+            {"internalType":"address[]","name":"stakingModules","type":"address[]"},
+            {"internalType":"uint256[]","name":"nodeOperatorsWithExitedValidators","type":"uint256[]"},
+            {"internalType":"uint256[]","name":"exitedValidatorsNumbers","type":"uint256[]"},
+            {"internalType":"uint256","name":"withdrawalVaultBalance","type":"uint256"},
+            {"internalType":"uint256","name":"withdrawalsReserveAmount","type":"uint256"},
+            {"internalType":"uint256[]","name":"requestIdToFinalizeUpTo","type":"uint256[]"},
+            {"internalType":"uint256[]","name":"finalizationShareRates","type":"uint256[]"}
         ) external;
         """
         beacon_validators_count, beacon_validators_balance = self._get_beacon_validators_stats(slot, block_hash)
@@ -126,24 +122,22 @@ class Accounting(OracleModule):
         })
         ACCOUNTING_EXITED_VALIDATORS.set(len(exited_validators))
 
-        wc_buffered_ether = self._get_wc_buffered_ether(block_hash)
-        logger.info({'msg': 'Fetch wc buffered ETH.', 'value': wc_buffered_ether})
-        WC_BALANCE.set(wc_buffered_ether)
+        wc_balance = self._get_wc_balance(block_hash)
+        logger.info({'msg': 'Fetch wc balance.', 'value': wc_balance})
+        WC_BALANCE.set(wc_balance)
 
-        buffered_ether_to_reserve = self._get_buffered_ether_to_reserve(block_hash)
-        logger.info({'msg': 'Calculate buffered ether to reserve.', 'value': buffered_ether_to_reserve})
-        BUFFERED_ETHER_TO_RESERVE.set(buffered_ether_to_reserve)
+        wei_to_reserve = self._get_wei_to_reserve(block_hash)
+        logger.info({'msg': 'Calculate ether to reserve.', 'value': wei_to_reserve})
+        WEI_TO_RESERVE.set(wei_to_reserve)
 
         (
             last_requests_id_to_finalize,
             finalization_shares_amount,
-            finalization_pooled_ether_amount,
         ) = self._get_requests_finalization_report(block_hash)
         logger.info({
             'msg': 'Get withdrawals queue stats.',
             'last_requests_id_to_finalize': last_requests_id_to_finalize,
             'finalization_shares_amount': finalization_shares_amount,
-            'finalization_pooled_ether_amount': finalization_pooled_ether_amount,
         })
         if last_requests_id_to_finalize:
             LAST_FINALIZED_WITHDRAWAL_REQUEST.set(last_requests_id_to_finalize[-1])
@@ -155,10 +149,9 @@ class Accounting(OracleModule):
             stacking_module_ids,
             no_operators,
             exited_validators,
-            wc_buffered_ether,
-            buffered_ether_to_reserve,
+            wc_balance,
+            wei_to_reserve,
             last_requests_id_to_finalize,
-            finalization_pooled_ether_amount,
             finalization_shares_amount,
         ))
 
@@ -168,13 +161,6 @@ class Accounting(OracleModule):
         # Should return balance in gwei!
         lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
         return len(lido_validators), sum(int(validator['validator']['balance']) for validator in lido_validators)
-
-    def _get_exited_validators(self, slot: SlotNumber, block_hash: HexBytes) -> List[MergedLidoValidator]:
-        lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
-
-        withdrawable_validators = filter(lambda validator: int(validator['validator']['validator']['exit_epoch']) <= int(slot / self.slots_per_epoch), lido_validators)
-
-        return list(withdrawable_validators)
 
     def _get_new_exited_validators(
             self,
@@ -209,16 +195,23 @@ class Accounting(OracleModule):
             exited_validators_number,
         )
 
-    def _get_wc_buffered_ether(self, block_hash: HexBytes) -> int:
+    def _get_exited_validators(self, slot: SlotNumber, block_hash: HexBytes) -> List[MergedLidoValidator]:
+        lido_validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
+
+        withdrawable_validators = filter(lambda validator: int(validator['validator']['validator']['exit_epoch']) <= int(slot / self.slots_per_epoch), lido_validators)
+
+        return list(withdrawable_validators)
+
+    def _get_wc_balance(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
             contracts.lido.functions.getELRewardsVault().call(block_identifier=block_hash),
             block_identifier=block_hash,
         )
 
-    def _get_buffered_ether_to_reserve(self, block_hash: HexBytes) -> int:
-        return 0
+    def _get_wei_to_reserve(self, block_hash: HexBytes) -> int:
+        return get_withdrawal_requests_wei_amount(block_hash)
 
-    def _get_requests_finalization_report(self, block_hash: HexBytes) -> Tuple[List[int], List[int], List[int]]:
+    def _get_requests_finalization_report(self, block_hash: HexBytes) -> Tuple[List[int], List[int]]:
         last_finalized_request = contracts.withdrawal_queue.functions.finalizedQueueLength().call(block_identifier=block_hash)
         logger.info({'msg': 'Get last finalized request.', 'value': last_finalized_request})
 
@@ -227,12 +220,12 @@ class Accounting(OracleModule):
 
         if queue_len == 0:
             logger.info({'msg': 'No requests in withdrawal queues.'})
-            return [], [], []
+            return [], []
 
         pooled_eth = contracts.lido.functions.getTotalPooledEther().call(block_identifier=block_hash)
         shares_amount = contracts.lido.functions.getSharesByPooledEth(pooled_eth).call(block_identifier=block_hash)
 
-        return [queue_len - 1], [shares_amount], [pooled_eth]
+        return [queue_len - 1], [shares_amount]
 
     def is_current_member_in_current_frame_quorum(self, slot: SlotNumber, block_hash: HexBytes):
         """

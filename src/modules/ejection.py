@@ -1,19 +1,21 @@
 import logging
 from collections import defaultdict
+from functools import lru_cache
 from typing import List, Generator, Union
 
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import TxParams
 
+from src.contract_utils.frame import is_current_epoch_reportable
+from src.contract_utils.lido_keys import get_lido_validators
+from src.contract_utils.withdrawal_queue import get_withdrawal_requests_wei_amount
 from src.contracts import contracts
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
 from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
 
-from src.web3_utils.contract_frame_utils import is_current_epoch_reportable
-from src.web3_utils.typings import ValidatorGroup, SlotNumber, MergedLidoValidator, ValidatorStatus
-from src.web3_utils.validators import get_lido_validators
+from src.web3_utils.typings import SlotNumber, MergedLidoValidator, ValidatorStatus
 from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,7 @@ class Ejector(OracleModule):
 
     def calc_wei_amount_to_eject(self, slot: SlotNumber, block_hash: HexBytes) -> int:
         """Calculate validators count to eject."""
-        amount_wei_to_withdraw = self._get_withdrawal_requests_wei_amount(block_hash)
+        amount_wei_to_withdraw = get_withdrawal_requests_wei_amount(block_hash)
         logger.info({'msg': 'Calculate wei in withdrawal queue.', 'value': amount_wei_to_withdraw})
 
         slots_to_exit = self._get_validators_exit_estimation_in_slots(slot, block_hash)
@@ -120,26 +122,6 @@ class Ejector(OracleModule):
         # https://hackmd.io/q7lQrq49QJm3zY3IFhnmhw?view#How-prediction-works
         return 7200
 
-    def _get_withdrawal_requests_wei_amount(self, block_hash: HexBytes) -> int:
-        total_pooled_ether = contracts.lido.functions.getTotalPooledEther().call(block_identifier=block_hash)
-        logger.info({'msg': 'Get total pooled ether.', 'value': total_pooled_ether})
-
-        total_shares = contracts.lido.functions.getSharesByPooledEth(total_pooled_ether).call(block_identifier=block_hash)
-        logger.info({'msg': 'Get total shares.', 'value': total_shares})
-
-        queue_length = contracts.withdrawal_queue.functions.queueLength().call(block_identifier=block_hash)
-        logger.info({'msg': 'Get last id to finalize.', 'value': total_pooled_ether})
-
-        if queue_length == 0:
-            logger.info({'msg': 'Withdrawal queue is empty.'})
-            return 0
-
-        return contracts.withdrawal_queue.functions.calculateFinalizationParams(
-            queue_length - 1,
-            total_pooled_ether,
-            total_shares,
-        ).call(block_identifier=block_hash)
-
     def _get_buffered_eth(self, block_hash: HexBytes) -> int:
         # reserved_buffered_eth = contracts.lido.functions.getReservedBufferedEther().call(block_identifier=block_hash)
         reserved_buffered_eth = 0
@@ -152,12 +134,27 @@ class Ejector(OracleModule):
 
     def _get_el_rewards(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
-            contracts.lido.functions.getELRewardsVault().call(block_identifier=block_hash),
+            self._get_el_reward_vault(block_hash),
             block_identifier=block_hash,
         )
 
+    @lru_cache(maxsize=2)
+    def _get_el_reward_vault(self, block_hash: HexBytes):
+        return contracts.lido.functions.getELRewardsVault().call(block_identifier=block_hash)
+
     def _get_predicted_el_rewards(self, block_hash: HexBytes, slots_in_future: int) -> int:
-        return 0
+        block = self._w3.eth.get_block(block_identifier=block_hash)
+
+        current_balance = self._w3.eth.get_balance(
+            self._get_el_reward_vault(block_hash),
+            block_identifier=block_hash,
+        )
+        old_balance = self._w3.eth.get_balance(
+            self._get_el_reward_vault(block_hash),
+            block_identifier=block.number - slots_in_future,
+        )
+        # TODO remove outcome eth
+        return current_balance - old_balance
 
     def _get_wc_balance(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
@@ -174,9 +171,6 @@ class Ejector(OracleModule):
         address = self._w3.toChecksumAddress('0x' + wc.hex()[-40:])
 
         return address
-
-    def _get_all_income_for_frame_to_address(self, block_hash: HexBytes, address: str) -> int:
-        return 0
 
     def _get_exiting_validators_balances(self, slot: SlotNumber, block_hash: HexBytes, slots_to_exit: int) -> int:
         validators = get_lido_validators(self._w3, block_hash, self._beacon_chain_client, slot)
@@ -196,7 +190,7 @@ class Ejector(OracleModule):
         # Get all events from smart contract and get all validators that are going_active, but asked to exit in N days
 
         # contracts.validator_exit_bus.functions.EXIT_PARAM
-
+        # TODO when contract will be ready do this function
         return 0
 
     def eject_validators(self, wei_amount: int, slot: SlotNumber, block_hash: HexBytes):
@@ -290,6 +284,15 @@ class Ejector(OracleModule):
             validators_list: List[MergedLidoValidator],
             slot: SlotNumber,
     ) -> TxParams:
+        """
+         handleCommitteeMemberReport interface:
+         {"internalType": "uint256", "name": "_epochId", "type": "uint256"},
+         {"internalType": "address[]", "name": "_stakingModules", "type": "address[]"},
+         {"internalType": "uint256[]", "name": "_nodeOperatorIds", "type": "uint256[]"},
+         {"internalType": "uint256[]", "name": "_validatorIds", "type": "uint256[]"},
+         {"internalType": "bytes[]", "name": "_validatorPubkeys", "type": "bytes[]"},
+        """
+
         modules_id = []
         node_operators_id = []
         validator_id =[]
@@ -301,17 +304,19 @@ class Ejector(OracleModule):
             validator_id.append(int(validator['validator']['index']))
             validators_pub_keys.append(validator['key']['key'])
 
+        report_epoch = int(slot / self.slots_per_epoch)
+
         ejection_report = contracts.validator_exit_bus.functions.handleCommitteeMemberReport(
+            report_epoch,
             modules_id,
             node_operators_id,
             validator_id,
             validators_pub_keys,
-            int(slot/self.slots_per_epoch),
         )
 
         logger.info({
             'msg': 'Build ejection report.',
-            'value': [modules_id, node_operators_id, validators_pub_keys],
+            'value': [report_epoch, modules_id, node_operators_id, validator_id, validators_pub_keys],
         })
 
         return ejection_report
