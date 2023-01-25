@@ -7,7 +7,7 @@ from urllib3 import Retry
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ETH2_REQUESTS_DURATION, ETH2_REQUESTS
-from src.web3_utils.typings import StateFinalityCheckpoints, Validator, Slot
+from src.typings import StateFinalityCheckpoints, Validator, Slot
 
 logger = logging.getLogger(__name__)
 

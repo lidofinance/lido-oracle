@@ -6,7 +6,7 @@ from web3 import Web3
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.contracts import contracts
+from src.blockchain.contracts import contracts
 from src.metrics.logging import logging
 from src.metrics.healthcheck_server import start_pulse_server, pulse
 from src.metrics.prometheus.basic import FINALIZED_EPOCH_NUMBER, SLOT_NUMBER
@@ -17,8 +17,8 @@ from src.modules.ejection import Ejector
 from src.modules.interface import OracleModule
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.providers.beacon import BeaconChainClient, NoSlotsFound
-from src.providers.web3_middleware import add_requests_metric_middleware
-from src.web3_utils.typings import EpochNumber, SlotNumber
+from src.providers.web3 import add_requests_metric_middleware
+from src.typings import EpochNumber, SlotNumber
 from src.variables import DAEMON, WEB3_PROVIDER_URI, BEACON_NODE
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,6 @@ class Oracle:
 
     def _fetch_beacon_specs(self):
         _, self.slots_per_epoch, self.seconds_per_slot, _ = contracts.oracle.functions.getBeaconSpec().call()
-        # _, self.slots_per_epoch, self.seconds_per_slot, _ = contracts.validator_exit_bus.functions.getBeaconSpec().call()
 
     def run_as_daemon(self):
         while True:
@@ -63,6 +62,7 @@ class Oracle:
             raise Exception from error
 
     def _fetch_next_finalized_epoch(self) -> EpochNumber:
+        """Wait and return next finalized epoch. If this is first call - return last finalized epoch."""
         while True:
             current_finalized_epoch = EpochNumber(int(self._beacon_chain_client.get_head_finality_checkpoints()['finalized']['epoch']))
 
@@ -101,7 +101,12 @@ class Oracle:
 
 
 if __name__ == '__main__':
-    logger.info({'msg': 'Oracle startup.'})
+    logger.info({
+        'msg': 'Oracle startup.',
+        'variables': {
+            ''
+        },
+    })
 
     logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
     start_pulse_server()

@@ -4,7 +4,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 
-from src.web3_utils.typings import SlotNumber
+from src.typings import SlotNumber
 
 
 logger = logging.getLogger(__name__)

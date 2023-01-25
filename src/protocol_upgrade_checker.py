@@ -4,8 +4,9 @@ import time
 from web3 import Web3
 
 from src import variables
-from src.contracts import contracts
+from src.blockchain import contracts
 from src.metrics.healthcheck_server import pulse
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,10 @@ def wait_for_withdrawals(w3: Web3):
             abi=contracts._load_abi('./assets/', 'LidoOracle')
         )
 
+        # 0 is old Oracle Contract version
         if oracle.functions.getVersion().call() != 0:
-            # 0 is old Oracle Contract version
             logger.info({'msg': 'Protocol is ready. Create Oracle instance.'})
             return
         else:
             logger.info({'msg': 'Protocol is not ready for new oracle. Sleep for 1 epoch (384 seconds).'})
-            # ToDo remove
-            return
             time.sleep(32 * 12)

@@ -7,15 +7,16 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import TxParams
 
-from src.contract_utils.frame import is_current_epoch_reportable
-from src.contract_utils.lido_keys import get_lido_validators
-from src.contract_utils.withdrawal_queue import get_withdrawal_requests_wei_amount
-from src.contracts import contracts
+from src.blockchain.frame import is_current_epoch_reportable
+from src.providers.lido_keys import get_lido_validators
+from src.modules.services.withdrawal_queue import get_withdrawal_requests_wei_amount
+from src.blockchain import contracts
+from src.metrics.prometheus.basic import UNEXPECTED_BEHAVIOUR
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
-from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
+from src.blockchain.tx_execution import check_transaction, sign_and_send_transaction
 
-from src.web3_utils.typings import SlotNumber, MergedLidoValidator, ValidatorStatus
+from src.typings import SlotNumber, MergedLidoValidator, ValidatorStatus
 from src.variables import ACCOUNT, GAS_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -27,16 +28,18 @@ class Ejector(OracleModule):
 
     Decides how many validators should exit if we receive withdrawal requests.
 
+    # TODO fix
     Logic:
     1. Checks how many ETH want to be withdrawn. (width_eth)
     2. Calculates ETH buffered on lido contract. (buff_eth)
     3. Calculates ETH on rewards contract. (reward_eth)
-    4. Predicts rewards for one day. (predict_reward_eth)
-    5. Get balance going to withdraw validators. (width_eth)
-    7. Validators to withdraw - (width_eth - buff_eth - reward_eth - predict_reward_eth - width_eth) / 32 ETH
+    4. Get balance going to withdraw validators. (width_eth)
+    5. Validators to withdraw - (width_eth - buff_eth - reward_eth - width_eth) / 32 ETH
 
     All calculations done in wei.
     """
+
+    # getConsensusHash()
 
     def __init__(self, web3: Web3, beacon_client: BeaconChainClient):
         logger.info({'msg': 'Initialize Ejector module'})
@@ -81,10 +84,13 @@ class Ejector(OracleModule):
         logger.info({'msg': 'Calculate wei in withdrawal queue.', 'value': amount_wei_to_withdraw})
 
         slots_to_exit = self._get_validators_exit_estimation_in_slots(slot, block_hash)
-        logger.info({'msg': 'Calculate predicted time to exit validator in seconds.', 'value': slots_to_exit * 12})
+        logger.info({'msg': 'Calculate predicted time to exit validator in seconds.', 'value': slots_to_exit})
 
         buffered_eth = self._get_buffered_eth(block_hash)
         logger.info({'msg': 'Calculate wei in buffer.', 'value': buffered_eth})
+
+        predicted_buffered_eth = self._get_predicted_buffered_eth(block_hash)
+        logger.info({'msg': 'Calculate predicted wei in buffer.', 'value': predicted_buffered_eth})
 
         el_rewards_eth = self._get_el_rewards(block_hash)
         logger.info({'msg': 'Calculate rewards.', 'value': el_rewards_eth})
@@ -107,13 +113,13 @@ class Ejector(OracleModule):
         current_ether = buffered_eth + el_rewards_eth + wc_balance + exiting_validators_balances + going_to_start_exit_validators_balance
         logger.info({'msg': 'Calculate ether that will be available to withdraw.', 'value': current_ether})
 
-        current_and_predicted_eth = current_ether + el_predicted_rewards + skimmed_predicted_rewards
+        predicted_eth = el_predicted_rewards + skimmed_predicted_rewards + predicted_buffered_eth
         logger.info({
             'msg': 'Calculate ether that will be available to withdraw in one day.',
-            'value': current_and_predicted_eth,
+            'value': predicted_eth,
         })
 
-        result = amount_wei_to_withdraw - current_and_predicted_eth
+        result = amount_wei_to_withdraw - (current_ether + predicted_eth)
         logger.info({'msg': 'Wei to eject.', 'value': result})
 
         return result
@@ -132,6 +138,10 @@ class Ejector(OracleModule):
 
         return min(reserved_buffered_eth, current_buffered_eth)
 
+    def _get_predicted_buffered_eth(self, block_hash: HexBytes) -> int:
+        # ToDo create strategy to predict income to buffer
+        return 0
+
     def _get_el_rewards(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
             self._get_el_reward_vault(block_hash),
@@ -145,16 +155,50 @@ class Ejector(OracleModule):
     def _get_predicted_el_rewards(self, block_hash: HexBytes, slots_in_future: int) -> int:
         block = self._w3.eth.get_block(block_identifier=block_hash)
 
+        el_vault = self._get_el_reward_vault(block_hash)
+
         current_balance = self._w3.eth.get_balance(
-            self._get_el_reward_vault(block_hash),
+            el_vault,
             block_identifier=block_hash,
         )
         old_balance = self._w3.eth.get_balance(
-            self._get_el_reward_vault(block_hash),
+            el_vault,
             block_identifier=block.number - slots_in_future,
         )
-        # TODO remove outcome eth
-        return current_balance - old_balance
+
+        outcome_eth = self._get_oracle_withdraw_from_vault(el_vault, slots_in_future)
+
+        result = current_balance - old_balance + outcome_eth
+
+        if result < 0:
+            logger.error({'msg': 'Income result is negative.', 'value': result})
+            UNEXPECTED_BEHAVIOUR.inc()
+            result = 0
+
+        return result
+
+    def get_predicted_income_for_address(self, vault_address: str, block_hash: HexBytes, slots_in_future: int) -> int:
+        block = self._w3.eth.get_block(block_identifier=block_hash)
+
+        current_balance = self._w3.eth.get_balance(
+            vault_address,
+            block_identifier=block_hash,
+        )
+        old_balance = self._w3.eth.get_balance(
+            vault_address,
+            block_identifier=block.number - slots_in_future,
+        )
+
+        outcome_eth = self._get_oracle_withdraw_from_vault(vault_address, slots_in_future)
+
+        result = current_balance - old_balance + outcome_eth
+
+        return result
+
+    def _get_oracle_withdraw_from_vault(self, vault: str, slots_in_future: int):
+        # TODO somehow calculate outcome eth in Oracle transaction
+        # Parse Complete oracle transaction and check outcome eth from vault
+        return 0
 
     def _get_wc_balance(self, block_hash: HexBytes) -> int:
         return self._w3.eth.get_balance(
@@ -165,7 +209,8 @@ class Ejector(OracleModule):
     def _get_predicted_skimmed_rewards(self, block_hash: HexBytes, slots_in_future: int) -> int:
         return 0
 
-    def _get_wc_address(self, block_hash: HexBytes):
+    @lru_cache(maxsize=2)
+    def _get_wc_address(self, block_hash: HexBytes) -> str:
         wc = contracts.lido.functions.getWithdrawalCredentials().call(block_identifier=block_hash)
 
         address = self._w3.toChecksumAddress('0x' + wc.hex()[-40:])

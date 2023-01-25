@@ -2,7 +2,7 @@ import json
 
 from web3 import Web3
 
-from src.variables import LIDO_CONTRACT_ADDRESS, MERKLE_PRICE_ORACLE_CONTRACT
+from src.variables import LIDO_CONTRACT_ADDRESS
 
 
 class Contracts:
@@ -25,7 +25,6 @@ class Contracts:
         )
 
         self.oracle = w3.eth.contract(
-            # address='0xa71CC47158c15d5D8b3Af4c6390e8608d08c2994',
             address=self.lido.functions.getOracle().call(),
             abi=self._load_abi(abi_path, 'LidoOracle'),
         )
@@ -35,11 +34,13 @@ class Contracts:
             abi=self._load_abi(abi_path, 'LidoExecutionLayerRewardsVault'),
         )
 
+        # ToDo get it from lido contract
         self.validator_exit_bus = w3.eth.contract(
             address='0x8CEE98e5748591d8562d4897c8Bbd244eD51B2eC',
             abi=self._load_abi(abi_path, 'ValidatorExitBus'),
         )
 
+        # ToDo get it from lido contract
         self.withdrawal_queue = w3.eth.contract(
             address='0x8D2C7a3C98064E1B79374d8146A662d8C643A972',
             abi=self._load_abi(abi_path, 'WithdrawalQueue'),

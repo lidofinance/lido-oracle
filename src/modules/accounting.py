@@ -1,16 +1,15 @@
 import logging
 import time
 from collections import defaultdict
+from functools import lru_cache
 from typing import Tuple, Union, List
 
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.types import TxParams
 
-from src.contract_utils.frame import is_current_epoch_reportable, get_latest_reportable_epoch
-from src.contract_utils.lido_keys import get_lido_validators, get_lido_node_operators
-from src.contract_utils.withdrawal_queue import get_withdrawal_requests_wei_amount
-from src.contracts import contracts
+from src.blockchain.frame import is_current_epoch_reportable, get_latest_reportable_epoch
+from src.modules.services.withdrawal_queue import get_withdrawal_requests_wei_amount
+from src.blockchain import contracts
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_ACTIVE_VALIDATORS,
     ACCOUNTING_VALIDATORS_BALANCE,
@@ -21,9 +20,9 @@ from src.metrics.prometheus.accounting import (
 )
 from src.modules.interface import OracleModule
 from src.providers.beacon import BeaconChainClient
-from src.web3_utils.tx_execution import check_transaction, sign_and_send_transaction
+from src.blockchain.tx_execution import check_transaction, sign_and_send_transaction
 
-from src.web3_utils.typings import SlotNumber, MergedLidoValidator
+from src.typings import SlotNumber, MergedLidoValidator
 
 from src.variables import GAS_LIMIT, ACCOUNT
 
@@ -32,7 +31,32 @@ logger = logging.getLogger(__name__)
 
 
 class Accounting(OracleModule):
-    """Calculates total lido validators balance and reports it to execution layer"""
+    """
+    **Accounting** - Makes decisions about protocol day-to-day operations.
+    - How much balance on Consensus Layer.
+    - How much Lido validators running and exited.
+    - How much ETH do we have to fulfill withdrawal requests.
+    - How much ETH we should block on deposit contract for withdrawals.
+
+    Report goes in two phases:
+    - Send report's data hash and get quorum.
+    - Send actual data.
+
+    Hash interface:
+        "epochId"                           | "uint256"
+        "reportHash"                        | "bytes32"
+
+    Report interface:
+        "beaconValidators"                  | "uint256"
+        "beaconBalanceGwei"                 | "uint64"
+        "stakingModules"                    | "address[]"
+        "nodeOperatorsWithExitedValidators" | "uint256[]"
+        "exitedValidatorsNumbers"           | "uint256[]"
+        "withdrawalVaultBalance"            | "uint256"
+        "withdrawalsReserveAmount"          | "uint256"
+        "requestIdToFinalizeUpTo"           | "uint256[]"
+        "finalizationShareRates"            | "uint256[]"
+    """
 
     def __init__(self, web3: Web3, beacon_chain_client: BeaconChainClient):
         logger.info({'msg': 'Initialize Oracle Accounting Module.'})
@@ -40,9 +64,10 @@ class Accounting(OracleModule):
         self._w3 = web3
         self._beacon_chain_client = beacon_chain_client
 
-        self._update_beacon_specs()
+        self._update_beacon_specs('latest')
 
-    def _update_beacon_specs(self, block_identifier: Union[str, HexBytes] = 'latest'):
+    @lru_cache(maxsize=1)
+    def _update_beacon_specs(self, block_identifier: Union[str, HexBytes]):
         (
             self.epochs_per_frame,
             self.slots_per_epoch,
@@ -58,6 +83,10 @@ class Accounting(OracleModule):
         })
 
     def run_module(self, slot: SlotNumber, block_hash: HexBytes):
+        """
+        Oracle smart
+        """
+        """Check report status"""
         """Check if epoch is reportable and try to send report if it is."""
         self._update_beacon_specs(block_identifier=block_hash)
 
@@ -85,19 +114,20 @@ class Accounting(OracleModule):
         return SlotNumber(int(slot['message']['slot'])), slot['message']['body']['execution_payload']['block_hash']
 
     # -----------------------------------------------------------------------
-    def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> TxParams:
+    @lru_cache(maxsize=1)
+    def build_report(self, slot: SlotNumber, block_hash: HexBytes) -> Tuple:
         """
         function handleCommitteeMemberReport(
-            {"internalType":"uint256","name":"epochId","type":"uint256"},
-            {"internalType":"uint256","name":"beaconValidators","type":"uint256"},
-            {"internalType":"uint64","name":"beaconBalanceGwei","type":"uint64"},
-            {"internalType":"address[]","name":"stakingModules","type":"address[]"},
-            {"internalType":"uint256[]","name":"nodeOperatorsWithExitedValidators","type":"uint256[]"},
-            {"internalType":"uint256[]","name":"exitedValidatorsNumbers","type":"uint256[]"},
-            {"internalType":"uint256","name":"withdrawalVaultBalance","type":"uint256"},
-            {"internalType":"uint256","name":"withdrawalsReserveAmount","type":"uint256"},
-            {"internalType":"uint256[]","name":"requestIdToFinalizeUpTo","type":"uint256[]"},
-            {"internalType":"uint256[]","name":"finalizationShareRates","type":"uint256[]"}
+            {"internalType":"uint256","name":"epochId"|"uint256"},
+            {"internalType":"uint256","name":"beaconValidators"|"uint256"},
+            {"internalType":"uint64","name":"beaconBalanceGwei"|"uint64"},
+            {"internalType":"address[]","name":"stakingModules"|"address[]"},
+            {"internalType":"uint256[]","name":"nodeOperatorsWithExitedValidators"|"uint256[]"},
+            {"internalType":"uint256[]","name":"exitedValidatorsNumbers"|"uint256[]"},
+            {"internalType":"uint256","name":"withdrawalVaultBalance"|"uint256"},
+            {"internalType":"uint256","name":"withdrawalsReserveAmount"|"uint256"},
+            {"internalType":"uint256[]","name":"requestIdToFinalizeUpTo"|"uint256[]"},
+            {"internalType":"uint256[]","name":"finalizationShareRates"|"uint256[]"}
         ) external;
         """
         beacon_validators_count, beacon_validators_balance = self._get_beacon_validators_stats(slot, block_hash)
@@ -142,8 +172,20 @@ class Accounting(OracleModule):
         if last_requests_id_to_finalize:
             LAST_FINALIZED_WITHDRAWAL_REQUEST.set(last_requests_id_to_finalize[-1])
 
-        transaction = contracts.oracle.functions.handleCommitteeMemberReport((
-            int(slot / self.slots_per_epoch),
+        # transaction = contracts.oracle.functions.handleCommitteeMemberReport((
+        #     int(slot / self.slots_per_epoch),
+        #     beacon_validators_count,
+        #     beacon_validators_balance,
+        #     stacking_module_ids,
+        #     no_operators,
+        #     exited_validators,
+        #     wc_balance,
+        #     wei_to_reserve,
+        #     last_requests_id_to_finalize,
+        #     finalization_shares_amount,
+        # ))
+
+        return (
             beacon_validators_count,
             beacon_validators_balance,
             stacking_module_ids,
@@ -153,9 +195,7 @@ class Accounting(OracleModule):
             wei_to_reserve,
             last_requests_id_to_finalize,
             finalization_shares_amount,
-        ))
-
-        return transaction
+        )
 
     def _get_beacon_validators_stats(self, slot: SlotNumber, block_hash: HexBytes) -> Tuple[int, int]:
         # Should return balance in gwei!

@@ -61,7 +61,13 @@ TX_SEND = Counter(
 )
 
 TX_FAILURE = Counter(
-    f'tx_failure',
-    f'Tx failures.',
+    'tx_failure',
+    'Tx failures.',
+    namespace=PREFIX,
+)
+
+UNEXPECTED_BEHAVIOUR = Counter(
+    'unexpected_behaviour',
+    'Unexpected behaviour. Check logs.',
     namespace=PREFIX,
 )

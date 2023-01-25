@@ -2,7 +2,7 @@ import logging
 
 from hexbytes import HexBytes
 
-from src.contracts import contracts
+from src.blockchain.contracts import contracts
 
 
 logger = logging.getLogger(__name__)
