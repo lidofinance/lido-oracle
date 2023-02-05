@@ -2,6 +2,10 @@ name: Tests
 
 on: [push]
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,28 +13,30 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Python 3.9
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: "3.10"
 
     - name: Setup poetry
       run: |
         curl -sSL https://install.python-poetry.org | python - && echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
       env:
         POETRY_HOME: "/opt/poetry"
-        POETRY_VERSION: 1.1.13
+        POETRY_VERSION: 1.2.2
 
     - name: Install dependencies
       run: |
-        poetry install --no-interaction
+        poetry install --no-interaction --with=dev
 
     - name: Lint
       run: ./check_code.sh
       continue-on-error: true
 
     - name: Test with pytest
-      run: poetry run ./run_tests.sh
+      run: poetry run pytest tests
+      env:
+        LIDO_CONTRACT_ADDRESS: "0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F"
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
