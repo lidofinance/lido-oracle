@@ -3,7 +3,7 @@ import json
 
 from requests import Session
 
-from app.review.beacon import BeaconChainClient
+from app.review.beacon import ConsensusClient
 
 with open('tests/responses.json', 'r') as file:
     responses = json.load(file)
@@ -78,12 +78,12 @@ def bad_requests(monkeypatch):
 
 
 def test_finalized_epoch(lighthouse_requests):
-    beacon = BeaconChainClient('localhost', 1)
+    beacon = ConsensusClient('localhost', 1)
     result = beacon.get_finalized_epoch()
     assert result == 23714
 
 
 def test_balance(lighthouse_requests):
-    beacon = BeaconChainClient('localhost', 1)
+    beacon = ConsensusClient('localhost', 1)
     result = beacon.get_balances(10, key_list)
     assert result == (445738262310000000000, 4, 221738262310000000000)

@@ -9,11 +9,11 @@ from web3.types import TxParams
 
 from src.blockchain.frame import is_current_epoch_reportable
 from src.providers.lido_keys import get_lido_validators
-from src.modules.services.withdrawal_queue import get_withdrawal_requests_wei_amount
+from old_code.withdrawal_queue import get_withdrawal_requests_wei_amount
 from src.blockchain import contracts
 from src.metrics.prometheus.basic import UNEXPECTED_BEHAVIOUR
 from src.modules.interface import OracleModule
-from src.providers.beacon import BeaconChainClient
+from src.providers.beacon import ConsensusClient
 from src.blockchain.tx_execution import check_transaction, sign_and_send_transaction
 
 from src.typings import SlotNumber, MergedLidoValidator, ValidatorStatus
@@ -41,7 +41,7 @@ class Ejector(OracleModule):
 
     # getConsensusHash()
 
-    def __init__(self, web3: Web3, beacon_client: BeaconChainClient):
+    def __init__(self, web3: Web3, beacon_client: ConsensusClient):
         logger.info({'msg': 'Initialize Ejector module'})
         self._w3 = web3
         self._beacon_chain_client = beacon_client
@@ -296,7 +296,6 @@ class Ejector(OracleModule):
                 lambda val: int(val['validator']['index']) > last_validator_index,
                 operators_validators[module_id, node_operator],
             ))
-
 
         while True:
             max_using_validators_by_no = 0

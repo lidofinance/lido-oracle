@@ -8,9 +8,9 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 from src.blockchain.frame import is_current_epoch_reportable, get_latest_reportable_epoch
-from src.modules.services.withdrawal_queue import get_withdrawal_requests_wei_amount
+from old_code.withdrawal_queue import get_withdrawal_requests_wei_amount
 from src.blockchain import contracts
-from src.metrics.prometheus.accounting import (
+from old_code.metrics.accounting import (
     ACCOUNTING_ACTIVE_VALIDATORS,
     ACCOUNTING_VALIDATORS_BALANCE,
     ACCOUNTING_EXITED_VALIDATORS,
@@ -18,8 +18,7 @@ from src.metrics.prometheus.accounting import (
     LAST_FINALIZED_WITHDRAWAL_REQUEST,
     WEI_TO_RESERVE,
 )
-from src.modules.interface import OracleModule
-from src.providers.beacon import BeaconChainClient
+from src.providers.beacon import ConsensusClient
 from src.blockchain.tx_execution import check_transaction, sign_and_send_transaction
 
 from src.typings import SlotNumber, MergedLidoValidator
@@ -30,7 +29,7 @@ from src.variables import GAS_LIMIT, ACCOUNT
 logger = logging.getLogger(__name__)
 
 
-class Accounting(OracleModule):
+class Accounting:
     """
     **Accounting** - Makes decisions about protocol day-to-day operations.
     - How much balance on Consensus Layer.
@@ -54,11 +53,12 @@ class Accounting(OracleModule):
         "exitedValidatorsNumbers"           | "uint256[]"
         "withdrawalVaultBalance"            | "uint256"
         "withdrawalsReserveAmount"          | "uint256"
+
         "requestIdToFinalizeUpTo"           | "uint256[]"
         "finalizationShareRates"            | "uint256[]"
     """
 
-    def __init__(self, web3: Web3, beacon_chain_client: BeaconChainClient):
+    def __init__(self, web3: Web3, beacon_chain_client: ConsensusClient):
         logger.info({'msg': 'Initialize Oracle Accounting Module.'})
 
         self._w3 = web3

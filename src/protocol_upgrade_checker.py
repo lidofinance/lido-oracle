@@ -19,14 +19,14 @@ def wait_for_withdrawals(w3: Web3):
 
         lido = w3.eth.contract(
             address=variables.LIDO_CONTRACT_ADDRESS,
-            abi=contracts._load_abi('./assets/', 'Lido'),
+            abi=contracts.load_abi('Lido'),
         )
 
         oracle_address = lido.functions.getOracle().call()
 
         oracle = w3.eth.contract(
             address=oracle_address,
-            abi=contracts._load_abi('./assets/', 'LidoOracle')
+            abi=contracts.load_abi('LidoOracle')
         )
 
         # 0 is old Oracle Contract version

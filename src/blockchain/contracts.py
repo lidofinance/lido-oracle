@@ -11,50 +11,38 @@ class Contracts:
     lido_execution_layer_rewards_vault = None
     validator_exit_bus = None
     withdrawal_queue = None
-    pool = None
 
     @staticmethod
-    def _load_abi(abi_path, abi_name):
+    def load_abi(abi_name: str, abi_path: str = './assets/'):
         f = open(f'{abi_path}{abi_name}.json')
         return json.load(f)
 
     def initialize(self, w3: Web3, abi_path='./assets/'):
         self.lido = w3.eth.contract(
             address=LIDO_CONTRACT_ADDRESS,
-            abi=self._load_abi(abi_path, 'Lido'),
+            abi=self.load_abi('Lido'),
         )
 
         self.oracle = w3.eth.contract(
             address=self.lido.functions.getOracle().call(),
-            abi=self._load_abi(abi_path, 'LidoOracle'),
+            abi=self.load_abi('LidoOracle'),
         )
 
         self.lido_execution_layer_rewards_vault = w3.eth.contract(
             address=self.lido.functions.getELRewardsVault().call(),
-            abi=self._load_abi(abi_path, 'LidoExecutionLayerRewardsVault'),
+            abi=self.load_abi('LidoExecutionLayerRewardsVault'),
         )
 
-        # ToDo get it from lido contract
-        self.validator_exit_bus = w3.eth.contract(
-            address='0x8CEE98e5748591d8562d4897c8Bbd244eD51B2eC',
-            abi=self._load_abi(abi_path, 'ValidatorExitBus'),
-        )
-
-        # ToDo get it from lido contract
-        self.withdrawal_queue = w3.eth.contract(
-            address='0x8D2C7a3C98064E1B79374d8146A662d8C643A972',
-            abi=self._load_abi(abi_path, 'WithdrawalQueue'),
-        )
-
-        # self.pool = w3.eth.contract(
-        #     address=self.oracle.functions.pool().call(),
-        #     address=self.oracle.functions.pool().call(),
-        #     abi=self._load_abi(abi_path, 'Pool'),
+        # # ToDo get it from lido contract
+        # self.validator_exit_bus = w3.eth.contract(
+        #     address='0x8CEE98e5748591d8562d4897c8Bbd244eD51B2eC',
+        #     abi=self.load_abi('ValidatorExitBus'),
         # )
-
-        # self.merkle_price_oracle = w3.eth.contract(
-        #     address=MERKLE_PRICE_ORACLE_CONTRACT,
-        #     abi=self._load_abi(abi_path, 'StableSwapStateOracle'),
+        #
+        # # ToDo get it from lido contract
+        # self.withdrawal_queue = w3.eth.contract(
+        #     address='0x8D2C7a3C98064E1B79374d8146A662d8C643A972',
+        #     abi=self.load_abi(abi_path, 'WithdrawalQueue'),
         # )
 
 

@@ -40,7 +40,6 @@ WC_BALANCE = Gauge(
     f'{MODULE_NAME}Total Withdrawal Credential balance.',
     namespace=PREFIX,
 )
-
 LAST_FINALIZED_WITHDRAWAL_REQUEST = Gauge(
     f'{MODULE_PREFIX}last_finalized_withdrawal_request',
     f'{MODULE_NAME}Last finalized withdrawal request.',
