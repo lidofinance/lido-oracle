@@ -9,15 +9,16 @@ from src.metrics.logging import logging
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.protocol_upgrade_checker import wait_for_withdrawals
-from src.typings import OracleModule, Web3
+from src.typings import OracleModule
 from src.web3_extentions import (
     LidoContracts,
     TransactionUtils,
     ConsensusClientModule,
     KeysAPIClientModule,
     metrics_collector,
+    LidoValidatorsProvider,
 )
-
+from src.web3_extentions.typings import Web3
 
 logger = logging.getLogger()
 
@@ -51,6 +52,7 @@ if __name__ == '__main__':
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,
+        'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3),
         'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, web3),

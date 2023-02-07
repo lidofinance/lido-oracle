@@ -1,7 +1,7 @@
 import logging
 import time
 
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 
 from src import variables
 from src.metrics.healthcheck_server import pulse

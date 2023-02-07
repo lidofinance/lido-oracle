@@ -3,7 +3,7 @@ import time
 from abc import abstractmethod, ABC
 
 from timeout_decorator import timeout
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables

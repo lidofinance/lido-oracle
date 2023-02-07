@@ -2,7 +2,8 @@ from web3.types import Wei
 
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
-from src.typings import BlockStamp, Web3
+from src.typings import BlockStamp
+from src.web3_extentions.typings import Web3
 
 
 class Ejector(BaseModule, ConsensusModule):

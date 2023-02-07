@@ -1,4 +1,4 @@
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 
 
 class BunkerService:

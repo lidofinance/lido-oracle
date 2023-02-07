@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Optional, TypedDict, Tuple
 
 from eth_typing import Address
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 from web3.contract import Contract
 
 from src import variables

@@ -1,4 +1,4 @@
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 from web3.types import Wei
 
 from src.typings import BlockStamp

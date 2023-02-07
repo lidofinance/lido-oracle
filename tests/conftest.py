@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from src.typings import Web3
+from src.web3_extentions.typings import Web3
 from web3.providers import JSONBaseProvider
 
 from src import variables

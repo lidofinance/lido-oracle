@@ -3,7 +3,7 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from requests import Response, HTTPError
-from src.typings import Web3
+from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
 from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS_DURATION, ETH1_RPC_REQUESTS

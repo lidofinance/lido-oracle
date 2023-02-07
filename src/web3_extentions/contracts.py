@@ -1,6 +1,6 @@
 import json
 
-from src.typings import Web3
+from web3 import Web3
 from web3.module import Module
 
 from src import variables
