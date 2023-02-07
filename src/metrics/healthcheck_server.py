@@ -1,4 +1,3 @@
-import os
 import threading
 from datetime import datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, HTTPServer
@@ -6,6 +5,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 import requests
 
 from src import variables
+
 
 _last_pulse = datetime.now()
 

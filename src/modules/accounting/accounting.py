@@ -1,18 +1,16 @@
 import logging
 
 from src.modules.submodules.consensus import ConsensusModule
-from src.blockchain.contracts import contracts
 from src.modules.submodules.oracle_module import BaseModule
-from src.typings import BlockStamp
-
+from src.typings import BlockStamp, Web3
 
 logger = logging.getLogger(__name__)
 
 
 class Accounting(BaseModule, ConsensusModule):
-    def __init__(self, *args, **kwargs):
-        self.report_contract = contracts.oracle
-        super().__init__(*args, **kwargs)
+    def __init__(self, w3: Web3):
+        self.report_contract = w3.lido_contracts.oracle
+        super().__init__(w3)
 
     def execute_module(self, blockstamp: BlockStamp):
         """

@@ -3,17 +3,21 @@ import time
 from abc import abstractmethod, ABC
 
 from timeout_decorator import timeout
+from src.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
-from src import variables, constants
+from src import variables
 from src.metrics.prometheus.basic import EXCEPTIONS_COUNT
-from src.modules.submodules.provider import ProviderModule
 from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber
 
 logger = logging.getLogger(__name__)
 
 
-class BaseModule(ProviderModule, ABC):
+# Sleep before new cycle begins
+DEFAULT_SLEEP = 15
+
+
+class BaseModule(ABC):
     """
     Base sceleton for Oracle modules.
 
@@ -29,6 +33,9 @@ class BaseModule(ProviderModule, ABC):
     """
     _previous_finalized_slot_number = SlotNumber(0)
 
+    def __init__(self, w3: Web3):
+        self.w3 = w3
+
     def run_as_daemon(self):
         while True:
             self._cycle_handler()
@@ -42,11 +49,11 @@ class BaseModule(ProviderModule, ABC):
             self.run_cycle(blockstamp)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
-        slot_root = StateRoot(self._cc.get_block_root('finalized')['root'])
-        slot_details = self._cc.get_block_details(slot_root)
+        slot_root = StateRoot(self.w3.cc.get_block_root('finalized')['root'])
+        slot_details = self.w3.cc.get_block_details(slot_root)
         slot_number = SlotNumber(int(slot_details['message']['slot']))
         # Get EL block data
-        execution_payload = self._cc.get_block_details(slot_root)['message']['body']['execution_payload']
+        execution_payload = self.w3.cc.get_block_details(slot_root)['message']['body']['execution_payload']
         block_hash = BlockHash(execution_payload['block_hash'])
         block_number = BlockNumber(int(execution_payload['block_number']))
         return BlockStamp(
@@ -70,14 +77,14 @@ class BaseModule(ProviderModule, ABC):
             raise ConnectionError from error
         except ValueError as error:
             logger.error({"msg": error.args, "error": str(error)})
-            time.sleep(constants.DEFAULT_SLEEP)
+            time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         except Exception as error:
             logger.warning({"msg": "Unexpected exception.", "error": str(error)})
-            time.sleep(constants.DEFAULT_SLEEP)
+            time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         else:
-            time.sleep(constants.DEFAULT_SLEEP)
+            time.sleep(DEFAULT_SLEEP)
 
     @abstractmethod
     def execute_module(self, blockstamp: BlockStamp):

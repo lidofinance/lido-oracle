@@ -1,14 +1,9 @@
-from web3 import Web3
-
-from src.providers.consensus.client import ConsensusClient
-from src.providers.keys.client import KeysAPIClient
+from src.typings import Web3
 
 
 class BunkerService:
-    def __init__(self, web3: Web3, cc: ConsensusClient, kac: KeysAPIClient):
-        self._w3 = web3
-        self._cc = cc
-        self._kac = kac
+    def __init__(self, w3: Web3):
+        self.w3 = w3
 
     def is_bunker_mode(self) -> bool:
         pass

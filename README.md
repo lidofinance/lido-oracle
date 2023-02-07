@@ -1,4 +1,47 @@
-# Lido-Oracle daemon
+# <img src="https://docs.lido.fi/img/logo.svg" alt="Lido" width="46"/> Lido Oracle
+
+[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+# Development
+
+Python version: 3.11
+
+## Setup
+
+1. Setup poetry
+2. Install dependencies
+```bash
+poetry install
+```
+
+## Startup
+
+Required variables
+```bash
+export EXECUTION_CLIENT_URI=...
+export CONSENSUS_CLIENT_URI=...
+export KEYS_API_URI=...
+export LIDO_LOCATOR_ADDRESS=...
+```
+Run oracle module
+```bash
+poetry run python -m src.main {module}
+```
+
+Modules:
+- accounting
+- ejector
+
+## Tests
+
+[Testing guide](/tests)
+
+```bash
+petry run pytest .
+```
+
+# Lido-Oracle daemon (deprecated)
 
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)

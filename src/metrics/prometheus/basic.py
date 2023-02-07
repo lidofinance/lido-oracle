@@ -6,7 +6,6 @@ from prometheus_client import Gauge, Histogram, Counter
 PREFIX = os.getenv('PROMETHEUS_PREFIX', 'lido_oracle')
 
 
-# TODO
 BUILD_INFO = Gauge(
     'build_info',
     'Build info',
@@ -14,7 +13,6 @@ BUILD_INFO = Gauge(
     namespace=PREFIX,
 )
 
-# TODO
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
     'Account balance',

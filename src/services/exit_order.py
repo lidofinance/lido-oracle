@@ -1,4 +1,4 @@
-from web3 import Web3
+from src.typings import Web3
 
 from src.providers.consensus.client import ConsensusClient
 from src.typings import BlockStamp

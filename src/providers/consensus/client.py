@@ -38,7 +38,6 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
         return data
 
-
     @lru_cache(maxsize=1)
     def get_validators(self, state_id: Union[str, SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> List[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""

@@ -2,13 +2,13 @@ import pytest
 from hexbytes import HexBytes
 
 from src import modules
-from src.modules.accounting import Accounting
-from src.web3_utils.typings import SlotNumber
+from src.modules.accounting.accounting import Accounting
+from src.typings import SlotNumber
 
 
 @pytest.fixture()
-def accounting(web3, beacon_client, provider):
-    return Accounting(web3, beacon_client)
+def accounting(web3, provider):
+    return Accounting(web3)
 
 
 @pytest.mark.unit

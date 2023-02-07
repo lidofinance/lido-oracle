@@ -1,10 +1,13 @@
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import TypedDict, NewType
 
 from hexbytes import HexBytes
+from web3 import Web3 as _Web3
+
+from src.web3_extentions import LidoContracts, TransactionUtils, ConsensusClientModule, KeysAPIClientModule
 
 
-class Module(StrEnum):
+class OracleModule(StrEnum):
     ACCOUNTING = 'accounting'
     EJECTOR = 'ejector'
 
@@ -25,49 +28,9 @@ class BlockStamp(TypedDict):
     block_number: BlockNumber
 
 
-# ---- review -----
-# class ValidatorGroup:
-#     PENDING = [
-#         ValidatorStatus.PENDING_INITIALIZED,
-#         ValidatorStatus.PENDING_QUEUED,
-#     ]
-#
-#     ACTIVE = [
-#         ValidatorStatus.ACTIVE_ONGOING,
-#         ValidatorStatus.ACTIVE_EXITING,
-#         ValidatorStatus.ACTIVE_SLASHED,
-#     ]
-#
-#     EXITED = [
-#         ValidatorStatus.EXITED_UNSLASHED,
-#         ValidatorStatus.EXITED_SLASHED,
-#     ]
-#
-#     WITHDRAWAL = [
-#         ValidatorStatus.WITHDRAWAL_POSSIBLE,
-#         ValidatorStatus.WITHDRAWAL_DONE,
-#     ]
-#
-#     # Used to calculate balance for ejection
-#     GOING_TO_EXIT = [
-#         ValidatorStatus.ACTIVE_EXITING,
-#         ValidatorStatus.ACTIVE_SLASHED,
-#         ValidatorStatus.EXITED_SLASHED,
-#         ValidatorStatus.EXITED_UNSLASHED,
-#         ValidatorStatus.WITHDRAWAL_POSSIBLE,
-#     ]
-# # class ModifiedOperator(Operator):
-# class ModifiedOperator():
-#     """TODO: Remove as soon as lido_sdk will support module_id"""
-#     module_id: str
-#
-#
-# # class ModifiedOperatorKey(OperatorKey):
-# class ModifiedOperatorKey():
-#     """TODO: Remove as soon as lido_sdk will support module_id"""
-#     module_id: str
-#
-#
-# class MergedLidoValidator(TypedDict):
-#     validator: Validator
-#     key: ModifiedOperatorKey
+# Do not import those to avoid circular import
+class Web3(_Web3):
+    lido_contracts: LidoContracts
+    transaction: TransactionUtils
+    cc: ConsensusClientModule
+    kac: KeysAPIClientModule

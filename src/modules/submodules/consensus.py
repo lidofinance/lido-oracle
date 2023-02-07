@@ -4,11 +4,10 @@ from functools import lru_cache
 from typing import Optional, TypedDict, Tuple
 
 from eth_typing import Address
+from src.typings import Web3
 from web3.contract import Contract
 
 from src import variables
-from src.blockchain.contracts import Contracts
-from src.modules.submodules.provider import ProviderModule
 from src.typings import BlockStamp, SlotNumber
 
 
@@ -28,7 +27,7 @@ class MemberInfo(TypedDict):
     deadline_slot: SlotNumber
 
 
-class ConsensusModule(ProviderModule, ABC):
+class ConsensusModule(ABC):
     """
     Calculates ref_slot to report for Oracle.
     Returns one of
@@ -45,17 +44,17 @@ class ConsensusModule(ProviderModule, ABC):
     """
     report_contract: Contract = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, w3: Web3):
+        self.w3 = w3
 
         if self.report_contract is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
-        return self._w3.eth.contract(
+        return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
-            abi=Contracts.load_abi('LidoOracle'),
+            abi=self.w3.lido_contracts.load_abi('LidoOracle'),
         )
 
     @lru_cache(maxsize=1)
@@ -122,12 +121,12 @@ class ConsensusModule(ProviderModule, ABC):
 
         for i in range(slot, slot - epoch_per_frame * 32, -1):
             try:
-                root = self._cc.get_block_root(slot)['root']
+                root = self.w3.cc.get_block_root(slot)['root']
             except KeyError:
                 logger.warning({'msg': f'Missed slot: {slot}. Check next slot.'})
                 continue
 
-            slot_details = self._cc.get_block_details(root)['message']['body']['execution_payload']
+            slot_details = self.w3.cc.get_block_details(root)['message']['body']['execution_payload']
 
             execution_data = slot_details['message']['body']['execution_payload']
 

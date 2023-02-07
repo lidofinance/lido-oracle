@@ -17,14 +17,13 @@ if MEMBER_PRIV_KEY:
 
 
 # - App specific -
-LIDO_CONTRACT_ADDRESS = os.getenv('LIDO_CONTRACT_ADDRESS')
-
+LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_CONTRACT_ADDRESS')
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 2_000_000))
 
 
 # - Metrics -
 PROMETHEUS_PORT = int(os.getenv('PROMETHEUS_PORT', 9000))
-PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "steth_price_balancer")
+PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 HEALTHCHECK_SERVER_PORT = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 

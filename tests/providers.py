@@ -9,7 +9,7 @@ from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 from web3_multi_provider import MultiProvider
 
-from src.providers.beacon import BeaconChainClient
+from src.providers.http_provider import HTTPProvider
 
 
 class ResponseToFileProvider(MultiProvider):
@@ -76,7 +76,7 @@ class MockProvider(JSONBaseProvider):
         self.responses = {}
 
 
-class ResponseToFileBeaconChainClient(BeaconChainClient):
+class ResponseToFileHTTPClient(HTTPProvider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.responses = []
@@ -94,7 +94,7 @@ class ResponseToFileBeaconChainClient(BeaconChainClient):
             json.dump(self.responses, f, indent=2)
 
 
-class ResponseFromFileBeaconChainClient(BeaconChainClient):
+class ResponseFromFileHTTPClient(HTTPProvider):
     responses: list[dict[str, Any]]
 
     def __init__(self, mock_path: Path, *args, **kwargs):

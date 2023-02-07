@@ -2,11 +2,9 @@ from functools import lru_cache
 from typing import List, Dict, Tuple, TypedDict
 
 from eth_typing import Address
-from web3 import Web3
+from web3.module import Module
 
-from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.typings import Validator
-from src.providers.keys.client import KeysAPIClient
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 
@@ -54,23 +52,28 @@ class NodeOperator(TypedDict):
 NodeOperatorIndex = Tuple[Address, int]
 
 
-class LidoValidatorsService:
-    def __init__(self, web3: Web3, cc: ConsensusClient, kac: KeysAPIClient):
-        self._w3 = web3
-        self._cc = cc
-        self._kac = kac
-
+class LidoValidatorsProvider(Module):
     @lru_cache(maxsize=1)
     def get_lido_validators(self, blockstamp: BlockStamp) -> List[LidoValidator]:
-        lido_keys = self._kac.get_all_lido_keys(blockstamp)
-        validators = self._cc.get_validators(blockstamp['state_root'])
+        lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
+        validators = self.w3.cc.get_validators(blockstamp['state_root'])
 
-        pass
+        return self._merge_validators(lido_keys, validators)
 
+    @staticmethod
+    def _merge_validators(keys: List[LidoKey], validators: List[Validator]) -> List[LidoValidator]:
+        """Merging and filter non-lido validators."""
+        validators_keys_dict = {validator['validator']['pubkey']: validator for validator in validators}
 
+        lido_validators = []
 
-    def _merge_validators(self, keys: List[LidoKey], validators: List[Validator]):
-        pass
+        for key in keys:
+            lido_validators.append(LidoValidator(
+                key=key,
+                validator=validators_keys_dict[key['key']],
+            ))
+
+        return lido_validators
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> Dict[NodeOperatorIndex, LidoValidator]:
