@@ -65,12 +65,15 @@ def web3(provider) -> Web3:
     if isinstance(provider, MockProvider):
         provider.add_mocks(eth_call_el_rewards_vault, eth_call_beacon_spec)
 
-    yield Web3(provider, external_modules={
-        'lido_contracts': LidoContracts,
-        'transaction': TransactionUtils,
-        'cc': lambda _w3: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, _w3),
-        'kac': lambda _w3: KeysAPIClientModule(variables.KEYS_API_URI, _w3),
-    })
+    yield Web3(
+        provider,
+        # external_modules={
+        #     'lido_contracts': LidoContracts,
+        #     'transaction': TransactionUtils,
+        #     'cc': lambda _w3: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, _w3),
+        #     'kac': lambda _w3: KeysAPIClientModule(variables.KEYS_API_URI, _w3),
+        # },
+    )
 
 
 @pytest.fixture()

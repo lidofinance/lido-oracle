@@ -3,7 +3,6 @@ from .contracts import LidoContracts
 from .keys_api import KeysAPIClientModule
 from .lido_validators import (
     LidoValidator,
-    NodeOperator,
     LidoValidatorsProvider,
 )
 from .middleware import metrics_collector
