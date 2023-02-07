@@ -46,6 +46,7 @@ class ValidatorStatus(Enum):
 
 
 class ValidatorState(TypedDict):
+    # All uint variables presents in str
     pubkey: str
     withdrawal_credentials: str
     effective_balance: str

@@ -13,7 +13,7 @@ from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumbe
 logger = logging.getLogger(__name__)
 
 
-class OracleModule(ProviderModule, ABC):
+class BaseModule(ProviderModule, ABC):
     """
     Base sceleton for Oracle modules.
 

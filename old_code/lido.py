@@ -17,6 +17,3 @@ class LidoKeys(ProviderModule, ABC):
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp):
         pass
-
-
-

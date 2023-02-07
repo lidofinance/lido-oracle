@@ -2,14 +2,14 @@ import logging
 
 from src.modules.submodules.consensus import ConsensusModule
 from src.blockchain.contracts import contracts
-from src.modules.submodules.oracle_module import OracleModule
+from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
 
 
 logger = logging.getLogger(__name__)
 
 
-class Accounting(OracleModule, ConsensusModule):
+class Accounting(BaseModule, ConsensusModule):
     def __init__(self, *args, **kwargs):
         self.report_contract = contracts.oracle
         super().__init__(*args, **kwargs)

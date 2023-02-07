@@ -3,8 +3,8 @@ from time import sleep
 from typing import List
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_REQUESTS
-from src.modules.submodules.lido import LidoKeys
 from src.providers.http_provider import HTTPProvider
+from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 
 
@@ -23,7 +23,7 @@ class KeysAPIClient(HTTPProvider):
     ALL_KEYS = 'v1/keys'
 
     @lru_cache(maxsize=1)
-    def get_all_lido_keys(self, blockstamp: BlockStamp) -> List[LidoKeys]:
+    def get_all_lido_keys(self, blockstamp: BlockStamp) -> List[LidoKey]:
         """
         Returns keys if blockstamp < blockNumber from response
         """
