@@ -7,10 +7,15 @@ from web3.providers import JSONBaseProvider
 
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI
 from src.typings import SlotNumber
-from src.web3_extentions import LidoContracts, LidoValidatorsProvider, TransactionUtils, KeysAPIClientModule
+from src.web3_extentions import LidoContracts
 from tests.mocks import chain_id_mainnet, eth_call_el_rewards_vault, eth_call_beacon_spec
-from tests.providers import ResponseToFileProvider, ResponseFromFile, MockProvider, ResponseToFileConsensusClientModule, \
-    ResponseFromFileConsensusClientModule
+from tests.providers import (
+    ResponseToFileProvider,
+    ResponseFromFile,
+    MockProvider,
+    ResponseToFileConsensusClientModule,
+    ResponseFromFileConsensusClientModule,
+)
 
 
 def pytest_addoption(parser):
