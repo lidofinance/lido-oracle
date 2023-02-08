@@ -5,11 +5,13 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional
 
+from web3 import Web3
+from web3.module import Module
 from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 from web3_multi_provider import MultiProvider
 
-from src.providers.http_provider import HTTPProvider
+from src.providers.consensus.client import ConsensusClient
 
 
 class ResponseToFileProvider(MultiProvider):
@@ -76,12 +78,24 @@ class MockProvider(JSONBaseProvider):
         self.responses = {}
 
 
-class ResponseToFileHTTPClient(HTTPProvider):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class ConsensusClientModule(ConsensusClient, Module):
+    def __init__(self, host: str, w3: Web3):
+        self.w3 = w3
+
+        super(ConsensusClient, self).__init__(host)
+        super(Module, self).__init__()
+
+
+class ResponseToFileConsensusClientModule(ConsensusClient, Module):
+    def __init__(self, host: str, w3: Web3):
+        self.w3 = w3
+
+        super().__init__(host)
+        super(Module, self).__init__()
+
         self.responses = []
 
-    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
+    def _get(self, url: str, params: Optional[dict] = None) -> tuple[dict | list, dict]:
         response = super()._get(url, params)
         self.responses.append({"url": url, "params": params, "response": response})
         return response
@@ -94,11 +108,13 @@ class ResponseToFileHTTPClient(HTTPProvider):
             json.dump(self.responses, f, indent=2)
 
 
-class ResponseFromFileHTTPClient(HTTPProvider):
+class ResponseFromFileConsensusClientModule(ConsensusClient, Module):
     responses: list[dict[str, Any]]
 
-    def __init__(self, mock_path: Path, *args, **kwargs):
+    def __init__(self, mock_path: Path, w3: Web3):
+        self.w3 = w3
         super().__init__(host="")
+        super(Module, self).__init__()
         if not mock_path.exists():
             self.responses = []
             return

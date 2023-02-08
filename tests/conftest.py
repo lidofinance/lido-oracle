@@ -2,18 +2,19 @@ from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from src.web3_extentions.typings import Web3
+from web3 import Web3
 from web3.providers import JSONBaseProvider
 
-from src import variables
+from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI
 from src.typings import SlotNumber
+from src.web3_extentions import LidoContracts
 from tests.mocks import chain_id_mainnet, eth_call_el_rewards_vault, eth_call_beacon_spec
 from tests.providers import (
     ResponseToFileProvider,
     ResponseFromFile,
     MockProvider,
-    ResponseToFileHTTPClient,
-    ResponseFromFileHTTPClient,
+    ResponseToFileConsensusClientModule,
+    ResponseFromFileConsensusClientModule,
 )
 
 
@@ -33,16 +34,16 @@ def responses_path(request: FixtureRequest) -> Path:
 
 @pytest.fixture()
 def response_to_file_provider(responses_path) -> ResponseToFileProvider:
-    provider = ResponseToFileProvider(variables.EXECUTION_CLIENT_URI)
+    provider = ResponseToFileProvider(EXECUTION_CLIENT_URI)
     yield provider
     provider.save_responses(responses_path)
 
 
 @pytest.fixture()
-def response_to_file_bc_client(responses_path) -> ResponseToFileHTTPClient:
-    client = ResponseToFileHTTPClient(variables.CONSENSUS_CLIENT_URI)
+def response_to_file_cl_client(web3, responses_path) -> ResponseToFileConsensusClientModule:
+    client = ResponseToFileConsensusClientModule(CONSENSUS_CLIENT_URI, web3)
     yield client
-    client.save_responses(responses_path.with_suffix('.bc.json'))
+    client.save_responses(responses_path.with_suffix('.cl.json'))
 
 
 @pytest.fixture()
@@ -64,24 +65,33 @@ def provider(request, responses_path) -> JSONBaseProvider:
 def web3(provider) -> Web3:
     if isinstance(provider, MockProvider):
         provider.add_mocks(eth_call_el_rewards_vault, eth_call_beacon_spec)
+    web3 = Web3(provider)
 
-    yield Web3(
-        provider,
-        # external_modules={
-        #     'lido_contracts': LidoContracts,
-        #     'transaction': TransactionUtils,
-        #     'cc': lambda _w3: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, _w3),
-        #     'kac': lambda _w3: KeysAPIClientModule(variables.KEYS_API_URI, _w3),
-        # },
-    )
+    # web3.attach_modules({
+    #     'lido_contracts': LidoContracts,
+    #     'lido_validators': LidoValidatorsProvider,
+    #     'transaction': TransactionUtils,
+    #     'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, web3),
+    # })
+
+    yield web3
 
 
 @pytest.fixture()
-def beacon_client(request, responses_path):
+def consensus_client(request, responses_path, web3):
     if request.config.getoption("--save-responses"):
-        return request.getfixturevalue("response_to_file_bc_client")
+        client = request.getfixturevalue("response_to_file_cl_client")
     else:
-        return ResponseFromFileHTTPClient(responses_path.with_suffix('.bc.json'))
+        client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
+    web3.attach_modules({"cc": lambda: client})
+    return client
+
+
+@pytest.fixture()
+def contracts(web3):
+    web3.attach_modules({
+        'lido_contracts': LidoContracts,
+    })
 
 
 @pytest.fixture()
