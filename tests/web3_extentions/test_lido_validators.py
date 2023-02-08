@@ -3,7 +3,6 @@ import pytest
 
 @pytest.mark.unit
 def test_get_lido_validators(web3, lido_validators, past_blockstamp):
-    print(web3.cc.host)
     validators_in_cc = web3.cc.get_validators(past_blockstamp['state_root'])
 
     lido_keys = web3.kac.get_all_lido_keys(past_blockstamp)
