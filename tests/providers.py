@@ -12,6 +12,8 @@ from web3.types import RPCEndpoint, RPCResponse
 from web3_multi_provider import MultiProvider
 
 from src.providers.consensus.client import ConsensusClient
+from src.providers.http_provider import HTTPProvider
+from src.providers.keys.client import KeysAPIClient
 
 
 class ResponseToFileProvider(MultiProvider):
@@ -78,15 +80,7 @@ class MockProvider(JSONBaseProvider):
         self.responses = {}
 
 
-class ConsensusClientModule(ConsensusClient, Module):
-    def __init__(self, host: str, w3: Web3):
-        self.w3 = w3
-
-        super(ConsensusClient, self).__init__(host)
-        super(Module, self).__init__()
-
-
-class ResponseToFileConsensusClientModule(ConsensusClient, Module):
+class ResponseToFileHTTPProvider(HTTPProvider, Module):
     def __init__(self, host: str, w3: Web3):
         self.w3 = w3
 
@@ -108,7 +102,7 @@ class ResponseToFileConsensusClientModule(ConsensusClient, Module):
             json.dump(self.responses, f, indent=2)
 
 
-class ResponseFromFileConsensusClientModule(ConsensusClient, Module):
+class ResponseFromFileHTTPProvider(HTTPProvider, Module):
     responses: list[dict[str, Any]]
 
     def __init__(self, mock_path: Path, w3: Web3):
@@ -126,3 +120,19 @@ class ResponseFromFileConsensusClientModule(ConsensusClient, Module):
             if response["url"] == url and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
         raise Exception('There is no mock for response. Please re-run tests with --save-responses flag')
+
+
+class ResponseToFileConsensusClientModule(ConsensusClient, ResponseToFileHTTPProvider):
+    pass
+
+
+class ResponseFromFileConsensusClientModule(ConsensusClient, ResponseFromFileHTTPProvider):
+    pass
+
+
+class ResponseToFileKeysAPIClientModule(KeysAPIClient, ResponseToFileHTTPProvider):
+    pass
+
+
+class ResponseFromFileKeysAPIClientModule(KeysAPIClient, ResponseFromFileHTTPProvider):
+    pass

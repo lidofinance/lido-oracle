@@ -6,6 +6,7 @@ from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_RE
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey, OperatorResponse
 from src.typings import BlockStamp
+from src.utils.freeze_decorator import freezeargs
 
 
 class KeysOutdatedException(Exception):
@@ -29,7 +30,7 @@ class KeysAPIClient(HTTPProvider):
         """
         for i in range(self.RETRY_COUNT):
             data, meta = self._get(url, params)
-            if meta['elBlockSnapshot']['blockNumber'] >= blockstamp['block_number']:
+            if meta['meta']['elBlockSnapshot']['blockNumber'] >= blockstamp['block_number']:
                 return data
 
             if i != self.RETRY_COUNT - 1:
@@ -37,11 +38,13 @@ class KeysAPIClient(HTTPProvider):
 
         raise KeysOutdatedException(f'Keys API Service stucked, no updates for {self.SLEEP_SECONDS * self.RETRY_COUNT} seconds.')
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> List[LidoKey]:
         """Docs: https://keys-api.testnet.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return self._get_with_blockstamp(self.ALL_KEYS, blockstamp)
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def get_operators(self, blockstamp: BlockStamp) -> List[OperatorResponse]:
         """Docs: https://keys-api.testnet.fi/api/static/index.html#/operators/SRModulesOperatorsController_get"""

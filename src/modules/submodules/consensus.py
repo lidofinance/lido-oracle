@@ -4,6 +4,8 @@ from functools import lru_cache
 from typing import Optional, TypedDict, Tuple
 
 from eth_typing import Address
+
+from src.utils.freeze_decorator import freezeargs
 from src.web3_extentions.typings import Web3
 from web3.contract import Contract
 
@@ -50,6 +52,7 @@ class ConsensusModule(ABC):
         if self.report_contract is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
         return self.w3.eth.contract(
@@ -57,10 +60,12 @@ class ConsensusModule(ABC):
             abi=self.w3.lido_contracts.load_abi('LidoOracle'),
         )
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp['block_hash'])
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def _get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -95,6 +100,7 @@ class ConsensusModule(ABC):
             deadline_slot=deadline_slot,
         )
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def _get_current_frame(self, blockstamp: BlockStamp) -> Tuple[SlotNumber, SlotNumber]:
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -137,6 +143,7 @@ class ConsensusModule(ABC):
                 block_hash=execution_data['block_hash']
             )
 
+    @freezeargs
     @lru_cache(maxsize=1)
     def _get_frame_config(self, blockstamp: BlockStamp) -> Tuple[int, int]:
         consensus = self._get_consensus_contract(blockstamp)

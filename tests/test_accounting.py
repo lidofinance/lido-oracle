@@ -5,7 +5,13 @@ from src import modules
 from src.modules.accounting.accounting import Accounting
 from src.typings import SlotNumber
 
+
 pytestmark = pytest.mark.skip(reason="Work in progress")
+
+
+@pytest.fixture()
+def past_slot_and_block(provider):
+    return SlotNumber(4595230), '0xc001b15307c51190fb653a885bc9c5003a7b9dacceb75825fa376fc68e1c1a62'
 
 
 @pytest.fixture()
