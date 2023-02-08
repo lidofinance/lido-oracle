@@ -6,7 +6,7 @@ authors = ["Raman Siamionau", "Kirill Varlamov", "Smelov Vladimir", "Dmitry Suld
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 web3 = "6.0.0b9"
 prometheus-client = "^0.16.0"
 web3-multi-provider = "^0.5.0"

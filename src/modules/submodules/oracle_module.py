@@ -45,7 +45,7 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp['slot_number'] > self._previous_finalized_slot_number:
-            self._previous_finalized_epoch = blockstamp['slot_number']
+            self._previous_finalized_slot_number = blockstamp['slot_number']
             self.run_cycle(blockstamp)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
@@ -80,7 +80,7 @@ class BaseModule(ABC):
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         except Exception as error:
-            logger.warning({"msg": "Unexpected exception.", "error": str(error)})
+            logger.error({"msg": "Unexpected exception.", "error": str(error)})
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         else:
