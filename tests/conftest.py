@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from web3 import Web3
 from web3.providers import JSONBaseProvider
 
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp
 from src.web3_extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
+from src.web3_extentions.typings import Web3
 from tests.mocks import chain_id_mainnet, eth_call_el_rewards_vault, eth_call_beacon_spec
 from tests.providers import (
     ResponseToFileProvider,
