@@ -30,6 +30,19 @@ class MemberInfo:
     deadline_slot: SlotNumber
 
 
+@dataclass(frozen=True)
+class ChainConfig:
+    slots_per_epoch: int
+    seconds_per_slot: int
+    genesis_time: int
+
+
+@dataclass(frozen=True)
+class FrameConfig:
+    initial_epoch: int
+    epochs_per_frame: int
+
+
 class ConsensusModule(ABC):
     """
     Calculates ref_slot to report for Oracle.
@@ -65,12 +78,12 @@ class ConsensusModule(ABC):
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def _get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
+    def get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         # Defaults for dry mode
         current_ref_slot, deadline_slot = self._get_current_frame(blockstamp)
-        is_member, last_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
+        is_member, last_member_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
         member_ref_slot = current_ref_slot
 
         if variables.ACCOUNT:
@@ -101,7 +114,7 @@ class ConsensusModule(ABC):
 
         return MemberInfo(
             is_member=is_member,
-            last_report_ref_slot=last_report_ref_slot,
+            last_report_ref_slot=last_member_report_ref_slot,
             current_ref_slot=current_ref_slot,
             member_ref_slot=member_ref_slot,
             member_report_for_current_ref_slot=member_report_for_current_ref_slot,
@@ -116,7 +129,7 @@ class ConsensusModule(ABC):
         )
 
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
-        member_info = self._get_member_info(blockstamp)
+        member_info = self.get_member_info(blockstamp)
 
         if blockstamp.slot_number < member_info.member_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
@@ -127,12 +140,12 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info.current_ref_slot)
+        return self.get_first_non_missed_slot(blockstamp, member_info.current_ref_slot)
 
-    def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
-        _, epoch_per_frame = self._get_frame_config(blockstamp)
+    def get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
+        frame_config = self.get_frame_config(blockstamp)
 
-        for i in range(slot, slot - epoch_per_frame * 32, -1):
+        for i in range(slot, slot - frame_config.epochs_per_frame * 32, -1):
             try:
                 root = self.w3.cc.get_block_root(slot).root
             except KeyError:
@@ -152,7 +165,13 @@ class ConsensusModule(ABC):
             )
 
     @lru_cache(maxsize=1)
-    def _get_frame_config(self, blockstamp: BlockStamp) -> Tuple[int, int]:
+    def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus = self._get_consensus_contract(blockstamp)
         initial_epoch, epochs_per_frame = consensus.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash)
-        return initial_epoch, epochs_per_frame
+        return FrameConfig(initial_epoch, epochs_per_frame)
+
+    @lru_cache(maxsize=1)
+    def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
+        consensus = self._get_consensus_contract(blockstamp)
+        slots_per_epoch, seconds_per_slot, genesis_time = consensus.functions.getChainConfig().call(block_identifier=blockstamp.block_hash)
+        return ChainConfig(slots_per_epoch, seconds_per_slot, genesis_time)
