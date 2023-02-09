@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import lru_cache
 from typing import List, Dict, Tuple, TypedDict
 
@@ -61,13 +60,16 @@ class LidoValidatorsProvider(Module):
     @freezeargs
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> List[OperatorExpanded]:
-        operators_by_modules: OperatorResponse = self.w3.kac.get_operators(blockstamp)
+        operators_by_modules: list[OperatorResponse] = self.w3.kac.get_operators(blockstamp)
 
         operators = []
 
         for module in operators_by_modules:
             operators.extend([
-                {'stakingModuleAddress': module['module']['stakingModuleAddress'], **operator}
+                OperatorExpanded(
+                    stakingModuleAddress=module['module']['stakingModuleAddress'],
+                    **operator,
+                )
                 for operator in module['operators']
             ])
 
