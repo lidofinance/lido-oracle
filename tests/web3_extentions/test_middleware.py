@@ -6,7 +6,7 @@ from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS
 from src.variables import EXECUTION_CLIENT_URI
 from src.web3_extentions import metrics_collector
 
-pytestmarks = pytest.mark.integration
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture()

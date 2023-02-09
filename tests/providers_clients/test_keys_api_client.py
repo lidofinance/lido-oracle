@@ -5,7 +5,7 @@ from src.providers.keys.client import KeysAPIClient
 from src.typings import BlockStamp
 from src.variables import KEYS_API_URI
 
-pytestmarks = pytest.mark.integration
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture()

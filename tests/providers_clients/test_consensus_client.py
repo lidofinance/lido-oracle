@@ -5,7 +5,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.typings import Validator
 from src.variables import CONSENSUS_CLIENT_URI
 
-pytestmarks = pytest.mark.integration
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture()
