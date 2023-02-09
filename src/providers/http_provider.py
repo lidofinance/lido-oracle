@@ -47,7 +47,7 @@ class HTTPProvider(ABC):
                 timeout=self.REQUEST_TIMEOUT,
             )
 
-        if response.status_code != HTTPStatus.OK.value:
+        if response.status_code != HTTPStatus.OK:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
             logger.error({'msg': msg})
             raise NotOkResponse(msg)
