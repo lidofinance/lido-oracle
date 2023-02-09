@@ -2,7 +2,7 @@ from dataclasses import dataclass, is_dataclass
 
 import pytest
 
-from src.utils.dataclass import list_of_dataclasses, nested_dataclass
+from src.utils.dataclass import list_of_dataclasses, Nested
 
 
 @dataclass
@@ -15,8 +15,8 @@ class State:
     condition: str
 
 
-@nested_dataclass
-class Car:
+@dataclass
+class Car(Nested):
     wheel_count: int
     wheels: list[Wheel]
     state: State

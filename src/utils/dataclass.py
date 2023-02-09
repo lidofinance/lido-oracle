@@ -1,5 +1,22 @@
 import functools
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, is_dataclass, fields
+from types import GenericAlias
+
+
+@dataclass
+class Nested:
+    """
+    Base class for dataclasses that converts all inner dicts into dataclasses
+    Also works with lists of dataclasses
+    """
+    def __post_init__(self):
+        for field in fields(self):
+            if isinstance(field.type, GenericAlias):
+                field_type = field.type.__args__[0]
+                if is_dataclass(field_type):
+                    setattr(self, field.name, list(map(lambda x: field_type(**x), getattr(self, field.name))))
+            elif is_dataclass(field.type):
+                setattr(self, field.name, field.type(**getattr(self, field.name)))
 
 
 def list_of_dataclasses(_dataclass):
@@ -12,32 +29,3 @@ def list_of_dataclasses(_dataclass):
         return wrapper_decorator
 
     return decorator
-
-
-def nested_dataclass(*args, **kwargs):
-    """Decorator for dataclass that converts all inner dicts into dataclasses"""
-    def wrapper(cls):
-        cls = dataclass(cls, **kwargs)
-        original_init = cls.__init__
-
-        def __init__(self, *args, **kwargs):
-            for name, value in kwargs.items():
-                field_type = cls.__annotations__.get(name, None)
-                if isinstance(value, list):
-                    if field_type.__origin__ == list or field_type.__origin__ == list:
-                        sub_type = field_type.__args__[0]
-                        if is_dataclass(sub_type):
-                            items = []
-                            for child in value:
-                                if isinstance(child, dict):
-                                    items.append(sub_type(**child))
-                            kwargs[name] = items
-                if is_dataclass(field_type) and isinstance(value, dict):
-                    new_obj = field_type(**value)
-                    kwargs[name] = new_obj
-            original_init(self, *args, **kwargs)
-
-        cls.__init__ = __init__
-        return cls
-
-    return wrapper(args[0]) if args else wrapper

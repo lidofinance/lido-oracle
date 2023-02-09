@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.utils.dataclass import nested_dataclass
+from src.utils.dataclass import Nested
 
 
 @dataclass
@@ -69,7 +69,7 @@ class ContractModule:
     # lastDepositBlock: int
 
 
-@nested_dataclass
-class OperatorResponse:
+@dataclass
+class OperatorResponse(Nested):
     operators: list[Operator]
     module: ContractModule
