@@ -23,4 +23,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-markers = ["unit: tests that do not require external resources"]
+markers = [
+    "unit: tests with using mocks and don't make external requests",
+    "integration: tests with using providers"
+]
