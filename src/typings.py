@@ -2,6 +2,7 @@ from enum import StrEnum
 from typing import TypedDict, NewType
 
 from hexbytes import HexBytes
+from web3.types import Timestamp
 
 
 class OracleModule(StrEnum):
@@ -23,3 +24,4 @@ class BlockStamp(TypedDict):
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
+    block_timestamp: Timestamp
