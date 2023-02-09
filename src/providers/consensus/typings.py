@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from src.typings import StateRoot, SlotNumber
-from src.utils.dataclass import nested_dataclass
+from src.typings import StateRoot
+from src.utils.dataclass import Nested
 
 
-@nested_dataclass
+@dataclass
 class BlockRootResponse:
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
     root: StateRoot
@@ -48,16 +48,16 @@ class ValidatorState:
     withdrawable_epoch: str
 
 
-@nested_dataclass
-class Validator:
+@dataclass
+class Validator(Nested):
     index: int
     balance: int
     status: ValidatorStatus
     validator: ValidatorState
 
 
-@nested_dataclass
-class BlockDetailsResponse:
+@dataclass
+class BlockDetailsResponse(Nested):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
     message: BlockMessage
     signature: str

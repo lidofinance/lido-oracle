@@ -2,7 +2,7 @@ from dataclasses import dataclass, is_dataclass
 
 import pytest
 
-from src.utils.dataclass import list_of_dataclasses, nested_dataclass
+from src.utils.dataclass import list_of_dataclasses, Nested
 
 
 @dataclass
@@ -15,10 +15,11 @@ class State:
     condition: str
 
 
-@nested_dataclass
-class Car:
+@dataclass
+class Car(Nested):
     wheel_count: int
     wheels: list[Wheel]
+    wheels_immutable: tuple[Wheel]
     state: State
 
 
@@ -32,11 +33,13 @@ def test_dataclasses_utils():
             {
                 'wheel_count': 4,
                 'wheels': [{'size': 2}, {'size': 4}],
+                'wheels_immutable': ({'size': 2}, {'size': 4}),
                 'state': {'condition': 'good'},
             },
             {
                 'wheel_count': 2,
                 'wheels': [{'size': 1}],
+                'wheels_immutable': ({'size': 1},),
                 'state': {'condition': 'bad'},
             }
         ]
@@ -46,6 +49,8 @@ def test_dataclasses_utils():
     for car in all_cars:
         assert is_dataclass(car)
         assert is_dataclass(car.state)
+        assert isinstance(car.wheels, list)
+        assert isinstance(car.wheels_immutable, tuple)
 
         for wheel in car.wheels:
             assert is_dataclass(wheel)
@@ -54,5 +59,6 @@ def test_dataclasses_utils():
         Car(
             wheel_count=2,
             wheels=[{'size': 1}],
+            wheels_immutable=({'size': 1}),
             state={'cost': None},
         )
