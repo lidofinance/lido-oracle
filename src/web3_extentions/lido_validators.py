@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import lru_cache
 from typing import Dict, Tuple
 
@@ -66,7 +66,7 @@ class LidoValidatorsProvider(Module):
             operators.extend([
                 OperatorExpanded(
                     stakingModuleAddress=module.module.stakingModuleAddress,
-                    **operator.__dict__,
+                    **asdict(operator),
                 )
                 for operator in module.operators
             ])
