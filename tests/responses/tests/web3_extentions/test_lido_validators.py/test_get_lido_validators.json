@@ -1,0 +1,11 @@
+[
+  {
+    "method": "web3_clientVersion",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "Geth/v1.10.26-stable-e5eb32ac/linux-amd64/go1.18.5"
+    }
+  }
+]

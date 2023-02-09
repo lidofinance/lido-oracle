@@ -38,8 +38,8 @@ class LidoContracts(Module):
         )
 
         self.validator_exit_bus = self.w3.eth.contract(
-            address=self.lido_locator.functions.validatorExitBus().call(),
-            abi=self.load_abi('ValidatorExitBus'),
+            address=self.lido_locator.functions.validatorExitBusOracle().call(),
+            abi=self.load_abi('validatorExitBusOracle'),
         )
 
         self.withdrawal_queue = self.w3.eth.contract(

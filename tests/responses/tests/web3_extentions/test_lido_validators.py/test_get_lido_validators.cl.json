@@ -1,0 +1,75 @@
+[
+  {
+    "url": "eth/v1/beacon/states/0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc/validators",
+    "params": {
+      "id": null
+    },
+    "response": [
+      [
+        {
+          "index": "210086",
+          "balance": "31238609699",
+          "status": "active_ongoing",
+          "validator": {
+            "pubkey": "0x817479947b6054dd5b1b6efc19df11f78f9444a9f861f6cb5386415285586b841802e157852d6ad66f96186f36e40b7a",
+            "withdrawal_credentials": "0x00040517ce98f81070cea20e35610a3ae23a45f0883b0b035afc5717cc2e833e",
+            "effective_balance": "31000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "1900",
+            "activation_epoch": "1906",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        },
+        {
+          "index": "210090",
+          "balance": "31215829154",
+          "status": "active_ongoing",
+          "validator": {
+            "pubkey": "0xa381f6003d2ae73336add78e021354bcd5e086e8e5fc1448725193304dde3fada0e83fdf91f7dd4e8785448aa4ff3c19",
+            "withdrawal_credentials": "0x00040517ce98f81070cea20e35610a3ae23a45f0883b0b035afc5717cc2e833e",
+            "effective_balance": "31000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "1959",
+            "activation_epoch": "1965",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        },
+        {
+          "index": "210091",
+          "balance": "31134639560",
+          "status": "active_ongoing",
+          "validator": {
+            "pubkey": "0xacb8823ffa49ee93d37291ec1a3bb0d9915f23b21344e41e90edd9a898857b28c29fa8a34df4cfde19bf35c7f2394a09",
+            "withdrawal_credentials": "0x00040517ce98f81070cea20e35610a3ae23a45f0883b0b035afc5717cc2e833e",
+            "effective_balance": "31000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "1959",
+            "activation_epoch": "1966",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        },
+        {
+          "index": "210092",
+          "balance": "30405144372",
+          "status": "active_ongoing",
+          "validator": {
+            "pubkey": "0x83ab9a10b2c4a0863c39f49e43a2f386dff72d0d145ed40448469fdefe2010a7bb16820ed630fb31b5629c9b98038e7d",
+            "withdrawal_credentials": "0x00040517ce98f81070cea20e35610a3ae23a45f0883b0b035afc5717cc2e833e",
+            "effective_balance": "30000000000",
+            "slashed": false,
+            "activation_eligibility_epoch": "2093",
+            "activation_epoch": "2099",
+            "exit_epoch": "18446744073709551615",
+            "withdrawable_epoch": "18446744073709551615"
+          }
+        }
+      ],
+      {
+        "execution_optimistic": false
+      }
+    ]
+  }
+]

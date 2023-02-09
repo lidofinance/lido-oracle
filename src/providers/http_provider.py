@@ -1,5 +1,6 @@
 import logging
 from abc import ABC
+from http import HTTPStatus
 from typing import Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
@@ -9,6 +10,10 @@ from urllib3 import Retry
 
 
 logger = logging.getLogger(__name__)
+
+
+class NotOkResponse(Exception):
+    pass
 
 
 class HTTPProvider(ABC):
@@ -42,13 +47,18 @@ class HTTPProvider(ABC):
                 timeout=self.REQUEST_TIMEOUT,
             )
 
+        if response.status_code != HTTPStatus.OK:
+            msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+            logger.error({'msg': msg})
+            raise NotOkResponse(msg)
+
         try:
             json_response = response.json()
             data = json_response['data']
             del json_response['data']
         except (KeyError, JSONDecodeError) as error:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
-            logger.error(msg)
+            logger.error({'msg': msg})
             raise error from error
         finally:
             self.PROMETHEUS_COUNTER.labels(

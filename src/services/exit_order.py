@@ -1,6 +1,5 @@
 from src.web3_extentions.typings import Web3
 
-from src.providers.consensus.client import ConsensusClient
 from src.typings import BlockStamp
 
 
@@ -11,10 +10,9 @@ class ValidatorsExit:
     2. Stacking > 1% remove by sum validators age
     3. By active validators numbers
     """
-    def __init__(self, blockstamp: BlockStamp, w3: Web3, cc: ConsensusClient,  max_size: int):
+    def __init__(self, blockstamp: BlockStamp, w3: Web3,  max_size: int):
         self.blockstamp = blockstamp
-        self._w3 = w3
-        self._cc = cc
+        self.w3 = w3
 
         # Iterator should contain only next validators
         self.max_size = max_size

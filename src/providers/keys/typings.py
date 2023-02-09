@@ -49,6 +49,10 @@ class Operator(TypedDict):
     usedSigningKeys: int
 
 
+class OperatorExpanded(Operator):
+    stakingModuleAddress: Address
+
+
 class ContractModule(TypedDict):
     nonce: int
     type: str

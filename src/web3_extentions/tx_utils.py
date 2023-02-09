@@ -38,7 +38,7 @@ class TransactionUtils(Module):
         account: Optional[LocalAccount] = None,
     ):
         if not account:
-            logger.info({"msg": "No account provided. Draft mode."})
+            logger.info({"msg": "No account provided. Dry mode."})
             return
 
         pending_block = self.w3.eth.get_block("pending")
@@ -73,5 +73,5 @@ class TransactionUtils(Module):
             }
         )
 
-        if tx_receipt.status != 122:
+        if tx_receipt.status != 1:
             TX_FAILURE.inc()
