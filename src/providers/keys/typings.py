@@ -1,10 +1,13 @@
-from typing import TypedDict, List
+from dataclasses import dataclass
 
 from eth_typing import Address
 from hexbytes import HexBytes
 
+from src.utils.dataclass import nested_dataclass
 
-class LidoKey(TypedDict):
+
+@dataclass
+class LidoKey:
     key: HexBytes
     depositSignature: HexBytes
     operatorIndex: int
@@ -12,12 +15,8 @@ class LidoKey(TypedDict):
     moduleAddress: Address
 
 
-class OperatorResponse(TypedDict):
-    operators: List['Operator']
-    module: 'ContractModule'
-
-
-class Operator(TypedDict):
+@dataclass
+class Operator:
     index: int
     active: bool
     name: str
@@ -49,19 +48,28 @@ class Operator(TypedDict):
     usedSigningKeys: int
 
 
+@dataclass
 class OperatorExpanded(Operator):
     stakingModuleAddress: Address
 
 
-class ContractModule(TypedDict):
+@dataclass
+class ContractModule:
     nonce: int
     type: str
     id: str
     stakingModuleAddress: Address
-    moduleFee: int
-    treasuryFee: int
-    targetShare: int
-    status: int
     name: str
-    lastDepositAt: int
-    lastDepositBlock: int
+
+    # moduleFee: int
+    # treasuryFee: int
+    # targetShare: int
+    # status: int
+    # lastDepositAt: int
+    # lastDepositBlock: int
+
+
+@nested_dataclass
+class OperatorResponse:
+    operators: list[Operator]
+    module: ContractModule

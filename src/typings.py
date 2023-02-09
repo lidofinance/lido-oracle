@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import TypedDict, NewType
+from typing import NewType
 
 from hexbytes import HexBytes
 
@@ -19,7 +20,8 @@ BlockHash = NewType('BlockHash', HexBytes)
 BlockNumber = NewType('BlockNumber', int)
 
 
-class BlockStamp(TypedDict):
+@dataclass(frozen=True)
+class BlockStamp:
     block_root: BlockRoot
     state_root: StateRoot
     slot_number: SlotNumber

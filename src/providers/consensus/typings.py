@@ -1,33 +1,23 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import TypedDict
 
-from src.typings import StateRoot
+from src.typings import StateRoot, SlotNumber
+from src.utils.dataclass import nested_dataclass
 
 
-class BlockRootResponse(TypedDict):
+@nested_dataclass
+class BlockRootResponse:
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
     root: StateRoot
 
 
-class BlockDetailsResponse(TypedDict):
-    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
-    message: 'BlockMessage'
-    signature: str
-
-
-class BlockMessage(TypedDict):
+@dataclass
+class BlockMessage:
     slot: str
     proposer_index: str
     parent_root: str
     state_root: str
     body: dict
-
-
-class Validator(TypedDict):
-    index: int
-    balance: int
-    status: 'ValidatorStatus'
-    validator: 'ValidatorState'
 
 
 class ValidatorStatus(Enum):
@@ -45,7 +35,8 @@ class ValidatorStatus(Enum):
     WITHDRAWAL_DONE = 'withdrawal_done'
 
 
-class ValidatorState(TypedDict):
+@dataclass
+class ValidatorState:
     # All uint variables presents in str
     pubkey: str
     withdrawal_credentials: str
@@ -55,3 +46,18 @@ class ValidatorState(TypedDict):
     activation_epoch: str
     exit_epoch: str
     withdrawable_epoch: str
+
+
+@nested_dataclass
+class Validator:
+    index: int
+    balance: int
+    status: ValidatorStatus
+    validator: ValidatorState
+
+
+@nested_dataclass
+class BlockDetailsResponse:
+    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
+    message: BlockMessage
+    signature: str

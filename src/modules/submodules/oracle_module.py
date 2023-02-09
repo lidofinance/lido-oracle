@@ -44,20 +44,24 @@ class BaseModule(ABC):
     def _cycle_handler(self):
         blockstamp = self._receive_last_finalized_slot()
 
-        if blockstamp['slot_number'] > self._previous_finalized_slot_number:
-            self._previous_finalized_slot_number = blockstamp['slot_number']
+        if blockstamp.slot_number > self._previous_finalized_slot_number:
+            self._previous_finalized_slot_number = blockstamp.slot_number
             self.run_cycle(blockstamp)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
-        slot_root = StateRoot(self.w3.cc.get_block_root('finalized')['root'])
-        slot_details = self.w3.cc.get_block_details(slot_root)
-        slot_number = SlotNumber(int(slot_details['message']['slot']))
+        block_root = StateRoot(self.w3.cc.get_block_root('finalized').root)
+        slot_details = self.w3.cc.get_block_details(block_root)
+
+        state_root = slot_details.message.state_root
+        slot_number = SlotNumber(int(slot_details.message.slot))
+
         # Get EL block data
-        execution_payload = self.w3.cc.get_block_details(slot_root)['message']['body']['execution_payload']
+        execution_payload = slot_details.message.body['execution_payload']
         block_hash = BlockHash(execution_payload['block_hash'])
         block_number = BlockNumber(int(execution_payload['block_number']))
         return BlockStamp(
-            state_root=slot_root,
+            block_root=block_root,
+            state_root=state_root,
             slot_number=slot_number,
             block_hash=block_hash,
             block_number=block_number,

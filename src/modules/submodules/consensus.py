@@ -1,11 +1,11 @@
 import logging
 from abc import ABC
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional, TypedDict, Tuple
+from typing import Optional, Tuple
 
 from eth_typing import Address
 
-from src.utils.freeze_decorator import freezeargs
 from src.web3_extentions.typings import Web3
 from web3.contract import Contract
 
@@ -20,7 +20,8 @@ class IsNotMemberException(Exception):
     pass
 
 
-class MemberInfo(TypedDict):
+@dataclass
+class MemberInfo:
     is_member: bool
     last_report_ref_slot: SlotNumber
     current_ref_slot: SlotNumber
@@ -52,7 +53,6 @@ class ConsensusModule(ABC):
         if self.report_contract is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
         return self.w3.eth.contract(
@@ -60,12 +60,10 @@ class ConsensusModule(ABC):
             abi=self.w3.lido_contracts.load_abi('LidoOracle'),
         )
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
-        return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp['block_hash'])
+        return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def _get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -83,7 +81,7 @@ class ConsensusModule(ABC):
                 member_report_for_current_ref_slot,
             ) = consensus_contract.functions.getMemberInfo(
                 variables.ACCOUNT.address,
-            ).call(block_identifier=blockstamp['block_hash'])
+            ).call(block_identifier=blockstamp.block_hash)
 
             if not is_member:
                 raise IsNotMemberException(
@@ -100,52 +98,51 @@ class ConsensusModule(ABC):
             deadline_slot=deadline_slot,
         )
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def _get_current_frame(self, blockstamp: BlockStamp) -> Tuple[SlotNumber, SlotNumber]:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.functions.getCurrentFrame().call(
-            block_identifier=blockstamp['block_hash'],
+            block_identifier=blockstamp.block_hash,
         )
 
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
         member_info = self._get_member_info(blockstamp)
 
-        if blockstamp['slot_number'] < member_info['member_ref_slot']:
+        if blockstamp.slot_number < member_info.member_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return
 
         # Maybe check head slot number?
-        if blockstamp['slot_number'] > member_info['deadline_slot']:
+        if blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info['current_ref_slot'])
+        return self._get_first_non_missed_slot(blockstamp, member_info.current_ref_slot)
 
     def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
         _, epoch_per_frame = self._get_frame_config(blockstamp)
 
         for i in range(slot, slot - epoch_per_frame * 32, -1):
             try:
-                root = self.w3.cc.get_block_root(slot)['root']
+                root = self.w3.cc.get_block_root(slot).root
             except KeyError:
                 logger.warning({'msg': f'Missed slot: {slot}. Check next slot.'})
                 continue
 
-            slot_details = self.w3.cc.get_block_details(root)['message']['body']['execution_payload']
+            slot_details = self.w3.cc.get_block_details(root)
 
-            execution_data = slot_details['message']['body']['execution_payload']
+            execution_data = slot_details.message.body['execution_payload']
 
             return BlockStamp(
+                block_root=root,
                 slot_number=slot,
-                state_root=root,
+                state_root=slot_details.message.state_root,
                 block_number=execution_data['block_number'],
                 block_hash=execution_data['block_hash']
             )
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def _get_frame_config(self, blockstamp: BlockStamp) -> Tuple[int, int]:
         consensus = self._get_consensus_contract(blockstamp)
-        initial_epoch, epochs_per_frame = consensus.functions.getFrameConfig().call(block_identifier=blockstamp['block_hash'])
+        initial_epoch, epochs_per_frame = consensus.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash)
         return initial_epoch, epochs_per_frame

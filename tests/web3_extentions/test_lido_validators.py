@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.unit
 def test_get_lido_validators(web3, lido_validators, past_blockstamp):
-    validators_in_cc = web3.cc.get_validators(past_blockstamp['state_root'])
+    validators_in_cc = web3.cc.get_validators(past_blockstamp.state_root)
 
     lido_keys = web3.kac.get_all_lido_keys(past_blockstamp)
 
@@ -14,7 +14,7 @@ def test_get_lido_validators(web3, lido_validators, past_blockstamp):
     assert len(validators_in_cc) != len(lido_validators)
 
     for validator in lido_validators:
-        assert validator['key']['key'] == validator['validator']['validator']['pubkey']
+        assert validator.key.key == validator.validator.validator.pubkey
 
 
 @pytest.mark.unit
@@ -30,9 +30,7 @@ def test_get_node_operators(web3, lido_validators, past_blockstamp):
     }
 
     for no in node_operators:
-        assert 'stakingModuleAddress' in no
-
-        assert no['stakingModuleAddress'] == registry_map[no['name']]
+        assert no.stakingModuleAddress == registry_map[no.name]
 
 
 @pytest.mark.unit
@@ -41,3 +39,4 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, past_blocks
 
     assert len(no_validators.keys()) == 3
     assert len(no_validators[('0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320', 0)]) == 2
+    assert len(no_validators[('0x1D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320', 0)]) == 0

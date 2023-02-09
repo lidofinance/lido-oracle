@@ -1,12 +1,12 @@
 from functools import lru_cache
-from typing import Optional, List, Union
+from typing import Optional, Union
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ETH2_REQUESTS_DURATION, ETH2_REQUESTS
 from src.providers.consensus.typings import BlockRootResponse, BlockDetailsResponse, Validator
 from src.providers.http_provider import HTTPProvider
 from src.typings import SlotNumber, StateRoot, BlockRoot
-from src.utils.freeze_decorator import freezeargs
+from src.utils.dataclass import list_of_dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +26,21 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def get_block_root(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockRootResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"""
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
-        return data
+        return BlockRootResponse(**data)
 
-    @freezeargs
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
-        return data
+        return BlockDetailsResponse(**data)
 
-    @freezeargs
     @lru_cache(maxsize=1)
-    def get_validators(self, state_id: Union[str, SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> List[Validator]:
+    @list_of_dataclasses(Validator)
+    def get_validators(self, state_id: Union[str, SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         data, _ = self._get(self.API_GET_VALIDATORS.format(state_id), params={'id': pub_keys})
         return data

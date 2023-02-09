@@ -62,7 +62,7 @@ class TransactionUtils(Module):
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
         logger.info(
             {
-                "msg": "Transaction in blockchain.",
+                "msg": "Transaction is in blockchain.",
                 "blockHash": tx_receipt.blockHash.hex(),
                 "blockNumber": tx_receipt.blockNumber,
                 "gasUsed": tx_receipt.gasUsed,
