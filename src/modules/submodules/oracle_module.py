@@ -8,7 +8,7 @@ from web3_multi_provider import NoActiveProviderError
 
 from src import variables
 from src.metrics.prometheus.basic import EXCEPTIONS_COUNT
-from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber
+from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber, BlockRoot
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +49,10 @@ class BaseModule(ABC):
             self.run_cycle(blockstamp)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
-        block_root = StateRoot(self.w3.cc.get_block_root('finalized').root)
+        block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
         slot_details = self.w3.cc.get_block_details(block_root)
 
-        state_root = slot_details.message.state_root
+        state_root = StateRoot(slot_details.message.state_root)
         slot_number = SlotNumber(int(slot_details.message.slot))
 
         # Get EL block data

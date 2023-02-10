@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from functools import lru_cache
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TYPE_CHECKING
 
 from eth_typing import Address
 from web3.module import Module
@@ -8,6 +8,9 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey, OperatorResponse, OperatorExpanded
 from src.typings import BlockStamp
+
+if TYPE_CHECKING:
+    from src.web3_extentions.typings import Web3
 
 
 @dataclass
@@ -20,6 +23,8 @@ NodeOperatorIndex = Tuple[Address, int]
 
 
 class LidoValidatorsProvider(Module):
+    w3: 'Web3'
+
     @lru_cache(maxsize=1)
     def get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)

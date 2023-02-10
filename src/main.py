@@ -25,8 +25,8 @@ logger = logging.getLogger()
 
 if __name__ == '__main__':
     module_name = sys.argv[-1]
-    if module_name not in OracleModule._value2member_map_:
-        msg = f'Last arg should be one of {list(OracleModule._value2member_map_.keys())}, received {module_name}.'
+    if module_name not in iter(OracleModule):
+        msg = f'Last arg should be one of {[item.value for item in OracleModule]}, received {module_name}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 
