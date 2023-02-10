@@ -17,7 +17,7 @@ if MEMBER_PRIV_KEY:
 
 
 # - App specific -
-LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_CONTRACT_ADDRESS')
+LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 GAS_LIMIT = int(os.getenv('GAS_LIMIT', 2_000_000))
 
 

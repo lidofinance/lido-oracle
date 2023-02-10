@@ -57,7 +57,7 @@ class ConsensusModule(ABC):
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
-            abi=self.w3.lido_contracts.load_abi('LidoOracle'),
+            abi=self.w3.lido_contracts.load_abi('HashConsensus'),
         )
 
     @lru_cache(maxsize=1)
@@ -75,11 +75,21 @@ class ConsensusModule(ABC):
 
         if variables.ACCOUNT:
             (
+                # Current frame's reference slot.
+                current_frame_ref_slot,
+                # Consensus report for the current frame, if any. Zero bytes otherwise.
+                current_frame_consensus_report,
+                # Whether the provided address is a member of the oracle committee.
                 is_member,
-                last_report_ref_slot,
-                member_ref_slot,
-                member_report_for_current_ref_slot,
-            ) = consensus_contract.functions.getMemberInfo(
+                # Whether the oracle committee member is in the fast lane members subset of the current reporting frame.
+                is_fast_line,
+                # The last reference slot for which the member submitted a report.
+                can_report,
+                # Whether the oracle committee member is allowed to submit a report at the moment of the call.
+                last_member_report_ref_slot,
+                # The hash reported by the member for the current frame, if any.
+                current_frame_member_report,
+            ) = consensus_contract.functions.getConsensusStateForMember(
                 variables.ACCOUNT.address,
             ).call(block_identifier=blockstamp.block_hash)
 
