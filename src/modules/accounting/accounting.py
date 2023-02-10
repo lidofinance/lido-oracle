@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class Accounting(BaseModule, ConsensusModule):
     def __init__(self, w3: Web3):
-        self.report_contract = w3.lido_contracts.oracle
+        self.report_contract = w3.lido_contracts.accounting_oracle
         super().__init__(w3)
 
     def execute_module(self, blockstamp: BlockStamp):

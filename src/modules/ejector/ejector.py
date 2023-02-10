@@ -8,7 +8,7 @@ from src.web3_extentions.typings import Web3
 
 class Ejector(BaseModule, ConsensusModule):
     def __init__(self, w3: Web3):
-        self.report_contract = w3.lido_contracts.validator_exit_bus
+        self.report_contract = w3.lido_contracts.validators_exit_bus_oracle
         super().__init__(w3)
 
     def execute_module(self, blockstamp: BlockStamp):

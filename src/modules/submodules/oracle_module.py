@@ -1,6 +1,7 @@
 import logging
 import time
 from abc import abstractmethod, ABC
+from dataclasses import asdict
 
 from timeout_decorator import timeout
 from src.web3_extentions.typings import Web3
@@ -37,7 +38,9 @@ class BaseModule(ABC):
         self.w3 = w3
 
     def run_as_daemon(self):
+        logger.info({'msg': '[Accounting] Run as daemon.'})
         while True:
+            logger.info({'msg': 'Startup new cycle.'})
             self._cycle_handler()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
@@ -45,8 +48,12 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._previous_finalized_slot_number:
+            logger.info({'msg': 'New finalized block found.'})
             self._previous_finalized_slot_number = blockstamp.slot_number
             self.run_cycle(blockstamp)
+        else:
+            logger.info({'msg': f'No updates. Sleep for {DEFAULT_SLEEP}.'})
+            time.sleep(DEFAULT_SLEEP)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
@@ -59,7 +66,8 @@ class BaseModule(ABC):
         execution_payload = slot_details.message.body['execution_payload']
         block_hash = BlockHash(execution_payload['block_hash'])
         block_number = BlockNumber(int(execution_payload['block_number']))
-        return BlockStamp(
+
+        bs = BlockStamp(
             block_root=block_root,
             state_root=state_root,
             slot_number=slot_number,
@@ -67,7 +75,12 @@ class BaseModule(ABC):
             block_number=block_number,
         )
 
+        logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
+
+        return bs
+
     def run_cycle(self, blockstamp: BlockStamp):
+        logger.info({'msg': 'Execute module.'})
         try:
             self.execute_module(blockstamp)
         except TimeoutError as exception:
@@ -84,7 +97,7 @@ class BaseModule(ABC):
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         except Exception as error:
-            logger.error({"msg": "Unexpected exception.", "error": str(error)})
+            logger.error({"msg": f"Unexpected exception. Sleep for {DEFAULT_SLEEP}.", "error": str(error)})
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
         else:

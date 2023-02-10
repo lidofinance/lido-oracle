@@ -22,9 +22,9 @@ class LidoContracts(Module):
             abi=self.load_abi('Lido'),
         )
 
-        self.oracle = self.w3.eth.contract(
+        self.accounting_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.accountingOracle().call(),
-            abi=self.load_abi('LidoOracle'),
+            abi=self.load_abi('AccountingOracle'),
         )
 
         self.lido_execution_layer_rewards_vault = self.w3.eth.contract(
@@ -32,19 +32,24 @@ class LidoContracts(Module):
             abi=self.load_abi('LidoExecutionLayerRewardsVault'),
         )
 
-        self.staking_router = self.w3.eth.contract(
-            address=self.lido_locator.functions.stakingRouter().call(),
-            abi=self.load_abi('NodeOperatorsRegistry'),
+        self.withdrawal_vault = self.w3.eth.contract(
+            address=self.lido_locator.functions.withdrawalVault().call(),
+            abi=self.load_abi('WithdrawalVault'),
         )
 
-        self.validator_exit_bus = self.w3.eth.contract(
-            address=self.lido_locator.functions.validatorExitBusOracle().call(),
-            abi=self.load_abi('validatorExitBusOracle'),
+        self.staking_router = self.w3.eth.contract(
+            address=self.lido_locator.functions.stakingRouter().call(),
+            abi=self.load_abi('StakingRouter'),
+        )
+
+        self.validators_exit_bus_oracle = self.w3.eth.contract(
+            address=self.lido_locator.functions.validatorsExitBusOracle().call(),
+            abi=self.load_abi('ValidatorsExitBusOracle'),
         )
 
         self.withdrawal_queue = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalQueue().call(),
-            abi=self.load_abi('WithdrawalQueue'),
+            abi=self.load_abi('WithdrawalRequestNFT'),
         )
 
     @staticmethod
