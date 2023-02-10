@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from src.typings import StateRoot
+from src.typings import BlockRoot, StateRoot
 from src.utils.dataclass import Nested
 
 
 @dataclass
 class BlockRootResponse:
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
-    root: StateRoot
+    root: BlockRoot
 
 
 @dataclass
@@ -16,7 +16,7 @@ class BlockMessage:
     slot: str
     proposer_index: str
     parent_root: str
-    state_root: str
+    state_root: StateRoot
     body: dict
 
 
