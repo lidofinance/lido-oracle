@@ -1,9 +1,9 @@
 import pytest
 from eth_typing import Address
+from hexbytes import HexBytes
 
-from src.providers.keys.typings import OperatorResponse, ContractModule, Operator
+from src.providers.keys.typings import ContractModule, LidoKey
 from src.services.extra_data import ExtraData
-from src.services import extra_data
 
 pytestmark = pytest.mark.unit
 
@@ -13,61 +13,49 @@ def extra_data_service(web3, lido_validators):
     return ExtraData(web3)
 
 
-def module(id):
+def module(id, module_address):
     return ContractModule(nonce=0,
                           type="curated-onchain-v1",
                           id=id,
-                          stakingModuleAddress=Address(b"0x000000"),
+                          stakingModuleAddress=Address(module_address),
                           name="Test")
 
 
-def operator(index):
-    return Operator(index=index,
-                    active=True,
-                    name="Alex T",
-                    rewardAddress=Address(b"0x1C292814671B60a56C4051cAf6E6C5fD583f2ce5"),
-                    stakingLimit=0,
-                    stoppedValidators=0,
-                    totalSigningKeys=0,
-                    usedSigningKeys=0
-                    )
+def lido_key(op_index, module_address):
+    return LidoKey(
+        key=HexBytes(b""),
+        depositSignature=HexBytes(b""),
+        operatorIndex=op_index,
+        used=True,
+        moduleAddress=Address(module_address),
+    )
 
 
 class TestBuildValidators:
     def test_payload(self, extra_data_service):
-        operator_responses = [
-            OperatorResponse(module=module(id=1),
-                             operators=[
-                                 operator(index=0),
-                                 operator(index=1),
-                             ])
-        ]
+        modules = [module(id=1, module_address=b"0x1")]
+        lido_keys = [lido_key(op_index=0, module_address=b"0x1"),
+                     lido_key(op_index=1, module_address=b"0x1"),
+                     lido_key(op_index=1, module_address=b"0x1")]
 
-        payload = extra_data_service.build_validators_payloads(operator_responses)[0]
+        payload = extra_data_service.build_validators_payloads(lido_keys, modules, 10)[0]
         assert payload.module_id == b'\x00\x00\x01'
         assert payload.node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
         assert payload.node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        assert payload.stuck_vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        assert payload.vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
 
     def test_order(self, extra_data_service, monkeypatch):
-        monkeypatch.setattr(extra_data, "MAX_EXTRA_DATA_LIST_ITEMS_COUNT", 2)
-        operator_responses = [
-            OperatorResponse(module=module(id=2),
-                             operators=[
-                                 operator(index=0),
-                                 operator(index=1),
-                             ]),
-            OperatorResponse(module=module(id=1),
-                             operators=[
-                                 operator(index=3),
-                                 operator(index=2),
-                                 operator(index=4),
-                                 operator(index=5),
+        modules = [module(id=2, module_address=b"0x2"), module(id=1, module_address=b"0x1")]
+        lido_keys = [lido_key(op_index=0, module_address=b"0x2"),
+                     lido_key(op_index=1, module_address=b"0x2"),
+                     lido_key(op_index=3, module_address=b"0x1"),
+                     lido_key(op_index=3, module_address=b"0x1"),
+                     lido_key(op_index=2, module_address=b"0x1"),
+                     lido_key(op_index=4, module_address=b"0x1"),
+                     lido_key(op_index=5, module_address=b"0x1"),
+                     ]
 
-                             ]),
-        ]
-
-        payloads = extra_data_service.build_validators_payloads(operator_responses)
+        payloads = extra_data_service.build_validators_payloads(lido_keys, modules, 2)
         assert payloads[0].module_id == b'\x00\x00\x01'
         assert payloads[1].module_id == b'\x00\x00\x01'
         assert payloads[2].module_id == b'\x00\x00\x02'
