@@ -5,6 +5,8 @@ from src.providers.keys.typings import OperatorResponse, ContractModule, Operato
 from src.services.extra_data import ExtraData
 from src.services import extra_data
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture()
 def extra_data_service(web3, lido_validators):
