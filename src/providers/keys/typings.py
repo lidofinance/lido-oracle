@@ -57,7 +57,7 @@ class OperatorExpanded(Operator):
 class ContractModule:
     nonce: int
     type: str
-    id: str
+    id: int
     stakingModuleAddress: Address
     name: str
 
