@@ -15,8 +15,10 @@ class Nested:
                 field_type = field.type.__args__[0]
                 if is_dataclass(field_type):
                     setattr(self, field.name,
-                            field.type.__origin__(map(lambda x: field_type(**x), getattr(self, field.name))))
-            elif is_dataclass(field.type):
+                            field.type.__origin__(map(
+                                lambda x: field_type(**x) if not is_dataclass(x) else x,
+                                getattr(self, field.name))))
+            elif is_dataclass(field.type) and not is_dataclass(getattr(self, field.name)):
                 setattr(self, field.name, field.type(**getattr(self, field.name)))
 
 
