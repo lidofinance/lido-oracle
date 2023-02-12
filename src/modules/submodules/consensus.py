@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 from eth_typing import Address
 
+from src.providers.http_provider import NotOkResponse
 from src.web3_extentions.typings import Web3
 from web3.contract import Contract
 
@@ -70,7 +71,7 @@ class ConsensusModule(ABC):
 
         # Defaults for dry mode
         current_ref_slot, deadline_slot = self._get_current_frame(blockstamp)
-        is_member, last_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
+        is_member, last_member_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
         member_ref_slot = current_ref_slot
 
         if variables.ACCOUNT:
@@ -101,7 +102,7 @@ class ConsensusModule(ABC):
 
         return MemberInfo(
             is_member=is_member,
-            last_report_ref_slot=last_report_ref_slot,
+            last_report_ref_slot=last_member_report_ref_slot,
             current_ref_slot=current_ref_slot,
             member_ref_slot=member_ref_slot,
             member_report_for_current_ref_slot=member_report_for_current_ref_slot,
@@ -134,10 +135,14 @@ class ConsensusModule(ABC):
 
         for i in range(slot, slot - epoch_per_frame * 32, -1):
             try:
-                root = self.w3.cc.get_block_root(slot).root
+                root = self.w3.cc.get_block_root(i).root
             except KeyError:
-                logger.warning({'msg': f'Missed slot: {slot}. Check next slot.'})
+                logger.warning({'msg': f'Missed slot: {i}. Check next slot.'})
                 continue
+            except NotOkResponse as e:
+                if 'Response [404]' in e.args[0]:
+                    logger.warning({'msg': f'Missed slot: {i}. Check next slot.'})
+                    continue
 
             slot_details = self.w3.cc.get_block_details(root)
 

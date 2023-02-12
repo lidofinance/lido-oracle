@@ -42,7 +42,7 @@ class ValidatorState:
     withdrawal_credentials: str
     effective_balance: str
     slashed: bool
-    activation_eligibility_epoch: bool
+    activation_eligibility_epoch: str
     activation_epoch: str
     exit_epoch: str
     withdrawable_epoch: str
@@ -50,8 +50,8 @@ class ValidatorState:
 
 @dataclass
 class Validator(Nested):
-    index: int
-    balance: int
+    index: str
+    balance: str
     status: ValidatorStatus
     validator: ValidatorState
 
