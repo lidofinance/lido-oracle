@@ -336,6 +336,7 @@ class BunkerService:
         due because its exit epoch shifted because of huge exit queue
         Read more here: https://hackmd.io/@lido/r1Qkkiv3j
         """
+        assert validator.validator.slashed, "Validator should be slashed to detect slashing epoch range"
         is_known_slashed_epoch = False
 
         v = validator.validator
