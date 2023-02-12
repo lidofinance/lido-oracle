@@ -71,7 +71,7 @@ class ConsensusModule(ABC):
 
         # Defaults for dry mode
         current_ref_slot, deadline_slot = self._get_current_frame(blockstamp)
-        is_member, last_member_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
+        is_member, last_report_ref_slot, member_report_for_current_ref_slot = True, 0, b''
         member_ref_slot = current_ref_slot
 
         if variables.ACCOUNT:
