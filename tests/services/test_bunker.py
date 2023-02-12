@@ -47,7 +47,7 @@ test_data_calculate_total_effective_balance = [
 @pytest.mark.parametrize(("validators", "expected_indexes"), test_data_calculate_total_effective_balance)
 def test_not_withdrawn_slashed_validators(validators, expected_indexes):
     slashed_validators = BunkerService._not_withdrawn_slashed_validators(validators, 15000)
-    slashed_validators_indexes = [int(v.index) for v in slashed_validators]
+    slashed_validators_indexes = [v.index for v in slashed_validators]
     assert slashed_validators_indexes == expected_indexes
 
 
