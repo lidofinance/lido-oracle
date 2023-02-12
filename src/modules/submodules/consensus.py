@@ -102,7 +102,7 @@ class ConsensusModule(ABC):
 
         return MemberInfo(
             is_member=is_member,
-            last_report_ref_slot=last_member_report_ref_slot,
+            last_report_ref_slot=last_report_ref_slot,
             current_ref_slot=current_ref_slot,
             member_ref_slot=member_ref_slot,
             member_report_for_current_ref_slot=member_report_for_current_ref_slot,
