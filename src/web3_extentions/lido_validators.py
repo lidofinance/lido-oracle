@@ -6,7 +6,7 @@ from eth_typing import Address
 from web3.module import Module
 
 from src.providers.consensus.typings import Validator
-from src.providers.keys.typings import LidoKey, LidoValidator
+from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 from src.utils.dataclass import Nested
 from src.web3_extentions import LidoContracts
@@ -55,6 +55,12 @@ class NodeOperator(Nested):
     totalDepositedValidators: int
     depositableValidatorsCount: int
     stakingModule: StakingModule
+
+
+@dataclass
+class LidoValidator:
+    key: LidoKey
+    validator: Validator
 
 
 class LidoValidatorsProvider(Module):
