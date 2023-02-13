@@ -25,6 +25,7 @@ FROM base as builder
 ENV POETRY_VERSION=1.3.2
 RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
+WORKDIR /
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --only main --no-root
 
