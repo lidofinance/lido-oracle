@@ -18,7 +18,7 @@ NodeOperatorIndex = Tuple[Address, int]
 
 
 @dataclass
-class StakingModule(Nested):
+class StakingModule:
     # unique id of the staking module
     id: int
     # address of staking module
@@ -43,7 +43,7 @@ class StakingModule(Nested):
 
 
 @dataclass
-class NodeOperator:
+class NodeOperator(Nested):
     id: int
     isActive: bool
     isTargetLimitActive: bool
