@@ -52,7 +52,7 @@ class BaseModule(ABC):
             self._previous_finalized_slot_number = blockstamp.slot_number
             self.run_cycle(blockstamp)
         else:
-            logger.info({'msg': f'No updates. Sleep for {DEFAULT_SLEEP}.'})
+            logger.info({'msg': f'No updates. Sleep for {DEFAULT_SLEEP} seconds.'})
             time.sleep(DEFAULT_SLEEP)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
@@ -98,7 +98,7 @@ class BaseModule(ABC):
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
             raise ValueError from error
         except Exception as error:
-            logger.error({"msg": f"Unexpected exception. Sleep for {DEFAULT_SLEEP}.", "error": str(error)})
+            logger.error({"msg": f"Unexpected exception. Sleep for {DEFAULT_SLEEP} seconds.", "error": str(error)})
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
             raise Exception from error
