@@ -96,10 +96,12 @@ class BaseModule(ABC):
             logger.error({"msg": error.args, "error": str(error)})
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
+            raise ValueError from error
         except Exception as error:
             logger.error({"msg": f"Unexpected exception. Sleep for {DEFAULT_SLEEP}.", "error": str(error)})
             time.sleep(DEFAULT_SLEEP)
             EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
+            raise Exception from error
         else:
             time.sleep(DEFAULT_SLEEP)
 

@@ -51,6 +51,12 @@ def chunks(it, size):
     return iter(lambda: tuple(islice(it, size)), ())
 
 
+# class ExtraData:
+#     @staticmethod
+#     def
+
+
+
 class ExtraData:
 
     def __init__(self, w3: Web3):

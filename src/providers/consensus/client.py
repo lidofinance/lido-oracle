@@ -26,9 +26,12 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
-    @lru_cache(maxsize=1)
     def get_block_root(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockRootResponse:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"""
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
+
+        No cache because this method is using to get finalized and head block, and they could not be cached by args.
+        """
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
         return BlockRootResponse(**data)
 

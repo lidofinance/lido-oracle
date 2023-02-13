@@ -20,7 +20,7 @@ class TransactionUtils(Module):
         True - transaction succeed.
         False - transaction reverted.
         """
-        logger.info({"msg": "Check transaction locally.", "value": transaction.args})
+        logger.info({"msg": "Check transaction locally.", "value": str(transaction.args)})
 
         try:
             result = transaction.call({"from": from_address})
@@ -75,3 +75,5 @@ class TransactionUtils(Module):
 
         if tx_receipt.status != 1:
             TX_FAILURE.inc()
+
+        return tx_receipt
