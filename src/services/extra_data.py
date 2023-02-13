@@ -57,7 +57,7 @@ class ExtraData:
         self.w3 = w3
 
     def collect(self, blockstamp: BlockStamp, exited_validators: list[LidoKey], stucked_validators: list[LidoKey]) -> bytes:
-        operators_response = self.w3.kac.get_operators(blockstamp)
+        operators_response = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         # TODO get from oracleReportSanityChecker contract
         max_extra_data_list_items_count = 100
         stucked_payloads = self.build_validators_payloads(stucked_validators, max_extra_data_list_items_count)

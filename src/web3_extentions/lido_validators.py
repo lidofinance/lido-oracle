@@ -8,6 +8,7 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey, LidoValidator
 from src.typings import BlockStamp
+from src.utils.dataclass import Nested
 from src.web3_extentions import LidoContracts
 
 if TYPE_CHECKING:
@@ -17,7 +18,32 @@ NodeOperatorIndex = Tuple[Address, int]
 
 
 @dataclass
-class Operator:
+class StakingModule(Nested):
+    # unique id of the staking module
+    id: int
+    # address of staking module
+    stakingModuleAddress: Address
+    # part of the fee taken from staking rewards that goes to the staking module
+    stakingModuleFee: int
+    # part of the fee taken from staking rewards that goes to the treasury
+    treasuryFee: int
+    # target percent of total validators in protocol, in BP
+    targetShare: int
+    # staking module status if staking module can not accept
+    # the deposits or can participate in further reward distribution
+    status: int
+    # name of staking module
+    name: str
+    # block.timestamp of the last deposit of the staking module
+    lastDepositAt: int
+    # block.number of the last deposit of the staking module
+    lastDepositBlock: int
+    # number of exited validators
+    exitedValidatorsCount: int
+
+
+@dataclass
+class NodeOperator:
     id: int
     isActive: bool
     isTargetLimitActive: bool
@@ -25,12 +51,10 @@ class Operator:
     stuckValidatorsCount: int
     refundedValidatorsCount: int
     stuckPenaltyEndTimestamp: int
-    validatorsReport: tuple[int, int, int]  # totalExited, totalDeposited, depositable
-
-
-@dataclass
-class OperatorExpanded(Operator):
-    stakingModuleAddress: Address
+    totalExitedValidators: int
+    totalDepositedValidators: int
+    depositableValidatorsCount: int
+    stakingModule: StakingModule
 
 
 class LidoValidatorsProvider(Module):
@@ -65,7 +89,7 @@ class LidoValidatorsProvider(Module):
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict
-        no_validators = {(operator.stakingModuleAddress, operator.id): [] for operator in no_operators}
+        no_validators = {(operator.stakingModule.stakingModuleAddress, operator.id): [] for operator in no_operators}
 
         for validator in merged_validators:
             no_validators[(validator.key.moduleAddress, validator.key.operatorIndex)].append(validator)
@@ -73,23 +97,26 @@ class LidoValidatorsProvider(Module):
         return dict(no_validators)
 
     @lru_cache(maxsize=1)
-    def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[OperatorExpanded]:
+    def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
 
         operators = []
 
-        staking_modules = self.w3.lido_contracts.staking_router.functions.getStakingModules().call(
-            block_identifier=blockstamp.block_hash,
-        )
-        for module in staking_modules:
+        for module in self._get_staking_modules(blockstamp):
             module_id, module_address, *_ = module
             module_contract = self.w3.eth.contract(address=module_address, abi=LidoContracts.load_abi('IStakingModule'))
             nos_count = module_contract.functions.getNodeOperatorsCount().call(block_identifier=blockstamp.block_hash)
-            module_operators = self.w3.lido_contracts.staking_router.functions.getNodeOperatorReports(
+            module_operators = self.w3.lido_contracts.staking_router.functions.getNodeOperatorDigests(
                 module_id, 0, nos_count
             ).call(block_identifier=blockstamp.block_hash)
             for operator in module_operators:
-                operator = OperatorExpanded(*operator, stakingModuleAddress=module_address)
+                _id, is_active, summary = operator
+                operator = NodeOperator(_id, is_active, *summary, stakingModule=module)
                 operators.append(operator)
 
         return operators
 
+    def _get_staking_modules(self, blockstamp: BlockStamp) -> list[StakingModule]:
+        modules = self.w3.lido_contracts.staking_router.functions.getStakingModules().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        return [StakingModule(*module) for module in modules]

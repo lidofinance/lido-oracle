@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_REQUESTS
 from src.providers.http_provider import HTTPProvider
-from src.providers.keys.typings import LidoKey, OperatorResponse
+from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 from src.utils.dataclass import list_of_dataclasses
 
@@ -43,9 +43,3 @@ class KeysAPIClient(HTTPProvider):
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.testnet.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return self._get_with_blockstamp(self.ALL_KEYS, blockstamp)
-
-    @lru_cache(maxsize=1)
-    @list_of_dataclasses(OperatorResponse)
-    def get_operators(self, blockstamp: BlockStamp) -> list[OperatorResponse]:
-        """Docs: https://keys-api.testnet.fi/api/static/index.html#/operators/SRModulesOperatorsController_get"""
-        return self._get_with_blockstamp(self.ALL_OPERATORS, blockstamp)
