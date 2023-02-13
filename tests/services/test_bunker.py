@@ -8,14 +8,14 @@ from src.services.bunker import BunkerService
 
 test_data_calculate_total_effective_balance = [
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING.value, ValidatorState('', '', '2', False, '', '', '', '')),
-         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING.value, ValidatorState('', '', '3', False, '', '', '', '')),
-         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED.value, ValidatorState('', '', '4', True, '', '', '', ''))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '', '', '')),
+         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING, ValidatorState('', '', '3', False, '', '', '', '')),
+         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '4', True, '', '', '', ''))],
         9,
     ),
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING.value, ValidatorState('', '', '2', False, '', '', '', '')),
-         Validator('1', '1', ValidatorStatus.EXITED_SLASHED.value, ValidatorState('', '', '2', True, '', '', '', ''))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '', '', '')),
+         Validator('1', '1', ValidatorStatus.EXITED_SLASHED, ValidatorState('', '', '2', True, '', '', '', ''))],
         2,
     ),
 ]
@@ -30,14 +30,14 @@ def test_calculate_total_effective_balance(validators, expected_balance):
 
 test_data_calculate_total_effective_balance = [
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING.value, ValidatorState('', '', '2', True, '', '', '', '15001')),
-         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING.value, ValidatorState('', '', '3', True, '', '', '', '15001')),
-         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED.value, ValidatorState('', '', '4', True, '', '', '', '15001'))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', True, '', '', '', '15001')),
+         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING, ValidatorState('', '', '3', True, '', '', '', '15001')),
+         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '4', True, '', '', '', '15001'))],
         ['0', '1', '2'],
     ),
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING.value, ValidatorState('', '', '2', True, '', '', '', '15000')),
-         Validator('1', '1', ValidatorStatus.EXITED_SLASHED.value, ValidatorState('', '', '2', True, '', '', '', '15000'))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', True, '', '', '', '15000')),
+         Validator('1', '1', ValidatorStatus.EXITED_SLASHED, ValidatorState('', '', '2', True, '', '', '', '15000'))],
         [],
     ),
 ]

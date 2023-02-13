@@ -1,8 +1,10 @@
 import math
 import logging
+from collections import defaultdict
 from typing import List, Sequence
 
-from ens.utils import Web3
+from src.web3_extentions import LidoValidator
+from src.web3_extentions.typings import Web3
 
 from src.modules.accounting.typings import CommonDataToProcess, Gwei, Epoch
 from src.modules.submodules.consensus import ConsensusModule, FrameConfig, ChainConfig
@@ -17,7 +19,7 @@ MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 
 FIRST_DEPOSIT_EVENT_LOOKUP_MAXIMUM_BLOCKS_DISTANCE = 225 * 7
 
-NORMILIZED_CL_PER_EPOCH = 64
+NORMALIZED_CL_PER_EPOCH = 64
 MISTAKE_RANGE = 0.1
 NEAREST_EPOCH_DISTANCE = 4
 FAR_EPOCH_DISTANCE = 25
@@ -49,7 +51,7 @@ class BunkerService:
     def _get_cl_rebase_for_frame(self, cdtp: CommonDataToProcess) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
         ref_lido_balance, ref_withdrawal_vault_balance = self._calculate_lido_balance_with_vault(
-            cdtp.ref_blockstamp, [v.validator for v in cdtp.ref_lido_validators], cdtp.ref_blockstamp
+            cdtp.ref_lido_validators, cdtp.ref_blockstamp
         )
         # Make a static call of 'handleOracleReport' without EL rewards
         # to simulate report and get total pool ether after that
@@ -87,21 +89,23 @@ class BunkerService:
         lido_slashed_validators: List[Validator] = [
             v.validator for v in self.w3.lido_validators.filter_lido_validators(cdtp.lido_keys, all_slashed_validators)
         ]
-        logger.info({"msg": f"Slashed - all: {len(all_slashed_validators)} lido: {len(lido_slashed_validators)}"})
+        logger.info({"msg": f"Slashed: {len(all_slashed_validators)=} | {len(lido_slashed_validators)=}"})
 
         # If no one lido in current slashed validators - no need to bunker
-        if len(lido_slashed_validators) == 0:
+        if not lido_slashed_validators:
             return False
 
         # Fill per epoch buckets by possible slashed epochs
-        per_epoch_buckets: dict[int, List[Validator]] = {}
+        per_epoch_buckets = defaultdict(list[Validator])
         for validator in all_slashed_validators:
             possible_epochs_with_slashings = self._detect_slashing_epoch_range(validator, cdtp.ref_epoch)
             for epoch in possible_epochs_with_slashings:
-                per_epoch_buckets[epoch] = per_epoch_buckets.get(epoch, []) + [validator]
+                per_epoch_buckets[epoch].append(validator)
+
+        min_bucket_epoch = min(per_epoch_buckets.keys())
 
         # Iterate through per_epoch_buckets and calculate lido midterm penalties for each bucket
-        per_epoch_lido_midterm_penalties: dict[int, int] = {}
+        per_epoch_lido_midterm_penalties = defaultdict(int)
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
         total_balance = self._calculate_total_effective_balance(cdtp.ref_all_validators)
         for epoch, slashed_validators in per_epoch_buckets.items():
@@ -109,18 +113,14 @@ class BunkerService:
             lido_validators_slashed_in_epoch = [
                 v for v in lido_slashed_validators if v.validator.pubkey in slashed_keys
             ]
-            if len(lido_validators_slashed_in_epoch) == 0:
+            if not lido_validators_slashed_in_epoch:
                 continue
             # We should calculate penalties according to bounded slashings in past EPOCHS_PER_SLASHINGS_VECTOR
-            bounded_slashings_balance_sum = 0  # aka state.slashings from spec
-            min_bounded_epoch = max(
-                min(per_epoch_buckets.keys()), epoch - EPOCHS_PER_SLASHINGS_VECTOR
-            )
-            bounded_epochs = [e for e in per_epoch_buckets if min_bounded_epoch <= e <= epoch]
-            for e in bounded_epochs:
-                bounded_slashings_balance_sum += sum(
-                    [int(v.validator.effective_balance) for v in per_epoch_buckets[e]]
-                )
+            min_bounded_epoch = max(min_bucket_epoch, epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+            bounded_slashings_balance_sum = sum([
+                sum(int(v.validator.effective_balance) for v in e_vals)
+                for e, e_vals in per_epoch_buckets.items() if min_bounded_epoch <= e <= epoch
+            ])  # aka state.slashings from spec
             adjusted_total_slashing_balance = min(
                 bounded_slashings_balance_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
                 total_balance
@@ -129,26 +129,26 @@ class BunkerService:
                 effective_balance = int(v.validator.effective_balance)
                 penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
                 penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
-                per_epoch_lido_midterm_penalties[epoch] = per_epoch_lido_midterm_penalties.get(epoch, 0) + penalty
+                per_epoch_lido_midterm_penalties[epoch] += penalty
 
         # Put per epoch buckets into per frame buckets to calculate lido midterm penalties impact in each frame
-        per_frame_buckets: dict[int, int] = {}
-        index = 0
+        per_frame_buckets = defaultdict(int)
         right_border = self.f_conf.initial_epoch + self.f_conf.epochs_per_frame
         # The first bucket should have flexible size. It can be less than 'epochs_per_frame'
         while right_border < min(per_epoch_lido_midterm_penalties.keys()):
             right_border += self.f_conf.epochs_per_frame
-        left_border = min(per_epoch_lido_midterm_penalties.keys())
+        left_border = min_bucket_epoch
         # This will give us something like
         # |                      0               |       1       |       2       |      N             |
         #   min_bucket_epoch (eg. 1520) ... 1575   1576 ... 1801   1802 ... 2027     n ... n + frame
+        index = 0
         for epoch, midterm_penalty_sum in sorted(per_epoch_lido_midterm_penalties.items()):
             if epoch > right_border:
                 index += 1
                 left_border = right_border + 1
                 right_border += self.f_conf.epochs_per_frame
             if left_border <= epoch <= right_border:
-                per_frame_buckets[index] = per_frame_buckets.get(index, 0) + midterm_penalty_sum
+                per_frame_buckets[index] += midterm_penalty_sum
 
         # If any midterm penalty sum of lido validators in frame bucket greater than rebase we should trigger bunker
         max_lido_midterm_penalty = max(per_frame_buckets.values())
@@ -202,7 +202,7 @@ class BunkerService:
 
         epochs_passed = cdtp.ref_epoch - last_completed_epoch
         normal_cl_rebase = int(
-            (NORMILIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
+            (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
             // (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
         )
 
@@ -232,13 +232,13 @@ class BunkerService:
         logger.info({"msg": f"Calculating CL rebase between {prev_epoch,cdtp.ref_epoch=}"})
 
         ref_lido_balance_with_vault = sum(self._calculate_lido_balance_with_vault(
-            cdtp.ref_blockstamp, [v.validator for v in cdtp.ref_lido_validators], cdtp.ref_blockstamp
+            cdtp.ref_lido_validators, cdtp.ref_blockstamp
         ))
 
         prev_all_validators = self.w3.cc.get_validators(prev_blockstamp.state_root)
         prev_lido_validators = self.w3.lido_validators.filter_lido_validators(cdtp.lido_keys, prev_all_validators)
         prev_lido_balance_with_vault = sum(self._calculate_lido_balance_with_vault(
-            cdtp.ref_blockstamp, [v.validator for v in prev_lido_validators], prev_blockstamp
+            prev_lido_validators, prev_blockstamp
         ))
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
@@ -258,21 +258,17 @@ class BunkerService:
         return cl_rebase
 
     def _calculate_lido_balance_with_vault(
-        self, ref_blockstamp: BlockStamp, lido_validators: List[Validator], vault_balance_at: BlockStamp
+        self, lido_validators: List[LidoValidator], vault_balance_at: BlockStamp
     ) -> tuple[Gwei, Gwei]:
         """
         Calculate Lido validators balance and balance in withdrawal vault contract in particular block
         """
-        lido_balance = sum([int(validator.balance) for validator in lido_validators])
-        withdrawal_vault_balance = self.w3.from_wei(
-            self.w3.eth.get_balance(
-                self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
-                    block_identifier=ref_blockstamp.block_hash
-                ), vault_balance_at.block_hash
-            ),
-            'gwei'
+        lido_balance = sum([int(v.validator.balance) for v in lido_validators])
+        withdrawal_vault_balance = self.w3.eth.get_balance(
+            self.w3.lido_contracts.withdrawal_vault.address, vault_balance_at.block_hash
         )
-        return lido_balance, withdrawal_vault_balance
+
+        return lido_balance, self.w3.from_wei(withdrawal_vault_balance, 'gwei')
 
     def _get_withdrawn_from_vault_between(self, prev_blockstamp: BlockStamp, curr_blockstamp: BlockStamp) -> int:
         """
@@ -301,14 +297,13 @@ class BunkerService:
         """
         total_effective_balance = 0
 
-        for validator in all_validators:
-            if validator.status in [
-                ValidatorStatus.ACTIVE_ONGOING.value,
-                ValidatorStatus.ACTIVE_EXITING.value,
-                ValidatorStatus.ACTIVE_SLASHED.value
+        for v in all_validators:
+            if v.status in [
+                ValidatorStatus.ACTIVE_ONGOING,
+                ValidatorStatus.ACTIVE_EXITING,
+                ValidatorStatus.ACTIVE_SLASHED
             ]:
-                validator_effective_balance = validator.validator.effective_balance
-                total_effective_balance += int(validator_effective_balance)
+                total_effective_balance += int(v.validator.effective_balance)
 
         return total_effective_balance
 
