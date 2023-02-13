@@ -58,7 +58,7 @@ class NodeOperator(Nested):
 
 
 @dataclass
-class LidoValidator:
+class LidoValidator(Nested):
     key: LidoKey
     validator: Validator
 
