@@ -18,7 +18,7 @@ def test_get_lido_validators(web3, lido_validators, past_blockstamp):
 
 
 @pytest.mark.unit
-def test_get_node_operators(web3, lido_validators, past_blockstamp):
+def test_get_node_operators(web3, lido_validators, contracts, past_blockstamp):
     node_operators = web3.lido_validators.get_lido_node_operators(past_blockstamp)
 
     assert len(node_operators) == 3
@@ -30,7 +30,7 @@ def test_get_node_operators(web3, lido_validators, past_blockstamp):
     }
 
     for no in node_operators:
-        assert no.stakingModuleAddress == registry_map[no.name]
+        assert no.stakingModuleAddress == registry_map[no.id]
 
 
 @pytest.mark.unit

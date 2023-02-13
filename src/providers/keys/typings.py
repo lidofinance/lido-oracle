@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from eth_typing import Address
 from hexbytes import HexBytes
 
+from src.providers.consensus.typings import Validator
 from src.utils.dataclass import Nested
 
 
@@ -13,6 +14,12 @@ class LidoKey:
     operatorIndex: int
     used: bool
     moduleAddress: Address
+
+
+@dataclass
+class LidoValidator:
+    key: LidoKey
+    validator: Validator
 
 
 @dataclass
@@ -51,6 +58,7 @@ class Operator:
 @dataclass
 class OperatorExpanded(Operator):
     stakingModuleAddress: Address
+    validators: list[LidoValidator]
 
 
 @dataclass

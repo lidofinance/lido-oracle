@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, Tuple, TYPE_CHECKING
 
@@ -6,20 +6,31 @@ from eth_typing import Address
 from web3.module import Module
 
 from src.providers.consensus.typings import Validator
-from src.providers.keys.typings import LidoKey, OperatorResponse, OperatorExpanded
+from src.providers.keys.typings import LidoKey, LidoValidator
 from src.typings import BlockStamp
+from src.web3_extentions import LidoContracts
 
 if TYPE_CHECKING:
     from src.web3_extentions.typings import Web3
 
+NodeOperatorIndex = Tuple[Address, int]
+
 
 @dataclass
-class LidoValidator:
-    key: LidoKey
-    validator: Validator
+class Operator:
+    id: int
+    isActive: bool
+    isTargetLimitActive: bool
+    targetValidatorsCount: int
+    stuckValidatorsCount: int
+    refundedValidatorsCount: int
+    stuckPenaltyEndTimestamp: int
+    validatorsReport: tuple[int, int, int]  # totalExited, totalDeposited, depositable
 
 
-NodeOperatorIndex = Tuple[Address, int]
+@dataclass
+class OperatorExpanded(Operator):
+    stakingModuleAddress: Address
 
 
 class LidoValidatorsProvider(Module):
@@ -54,7 +65,7 @@ class LidoValidatorsProvider(Module):
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict
-        no_validators = {(operator.stakingModuleAddress, operator.index): [] for operator in no_operators}
+        no_validators = {(operator.stakingModuleAddress, operator.id): [] for operator in no_operators}
 
         for validator in merged_validators:
             no_validators[(validator.key.moduleAddress, validator.key.operatorIndex)].append(validator)
@@ -63,17 +74,22 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[OperatorExpanded]:
-        operators_by_modules: list[OperatorResponse] = self.w3.kac.get_operators(blockstamp)
 
         operators = []
 
-        for module in operators_by_modules:
-            operators.extend([
-                OperatorExpanded(
-                    stakingModuleAddress=module.module.stakingModuleAddress,
-                    **asdict(operator),
-                )
-                for operator in module.operators
-            ])
+        staking_modules = self.w3.lido_contracts.staking_router.functions.getStakingModules().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        for module in staking_modules:
+            module_id, module_address, *_ = module
+            module_contract = self.w3.eth.contract(address=module_address, abi=LidoContracts.load_abi('IStakingModule'))
+            nos_count = module_contract.functions.getNodeOperatorsCount().call(block_identifier=blockstamp.block_hash)
+            module_operators = self.w3.lido_contracts.staking_router.functions.getNodeOperatorReports(
+                module_id, 0, nos_count
+            ).call(block_identifier=blockstamp.block_hash)
+            for operator in module_operators:
+                operator = OperatorExpanded(*operator, stakingModuleAddress=module_address)
+                operators.append(operator)
 
         return operators
+
