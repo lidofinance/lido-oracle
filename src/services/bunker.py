@@ -121,7 +121,7 @@ class BunkerService:
         per_frame_buckets = self._get_per_frame_lido_midterm_penalties(per_epoch_lido_midterm_penalties, self.f_conf)
 
         # If any midterm penalty sum of lido validators in frame bucket greater than rebase we should trigger bunker
-        max_lido_midterm_penalty = max(per_frame_buckets.values())
+        max_lido_midterm_penalty = max(per_frame_buckets)
         logger.info({"msg": f"Max lido midterm penalty: {max_lido_midterm_penalty}"})
         if max_lido_midterm_penalty > cl_rebase:
             return True
@@ -130,7 +130,7 @@ class BunkerService:
 
     def _is_abnormal_cl_rebase(self, blockstamp: BlockStamp, frame_cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Checking abnormal CL rebase"})
-        normal_cl_rebase = self._calculate_normal_cl_rebase(blockstamp)
+        normal_cl_rebase = self._get_normal_cl_rebase(blockstamp)
         if frame_cl_rebase < normal_cl_rebase:
             logger.info({"msg": "Abnormal CL rebase in frame"})
             nearest_cl_rebase, far_cl_rebase = self._calculate_nearest_and_far_cl_rebase(blockstamp)
@@ -138,7 +138,7 @@ class BunkerService:
                 return True
         return False
 
-    def _calculate_normal_cl_rebase(self, blockstamp: BlockStamp) -> Gwei:
+    def _get_normal_cl_rebase(self, blockstamp: BlockStamp) -> Gwei:
         """
         Calculate normal CL rebase (relative to all validators and the previous Lido frame)
         for current frame for Lido validators
@@ -176,7 +176,7 @@ class BunkerService:
 
         epochs_passed = current_ref_epoch - last_completed_epoch
 
-        normal_cl_rebase = self._get_normal_cl_rebase(
+        normal_cl_rebase = self._calculate_normal_cl_rebase(
             epochs_passed, mean_total_lido_effective_balance, mean_total_effective_balance
         )
 
@@ -190,16 +190,18 @@ class BunkerService:
         logger.info({"msg": "Calculating nearest and far CL rebase"})
         nearest_slot = (blockstamp.slot_number - NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
         far_slot = (blockstamp.slot_number - FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
+
         lookup_max_deep = self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
         nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), lookup_max_deep)
         far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), lookup_max_deep)
-        nearest_cl_rebase = self._calculate_cl_rebase_from(blockstamp, nearest_blockstamp)
-        far_cl_rebase = self._calculate_cl_rebase_from(blockstamp, far_blockstamp)
+
+        nearest_cl_rebase = self._calculate_cl_rebase_from_to(nearest_blockstamp, blockstamp)
+        far_cl_rebase = self._calculate_cl_rebase_from_to(far_blockstamp, blockstamp)
 
         logger.info({"msg": f"CL rebase {nearest_cl_rebase,far_cl_rebase=}"})
         return nearest_cl_rebase, far_cl_rebase
 
-    def _calculate_cl_rebase_from(self, curr_ref_blockstamp: BlockStamp, prev_blockstamp: BlockStamp) -> Gwei:
+    def _calculate_cl_rebase_from_to(self, prev_blockstamp: BlockStamp, curr_ref_blockstamp: BlockStamp) -> Gwei:
         """
         Calculate CL rebase from prev_blockstamp to ref_blockstamp given the changes in withdrawal vault
         """
@@ -339,63 +341,66 @@ class BunkerService:
         per_epoch_buckets: dict[EpochNumber, list[Validator]],
         lido_slashed_validators: list[Validator],
         total_balance: Gwei,
-    ) -> dict[EpochNumber, Gwei]:
+    ) -> dict[EpochNumber, dict[str, Gwei]]:
         """
         Iterate through per_epoch_buckets and calculate lido midterm penalties for each bucket
         """
         min_bucket_epoch = min(per_epoch_buckets.keys())
-        per_epoch_lido_midterm_penalties: dict[EpochNumber, Gwei] = defaultdict(int)
+        per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]] = defaultdict(dict)
         for epoch, slashed_validators in per_epoch_buckets.items():
-            slashed_keys = set(k.validator.pubkey for k in slashed_validators)
-            lido_validators_slashed_in_epoch = [
-                v for v in lido_slashed_validators if v.validator.pubkey in slashed_keys
-            ]
+            slashed_indexes = set(k.index for k in slashed_validators)
+            lido_validators_slashed_in_epoch = [v for v in lido_slashed_validators if v.index in slashed_indexes]
             if not lido_validators_slashed_in_epoch:
                 continue
             # We should calculate penalties according to bounded slashings in past EPOCHS_PER_SLASHINGS_VECTOR
             min_bounded_epoch = max(min_bucket_epoch, EpochNumber(epoch - EPOCHS_PER_SLASHINGS_VECTOR))
-            bounded_slashings_balance_sum = sum([
-                sum(int(v.validator.effective_balance) for v in e_vals)
-                for e, e_vals in per_epoch_buckets.items() if min_bounded_epoch <= e <= epoch
-            ])  # aka state.slashings from spec
+            bounded_slashed_validators = {}
+            for e, e_vals in per_epoch_buckets.items():
+                if min_bounded_epoch <= e <= epoch:
+                    for v in e_vals:
+                        if v.validator.pubkey not in bounded_slashed_validators:
+                            bounded_slashed_validators[v.index] = int(v.validator.effective_balance)
+            slashings = sum(bounded_slashed_validators.values())
             adjusted_total_slashing_balance = min(
-                bounded_slashings_balance_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
+                slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
                 total_balance
             )
             for v in lido_validators_slashed_in_epoch:
                 effective_balance = int(v.validator.effective_balance)
                 penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
                 penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
-                per_epoch_lido_midterm_penalties[epoch] += penalty
+                per_epoch_lido_midterm_penalties[epoch][v.index] = penalty
         return per_epoch_lido_midterm_penalties
 
     @staticmethod
     def _get_per_frame_lido_midterm_penalties(
-        per_epoch_lido_midterm_penalties: dict[EpochNumber, Gwei],
+        per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]],
         frame_config: FrameConfig,
-    ) -> dict[int, Gwei]:
+    ) -> list[Gwei]:
         """
         Put per epoch buckets into per frame buckets to calculate lido midterm penalties impact in each frame
         """
         min_lido_midterm_penalty_epoch = min(per_epoch_lido_midterm_penalties.keys())
-        per_frame_buckets: dict[int, Gwei] = defaultdict(int)
+        per_frame_buckets: dict[int, dict[int, Gwei]] = defaultdict(dict)
         left_border = min_lido_midterm_penalty_epoch
         right_border = frame_config.initial_epoch + frame_config.epochs_per_frame
         # The first bucket should have flexible size
         while right_border <= min_lido_midterm_penalty_epoch:
             right_border += frame_config.epochs_per_frame
         index = 0
-        for epoch, midterm_penalty_sum in sorted(per_epoch_lido_midterm_penalties.items()):
+        for epoch, validator_penalty in sorted(per_epoch_lido_midterm_penalties.items()):
             if epoch > right_border:
                 index += 1
                 left_border = right_border + 1
                 right_border += frame_config.epochs_per_frame
             if left_border <= epoch <= right_border:
-                per_frame_buckets[index] += midterm_penalty_sum
-        return per_frame_buckets
+                for val_index, penalty in validator_penalty.items():
+                    if val_index not in per_frame_buckets[index]:
+                        per_frame_buckets[index][val_index] = penalty
+        return [sum(penalties.values()) for penalties in per_frame_buckets.values()]
 
     @staticmethod
-    def _get_normal_cl_rebase(
+    def _calculate_normal_cl_rebase(
         epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
     ) -> Gwei:
         normal_cl_rebase = int(
