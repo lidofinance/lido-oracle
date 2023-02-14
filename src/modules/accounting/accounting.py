@@ -1,10 +1,9 @@
 import logging
 
-from src.modules.accounting.typings import CommonDataToProcess
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.services.bunker import BunkerService
-from src.typings import BlockStamp
+from src.typings import BlockStamp, EpochNumber
 from src.web3_extentions.typings import Web3
 
 logger = logging.getLogger(__name__)
@@ -13,8 +12,6 @@ logger = logging.getLogger(__name__)
 class Accounting(BaseModule, ConsensusModule):
     def __init__(self, w3: Web3):
         self.report_contract = w3.lido_contracts.accounting_oracle
-        ConsensusModule.report_contract = self.report_contract
-        BunkerService.report_contract = self.report_contract
         super().__init__(w3)
 
     def execute_module(self, blockstamp: BlockStamp):
@@ -36,21 +33,6 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
 
-        all_validators, lido_keys, lido_validators = self.w3.lido_validators.get_lido_validators_with_others(blockstamp)
-        logger.info({"msg": f"Validators - all: {len(all_validators)} lido: {len(lido_validators)}"})
-
-        cdtp = CommonDataToProcess(
-          blockstamp,
-          blockstamp.slot_number * chain_config.seconds_per_slot + chain_config.genesis_time,
-          blockstamp.slot_number // chain_config.slots_per_epoch,
-          all_validators,
-          lido_validators,
-          lido_keys,
-          member_info.last_report_ref_slot,
-          member_info.last_report_ref_slot // chain_config.slots_per_epoch,
-          (blockstamp.slot_number - member_info.last_report_ref_slot) * chain_config.seconds_per_slot,
-        )
-
-        b = BunkerService(self.w3, frame_config, chain_config)
-        is_bunker = b.is_bunker_mode(cdtp)
+        b = BunkerService(self.w3, member_info, frame_config, chain_config)
+        is_bunker = b.is_bunker_mode(blockstamp)
         ...

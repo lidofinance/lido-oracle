@@ -8,7 +8,7 @@ from src.utils.helpers import get_first_non_missed_slot
 from src.web3_extentions import LidoValidator
 from src.web3_extentions.typings import Web3
 
-from src.modules.accounting.typings import CommonDataToProcess, Gwei
+from src.modules.accounting.typings import Gwei
 from src.modules.submodules.consensus import FrameConfig, ChainConfig, MemberInfo
 from src.providers.consensus.typings import ValidatorStatus, Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber
@@ -32,35 +32,48 @@ logger = logging.getLogger(__name__)
 
 class BunkerService:
 
-    def __init__(self, w3: Web3, frame_config: FrameConfig, chain_config: ChainConfig):
+    def __init__(
+        self,
+        w3: Web3,
+        member_info: MemberInfo,
+        frame_config: FrameConfig,
+        chain_config: ChainConfig
+    ):
         self.w3 = w3
+        self.m_info = member_info
         self.f_conf = frame_config
         self.c_conf = chain_config
+        # Will be filled in `is_bunker_mode` call
+        self.all_validators: list[Validator] = []
+        self.lido_keys: list[LidoKey] = []
+        self.lido_validators: list[LidoValidator] = []
 
-    def is_bunker_mode(self, cdtp: CommonDataToProcess) -> bool:
+    def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
+        self.all_validators, self.lido_keys, self.lido_validators = self._get_lido_validators_with_others(blockstamp)
+        logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
         logger.info({"msg": "Checking bunker mode"})
-        frame_cl_rebase = self._get_cl_rebase_for_frame(cdtp)
+        frame_cl_rebase = self._get_cl_rebase_for_frame(blockstamp)
         if frame_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
-        if self._is_high_midterm_slashing_penalty(cdtp, frame_cl_rebase):
+        if self._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase):
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
             return True
-        if self._is_abnormal_cl_rebase(cdtp, frame_cl_rebase):
+        if self._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase):
             logger.info({"msg": "Bunker ON. Abnormal CL rebase"})
             return True
 
-    def _get_cl_rebase_for_frame(self, cdtp: CommonDataToProcess) -> Gwei:
+    def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
         ref_lido_balance, ref_withdrawal_vault_balance = self._calculate_lido_balance_with_vault(
-            cdtp.ref_lido_validators, cdtp.ref_blockstamp
+            self.lido_validators, blockstamp
         )
         # Make a static call of 'handleOracleReport' without EL rewards
         # to simulate report and get total pool ether after that
         args = {
-            "_reportTimestamp": cdtp.ref_timestamp,
-            "_timeElapsed": cdtp.seconds_elapsed_since_last_report,
-            "_clValidators": len(cdtp.ref_lido_validators),
+            "_reportTimestamp": blockstamp.slot_number * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
+            "_timeElapsed": (blockstamp.slot_number - self.m_info.last_member_report_ref_slot) * self.c_conf.seconds_per_slot,
+            "_clValidators": len(self.lido_validators),
             "_clBalance": self.w3.to_wei(ref_lido_balance, 'gwei'),
             "_withdrawalVaultBalance": ref_withdrawal_vault_balance,
             "_elRewardsVaultBalance": 0,
@@ -68,10 +81,10 @@ class BunkerService:
             "_simulatedShareRate": 0,
         }
         before_report_total_pooled_ether = self.w3.lido_contracts.lido.functions.totalSupply().call(
-            block_identifier=cdtp.ref_blockstamp.block_hash
+            block_identifier=blockstamp.block_hash
         )
         after_report_total_pooled_ether, _ = self.w3.lido_contracts.lido.functions.handleOracleReport(**args).call(
-            block_identifier=cdtp.ref_blockstamp.block_hash
+            block_identifier=blockstamp.block_hash
         )
         logger.info({
             "msg": "Simulate 'handleOracleReport' contract function call",
@@ -85,11 +98,12 @@ class BunkerService:
 
         return Gwei(frame_cl_rebase)
 
-    def _is_high_midterm_slashing_penalty(self, cdtp: CommonDataToProcess, cl_rebase: Gwei) -> bool:
+    def _is_high_midterm_slashing_penalty(self, blockstamp: BlockStamp, cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
-        all_slashed_validators = self._not_withdrawn_slashed_validators(cdtp.ref_all_validators, cdtp.ref_epoch)
+        ref_epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
+        all_slashed_validators = self._not_withdrawn_slashed_validators(self.all_validators, ref_epoch)
         lido_slashed_validators: list[Validator] = [
-            v.validator for v in self.w3.lido_validators.filter_lido_validators(cdtp.lido_keys, all_slashed_validators)
+            v.validator for v in self.w3.lido_validators.filter_lido_validators(self.lido_keys, all_slashed_validators)
         ]
         logger.info({"msg": f"Slashed: {len(all_slashed_validators)=} | {len(lido_slashed_validators)=}"})
 
@@ -98,9 +112,9 @@ class BunkerService:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
-        total_balance = self._calculate_total_effective_balance(cdtp.ref_all_validators)
+        total_balance = self._calculate_total_effective_balance(self.all_validators)
         # Calculate lido midterm penalties in each epoch where lido slashed
-        per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, cdtp.ref_epoch)
+        per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, ref_epoch)
         per_epoch_lido_midterm_penalties = self._get_per_epoch_lido_midterm_penalties(
             per_epoch_buckets, lido_slashed_validators, total_balance
         )
@@ -115,40 +129,42 @@ class BunkerService:
 
         return False
 
-    def _is_abnormal_cl_rebase(self, cdtp: CommonDataToProcess, frame_cl_rebase: Gwei) -> bool:
+    def _is_abnormal_cl_rebase(self, blockstamp: BlockStamp, frame_cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Checking abnormal CL rebase"})
-        normal_cl_rebase = self._calculate_normal_cl_rebase(cdtp)
+        normal_cl_rebase = self._calculate_normal_cl_rebase(blockstamp)
         if frame_cl_rebase < normal_cl_rebase:
             logger.info({"msg": "Abnormal CL rebase in frame"})
-            nearest_cl_rebase, far_cl_rebase = self._calculate_nearest_and_far_cl_rebase(cdtp)
+            nearest_cl_rebase, far_cl_rebase = self._calculate_nearest_and_far_cl_rebase(blockstamp)
             if nearest_cl_rebase < 0 or far_cl_rebase < 0:
                 return True
         return False
 
-    def _calculate_normal_cl_rebase(self, cdtp: CommonDataToProcess) -> Gwei:
+    def _calculate_normal_cl_rebase(self, blockstamp: BlockStamp) -> Gwei:
         """
         Calculate normal CL rebase (relative to all validators and the previous Lido frame)
         for current frame for Lido validators
         """
+        current_ref_epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
         last_report_blockstamp = get_first_non_missed_slot(
-            self.w3.cc, cdtp.last_report_ref_slot, self.c_conf, self.f_conf
+            self.w3.cc, self.m_info.last_member_report_ref_slot, self.c_conf, self.f_conf
         )
+        last_member_report_ref_epoch = EpochNumber(last_report_blockstamp.slot_number // self.c_conf.slots_per_epoch)
 
-        total_ref_effective_balance = self._calculate_total_effective_balance(cdtp.ref_all_validators)
+        total_ref_effective_balance = self._calculate_total_effective_balance(self.all_validators)
         total_ref_lido_effective_balance = self._calculate_total_effective_balance(
-            [v.validator for v in cdtp.ref_lido_validators]
+            [v.validator for v in self.lido_validators]
         )
 
-        if cdtp.last_report_ref_epoch <= self.f_conf.initial_epoch:
+        if last_member_report_ref_epoch <= self.f_conf.initial_epoch:
             # If no one report was made - we should use initial epoch as last completed epoch
             # Because in this case 'cl_rebase' will contain all rewards from initial epoch
             last_completed_epoch = self.f_conf.initial_epoch
             total_last_effective_balance = total_ref_effective_balance
             total_last_lido_effective_balance = total_ref_lido_effective_balance
         else:
-            last_completed_epoch = cdtp.last_report_ref_epoch
+            last_completed_epoch = last_member_report_ref_epoch
             last_all_validators = self.w3.cc.get_validators(last_report_blockstamp.state_root)
-            last_lido_validators = self.w3.lido_validators.filter_lido_validators(cdtp.lido_keys, last_all_validators)
+            last_lido_validators = self.w3.lido_validators.filter_lido_validators(self.lido_keys, last_all_validators)
             total_last_effective_balance = self._calculate_total_effective_balance(last_all_validators)
             total_last_lido_effective_balance = self._calculate_total_effective_balance(
                 [v.validator for v in last_lido_validators]
@@ -159,7 +175,7 @@ class BunkerService:
             (total_ref_lido_effective_balance + total_last_lido_effective_balance) // 2
         )
 
-        epochs_passed = cdtp.ref_epoch - last_completed_epoch
+        epochs_passed = current_ref_epoch - last_completed_epoch
         normal_cl_rebase = int(
             (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
             // (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
@@ -168,46 +184,47 @@ class BunkerService:
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
         return Gwei(normal_cl_rebase)
 
-    def _calculate_nearest_and_far_cl_rebase(self, cdtp: CommonDataToProcess) -> tuple[Gwei, Gwei]:
+    def _calculate_nearest_and_far_cl_rebase(self, blockstamp: BlockStamp) -> tuple[Gwei, Gwei]:
         """
         Calculate CL rebase from nearest and far epochs to ref epoch given the changes in withdrawal vault
         """
         logger.info({"msg": "Calculating nearest and far CL rebase"})
-        nearest_slot = (cdtp.ref_blockstamp.slot_number - NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
-        far_slot = (cdtp.ref_blockstamp.slot_number - FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
+        nearest_slot = (blockstamp.slot_number - NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
+        far_slot = (blockstamp.slot_number - FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
         nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), self.c_conf, self.f_conf)
         far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), self.c_conf, self.f_conf)
-        nearest_cl_rebase = self._calculate_cl_rebase_from(cdtp, nearest_blockstamp)
-        far_cl_rebase = self._calculate_cl_rebase_from(cdtp, far_blockstamp)
+        nearest_cl_rebase = self._calculate_cl_rebase_from(blockstamp, nearest_blockstamp)
+        far_cl_rebase = self._calculate_cl_rebase_from(blockstamp, far_blockstamp)
 
         logger.info({"msg": f"CL rebase {nearest_cl_rebase,far_cl_rebase=}"})
         return nearest_cl_rebase, far_cl_rebase
 
-    def _calculate_cl_rebase_from(self, cdtp: CommonDataToProcess, prev_blockstamp: BlockStamp) -> Gwei:
+    def _calculate_cl_rebase_from(self, curr_ref_blockstamp: BlockStamp, prev_blockstamp: BlockStamp) -> Gwei:
         """
         Calculate CL rebase from prev_blockstamp to ref_blockstamp given the changes in withdrawal vault
         """
+        curr_ref_epoch = curr_ref_blockstamp.slot_number // self.c_conf.slots_per_epoch
         prev_epoch = prev_blockstamp.slot_number // self.c_conf.slots_per_epoch
-        logger.info({"msg": f"Calculating CL rebase between {prev_epoch,cdtp.ref_epoch=}"})
+        logger.info({"msg": f"Calculating CL rebase between {prev_epoch, curr_ref_epoch=}"})
 
         ref_lido_balance_with_vault = sum(self._calculate_lido_balance_with_vault(
-            cdtp.ref_lido_validators, cdtp.ref_blockstamp
+            self.lido_validators, curr_ref_blockstamp
         ))
 
         prev_all_validators = self.w3.cc.get_validators(prev_blockstamp.state_root)
-        prev_lido_validators = self.w3.lido_validators.filter_lido_validators(cdtp.lido_keys, prev_all_validators)
+        prev_lido_validators = self.w3.lido_validators.filter_lido_validators(self.lido_keys, prev_all_validators)
         prev_lido_balance_with_vault = sum(self._calculate_lido_balance_with_vault(
             prev_lido_validators, prev_blockstamp
         ))
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
-        validators_diff_in_gwei = (len(cdtp.ref_lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
+        validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
         assert validators_diff_in_gwei >= 0, "Validators diff should be positive or 0. Something went wrong with CL API"
 
         corrected_prev_lido_balance_with_vault = (
             prev_lido_balance_with_vault
             + validators_diff_in_gwei
-            - self._get_withdrawn_from_vault_between(prev_blockstamp, cdtp.ref_blockstamp)
+            - self._get_withdrawn_from_vault_between(prev_blockstamp, curr_ref_blockstamp)
         )
 
         cl_rebase = ref_lido_balance_with_vault - corrected_prev_lido_balance_with_vault
