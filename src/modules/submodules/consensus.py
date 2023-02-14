@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 from eth_typing import Address
 
-from src.providers.http_provider import NotOkResponse
+from src.utils.helpers import get_first_non_missed_slot
 from src.web3_extentions.typings import Web3
 from web3.contract import Contract
 
@@ -24,7 +24,7 @@ class IsNotMemberException(Exception):
 @dataclass
 class MemberInfo:
     is_member: bool
-    last_report_ref_slot: SlotNumber
+    last_member_report_ref_slot: SlotNumber
     current_ref_slot: SlotNumber
     member_ref_slot: SlotNumber
     member_report_for_current_ref_slot: bytes
@@ -115,7 +115,7 @@ class ConsensusModule(ABC):
 
         return MemberInfo(
             is_member=is_member,
-            last_report_ref_slot=last_member_report_ref_slot,
+            last_member_report_ref_slot=last_member_report_ref_slot,
             current_ref_slot=current_ref_slot,
             member_ref_slot=member_ref_slot,
             member_report_for_current_ref_slot=member_report_for_current_ref_slot,
@@ -131,6 +131,8 @@ class ConsensusModule(ABC):
 
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
         member_info = self.get_member_info(blockstamp)
+        chain_config = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
 
         if blockstamp.slot_number < member_info.member_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
@@ -141,33 +143,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self.get_first_non_missed_slot(blockstamp, member_info.current_ref_slot)
-
-    def get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
-        frame_config = self.get_frame_config(blockstamp)
-
-        for i in range(slot, slot - frame_config.epochs_per_frame * 32, -1):
-            try:
-                root = self.w3.cc.get_block_root(i).root
-            except KeyError:
-                logger.warning({'msg': f'Missed slot: {i}. Check next slot.'})
-                continue
-            except NotOkResponse as e:
-                if 'Response [404]' in e.args[0]:
-                    logger.warning({'msg': f'Missed slot: {i}. Check next slot.'})
-                    continue
-
-            slot_details = self.w3.cc.get_block_details(root)
-
-            execution_data = slot_details.message.body['execution_payload']
-
-            return BlockStamp(
-                block_root=root,
-                slot_number=slot,
-                state_root=slot_details.message.state_root,
-                block_number=execution_data['block_number'],
-                block_hash=execution_data['block_hash']
-            )
+        return get_first_non_missed_slot(self.w3.cc, member_info.current_ref_slot, chain_config, frame_config)
 
     @lru_cache(maxsize=1)
     def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
