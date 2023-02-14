@@ -32,14 +32,6 @@ class LidoValidatorsProvider(Module):
 
         return self.filter_lido_validators(lido_keys, validators)
 
-    @lru_cache(maxsize=1)
-    def get_lido_validators_with_others(self, blockstamp: BlockStamp) -> tuple[list[Validator], list[LidoKey], list[LidoValidator]]:
-        lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
-        validators = self.w3.cc.get_validators(blockstamp.state_root)
-        lido_validators = self.filter_lido_validators(lido_keys, validators)
-
-        return validators, lido_keys, lido_validators
-
     @staticmethod
     def filter_lido_validators(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
         """Filter lido validators from all validators and create LidoValidator objects"""

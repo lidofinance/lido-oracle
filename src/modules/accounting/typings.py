@@ -1,12 +1,12 @@
 from dataclasses import dataclass
+from typing import NewType
 
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp, SlotNumber
 from src.web3_extentions import LidoValidator
 
-Gwei = int
-Epoch = int
+Gwei = NewType('Gwei', int)
 
 
 @dataclass(frozen=True)
