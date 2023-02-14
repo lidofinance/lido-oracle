@@ -1,7 +1,6 @@
 import math
 import logging
 from collections import defaultdict
-from typing import Sequence
 
 from src.providers.keys.typings import LidoKey
 from src.utils.helpers import get_first_non_missed_slot
@@ -191,8 +190,9 @@ class BunkerService:
         logger.info({"msg": "Calculating nearest and far CL rebase"})
         nearest_slot = (blockstamp.slot_number - NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
         far_slot = (blockstamp.slot_number - FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
-        nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), self.c_conf, self.f_conf)
-        far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), self.c_conf, self.f_conf)
+        lookup_max_deep = self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
+        nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), lookup_max_deep)
+        far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), lookup_max_deep)
         nearest_cl_rebase = self._calculate_cl_rebase_from(blockstamp, nearest_blockstamp)
         far_cl_rebase = self._calculate_cl_rebase_from(blockstamp, far_blockstamp)
 
@@ -307,7 +307,9 @@ class BunkerService:
         return slashed_validators
 
     @staticmethod
-    def _get_per_epoch_buckets(all_slashed_validators: list[Validator], ref_epoch: EpochNumber):
+    def _get_per_epoch_buckets(
+        all_slashed_validators: list[Validator], ref_epoch: EpochNumber
+    ) -> dict[EpochNumber, list[Validator]]:
         """
         Fill per_epoch_buckets by possible slashed epochs
         It detects slashing epoch range for validator
@@ -331,27 +333,6 @@ class BunkerService:
                     per_epoch_buckets[epoch].append(validator)
 
         return per_epoch_buckets
-
-    @staticmethod
-    def _detect_slashing_epoch_range(validator: Validator, ref_epoch: EpochNumber) -> Sequence[EpochNumber]:
-        """
-        Detect slashing epoch range for validator
-        If difference between validator's withdrawable epoch and exit epoch is greater enough,
-        then we can be sure that validator was slashed in particular epoch
-        Otherwise, we can only assume that validator was slashed in epochs range
-        due because its exit epoch shifted because of huge exit queue
-        Read more here: https://hackmd.io/@lido/r1Qkkiv3j
-        """
-        v = validator.validator
-        if not v.slashed:
-            raise Exception("Validator should be slashed to detect slashing epoch range")
-
-        possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-
-        if int(v.withdrawable_epoch) - int(v.exit_epoch) > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-            return range(possible_slashed_epoch, possible_slashed_epoch + 1)
-
-        return range(possible_slashed_epoch, ref_epoch + 1)
 
     @staticmethod
     def _get_per_epoch_lido_midterm_penalties(

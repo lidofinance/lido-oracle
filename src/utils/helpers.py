@@ -1,5 +1,4 @@
 import logging
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
 from src.typings import BlockStamp, SlotNumber
@@ -7,11 +6,8 @@ from src.typings import BlockStamp, SlotNumber
 logger = logging.getLogger(__name__)
 
 
-def get_first_non_missed_slot(
-    cc: ConsensusClient, slot: SlotNumber, chain_config: ChainConfig, frame_config: FrameConfig
-) -> BlockStamp:
-
-    for i in range(slot, slot - frame_config.epochs_per_frame * chain_config.slots_per_epoch, -1):
+def get_first_non_missed_slot(cc: ConsensusClient, slot: SlotNumber, max_deep: int) -> BlockStamp:
+    for i in range(slot, slot - max_deep, -1):
         try:
             root = cc.get_block_root(i).root
         except KeyError:

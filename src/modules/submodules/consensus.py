@@ -143,7 +143,8 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return get_first_non_missed_slot(self.w3.cc, member_info.current_ref_slot, chain_config, frame_config)
+        max_deep = chain_config.slots_per_epoch * frame_config.epochs_per_frame
+        return get_first_non_missed_slot(self.w3.cc, member_info.current_ref_slot, max_deep)
 
     @lru_cache(maxsize=1)
     def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
