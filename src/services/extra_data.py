@@ -6,6 +6,7 @@ from operator import itemgetter
 
 from src.providers.keys.typings import LidoKey, ContractModule
 from src.typings import BlockStamp, OracleReportLimits
+from src.utils.abi import get_function_output_names
 from src.web3_extentions.typings import Web3
 
 
@@ -66,9 +67,7 @@ class ExtraData:
         return self.to_bytes(extra_data)
 
     def _get_oracle_report_limits(self):
-        abi = next(filter(lambda x: x.get('name') == 'getOracleReportLimits',
-                          self.w3.lido_contracts.oracleReportSanityChecker.abi))
-        output_names = list(map(itemgetter('name'), abi['outputs'][0]['components']))
+        output_names = get_function_output_names(self.w3.lido_contracts.oracleReportSanityChecker.abi, 'getOracleReportLimits')
         result = self.w3.lido_contracts.oracleReportSanityChecker.functions.getOracleReportLimits().call()
         return OracleReportLimits(**dict(zip(output_names, result)))
 
