@@ -8,7 +8,7 @@ from src.web3_extentions import LidoValidator
 from src.web3_extentions.typings import Web3
 
 from src.modules.accounting.typings import Gwei
-from src.modules.submodules.consensus import FrameConfig, ChainConfig, MemberInfo
+from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import ValidatorStatus, Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber
 
@@ -197,13 +197,13 @@ class BunkerService:
         nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), lookup_max_deep)
         far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), lookup_max_deep)
 
-        nearest_cl_rebase = self._calculate_cl_rebase_from_to(nearest_blockstamp, blockstamp)
-        far_cl_rebase = self._calculate_cl_rebase_from_to(far_blockstamp, blockstamp)
+        nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
+        far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, blockstamp)
 
         logger.info({"msg": f"CL rebase {nearest_cl_rebase,far_cl_rebase=}"})
         return nearest_cl_rebase, far_cl_rebase
 
-    def _calculate_cl_rebase_from_to(self, prev_blockstamp: BlockStamp, curr_ref_blockstamp: BlockStamp) -> Gwei:
+    def _calculate_cl_rebase_between(self, prev_blockstamp: BlockStamp, curr_ref_blockstamp: BlockStamp) -> Gwei:
         """
         Calculate CL rebase from prev_blockstamp to ref_blockstamp given the changes in withdrawal vault
         """
