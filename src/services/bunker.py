@@ -21,7 +21,7 @@ MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 
 FIRST_DEPOSIT_EVENT_LOOKUP_MAXIMUM_BLOCKS_DISTANCE = 225 * 7
 
-NORMALIZED_CL_PER_EPOCH = 64
+NORMALIZED_CL_PER_EPOCH = 56  # todo: look at this with analytics team
 MISTAKE_RANGE = 0.1
 NEAREST_EPOCH_DISTANCE = 4
 FAR_EPOCH_DISTANCE = 25
@@ -145,7 +145,7 @@ class BunkerService:
         """
         current_ref_epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
         last_report_blockstamp = get_first_non_missed_slot(
-            self.w3.cc, self.m_info.last_member_report_ref_slot, self.c_conf, self.f_conf
+            self.w3.cc, self.m_info.last_member_report_ref_slot, self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
         )
         last_member_report_ref_epoch = EpochNumber(last_report_blockstamp.slot_number // self.c_conf.slots_per_epoch)
 
@@ -175,9 +175,9 @@ class BunkerService:
         )
 
         epochs_passed = current_ref_epoch - last_completed_epoch
-        normal_cl_rebase = int(
-            (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
-            // (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
+
+        normal_cl_rebase = self._get_normal_cl_rebase(
+            epochs_passed, mean_total_lido_effective_balance, mean_total_effective_balance
         )
 
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
@@ -393,3 +393,13 @@ class BunkerService:
             if left_border <= epoch <= right_border:
                 per_frame_buckets[index] += midterm_penalty_sum
         return per_frame_buckets
+
+    @staticmethod
+    def _get_normal_cl_rebase(
+        epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
+    ) -> Gwei:
+        normal_cl_rebase = int(
+            (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
+            // (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
+        )
+        return Gwei(normal_cl_rebase)

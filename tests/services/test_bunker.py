@@ -109,3 +109,14 @@ def test_get_per_frame_lido_midterm_penalties():
 
     # todo: real test
     assert len(per_frame_lido_midterm_penalties) == 23
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("epoch_passed", "mean_lido", "mean_total", "expected"),
+    [(225, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 530171362946),
+     (450, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 1060342725893)]
+)
+def test_get_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected):
+    normal_cl_rebase = BunkerService._get_normal_cl_rebase(epoch_passed, mean_lido, mean_total)
+    assert normal_cl_rebase == expected
