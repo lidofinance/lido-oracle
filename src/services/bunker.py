@@ -118,7 +118,7 @@ class BunkerService:
             per_epoch_buckets, lido_slashed_validators, total_balance
         )
         # Calculate lido midterm penalties impact in each frame
-        per_frame_buckets = self._ger_per_frame_lido_midterm_penalties(per_epoch_lido_midterm_penalties, self.f_conf)
+        per_frame_buckets = self._get_per_frame_lido_midterm_penalties(per_epoch_lido_midterm_penalties, self.f_conf)
 
         # If any midterm penalty sum of lido validators in frame bucket greater than rebase we should trigger bunker
         max_lido_midterm_penalty = max(per_frame_buckets.values())
@@ -344,7 +344,7 @@ class BunkerService:
         Iterate through per_epoch_buckets and calculate lido midterm penalties for each bucket
         """
         min_bucket_epoch = min(per_epoch_buckets.keys())
-        per_epoch_lido_midterm_penalties: dict[EpochNumber, Gwei] = defaultdict(type[Gwei])
+        per_epoch_lido_midterm_penalties: dict[EpochNumber, Gwei] = defaultdict(int)
         for epoch, slashed_validators in per_epoch_buckets.items():
             slashed_keys = set(k.validator.pubkey for k in slashed_validators)
             lido_validators_slashed_in_epoch = [
@@ -366,11 +366,11 @@ class BunkerService:
                 effective_balance = int(v.validator.effective_balance)
                 penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
                 penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
-                per_epoch_lido_midterm_penalties[EpochNumber(epoch)] += Gwei(penalty)
+                per_epoch_lido_midterm_penalties[epoch] += penalty
         return per_epoch_lido_midterm_penalties
 
     @staticmethod
-    def _ger_per_frame_lido_midterm_penalties(
+    def _get_per_frame_lido_midterm_penalties(
         per_epoch_lido_midterm_penalties: dict[EpochNumber, Gwei],
         frame_config: FrameConfig,
     ) -> dict[int, Gwei]:
@@ -378,7 +378,7 @@ class BunkerService:
         Put per epoch buckets into per frame buckets to calculate lido midterm penalties impact in each frame
         """
         min_lido_midterm_penalty_epoch = min(per_epoch_lido_midterm_penalties.keys())
-        per_frame_buckets = defaultdict(type[Gwei])
+        per_frame_buckets: dict[int, Gwei] = defaultdict(int)
         left_border = min_lido_midterm_penalty_epoch
         right_border = frame_config.initial_epoch + frame_config.epochs_per_frame
         # The first bucket should have flexible size

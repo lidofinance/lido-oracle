@@ -1,5 +1,6 @@
 import pytest
 
+from src.modules.submodules.consensus import FrameConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker import BunkerService
 from src.typings import EpochNumber
@@ -52,15 +53,59 @@ def test_not_withdrawn_slashed_validators(validators, expected_indexes):
 
 
 @pytest.mark.unit
-def test_detect_slashing_epoch_range():
+def test_get_per_epoch_buckets():
 
     validators = [
         Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '', True, '', '', '1', '18192')),
         Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '', True, '', '', '18000', '18192')),
     ]
 
-    slashing_epoch_range = BunkerService._get_per_epoch_buckets(validators, EpochNumber(15000))
-    assert len(slashing_epoch_range) == 5001
-    assert slashing_epoch_range[EpochNumber(15000)] == [validators[-1]]
+    per_epoch_buckets = BunkerService._get_per_epoch_buckets(validators, EpochNumber(15000))
+    assert len(per_epoch_buckets) == 5001
+    assert per_epoch_buckets[EpochNumber(10000)] == validators
+    for epoch in range(10001, 15001):
+        assert per_epoch_buckets[EpochNumber(epoch)] == [validators[-1]]
 
 
+@pytest.mark.unit
+def test_get_per_epoch_lido_midterm_penalties():
+    validators = [
+        Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '1', '18192')),
+        Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '18000', '18192')),
+    ]
+    total_balance = 32 * 60000 * 10 ** 9
+
+    per_epoch_buckets = BunkerService._get_per_epoch_buckets(validators, EpochNumber(15000))
+
+    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
+        per_epoch_buckets, validators, total_balance
+    )
+
+    # todo: real test
+    assert len(per_epoch_lido_midterm_penalties) == 5001
+
+
+@pytest.mark.unit
+def test_get_per_frame_lido_midterm_penalties():
+    validators = [
+        Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '1', '18192')),
+        Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '18000', '18192')),
+    ]
+    total_balance = 32 * 60000 * 10 ** 9
+
+    per_epoch_buckets = BunkerService._get_per_epoch_buckets(validators, EpochNumber(15000))
+
+    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
+        per_epoch_buckets, validators, total_balance
+    )
+
+    per_frame_lido_midterm_penalties = BunkerService._get_per_frame_lido_midterm_penalties(
+        per_epoch_lido_midterm_penalties,
+        FrameConfig(
+            initial_epoch=EpochNumber(0),
+            epochs_per_frame=EpochNumber(225),
+        )
+    )
+
+    # todo: real test
+    assert len(per_frame_lido_midterm_penalties) == 23
