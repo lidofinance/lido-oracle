@@ -108,11 +108,8 @@ class LidoValidatorsProvider(Module):
         operators = []
 
         for module in self._get_staking_modules(blockstamp):
-            module_id, module_address, *_ = module
-            module_contract = self.w3.eth.contract(address=module_address, abi=LidoContracts.load_abi('IStakingModule'))
-            nos_count = module_contract.functions.getNodeOperatorsCount().call(block_identifier=blockstamp.block_hash)
-            module_operators = self.w3.lido_contracts.staking_router.functions.getNodeOperatorDigests(
-                module_id, 0, nos_count
+            module_operators = self.w3.lido_contracts.staking_router.functions.getAllNodeOperatorDigests(
+                module.id
             ).call(block_identifier=blockstamp.block_hash)
             for operator in module_operators:
                 _id, is_active, summary = operator
