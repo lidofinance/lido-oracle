@@ -21,7 +21,7 @@ MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 
 FIRST_DEPOSIT_EVENT_LOOKUP_MAXIMUM_BLOCKS_DISTANCE = 225 * 7
 
-NORMALIZED_CL_PER_EPOCH = 56  # todo: look at this with analytics team
+NORMALIZED_CL_PER_EPOCH = 56  # todo: look at this with analytics team, they suggest 57
 MISTAKE_RANGE = 0.1
 NEAREST_EPOCH_DISTANCE = 4
 FAR_EPOCH_DISTANCE = 25
@@ -400,6 +400,6 @@ class BunkerService:
     ) -> Gwei:
         normal_cl_rebase = int(
             (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
-            // (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
+            / (math.sqrt(mean_total_effective_balance) * (1 - MISTAKE_RANGE))
         )
         return Gwei(normal_cl_rebase)
