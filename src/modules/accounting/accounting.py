@@ -29,10 +29,9 @@ class Accounting(BaseModule, ConsensusModule):
             self.build_report(report_blockstamp)
 
     def build_report(self, blockstamp: BlockStamp):
-        member_info = self.get_member_info(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
 
-        b = BunkerService(self.w3, member_info, frame_config, chain_config)
+        b = BunkerService(self.w3, frame_config, chain_config)
         is_bunker = b.is_bunker_mode(blockstamp)
         ...

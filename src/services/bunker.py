@@ -34,21 +34,23 @@ class BunkerService:
     def __init__(
         self,
         w3: Web3,
-        member_info: MemberInfo,
         frame_config: FrameConfig,
         chain_config: ChainConfig
     ):
         self.w3 = w3
-        self.m_info = member_info
         self.f_conf = frame_config
         self.c_conf = chain_config
         # Will be filled in `is_bunker_mode` call
+        self.last_report_ref_slot = None
         self.all_validators: list[Validator] = []
         self.lido_keys: list[LidoKey] = []
         self.lido_validators: list[LidoValidator] = []
 
     def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
         self.all_validators, self.lido_keys, self.lido_validators = self._get_lido_validators_with_others(blockstamp)
+        self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
+            block_identifier=blockstamp.block_hash
+        )
         logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
         logger.info({"msg": "Checking bunker mode"})
         frame_cl_rebase = self._get_cl_rebase_for_frame(blockstamp)
@@ -71,7 +73,7 @@ class BunkerService:
         # to simulate report and get total pool ether after that
         args = {
             "_reportTimestamp": blockstamp.slot_number * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
-            "_timeElapsed": (blockstamp.slot_number - self.m_info.last_member_report_ref_slot) * self.c_conf.seconds_per_slot,
+            "_timeElapsed": (blockstamp.slot_number - self.last_report_ref_slot) * self.c_conf.seconds_per_slot,
             "_clValidators": len(self.lido_validators),
             "_clBalance": self.w3.to_wei(ref_lido_balance, 'gwei'),
             "_withdrawalVaultBalance": ref_withdrawal_vault_balance,
@@ -145,7 +147,7 @@ class BunkerService:
         """
         current_ref_epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
         last_report_blockstamp = get_first_non_missed_slot(
-            self.w3.cc, self.m_info.last_member_report_ref_slot, self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
+            self.w3.cc, self.last_report_ref_slot, self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
         )
         last_member_report_ref_epoch = EpochNumber(last_report_blockstamp.slot_number // self.c_conf.slots_per_epoch)
 
