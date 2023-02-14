@@ -6,7 +6,7 @@ from operator import itemgetter
 
 from src.providers.keys.typings import LidoKey, ContractModule
 from src.typings import BlockStamp
-from src.web3py.extentions.typings import Web3
+from src.web3py.typings import Web3
 
 
 # Extra data is an array of items, each item being encoded as follows:
@@ -49,12 +49,6 @@ class ExtraDataItem:
 def chunks(it, size):
     it = iter(it)
     return iter(lambda: tuple(islice(it, size)), ())
-
-
-# class ExtraData:
-#     @staticmethod
-#     def
-
 
 
 class ExtraData:

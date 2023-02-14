@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
+from http import HTTPStatus
 from time import sleep
 from typing import Optional
 
@@ -201,8 +202,11 @@ class ConsensusModule(ABC):
         for i in range(slot, slot - epoch_per_frame * 32, -1):
             try:
                 root = self.w3.cc.get_block_root(i).root
-            except NotOkResponse as e:
-                logger.warning({'msg': f'Missed slot: {i}. Check next slot.'})
+            except NotOkResponse as error:
+                if error.status != HTTPStatus.NOT_FOUND:
+                    raise error from error
+
+                logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': error})
                 continue
             else:
                 slot_details = self.w3.cc.get_block_details(root)
