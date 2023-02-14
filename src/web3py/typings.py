@@ -1,6 +1,6 @@
 from web3 import Web3 as _Web3
 
-from src.web3_extentions import (
+from src.web3py.extentions import (
     LidoContracts,
     TransactionUtils,
     ConsensusClientModule,

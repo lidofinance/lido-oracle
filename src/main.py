@@ -10,15 +10,17 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.typings import OracleModule
-from src.web3_extentions import (
+from src.web3py.extentions import (
     LidoContracts,
     TransactionUtils,
     ConsensusClientModule,
     KeysAPIClientModule,
-    metrics_collector,
     LidoValidatorsProvider,
 )
-from src.web3_extentions.typings import Web3
+from src.web3py.middleware import metrics_collector
+from src.web3py.typings import Web3
+
+from src.web3py.contract import tweak_w3_contracts
 
 logger = logging.getLogger()
 
@@ -49,6 +51,9 @@ if __name__ == '__main__':
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
+
+    logger.info({'msg': 'Modify web3 with custom function call.'})
+    tweak_w3_contracts(web3)
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,

@@ -10,7 +10,7 @@ from src.providers.keys.typings import LidoKey, OperatorResponse, OperatorExpand
 from src.typings import BlockStamp
 
 if TYPE_CHECKING:
-    from src.web3_extentions.typings import Web3
+    from src.web3py.typings import Web3
 
 
 @dataclass

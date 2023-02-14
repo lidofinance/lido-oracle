@@ -6,7 +6,7 @@ from operator import itemgetter
 
 from src.providers.keys.typings import LidoKey, ContractModule
 from src.typings import BlockStamp
-from src.web3_extentions.typings import Web3
+from src.web3py.extentions.typings import Web3
 
 
 # Extra data is an array of items, each item being encoded as follows:

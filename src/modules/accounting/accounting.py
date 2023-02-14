@@ -4,7 +4,7 @@ from functools import lru_cache
 from src.modules.submodules.consensus import ConsensusModule, ZERO_HASH
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
-from src.web3_extentions.typings import Web3
+from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
 

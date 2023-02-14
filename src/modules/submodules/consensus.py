@@ -10,7 +10,7 @@ from eth_typing import Address
 from hexbytes import HexBytes
 
 from src.providers.http_provider import NotOkResponse
-from src.web3_extentions.typings import Web3
+from src.web3py.typings import Web3
 from web3.contract import Contract
 
 from src import variables
@@ -25,6 +25,10 @@ class IsNotMemberException(Exception):
 
 
 class NoSlotsAvailable(Exception):
+    pass
+
+
+class QuorumHashDoNotMatch(Exception):
     pass
 
 
@@ -64,7 +68,7 @@ class ConsensusModule(ABC):
             raise NotImplementedError('CONSENSUS_VERSION and CONSENSUS_VERSION should be set.')
 
     # ----- Web3 data requests -----
-
+    @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
@@ -254,20 +258,30 @@ class ConsensusModule(ABC):
             sleep(DEFAULT_SLEEP)
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
+            msg = f'Oracle`s hash differs from consensus report hash.'
             logger.warning({
-                'msg': f'Oracle`s hash differs from consensus report hash.',
+                'msg': msg,
                 'consensus_report_hash': str(HexBytes(member_info.current_frame_consensus_report)),
                 'report_hash': str(report_hash),
             })
-            return
+            raise QuorumHashDoNotMatch(msg)
 
         if self.is_main_data_submitted(latest_blockstamp):
             logger.info({'msg': 'Main data already submitted.'})
             return
 
-        sec_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
-        logger.info({'msg': f'Sleep for [{sec_to_sleep}] seconds before sending data.'})
-        sleep(sec_to_sleep)
+        slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
+        if slots_to_sleep != 0:
+            _, seconds_per_slot, _ = self._get_chain_config(blockstamp)
+
+            logger.info({'msg': f'Sleep for [{slots_to_sleep}] slots before sending data.'})
+            for slot in range(slots_to_sleep):
+                sleep(seconds_per_slot)
+
+                latest_blockstamp, member_info = self._get_latest_data()
+                if self.is_main_data_submitted(latest_blockstamp):
+                    logger.info({'msg': f'Main data was submitted.'})
+                    break
 
         logger.info({'msg': f'Send report data. Contract version: [{self.CONTRACT_VERSION}]'})
         # If data already submitted transaction will be locally reverted, no need to check status manually
@@ -332,7 +346,7 @@ class ConsensusModule(ABC):
         mem_position = members.index(variables.ACCOUNT.address)
 
         _, epochs_per_frame, _ = self._get_frame_config(blockstamp)
-        slots_per_epoch, seconds_per_slot, _ = self._get_chain_config(blockstamp)
+        slots_per_epoch, _, _ = self._get_chain_config(blockstamp)
 
         current_frame_number = int(blockstamp.slot_number / slots_per_epoch / epochs_per_frame)
         current_position = current_frame_number % len(members)
@@ -341,7 +355,7 @@ class ConsensusModule(ABC):
         if sleep_count < 0:
             sleep_count += len(members)
 
-        return sleep_count * seconds_per_slot
+        return sleep_count
 
     @abstractmethod
     @lru_cache(maxsize=1)

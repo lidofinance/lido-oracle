@@ -4,7 +4,7 @@ from web3 import Web3, HTTPProvider
 
 from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS
 from src.variables import EXECUTION_CLIENT_URI
-from src.web3_extentions import metrics_collector
+from src.web3py.middleware import metrics_collector
 
 pytestmark = pytest.mark.integration
 
