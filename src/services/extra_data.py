@@ -4,9 +4,10 @@ from enum import Enum
 from itertools import islice
 from operator import itemgetter
 
-from src.providers.keys.typings import LidoKey, ContractModule
+from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp, OracleReportLimits
 from src.utils.abi import get_function_output_names
+from src.web3_extentions.lido_validators import StakingModule
 from src.web3_extentions.typings import Web3
 
 
@@ -101,7 +102,7 @@ class ExtraData:
             index += 1
         return extra_data
 
-    def build_validators_payloads(self, validators: list[LidoKey], modules: list[ContractModule], max_list_items_count) -> list[ItemPayload]:
+    def build_validators_payloads(self, validators: list[LidoKey], modules: list[StakingModule], max_list_items_count) -> list[ItemPayload]:
         payloads = []
         module_to_operators = {}
 
