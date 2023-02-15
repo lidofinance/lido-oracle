@@ -181,12 +181,12 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Contract is not reportable.'})
             return
 
-        if latest_blockstamp.slot_number < member_info.current_frame_ref_slot:
+        if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return
 
         if not member_info.is_fast_line:
-            if latest_blockstamp.slot_number + member_info.fast_line_length_slot < member_info.current_frame_ref_slot:
+            if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot + member_info.fast_line_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_line_length_slot}] slots.'})
                 return
 
@@ -197,11 +197,12 @@ class ConsensusModule(ABC):
         return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot)
 
     def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
-        _, epoch_per_frame = self._get_current_frame(blockstamp)
+        _, epoch_per_frame, _ = self._get_frame_config(blockstamp)
+        slots_per_epoch, _, _ = self._get_chain_config(blockstamp)
 
-        for i in range(slot, slot - epoch_per_frame * 32, -1):
+        for i in range(slot, slot - epoch_per_frame * slots_per_epoch, -1):
             try:
-                root = self.w3.cc.get_block_root(i).root
+                root = self.w3.cc.get_block_root(SlotNumber(i)).root
             except NotOkResponse as error:
                 if error.status != HTTPStatus.NOT_FOUND:
                     raise error from error
@@ -215,7 +216,7 @@ class ConsensusModule(ABC):
 
                 return BlockStamp(
                     block_root=root,
-                    slot_number=slot,
+                    slot_number=SlotNumber(int(slot_details.message.slot)),
                     state_root=slot_details.message.state_root,
                     block_number=execution_data['block_number'],
                     block_hash=execution_data['block_hash']
