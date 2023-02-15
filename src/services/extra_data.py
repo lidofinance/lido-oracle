@@ -4,9 +4,11 @@ from enum import Enum
 from itertools import islice
 from operator import itemgetter
 
-from src.providers.keys.typings import LidoKey, ContractModule
-from src.typings import BlockStamp
-from src.web3py.typings import Web3
+from src.providers.keys.typings import LidoKey
+from src.typings import BlockStamp, OracleReportLimits
+from src.utils.abi import get_function_output_names
+from src.web3_extentions.lido_validators import StakingModule
+from src.web3_extentions.typings import Web3
 
 
 # Extra data is an array of items, each item being encoded as follows:
@@ -57,14 +59,18 @@ class ExtraData:
         self.w3 = w3
 
     def collect(self, blockstamp: BlockStamp, exited_validators: list[LidoKey], stucked_validators: list[LidoKey]) -> bytes:
-        operators_response = self.w3.kac.get_operators(blockstamp)
-        # TODO get from oracleReportSanityChecker contract
-        max_extra_data_list_items_count = 100
-        stucked_payloads = self.build_validators_payloads(stucked_validators, max_extra_data_list_items_count)
-        exited_payloads = self.build_validators_payloads(exited_validators, max_extra_data_list_items_count)
+        modules = [item.module for item in self.w3.kac.get_operators(blockstamp)]
+        max_items_count = self._get_oracle_report_limits().maxAccountingExtraDataListItemsCount
+        stucked_payloads = self.build_validators_payloads(stucked_validators, modules, max_items_count)
+        exited_payloads = self.build_validators_payloads(exited_validators, modules, max_items_count)
 
         extra_data = self.build_extra_data(stucked_payloads, exited_payloads)
         return self.to_bytes(extra_data)
+
+    def _get_oracle_report_limits(self):
+        output_names = get_function_output_names(self.w3.lido_contracts.oracleReportSanityChecker.abi, 'getOracleReportLimits')
+        result = self.w3.lido_contracts.oracleReportSanityChecker.functions.getOracleReportLimits().call()
+        return OracleReportLimits(**dict(zip(output_names, result)))
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
         extra_data_bytes = b''
@@ -96,7 +102,7 @@ class ExtraData:
             index += 1
         return extra_data
 
-    def build_validators_payloads(self, validators: list[LidoKey], modules: list[ContractModule], max_extra_data_list_items_count) -> list[ItemPayload]:
+    def build_validators_payloads(self, validators: list[LidoKey], modules: list[StakingModule], max_list_items_count) -> list[ItemPayload]:
         payloads = []
         module_to_operators = {}
 
@@ -109,7 +115,7 @@ class ExtraData:
             module = mapping["module"]
             operators = mapping["operators"]
             operators = sorted(operators.items(), key=itemgetter(0))
-            for chunk in chunks(operators, max_extra_data_list_items_count):
+            for chunk in chunks(operators, max_list_items_count):
                 operator_ids = []
                 vals_count = []
                 for operator_id, validators in chunk:
