@@ -27,3 +27,15 @@ class BlockStamp:
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
+
+
+@dataclass()
+class OracleReportLimits:
+    churnValidatorsPerDayLimit: int
+    oneOffCLBalanceDecreaseBPLimit: int
+    annualBalanceIncreaseBPLimit: int
+    shareRateDeviationBPLimit: int
+    requestTimestampMargin: int
+    maxPositiveTokenRebase: int
+    maxValidatorExitRequestsPerReport: int
+    maxAccountingExtraDataListItemsCount: int
