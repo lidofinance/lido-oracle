@@ -1,0 +1,170 @@
+[
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0x23509a2d"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x000000000000000000000000aaac0b85e510015000dde464270e77df0b7b0692"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0x5a2031f9"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x00000000000000000000000079c066e62872a83f30a75679ed23c42c6cab7e92"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0xe441d25f"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x0000000000000000000000006d94d704de34cce1485e187e42dc8393a516bf54"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0x69d42148"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x000000000000000000000000c1262a08017830189658b3ff94ebf75da9279c16"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0x12f8d4b9"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "result": "0x000000000000000000000000424fbf261843493f5076eac866e064d14efabd5a"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x147E70cFe252AD33560176a60Bbae0bA4027d624",
+        "data": "0x37d5fe99"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "result": "0x0000000000000000000000002dace6bf062ff61f436b0c178fbc99c6f476c0a9"
+    }
+  },
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x2DAce6BF062ff61f436b0c178fbc99c6F476c0A9",
+        "data": "0x2b95b781"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+]

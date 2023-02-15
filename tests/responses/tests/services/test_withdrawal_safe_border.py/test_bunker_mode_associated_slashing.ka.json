@@ -1,0 +1,40 @@
+[
+  {
+    "url": "v1/keys",
+    "params": null,
+    "response": [
+      [
+        {
+          "key": "0x817479947b6054dd5b1b6efc19df11f78f9444a9f861f6cb5386415285586b841802e157852d6ad66f96186f36e40b7a",
+          "depositSignature": "0x972b2db7dabf7fcaa1022b9c6820e04ed060fc375494c4a706a5a7db9d0dda0acb6b312be5f6e23c782458c73f97d7e7023d85751182bea2038ded5efd5d3a76f8c8b33cf8911e34da75d9e4133815ae387d68682ba09ca3e2b25aef889316ea",
+          "operatorIndex": 1,
+          "used": true,
+          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+        },
+        {
+          "key": "0xa381f6003d2ae73336add78e021354bcd5e086e8e5fc1448725193304dde3fada0e83fdf91f7dd4e8785448aa4ff3c19",
+          "depositSignature": "0xa817f12831cc3a3105b2491ecaaf7a60f054389840c65729ad2bde95d47c768ab147d6012d336046892417e7d2f65d29007b1429d163f6a43bc89dbb5edaa8c5f0e5514a570ff95c9ee51b52f5d3e005708675092b6c58d1acc982c145335ce1",
+          "operatorIndex": 1,
+          "used": true,
+          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+        },
+        {
+          "key": "0xacb8823ffa49ee93d37291ec1a3bb0d9915f23b21344e41e90edd9a898857b28c29fa8a34df4cfde19bf35c7f2394a09",
+          "depositSignature": "0x8fc904526b4674df06252b6243384b69c75ca4ee90ff7746f5f3b38cfca9bf39ed3be74f0dfc241ddba62987e0a615a9036cf0ab91088a3b097e4415e034ccc5dc5090849f672e9cd3f444bb2bc8463dd9dbc5a475c6caff307ac4bf58ed557c",
+          "operatorIndex": 1,
+          "used": true,
+          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+        }
+      ],
+      {
+        "meta": {
+          "elBlockSnapshot": {
+            "blockNumber": 8495214,
+            "blockHash": "0x4044fa626f84c2c9c9a876ec1f3d93b09c6b96d67cda6d74461a4f81b43a4133",
+            "timestamp": 1676452488
+          }
+        }
+      }
+    ]
+  }
+]
