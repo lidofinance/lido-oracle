@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from unittest.mock import Mock
 import pytest
 
@@ -176,19 +177,26 @@ def test_get_first_non_missed_slot(web3, consensus):
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_third_non_missed_slot(web3, consensus):
+    def get_block_root(_):
+        setattr(get_block_root, "call_count", getattr(get_block_root, "call_count", 0) + 1)
+        if getattr(get_block_root, "call_count") == 3:
+            web3.cc.get_block_root = original
+        raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
+
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
 
-    next_slot = SlotNumber(latest_blockstamp.slot_number + 2)
-    blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, next_slot)
+    original = web3.cc.get_block_root
+    web3.cc.get_block_root = Mock(side_effect=get_block_root)
+    blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
     assert isinstance(blockstamp, BlockStamp)
-    assert blockstamp.slot_number < next_slot
+    assert blockstamp.slot_number < latest_blockstamp.slot_number
 
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_all_slots_are_missed(web3, consensus):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    web3.cc.get_block_root = Mock(side_effect=NotOkResponse)
+    web3.cc.get_block_root = Mock(side_effect=NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text"))
     with pytest.raises(NoSlotsAvailable):
         consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
 

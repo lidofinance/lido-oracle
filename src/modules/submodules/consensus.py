@@ -207,7 +207,7 @@ class ConsensusModule(ABC):
                 if error.status != HTTPStatus.NOT_FOUND:
                     raise error from error
 
-                logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': error})
+                logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
                 continue
             else:
                 slot_details = self.w3.cc.get_block_details(root)
