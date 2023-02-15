@@ -51,6 +51,10 @@ class LidoContracts(Module):
             address=self.lido_locator.functions.withdrawalQueue().call(),
             abi=self.load_abi('WithdrawalRequestNFT'),
         )
+        self.oracleReportSanityChecker = self.w3.eth.contract(
+            address=self.lido_locator.functions.oracleReportSanityChecker().call(),
+            abi=self.load_abi('OracleReportSanityChecker'),
+        )
 
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):

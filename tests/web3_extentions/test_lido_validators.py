@@ -34,7 +34,7 @@ def test_get_node_operators(web3, lido_validators, contracts, past_blockstamp):
 
 
 @pytest.mark.unit
-def test_get_lido_validators_by_node_operator(web3, lido_validators, past_blockstamp):
+def test_get_lido_validators_by_node_operator(web3, lido_validators, past_blockstamp, contracts):
     no_validators = web3.lido_validators.get_lido_validators_by_node_operators(past_blockstamp)
 
     assert len(no_validators.keys()) == 3
