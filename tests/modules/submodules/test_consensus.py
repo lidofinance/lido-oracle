@@ -63,7 +63,7 @@ def test_get_member_info_with_account(consensus, set_report_account):
 
     assert member_info.is_report_member
     assert not member_info.is_submit_member
-    assert member_info.is_fast_line
+    assert member_info.is_fast_lane
     assert member_info.current_frame_consensus_report != ZERO_HASH
 
 
@@ -76,7 +76,7 @@ def test_get_member_info_without_account(consensus):
 
     assert member_info.is_report_member
     assert member_info.is_submit_member
-    assert member_info.is_fast_line
+    assert member_info.is_fast_lane
     assert member_info.current_frame_consensus_report == ZERO_HASH
 
 
@@ -96,7 +96,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 
     assert not member_info.is_report_member
     assert member_info.is_submit_member
-    assert not member_info.is_fast_line
+    assert not member_info.is_fast_lane
 
 
 # ------ Get block for report tests ----------
@@ -130,7 +130,7 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog)
 def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_not_ready(web3, consensus, caplog):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     member_info = consensus._get_member_info(latest_blockstamp)
-    member_info.is_fast_line = False
+    member_info.is_fast_lane = False
     member_info.current_frame_ref_slot = latest_blockstamp.slot_number - 1
     consensus._get_member_info = Mock(return_value=member_info)
 
@@ -143,7 +143,7 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_not_ready(web
 def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     member_info = consensus._get_member_info(latest_blockstamp)
-    member_info.is_fast_line = False
+    member_info.is_fast_lane = False
     member_info.current_frame_ref_slot += 1
     consensus._get_member_info = Mock(return_value=member_info)
 

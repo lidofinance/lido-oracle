@@ -37,8 +37,8 @@ class QuorumHashDoNotMatch(Exception):
 class MemberInfo:
     is_report_member: bool
     is_submit_member: bool
-    is_fast_line: bool
-    fast_line_length_slot: int
+    is_fast_lane: bool
+    fast_lane_length_slot: int
     current_frame_ref_slot: SlotNumber
     deadline_slot: SlotNumber
     current_frame_member_report: bytes
@@ -96,8 +96,8 @@ class ConsensusModule(ABC):
 
         # Defaults for dry mode
         current_frame_ref_slot, deadline_slot = self._get_current_frame(blockstamp)
-        _, _, fast_line_length_slot = self._get_frame_config(blockstamp)
-        is_member, is_submit_member, is_fast_line = [True] * 3
+        _, _, fast_lane_length_slot = self._get_frame_config(blockstamp)
+        is_member, is_submit_member, is_fast_lane = [True] * 3
         current_frame_consensus_report, current_frame_member_report = [ZERO_HASH] * 2
 
         if variables.ACCOUNT:
@@ -109,7 +109,7 @@ class ConsensusModule(ABC):
                 # Whether the provided address is a member of the oracle committee.
                 is_member,
                 # Whether the oracle committee member is in the fast line members subset of the current reporting frame.
-                is_fast_line,
+                is_fast_lane,
                 # Whether the oracle committee member is allowed to submit a report at the moment of the call.
                 _,  # can_report
                 # The last reference slot for which the member submitted a report.
@@ -132,8 +132,8 @@ class ConsensusModule(ABC):
         return MemberInfo(
             is_report_member=is_member,
             is_submit_member=is_submit_member,
-            is_fast_line=is_fast_line,
-            fast_line_length_slot=fast_line_length_slot,
+            is_fast_lane=is_fast_lane,
+            fast_lane_length_slot=fast_lane_length_slot,
             current_frame_consensus_report=current_frame_consensus_report,
             current_frame_ref_slot=current_frame_ref_slot,
             current_frame_member_report=current_frame_member_report,
@@ -185,9 +185,9 @@ class ConsensusModule(ABC):
             return
 
         # Check if current slot is higher than member slot + slots_delay
-        if not member_info.is_fast_line:
-            if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot + member_info.fast_line_length_slot:
-                logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_line_length_slot}] slots.'})
+        if not member_info.is_fast_lane:
+            if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
+                logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
                 return
 
         # Check latest block didn't miss deadline.
@@ -238,7 +238,7 @@ class ConsensusModule(ABC):
         self._process_report_data(blockstamp, report_data, report_hash)
 
     def _process_report_hash(self, blockstamp: BlockStamp, report_hash: HexBytes):
-        latest_blockstamp, member_info = self._get_latest_data()
+        _, member_info = self._get_latest_data()
 
         if HexBytes(member_info.current_frame_member_report) != report_hash:
             logger.info({'msg': f'Send report hash. Consensus version: [{self.CONSENSUS_VERSION}]'})
