@@ -418,5 +418,17 @@
         "execution_optimistic": false
       }
     ]
+  },
+  {
+    "url": "eth/v1/beacon/blocks/99721/root",
+    "params": null,
+    "response": [
+      {
+        "root": "0xa33461524e61fe1edf3637c85e177f1128e80d460b909364b12f980006d98b05"
+      },
+      {
+        "execution_optimistic": false
+      }
+    ]
   }
 ]
