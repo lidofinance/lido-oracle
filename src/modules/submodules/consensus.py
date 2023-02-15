@@ -57,8 +57,6 @@ class ConsensusModule(ABC):
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
 
-    SLOT_DELAY = 10
-
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -170,26 +168,29 @@ class ConsensusModule(ABC):
         )
 
     # ----- Calculation reference slot for report -----
-
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
         """Get blockstamp that should be used to build and send report for current frame."""
         member_info = self._get_member_info(blockstamp)
 
         latest_blockstamp = self._get_latest_blockstamp()
 
+        # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
             return
 
+        # Check if current slot is higher than member slot
         if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return
 
+        # Check if current slot is higher than member slot + slots_delay
         if not member_info.is_fast_line:
             if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot + member_info.fast_line_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_line_length_slot}] slots.'})
                 return
 
+        # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return
@@ -343,7 +344,7 @@ class ConsensusModule(ABC):
         )
 
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
-        """Returns in seconds time to sleep before data report."""
+        """Returns in slots time to sleep before data report."""
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
