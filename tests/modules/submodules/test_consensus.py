@@ -1,8 +1,13 @@
+from http import HTTPStatus
+from unittest.mock import Mock
 import pytest
 
-from src import variables
-from src.modules.submodules.consensus import ConsensusModule, MemberInfo, ZERO_HASH, IsNotMemberException
-from src.typings import BlockStamp
+from src.modules.submodules.consensus import (
+    ConsensusModule, MemberInfo, ZERO_HASH, IsNotMemberException, logger,
+    NoSlotsAvailable,
+)
+from src.providers.http_provider import NotOkResponse
+from src.typings import BlockStamp, SlotNumber, BlockNumber
 
 
 class SimpleConsensusModule(ConsensusModule):
@@ -26,6 +31,19 @@ class SimpleConsensusModule(ConsensusModule):
 @pytest.fixture()
 def consensus(web3, consensus_client, contracts):
     return SimpleConsensusModule(web3)
+
+
+def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
+    root = w3.cc.get_block_root(state_id).root
+    slot_details = w3.cc.get_block_details(root)
+
+    return BlockStamp(
+        block_root=root,
+        slot_number=SlotNumber(int(slot_details.message.slot)),
+        state_root=slot_details.message.state_root,
+        block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
+        block_hash=slot_details.message.body['execution_payload']['block_hash']
+    )
 
 
 @pytest.mark.unit
@@ -82,37 +100,105 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 
 
 # ------ Get block for report tests ----------
-def test_get_blockstamp_for_report_slot_not_finalized(consensus):
-    pass
+
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    current_frame, _ = consensus._get_current_frame(latest_blockstamp)
+    previous_blockstamp = get_blockstamp_by_state(web3, current_frame - 1)
+    consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
+
+    consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert "Reference slot is not yet finalized" in caplog.messages[-1]
 
 
-def test_get_blockstamp_for_report_slot_deadline_missed(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    member_info = consensus._get_member_info(latest_blockstamp)
+    member_info.deadline_slot = latest_blockstamp.slot_number - 1
+    consensus._get_member_info = Mock(return_value=member_info)
+
+    consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert "Deadline missed" in caplog.messages[-1]
 
 
-def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_not_ready(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_not_ready(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    member_info = consensus._get_member_info(latest_blockstamp)
+    member_info.is_fast_line = False
+    member_info.current_frame_ref_slot = latest_blockstamp.slot_number - 1
+    consensus._get_member_info = Mock(return_value=member_info)
+
+    consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert "report will be postponed" in caplog.messages[-1]
 
 
-def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    member_info = consensus._get_member_info(latest_blockstamp)
+    member_info.is_fast_line = False
+    member_info.current_frame_ref_slot += 1
+    consensus._get_member_info = Mock(return_value=member_info)
+
+    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert isinstance(blockstamp, BlockStamp)
 
 
-def test_get_blockstamp_for_report_slot_member_ready_to_report(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert isinstance(blockstamp, BlockStamp)
 
 
 # ------ Get first non missed slot ------------
-def test_get_first_non_missed_slot(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_first_non_missed_slot(web3, consensus):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    _, epoch_per_frame, _ = consensus._get_frame_config(latest_blockstamp)
+    slots_per_epoch, _, _ = consensus._get_chain_config(latest_blockstamp)
+
+    blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
+    assert isinstance(blockstamp, BlockStamp)
+    left_border = latest_blockstamp.slot_number - epoch_per_frame * slots_per_epoch
+    right_border = latest_blockstamp.slot_number
+    assert left_border < blockstamp.slot_number <= right_border
 
 
-def test_get_third_non_missed_slot(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_get_third_non_missed_slot(web3, consensus):
+    def get_block_root(_):
+        setattr(get_block_root, "call_count", getattr(get_block_root, "call_count", 0) + 1)
+        if getattr(get_block_root, "call_count") == 3:
+            web3.cc.get_block_root = original
+        raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
+
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+
+    original = web3.cc.get_block_root
+    web3.cc.get_block_root = Mock(side_effect=get_block_root)
+    blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
+    assert isinstance(blockstamp, BlockStamp)
+    assert blockstamp.slot_number < latest_blockstamp.slot_number
 
 
-def test_all_slots_are_missed(consensus):
-    pass
+@pytest.mark.unit
+@pytest.mark.possible_integration
+def test_all_slots_are_missed(web3, consensus):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    web3.cc.get_block_root = Mock(side_effect=NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text"))
+    with pytest.raises(NoSlotsAvailable):
+        consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
 
 
 # ----- Hash calculations ----------

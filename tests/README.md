@@ -9,3 +9,7 @@ Rpc responses are stored in the `tests/responses` directory
 and can be updated using `--save-responses` flag while running tests (make sure that you set rpc node environment variables in this case).
 It useful when you do not need to change response data for testing.
 In case if you need to test something with using specific responses, you can mock it directly, see `tests/mocks.py`.
+
+
+## TODOS
+- [ ] run tests marked with possible_integration as a part of integration tests with a real providers
