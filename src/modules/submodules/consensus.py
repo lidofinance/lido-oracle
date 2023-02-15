@@ -218,7 +218,7 @@ class ConsensusModule(ABC):
                     block_root=root,
                     slot_number=SlotNumber(int(slot_details.message.slot)),
                     state_root=slot_details.message.state_root,
-                    block_number=execution_data['block_number'],
+                    block_number=BlockNumber(int(execution_data['block_number'])),
                     block_hash=execution_data['block_hash']
                 )
 
