@@ -84,7 +84,8 @@ class BunkerService:
         before_report_total_pooled_ether = self.w3.lido_contracts.lido.functions.totalSupply().call(
             block_identifier=blockstamp.block_hash
         )
-        after_report_total_pooled_ether, _ = self.w3.lido_contracts.lido.functions.handleOracleReport(**args).call(
+        after_report_total_pooled_ether, *_ = self.w3.lido_contracts.lido.functions.handleOracleReport(**args).call(
+            {'from': self.w3.lido_contracts.accounting_oracle.address},
             block_identifier=blockstamp.block_hash
         )
         logger.info({
