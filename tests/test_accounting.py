@@ -1,8 +1,7 @@
 import pytest
 from hexbytes import HexBytes
 
-from src import modules
-from src.modules.accounting.accounting import Accounting
+from src.modules.accounting import Accounting
 from src.typings import SlotNumber
 
 
@@ -30,7 +29,7 @@ def test_slot_and_block_hash_for_report(accounting, past_slot_and_block):
 @pytest.mark.unit
 def test_get_beacon_validators_stats_unit(accounting, past_slot_and_block, monkeypatch):
     validators = [{'validator': {'balance': 32}}, {'validator': {'balance': 32}}]
-    monkeypatch.setattr(modules.accounting, 'get_lido_validators', lambda *args, **kwargs: validators)
+    monkeypatch.setattr(src.modules.accounting.accounting, 'get_lido_validators', lambda *args, **kwargs: validators)
     slot, block_hash = past_slot_and_block
     beacon_validators_count, beacon_validators_balance = accounting._get_beacon_validators_stats(slot, block_hash)
     assert beacon_validators_count == 2
@@ -42,7 +41,7 @@ def test_get_exited_validators(accounting, past_slot_and_block, monkeypatch):
     # TODO epoch counting from 0, looks like a bug in the _get_exited_validators
     validator = lambda epoch: {'validator': {'validator': {'exit_epoch': epoch}}}
     validators = [validator(0), validator(1), validator(2)]
-    monkeypatch.setattr(modules.accounting, 'get_lido_validators', lambda *args, **kwargs: validators)
+    monkeypatch.setattr(src.modules.accounting.accounting, 'get_lido_validators', lambda *args, **kwargs: validators)
 
     third_epoch = SlotNumber(64)
     validators = accounting._get_exited_validators(third_epoch, HexBytes("0x1"))

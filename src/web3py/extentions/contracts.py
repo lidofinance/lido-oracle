@@ -25,6 +25,7 @@ class LidoContracts(Module):
         self.accounting_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.accountingOracle().call(),
             abi=self.load_abi('AccountingOracle'),
+            decode_tuples=True,
         )
 
         self.lido_execution_layer_rewards_vault = self.w3.eth.contract(

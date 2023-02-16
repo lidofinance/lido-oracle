@@ -20,7 +20,7 @@ from src.web3py.extentions import (
 from src.web3py.middleware import metrics_collector
 from src.web3py.typings import Web3
 
-from src.web3py.contract import tweak_w3_contracts
+from src.web3py.contract_tweak import tweak_w3_contracts
 
 logger = logging.getLogger()
 
@@ -28,7 +28,7 @@ logger = logging.getLogger()
 if __name__ == '__main__':
     module_name = sys.argv[-1]
     if module_name not in iter(OracleModule):
-        msg = f'Last arg should be one of {[item.value for item in OracleModule]}, received {module_name}.'
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 

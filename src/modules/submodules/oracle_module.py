@@ -11,6 +11,7 @@ from src import variables
 from src.metrics.prometheus.basic import EXCEPTIONS_COUNT
 from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber, BlockRoot
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,16 +93,6 @@ class BaseModule(ABC):
         except ConnectionError as error:
             logger.error({"msg": error.args, "error": str(error)})
             raise ConnectionError from error
-        except ValueError as error:
-            logger.error({"msg": error.args, "error": str(error)})
-            time.sleep(DEFAULT_SLEEP)
-            EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
-            raise ValueError from error
-        except Exception as error:
-            logger.error({"msg": f"Unexpected exception. Sleep for {DEFAULT_SLEEP} seconds.", "error": str(error)})
-            time.sleep(DEFAULT_SLEEP)
-            EXCEPTIONS_COUNT.labels(self.__class__.__name__).inc()
-            raise Exception from error
         else:
             time.sleep(DEFAULT_SLEEP)
 
