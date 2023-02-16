@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from functools import lru_cache
 from http import HTTPStatus
 from time import sleep
@@ -10,7 +9,10 @@ from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
 
+from src.modules.submodules.exceptions import IsNotMemberException, NoSlotsAvailable, QuorumHashDoNotMatch
+from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.providers.http_provider import NotOkResponse
+from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
 from web3.contract import Contract
 
@@ -19,33 +21,6 @@ from src.typings import BlockStamp, SlotNumber, BlockNumber
 
 
 logger = logging.getLogger(__name__)
-
-
-class IsNotMemberException(Exception):
-    pass
-
-
-class NoSlotsAvailable(Exception):
-    pass
-
-
-class QuorumHashDoNotMatch(Exception):
-    pass
-
-
-@dataclass
-class MemberInfo:
-    is_report_member: bool
-    is_submit_member: bool
-    is_fast_lane: bool
-    fast_lane_length_slot: int
-    current_frame_ref_slot: SlotNumber
-    deadline_slot: SlotNumber
-    current_frame_member_report: bytes
-    current_frame_consensus_report: bytes
-
-
-ZERO_HASH = bytes([0]*32)
 
 
 DEFAULT_SLEEP = 12
@@ -72,6 +47,7 @@ class ConsensusModule(ABC):
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
             abi=self.w3.lido_contracts.load_abi('HashConsensus'),
+            decode_tuples=True,
         )
 
     @lru_cache(maxsize=1)
@@ -79,24 +55,20 @@ class ConsensusModule(ABC):
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def _get_chain_config(self, blockstamp: BlockStamp) -> tuple[int, int, int]:
-        """
-        function getChainConfig() external view returns (
-            uint256 slotsPerEpoch,
-            uint256 secondsPerSlot,
-            uint256 genesisTime
-        )
-        """
+    def _get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.functions.getChainConfig().call(block_identifier=blockstamp.block_hash)
+        return named_tuple_to_dataclass(
+            consensus_contract.functions.getChainConfig().call(block_identifier=blockstamp.block_hash),
+            ChainConfig,
+        )
 
     @lru_cache(maxsize=1)
     def _get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         # Defaults for dry mode
-        current_frame_ref_slot, deadline_slot = self._get_current_frame(blockstamp)
-        _, _, fast_lane_length_slot = self._get_frame_config(blockstamp)
+        current_frame = self._get_current_frame(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
         is_member, is_submit_member, is_fast_lane = [True] * 3
         current_frame_consensus_report, current_frame_member_report = [ZERO_HASH] * 2
 
@@ -120,8 +92,15 @@ class ConsensusModule(ABC):
                 variables.ACCOUNT.address,
             ).call(block_identifier=blockstamp.block_hash)
 
-            submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(block_identifier=blockstamp.block_hash)
-            is_submit_member = self.report_contract.functions.hasRole(submit_role, variables.ACCOUNT.address).call(block_identifier=blockstamp.block_hash)
+            submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
+                block_identifier=blockstamp.block_hash,
+            )
+            is_submit_member = self.report_contract.functions.hasRole(
+                submit_role,
+                variables.ACCOUNT.address,
+            ).call(
+                block_identifier=blockstamp.block_hash,
+            )
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -133,43 +112,38 @@ class ConsensusModule(ABC):
             is_report_member=is_member,
             is_submit_member=is_submit_member,
             is_fast_lane=is_fast_lane,
-            fast_lane_length_slot=fast_lane_length_slot,
+            fast_lane_length_slot=frame_config.fast_lane_length_slots,
             current_frame_consensus_report=current_frame_consensus_report,
-            current_frame_ref_slot=current_frame_ref_slot,
+            current_frame_ref_slot=current_frame.ref_slot,
             current_frame_member_report=current_frame_member_report,
-            deadline_slot=deadline_slot,
+            deadline_slot=current_frame.report_processing_deadline_slot,
         )
 
     @lru_cache(maxsize=1)
-    def _get_current_frame(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
-        """
-        function getCurrentFrame() external view returns (
-            uint256 refSlot,
-            uint256 reportProcessingDeadlineSlot
-        );
-        """
+    def _get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.functions.getCurrentFrame().call(
-            block_identifier=blockstamp.block_hash,
+
+        return named_tuple_to_dataclass(
+            consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash),
+            CurrentFrame,
         )
 
     @lru_cache(maxsize=1)
-    def _get_frame_config(self, blockstamp: BlockStamp) -> tuple[int, int, int]:
-        """
-        struct FrameConfig {
-            uint64 initialEpoch;
-            uint64 epochsPerFrame;
-            uint64 fastLaneLengthSlots;
-        }
-        """
+    def _get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.functions.getFrameConfig().call(
-            block_identifier=blockstamp.block_hash,
+        return named_tuple_to_dataclass(
+            consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash),
+            FrameConfig,
         )
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
-        """Get blockstamp that should be used to build and send report for current frame."""
+    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[tuple[BlockStamp, SlotNumber]]:
+        """
+        Get blockstamp that should be used to build and send report for current frame.
+        Returns:
+            Non-missed finalized blockstamp
+            Reference slot number
+        """
         member_info = self._get_member_info(blockstamp)
 
         latest_blockstamp = self._get_latest_blockstamp()
@@ -195,13 +169,13 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot)
+        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot), member_info.current_frame_ref_slot
 
     def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
-        _, epoch_per_frame, _ = self._get_frame_config(blockstamp)
-        slots_per_epoch, _, _ = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
+        chain_config = self._get_chain_config(blockstamp)
 
-        for i in range(slot, slot - epoch_per_frame * slots_per_epoch, -1):
+        for i in range(slot, slot - frame_config.epochs_per_frame * chain_config.slots_per_epoch, -1):
             try:
                 root = self.w3.cc.get_block_root(SlotNumber(i)).root
             except NotOkResponse as error:
@@ -226,9 +200,9 @@ class ConsensusModule(ABC):
         raise NoSlotsAvailable('No slots available for current report.')
 
     # ----- Working with report -----
-    def process_report(self, blockstamp: BlockStamp):
+    def process_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber):
         """Builds and sends report for current frame."""
-        report_data = self.build_report(blockstamp)
+        report_data = self.build_report(blockstamp, ref_slot)
         logger.info({'msg': 'Build report.', 'value': str(report_data)})
 
         report_hash = self._get_report_hash(report_data)
@@ -239,6 +213,10 @@ class ConsensusModule(ABC):
 
     def _process_report_hash(self, blockstamp: BlockStamp, report_hash: HexBytes):
         _, member_info = self._get_latest_data()
+
+        if not member_info.is_report_member:
+            logger.info({'msg': f'Account can`t submit report hash.'})
+            return
 
         if HexBytes(member_info.current_frame_member_report) != report_hash:
             logger.info({'msg': f'Send report hash. Consensus version: [{self.CONSENSUS_VERSION}]'})
@@ -287,7 +265,7 @@ class ConsensusModule(ABC):
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
                     logger.info({'msg': f'Main data was submitted.'})
-                    break
+                    return
 
         logger.info({'msg': f'Send report data. Contract version: [{self.CONTRACT_VERSION}]'})
         # If data already submitted transaction will be locally reverted, no need to check status manually
@@ -365,7 +343,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp) -> tuple:
+    def build_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> tuple:
         """Returns ReportData struct with calculated data."""
         pass
 

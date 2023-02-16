@@ -24,7 +24,7 @@ class KeysAPIClient(HTTPProvider):
     ALL_KEYS = 'v1/keys'
     ALL_OPERATORS = 'v1/operators'
 
-    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: Optional[dict] = None) -> dict:
+    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: Optional[dict] = None) -> dict | list:
         """
         Returns response if blockstamp < blockNumber from response
         """

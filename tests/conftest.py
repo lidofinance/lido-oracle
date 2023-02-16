@@ -14,7 +14,7 @@ from src.typings import BlockStamp
 from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
-from src.web3py.contract import tweak_w3_contracts
+from src.web3py.contract_tweak import tweak_w3_contracts
 from tests.mocks import chain_id_mainnet, eth_call_el_rewards_vault, eth_call_beacon_spec
 from tests.providers import (
     ResponseToFileProvider,
@@ -193,6 +193,13 @@ class Account:
     """Two methods that used in Lido Oracle"""
     address: Address
     _private_key: HexBytes
+
+
+@pytest.fixture()
+def set_no_account(monkeypatch):
+    with monkeypatch.context():
+        monkeypatch.setattr(variables, "ACCOUNT", None)
+        yield
 
 
 @pytest.fixture()

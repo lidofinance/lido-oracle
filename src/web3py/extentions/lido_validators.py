@@ -8,13 +8,12 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
-from src.utils.dataclass import Nested
-from src.web3_extentions import LidoContracts
+from src.utils.dataclass import Nested, list_of_dataclasses
 
 if TYPE_CHECKING:
     from src.web3py.typings import Web3
 
-NodeOperatorIndex = Tuple[Address, int]
+NodeOperatorIndex = Tuple[int, int]
 
 
 @dataclass
@@ -90,21 +89,28 @@ class LidoValidatorsProvider(Module):
         return lido_validators
 
     @lru_cache(maxsize=1)
-    def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> Dict[NodeOperatorIndex, LidoValidator]:
+    def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> Dict[NodeOperatorIndex, list[LidoValidator]]:
         merged_validators = self.get_lido_validators(blockstamp)
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict
-        no_validators = {(operator.stakingModule.stakingModuleAddress, operator.id): [] for operator in no_operators}
+        no_validators = {(operator.stakingModule.id, operator.id): [] for operator in no_operators}
+
+        stacking_module_address = {
+            operator.stakingModule.stakingModuleAddress: operator.stakingModule.id
+            for operator in no_operators
+        }
 
         for validator in merged_validators:
-            no_validators[(validator.key.moduleAddress, validator.key.operatorIndex)].append(validator)
+            no_validators[(
+                stacking_module_address[validator.key.moduleAddress],
+                validator.key.operatorIndex,
+            )].append(validator)
 
-        return dict(no_validators)
+        return no_validators
 
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
-
         operators = []
 
         for module in self._get_staking_modules(blockstamp):
@@ -118,6 +124,7 @@ class LidoValidatorsProvider(Module):
 
         return operators
 
+    @lru_cache(maxsize=1)
     def _get_staking_modules(self, blockstamp: BlockStamp) -> list[StakingModule]:
         modules = self.w3.lido_contracts.staking_router.functions.getStakingModules().call(
             block_identifier=blockstamp.block_hash,

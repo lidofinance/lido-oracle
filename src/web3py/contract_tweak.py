@@ -2,19 +2,13 @@ from typing import Optional, Any
 
 from eth_typing import ChecksumAddress
 from web3 import Web3
-from web3.contract import (
-    Contract as _Contract,
-    ContractFunctions as _ContractFunctions,
+from web3.contract import Contract as _Contract
+from web3.contract.contract import (
     ContractFunction as _ContractFunction,
-    call_contract_function,
+    ContractFunctions as _ContractFunctions,
 )
+from web3.contract.utils import call_contract_function
 from web3.types import ABI, TxParams, BlockIdentifier, CallOverride
-
-
-"""
-Remove parse_block_identifier(self.w3, block_identifier) from ContractFunction.
-There is no need to transform block_hash into block_number.
-"""
 
 
 class ContractFunction(_ContractFunction):
@@ -57,4 +51,8 @@ class Contract(_Contract):
 
 
 def tweak_w3_contracts(w3: Web3):
+    """
+    Normal call to contract's method with blockhash would transform blockhash into block_number.
+    Remove parse_block_identifier(self.w3, block_identifier) from ContractFunction and setup new ContractFactory.
+    """
     w3.eth.defaultContractFactory = Contract

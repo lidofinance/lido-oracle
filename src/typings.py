@@ -19,6 +19,8 @@ SlotNumber = NewType('SlotNumber', int)
 BlockHash = NewType('BlockHash', HexBytes)
 BlockNumber = NewType('BlockNumber', int)
 
+Gwei = NewType('Gwei', int)
+
 
 @dataclass(frozen=True)
 class BlockStamp:

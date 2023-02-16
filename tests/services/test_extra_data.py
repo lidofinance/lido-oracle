@@ -3,8 +3,9 @@ from eth_typing import Address
 from hexbytes import HexBytes
 
 from src.providers.keys.typings import LidoKey
-from src.services.extra_data import ExtraData
-from src.web3_extentions.lido_validators import StakingModule
+from src.modules.accounting.extra_data import ExtraData
+from src.web3py.extentions.lido_validators import StakingModule
+
 
 pytestmark = pytest.mark.unit
 

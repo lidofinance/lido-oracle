@@ -7,8 +7,8 @@ from operator import itemgetter
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp, OracleReportLimits
 from src.utils.abi import get_function_output_names
-from src.web3_extentions.lido_validators import StakingModule
-from src.web3_extentions.typings import Web3
+from src.web3py.extentions.lido_validators import StakingModule
+from src.web3py.typings import Web3
 
 
 # Extra data is an array of items, each item being encoded as follows:
@@ -54,12 +54,11 @@ def chunks(it, size):
 
 
 class ExtraData:
-
     def __init__(self, w3: Web3):
         self.w3 = w3
 
     def collect(self, blockstamp: BlockStamp, exited_validators: list[LidoKey], stucked_validators: list[LidoKey]) -> bytes:
-        modules = [item.module for item in self.w3.kac.get_operators(blockstamp)]
+        modules = [item.stakingModule for item in self.w3.lido_validators.get_lido_node_operators(blockstamp)]
         max_items_count = self._get_oracle_report_limits().maxAccountingExtraDataListItemsCount
         stucked_payloads = self.build_validators_payloads(stucked_validators, modules, max_items_count)
         exited_payloads = self.build_validators_payloads(exited_validators, modules, max_items_count)
@@ -83,7 +82,8 @@ class ExtraData:
             extra_data_bytes += item.item_payload.vals_counts
         return self.w3.keccak(extra_data_bytes)
 
-    def build_extra_data(self, stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
+    @staticmethod
+    def build_extra_data(stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
         index = 0
         extra_data = []
         for item in stucked_payloads:
@@ -102,7 +102,8 @@ class ExtraData:
             index += 1
         return extra_data
 
-    def build_validators_payloads(self, validators: list[LidoKey], modules: list[StakingModule], max_list_items_count) -> list[ItemPayload]:
+    @staticmethod
+    def build_validators_payloads(validators: list[LidoKey], modules: list[StakingModule], max_list_items_count) -> list[ItemPayload]:
         payloads = []
         module_to_operators = {}
 
