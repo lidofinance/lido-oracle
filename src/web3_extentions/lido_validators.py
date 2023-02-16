@@ -47,6 +47,21 @@ class LidoValidatorsProvider(Module):
 
         return lido_validators
 
+    @staticmethod
+    def filter_lido_validators_dict(
+        keys: dict[str, LidoKey], validators: dict[str, Validator]
+    ) -> dict[str, LidoValidator]:
+        """Filter lido validators from all validators and create LidoValidator objects"""
+        lido_validators = {}
+        for key in keys:
+            if key in validators:
+                lido_validators[key] = LidoValidator(
+                    key=keys[key],
+                    **asdict(validators[key]),
+                )
+
+        return lido_validators
+
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> Dict[NodeOperatorIndex, LidoValidator]:
         merged_validators = self.get_lido_validators(blockstamp)
