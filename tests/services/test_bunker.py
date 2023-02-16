@@ -32,14 +32,14 @@ def test_calculate_real_balance(validators, expected_balance):
 
 test_data_calculate_total_effective_balance = [
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '', '', '')),
-         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING, ValidatorState('', '', '3', False, '', '', '', '')),
-         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '4', True, '', '', '', ''))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '1', '100500', '')),
+         Validator('1', '1', ValidatorStatus.ACTIVE_EXITING, ValidatorState('', '', '3', False, '', '1', '100500', '')),
+         Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED, ValidatorState('', '', '4', True, '', '1', '100500', ''))],
         9,
     ),
     (
-        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '', '', '')),
-         Validator('1', '1', ValidatorStatus.EXITED_SLASHED, ValidatorState('', '', '2', True, '', '', '', ''))],
+        [Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING, ValidatorState('', '', '2', False, '', '1', '100500', '')),
+         Validator('1', '1', ValidatorStatus.EXITED_SLASHED, ValidatorState('', '', '2', True, '', '1', '200', ''))],
         2,
     ),
 ]
@@ -47,8 +47,8 @@ test_data_calculate_total_effective_balance = [
 
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_total_effective_balance)
-def test_calculate_total_effective_balance(validators, expected_balance):
-    total_effective_balance = BunkerService._calculate_total_active_effective_balance(validators)
+def test_calculate_total_active_effective_balance(validators, expected_balance):
+    total_effective_balance = BunkerService._calculate_total_active_effective_balance(validators, EpochNumber(15000))
     assert total_effective_balance == expected_balance
 
 
