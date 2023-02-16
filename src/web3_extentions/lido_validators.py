@@ -42,7 +42,7 @@ class LidoValidatorsProvider(Module):
             if key.key in validators_keys_dict:
                 lido_validators.append(LidoValidator(
                     key=key,
-                    **validators_keys_dict[key.key],
+                    **asdict(validators_keys_dict[key.key]),
                 ))
 
         return lido_validators
