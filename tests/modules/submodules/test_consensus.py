@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.submodules.consensus import (
-    ConsensusModule, MemberInfo, ZERO_HASH, IsNotMemberException, logger,
+    ConsensusModule, MemberInfo, ZERO_HASH, IsNotMemberException,
     NoSlotsAvailable,
 )
 from src.providers.http_provider import NotOkResponse
@@ -18,7 +18,7 @@ class SimpleConsensusModule(ConsensusModule):
         self.report_contract = w3.lido_contracts.accounting_oracle
         super().__init__(w3)
 
-    def build_report(self, blockstamp: BlockStamp) -> tuple:
+    def build_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> tuple:
         return tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -105,8 +105,8 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    current_frame, _ = consensus._get_current_frame(latest_blockstamp)
-    previous_blockstamp = get_blockstamp_by_state(web3, current_frame - 1)
+    current_frame = consensus._get_current_frame(latest_blockstamp)
+    previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
     consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
 
     consensus.get_blockstamp_for_report(latest_blockstamp)
@@ -164,12 +164,12 @@ def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, 
 @pytest.mark.possible_integration
 def test_get_first_non_missed_slot(web3, consensus):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    _, epoch_per_frame, _ = consensus._get_frame_config(latest_blockstamp)
-    slots_per_epoch, _, _ = consensus._get_chain_config(latest_blockstamp)
+    frame_config = consensus._get_frame_config(latest_blockstamp)
+    chain_config = consensus._get_chain_config(latest_blockstamp)
 
     blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
     assert isinstance(blockstamp, BlockStamp)
-    left_border = latest_blockstamp.slot_number - epoch_per_frame * slots_per_epoch
+    left_border = latest_blockstamp.slot_number - frame_config.epochs_per_frame * chain_config.slots_per_epoch
     right_border = latest_blockstamp.slot_number
     assert left_border < blockstamp.slot_number <= right_border
 
