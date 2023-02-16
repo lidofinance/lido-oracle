@@ -103,9 +103,9 @@ class BunkerService:
     def _is_high_midterm_slashing_penalty(self, blockstamp: BlockStamp, cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
         all_slashed_validators = self._not_withdrawn_slashed_validators(self.all_validators, blockstamp.ref_epoch)
-        lido_slashed_validators: list[Validator] = [
-            v.validator for v in self.w3.lido_validators.filter_lido_validators(self.lido_keys, all_slashed_validators)
-        ]
+        lido_slashed_validators: list[Validator] = self.w3.lido_validators.filter_lido_validators(
+            self.lido_keys, all_slashed_validators
+        )
         logger.info({"msg": f"Slashed: {len(all_slashed_validators)=} | {len(lido_slashed_validators)=}"})
 
         # If no one Lido in current slashed validators - no need to bunker

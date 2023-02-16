@@ -14,9 +14,8 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class LidoValidator:
+class LidoValidator(Validator):
     key: LidoKey
-    validator: Validator
 
 
 NodeOperatorIndex = Tuple[Address, int]
@@ -43,7 +42,7 @@ class LidoValidatorsProvider(Module):
             if key.key in validators_keys_dict:
                 lido_validators.append(LidoValidator(
                     key=key,
-                    validator=validators_keys_dict[key.key],
+                    **validators_keys_dict[key.key],
                 ))
 
         return lido_validators
