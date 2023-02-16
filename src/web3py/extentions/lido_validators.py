@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import lru_cache
-from typing import Dict, Tuple, TYPE_CHECKING, NewType
+from typing import Tuple, TYPE_CHECKING, NewType
 
 from eth_typing import Address
 from web3.module import Module
@@ -59,9 +59,8 @@ class NodeOperator(Nested):
 
 
 @dataclass
-class LidoValidator(Nested):
+class LidoValidator(Validator):
     key: LidoKey
-    validator: Validator
 
 
 ValidatorsByNodeOperator = dict[NodeOperatorIndex, list[LidoValidator]]
@@ -88,7 +87,7 @@ class LidoValidatorsProvider(Module):
             if key.key in validators_keys_dict:
                 lido_validators.append(LidoValidator(
                     key=key,
-                    validator=validators_keys_dict[key.key],
+                    **asdict(validators_keys_dict[key.key]),
                 ))
 
         return lido_validators
