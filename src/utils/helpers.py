@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_first_non_missed_slot(cc: ConsensusClient, slot: SlotNumber, max_deep: int) -> BlockStamp:
-    for i in range(slot, slot - max_deep, -1):
+    for i in range(slot, max(slot - max_deep, 0), -1):
         try:
             root = cc.get_block_root(i).root
         except KeyError:

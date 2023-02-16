@@ -30,7 +30,7 @@ class KeysAPIClient(HTTPProvider):
         """
         for i in range(self.RETRY_COUNT):
             data, meta = self._get(url, params)
-            if meta['meta']['elBlockSnapshot']['blockNumber'] >= blockstamp.block_number:
+            if meta['meta']['elBlockSnapshot']['blockNumber'] >= int(blockstamp.block_number):
                 return data
 
             if i != self.RETRY_COUNT - 1:
