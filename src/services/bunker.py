@@ -91,7 +91,7 @@ class BunkerService:
             "_reportTimestamp": blockstamp.ref_slot_number * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
             "_timeElapsed": (blockstamp.ref_slot_number - self.last_report_ref_slot) * self.c_conf.seconds_per_slot,
             "_clValidators": len(self.lido_validators),
-            "_clBalance": ref_lido_balance,
+            "_clBalance": self.w3.to_wei(ref_lido_balance, 'gwei'),
             "_withdrawalVaultBalance": ref_withdrawal_vault_balance,
             "_elRewardsVaultBalance": 0,
             "_lastFinalizableRequestId": 0,
