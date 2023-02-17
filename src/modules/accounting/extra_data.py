@@ -1,13 +1,12 @@
-from collections import defaultdict
+import itertools
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from itertools import islice
-from operator import itemgetter
 
-from src.providers.keys.typings import LidoKey
-from src.typings import BlockStamp, OracleReportLimits
-from src.utils.abi import get_function_output_names
-from src.web3py.extentions.lido_validators import StakingModule
+from src.typings import OracleReportLimits
+from src.utils.abi import named_tuple_to_dataclass
+from src.web3py.extentions.lido_validators import NodeOperatorIndex, LidoValidator
 from src.web3py.typings import Web3
 
 
@@ -17,7 +16,7 @@ from src.web3py.typings import Web3
 #
 # itemPayload format:
 #  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-#  | moduleId | nodeOpsCount |      nodeOperatorIds     |      stuckValsCounts      |
+#  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
 
 class Lengths:
     ITEM_INDEX = 3
@@ -25,12 +24,18 @@ class Lengths:
     MODULE_ID = 3
     NODE_OPS_COUNT = 8
     NODE_OPERATOR_IDS = 8
-    STUCK_VALS_COUNTS = 16
+    STUCK_AND_EXITED_VALS_COUNT = 16
 
 
 class ItemType(Enum):
     EXTRA_DATA_TYPE_STUCK_VALIDATORS = 0
     EXTRA_DATA_TYPE_EXITED_VALIDATORS = 1
+
+
+class FormatList(Enum):
+    EXTRA_DATA_FORMAT_LIST_EMPTY = 0
+    # TODO old contracts have 0, new contracts have 1, don't forget to change it
+    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 0
 
 
 @dataclass
@@ -48,28 +53,38 @@ class ExtraDataItem:
     item_payload: ItemPayload
 
 
+@dataclass
+class ExtraData:
+    extra_data: bytes
+    data_hash: bytes
+    format: FormatList
+
+
 def chunks(it, size):
     it = iter(it)
     return iter(lambda: tuple(islice(it, size)), ())
 
 
-class ExtraData:
+class ExtraDataService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-    def collect(self, blockstamp: BlockStamp, exited_validators: list[LidoKey], stucked_validators: list[LidoKey]) -> bytes:
-        modules = [item.stakingModule for item in self.w3.lido_validators.get_lido_node_operators(blockstamp)]
-        max_items_count = self._get_oracle_report_limits().maxAccountingExtraDataListItemsCount
-        stucked_payloads = self.build_validators_payloads(stucked_validators, modules, max_items_count)
-        exited_payloads = self.build_validators_payloads(exited_validators, modules, max_items_count)
+    def collect(self,
+                exited_validators: dict[NodeOperatorIndex, list[LidoValidator]],
+                stucked_validators: dict[NodeOperatorIndex, list[LidoValidator]]) -> ExtraData:
+
+        max_items_count = self._get_oracle_report_limits().max_accounting_extra_data_list_items_count
+        stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_count)
+        exited_payloads = self.build_validators_payloads(exited_validators, max_items_count)
 
         extra_data = self.build_extra_data(stucked_payloads, exited_payloads)
-        return self.to_bytes(extra_data)
+        extra_data_bytes = self.to_bytes(extra_data)
+        data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if len(extra_data) > 0 else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+        return ExtraData(extra_data=extra_data_bytes, data_hash=self.w3.keccak(extra_data_bytes), format=data_format)
 
     def _get_oracle_report_limits(self):
-        output_names = get_function_output_names(self.w3.lido_contracts.oracleReportSanityChecker.abi, 'getOracleReportLimits')
         result = self.w3.lido_contracts.oracleReportSanityChecker.functions.getOracleReportLimits().call()
-        return OracleReportLimits(**dict(zip(output_names, result)))
+        return named_tuple_to_dataclass(result, OracleReportLimits)
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
         extra_data_bytes = b''
@@ -80,7 +95,7 @@ class ExtraData:
             extra_data_bytes += item.item_payload.node_ops_count
             extra_data_bytes += item.item_payload.node_operator_ids
             extra_data_bytes += item.item_payload.vals_counts
-        return self.w3.keccak(extra_data_bytes)
+        return extra_data_bytes
 
     @staticmethod
     def build_extra_data(stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
@@ -103,27 +118,21 @@ class ExtraData:
         return extra_data
 
     @staticmethod
-    def build_validators_payloads(validators: list[LidoKey], modules: list[StakingModule], max_list_items_count) -> list[ItemPayload]:
+    def build_validators_payloads(validators: dict[NodeOperatorIndex, list[LidoValidator]], max_list_items_count) -> list[ItemPayload]:
+        operator_validators = deepcopy(validators)
+        # sort by module id and node operator id
+        operator_validators = sorted(operator_validators.items(), key=lambda x: (x[0][0], x[0][1]))
         payloads = []
-        module_to_operators = {}
 
-        for module in modules:
-            module_to_operators[module.stakingModuleAddress] = {"module": module, "operators": defaultdict(list)}
-        for validator in validators:
-            module_to_operators[validator.moduleAddress]["operators"][validator.operatorIndex].append(validator)
-
-        for mapping in sorted(module_to_operators.values(), key=lambda x: x["module"].id):
-            module = mapping["module"]
-            operators = mapping["operators"]
-            operators = sorted(operators.items(), key=itemgetter(0))
-            for chunk in chunks(operators, max_list_items_count):
+        for module_id, group in itertools.groupby(operator_validators, key=lambda x: x[0][0]):
+            for chunk in chunks(group, max_list_items_count):
                 operator_ids = []
                 vals_count = []
-                for operator_id, validators in chunk:
+                for (_, operator_id), validators in chunk:
                     operator_ids.append(operator_id.to_bytes(Lengths.NODE_OPERATOR_IDS))
-                    vals_count.append(len(validators).to_bytes(Lengths.STUCK_VALS_COUNTS))
+                    vals_count.append(len(validators).to_bytes(Lengths.STUCK_AND_EXITED_VALS_COUNT))
                 payloads.append(ItemPayload(
-                    module_id=module.id.to_bytes(Lengths.MODULE_ID),
+                    module_id=module_id.to_bytes(Lengths.MODULE_ID),
                     node_ops_count=len(chunk).to_bytes(Lengths.NODE_OPS_COUNT),
                     node_operator_ids=b"".join(operator_ids),
                     vals_counts=b"".join(vals_count),

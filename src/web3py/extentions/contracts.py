@@ -55,6 +55,7 @@ class LidoContracts(Module):
         self.oracleReportSanityChecker = self.w3.eth.contract(
             address=self.lido_locator.functions.oracleReportSanityChecker().call(),
             abi=self.load_abi('OracleReportSanityChecker'),
+            decode_tuples=True,
         )
 
     @staticmethod
