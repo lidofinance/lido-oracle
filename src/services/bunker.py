@@ -21,7 +21,17 @@ EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
 MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 
 # todo: should be in contract
-NORMALIZED_CL_PER_EPOCH = 64
+NORMALIZED_CL_PER_EPOCH = 64  # equal BASE_REWARD_FACTOR from consensus spec
+# But actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
+#  * Calculating expected proposer rewards instead of actual - Randomness within specification
+#  * Calculating expected sync committee rewards instead of actual  - Randomness within specification
+#  * Instead of using data on active validators for each epoch
+#    estimation on number of active validators through interception of
+#    active validators between current oracle report epoch and last one - Randomness within measurement algorithm
+#  * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
+# If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
+# those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
+# To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
 NORMALIZED_CL_MISTAKE_PERCENT = 10
 NEAREST_EPOCH_DISTANCE = 4
 FAR_EPOCH_DISTANCE = 25
@@ -47,11 +57,16 @@ class BunkerService:
         self.lido_validators: dict[str, LidoValidator] = {}
 
     def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
-        self.all_validators, self.lido_keys, self.lido_validators = self._get_lido_validators_with_others(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash
         )
+        if self.last_report_ref_slot == 0:
+            logger.info({"msg": "No one report yet. Bunker status will not be checked"})
+            return False
+
+        self.all_validators, self.lido_keys, self.lido_validators = self._get_lido_validators_with_others(blockstamp)
         logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
+
         logger.info({"msg": "Checking bunker mode"})
         frame_cl_rebase = self._get_cl_rebase_for_frame(blockstamp)
         if frame_cl_rebase < 0:
@@ -63,6 +78,7 @@ class BunkerService:
         if self._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase):
             logger.info({"msg": "Bunker ON. Abnormal CL rebase"})
             return True
+
         return False
 
     def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
@@ -160,34 +176,25 @@ class BunkerService:
             self.lido_validators, blockstamp.ref_epoch
         )
 
-        # todo: should we check bunker if it's first report?
-        if last_report_blockstamp.ref_epoch <= self.f_conf.initial_epoch:
-            # If no one report was made - we should use initial epoch as last completed epoch
-            # Because in this case 'cl_rebase' will contain all rewards from initial epoch
-            last_completed_epoch = self.f_conf.initial_epoch
-            total_last_effective_balance = total_ref_effective_balance
-            total_last_lido_effective_balance = total_ref_lido_effective_balance
-        else:
-            last_completed_epoch = last_report_blockstamp.ref_epoch
-            last_all_validators = {
-                v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.state_root)
-            }
-            last_lido_validators = self.w3.lido_validators.filter_lido_validators_dict(
-                self.lido_keys, last_all_validators
-            )
-            total_last_effective_balance = self._calculate_total_active_effective_balance(
-                last_all_validators, last_report_blockstamp.ref_epoch
-            )
-            total_last_lido_effective_balance = self._calculate_total_active_effective_balance(
-                last_lido_validators, last_report_blockstamp.ref_epoch
-            )
+        last_all_validators = {
+            v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.state_root)
+        }
+        last_lido_validators = self.w3.lido_validators.filter_lido_validators_dict(
+            self.lido_keys, last_all_validators
+        )
+        total_last_effective_balance = self._calculate_total_active_effective_balance(
+            last_all_validators, last_report_blockstamp.ref_epoch
+        )
+        total_last_lido_effective_balance = self._calculate_total_active_effective_balance(
+            last_lido_validators, last_report_blockstamp.ref_epoch
+        )
 
         mean_total_effective_balance = (total_ref_effective_balance + total_last_effective_balance) // 2
         mean_total_lido_effective_balance = (
             (total_ref_lido_effective_balance + total_last_lido_effective_balance) // 2
         )
 
-        epochs_passed = blockstamp.ref_epoch - last_completed_epoch
+        epochs_passed = blockstamp.ref_epoch - last_report_blockstamp.ref_epoch
 
         normal_cl_rebase = self._calculate_normal_cl_rebase(
             epochs_passed, mean_total_lido_effective_balance, mean_total_effective_balance
@@ -247,7 +254,7 @@ class BunkerService:
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
         validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
-        if validators_diff_in_gwei >= 0:
+        if validators_diff_in_gwei < 0:
             raise Exception("Validators diff should be positive or 0. Something went wrong with CL API")
 
         corrected_prev_lido_balance_with_vault = (
@@ -439,7 +446,7 @@ class BunkerService:
         epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
     ) -> Gwei:
         normal_cl_rebase = int(
-            NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed
+            (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
             / math.sqrt(mean_total_effective_balance) * (1 - NORMALIZED_CL_MISTAKE_PERCENT / 100)
         )
         return Gwei(normal_cl_rebase)
