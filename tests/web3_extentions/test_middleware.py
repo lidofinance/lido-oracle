@@ -50,6 +50,6 @@ def test_fail_with_status_code(provider, web3):
 
 def test_fail_with_body_error(provider, web3):
     with pytest.raises(ValueError):
-        web3.eth.get_coinbase()
+        web3.eth.coinbase
     labels = _get_requests_labels()
     assert labels == {'method': 'eth_coinbase', 'code': '-32000'}

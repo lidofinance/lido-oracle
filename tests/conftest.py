@@ -151,6 +151,11 @@ class Contracts(LidoContracts):
             address='0x7D22F2B8319e51055C88778BcD6658c2982c696b',
             abi=self.load_abi('WithdrawalRequestNFT'),
         )
+        self.oracleReportSanityChecker = self.w3.eth.contract(
+            address='0xC9F35dfd24588A2db1398d60B3391CC14CA00C3B',
+            abi=self.load_abi('OracleReportSanityChecker'),
+            decode_tuples=True
+        )
 
 
 @pytest.fixture()

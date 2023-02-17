@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Tuple, TYPE_CHECKING
+from typing import Dict, Tuple, TYPE_CHECKING, NewType
 
 from eth_typing import Address
 from web3.module import Module
@@ -13,7 +13,9 @@ from src.utils.dataclass import Nested, list_of_dataclasses
 if TYPE_CHECKING:
     from src.web3py.typings import Web3
 
-NodeOperatorIndex = Tuple[int, int]
+StakingModuleId = NewType('StakingModuleId', int)
+NodeOperatorId = NewType('NodeOperatorId', int)
+NodeOperatorIndex = Tuple[StakingModuleId, NodeOperatorId]
 
 
 @dataclass
@@ -96,14 +98,14 @@ class LidoValidatorsProvider(Module):
         # Make sure even empty NO will be presented in dict
         no_validators = {(operator.stakingModule.id, operator.id): [] for operator in no_operators}
 
-        stacking_module_address = {
+        staking_module_address = {
             operator.stakingModule.stakingModuleAddress: operator.stakingModule.id
             for operator in no_operators
         }
 
         for validator in merged_validators:
             no_validators[(
-                stacking_module_address[validator.key.moduleAddress],
+                staking_module_address[validator.key.moduleAddress],
                 validator.key.operatorIndex,
             )].append(validator)
 
