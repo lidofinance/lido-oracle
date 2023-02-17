@@ -31,7 +31,7 @@ def test_get_node_operators(web3, lido_validators, contracts, past_blockstamp):
     }
 
     for no in node_operators:
-        assert no.stakingModule.stakingModuleAddress == registry_map[no.id]
+        assert no.staking_module.staking_module_address == registry_map[no.id]
 
 
 @pytest.mark.skip
