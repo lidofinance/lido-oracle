@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NewType
 
+from eth_typing import HexStr
 from hexbytes import HexBytes
 
 
@@ -12,11 +13,11 @@ class OracleModule(StrEnum):
 
 EpochNumber = NewType('EpochNumber', int)
 
-StateRoot = NewType('StateRoot', HexBytes)
-BlockRoot = NewType('BlockRoot', HexBytes)
+StateRoot = NewType('StateRoot', HexStr)
+BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
 
-BlockHash = NewType('BlockHash', HexBytes)
+BlockHash = NewType('BlockHash', HexStr)
 BlockNumber = NewType('BlockNumber', int)
 
 Gwei = NewType('Gwei', int)
