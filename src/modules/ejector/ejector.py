@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
-from src.typings import BlockStamp
+from src.typings import BlockStamp, RefBlockStamp
 from src.web3py.typings import Web3
 
 
@@ -14,13 +14,13 @@ class Ejector(BaseModule, ConsensusModule):
         self.report_contract = w3.lido_contracts.validators_exit_bus_oracle
         super().__init__(w3)
 
-    def execute_module(self, blockstamp: BlockStamp):
+    def execute_module(self, blockstamp: RefBlockStamp):
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp:
             self.process_report(report_blockstamp)
 
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp) -> tuple:
+    def build_report(self, blockstamp: RefBlockStamp) -> tuple:
         return (
             self.CONSENSUS_VERSION,
             blockstamp.slot_number,

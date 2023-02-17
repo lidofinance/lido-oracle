@@ -8,7 +8,7 @@ from web3.types import Wei
 from src.modules.accounting.typings import ReportData, ProcessingState
 from src.modules.submodules.consensus import ConsensusModule, ZERO_HASH
 from src.modules.submodules.oracle_module import BaseModule
-from src.typings import BlockStamp, SlotNumber, Gwei
+from src.typings import BlockStamp, SlotNumber, Gwei, RefBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperatorIndex
 from src.web3py.typings import Web3
@@ -27,7 +27,7 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, blockstamp: BlockStamp):
         report_timestamp = self.get_blockstamp_for_report(blockstamp)
         if report_timestamp:
-            self.process_report(*report_timestamp)
+            self.process_report(report_timestamp)
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
@@ -46,11 +46,11 @@ class Accounting(BaseModule, ConsensusModule):
         return not processing_state.main_data_submitted or not extra_data_reported
 
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber, with_finalization: bool = True) -> tuple:
-        report_data = self._calculate_report(blockstamp, ref_slot, with_finalization)
+    def build_report(self, blockstamp: RefBlockStamp, with_finalization: bool = True) -> tuple:
+        report_data = self._calculate_report(blockstamp, with_finalization)
         return report_data.as_tuple()
 
-    def _calculate_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber, with_finalization: bool = True) -> ReportData:
+    def _calculate_report(self, blockstamp: RefBlockStamp, with_finalization: bool = True) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
         finalization_share_rate = 0
@@ -60,7 +60,7 @@ class Accounting(BaseModule, ConsensusModule):
             last_withdrawal_id_to_finalize = self._get_last_withdrawal_request_to_finalize(blockstamp)
 
         exit_validators_stats = defaultdict(int)
-        exited_validators = self._get_exited_lido_validators(blockstamp, ref_slot)
+        exited_validators = self._get_exited_lido_validators(blockstamp)
         for (module_id, _), validators in exited_validators.items():
             exit_validators_stats[module_id] += len(validators)
 
@@ -68,7 +68,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         report_data = ReportData(
             consensus_version=self.CONSENSUS_VERSION,
-            ref_slot=ref_slot,
+            ref_slot=blockstamp.ref_slot_number,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
             stacking_module_id_with_exited_validators=stacking_module_id_list,
@@ -92,11 +92,11 @@ class Accounting(BaseModule, ConsensusModule):
         balance = Gwei(sum(int(validator.validator.balance) for validator in lido_validators))
         return count, balance
 
-    def _get_exited_lido_validators(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> dict[NodeOperatorIndex, list[LidoValidator]]:
+    def _get_exited_lido_validators(self, blockstamp: RefBlockStamp) -> dict[NodeOperatorIndex, list[LidoValidator]]:
         lido_validators = deepcopy(self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp))
 
         def exit_filter(validator: LidoValidator) -> bool:
-            return int(validator.validator.validator.exit_epoch) < ref_slot
+            return int(validator.validator.validator.exit_epoch) < blockstamp.ref_slot_number
 
         for index, validators in lido_validators.items():
             lido_validators[index] = list(filter(exit_filter, lido_validators[index]))

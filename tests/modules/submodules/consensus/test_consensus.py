@@ -7,7 +7,7 @@ from src.modules.submodules.consensus import (
     NoSlotsAvailable,
 )
 from src.providers.http_provider import NotOkResponse
-from src.typings import BlockStamp
+from src.typings import BlockStamp, RefBlockStamp
 from tests.modules.submodules.consensus.conftest import get_blockstamp_by_state
 
 
@@ -134,7 +134,7 @@ def test_get_first_non_missed_slot(web3, consensus):
     chain_config = consensus._get_chain_config(latest_blockstamp)
 
     blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
-    assert isinstance(blockstamp, BlockStamp)
+    assert isinstance(blockstamp, RefBlockStamp)
     left_border = latest_blockstamp.slot_number - frame_config.epochs_per_frame * chain_config.slots_per_epoch
     right_border = latest_blockstamp.slot_number
     assert left_border < blockstamp.slot_number <= right_border
@@ -154,7 +154,7 @@ def test_get_third_non_missed_slot(web3, consensus):
     original = web3.cc.get_block_root
     web3.cc.get_block_root = Mock(side_effect=get_block_root)
     blockstamp = consensus._get_first_non_missed_slot(latest_blockstamp, latest_blockstamp.slot_number)
-    assert isinstance(blockstamp, BlockStamp)
+    assert isinstance(blockstamp, RefBlockStamp)
     assert blockstamp.slot_number < latest_blockstamp.slot_number
 
 

@@ -32,6 +32,12 @@ class BlockStamp:
     block_number: BlockNumber
 
 
+@dataclass(frozen=True)
+class RefBlockStamp(BlockStamp):
+    ref_slot_number: SlotNumber  # in good weather (when slot_number is not missed) should be the same as slot_number
+    ref_epoch: EpochNumber  # in good weather (when slot_number is not missed) should be the same as epoch_number
+
+
 @dataclass()
 class OracleReportLimits:
     churn_validators_per_day_limit: int

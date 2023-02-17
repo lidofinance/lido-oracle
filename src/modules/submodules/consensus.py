@@ -17,8 +17,7 @@ from src.web3py.typings import Web3
 from web3.contract import Contract
 
 from src import variables
-from src.typings import BlockStamp, SlotNumber, BlockNumber
-
+from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, RefBlockStamp
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +130,7 @@ class ConsensusModule(ABC):
         return FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[tuple[BlockStamp, SlotNumber]]:
+    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[RefBlockStamp]:
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
@@ -163,13 +162,13 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             # return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot), member_info.current_frame_ref_slot
+        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot)
 
-    def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
+    def _get_first_non_missed_slot(self, blockstamp: BlockStamp, target_slot: SlotNumber) -> RefBlockStamp:
         frame_config = self._get_frame_config(blockstamp)
         chain_config = self._get_chain_config(blockstamp)
 
-        for i in range(slot, slot - frame_config.epochs_per_frame * chain_config.slots_per_epoch, -1):
+        for i in range(target_slot, max(0, target_slot - frame_config.epochs_per_frame * chain_config.slots_per_epoch), -1):
             try:
                 root = self.w3.cc.get_block_root(SlotNumber(i)).root
             except NotOkResponse as error:
@@ -179,24 +178,26 @@ class ConsensusModule(ABC):
                 logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
                 continue
             else:
-                slot_details = self.w3.cc.get_block_details(root)
+                found_slot_details = self.w3.cc.get_block_details(root)
+                found_slot_number = SlotNumber(int(found_slot_details.message.slot))
+                found_execution_data = found_slot_details.message.body['execution_payload']
 
-                execution_data = slot_details.message.body['execution_payload']
-
-                return BlockStamp(
+                return RefBlockStamp(
+                    ref_slot_number=target_slot,
+                    ref_epoch=EpochNumber(target_slot // chain_config.slots_per_epoch),
                     block_root=root,
-                    slot_number=SlotNumber(int(slot_details.message.slot)),
-                    state_root=slot_details.message.state_root,
-                    block_number=BlockNumber(int(execution_data['block_number'])),
-                    block_hash=execution_data['block_hash']
+                    slot_number=found_slot_number,
+                    state_root=found_slot_details.message.state_root,
+                    block_number=BlockNumber(int(found_execution_data['block_number'])),
+                    block_hash=found_execution_data['block_hash']
                 )
 
         raise NoSlotsAvailable('No slots available for current report.')
 
     # ----- Working with report -----
-    def process_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber):
+    def process_report(self, blockstamp: RefBlockStamp):
         """Builds and sends report for current frame."""
-        report_data = self.build_report(blockstamp, ref_slot)
+        report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': str(report_data)})
 
         report_hash = self._get_report_hash(report_data)
@@ -338,7 +339,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> tuple:
+    def build_report(self, blockstamp: RefBlockStamp) -> tuple:
         """Returns ReportData struct with calculated data."""
         pass
 
