@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.typings import BlockStamp
-from src.services.withdrawal_safe_border import WithdrawalSafeBorder
+from src.services.safe_border import SafeBorder
 
 @pytest.fixture()
 def blockstamp():
@@ -15,7 +15,7 @@ def blockstamp():
 
 @pytest.fixture()
 def subject(web3, contracts, keys_api_client, consensus_client):
-    return WithdrawalSafeBorder(web3)
+    return SafeBorder(web3)
 
 def test_no_bunker_mode(subject, blockstamp):
     assert subject.get_safe_border_epoch(blockstamp) == int(blockstamp.slot_number / 32) - 8

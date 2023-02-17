@@ -9,7 +9,7 @@ MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13
 SLOTS_PER_EPOCH = 2**5
 
-class WithdrawalSafeBorder:
+class SafeBorder:
     def __init__(self, w3: Web3) -> None:
         self.w3 = w3
         self.lido_contracts = w3.lido_contracts

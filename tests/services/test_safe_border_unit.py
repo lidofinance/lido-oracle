@@ -2,7 +2,7 @@ import pytest
 
 from unittest.mock import MagicMock
 from src.typings import BlockStamp
-from src.services.withdrawal_safe_border import WithdrawalSafeBorder
+from src.services.safe_border import SafeBorder
 from src.web3_extentions.lido_validators import LidoValidator, Validator
 from src.providers.consensus.typings import ValidatorState
 
@@ -26,7 +26,7 @@ def ref_blockstamp():
 
 @pytest.fixture()
 def subject(web3, contracts, keys_api_client, consensus_client):
-    return WithdrawalSafeBorder(web3)
+    return SafeBorder(web3)
 
 def test_get_new_requests_border_epoch(subject, ref_blockstamp):
     assert subject.get_new_requests_border_epoch(ref_blockstamp) == ref_blockstamp.slot_number // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
