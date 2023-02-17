@@ -113,16 +113,16 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, c
     member_info.current_frame_ref_slot += 1
     consensus._get_member_info = Mock(return_value=member_info)
 
-    blockstamp, ref_slot = consensus.get_blockstamp_for_report(latest_blockstamp)
-    assert isinstance(blockstamp, BlockStamp)
+    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert isinstance(blockstamp, RefBlockStamp)
 
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    blockstamp, ref_slot = consensus.get_blockstamp_for_report(latest_blockstamp)
-    assert isinstance(blockstamp, BlockStamp)
+    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    assert isinstance(blockstamp, RefBlockStamp)
 
 
 # ------ Get first non missed slot ------------
