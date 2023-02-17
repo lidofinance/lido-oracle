@@ -120,36 +120,43 @@ class Contracts(LidoContracts):
         self.lido = self.w3.eth.contract(
             address='0xEC9ac956D7C7fE5a94919fD23BAc4a42f950A403',
             abi=self.load_abi('Lido'),
+            decode_tuples=True,
         )
 
         self.accounting_oracle = self.w3.eth.contract(
             address='0x5704fb15ba3E56383a93A33ca2Fc5Ec4C8B7Cb3a',
             abi=self.load_abi('AccountingOracle'),
+            decode_tuples=True,
         )
 
         self.lido_execution_layer_rewards_vault = self.w3.eth.contract(
             address='0x216157a53e180CfA0e7b8407BA6EBbAf8Da3c0c4',
             abi=self.load_abi('LidoExecutionLayerRewardsVault'),
+            decode_tuples=True,
         )
 
         self.withdrawal_vault = self.w3.eth.contract(
             address='0x8c5cBA32B36FCbC04e7b15bA9b2fe14057590c6E',
             abi=self.load_abi('WithdrawalVault'),
+            decode_tuples=True,
         )
 
         self.staking_router = self.w3.eth.contract(
             address='0xDd7d15490748a803AeC6987046311AF76a5A6502',
             abi=self.load_abi('StakingRouter'),
+            decode_tuples=True,
         )
 
         self.validators_exit_bus_oracle = self.w3.eth.contract(
             address='0x5c7Ba617C0B25835554Fa93D031294aA0878DAb2',
             abi=self.load_abi('ValidatorsExitBusOracle'),
+            decode_tuples=True,
         )
 
         self.withdrawal_queue = self.w3.eth.contract(
             address='0x7D22F2B8319e51055C88778BcD6658c2982c696b',
             abi=self.load_abi('WithdrawalRequestNFT'),
+            decode_tuples=True,
         )
         self.oracleReportSanityChecker = self.w3.eth.contract(
             address='0xC9F35dfd24588A2db1398d60B3391CC14CA00C3B',

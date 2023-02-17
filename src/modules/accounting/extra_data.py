@@ -33,9 +33,9 @@ class ItemType(Enum):
 
 
 class FormatList(Enum):
-    EXTRA_DATA_FORMAT_LIST_EMPTY = 0
-    # TODO old contracts have 0, new contracts have 1, don't forget to change it
-    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 0
+    # TODO old contracts have 1, new contracts have 0, don't forget to change it
+    EXTRA_DATA_FORMAT_LIST_EMPTY = 1
+    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 1
 
 
 @dataclass

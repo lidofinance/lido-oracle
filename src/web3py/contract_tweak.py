@@ -32,22 +32,29 @@ class ContractFunction(_ContractFunction):
             self.abi,
             state_override,
             ccip_read_enabled,
+            self.decode_tuples,
             *self.args,
             **self.kwargs,
         )
 
 
 class ContractFunctions(_ContractFunctions):
-    def __init__(self, abi: ABI, w3: Web3, address: Optional[ChecksumAddress] = None) -> None:
+    def __init__(
+        self,
+        abi: ABI,
+        w3: Web3,
+        address: Optional[ChecksumAddress] = None,
+        decode_tuples: Optional[bool] = False,
+    ) -> None:
         # skip init for class _ContractFunctions
-        super(_ContractFunctions, self).__init__(abi, w3, ContractFunction, address)
+        super(_ContractFunctions, self).__init__(abi, w3, ContractFunction, address, decode_tuples)
 
 
 class Contract(_Contract):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.functions = ContractFunctions(self.abi, self.w3, self.address)
+        self.functions = ContractFunctions(self.abi, self.w3, self.address, decode_tuples=self.decode_tuples)
 
 
 def tweak_w3_contracts(w3: Web3):
@@ -55,4 +62,4 @@ def tweak_w3_contracts(w3: Web3):
     Normal call to contract's method with blockhash would transform blockhash into block_number.
     Remove parse_block_identifier(self.w3, block_identifier) from ContractFunction and setup new ContractFactory.
     """
-    w3.eth.defaultContractFactory = Contract
+    w3.eth._default_contract_factory = Contract

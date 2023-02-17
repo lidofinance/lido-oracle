@@ -20,6 +20,7 @@ class LidoContracts(Module):
         self.lido = self.w3.eth.contract(
             address=self.lido_locator.functions.lido().call(),
             abi=self.load_abi('Lido'),
+            decode_tuples=True,
         )
 
         self.accounting_oracle = self.w3.eth.contract(
@@ -28,29 +29,35 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
+        # Only address
         self.lido_execution_layer_rewards_vault = self.w3.eth.contract(
             address=self.lido_locator.functions.elRewardsVault().call(),
             abi=self.load_abi('LidoExecutionLayerRewardsVault'),
+            decode_tuples=True,
         )
 
         self.withdrawal_vault = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalVault().call(),
             abi=self.load_abi('WithdrawalVault'),
+            decode_tuples=True,
         )
 
         self.staking_router = self.w3.eth.contract(
             address=self.lido_locator.functions.stakingRouter().call(),
             abi=self.load_abi('StakingRouter'),
+            decode_tuples=True,
         )
 
         self.validators_exit_bus_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.validatorsExitBusOracle().call(),
             abi=self.load_abi('ValidatorsExitBusOracle'),
+            decode_tuples=True,
         )
 
         self.withdrawal_queue = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalQueue().call(),
             abi=self.load_abi('WithdrawalRequestNFT'),
+            decode_tuples=True,
         )
         self.oracleReportSanityChecker = self.w3.eth.contract(
             address=self.lido_locator.functions.oracleReportSanityChecker().call(),

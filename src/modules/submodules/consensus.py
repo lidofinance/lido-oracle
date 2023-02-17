@@ -123,18 +123,12 @@ class ConsensusModule(ABC):
     def _get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
-        return named_tuple_to_dataclass(
-            consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash),
-            CurrentFrame,
-        )
+        return CurrentFrame(*consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash))
 
     @lru_cache(maxsize=1)
     def _get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return named_tuple_to_dataclass(
-            consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash),
-            FrameConfig,
-        )
+        return FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[tuple[BlockStamp, SlotNumber]]:
@@ -167,7 +161,7 @@ class ConsensusModule(ABC):
         # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
-            return
+            # return
 
         return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot), member_info.current_frame_ref_slot
 

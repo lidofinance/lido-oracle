@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from copy import deepcopy
 from functools import lru_cache
 
 from web3.types import Wei
@@ -92,7 +93,7 @@ class Accounting(BaseModule, ConsensusModule):
         return count, balance
 
     def _get_exited_lido_validators(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> dict[NodeOperatorIndex, list[LidoValidator]]:
-        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)[:]
+        lido_validators = deepcopy(self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp))
 
         def exit_filter(validator: LidoValidator) -> bool:
             return int(validator.validator.validator.exit_epoch) < ref_slot
@@ -115,10 +116,11 @@ class Accounting(BaseModule, ConsensusModule):
         ))
 
     def _get_last_withdrawal_request_to_finalize(self, blockstamp: BlockStamp) -> int:
-        pass
+        return 0
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
-        pass
+        return 0
 
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
-        pass
+        return False
+

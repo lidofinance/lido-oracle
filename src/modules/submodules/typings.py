@@ -24,12 +24,14 @@ class ChainConfig:
 
 @dataclass
 class CurrentFrame:
+    # Order is important!
     ref_slot: SlotNumber
     report_processing_deadline_slot: SlotNumber
 
 
 @dataclass
 class FrameConfig:
+    # Order is important!
     initial_epoch: int
     epochs_per_frame: int
     fast_lane_length_slots: int
