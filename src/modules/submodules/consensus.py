@@ -161,7 +161,7 @@ class ConsensusModule(ABC):
         # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
-            # return
+            return
 
         return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot), member_info.current_frame_ref_slot
 
@@ -294,7 +294,6 @@ class ConsensusModule(ABC):
 
         tx = consensus_contract.functions.submitReport(blockstamp.slot_number, report_hash, consensus_version)
 
-        # TODO is there should be an error if transaction is not valid?
         if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
             self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
 
