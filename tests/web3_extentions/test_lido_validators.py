@@ -16,14 +16,14 @@ def blockstamp():
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, lido_validators, past_blockstamp):
-    validators_in_cc = web3.cc.get_validators(past_blockstamp.state_root)
+def test_get_lido_validators(web3, lido_validators, blockstamp):
+    validators_in_cc = web3.cc.get_validators(blockstamp.state_root)
 
-    lido_keys = web3.kac.get_all_lido_keys(past_blockstamp)
+    lido_keys = web3.kac.get_all_lido_keys(blockstamp)
 
-    lido_validators = web3.lido_validators.get_lido_validators(past_blockstamp)
+    lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
 
-    assert len(lido_validators) == 3
+    assert len(lido_validators) == 5
     assert len(lido_keys) != len(lido_validators)
     assert len(validators_in_cc) != len(lido_validators)
 
