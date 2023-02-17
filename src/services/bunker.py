@@ -3,9 +3,11 @@ import logging
 from collections import defaultdict
 from functools import lru_cache
 
+from eth_typing import Address
+
 from src.providers.keys.typings import LidoKey
 from src.utils.helpers import get_first_non_missed_slot
-from src.web3_extentions import LidoValidator
+from src.web3_extentions import LidoValidator, LidoContracts
 from src.web3_extentions.typings import Web3
 
 from src.modules.accounting.typings import Gwei, wei
@@ -19,22 +21,6 @@ EPOCHS_PER_SLASHINGS_VECTOR = 8192
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
 MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
-
-# todo: should be in contract
-NORMALIZED_CL_PER_EPOCH = 64  # equal BASE_REWARD_FACTOR from consensus spec
-# But actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
-#  * Calculating expected proposer rewards instead of actual - Randomness within specification
-#  * Calculating expected sync committee rewards instead of actual  - Randomness within specification
-#  * Instead of using data on active validators for each epoch
-#    estimation on number of active validators through interception of
-#    active validators between current oracle report epoch and last one - Randomness within measurement algorithm
-#  * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
-# If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
-# those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
-# To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
-NORMALIZED_CL_MISTAKE_PERCENT = 10
-NEAREST_EPOCH_DISTANCE = 4
-FAR_EPOCH_DISTANCE = 25
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +43,7 @@ class BunkerService:
         self.lido_validators: dict[str, LidoValidator] = {}
 
     def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
+        self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash
         )
@@ -80,6 +67,34 @@ class BunkerService:
             return True
 
         return False
+
+    def _get_config(self, blockstamp: BlockStamp):
+        contract = self.w3.eth.contract(
+            address=Address(b'0x2663f77bee97abFE76551b47342F5FAD3a9BDDdC'),
+            abi=LidoContracts.load_abi('OracleDaemonConfig'),
+        )
+        self.NORMALIZED_CL_PER_EPOCH = int(contract.functions.get('NORMALIZED_CL_PER_EPOCH').call(
+            block_identifier=blockstamp.block_hash
+        ))  # equal BASE_REWARD_FACTOR from consensus spec
+        # But actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
+        #  * Calculating expected proposer rewards instead of actual - Randomness within specification
+        #  * Calculating expected sync committee rewards instead of actual  - Randomness within specification
+        #  * Instead of using data on active validators for each epoch
+        #   estimation on number of active validators through interception of
+        #   active validators between current oracle report epoch and last one - Randomness within measurement algorithm
+        #  * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
+        # If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
+        # those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
+        # To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
+        self.NORMALIZED_CL_MISTAKE_PERCENT = int(contract.functions.get('NORMALIZED_CL_MISTAKE_PERCENT').call(
+            block_identifier=blockstamp.block_hash
+        )) / 10000
+        self.NEAREST_EPOCH_DISTANCE = int(contract.functions.get('NEAREST_EPOCH_DISTANCE').call(
+            block_identifier=blockstamp.block_hash
+        ))
+        self.FAR_EPOCH_DISTANCE = int(contract.functions.get('FAR_EPOCH_DISTANCE').call(
+            block_identifier=blockstamp.block_hash
+        ))
 
     def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
@@ -153,7 +168,7 @@ class BunkerService:
         normal_cl_rebase = self._get_normal_cl_rebase(blockstamp)
         if frame_cl_rebase < normal_cl_rebase:
             logger.info({"msg": "Abnormal CL rebase in frame"})
-            if NEAREST_EPOCH_DISTANCE == 0 and FAR_EPOCH_DISTANCE == 0:
+            if self.NEAREST_EPOCH_DISTANCE == 0 and self.FAR_EPOCH_DISTANCE == 0:
                 logger.info({"msg": "Specific CL rebase calculation are disabled"})
                 return True
             is_negative_specific_cl_rebase = self._is_negative_specific_cl_rebase(blockstamp)
@@ -208,8 +223,8 @@ class BunkerService:
         Calculate CL rebase from nearest and far epochs to ref epoch given the changes in withdrawal vault
         """
         logger.info({"msg": "Calculating nearest and far CL rebase"})
-        nearest_slot = (blockstamp.ref_slot_number - NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
-        far_slot = (blockstamp.ref_slot_number - FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
+        nearest_slot = (blockstamp.ref_slot_number - self.NEAREST_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
+        far_slot = (blockstamp.ref_slot_number - self.FAR_EPOCH_DISTANCE * self.c_conf.slots_per_epoch)
 
         if nearest_slot < far_slot:
             raise ValueError(f"{nearest_slot=} should be less than {far_slot=} in specific CL rebase calculation")
@@ -441,12 +456,12 @@ class BunkerService:
     def _get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
         return abs(epoch - frame_config.initial_epoch) // frame_config.epochs_per_frame
 
-    @staticmethod
     def _calculate_normal_cl_rebase(
-        epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
+        self, epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
     ) -> Gwei:
         normal_cl_rebase = int(
-            (NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
-            / math.sqrt(mean_total_effective_balance) * (1 - NORMALIZED_CL_MISTAKE_PERCENT / 100)
+            (self.NORMALIZED_CL_PER_EPOCH * mean_total_lido_effective_balance * epochs_passed)
+            / math.sqrt(mean_total_effective_balance) * (1 - self.NORMALIZED_CL_MISTAKE_PERCENT / 100)
         )
         return Gwei(normal_cl_rebase)
+

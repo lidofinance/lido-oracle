@@ -183,5 +183,8 @@ def test_get_frame_by_epoch(epoch, expected_frame):
      (450, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 981574409112)]
 )
 def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected):
-    normal_cl_rebase = BunkerService._calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total)
+    bunker = object.__new__(BunkerService)
+    bunker.NORMALIZED_CL_PER_EPOCH = 64
+    bunker.NORMALIZED_CL_MISTAKE_PERCENT = 10
+    normal_cl_rebase = bunker._calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total)
     assert normal_cl_rebase == expected
