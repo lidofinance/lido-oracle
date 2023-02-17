@@ -1,7 +1,7 @@
 import pytest
 from hexbytes import HexBytes
 
-from src.modules.accounting import Accounting
+from src.modules.accounting.accounting import Accounting
 from src.typings import SlotNumber
 
 
