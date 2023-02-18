@@ -79,16 +79,7 @@ class BunkerService:
 
     def _get_config(self, blockstamp: BlockStamp):
         """
-        Actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
-         * Calculating expected proposer rewards instead of actual - Randomness within specification
-         * Calculating expected sync committee rewards instead of actual  - Randomness within specification
-         * Instead of using data on active validators for each epoch
-          estimation on number of active validators through interception of
-          active validators between current oracle report epoch and last one - Randomness within measurement algorithm
-         * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
-        If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
-        those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
-        To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
+        Get config values from OracleDaemonConfig contract
         """
         config = self.w3.lido_contracts.oracle_daemon_config
         self.b_conf = BunkerConfig(
@@ -440,6 +431,10 @@ class BunkerService:
         per_epoch_buckets: dict[EpochNumber, dict[str, Validator]],
         bound_with_epoch: EpochNumber
     ) -> dict[str, Validator]:
+        """
+        Get bounded slashed validators for particular epoch
+        All slashings that happened in the nearest EPOCHS_PER_SLASHINGS_VECTOR ago considered as bounded
+        """
         min_bucket_epoch = min(per_epoch_buckets.keys())
         min_bounded_epoch = max(min_bucket_epoch, EpochNumber(bound_with_epoch - EPOCHS_PER_SLASHINGS_VECTOR))
         bounded_slashed_validators: dict[str, Validator] = defaultdict(Validator)
@@ -473,6 +468,20 @@ class BunkerService:
     def _calculate_normal_cl_rebase(
         self, epochs_passed: int, mean_total_lido_effective_balance: int, mean_total_effective_balance: int
     ) -> Gwei:
+        """
+        Calculate normal CL rebase for particular effective balance
+
+        Actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
+         * Calculating expected proposer rewards instead of actual - Randomness within specification
+         * Calculating expected sync committee rewards instead of actual  - Randomness within specification
+         * Instead of using data on active validators for each epoch
+          estimation on number of active validators through interception of
+          active validators between current oracle report epoch and last one - Randomness within measurement algorithm
+         * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
+        If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
+        those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
+        To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
+        """
         normal_cl_rebase = int(
             (self.b_conf.normalized_cl_per_epoch * mean_total_lido_effective_balance * epochs_passed)
             / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_mistake)
