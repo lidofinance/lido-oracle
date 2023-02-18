@@ -6,7 +6,7 @@ from itertools import islice
 
 from src.typings import OracleReportLimits
 from src.utils.abi import named_tuple_to_dataclass
-from src.web3py.extentions.lido_validators import NodeOperatorIndex, LidoValidator
+from src.web3py.extentions.lido_validators import ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
 
@@ -58,6 +58,7 @@ class ExtraData:
     extra_data: bytes
     data_hash: bytes
     format: FormatList
+    items_count: int
 
 
 def chunks(it, size):
@@ -69,21 +70,27 @@ class ExtraDataService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-    def collect(self,
-                exited_validators: dict[NodeOperatorIndex, list[LidoValidator]],
-                stucked_validators: dict[NodeOperatorIndex, list[LidoValidator]]) -> ExtraData:
-
+    def collect(
+        self,
+        exited_validators: ValidatorsByNodeOperator,
+        stucked_validators: ValidatorsByNodeOperator,
+    ) -> ExtraData:
         max_items_count = self._get_oracle_report_limits().max_accounting_extra_data_list_items_count
         stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_count)
         exited_payloads = self.build_validators_payloads(exited_validators, max_items_count)
 
-        extra_data = self.build_extra_data(stucked_payloads, exited_payloads)
+        extra_data, items_count = self.build_extra_data(stucked_payloads, exited_payloads)
         extra_data_bytes = self.to_bytes(extra_data)
         data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if len(extra_data) > 0 else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
-        return ExtraData(extra_data=extra_data_bytes, data_hash=self.w3.keccak(extra_data_bytes), format=data_format)
+        return ExtraData(
+            extra_data=extra_data_bytes,
+            data_hash=self.w3.keccak(extra_data_bytes),
+            format=data_format,
+            items_count=items_count,
+        )
 
     def _get_oracle_report_limits(self):
-        result = self.w3.lido_contracts.oracleReportSanityChecker.functions.getOracleReportLimits().call()
+        result = self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call()
         return named_tuple_to_dataclass(result, OracleReportLimits)
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
@@ -115,10 +122,10 @@ class ExtraDataService:
                 item_payload=item
             ))
             index += 1
-        return extra_data
+        return extra_data, index
 
     @staticmethod
-    def build_validators_payloads(validators: dict[NodeOperatorIndex, list[LidoValidator]], max_list_items_count) -> list[ItemPayload]:
+    def build_validators_payloads(validators: ValidatorsByNodeOperator, max_list_items_count) -> list[ItemPayload]:
         operator_validators = deepcopy(validators)
         # sort by module id and node operator id
         operator_validators = sorted(operator_validators.items(), key=lambda x: (x[0][0], x[0][1]))

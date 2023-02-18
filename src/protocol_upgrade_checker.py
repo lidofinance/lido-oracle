@@ -1,5 +1,4 @@
 import logging
-import time
 
 from src.web3py.extentions import LidoContracts
 from src.web3py.typings import Web3
@@ -11,6 +10,7 @@ from src.metrics.healthcheck_server import pulse
 logger = logging.getLogger(__name__)
 
 
+# ToDo fix wait for withdrawals function
 def wait_for_withdrawals(w3: Web3):
     """Waits until protocol will be upgraded and be ready for new reports"""
     while True:

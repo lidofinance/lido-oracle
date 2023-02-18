@@ -17,8 +17,7 @@ from src.web3py.typings import Web3
 from web3.contract import Contract
 
 from src import variables
-from src.typings import BlockStamp, SlotNumber, BlockNumber
-
+from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +68,8 @@ class ConsensusModule(ABC):
         # Defaults for dry mode
         current_frame = self._get_current_frame(blockstamp)
         frame_config = self._get_frame_config(blockstamp)
-        is_member, is_submit_member, is_fast_lane = [True] * 3
-        current_frame_consensus_report, current_frame_member_report = [ZERO_HASH] * 2
+        is_member = is_submit_member = is_fast_lane = True
+        current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
             (
@@ -131,7 +130,7 @@ class ConsensusModule(ABC):
         return FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[tuple[BlockStamp, SlotNumber]]:
+    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
@@ -163,7 +162,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot), member_info.current_frame_ref_slot
+        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot)
 
     def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
         frame_config = self._get_frame_config(blockstamp)
@@ -188,20 +187,21 @@ class ConsensusModule(ABC):
                     slot_number=SlotNumber(int(slot_details.message.slot)),
                     state_root=slot_details.message.state_root,
                     block_number=BlockNumber(int(execution_data['block_number'])),
-                    block_hash=execution_data['block_hash']
+                    block_hash=execution_data['block_hash'],
+                    ref_slot=slot,
+                    ref_epoch=EpochNumber(slot // chain_config.slots_per_epoch),
                 )
 
         raise NoSlotsAvailable('No slots available for current report.')
 
     # ----- Working with report -----
-    def process_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber):
+    def process_report(self, blockstamp: BlockStamp):
         """Builds and sends report for current frame."""
-        report_data = self.build_report(blockstamp, ref_slot)
+        report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': str(report_data)})
 
         report_hash = self._get_report_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': str(report_hash)})
-
         self._process_report_hash(blockstamp, report_hash)
         self._process_report_data(blockstamp, report_data, report_hash)
 
@@ -306,13 +306,16 @@ class ConsensusModule(ABC):
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
         slot_details = self.w3.cc.get_block_details(root)
+        slot_number = SlotNumber(int(slot_details.message.slot))
 
         return BlockStamp(
             block_root=root,
-            slot_number=SlotNumber(int(slot_details.message.slot)),
+            slot_number=slot_number,
             state_root=slot_details.message.state_root,
             block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
-            block_hash=slot_details.message.body['execution_payload']['block_hash']
+            block_hash=slot_details.message.body['execution_payload']['block_hash'],
+            ref_slot=slot_number,
+            ref_epoch=None,
         )
 
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
@@ -323,10 +326,10 @@ class ConsensusModule(ABC):
 
         mem_position = members.index(variables.ACCOUNT.address)
 
-        _, epochs_per_frame, _ = self._get_frame_config(blockstamp)
-        slots_per_epoch, _, _ = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
+        chain_config = self._get_chain_config(blockstamp)
 
-        current_frame_number = int(blockstamp.slot_number / slots_per_epoch / epochs_per_frame)
+        current_frame_number = int(blockstamp.slot_number / chain_config.slots_per_epoch / frame_config.epochs_per_frame)
         current_position = current_frame_number % len(members)
 
         sleep_count = mem_position - current_position
@@ -337,7 +340,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp, ref_slot: SlotNumber) -> tuple:
+    def build_report(self, blockstamp: BlockStamp) -> tuple:
         """Returns ReportData struct with calculated data."""
         pass
 

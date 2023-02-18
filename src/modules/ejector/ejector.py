@@ -3,6 +3,7 @@ from functools import lru_cache
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
+from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 
@@ -21,12 +22,24 @@ class Ejector(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        keys_to_exit: list[LidoValidator] = lido_validators[(1,0)][:2]
+        module_id = 1
+        no_id = 0
+
+        b = b''
+        for key in keys_to_exit:
+            b += module_id.to_bytes(3)
+            b += no_id.to_bytes(5)
+            b += int(key.validator.index).to_bytes(8)
+            b += bytes.fromhex(key.validator.validator.pubkey[2:])
+
         return (
             self.CONSENSUS_VERSION,
-            blockstamp.slot_number,
-            0,
-            0,
-            b'',
+            blockstamp.ref_slot,
+            2,
+            1,
+            b,
         )
 
     @lru_cache(maxsize=1)

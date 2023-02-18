@@ -74,6 +74,8 @@ class BaseModule(ABC):
             slot_number=slot_number,
             block_hash=block_hash,
             block_number=block_number,
+            ref_slot=slot_number,
+            ref_epoch=None,
         )
 
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})

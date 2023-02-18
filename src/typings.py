@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import NewType
+from typing import NewType, Optional
 
 from eth_typing import HexStr
-from hexbytes import HexBytes
 
 
 class OracleModule(StrEnum):
@@ -30,9 +29,13 @@ class BlockStamp:
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
+    # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
+    ref_slot: SlotNumber
+    # ref_epoch could be empty if we do not know chain configs when generating this timestamp
+    ref_epoch: Optional[EpochNumber]
 
 
-@dataclass()
+@dataclass
 class OracleReportLimits:
     churn_validators_per_day_limit: int
     one_off_cl_balance_decrease_bp_limit: int
