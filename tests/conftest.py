@@ -179,6 +179,8 @@ def lido_validators(web3, consensus_client, keys_api_client):
 @pytest.fixture()
 def past_blockstamp():
     yield BlockStamp(
+        ref_slot_number=4947936,
+        ref_epoch=154623,
         block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
         state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
         slot_number=4947936,

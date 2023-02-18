@@ -14,6 +14,8 @@ def keys_api_client():
 
 
 empty_blockstamp = BlockStamp(
+        ref_slot_number=0,
+        ref_epoch=0,
         block_root=None,
         state_root=None,
         slot_number='',
