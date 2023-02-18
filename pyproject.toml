@@ -7,7 +7,7 @@ license = "GPL 3.0"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-web3 = "6.0.0b9"
+web3 = "6.0.0b10"
 prometheus-client = "^0.16.0"
 web3-multi-provider = "^0.5.0"
 timeout-decorator = "^0.5.0"
@@ -25,5 +25,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 markers = [
     "unit: tests with using mocks and don't make external requests",
-    "integration: tests with using providers"
+    "integration: tests with using providers",
+    "possible_integration: tests with using providers, but can be run using mocks"
 ]

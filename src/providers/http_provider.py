@@ -13,7 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class NotOkResponse(Exception):
-    pass
+    status: int
+    text: str
+
+    def __init__(self, *args, status: int, text: str):
+        self.status = status
+        self.text = text
+        super().__init__(*args)
 
 
 class HTTPProvider(ABC):
@@ -50,7 +56,7 @@ class HTTPProvider(ABC):
         if response.status_code != HTTPStatus.OK:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
             logger.error({'msg': msg})
-            raise NotOkResponse(msg)
+            raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
         try:
             json_response = response.json()

@@ -4,7 +4,7 @@ from web3 import Web3, HTTPProvider
 
 from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS
 from src.variables import EXECUTION_CLIENT_URI
-from src.web3_extentions import metrics_collector
+from src.web3py.middleware import metrics_collector
 
 pytestmark = pytest.mark.integration
 
@@ -50,6 +50,6 @@ def test_fail_with_status_code(provider, web3):
 
 def test_fail_with_body_error(provider, web3):
     with pytest.raises(ValueError):
-        web3.eth.get_coinbase()
+        web3.eth.coinbase
     labels = _get_requests_labels()
     assert labels == {'method': 'eth_coinbase', 'code': '-32000'}

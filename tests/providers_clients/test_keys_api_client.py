@@ -28,7 +28,3 @@ def test_get_all_lido_keys(keys_api_client):
     lido_keys = keys_api_client.get_all_lido_keys(empty_blockstamp)
     assert lido_keys
 
-
-def test_get_operators(keys_api_client):
-    operators = keys_api_client.get_operators(empty_blockstamp)
-    assert operators

@@ -12,54 +12,53 @@ class LidoContracts(Module):
         self._load_contracts()
 
     def _load_contracts(self):
+        # Contract that stores all lido contract addresses
         self.lido_locator = self.w3.eth.contract(
             address=variables.LIDO_LOCATOR_ADDRESS,
             abi=self.load_abi('LidoLocator'),
+            decode_tuples=True,
         )
 
-        self.lido = self.w3.eth.contract(
-            address=self.lido_locator.functions.lido().call(),
-            abi=self.load_abi('Lido'),
-        )
+        # self.lido = self.w3.eth.contract(
+        #     address=self.lido_locator.functions.lido().call(),
+        #     abi=self.load_abi('Lido'),
+        #     decode_tuples=True,
+        # )
 
         self.accounting_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.accountingOracle().call(),
             abi=self.load_abi('AccountingOracle'),
-        )
-
-        self.lido_execution_layer_rewards_vault = self.w3.eth.contract(
-            address=self.lido_locator.functions.elRewardsVault().call(),
-            abi=self.load_abi('LidoExecutionLayerRewardsVault'),
-        )
-
-        self.withdrawal_vault = self.w3.eth.contract(
-            address=self.lido_locator.functions.withdrawalVault().call(),
-            abi=self.load_abi('WithdrawalVault'),
+            decode_tuples=True,
         )
 
         self.staking_router = self.w3.eth.contract(
             address=self.lido_locator.functions.stakingRouter().call(),
             abi=self.load_abi('StakingRouter'),
+            decode_tuples=True,
         )
 
         self.validators_exit_bus_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.validatorsExitBusOracle().call(),
             abi=self.load_abi('ValidatorsExitBusOracle'),
+            decode_tuples=True,
         )
 
-        self.withdrawal_queue = self.w3.eth.contract(
+        self.withdrawal_queue_nft = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalQueue().call(),
             abi=self.load_abi('WithdrawalRequestNFT'),
+            decode_tuples=True,
         )
 
-        self.oracleReportSanityChecker = self.w3.eth.contract(
+        self.oracle_report_sanity_checker = self.w3.eth.contract(
             address=self.lido_locator.functions.oracleReportSanityChecker().call(),
             abi=self.load_abi('OracleReportSanityChecker'),
+            decode_tuples=True,
         )
 
         self.oracle_daemon_config = self.w3.eth.contract(
             address=self.lido_locator.functions.oracleDaemonConfig().call(),
             abi=self.load_abi('OracleDaemonConfig'),
+            decode_tuples=True,
         )
 
     @staticmethod
