@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.submodules.consensus import FrameConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.services.bunker import BunkerService
+from src.services.bunker import BunkerService, BunkerConfig
 from src.typings import EpochNumber
 
 # Static functions
@@ -184,7 +184,8 @@ def test_get_frame_by_epoch(epoch, expected_frame):
 )
 def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected):
     bunker = object.__new__(BunkerService)
-    bunker.NORMALIZED_CL_PER_EPOCH = 64
-    bunker.NORMALIZED_CL_MISTAKE = 0.1
+    bunker.b_conf = object.__new__(BunkerConfig)
+    bunker.b_conf.normalized_cl_per_epoch = 64
+    bunker.b_conf.normalized_cl_mistake = 0.1
     normal_cl_rebase = bunker._calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total)
     assert normal_cl_rebase == expected

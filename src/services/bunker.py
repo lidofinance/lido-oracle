@@ -34,6 +34,8 @@ class BunkerConfig:
 
 class BunkerService:
 
+    b_conf: BunkerConfig
+
     def __init__(
         self,
         w3: Web3,
@@ -44,7 +46,6 @@ class BunkerService:
         self.f_conf = frame_config
         self.c_conf = chain_config
         # Will be filled in `is_bunker_mode` call
-        self.b_conf: BunkerConfig
         self.last_report_ref_slot = SlotNumber(0)
         self.all_validators: dict[str, Validator] = {}
         self.lido_keys: dict[str, LidoKey] = {}
@@ -146,7 +147,7 @@ class BunkerService:
         lido_slashed_validators: dict[str, LidoValidator] = self.w3.lido_validators.filter_lido_validators_dict(
             self.lido_keys, all_slashed_validators
         )
-        logger.info({"msg": f"Slashed: {len(all_slashed_validators)=} | {len(lido_slashed_validators)=}"})
+        logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
         # If no one Lido in current slashed validators - no need to bunker
         if not lido_slashed_validators:
