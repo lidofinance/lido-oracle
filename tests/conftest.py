@@ -117,11 +117,11 @@ class Contracts(LidoContracts):
             abi=self.load_abi('LidoLocator'),
         )
 
-        # self.lido = self.w3.eth.contract(
-        #     address='0xEC9ac956D7C7fE5a94919fD23BAc4a42f950A403',
-        #     abi=self.load_abi('Lido'),
-        #     decode_tuples=True,
-        # )
+        self.lido = self.w3.eth.contract(
+            address='0xEC9ac956D7C7fE5a94919fD23BAc4a42f950A403',
+            abi=self.load_abi('Lido'),
+            decode_tuples=True,
+        )
 
         self.accounting_oracle = self.w3.eth.contract(
             address='0x5704fb15ba3E56383a93A33ca2Fc5Ec4C8B7Cb3a',

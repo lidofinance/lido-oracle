@@ -5,7 +5,7 @@ from web3.types import Wei
 
 from src.modules.accounting.typings import ReportData, ProcessingState
 from src.modules.accounting.validator_state import LidoValidatorStateService
-from src.modules.submodules.consensus import ConsensusModule, ZERO_HASH
+from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass

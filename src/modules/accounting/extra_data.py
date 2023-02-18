@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import islice
 
-from src.typings import OracleReportLimits
-from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.extentions.lido_validators import ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
@@ -74,8 +72,8 @@ class ExtraDataService:
         self,
         exited_validators: ValidatorsByNodeOperator,
         stucked_validators: ValidatorsByNodeOperator,
+        max_items_count: int,
     ) -> ExtraData:
-        max_items_count = self._get_oracle_report_limits().max_accounting_extra_data_list_items_count
         stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_count)
         exited_payloads = self.build_validators_payloads(exited_validators, max_items_count)
 
@@ -88,10 +86,6 @@ class ExtraDataService:
             format=data_format,
             items_count=items_count,
         )
-
-    def _get_oracle_report_limits(self):
-        result = self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call()
-        return named_tuple_to_dataclass(result, OracleReportLimits)
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
         extra_data_bytes = b''

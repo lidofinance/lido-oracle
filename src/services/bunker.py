@@ -4,15 +4,18 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 
+from web3.types import Wei
+
 from src.providers.keys.typings import LidoKey
 from src.utils.helpers import get_first_non_missed_slot
-from src.web3_extentions import LidoValidator
-from src.web3_extentions.typings import Web3
 
-from src.modules.accounting.typings import Gwei, wei
+from src.modules.accounting.typings import Gwei
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber
+from src.web3py.extentions.lido_validators import LidoValidator
+from src.web3py.typings import Web3
+
 
 # Constants from consensus spec
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 256
@@ -104,8 +107,8 @@ class BunkerService:
         # Make a static call of 'handleOracleReport' without EL rewards
         # to simulate report and get total pool ether after that
         args = {
-            "_reportTimestamp": blockstamp.ref_slot_number * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
-            "_timeElapsed": (blockstamp.ref_slot_number - self.last_report_ref_slot) * self.c_conf.seconds_per_slot,
+            "_reportTimestamp": blockstamp.ref_slot * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
+            "_timeElapsed": (blockstamp.ref_slot - self.last_report_ref_slot) * self.c_conf.seconds_per_slot,
             "_clValidators": len(self.lido_validators),
             "_clBalance": self.w3.to_wei(ref_lido_balance, 'gwei'),
             "_withdrawalVaultBalance": ref_withdrawal_vault_balance,
@@ -225,10 +228,10 @@ class BunkerService:
         """
         logger.info({"msg": "Calculating nearest and far CL rebase"})
         nearest_slot = (
-            blockstamp.ref_slot_number - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
+            blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
         )
         far_slot = (
-            blockstamp.ref_slot_number - self.b_conf.rebase_check_far_epoch_distance * self.c_conf.slots_per_epoch
+            blockstamp.ref_slot - self.b_conf.rebase_check_far_epoch_distance * self.c_conf.slots_per_epoch
         )
 
         if nearest_slot < far_slot:
@@ -291,7 +294,7 @@ class BunkerService:
 
         return cl_rebase
 
-    def _get_withdrawal_vault_balance(self, blockstamp: BlockStamp) -> wei:
+    def _get_withdrawal_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         withdrawal_vault_address = self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
             block_identifier=blockstamp.block_hash
         )

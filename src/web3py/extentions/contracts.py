@@ -19,11 +19,11 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
-        # self.lido = self.w3.eth.contract(
-        #     address=self.lido_locator.functions.lido().call(),
-        #     abi=self.load_abi('Lido'),
-        #     decode_tuples=True,
-        # )
+        self.lido = self.w3.eth.contract(
+            address=self.lido_locator.functions.lido().call(),
+            abi=self.load_abi('Lido'),
+            decode_tuples=True,
+        )
 
         self.accounting_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.accountingOracle().call(),
