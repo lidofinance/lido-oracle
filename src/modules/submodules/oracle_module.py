@@ -8,8 +8,7 @@ from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.metrics.prometheus.basic import EXCEPTIONS_COUNT
-from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber, BlockRoot, EpochNumber
+from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber, BlockRoot
 
 
 logger = logging.getLogger(__name__)
@@ -61,8 +60,7 @@ class BaseModule(ABC):
         slot_details = self.w3.cc.get_block_details(block_root)
 
         state_root = StateRoot(slot_details.message.state_root)
-        ref_slot_number = slot_number = SlotNumber(int(slot_details.message.slot))
-        ref_epoch = EpochNumber(ref_slot_number // 32)  # todo: do better
+        slot_number = SlotNumber(int(slot_details.message.slot))
 
         # Get EL block data
         execution_payload = slot_details.message.body['execution_payload']
@@ -70,8 +68,6 @@ class BaseModule(ABC):
         block_number = BlockNumber(int(execution_payload['block_number']))
 
         bs = BlockStamp(
-            ref_slot_number,
-            ref_epoch,
             block_root=block_root,
             state_root=state_root,
             slot_number=slot_number,

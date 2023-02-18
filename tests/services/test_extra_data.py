@@ -2,10 +2,10 @@ import pytest
 from eth_typing import Address
 from hexbytes import HexBytes
 
+from src.modules.accounting.typings import OracleReportLimits
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.providers.keys.typings import LidoKey
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
-from src.typings import OracleReportLimits
 from src.web3py.extentions.lido_validators import NodeOperatorIndex, LidoValidator
 
 pytestmark = pytest.mark.unit

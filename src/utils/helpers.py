@@ -2,6 +2,7 @@ import logging
 from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
 from src.typings import BlockStamp, SlotNumber, EpochNumber
+from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,15 @@ def get_first_non_missed_slot(cc: ConsensusClient, slot: SlotNumber, max_deep: i
         execution_data = slot_details.message.body['execution_payload']
 
         return BlockStamp(
-            ref_slot_number=slot,
-            ref_epoch=EpochNumber(slot // 32),  # todo: do better
             block_root=root,
             slot_number=SlotNumber(int(slot_details.message.slot)),
             state_root=slot_details.message.state_root,
             block_number=execution_data['block_number'],
-            block_hash=execution_data['block_hash']
+            block_hash=execution_data['block_hash'],
+            ref_slot=slot,
+            ref_epoch=EpochNumber(slot // 32),  # todo: do better
         )
+
+
+def get_first_non_missed_slot(web3: Web3, slot: SlotNumber, max_deep: int, epoch_size: int) -> BlockStamp:
+    pass

@@ -2,7 +2,9 @@ from copy import deepcopy
 from functools import lru_cache
 
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
+from src.modules.accounting.typings import OracleReportLimits
 from src.typings import BlockStamp
+from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.extentions.lido_validators import (
     NodeOperatorIndex,
     LidoValidator,
@@ -27,11 +29,19 @@ class LidoValidatorStateService:
     def get_extra_data(self, blockstamp: BlockStamp) -> ExtraData:
         exited_validators = self.get_lido_new_exited_validators(blockstamp)
         stucked_validators = self.get_lido_new_stucked_validators(blockstamp)
+        max_items_count = self._get_oracle_report_limits(blockstamp)
 
         return self.extra_data_service.collect(
             stucked_validators=stucked_validators,
             exited_validators=exited_validators,
+            max_items_count=max_items_count,
         )
+
+    def _get_oracle_report_limits(self, blockstamp: BlockStamp):
+        result = self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        return named_tuple_to_dataclass(result, OracleReportLimits)
 
     def get_lido_new_stucked_validators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp)

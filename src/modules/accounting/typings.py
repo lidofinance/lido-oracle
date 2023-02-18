@@ -53,3 +53,15 @@ class ProcessingState:
     extra_data_format: int
     extra_data_items_count: int
     extra_data_items_submitted: int
+
+
+@dataclass
+class OracleReportLimits:
+    churn_validators_per_day_limit: int
+    one_off_cl_balance_decrease_bp_limit: int
+    annual_balance_increase_bp_limit: int
+    share_rate_deviation_bp_limit: int
+    request_timestamp_margin: int
+    max_positive_token_rebase: int
+    max_validator_exit_requests_per_report: int
+    max_accounting_extra_data_list_items_count: int
