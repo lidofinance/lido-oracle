@@ -66,16 +66,3 @@ def test_is_on_exit(exit_epoch, expected):
     validator.validator = object.__new__(ValidatorState)
     validator.validator.exit_epoch = exit_epoch
     assert ValidatorsExit._is_on_exit(validator) == expected
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ('activation_epoch', 'expected'),
-    [(100500, False),
-     (FAR_FUTURE_EPOCH, True)]
-)
-def test_is_pending(activation_epoch, expected):
-    validator = object.__new__(LidoValidator)
-    validator.validator = object.__new__(ValidatorState)
-    validator.validator.activation_epoch = activation_epoch
-    assert ValidatorsExit._is_pending(validator) == expected
