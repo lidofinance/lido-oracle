@@ -3,11 +3,11 @@ from typing import Optional, Any
 from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract as _Contract
-from web3.contract.contract import (
+from web3.contract import (
     ContractFunction as _ContractFunction,
     ContractFunctions as _ContractFunctions,
 )
-from web3.contract.utils import call_contract_function
+from web3.contract import call_contract_function
 from web3.types import ABI, TxParams, BlockIdentifier, CallOverride
 
 

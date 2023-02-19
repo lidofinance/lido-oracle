@@ -77,6 +77,7 @@ class ValidatorsExit:
             yield to_exit
             self._decrease_node_operator_stats(to_exit)
             left_queue_count += 1
+        raise StopIteration
 
     def _decrease_node_operator_stats(self, validator: LidoValidator) -> None:
         """
@@ -276,10 +277,10 @@ class ValidatorsExit:
 
     @staticmethod
     def _is_on_exit(validator: LidoValidator) -> bool:
-        return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
+        return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
 
     @staticmethod
     def _is_pending(validator: LidoValidator) -> bool:
-        return validator.validator.activation_epoch == FAR_FUTURE_EPOCH
+        return int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH
 
 

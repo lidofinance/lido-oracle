@@ -1,5 +1,11 @@
 import pytest
 
+from src.providers.consensus.typings import ValidatorState
+from src.services.exit_order import ValidatorsExit
+from src.web3py.extentions.lido_validators import LidoValidator
+
+FAR_FUTURE_EPOCH = 2 ** 64 - 1
+
 
 @pytest.mark.unit
 def test_exit_order_queue():
@@ -50,10 +56,26 @@ def test_get_last_requested_validator_index():
 
 
 @pytest.mark.unit
-def test_is_on_exit():
-    pass
+@pytest.mark.parametrize(
+    ('exit_epoch', 'expected'),
+    [(100500, True),
+     (FAR_FUTURE_EPOCH, False)]
+)
+def test_is_on_exit(exit_epoch, expected):
+    validator = object.__new__(LidoValidator)
+    validator.validator = object.__new__(ValidatorState)
+    validator.validator.exit_epoch = exit_epoch
+    assert ValidatorsExit._is_on_exit(validator) == expected
 
 
 @pytest.mark.unit
-def test_is_pending():
-    pass
+@pytest.mark.parametrize(
+    ('activation_epoch', 'expected'),
+    [(100500, False),
+     (FAR_FUTURE_EPOCH, True)]
+)
+def test_is_pending(activation_epoch, expected):
+    validator = object.__new__(LidoValidator)
+    validator.validator = object.__new__(ValidatorState)
+    validator.validator.activation_epoch = activation_epoch
+    assert ValidatorsExit._is_pending(validator) == expected
