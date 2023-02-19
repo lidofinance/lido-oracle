@@ -1,19 +1,23 @@
-from copy import deepcopy
-from functools import lru_cache
+import logging
+from functools import lru_cache, reduce
 
+from eth_typing import HexStr
+
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
-from src.typings import BlockStamp
+from src.typings import BlockStamp, SlotNumber
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.slot import get_first_non_missed_slot
+from src.utils.types import bytes_to_hex_str
 from src.web3py.extentions.lido_validators import (
     NodeOperatorIndex,
     LidoValidator,
-    ValidatorsByNodeOperator,
 )
 from src.web3py.typings import Web3
 
 
-FAR_FUTURE_EPOCH = 2 ** 64 - 1
+logger = logging.getLogger(__name__)
 
 
 class LidoValidatorStateService:
@@ -21,56 +25,82 @@ class LidoValidatorStateService:
         self.w3 = w3
         self.extra_data_service = ExtraDataService(w3)
 
-    def get_extra_data_hash(self, blockstamp: BlockStamp):
-        e_data = self.get_extra_data(blockstamp)
-        return self.w3.keccak(e_data)
-
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: BlockStamp) -> ExtraData:
-        exited_validators = self.get_lido_new_exited_validators(blockstamp)
         stucked_validators = self.get_lido_new_stucked_validators(blockstamp)
-        max_items_count = self._get_oracle_report_limits(blockstamp)
+        logger.info({'msg': 'Calculate stucked validators.', 'value': stucked_validators})
+        exited_validators = self.get_lido_new_exited_validators(blockstamp)
+        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
+        orl = self._get_oracle_report_limits(blockstamp)
 
-        return self.extra_data_service.collect(
+        extra_data = self.extra_data_service.collect(
             stucked_validators=stucked_validators,
             exited_validators=exited_validators,
-            max_items_count=max_items_count,
+            max_items_count=orl.max_accounting_extra_data_list_items_count,
         )
+        logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
+        return extra_data
 
-    def _get_oracle_report_limits(self, blockstamp: BlockStamp):
-        result = self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
-            block_identifier=blockstamp.block_hash,
-        )
-        return named_tuple_to_dataclass(result, OracleReportLimits)
-
-    def get_lido_new_stucked_validators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp)
+    def get_lido_new_stucked_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
+        lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
-        lido_validators_by_no = deepcopy(self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp))
+        recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp)
+
+        result = {}
+
         for key, validators in lido_validators_by_no.items():
-            lido_validators_by_no[key] = list(filter(
-                lambda validator: validator.validator.validator.exit_epoch == FAR_FUTURE_EPOCH
-                                  and validator.validator.index <= ejected_index[key]
-                                  and validator.validator.validator.pubkey not in recently_asked_to_exit_pubkeys,
+            def filter_non_stucked(total: int, validator: LidoValidator) -> int:
+                # If validator index is higher than ejected index - we didn't asked this validator to exit
+                if int(validator.validator.index) > ejected_index[key]:
+                    return total
+
+                # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
+                if validator.validator.validator.exit_epoch != FAR_FUTURE_EPOCH:
+                    return total
+
+                # If validator's pub key in recent events, node operator has steel time to eject this validators
+                if validator.key.key in recently_asked_to_exit_pubkeys:
+                    return total
+
+                return total + 1
+
+            result[key] = reduce(
+                filter_non_stucked,
                 validators,
-            ))
+                0,
+            )
 
-        return lido_validators_by_no
+        # Find only updated states for Node Operator
+        node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
-    def get_last_asked_to_exit_pubkeys(self, blockstamp: BlockStamp):
-        # TODO fix this
-        exiting_keys_stucked_border_in_slots = self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS',
+        for operator in node_operators:
+            # If amount of exited validators weren't changed skip report for operator
+            if result[(operator.staking_module.id, operator.id)] == operator.stuck_validators_count:
+                del result[(operator.staking_module.id, operator.id)]
+
+        return result
+
+    def get_last_asked_to_exit_pubkeys(self, blockstamp: BlockStamp) -> set[HexStr]:
+        exiting_keys_stucked_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+            'VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS'
         ).call(block_identifier=blockstamp.block_hash)
 
-        # Calculate from block here
+        # parse to int
+        exiting_keys_stucked_border_in_slots = int(exiting_keys_stucked_border_in_slots_bytes.hex(), base=16)
 
-        events = self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
-            from_=blockstamp.block_number,
-            to=blockstamp.block_number,
+        # Calculate from block here
+        from_slot = SlotNumber(blockstamp.ref_slot - exiting_keys_stucked_border_in_slots)
+        from_blockstamp = get_first_non_missed_slot(
+            cc=self.w3.cc,
+            ref_slot=from_slot,
         )
 
-        return set(map(lambda event: event['args']['pubkey'], events))
+        events = self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
+            fromBlock=from_blockstamp.block_number,
+            toBlock=blockstamp.block_number,
+        )
+
+        return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in events)
 
     def get_operators_with_last_exited_validator_indexes(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
@@ -79,38 +109,48 @@ class LidoValidatorStateService:
         result = {}
 
         for module in stacking_modules:
-            node_operators_ids_in_module = list(
-                map(lambda op: op.id, filter(lambda operator: operator.staking_module.id == module.id, node_operators)))
+            node_operators_ids_in_module = list(map(lambda op: op.id, filter(lambda operator: operator.staking_module.id == module.id, node_operators)))
 
             last_ejected_validators = self.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices(
                 module.id,
                 node_operators_ids_in_module,
-            )
+            ).call()
 
             for no_id, validator_index in zip(node_operators_ids_in_module, last_ejected_validators):
                 result[(module.id, no_id)] = validator_index
 
         return result
 
-    def get_lido_new_exited_validators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
+    def get_lido_new_exited_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
         lido_validators = self._get_exited_lido_validators(blockstamp)
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
         for operator in node_operators:
             # If amount of exited validators weren't changed skip report for operator
-            if len(lido_validators[
-                       NodeOperatorIndex(operator.staking_module.id, operator.id)]) == operator.total_exited_validators:
-                del lido_validators[NodeOperatorIndex(operator.staking_module.id, operator.id)]
+            if lido_validators[(operator.staking_module.id, operator.id)] == operator.total_exited_validators:
+                del lido_validators[(operator.staking_module.id, operator.id)]
 
+        logger.info({'msg': 'Fetch new lido exited validators by node operator.', 'value': lido_validators})
         return lido_validators
 
-    def _get_exited_lido_validators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        lido_validators = deepcopy(self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp))
+    def _get_exited_lido_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
-        def exit_filter(validator: LidoValidator) -> bool:
-            return int(validator.validator.validator.exit_epoch) < blockstamp.ref_epoch
+        def exit_filter(validator: LidoValidator) -> int:
+            # Returns 1 if True else 0
+            return int(int(validator.validator.validator.exit_epoch) < blockstamp.ref_epoch)
+
+        result = {}
 
         for index, validators in lido_validators.items():
-            lido_validators[index] = list(filter(exit_filter, lido_validators[index]))
+            result[index] = reduce(lambda total, validator: total + exit_filter(validator), lido_validators[index], 0)
 
-        return lido_validators
+        return result
+
+    def _get_oracle_report_limits(self, blockstamp: BlockStamp) -> OracleReportLimits:
+        result = self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        orl = named_tuple_to_dataclass(result, OracleReportLimits)
+        logger.info({'msg': 'Fetch oracle sanity checks.', 'value': orl})
+        return orl

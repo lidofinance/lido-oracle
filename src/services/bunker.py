@@ -7,7 +7,7 @@ from functools import lru_cache
 from web3.types import Wei
 
 from src.providers.keys.typings import LidoKey
-from src.utils.helpers import get_first_non_missed_slot
+from src.utils.slot import get_first_non_missed_slot
 
 from src.modules.accounting.typings import Gwei
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
@@ -54,6 +54,7 @@ class BunkerService:
         self.lido_keys: dict[str, LidoKey] = {}
         self.lido_validators: dict[str, LidoValidator] = {}
 
+    @lru_cache(maxsize=1)
     def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(

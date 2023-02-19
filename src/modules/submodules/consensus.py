@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 from functools import lru_cache
-from http import HTTPStatus
 from time import sleep
 from typing import Optional
 
@@ -9,10 +8,10 @@ from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.modules.submodules.exceptions import IsNotMemberException, NoSlotsAvailable, QuorumHashDoNotMatch
+from src.modules.submodules.exceptions import IsNotMemberException, QuorumHashDoNotMatch
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
-from src.providers.http_provider import NotOkResponse
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.slot import get_first_non_missed_slot
 from src.web3py.typings import Web3
 from web3.contract import Contract
 
@@ -107,7 +106,7 @@ class ConsensusModule(ABC):
                     'For dry mode remove MEMBER_PRIV_KEY from variables.'
                 )
 
-        return MemberInfo(
+        mi = MemberInfo(
             is_report_member=is_member,
             is_submit_member=is_submit_member,
             is_fast_lane=is_fast_lane,
@@ -117,17 +116,23 @@ class ConsensusModule(ABC):
             current_frame_member_report=current_frame_member_report,
             deadline_slot=current_frame.report_processing_deadline_slot,
         )
+        logger.info({'msg': 'Fetch member info.', 'value': mi})
+
+        return mi
 
     @lru_cache(maxsize=1)
     def _get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
-
-        return CurrentFrame(*consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash))
+        cf = CurrentFrame(*consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash))
+        logger.info({'msg': 'Fetch current frame.', 'value': cf})
+        return cf
 
     @lru_cache(maxsize=1)
     def _get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
+        fc = FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
+        logger.info({'msg': 'Fetch frame config.', 'value': fc})
+        return fc
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
@@ -135,7 +140,6 @@ class ConsensusModule(ABC):
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
             Non-missed finalized blockstamp
-            Reference slot number
         """
         member_info = self._get_member_info(blockstamp)
 
@@ -162,50 +166,28 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        return self._get_first_non_missed_slot(blockstamp, member_info.current_frame_ref_slot)
-
-    def _get_first_non_missed_slot(self, blockstamp: BlockStamp, slot: SlotNumber) -> BlockStamp:
-        frame_config = self._get_frame_config(blockstamp)
         chain_config = self._get_chain_config(blockstamp)
-
-        for i in range(slot, slot - frame_config.epochs_per_frame * chain_config.slots_per_epoch, -1):
-            try:
-                root = self.w3.cc.get_block_root(SlotNumber(i)).root
-            except NotOkResponse as error:
-                if error.status != HTTPStatus.NOT_FOUND:
-                    raise error from error
-
-                logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
-                continue
-            else:
-                slot_details = self.w3.cc.get_block_details(root)
-
-                execution_data = slot_details.message.body['execution_payload']
-
-                return BlockStamp(
-                    block_root=root,
-                    slot_number=SlotNumber(int(slot_details.message.slot)),
-                    state_root=slot_details.message.state_root,
-                    block_number=BlockNumber(int(execution_data['block_number'])),
-                    block_hash=execution_data['block_hash'],
-                    ref_slot=slot,
-                    ref_epoch=EpochNumber(slot // chain_config.slots_per_epoch),
-                )
-
-        raise NoSlotsAvailable('No slots available for current report.')
+        bs = get_first_non_missed_slot(
+            self.w3.cc,
+            ref_slot=member_info.current_frame_ref_slot,
+            ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
+        )
+        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
+        return bs
 
     # ----- Working with report -----
-    def process_report(self, blockstamp: BlockStamp):
-        """Builds and sends report for current frame."""
+    def process_report(self, blockstamp: BlockStamp) -> None:
+        """Builds and sends report for current frame with provided blockstamp."""
         report_data = self.build_report(blockstamp)
-        logger.info({'msg': 'Build report.', 'value': str(report_data)})
+        logger.info({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._get_report_hash(report_data)
-        logger.info({'msg': 'Calculate report hash.', 'value': str(report_hash)})
+        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         self._process_report_hash(blockstamp, report_hash)
+        # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
 
-    def _process_report_hash(self, blockstamp: BlockStamp, report_hash: HexBytes):
+    def _process_report_hash(self, blockstamp: BlockStamp, report_hash: HexBytes) -> None:
         _, member_info = self._get_latest_data()
 
         if not member_info.is_report_member:
@@ -221,18 +203,22 @@ class ConsensusModule(ABC):
     def _process_report_data(self, blockstamp: BlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
-        if HexBytes(member_info.current_frame_member_report) != report_hash:
-            # _process_report_hash should update hash
-            logger.info({'msg': 'Report hash is not actualized.'})
+        # If the quorum is ready to report data, the member should have opportunity to send report
+        if (
+            # If there is no quorum
+            member_info.current_frame_consensus_report == ZERO_HASH
+            # And member did not send the report
+            and HexBytes(member_info.current_frame_member_report) != report_hash
+        ):
+            logger.info({'msg': 'Quorum is not ready and member did not send the report hash.'})
             return
 
-        # We submitted hash and waiting until we get quorum
         # In worst case exception will be raised in MAX_CYCLE_LIFETIME_IN_SECONDS seconds
-        while True:
+        for retry_num in range(2 * member_info.fast_lane_length_slot):
             latest_blockstamp, member_info = self._get_latest_data()
             if HexBytes(member_info.current_frame_consensus_report) != ZERO_HASH:
                 break
-            logger.info({'msg': 'Wait until consensus will be reached.'})
+            logger.info({'msg': f'Wait until consensus will be reached. Sleep for {DEFAULT_SLEEP}'})
             sleep(DEFAULT_SLEEP)
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
@@ -248,11 +234,12 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Main data already submitted.'})
             return
 
+        # Fast lane offchain implementation for report data
         slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
         if slots_to_sleep != 0:
             _, seconds_per_slot, _ = self._get_chain_config(blockstamp)
 
-            logger.info({'msg': f'Sleep for [{slots_to_sleep}] slots before sending data.'})
+            logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
             for slot in range(slots_to_sleep):
                 sleep(seconds_per_slot)
 
@@ -267,13 +254,14 @@ class ConsensusModule(ABC):
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
         latest_blockstamp = self._get_latest_blockstamp()
-        logger.info({'msg': 'Get latest blockstamp.', 'value': str(latest_blockstamp)})
+        logger.info({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
 
         member_info = self._get_member_info(latest_blockstamp)
-        logger.info({'msg': 'Get current member info.', 'value': str(member_info)})
+        logger.info({'msg': 'Get current member info.', 'value': member_info})
         return latest_blockstamp, member_info
 
     def _get_report_hash(self, report_data: tuple):
+        # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
         report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
@@ -287,7 +275,10 @@ class ConsensusModule(ABC):
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
-        return self.w3.keccak(encoded)
+        # TODO check new encoding method works
+        report_hash = self.w3.keccak(encoded)
+        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        return report_hash
 
     def _send_report_hash(self, blockstamp: BlockStamp, report_hash: bytes, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -308,7 +299,7 @@ class ConsensusModule(ABC):
         slot_details = self.w3.cc.get_block_details(root)
         slot_number = SlotNumber(int(slot_details.message.slot))
 
-        return BlockStamp(
+        bs = BlockStamp(
             block_root=root,
             slot_number=slot_number,
             state_root=slot_details.message.state_root,
@@ -317,6 +308,9 @@ class ConsensusModule(ABC):
             ref_slot=slot_number,
             ref_epoch=None,
         )
+
+        logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
+        return bs
 
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
@@ -336,6 +330,7 @@ class ConsensusModule(ABC):
         if sleep_count < 0:
             sleep_count += len(members)
 
+        logger.info({'msg': 'Calculate slots to sleep.', 'value': sleep_count})
         return sleep_count
 
     @abstractmethod
@@ -351,4 +346,5 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
+        """Returns true if contract is ready for report"""
         pass

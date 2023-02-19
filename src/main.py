@@ -22,6 +22,7 @@ from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 
+
 logger = logging.getLogger()
 
 

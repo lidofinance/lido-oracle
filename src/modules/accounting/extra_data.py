@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import islice
 
-from src.web3py.extentions.lido_validators import ValidatorsByNodeOperator
+from hexbytes import HexBytes
+
+from src.web3py.extentions.lido_validators import ValidatorsByNodeOperator, NodeOperatorIndex
 from src.web3py.typings import Web3
 
 
@@ -54,7 +56,7 @@ class ExtraDataItem:
 @dataclass
 class ExtraData:
     extra_data: bytes
-    data_hash: bytes
+    data_hash: HexBytes
     format: FormatList
     items_count: int
 
@@ -70,21 +72,22 @@ class ExtraDataService:
 
     def collect(
         self,
-        exited_validators: ValidatorsByNodeOperator,
-        stucked_validators: ValidatorsByNodeOperator,
+        exited_validators: dict[NodeOperatorIndex, int],
+        stucked_validators: dict[NodeOperatorIndex, int],
         max_items_count: int,
     ) -> ExtraData:
         stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_count)
         exited_payloads = self.build_validators_payloads(exited_validators, max_items_count)
 
-        extra_data, items_count = self.build_extra_data(stucked_payloads, exited_payloads)
+        extra_data = self.build_extra_data(stucked_payloads, exited_payloads)
         extra_data_bytes = self.to_bytes(extra_data)
-        data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if len(extra_data) > 0 else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+
+        data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if extra_data else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
         return ExtraData(
             extra_data=extra_data_bytes,
             data_hash=self.w3.keccak(extra_data_bytes),
             format=data_format,
-            items_count=items_count,
+            items_count=len(extra_data),
         )
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
@@ -109,6 +112,7 @@ class ExtraDataService:
                 item_payload=item
             ))
             index += 1
+
         for item in exited_payloads:
             extra_data.append(ExtraDataItem(
                 item_index=index.to_bytes(Lengths.ITEM_INDEX),
@@ -116,22 +120,23 @@ class ExtraDataService:
                 item_payload=item
             ))
             index += 1
-        return extra_data, index
+
+        return extra_data
 
     @staticmethod
-    def build_validators_payloads(validators: ValidatorsByNodeOperator, max_list_items_count) -> list[ItemPayload]:
-        operator_validators = deepcopy(validators)
+    def build_validators_payloads(validators: dict[NodeOperatorIndex, int], max_list_items_count: int) -> list[ItemPayload]:
         # sort by module id and node operator id
-        operator_validators = sorted(operator_validators.items(), key=lambda x: (x[0][0], x[0][1]))
+        operator_validators = sorted(validators.items(), key=lambda x: (x[0][0], x[0][1]))
         payloads = []
 
         for module_id, group in itertools.groupby(operator_validators, key=lambda x: x[0][0]):
             for chunk in chunks(group, max_list_items_count):
                 operator_ids = []
                 vals_count = []
-                for (_, operator_id), validators in chunk:
+                for (_, operator_id), validators_count in chunk:
                     operator_ids.append(operator_id.to_bytes(Lengths.NODE_OPERATOR_IDS))
-                    vals_count.append(len(validators).to_bytes(Lengths.STUCK_AND_EXITED_VALS_COUNT))
+                    vals_count.append(validators_count.to_bytes(Lengths.STUCK_AND_EXITED_VALS_COUNT))
+
                 payloads.append(ItemPayload(
                     module_id=module_id.to_bytes(Lengths.MODULE_ID),
                     node_ops_count=len(chunk).to_bytes(Lengths.NODE_OPS_COUNT),
