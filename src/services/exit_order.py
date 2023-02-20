@@ -1,18 +1,16 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable, Sequence
+from typing import Callable
 
 from eth_typing import Address
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
 from src.typings import BlockStamp, EpochNumber
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex
 from src.web3py.typings import Web3
-
-FAR_FUTURE_EPOCH = 2 ** 64 - 1
-VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 3600  # todo: get from contract
 
 
 @dataclass
@@ -47,6 +45,10 @@ class ValidatorsExit:
         self.blockstamp = blockstamp
         self.w3 = w3
         self.c_conf = c_conf
+        self.validator_delayed_timeout_in_slots = Web3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
+                block_identifier=blockstamp.block_hash)
+        )
 
         self.exitable_lido_validators = exitable_lido_validators
         self.max_validators_to_exit = max_validators_to_exit
@@ -277,7 +279,7 @@ class ValidatorsExit:
         for operator in operator_indexes:
             module_operator[operator] = set()
 
-        from_block = max(0, blockstamp.ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS)
+        from_block = max(0, blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
         from_block_timestamp = from_block * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
         to_block = blockstamp.ref_slot
         events = self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.getLogs(
