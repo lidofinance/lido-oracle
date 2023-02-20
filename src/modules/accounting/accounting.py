@@ -24,6 +24,7 @@ class Accounting(BaseModule, ConsensusModule):
         self.report_contract = w3.lido_contracts.accounting_oracle
         super().__init__(w3)
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
+        self.bunker_service = BunkerService(self.w3)
 
     # Oracle module: loop method
     def execute_module(self, blockstamp: BlockStamp) -> None:
@@ -45,9 +46,9 @@ class Accounting(BaseModule, ConsensusModule):
 
     # Consensus module: main build report method
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp, with_finalization: bool = True) -> tuple:
+    def build_report(self, blockstamp: BlockStamp) -> tuple:
         logger.info({'msg': 'Calculate report for accounting module.'})
-        report_data = self._calculate_report(blockstamp, with_finalization)
+        report_data = self._calculate_report(blockstamp)
         return report_data.as_tuple()
 
     # # Consensus module: if contract got report data
@@ -75,14 +76,11 @@ class Accounting(BaseModule, ConsensusModule):
         processing_state = self._get_processing_state(blockstamp)
         return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
 
-    def _calculate_report(self, blockstamp: BlockStamp, with_finalization: bool = True) -> ReportData:
+    def _calculate_report(self, blockstamp: BlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        finalization_share_rate = 0
-        last_withdrawal_id_to_finalize = 0
-        if with_finalization:
-            finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
-            last_withdrawal_id_to_finalize = self._get_last_withdrawal_request_to_finalize(blockstamp)
+        finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
+        last_withdrawal_id_to_finalize = self._get_last_withdrawal_request_to_finalize(blockstamp)
 
         exited_validators = self.lido_validator_state_service.get_lido_new_exited_validators(blockstamp)
 
@@ -114,6 +112,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return report_data
 
+    @lru_cache(maxsize=1)
     def _get_consensus_lido_state(self, blockstamp: BlockStamp) -> tuple[int, Gwei]:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
@@ -137,13 +136,34 @@ class Accounting(BaseModule, ConsensusModule):
         return 0
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
-        return 0
+        # handleOracleReport
+        last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        chain_conf = self._get_chain_config(blockstamp)
+
+        diff = blockstamp.ref_slot - last_ref_slot
+
+        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+
+        timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
+
+        pooled_eth, total_shares, _, _ = self.w3.lido_contracts.lido.functions.handleOracleReport(
+            timestamp,  # _reportTimestamp
+            diff * chain_conf.seconds_per_slot,  # _timeElapsed
+            validators_count,  # _clValidators
+            cl_balance * 10 ** 9,  # _clBalance
+            self._get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
+            self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
+            0,  # _lastFinalizableRequestId
+            0,  # _simulatedShareRate
+        ).call({'from': self.w3.lido_contracts.accounting_oracle.address})
+        return pooled_eth / total_shares
 
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
         frame_config = self._get_frame_config(blockstamp)
         chain_config = self._get_chain_config(blockstamp)
 
-        self.bunker_service = BunkerService(w3=self.w3, frame_config=frame_config, chain_config=chain_config)
-        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp)
+        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp, frame_config, chain_config)
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode

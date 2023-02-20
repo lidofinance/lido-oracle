@@ -75,10 +75,10 @@ class LidoValidatorsProvider(Module):
         lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp.state_root)
 
-        return self._merge_validators(lido_keys, validators)
+        return self.merge_validators_with_keys(lido_keys, validators)
 
     @staticmethod
-    def _merge_validators(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
+    def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
         """Merging and filter non-lido validators."""
         validators_keys_dict = {validator.validator.pubkey: validator for validator in validators}
 

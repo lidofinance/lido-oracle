@@ -36,6 +36,7 @@ class LidoValidatorStateService:
         extra_data = self.extra_data_service.collect(
             stucked_validators=stucked_validators,
             exited_validators=exited_validators,
+            max_items_in_payload_count=orl.max_accounting_extra_data_list_items_count,
             max_items_count=orl.max_accounting_extra_data_list_items_count,
         )
         logger.info({'msg': 'Calculate extra data.', 'value': extra_data})

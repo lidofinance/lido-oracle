@@ -1,12 +1,11 @@
 import itertools
-from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from itertools import islice
 
 from hexbytes import HexBytes
 
-from src.web3py.extentions.lido_validators import ValidatorsByNodeOperator, NodeOperatorIndex
+from src.web3py.extentions.lido_validators import NodeOperatorIndex
 from src.web3py.typings import Web3
 
 
@@ -74,12 +73,13 @@ class ExtraDataService:
         self,
         exited_validators: dict[NodeOperatorIndex, int],
         stucked_validators: dict[NodeOperatorIndex, int],
+        max_items_in_payload_count: int,
         max_items_count: int,
     ) -> ExtraData:
-        stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_count)
-        exited_payloads = self.build_validators_payloads(exited_validators, max_items_count)
+        stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_in_payload_count)
+        exited_payloads = self.build_validators_payloads(exited_validators, max_items_in_payload_count)
 
-        extra_data = self.build_extra_data(stucked_payloads, exited_payloads)
+        extra_data = self.build_extra_data(stucked_payloads, exited_payloads, max_items_count)
         extra_data_bytes = self.to_bytes(extra_data)
 
         data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if extra_data else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
@@ -102,24 +102,26 @@ class ExtraDataService:
         return extra_data_bytes
 
     @staticmethod
-    def build_extra_data(stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
+    def build_extra_data(stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload], max_items_count: int):
         index = 0
         extra_data = []
-        for item in stucked_payloads:
-            extra_data.append(ExtraDataItem(
-                item_index=index.to_bytes(Lengths.ITEM_INDEX),
-                item_type=ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS,
-                item_payload=item
-            ))
-            index += 1
+        total_items_count = 0
 
-        for item in exited_payloads:
-            extra_data.append(ExtraDataItem(
-                item_index=index.to_bytes(Lengths.ITEM_INDEX),
-                item_type=ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS,
-                item_payload=item
-            ))
-            index += 1
+        for item_type, payloads in [
+            (ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, stucked_payloads),
+            (ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, exited_payloads),
+        ]:
+            for item in payloads:
+                total_items_count += int.from_bytes(item.node_ops_count)
+                if total_items_count > max_items_count:
+                    return extra_data
+
+                extra_data.append(ExtraDataItem(
+                    item_index=index.to_bytes(Lengths.ITEM_INDEX),
+                    item_type=item_type,
+                    item_payload=item
+                ))
+                index += 1
 
         return extra_data
 
