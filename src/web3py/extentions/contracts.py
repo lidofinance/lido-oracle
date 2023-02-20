@@ -31,7 +31,13 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
-        self.validator_exit_bus = self.w3.eth.contract(
+        self.staking_router = self.w3.eth.contract(
+            address=self.lido_locator.functions.stakingRouter().call(),
+            abi=self.load_abi('StakingRouter'),
+            decode_tuples=True,
+        )
+
+        self.validators_exit_bus_oracle = self.w3.eth.contract(
             address=self.lido_locator.functions.validatorsExitBusOracle().call(),
             abi=self.load_abi('ValidatorsExitBusOracle'),
             decode_tuples=True,

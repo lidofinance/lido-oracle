@@ -1,10 +1,10 @@
 import pytest
 
-from unittest.mock import MagicMock
-from src.typings import BlockStamp
+from unittest.mock import MagicMock, Mock, patch
 from src.services.safe_border import SafeBorder
 from src.web3py.extentions.lido_validators import LidoValidator, Validator, LidoKey
 from src.providers.consensus.typings import ValidatorState
+from src.modules.submodules.consensus import ChainConfig
 
 NEW_REQUESTS_BORDER = 8 # epochs ~50 min
 MAX_NEGATIVE_REBASE_BORDER = 1536 # epochs ~6.8 days
@@ -15,11 +15,17 @@ SLOTS_PER_EPOCH = 2**5
 SLOT_TIME = 12
 
 @pytest.fixture()
-def subject(web3, contracts, keys_api_client, consensus_client):
-    return SafeBorder(web3)
+def chain_config():
+    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
+
+@pytest.fixture()
+def subject(web3, chain_config, contracts, keys_api_client, consensus_client):
+    safe_border = SafeBorder(web3)
+    safe_border.chain_config = chain_config
+    return safe_border
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
-    assert subject._get_new_requests_border_epoch(past_blockstamp) == past_blockstamp.slot_number // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
+    assert subject._get_new_requests_border_epoch(past_blockstamp) == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
 
 def test_calc_validator_slashed_epoch_from_state(subject):
     exit_epoch = 504800
@@ -46,20 +52,20 @@ def test_filter_validators_with_earliest_exit_epoch(subject):
     assert subject._filter_validators_with_earliest_exit_epoch([]) == []
 
 def test_get_negative_rebase_border_epoch(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.slot_number // SLOTS_PER_EPOCH
+    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     subject._get_bunker_mode_start_timestamp = MagicMock(return_value=ref_epoch * SLOTS_PER_EPOCH * SLOT_TIME)
     
     assert subject._get_negative_rebase_border_epoch(past_blockstamp) == ref_epoch - NEW_REQUESTS_BORDER
 
 def test_get_negative_rebase_border_epoch_max(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.slot_number // SLOTS_PER_EPOCH
+    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     test_epoch = ref_epoch - MAX_NEGATIVE_REBASE_BORDER - 1
     subject._get_bunker_mode_start_timestamp = MagicMock(return_value=test_epoch * SLOTS_PER_EPOCH * SLOT_TIME)
     
     assert subject._get_negative_rebase_border_epoch(past_blockstamp) == ref_epoch - MAX_NEGATIVE_REBASE_BORDER
 
 def test_get_associated_slashings_border_epoch(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.slot_number // SLOTS_PER_EPOCH
+    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
 
     subject._get_earliest_slashed_epoch_among_incomplete_slashings = MagicMock(return_value=None)
     assert subject._get_associated_slashings_border_epoch(past_blockstamp) == ref_epoch - NEW_REQUESTS_BORDER
