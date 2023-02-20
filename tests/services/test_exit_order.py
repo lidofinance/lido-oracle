@@ -61,7 +61,7 @@ def test_predicates():
 
     validators_exit = object.__new__(ValidatorsExit)
     validators_exit.no_index_by_validator = lambda v: (staking_module_id[v.key.moduleAddress], v.key.operatorIndex)
-    validators_exit.total_predictable_validators = 54305
+    validators_exit.total_active_validators_count = 500000
 
     validators_exit.lido_node_operator_stats = {
         (StakingModuleId(0), NodeOperatorId(1)): NodeOperatorPredictableState(1000, 7000, 10, 0),
@@ -69,12 +69,12 @@ def test_predicates():
         (StakingModuleId(1), NodeOperatorId(1)): NodeOperatorPredictableState(1200, 6000, 2, 0),
         (StakingModuleId(1), NodeOperatorId(2)): NodeOperatorPredictableState(1200, 6000, 2, 0),
         (StakingModuleId(2), NodeOperatorId(1)): NodeOperatorPredictableState(1200, 6000, 2, 0),
-        (StakingModuleId(2), NodeOperatorId(2)): NodeOperatorPredictableState(998, 7432, 0, 0),
+        (StakingModuleId(2), NodeOperatorId(2)): NodeOperatorPredictableState(998, 7432, None, 0),
         (StakingModuleId(3), NodeOperatorId(1)): NodeOperatorPredictableState(998, 7432, None, 0),
-        (StakingModuleId(3), NodeOperatorId(2)): NodeOperatorPredictableState(998, 7432, 0, 0),
+        (StakingModuleId(3), NodeOperatorId(2)): NodeOperatorPredictableState(998, 7432, None, 0),
         (StakingModuleId(4), NodeOperatorId(1)): NodeOperatorPredictableState(100500, 5, 50, 1),
-        (StakingModuleId(4), NodeOperatorId(2)): NodeOperatorPredictableState(100500, 2, 0, 2),
-        (StakingModuleId(5), NodeOperatorId(1)): NodeOperatorPredictableState(100500, 2, 0, 2),
+        (StakingModuleId(4), NodeOperatorId(2)): NodeOperatorPredictableState(100500, 2, None, 2),
+        (StakingModuleId(5), NodeOperatorId(1)): NodeOperatorPredictableState(100500, 2, None, 2),
     }
 
     exitable_validators_random_sort.sort(key=lambda validator: ValidatorsExit._predicates(validators_exit, validator))
