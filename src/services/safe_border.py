@@ -1,9 +1,9 @@
-from src.web3_extentions.typings import Web3
+from src.web3py.typings import Web3
 from src.typings import BlockStamp
-from src.web3_extentions.lido_validators import LidoValidator
+from src.web3py.extentions.lido_validators import LidoValidator
 
-NEW_REQUESTS_BORDER = 8 # epochs ~50 min
-MAX_NEGATIVE_REBASE_BORDER = 1536 # epochs ~6.8 days
+DEFAULT_SHIFT = 8 # epochs ~50 min
+MAX_NEGATIVE_REBASE_SHIFT = 1536 # epochs ~6.8 days
 FAR_FUTURE_EPOCH = 2**64 - 1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13
@@ -15,56 +15,53 @@ class SafeBorder:
         self.lido_contracts = w3.lido_contracts
 
     def get_safe_border_epoch(self, is_bunker: bool, blockstamp: BlockStamp):
-        if is_bunker is False:
-            return self.get_new_requests_border_epoch(blockstamp)
+        if not is_bunker:
+            return self._get_new_requests_border_epoch(blockstamp)
         
-        negative_rebase_border_epoch = self.get_negative_rebase_border_epoch(blockstamp)
-        associated_slashings_border_epoch = self.get_associated_slashings_border_epoch(blockstamp)
+        negative_rebase_border_epoch = self._get_negative_rebase_border_epoch(blockstamp)
+        associated_slashings_border_epoch = self._get_associated_slashings_border_epoch(blockstamp)
 
         return min(
             negative_rebase_border_epoch,
             associated_slashings_border_epoch
         )
 
-    def get_new_requests_border_epoch(self, blockstamp: BlockStamp):
-        return get_epoch_by_slot(blockstamp.slot_number) - NEW_REQUESTS_BORDER
+    def _get_new_requests_border_epoch(self, blockstamp: BlockStamp):
+        return get_epoch_by_slot(blockstamp.slot_number) - DEFAULT_SHIFT
 
-    def get_negative_rebase_border_epoch(self, blockstamp: BlockStamp):  
-        bunker_start_timestamp = self.get_bunker_mode_start_timestamp(blockstamp)
-        bunker_start_epoch = get_epoch_by_timestamp(bunker_start_timestamp) # 29750
+    def _get_negative_rebase_border_epoch(self, blockstamp: BlockStamp):  
+        bunker_start_timestamp = self._get_bunker_mode_start_timestamp(blockstamp)
+        bunker_start_epoch = get_epoch_by_timestamp(bunker_start_timestamp)
 
-        bunker_start_border_epoch = bunker_start_epoch - NEW_REQUESTS_BORDER # 29742
-        earliest_allowable_epoch = get_epoch_by_slot(blockstamp.slot_number) - MAX_NEGATIVE_REBASE_BORDER # 29714
+        bunker_start_border_epoch = bunker_start_epoch - DEFAULT_SHIFT
+        earliest_allowable_epoch = get_epoch_by_slot(blockstamp.slot_number) - MAX_NEGATIVE_REBASE_SHIFT
 
         return max(earliest_allowable_epoch, bunker_start_border_epoch)
 
-    def get_associated_slashings_border_epoch(self, blockstamp: BlockStamp):
-        earliest_slashed_epoch = self.get_earliest_slashed_epoch_among_incomplete_slashings(blockstamp)
+    def _get_associated_slashings_border_epoch(self, blockstamp: BlockStamp):
+        earliest_slashed_epoch = self._get_earliest_slashed_epoch_among_incomplete_slashings(blockstamp)
 
         if earliest_slashed_epoch is None:
-            return get_epoch_by_slot(blockstamp.slot_number) - NEW_REQUESTS_BORDER
+            return get_epoch_by_slot(blockstamp.slot_number) - DEFAULT_SHIFT
         
-        # should NEW_REQUESTS_BORDER be here?
-        return earliest_slashed_epoch - NEW_REQUESTS_BORDER
+        return earliest_slashed_epoch - DEFAULT_SHIFT
 
-    def get_earliest_slashed_epoch_among_incomplete_slashings(self, blockstamp: BlockStamp):
-        validators = self.get_lido_validators(blockstamp)       
+    def _get_earliest_slashed_epoch_among_incomplete_slashings(self, blockstamp: BlockStamp):
+        validators = self._get_lido_validators(blockstamp)       
         validators_slashed = filter_slashed_validators(validators)
-        validators_slashed_non_withdrawn = filter_non_withdrawable_validators(validators_slashed, blockstamp.slot_number)
+        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed, blockstamp.slot_number)
 
-        if len(validators_slashed_non_withdrawn) == 0:
+        if len(validators_slashed_non_withdrawable) == 0:
             return None
 
-        validators_with_earliest_exit_epoch = self.get_validators_with_earliest_exit_epoch(validators_slashed_non_withdrawn)
-        first_validator_with_earliest_exit_epoch = validators_with_earliest_exit_epoch[0]
-        earliest_slashed_epoch = self.calc_validator_slashed_epoch_from_state(first_validator_with_earliest_exit_epoch)
-        if earliest_slashed_epoch is not None:
-            return earliest_slashed_epoch
-        
-        earliest_slashed_epoch = self.find_earliest_slashed_epoch(validators_with_earliest_exit_epoch, blockstamp.slot_number)
-        return earliest_slashed_epoch
+        validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(validators_slashed_non_withdrawable)
+        earliest_slashed_epoch_predicted = self._predict_earliest_slashed_epoch(validators_with_earliest_exit_epoch[0])
 
-    def get_validators_with_earliest_exit_epoch(self, validators):
+        if earliest_slashed_epoch_predicted is not None:
+            return earliest_slashed_epoch_predicted
+        return self._find_earliest_slashed_epoch(validators_with_earliest_exit_epoch, blockstamp.slot_number)
+
+    def _filter_validators_with_earliest_exit_epoch(self, validators):
         if len(validators) == 0:
             return []
 
@@ -72,7 +69,9 @@ class SafeBorder:
         earliest_exit_epoch = sorted_validators[0].validator.validator.exit_epoch
         return filter_validators_by_exit_epoch(sorted_validators, earliest_exit_epoch)
 
-    def calc_validator_slashed_epoch_from_state(self, validator):
+    # If there is no so many exited validators in line we can be quite sure that
+    # slashing has started not earlier than 8,192 epochs or ~36 days ago
+    def _predict_earliest_slashed_epoch(self, validator):
         exit_epoch = int(validator.validator.validator.exit_epoch)
         withdrawable_epoch = int(validator.validator.validator.withdrawable_epoch)
 
@@ -83,7 +82,7 @@ class SafeBorder:
 
         return withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
-    def find_earliest_slashed_epoch(self, validators, ref_slot):
+    def _find_earliest_slashed_epoch(self, validators, ref_slot):
         pubkeys = get_validators_pubkeys(validators)
         withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
 
@@ -92,7 +91,7 @@ class SafeBorder:
 
         while start_slot + 1 < end_slot:
             mid_slot = (end_slot + start_slot) // 2
-            validators = self.get_archive_lido_validators_by_keys(mid_slot, pubkeys)
+            validators = self._get_archive_lido_validators_by_keys(mid_slot, pubkeys)
             slashed_validators = filter_slashed_validators(validators)
 
             if len(slashed_validators) > 0:
@@ -102,22 +101,22 @@ class SafeBorder:
 
         return get_epoch_by_slot(end_slot)
 
-    def get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+    def _get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         return self.w3.cc.get_validators(blockstamp.slot_number)
 
-    def get_archive_lido_validators_by_keys(self, slot_number, pubkeys):
+    def _get_archive_lido_validators_by_keys(self, slot_number, pubkeys):
         return self.w3.cc.get_validators(slot_number, tuple(pubkeys))
 
-    def get_bunker_mode_start_timestamp(self, blockstamp: BlockStamp) -> str:
+    def _get_bunker_mode_start_timestamp(self, blockstamp: BlockStamp) -> str:
         return self.w3.lido_contracts.withdrawal_queue.functions.bunkerModeSinceTimestamp().call(block_identifier=blockstamp.block_hash)
 
-def get_epoch_first_slot(epoch):
+def get_epoch_first_slot(epoch: int):
     return epoch * SLOTS_PER_EPOCH
 
-def get_epoch_by_slot(slot_number):
+def get_epoch_by_slot(slot_number: int):
     return slot_number // SLOTS_PER_EPOCH
 
-def get_epoch_by_timestamp(timestamp: str):
+def get_epoch_by_timestamp(timestamp: int):
     return timestamp // (SLOTS_PER_EPOCH * 12)
                 
 
