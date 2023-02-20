@@ -57,8 +57,6 @@ def test_predicates():
         v('0x0', 1, 47, 500),
     ]
 
-    expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]
-
     validators_exit = object.__new__(ValidatorsExit)
     validators_exit.no_index_by_validator = lambda v: (staking_module_id[v.key.moduleAddress], v.key.operatorIndex)
     validators_exit.total_active_validators_count = 500000
@@ -80,6 +78,7 @@ def test_predicates():
     exitable_validators_random_sort.sort(key=lambda validator: ValidatorsExit._predicates(validators_exit, validator))
     exitable_validators_indexes = [v.index for v in exitable_validators_random_sort]
 
+    expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]
     assert exitable_validators_indexes == expected_queue_sort_indexes
 
 

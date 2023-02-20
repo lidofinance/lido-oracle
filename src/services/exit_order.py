@@ -258,19 +258,22 @@ class ValidatorsExit:
         #   [o] - slot with missed block
         #    e  - event
         #
-        #   VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 4 (for example)
-        #   to_block = ref_slot = 12
-        #   right_border_to_lookup_events = to_block = 12
-        #   left_border_to_lookup_events = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 12 - 4 = 8
+        #   VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 6 (for example)
+        #   left_border = ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 12 - 6 = 6
+        #   left_border_timestamp = left_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
+        #   to_block = block_number = 10
+        #   from_block = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10 - 6 = 8
         #
-        #                   left_border       ref_slot          right_border
-        #                        |               |                   |
-        #                        |       e   e   v               e   |
+        #   from_block            to_block
+        #     |      left_border right border ref_slot
+        #     |           |              |       |
+        #     |           |      e       e       v
         #   --------[x]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
         #           ...  6   7   8   9  10  11  12  13  14  15  16  17       slot
         #           ...  6   7   8   -   9  10   -   -   -   -  11  12       block
         #
         #   We should get events between slots 8 and 12 because their `event timestamp` less than `ref_slot timestamp`
+        #
         #
 
         module_operator = {}
@@ -279,16 +282,19 @@ class ValidatorsExit:
         for operator in operator_indexes:
             module_operator[operator] = set()
 
-        from_block = max(0, blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
-        from_block_timestamp = from_block * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
-        to_block = blockstamp.ref_slot
+        left_border = max(0, blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
+        left_border_timestamp = left_border * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
+
+        to_block = blockstamp.block_number
+        from_block = max(0, to_block - self.validator_delayed_timeout_in_slots)
         events = self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.getLogs(
             fromBlock=from_block, toBlock=to_block
         )
         for event in events:
             module_id, operator_id, val_index, val_key, timestamp = event['args']
-            if timestamp < from_block_timestamp:
+            if timestamp <= left_border_timestamp:
                 # Blocks can be shifted due missed slots. We should handle this case
+                # todo: comment this code
                 continue
             module_operator[(module_id, operator_id)].add(val_index)
 
