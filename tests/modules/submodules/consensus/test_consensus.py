@@ -4,7 +4,6 @@ import pytest
 
 from src.modules.submodules.consensus import (
     MemberInfo, ZERO_HASH, IsNotMemberException,
-    NoSlotsAvailable,
 )
 from src.providers.http_provider import NotOkResponse
 from src.typings import BlockStamp

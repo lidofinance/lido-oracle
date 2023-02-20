@@ -1,21 +1,26 @@
 import math
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import lru_cache
 
 from web3.types import Wei
 
-from src.constants import PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, EFFECTIVE_BALANCE_INCREMENT, \
-    EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+from src.constants import (
+    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
+    EFFECTIVE_BALANCE_INCREMENT,
+    EPOCHS_PER_SLASHINGS_VECTOR,
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+    MIN_DEPOSIT_AMOUNT,
+)
 from src.providers.keys.typings import LidoKey
+from src.utils.events import get_events_in_past
 from src.utils.slot import get_first_non_missed_slot
 
 from src.modules.accounting.typings import Gwei
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber
-from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 
@@ -30,17 +35,22 @@ class BunkerConfig:
     rebase_check_far_epoch_distance: int
 
 
+@dataclass
+class ValidatorWithLidoKey(Validator):
+    # Will be fixed soon
+    key: LidoKey
+
+
 class BunkerService:
     b_conf: BunkerConfig
+    c_conf: ChainConfig
+    f_conf: FrameConfig
 
     last_report_ref_slot: SlotNumber = SlotNumber(0)
 
     all_validators: dict[str, Validator] = {}
     lido_keys: dict[str, LidoKey] = {}
-    lido_validators: dict[str, LidoValidator] = {}
-
-    f_conf: FrameConfig
-    c_conf: ChainConfig
+    lido_validators: dict[str, ValidatorWithLidoKey] = {}
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -138,9 +148,7 @@ class BunkerService:
     def _is_high_midterm_slashing_penalty(self, blockstamp: BlockStamp, cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
         all_slashed_validators = self._not_withdrawn_slashed_validators(self.all_validators, blockstamp.ref_epoch)
-        lido_slashed_validators: dict[str, LidoValidator] = self.w3.lido_validators.filter_lido_validators_dict(
-            self.lido_keys, all_slashed_validators
-        )
+        lido_slashed_validators = self._not_withdrawn_slashed_validators(self.lido_validators, blockstamp.ref_epoch)
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
         # If no one Lido in current slashed validators - no need to bunker
@@ -186,7 +194,9 @@ class BunkerService:
         for current frame for Lido validators
         """
         last_report_blockstamp = get_first_non_missed_slot(
-            self.w3.cc, self.last_report_ref_slot, self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
+            self.w3.cc,
+            self.last_report_ref_slot,
+            EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
         )
 
         total_ref_effective_balance = self._calculate_total_active_effective_balance(
@@ -196,11 +206,20 @@ class BunkerService:
         )
 
         last_all_validators = {
-            v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.state_root)
+            # ToDo replace with state_root
+            v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.slot_number)
         }
-        last_lido_validators = self.w3.lido_validators.filter_lido_validators_dict(
-            self.lido_keys, last_all_validators
+
+        last_lido_validators = self.w3.lido_validators.merge_validators_with_keys(
+            list(self.lido_keys.values()),
+            list(last_all_validators.values()),
         )
+
+        last_lido_validators = {
+            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
+            for v in last_lido_validators
+        }
+
         total_last_effective_balance = self._calculate_total_active_effective_balance(
             last_all_validators, last_report_blockstamp.ref_epoch
         )
@@ -241,9 +260,17 @@ class BunkerService:
                 f"{far_slot=} should be greater than {self.last_report_ref_slot=} in specific CL rebase calculation"
             )
 
-        lookup_max_deep = self.c_conf.slots_per_epoch * self.f_conf.epochs_per_frame
-        nearest_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(nearest_slot), lookup_max_deep)
-        far_blockstamp = get_first_non_missed_slot(self.w3.cc, SlotNumber(far_slot), lookup_max_deep)
+        nearest_blockstamp = get_first_non_missed_slot(
+            self.w3.cc,
+            SlotNumber(nearest_slot),
+            EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+        )
+
+        far_blockstamp = get_first_non_missed_slot(
+            self.w3.cc,
+            SlotNumber(far_slot),
+            EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+        )
 
         nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
         far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, blockstamp)
@@ -270,7 +297,16 @@ class BunkerService:
         prev_all_validators = {
             v.validator.pubkey: v for v in self.w3.cc.get_validators(prev_blockstamp.state_root)
         }
-        prev_lido_validators = self.w3.lido_validators.filter_lido_validators_dict(self.lido_keys, prev_all_validators)
+        prev_lido_validators = self.w3.lido_validators.merge_validators_with_keys(
+            list(self.lido_keys.values()),
+            list(prev_all_validators.values()),
+        )
+
+        prev_lido_validators = {
+            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
+            for v in prev_lido_validators
+        }
+
         prev_lido_balance = self._calculate_real_balance(prev_lido_validators)
         prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
         prev_lido_balance_with_vault = prev_lido_balance + self.w3.from_wei(prev_lido_vault_balance, "gwei")
@@ -309,14 +345,20 @@ class BunkerService:
         logger.info(
             {"msg": f"Get withdrawn from vault between {prev_blockstamp.ref_epoch,curr_blockstamp.ref_epoch} epochs"}
         )
+
         events = self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
-            from_block=int(prev_blockstamp.block_number) + 1, to_block=int(curr_blockstamp.block_number)
+            fromBlock=int(prev_blockstamp.block_number) + 1,
+            toBlock=int(curr_blockstamp.block_number),
         )
 
         if len(events) > 1:
-            raise Exception(f"More than one ETHDistributed event found")
+            raise Exception("More than one ETHDistributed event found")
+
+        if not events:
+            logger.info({"msg": f"No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
+            return 0
 
         vault_withdrawals = self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei')
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
@@ -325,10 +367,13 @@ class BunkerService:
 
     def _get_lido_validators_with_others(
         self, blockstamp: BlockStamp
-    ) -> tuple[dict[str, Validator], dict[str, LidoKey], dict[str, LidoValidator]]:
+    ) -> tuple[dict[str, Validator], dict[str, LidoKey], dict[str, ValidatorWithLidoKey]]:
         validators = {v.validator.pubkey: v for v in self.w3.cc.get_validators(blockstamp.state_root)}
         lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
-        lido_validators = self.w3.lido_validators.merge_validators_with_keys(list(lido_keys.values()), list(validators.values()))
+        lido_validators = {
+            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
+            for v in self.w3.lido_validators.get_lido_validators(blockstamp)
+        }
 
         return validators, lido_keys, lido_validators
 
@@ -407,7 +452,7 @@ class BunkerService:
         """
         per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]] = defaultdict(dict)
         for epoch, slashed_validators in per_epoch_buckets.items():
-            lido_validators_slashed_in_epoch: dict[str, LidoValidator] = {
+            lido_validators_slashed_in_epoch: dict[str, ValidatorWithLidoKey] = {
                 key: slashed_validators[key] for key in lido_slashed_validators if key in slashed_validators
             }
             if not lido_validators_slashed_in_epoch:

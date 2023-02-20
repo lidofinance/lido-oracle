@@ -45,6 +45,7 @@ def get_first_non_missed_slot(
                 state_root=slot_details.message.state_root,
                 block_number=BlockNumber(int(execution_data['block_number'])),
                 block_hash=execution_data['block_hash'],
+                block_timestamp=int(execution_data['timestamp']),
                 ref_slot=ref_slot,
                 ref_epoch=ref_epoch,
             )

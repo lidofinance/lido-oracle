@@ -151,18 +151,18 @@ class ConsensusModule(ABC):
             return
 
         # Check if current slot is higher than member slot
-        if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot:
+        if latest_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return
 
         # Check if current slot is higher than member slot + slots_delay
         if not member_info.is_fast_lane:
-            if latest_blockstamp.slot_number <= member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
+            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
                 return
 
         # Check latest block didn't miss deadline.
-        if latest_blockstamp.slot_number > member_info.deadline_slot:
+        if latest_blockstamp.slot_number >= member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return
 
@@ -191,7 +191,7 @@ class ConsensusModule(ABC):
         _, member_info = self._get_latest_data()
 
         if not member_info.is_report_member:
-            logger.info({'msg': f'Account can`t submit report hash.'})
+            logger.info({'msg': 'Account can`t submit report hash.'})
             return
 
         if HexBytes(member_info.current_frame_member_report) != report_hash:
@@ -222,7 +222,7 @@ class ConsensusModule(ABC):
             sleep(DEFAULT_SLEEP)
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
-            msg = f'Oracle`s hash differs from consensus report hash.'
+            msg = 'Oracle`s hash differs from consensus report hash.'
             logger.warning({
                 'msg': msg,
                 'consensus_report_hash': str(HexBytes(member_info.current_frame_consensus_report)),
@@ -245,7 +245,7 @@ class ConsensusModule(ABC):
 
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
-                    logger.info({'msg': f'Main data was submitted.'})
+                    logger.info({'msg': 'Main data was submitted.'})
                     return
 
         logger.info({'msg': f'Send report data. Contract version: [{self.CONTRACT_VERSION}]'})
@@ -275,7 +275,6 @@ class ConsensusModule(ABC):
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
-        # TODO check new encoding method works
         report_hash = self.w3.keccak(encoded)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         return report_hash
@@ -305,6 +304,7 @@ class ConsensusModule(ABC):
             state_root=slot_details.message.state_root,
             block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
             block_hash=slot_details.message.body['execution_payload']['block_hash'],
+            block_timestamp=int(slot_details.message.body['execution_payload']['timestamp']),
             ref_slot=slot_number,
             ref_epoch=None,
         )
