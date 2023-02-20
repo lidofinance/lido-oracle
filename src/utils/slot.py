@@ -2,7 +2,6 @@ import logging
 from http import HTTPStatus
 from typing import Optional
 
-from src.constants import MAX_DEEP
 from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
 from src.typings import BlockStamp, SlotNumber, EpochNumber, BlockNumber
@@ -25,7 +24,7 @@ def get_first_non_missed_slot(
         Raise NoSlotsAvailable if all slots are missed in max_deep range.
     """
     logger.info({'msg': f'Get Blockstamp for ref slot: {ref_slot}.'})
-    for i in range(ref_slot, max(ref_slot - MAX_DEEP, 1), -1):
+    for i in range(ref_slot, 1, -1):
         try:
             root = cc.get_block_root(SlotNumber(i)).root
         except NotOkResponse as error:

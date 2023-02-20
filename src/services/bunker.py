@@ -6,6 +6,8 @@ from functools import lru_cache
 
 from web3.types import Wei
 
+from src.constants import PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, EFFECTIVE_BALANCE_INCREMENT, \
+    EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
 
@@ -16,13 +18,6 @@ from src.typings import BlockStamp, SlotNumber, EpochNumber
 from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
-
-# Constants from consensus spec
-MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 256
-EPOCHS_PER_SLASHINGS_VECTOR = 8192
-PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
-EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
-MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 
 logger = logging.getLogger(__name__)
 
@@ -36,26 +31,30 @@ class BunkerConfig:
 
 
 class BunkerService:
-
     b_conf: BunkerConfig
 
-    def __init__(
-        self,
-        w3: Web3,
-        frame_config: FrameConfig,
-        chain_config: ChainConfig
-    ):
+    last_report_ref_slot: SlotNumber = SlotNumber(0)
+
+    all_validators: dict[str, Validator] = {}
+    lido_keys: dict[str, LidoKey] = {}
+    lido_validators: dict[str, LidoValidator] = {}
+
+    f_conf: FrameConfig
+    c_conf: ChainConfig
+
+    def __init__(self, w3: Web3):
         self.w3 = w3
-        self.f_conf = frame_config
-        self.c_conf = chain_config
-        # Will be filled in `is_bunker_mode` call
-        self.last_report_ref_slot = SlotNumber(0)
-        self.all_validators: dict[str, Validator] = {}
-        self.lido_keys: dict[str, LidoKey] = {}
-        self.lido_validators: dict[str, LidoValidator] = {}
 
     @lru_cache(maxsize=1)
-    def is_bunker_mode(self, blockstamp: BlockStamp) -> bool:
+    def is_bunker_mode(
+        self,
+        blockstamp: BlockStamp,
+        frame_config: FrameConfig,
+        chain_config: ChainConfig
+    ) -> bool:
+        self.f_conf = frame_config
+        self.c_conf = chain_config
+
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash
@@ -148,7 +147,7 @@ class BunkerService:
         if not lido_slashed_validators:
             return False
 
-        # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
+        # We should calculate total_balance for eacdiff * chain_conf.seconds_per_slot,h bucket, but we do it once for all per_epoch_buckets
         total_balance = self._calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
         per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
@@ -327,9 +326,9 @@ class BunkerService:
     def _get_lido_validators_with_others(
         self, blockstamp: BlockStamp
     ) -> tuple[dict[str, Validator], dict[str, LidoKey], dict[str, LidoValidator]]:
-        lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
         validators = {v.validator.pubkey: v for v in self.w3.cc.get_validators(blockstamp.state_root)}
-        lido_validators = self.w3.lido_validators.filter_lido_validators_dict(lido_keys, validators)
+        lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
+        lido_validators = self.w3.lido_validators.merge_validators_with_keys(list(lido_keys.values()), list(validators.values()))
 
         return validators, lido_keys, lido_validators
 
