@@ -9,7 +9,7 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
-from src.typings import BlockStamp, EpochNumber
+from src.typings import BlockStamp
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId, \
     NodeOperatorId
 from src.web3py.typings import Web3
@@ -19,7 +19,7 @@ from src.web3py.typings import Web3
 class NodeOperatorPredictableState:
     predictable_validators_total_age: int
     predictable_validators_count: int
-    targeted_validators: int
+    targeted_validators: int | None
     delayed_validators: int
 
 
@@ -57,6 +57,8 @@ class ValidatorsExit:
         self.max_validators_to_exit = max_validators_to_exit
         self.left_queue_count = 0
 
+        # -- State init part --
+
         operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
@@ -74,7 +76,7 @@ class ValidatorsExit:
         ])
 
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
-        return NodeOperatorIndex(self.staking_module_id[validator.key.moduleAddress], validator.key.operatorIndex)
+        return StakingModuleId(self.staking_module_id[validator.key.moduleAddress]), NodeOperatorId(validator.key.operatorIndex)
 
     def __iter__(self):
         return self
@@ -93,7 +95,7 @@ class ValidatorsExit:
         Sub particular validator stats from its node operator stats
         We do it every time when validator is popped from the queue for resort the rest of queue
         """
-        module_operator = self.no_index_by_validator(validator)
+        module_operator = self._no_index_by_validator(validator)
         self.total_predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_total_age -= max(
@@ -102,7 +104,7 @@ class ValidatorsExit:
 
     # -- Predicates for sorting validators --
     def _predicates(self, validator: LidoValidator) -> tuple:
-        module_operator = self.no_index_by_validator(validator)
+        module_operator = self._no_index_by_validator(validator)
         operator_stats = self.lido_node_operator_stats[module_operator]
         return (
             # positive mean asc sorting
@@ -148,7 +150,10 @@ class ValidatorsExit:
 
     #  -- Internal methods to interact with operators state for sorting --
     def _prepare_lido_node_operator_stats(
-        self, blockstamp: BlockStamp, operators: list[NodeOperator], operator_validators: dict[NodeOperatorIndex, list[LidoValidator]]
+        self,
+        blockstamp: BlockStamp,
+        operators: list[NodeOperator],
+        operator_validators: dict[NodeOperatorIndex, list[LidoValidator]]
     ) -> dict[NodeOperatorIndex, NodeOperatorPredictableState]:
         """
         Prepare node operators stats for sorting their validators in exit queue
@@ -160,7 +165,7 @@ class ValidatorsExit:
             blockstamp, list(operator_validators.keys())
         )
         last_requested_to_exit_indices_per_operator = self._get_last_requested_to_exit_indices(
-            blockstamp, operator_validators
+            blockstamp, list(operator_validators.keys())
         )
 
         delayed_validators_per_operator = self._get_delayed_validators_per_operator(
@@ -169,7 +174,9 @@ class ValidatorsExit:
             last_requested_to_exit_indices_per_operator,
         )
 
-        operator_predictable_states = {}
+        operator_predictable_states: dict[NodeOperatorIndex, NodeOperatorPredictableState] = defaultdict(
+            NodeOperatorPredictableState
+        )
         for operator in operators:
             module_operator = (operator.staking_module.id, operator.id)
 
@@ -199,13 +206,13 @@ class ValidatorsExit:
         return operator_predictable_states
 
     def _get_last_requested_to_exit_indices(
-        self, blockstamp: BlockStamp, operator_validators: dict[NodeOperatorIndex, list[LidoValidator]]
+        self, blockstamp: BlockStamp, operator_indexes: list[NodeOperatorIndex],
     ) -> dict[NodeOperatorIndex, int]:
         """
         Get last requested to exit validator index for each operator
         """
         module_operator_ids = defaultdict(set)
-        for module_id, operator_id in operator_validators:
+        for module_id, operator_id in operator_indexes:
             module_operator_ids[module_id].add(operator_id)
 
         last_requested_to_exit_indexes = {}
