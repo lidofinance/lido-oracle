@@ -70,7 +70,6 @@ disable = [
     "trailing-newlines",
     "cell-var-from-loop",
     "invalid-envvar-default",
-    "no-value-for-parameter",
     "global-statement",
     "redefined-outer-name",
     "no-else-return",
