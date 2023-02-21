@@ -185,6 +185,7 @@ def past_blockstamp():
         slot_number=4947936,
         block_number=8457825,
         block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
+        block_timestamp=0
     )
 
 

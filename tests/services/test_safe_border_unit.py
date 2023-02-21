@@ -137,8 +137,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_differe
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings(past_blockstamp) == non_withdrawable_slot - EPOCHS_PER_SLASHINGS_VECTOR
 
 def create_validator_stub(exit_epoch, withdrawable_epoch, slashed = False):
-    validator_state = create_validator_state(exit_epoch, withdrawable_epoch, slashed)
-    return create_lido_validator(create_validator(validator_state))
+    return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
 
 def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> ValidatorState:
     return ValidatorState(
@@ -154,6 +153,3 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
 
 def create_validator(validator: ValidatorState) -> Validator:
     return Validator(validator=validator, status=None, index=None, balance=None)
-
-def create_lido_validator(validator: Validator) -> LidoValidator:
-    return LidoValidator(LidoKey(key=None, depositSignature=None, operatorIndex=None, used=False, moduleAddress=None), validator=validator)
