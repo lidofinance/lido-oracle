@@ -71,7 +71,6 @@ disable = [
     "cell-var-from-loop",
     "invalid-envvar-default",
     "no-value-for-parameter",
-    "missing-timeout",
     "global-statement",
     "redefined-outer-name",
     "no-else-return",
