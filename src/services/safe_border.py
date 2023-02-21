@@ -66,10 +66,11 @@ class SafeBorder:
             return None
 
         validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(validators_slashed_non_withdrawable)
-        earliest_slashed_epoch_predicted = self._predict_earliest_slashed_epoch(validators_with_earliest_exit_epoch[0])
+        validators_earliest_slashed_epochs_predicted = map(self._predict_earliest_slashed_epoch, validators_with_earliest_exit_epoch)
+        earliest_slashed_epoch_predicted = list(sorted(filter(lambda e: e is not None, validators_earliest_slashed_epochs_predicted)))
 
-        if earliest_slashed_epoch_predicted:
-            return earliest_slashed_epoch_predicted
+        if len(earliest_slashed_epoch_predicted):
+            return earliest_slashed_epoch_predicted[0]
         return self._find_earliest_slashed_epoch(validators_with_earliest_exit_epoch, blockstamp)
 
     # If there is no so many exited validators in line we can be quite sure that
