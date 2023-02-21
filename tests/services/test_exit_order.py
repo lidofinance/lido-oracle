@@ -1,8 +1,6 @@
-from copy import deepcopy
-
 import pytest
 
-from src.providers.consensus.typings import ValidatorState
+from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorsExit, NodeOperatorPredictableState
 from src.web3py.extentions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
@@ -24,14 +22,15 @@ def test_decrease_node_operator_stats():
 @pytest.mark.unit
 def test_predicates():
 
-    def v(module_address, operator, index, activation_epoch):
+    def v(module_address, operator, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.key = object.__new__(LidoKey)
-        validator.validator = object.__new__(ValidatorState)
+        validator.validator = object.__new__(Validator)
+        validator.validator.validator = object.__new__(ValidatorState)
         validator.key.moduleAddress = module_address
         validator.key.operatorIndex = operator
-        validator.index = index
-        validator.validator.activation_epoch = activation_epoch
+        validator.validator.index = index
+        validator.validator.validator.activation_epoch = activation_epoch
         return validator
 
     staking_module_id = {
@@ -76,7 +75,7 @@ def test_predicates():
     }
 
     exitable_validators_random_sort.sort(key=lambda validator: ValidatorsExit._predicates(validators_exit, validator))
-    exitable_validators_indexes = [v.index for v in exitable_validators_random_sort]
+    exitable_validators_indexes = [v.validator.index for v in exitable_validators_random_sort]
 
     expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]
     assert exitable_validators_indexes == expected_queue_sort_indexes
@@ -94,11 +93,12 @@ def test_get_last_requested_to_exit_indices():
 
 @pytest.mark.unit
 def test_get_delayed_validators_per_operator():
-    def v(index, exit_epoch):
+    def v(index, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
-        validator.validator = object.__new__(ValidatorState)
-        validator.index = index
-        validator.validator.exit_epoch = exit_epoch
+        validator.validator = object.__new__(Validator)
+        validator.validator.validator = object.__new__(ValidatorState)
+        validator.validator.index = index
+        validator.validator.validator.exit_epoch = exit_epoch
         return validator
 
     last_requested_to_exit_indices_per_operator = {
@@ -161,6 +161,7 @@ def test_get_last_requested_validator_index():
 )
 def test_is_on_exit(exit_epoch, expected):
     validator = object.__new__(LidoValidator)
-    validator.validator = object.__new__(ValidatorState)
-    validator.validator.exit_epoch = exit_epoch
+    validator.validator = object.__new__(Validator)
+    validator.validator.validator = object.__new__(ValidatorState)
+    validator.validator.validator.exit_epoch = exit_epoch
     assert ValidatorsExit._is_on_exit(validator) == expected

@@ -59,8 +59,9 @@ class NodeOperator(Nested):
 
 
 @dataclass
-class LidoValidator(Validator):
+class LidoValidator(Nested):
     key: LidoKey
+    validator: Validator
 
 
 ValidatorsByNodeOperator = dict[NodeOperatorIndex, list[LidoValidator]]
@@ -87,7 +88,7 @@ class LidoValidatorsProvider(Module):
             if key.key in validators_keys_dict:
                 lido_validators.append(LidoValidator(
                     key=key,
-                    **asdict(validators_keys_dict[key.key]),
+                    validator=validators_keys_dict[key.key],
                 ))
 
         return lido_validators
