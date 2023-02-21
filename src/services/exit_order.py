@@ -262,14 +262,13 @@ class ValidatorsExit:
         #   block_number = 13
         #
         #   timeout_border = ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 22 - 10 = 12
-        #   timeout_border_timestamp = left_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
+        #   timeout_border_timestamp = timeout_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
         #   to_block = block_number = 13
         #   from_block = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 13 - 10 = 3
         #
         #
         #                  [--------------- Event search block period -------------]
-        #                  |                               (---- Needed events ----]
-        #                  v                               v                       v
+        #                                                  (---- Needed events ----]
         #              from_block                      timeout_border            to_block       ref_slot
         #                  |                               |                       |               |
         #      e           e   e       e           e       e       e           e   e               v   e   e
