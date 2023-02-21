@@ -24,7 +24,7 @@ def get_first_non_missed_slot(
         Raise NoSlotsAvailable if all slots are missed in max_deep range.
     """
     logger.info({'msg': f'Get Blockstamp for ref slot: {ref_slot}.'})
-    for i in range(ref_slot, 1, -1):
+    for i in range(ref_slot, -1, -1):
         try:
             root = cc.get_block_root(SlotNumber(i)).root
         except NotOkResponse as error:
