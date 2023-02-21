@@ -11,7 +11,7 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    MIN_DEPOSIT_AMOUNT,
+    MIN_DEPOSIT_AMOUNT, WEI_TO_GWEI,
 )
 from src.providers.keys.typings import LidoKey
 from src.utils.events import get_events_in_past
@@ -140,7 +140,8 @@ class BunkerService:
             "after_call": after_report_total_pooled_ether,
         })
 
-        frame_cl_rebase = self.w3.from_wei(after_report_total_pooled_ether - before_report_total_pooled_ether, 'gwei')
+        # Can't use from_wei - because rebase can be negative
+        frame_cl_rebase = (after_report_total_pooled_ether - before_report_total_pooled_ether) / WEI_TO_GWEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)

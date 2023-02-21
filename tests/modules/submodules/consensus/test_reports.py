@@ -1,6 +1,6 @@
 from hexbytes import HexBytes
 
-from tests.modules.submodules.consensus.conftest import get_blockstamp_by_state
+from tests.conftest import get_blockstamp_by_state
 
 
 # ----- Hash calculations ----------
@@ -32,7 +32,7 @@ def test_process_report_data_hash_not_actualized(web3, consensus, caplog):
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Report hash is not actualized" in caplog.messages[-1]
+    assert "Quorum is not ready and member did not send the report hash." in caplog.messages[-1]
 
 
 def test_process_report_data_wait_for_consensus(consensus):

@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.submodules.consensus import FrameConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.services.bunker import BunkerService, BunkerConfig
+from src.modules.accounting.bunker import BunkerService, BunkerConfig
 from src.typings import EpochNumber
 
 # Static functions

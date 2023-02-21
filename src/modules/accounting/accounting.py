@@ -9,7 +9,7 @@ from src.modules.accounting.typings import ReportData, ProcessingState
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
-from src.services.bunker import BunkerService
+from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
@@ -153,7 +153,7 @@ class Accounting(BaseModule, ConsensusModule):
             timestamp,  # _reportTimestamp
             diff * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
-            Web3.to_wei(cl_balance, 'gwei'),  # _clBalance TODO
+            Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self._get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId

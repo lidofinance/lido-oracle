@@ -9,7 +9,7 @@ from web3.providers import JSONBaseProvider
 
 from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp
+from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
 from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
@@ -231,3 +231,19 @@ def set_not_member_account(monkeypatch):
             _private_key='0x0',
         ))
         yield
+
+
+def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
+    root = w3.cc.get_block_root(state_id).root
+    slot_details = w3.cc.get_block_details(root)
+
+    return BlockStamp(
+        block_root=root,
+        slot_number=SlotNumber(int(slot_details.message.slot)),
+        state_root=slot_details.message.state_root,
+        block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
+        block_hash=slot_details.message.body['execution_payload']['block_hash'],
+        block_timestamp=slot_details.message.body['execution_payload']['timestamp'],
+        ref_slot=SlotNumber(int(slot_details.message.slot)),
+        ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
+    )
