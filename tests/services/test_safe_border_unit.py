@@ -57,6 +57,14 @@ def test_get_negative_rebase_border_epoch(subject, past_blockstamp):
     
     assert subject._get_negative_rebase_border_epoch(past_blockstamp) == ref_epoch - NEW_REQUESTS_BORDER
 
+
+def test_get_negative_rebase_border_epoch_bunker_not_started_yet(subject, past_blockstamp):
+    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
+    subject._get_bunker_mode_start_timestamp = MagicMock(return_value=(ref_epoch * SLOTS_PER_EPOCH * SLOT_TIME) * 2)
+    subject._get_last_successful_report_slot = MagicMock(return_value=(past_blockstamp.ref_slot - 32))
+    
+    assert subject._get_negative_rebase_border_epoch(past_blockstamp) == ref_epoch - NEW_REQUESTS_BORDER - 1
+
 def test_get_negative_rebase_border_epoch_max(subject, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     test_epoch = ref_epoch - MAX_NEGATIVE_REBASE_BORDER - 1

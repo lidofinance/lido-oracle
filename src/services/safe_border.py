@@ -33,12 +33,17 @@ class SafeBorder:
 
     def _get_negative_rebase_border_epoch(self, blockstamp: BlockStamp):  
         bunker_start_timestamp = self._get_bunker_mode_start_timestamp(blockstamp)
-        bunker_start_epoch = self.get_epoch_by_timestamp(bunker_start_timestamp)
+        bunker_start_slot = self.get_slot_by_timestamp(bunker_start_timestamp)
 
-        bunker_start_border_epoch = bunker_start_epoch - DEFAULT_SHIFT
+        last_withdrawable_epoch = self.get_epoch_by_slot(bunker_start_slot)
+
+        if bunker_start_slot > blockstamp.ref_slot:
+            last_withdrawable_epoch = self.get_epoch_by_slot(self._get_last_successful_report_slot(blockstamp))
+
+        latest_allowable_epoch = last_withdrawable_epoch - DEFAULT_SHIFT
         earliest_allowable_epoch = self.get_epoch_by_slot(blockstamp.ref_slot) - MAX_NEGATIVE_REBASE_SHIFT
 
-        return max(earliest_allowable_epoch, bunker_start_border_epoch)
+        return max(earliest_allowable_epoch, latest_allowable_epoch)
 
     def _get_associated_slashings_border_epoch(self, blockstamp: BlockStamp):
         earliest_slashed_epoch = self._get_earliest_slashed_epoch_among_incomplete_slashings(blockstamp)
@@ -122,7 +127,7 @@ class SafeBorder:
     def _get_archive_lido_validators_by_keys(self, ref_slot, pubkeys):
         return self.w3.cc.get_validators(ref_slot, tuple(pubkeys))
 
-    def _get_bunker_mode_start_timestamp(self, blockstamp: BlockStamp) -> str:
+    def _get_bunker_mode_start_timestamp(self, blockstamp: BlockStamp) -> int:
         return self.w3.lido_contracts.withdrawal_queue.functions.bunkerModeSinceTimestamp().call(block_identifier=blockstamp.block_hash)
 
     def _get_last_finalized_withdrawal_request_slot(self, blockstamp: BlockStamp) -> int:
@@ -131,6 +136,9 @@ class SafeBorder:
 
         return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
 
+    def _get_last_successful_report_slot(self, blockstamp: BlockStamp) -> int:
+        return self.w3.lido_contracts.report_contract.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
+
     def get_epoch_first_slot(self, epoch: int):
         return epoch * self.chain_config.slots_per_epoch
 
@@ -138,8 +146,10 @@ class SafeBorder:
         return ref_slot // self.chain_config.slots_per_epoch
 
     def get_epoch_by_timestamp(self, timestamp: int):
-        return (timestamp - self.chain_config.genesis_time) // (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
-                
+        return self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch
+
+    def get_slot_by_timestamp(self, timestamp: int) -> int:
+        return (timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot
 
 # TODO: stop converting back to list
 def filter_slashed_validators(validators):
