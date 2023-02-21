@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.submodules.consensus import FrameConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.services.bunker import BunkerService, BunkerConfig
+from src.modules.accounting.bunker import BunkerService, BunkerConfig
 from src.typings import EpochNumber
 
 # Static functions
@@ -151,6 +151,7 @@ def test_get_per_frame_lido_midterm_penalties():
         FrameConfig(
             initial_epoch=EpochNumber(0),
             epochs_per_frame=EpochNumber(225),
+            fast_lane_length_slots=0,
         )
     )
 
@@ -171,6 +172,7 @@ def test_get_frame_by_epoch(epoch, expected_frame):
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
         epochs_per_frame=EpochNumber(225),
+        fast_lane_length_slots=0,
     )
     frame_by_epoch = BunkerService._get_frame_by_epoch(epoch, frame_config)
     assert frame_by_epoch == expected_frame

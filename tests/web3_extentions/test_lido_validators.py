@@ -1,7 +1,7 @@
 import pytest
 from eth_typing import HexStr
 
-from src.typings import BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber
+from src.typings import BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber
 
 
 @pytest.fixture
@@ -12,6 +12,9 @@ def blockstamp():
         slot_number=SlotNumber(113500),
         block_hash=BlockHash(HexStr('0x4372578a683ba1c85c259a42492efbe0de9a28b1ac050b5e61065499ab80b0ca')),
         block_number=BlockNumber(108006),
+        block_timestamp=0,
+        ref_slot=SlotNumber(113500),
+        ref_epoch=EpochNumber(113500//12)
     )
 
 
@@ -28,7 +31,7 @@ def test_get_lido_validators(web3, lido_validators, blockstamp):
     assert len(validators_in_cc) != len(lido_validators)
 
     for v in lido_validators:
-        assert v.key.key == v.validator.pubkey
+        assert v.key.key == v.validator.validator.pubkey
 
 
 @pytest.mark.unit

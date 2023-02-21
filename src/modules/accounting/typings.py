@@ -20,7 +20,7 @@ class ReportData:
     last_withdrawal_request_to_finalize: int
     finalization_share_rate: int
     is_bunker: bool
-    extra_data_format: FormatList
+    extra_data_format: int
     extra_data_hash: HexBytes
     extra_data_items_count: int
 
