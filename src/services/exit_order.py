@@ -9,7 +9,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
 from src.typings import BlockStamp, EpochNumber
-from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex
+from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId
 from src.web3py.typings import Web3
 
 
@@ -31,6 +31,8 @@ class ValidatorsExit:
     5. Validator with the lowest activation epoch
     6. Validator with the lowest index
     """
+    staking_module_id: dict[Address, StakingModuleId]
+    no_index_by_validator: Callable[[LidoValidator], NodeOperatorIndex]
     lido_node_operator_stats: dict[NodeOperatorIndex, NodeOperatorPredictableState]
     total_active_validators_count: int
 
@@ -53,9 +55,9 @@ class ValidatorsExit:
         self.exitable_lido_validators = exitable_lido_validators
         self.max_validators_to_exit = max_validators_to_exit
 
-        ###########
-        # todo: remove after keys-api fix. Key should contain staking module id, not only address
         operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
+        operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+
         self.staking_module_id = {
             operator.staking_module.staking_module_address: operator.staking_module.id
             for operator in operators
@@ -63,13 +65,9 @@ class ValidatorsExit:
         self.no_index_by_validator: Callable[[LidoValidator], NodeOperatorIndex] = (
             lambda v: (self.staking_module_id[v.key.moduleAddress], v.key.operatorIndex)
         )
-        ###########
-
-        operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         self.lido_node_operator_stats = self._prepare_lido_node_operator_stats(
             blockstamp, operators, operator_validators
         )
-
         self.total_active_validators_count = self._calculate_total_active_validators_count(
             self.w3.cc.get_validators(blockstamp.state_root),
             blockstamp.ref_epoch,
@@ -258,21 +256,27 @@ class ValidatorsExit:
         #   [o] - slot with missed block
         #    e  - event
         #
-        #   VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 6 (for example)
-        #   left_border = ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 12 - 6 = 6
-        #   left_border_timestamp = left_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
-        #   to_block = block_number = 10
-        #   from_block = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10 - 6 = 8
+        #   VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10 (for example)
+        #   ref_slot = 22
+        #   block_number = 13
         #
-        #   from_block            to_block
-        #     |      left_border right border ref_slot
-        #     |           |              |       |
-        #     |           |      e       e       v
-        #   --------[x]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
-        #           ...  6   7   8   9  10  11  12  13  14  15  16  17       slot
-        #           ...  6   7   8   -   9  10   -   -   -   -  11  12       block
+        #   timeout_border = ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 22 - 10 = 12
+        #   timeout_border_timestamp = left_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
+        #   to_block = block_number = 13
+        #   from_block = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 13 - 10 = 3
         #
-        #   We should get events between slots 8 and 12 because their `event timestamp` less than `ref_slot timestamp`
+        #
+        #                  [--------------- Event search block period -------------]
+        #                  |                               (---- Needed events ----]
+        #                  v                               v                       v
+        #              from_block                      timeout_border            to_block       ref_slot
+        #                  |                               |                       |               |
+        #      e           e   e       e           e       e       e           e   e               v   e   e
+        #   --[x]-[o]-[x]-[x]-[x]-[x]-[x]-[o]-[o]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
+        #      1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24       slot
+        #      1   -   2   3   4   5   6   -   -   7   8   9   -  10  11   -  12  13   -   -   -   -  14  15       block
+        #
+        #   So we should consider events from blocks [10, 12, 13]
         #
         #
 
@@ -282,8 +286,8 @@ class ValidatorsExit:
         for operator in operator_indexes:
             module_operator[operator] = set()
 
-        left_border = max(0, blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
-        left_border_timestamp = left_border * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
+        timeout_border = max(0, blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
+        timeout_border_timestamp = timeout_border * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
 
         to_block = blockstamp.block_number
         from_block = max(0, to_block - self.validator_delayed_timeout_in_slots)
@@ -292,9 +296,9 @@ class ValidatorsExit:
         )
         for event in events:
             module_id, operator_id, val_index, val_key, timestamp = event['args']
-            if timestamp <= left_border_timestamp:
-                # Blocks can be shifted due missed slots. We should handle this case
-                # todo: comment this code
+            if timestamp <= timeout_border_timestamp:
+                # We don't consider events that were emitted before or on timeout border
+                # So we get a small bunch of events that are considered as "recently". Look at the example above
                 continue
             module_operator[(module_id, operator_id)].add(val_index)
 
