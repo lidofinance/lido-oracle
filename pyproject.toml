@@ -65,7 +65,6 @@ disable = [
     "unused-import",
     "no-else-continue",
     "broad-exception-raised",
-    "f-string-without-interpolation",
     "fixme",
     "cell-var-from-loop",
     "invalid-envvar-default",

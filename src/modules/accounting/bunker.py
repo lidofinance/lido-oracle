@@ -366,7 +366,7 @@ class BunkerService:
             raise Exception("More than one ETHDistributed event found")
 
         if not events:
-            logger.info({"msg": f"No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
+            logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
             return 0
 
         vault_withdrawals = self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei')
