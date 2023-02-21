@@ -3,13 +3,15 @@ from dataclasses import dataclass
 from typing import Callable
 
 from eth_typing import Address
+from web3.types import EventData
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
 from src.typings import BlockStamp, EpochNumber
-from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId
+from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId, \
+    NodeOperatorId
 from src.web3py.typings import Web3
 
 
@@ -32,9 +34,8 @@ class ValidatorsExit:
     6. Validator with the lowest index
     """
     staking_module_id: dict[Address, StakingModuleId]
-    no_index_by_validator: Callable[[LidoValidator], NodeOperatorIndex]
     lido_node_operator_stats: dict[NodeOperatorIndex, NodeOperatorPredictableState]
-    total_active_validators_count: int
+    total_predictable_validators_count: int
 
     def __init__(
         self,
@@ -44,8 +45,8 @@ class ValidatorsExit:
         exitable_lido_validators: list[LidoValidator],
         max_validators_to_exit: int,
     ):
-        self.blockstamp = blockstamp
         self.w3 = w3
+        self.blockstamp = blockstamp
         self.c_conf = c_conf
         self.validator_delayed_timeout_in_slots = Web3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
@@ -63,17 +64,17 @@ class ValidatorsExit:
             operator.staking_module.staking_module_address: operator.staking_module.id
             for operator in operators
         }
-        self.no_index_by_validator: Callable[[LidoValidator], NodeOperatorIndex] = (
-            lambda v: (self.staking_module_id[v.key.moduleAddress], v.key.operatorIndex)
-        )
 
         self.lido_node_operator_stats = self._prepare_lido_node_operator_stats(
             blockstamp, operators, operator_validators
         )
-        self.total_active_validators_count = self._calculate_total_active_validators_count(
-            self.w3.cc.get_validators(blockstamp.state_root),
-            blockstamp.ref_epoch,
-        )
+        self.total_predictable_validators_count = len([
+            validator for validator in self.w3.cc.get_validators(blockstamp.state_root)
+            if not self._is_on_exit(validator)
+        ])
+
+    def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
+        return NodeOperatorIndex(self.staking_module_id[validator.key.moduleAddress], validator.key.operatorIndex)
 
     def __iter__(self):
         return self
@@ -93,7 +94,7 @@ class ValidatorsExit:
         We do it every time when validator is popped from the queue for resort the rest of queue
         """
         module_operator = self.no_index_by_validator(validator)
-        self.total_active_validators_count -= 1
+        self.total_predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_total_age -= max(
             0, self.blockstamp.ref_epoch - int(validator.validator.validator.activation_epoch)
@@ -108,7 +109,7 @@ class ValidatorsExit:
             # negative mean desc sorting
             self._operator_delayed_validators(operator_stats),
             -self._operator_targeted_validators(operator_stats),
-            -self._operator_stake_weight(operator_stats, self.total_active_validators_count),
+            -self._operator_stake_weight(operator_stats, self.total_predictable_validators_count),
             -self._operator_predictable_validators(operator_stats),
             self._validator_activation_epoch(validator),
             self._validator_index(validator),
@@ -183,7 +184,7 @@ class ValidatorsExit:
             )
 
             for validator in operator_validators[(operator.staking_module.id, operator.id)]:
-                on_exit = self._is_on_exit(validator)
+                on_exit = self._is_on_exit(validator.validator)
                 previously_requested_to_exit = (
                     int(validator.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
@@ -232,7 +233,7 @@ class ValidatorsExit:
                 previously_requested_to_exit = (
                     int(validator.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
-                on_exit = self._is_on_exit(validator)
+                on_exit = self._is_on_exit(validator.validator)
                 recently_requested_to_exit = int(validator.validator.index) in recently_requested_to_exit_indices
                 if previously_requested_to_exit and not on_exit and not recently_requested_to_exit:
                     delayed_validators_per_operator[module_operator] += 1
@@ -291,9 +292,7 @@ class ValidatorsExit:
 
         to_block = blockstamp.block_number
         from_block = max(0, to_block - self.validator_delayed_timeout_in_slots)
-        events = self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
-            fromBlock=from_block, toBlock=to_block
-        )
+        events = self._get_validator_exit_events(from_block, to_block)
         for event in events:
             module_id, operator_id, val_index, val_key, timestamp = event['args']
             if timestamp <= timeout_border_timestamp:
@@ -305,7 +304,7 @@ class ValidatorsExit:
         return module_operator
 
     def _get_last_requested_validator_index(
-        self, blockstamp: BlockStamp, module: Address, operator_indexes: list[int]
+        self, blockstamp: BlockStamp, module: StakingModuleId, operator_indexes: list[NodeOperatorId]
     ) -> list[int]:
         """
         Returns the latest validator indices that were requested to exit for the given
@@ -318,18 +317,11 @@ class ValidatorsExit:
             block_identifier=blockstamp.block_hash
         )
 
-    @staticmethod
-    def _is_on_exit(validator: LidoValidator) -> bool:
-        return int(validator.validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
+    def _get_validator_exit_events(self, from_block: int, to_block: int) -> list[EventData]:
+        return self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
+            fromBlock=from_block, toBlock=to_block
+        )
 
     @staticmethod
-    def _calculate_total_active_validators_count(validators: list[Validator], ref_epoch: EpochNumber) -> int:
-        """
-        Calculates active validators count for the given epoch
-        """
-        return len(
-            [
-                v for v in validators
-                if int(v.validator.activation_epoch) <= ref_epoch < int(v.validator.exit_epoch)
-            ]
-        )
+    def _is_on_exit(validator: Validator) -> bool:
+        return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
