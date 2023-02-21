@@ -67,7 +67,6 @@ disable = [
     "broad-exception-raised",
     "f-string-without-interpolation",
     "fixme",
-    "trailing-newlines",
     "cell-var-from-loop",
     "invalid-envvar-default",
     "global-statement",

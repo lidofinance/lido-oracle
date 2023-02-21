@@ -544,4 +544,3 @@ class BunkerService:
             / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_mistake)
         )
         return Gwei(normal_cl_rebase)
-
