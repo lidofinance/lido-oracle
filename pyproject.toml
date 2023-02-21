@@ -73,7 +73,6 @@ disable = [
     "no-value-for-parameter",
     "missing-timeout",
     "global-statement",
-    "unexpected-keyword-arg",
     "redefined-outer-name",
     "no-else-return",
 ]
