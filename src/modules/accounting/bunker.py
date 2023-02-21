@@ -11,10 +11,10 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    MIN_DEPOSIT_AMOUNT, WEI_TO_GWEI,
+    MIN_DEPOSIT_AMOUNT,
+    WEI_TO_GWEI,
 )
 from src.providers.keys.typings import LidoKey
-from src.utils.events import get_events_in_past
 from src.utils.slot import get_first_non_missed_slot
 
 from src.modules.accounting.typings import Gwei
@@ -273,10 +273,18 @@ class BunkerService:
             EpochNumber(far_slot // self.c_conf.slots_per_epoch),
         )
 
+        if nearest_blockstamp.block_number == far_blockstamp.block_number:
+            logger.info(
+                {"msg": "Nearest and far blocks are the same. Specific CL rebase will be calculated once"}
+            )
+            specific_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
+            logger.info({"msg": f"Specific CL rebase: {specific_cl_rebase} Gwei"})
+            return specific_cl_rebase < 0
+
         nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
         far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, blockstamp)
 
-        logger.info({"msg": f"CL rebase {nearest_cl_rebase,far_cl_rebase=}"})
+        logger.info({"msg": f"Specific CL rebase {nearest_cl_rebase,far_cl_rebase=} Gwei"})
         return nearest_cl_rebase < 0 or far_cl_rebase < 0
 
     @lru_cache(maxsize=1)
