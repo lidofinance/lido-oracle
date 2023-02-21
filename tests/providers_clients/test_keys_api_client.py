@@ -5,6 +5,7 @@ from src.providers.keys.client import KeysAPIClient
 from src.typings import BlockStamp
 from src.variables import KEYS_API_URI
 
+
 pytestmark = pytest.mark.integration
 
 
@@ -14,13 +15,14 @@ def keys_api_client():
 
 
 empty_blockstamp = BlockStamp(
-        ref_slot_number=0,
+        ref_slot=0,
         ref_epoch=0,
         block_root=None,
         state_root=None,
         slot_number='',
         block_hash='',
-        block_number=0
+        block_number=0,
+        block_timestamp=0,
     )
 
 

@@ -1,9 +1,7 @@
 import logging
 
-from src.web3py.extentions import LidoContracts
 from src.web3py.typings import Web3
 
-from src import variables
 from src.metrics.healthcheck_server import pulse
 
 
@@ -17,10 +15,10 @@ def wait_for_withdrawals(w3: Web3):
         logger.info({'msg': 'Check protocol ready for Oracle V3 reports.'})
         pulse()
 
-        lido_locator = w3.eth.contract(
-            address=variables.LIDO_LOCATOR_ADDRESS,
-            abi=LidoContracts.load_abi('LidoLocator'),
-        )
+        # lido_locator = w3.eth.contract(
+        #     address=variables.LIDO_LOCATOR_ADDRESS,
+        #     abi=LidoContracts.load_abi('LidoLocator'),
+        # )
 
         return
 

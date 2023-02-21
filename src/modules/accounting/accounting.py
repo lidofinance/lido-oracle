@@ -4,12 +4,14 @@ from functools import lru_cache
 from web3.types import Wei
 
 from src import variables
+from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import ReportData, ProcessingState
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.services.bunker import BunkerService
 from src.services.withdrawal import Withdrawal
+from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
@@ -39,7 +41,7 @@ class Accounting(BaseModule, ConsensusModule):
                 self._submit_extra_data(report_timestamp)
 
     def _submit_extra_data(self, blockstamp: BlockStamp) -> None:
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp)
+        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
 
         tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
 
@@ -92,7 +94,7 @@ class Accounting(BaseModule, ConsensusModule):
         else:
             stacking_module_id_list = exit_validators_count = []
 
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp)
+        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
 
         # Filter stucked and exited validators that was previously reported
         report_data = ReportData(
@@ -165,13 +167,13 @@ class Accounting(BaseModule, ConsensusModule):
             timestamp,  # _reportTimestamp
             diff * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
-            cl_balance * 10 ** 9,  # _clBalance
+            Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self._get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         ).call({'from': self.w3.lido_contracts.accounting_oracle.address})
-        return pooled_eth / total_shares
+        return int(pooled_eth * SHARE_RATE_PRECISION_E27 / total_shares)
 
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
         frame_config = self._get_frame_config(blockstamp)

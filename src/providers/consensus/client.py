@@ -41,7 +41,9 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
         return BlockDetailsResponse(**data)
 
-    @lru_cache(maxsize=1)
+    # We need to store all validators from different slots for bunker mode.
+    # ToDo optimize RAM usage
+    @lru_cache(maxsize=5)
     @list_of_dataclasses(Validator)
     def get_validators(self, state_id: Union[str, SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""

@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.submodules.consensus import ConsensusModule
-from src.typings import BlockStamp, SlotNumber, BlockNumber
+from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
 
 
 class SimpleConsensusModule(ConsensusModule):
@@ -25,16 +25,3 @@ class SimpleConsensusModule(ConsensusModule):
 @pytest.fixture()
 def consensus(web3, consensus_client, contracts):
     return SimpleConsensusModule(web3)
-
-
-def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
-    root = w3.cc.get_block_root(state_id).root
-    slot_details = w3.cc.get_block_details(root)
-
-    return BlockStamp(
-        block_root=root,
-        slot_number=SlotNumber(int(slot_details.message.slot)),
-        state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
-        block_hash=slot_details.message.body['execution_payload']['block_hash']
-    )

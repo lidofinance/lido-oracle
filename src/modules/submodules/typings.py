@@ -15,21 +15,21 @@ class MemberInfo:
     current_frame_consensus_report: bytes
 
 
-@dataclass
+@dataclass(frozen=True)
 class ChainConfig:
     slots_per_epoch: int
     seconds_per_slot: int
     genesis_time: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class CurrentFrame:
     # Order is important!
     ref_slot: SlotNumber
     report_processing_deadline_slot: SlotNumber
 
 
-@dataclass
+@dataclass(frozen=True)
 class FrameConfig:
     # Order is important!
     initial_epoch: int

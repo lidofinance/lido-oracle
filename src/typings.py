@@ -29,6 +29,7 @@ class BlockStamp:
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
+    block_timestamp: int
     # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
     ref_slot: SlotNumber
     # ref_epoch could be empty if we do not know chain configs when generating this timestamp

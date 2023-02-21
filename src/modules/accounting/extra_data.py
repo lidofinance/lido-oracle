@@ -56,7 +56,7 @@ class ExtraDataItem:
 class ExtraData:
     extra_data: bytes
     data_hash: HexBytes
-    format: FormatList
+    format: int
     items_count: int
 
 
@@ -86,7 +86,7 @@ class ExtraDataService:
         return ExtraData(
             extra_data=extra_data_bytes,
             data_hash=self.w3.keccak(extra_data_bytes),
-            format=data_format,
+            format=data_format.value,
             items_count=len(extra_data),
         )
 

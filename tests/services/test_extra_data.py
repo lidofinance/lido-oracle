@@ -46,22 +46,17 @@ def node_operator(module_id, node_operator_id) -> NodeOperatorIndex:
 
 
 class TestBuildValidators:
-
-    def test_oracle_report_limits(self, extra_data_service, contracts):
-        limits = extra_data_service._get_oracle_report_limits()
-        assert isinstance(limits, OracleReportLimits)
-
     def test_collect_zero(self, extra_data_service, contracts):
-        extra_data = extra_data_service.collect({}, {})
+        extra_data = extra_data_service.collect({}, {}, 10, 10)
         assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
         assert extra_data.extra_data == b''
         assert extra_data.data_hash == HexBytes(b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p")
 
     def test_payload(self, extra_data_service):
         vals = {
-            node_operator(1, 0): [validator()],
-            node_operator(1, 1): [validator(), validator()],
+            node_operator(1, 0): 1,
+            node_operator(1, 1): 2,
         }
         payload = extra_data_service.build_validators_payloads(vals, 10)[0]
         assert payload.module_id == b'\x00\x00\x01'
@@ -71,13 +66,13 @@ class TestBuildValidators:
 
     def test_order(self, extra_data_service, monkeypatch):
         vals = {
-            node_operator(2, 0): [validator()],
-            node_operator(2, 1): [validator()],
-            node_operator(1, 3): [validator()],
-            node_operator(1, 3): [validator()],
-            node_operator(1, 2): [validator()],
-            node_operator(1, 4): [validator()],
-            node_operator(1, 5): [validator()],
+            node_operator(2, 0): 1,
+            node_operator(2, 1): 1,
+            node_operator(1, 3): 1,
+            node_operator(1, 3): 1,
+            node_operator(1, 2): 1,
+            node_operator(1, 4): 1,
+            node_operator(1, 5): 1,
         }
 
         payloads = extra_data_service.build_validators_payloads(vals, 2)
