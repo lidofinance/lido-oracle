@@ -95,17 +95,23 @@ class SafeBorder:
         start_slot = max(last_finalized_request_id_slot, self.get_epoch_first_slot(self._get_validators_earliest_activation_epoch(validators)))
         end_slot = min(blockstamp.ref_slot, self.get_epoch_first_slot(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR))
 
-        while start_slot + 1 < end_slot:
+        while self._check_slot_diff(start_slot, end_slot):
             mid_slot = (end_slot + start_slot) // 2
             validators = self._get_archive_lido_validators_by_keys(mid_slot, pubkeys)
             slashed_validators = filter_slashed_validators(validators)
 
             if len(slashed_validators) > 0:
                 end_slot = mid_slot - 1
+                pubkeys = self.get_validators_pubkeysget_validators_pubkeys(slashed_validators)
             else:
                 start_slot = mid_slot + 1
 
-        return self.get_epoch_by_slot(end_slot)
+        return self.get_epoch_by_slot(start_slot)
+
+    def _check_slot_diff(self, start_slot: int, end_slot: int):
+        if (end_slot - start_slot > self.chain_config.slots_per_epoch):
+            return False
+        return True
 
     def _filter_validators_with_earliest_exit_epoch(self, validators) -> list[Validator]:
         if len(validators) == 0:
