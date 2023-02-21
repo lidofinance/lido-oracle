@@ -11,10 +11,6 @@ from src.utils.dataclass import list_of_dataclasses
 logger = logging.getLogger(__name__)
 
 
-class UnexpectedStateId(Exception):
-    pass
-
-
 class ConsensusClient(HTTPProvider):
     """
     API specifications can be found here
@@ -45,8 +41,8 @@ class ConsensusClient(HTTPProvider):
     def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         if state_id in self.NON_CACHEABLE_STATES:
-            raise UnexpectedStateId(f'Block details for state_id: {state_id} could not be cached. '
-                                    'Please provide slot or block root.')
+            raise ValueError(f'Block details for state_id: {state_id} could not be cached. '
+                             'Please provide slot number or block root.')
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
         return BlockDetailsResponse(**data)
 
@@ -57,7 +53,7 @@ class ConsensusClient(HTTPProvider):
     def get_validators(self, state_id: Union[SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         if state_id in self.NON_CACHEABLE_STATES:
-            raise UnexpectedStateId(f'Validators for state_id: {state_id} could not be cached. '
-                                    'Please provide slot or block root.')
+            raise ValueError(f'Validators for state_id: {state_id} could not be cached. '
+                             'Please provide slot number or block root.')
         data, _ = self._get(self.API_GET_VALIDATORS.format(state_id), params={'id': pub_keys})
         return data

@@ -1,7 +1,7 @@
 """Simple tests for the consensus client responses validity."""
 import pytest
 
-from src.providers.consensus.client import ConsensusClient, UnexpectedStateId
+from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.typings import Validator
 from src.variables import CONSENSUS_CLIENT_URI
 
@@ -38,7 +38,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 
 @pytest.mark.unit
 def test_caching_issues(consensus_client):
-    with pytest.raises(UnexpectedStateId):
+    with pytest.raises(ValueError):
         consensus_client.get_validators('head')
-    with pytest.raises(UnexpectedStateId):
+    with pytest.raises(ValueError):
         consensus_client.get_block_details('finalized')
