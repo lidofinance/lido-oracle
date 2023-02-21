@@ -29,13 +29,13 @@ class Accounting(BaseModule, ConsensusModule):
 
     # Oracle module: loop method
     def execute_module(self, blockstamp: BlockStamp) -> None:
-        report_timestamp = self.get_blockstamp_for_report(blockstamp)
-        if report_timestamp:
-            self.process_report(report_timestamp)
+        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        if report_blockstamp:
+            self.process_report(report_blockstamp)
 
             latest_blockstamp = self._get_latest_blockstamp()
             if not self.is_extra_data_submitted(latest_blockstamp):
-                self._submit_extra_data(report_timestamp)
+                self._submit_extra_data(report_blockstamp)
 
     def _submit_extra_data(self, blockstamp: BlockStamp) -> None:
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
@@ -87,20 +87,20 @@ class Accounting(BaseModule, ConsensusModule):
 
         # Here report all exited validators even they were reported before.
         if exited_validators:
-            stacking_module_id_list, exit_validators_count = zip(*exited_validators.items())
+            stacking_module_id_list, exit_validators_count_list = zip(*exited_validators.items())
         else:
-            stacking_module_id_list = exit_validators_count = []
+            stacking_module_id_list = exit_validators_count_list = []
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
 
-        # Filter stucked and exited validators that was previously reported
+        # Filter stuck and exited validators that was previously reported
         report_data = ReportData(
             consensus_version=self.CONSENSUS_VERSION,
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
             stacking_module_id_with_exited_validators=stacking_module_id_list,
-            count_exited_validators_by_stacking_module=exit_validators_count,
+            count_exited_validators_by_stacking_module=exit_validators_count_list,
             withdrawal_vault_balance=self._get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self._get_el_vault_balance(blockstamp),
             last_withdrawal_request_to_finalize=last_withdrawal_id_to_finalize,
@@ -141,9 +141,14 @@ class Accounting(BaseModule, ConsensusModule):
         last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash,
         )
+
+        if not last_ref_slot:
+            # Report wasn't done yet, do not finalize requests
+            return 0
+
         chain_conf = self._get_chain_config(blockstamp)
 
-        diff = blockstamp.ref_slot - last_ref_slot
+        slots_elapsed = blockstamp.ref_slot - last_ref_slot
 
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
@@ -151,7 +156,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         pooled_eth, total_shares, _, _ = self.w3.lido_contracts.lido.functions.handleOracleReport(
             timestamp,  # _reportTimestamp
-            diff * chain_conf.seconds_per_slot,  # _timeElapsed
+            slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self._get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance

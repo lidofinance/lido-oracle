@@ -135,13 +135,13 @@ class ConsensusModule(ABC):
         return fc
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
+    def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[BlockStamp]:
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
             Non-missed finalized blockstamp
         """
-        member_info = self._get_member_info(blockstamp)
+        member_info = self._get_member_info(last_finalized_blockstamp)
 
         latest_blockstamp = self._get_latest_blockstamp()
 
@@ -166,7 +166,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return
 
-        chain_config = self._get_chain_config(blockstamp)
+        chain_config = self._get_chain_config(last_finalized_blockstamp)
         bs = get_first_non_missed_slot(
             self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
