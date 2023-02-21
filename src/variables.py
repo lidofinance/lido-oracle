@@ -13,7 +13,7 @@ KEYS_API_URI = os.getenv('KEYS_API_URI')
 ACCOUNT = None
 MEMBER_PRIV_KEY = os.getenv('MEMBER_PRIV_KEY')
 if MEMBER_PRIV_KEY:
-    ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)
+    ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)  # False-positive. pylint: disable=no-value-for-parameter
 
 
 # - App specific -

@@ -7,7 +7,7 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp, SlotNumber
+from src.typings import BlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.modules.accounting.extra_data import FormatList
 from src.typings import SlotNumber, Gwei
 
 

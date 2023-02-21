@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Tuple, TYPE_CHECKING, NewType
+from typing import Tuple, TYPE_CHECKING, NewType
 
 from eth_typing import Address
 from web3.module import Module

@@ -11,7 +11,7 @@ _last_pulse = datetime.now()
 
 
 def pulse():
-    requests.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/')
+    requests.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/', timeout=60)
 
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):

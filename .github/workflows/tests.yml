@@ -30,8 +30,7 @@ jobs:
         poetry install --no-interaction --with=dev
 
     - name: Lint
-      run: ./check_code.sh
-      continue-on-error: true
+      run: poetry run pylint src tests
 
     - name: Test with pytest
       run: poetry run pytest -m "not integration" tests
