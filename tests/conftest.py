@@ -151,6 +151,12 @@ class Contracts(LidoContracts):
             decode_tuples=True
         )
 
+        self.oracle_daemon_config = self.w3.eth.contract(
+            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
+            abi=self.load_abi('OracleDaemonConfig'),
+            decode_tuples=True,
+        )
+
 
 @pytest.fixture()
 def contracts(web3):
