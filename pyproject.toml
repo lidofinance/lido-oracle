@@ -62,7 +62,6 @@ disable = [
     "too-many-locals",
     "unspecified-encoding",
     "bare-except",
-    "unused-import",
     "no-else-continue",
     "broad-exception-raised",
     "fixme",
