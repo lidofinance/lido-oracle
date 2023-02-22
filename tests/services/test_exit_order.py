@@ -65,26 +65,35 @@ def mock_validator_exit_events(validator_exit):
     def exit_event(module_id, operator_id, validator_index, timestamp):
         return {'args': (module_id, operator_id, validator_index, '', timestamp)}
 
+    def exit_events(from_block, to_block):
+        # We do not expect other input values in tests
+        assert (from_block, to_block) == (3, 13)
+        return [
+            exit_event(0, 0, 1, SlotNumber(3) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 2, SlotNumber(4) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 3, SlotNumber(5) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 4, SlotNumber(7) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 5, SlotNumber(10) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 6, SlotNumber(12) * seconds_per_slot + genesis_time),
+            exit_event(0, 1, 7, SlotNumber(14) * seconds_per_slot + genesis_time),
+            exit_event(1, 1, 8, SlotNumber(18) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 10, SlotNumber(23) * seconds_per_slot + genesis_time),
+        ]
+
     seconds_per_slot = validator_exit.c_conf.seconds_per_slot
     genesis_time = validator_exit.c_conf.genesis_time
-    validator_exit._get_validator_exit_events = Mock(return_value=[
-        exit_event(0, 0, 2, SlotNumber(4) * seconds_per_slot + genesis_time),
-        exit_event(0, 0, 3, SlotNumber(5) * seconds_per_slot + genesis_time),
-        exit_event(0, 0, 4, SlotNumber(7) * seconds_per_slot + genesis_time),
-        exit_event(0, 0, 5, SlotNumber(10) * seconds_per_slot + genesis_time),
-        exit_event(0, 0, 6, SlotNumber(12) * seconds_per_slot + genesis_time),
-        exit_event(0, 1, 7, SlotNumber(14) * seconds_per_slot + genesis_time),
-        exit_event(1, 1, 8, SlotNumber(18) * seconds_per_slot + genesis_time),
-        exit_event(0, 0, 10, SlotNumber(23) * seconds_per_slot + genesis_time),
-    ])
+    validator_exit._get_validator_exit_events = Mock(side_effect=exit_events)
 
 
 @pytest.fixture
 def mock_last_requested_validator_index(validator_exit):
-    validator_exit._get_last_requested_validator_index = Mock(side_effect=[
-        [-1, 100500],
-        [-1],
-    ])
+    def validator_index(_, module_id, operator_ids):
+        return {
+            (0, (0, 1)): [-1, 100500],
+            (1, (1,)): [-1],
+        }[(module_id, tuple(operator_ids))]
+
+    validator_exit._get_last_requested_validator_index = Mock(side_effect=validator_index)
 
 
 class TestRequestedToExitIndices:
