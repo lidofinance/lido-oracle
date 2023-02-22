@@ -46,6 +46,8 @@ class BunkerService:
     c_conf: ChainConfig
     f_conf: FrameConfig
 
+    simulated_rebase: LidoReportRebase
+
     last_report_ref_slot: SlotNumber = SlotNumber(0)
 
     all_validators: dict[str, Validator] = {}

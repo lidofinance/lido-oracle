@@ -40,7 +40,7 @@ class Ejector(BaseModule, ConsensusModule):
             blockstamp.ref_slot,
             2,
             1,
-            b,
+            b'',
         )
 
     @lru_cache(maxsize=1)
