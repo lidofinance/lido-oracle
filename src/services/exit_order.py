@@ -71,7 +71,7 @@ class ValidatorsExit:
         )
         self.total_predictable_validators_count = len([
             validator for validator in self.w3.cc.get_validators(blockstamp.state_root)
-            if not self._is_on_exit(validator)
+            if not self._is_on_exit(validator) or self._is_pending(validator)
         ])
 
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
@@ -329,3 +329,7 @@ class ValidatorsExit:
     @staticmethod
     def _is_on_exit(validator: Validator) -> bool:
         return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
+
+    @staticmethod
+    def _is_pending(validator: Validator) -> bool:
+        return int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH
