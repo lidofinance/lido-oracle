@@ -282,8 +282,8 @@ def test_get_TokenRebased_events(token_rebased_logs):
 
 
 @pytest.mark.unit
-def test_get_block_interval(token_rebased_logs):
-    got_from, got_to = Prediction.get_block_interval(912, 12)
+def test_get_optimistic_block_interval(token_rebased_logs):
+    got_from, got_to = Prediction.get_optimistic_block_interval(912, 12)
     expected_from = 900
     expected_to = 912
 

@@ -22,36 +22,38 @@ class Prediction:
         ## TODO: For future where to get and pass variables into get_rewards_per_epoch
         ## duration_in_slots: int = self.w3.eth.OracleDaemonConfig.functions.get('durationInSlots').call()
         ## slots_per_epoch, seconds_per_slot, genesis_time = self.w3.eth.HashConsensus.functions.getChainConfig().call()
-
-        from_block, to_block = self.get_block_interval(
+        optimistic_from_block, to_block = self.get_optimistic_block_interval(
             ref_block=blockstamp['block_number'],
             duration_in_slots=duration_in_slots,
         )
 
         left_block_timestamp = blockstamp['block_timestamp'] - duration_in_slots * seconds_per_slot
 
-        ETHDistributed_events = self.get_ETHDistributed_events(from_block, to_block, left_block_timestamp)
-        TokenRebased_events = self.get_TokenRebased_events(from_block, to_block, left_block_timestamp)
+        ETHDistributed_events = self.get_ETHDistributed_events(optimistic_from_block, to_block, left_block_timestamp)
+        TokenRebased_events = self.get_TokenRebased_events(optimistic_from_block, to_block, left_block_timestamp)
 
         trx_hashes = ETHDistributed_events.keys()
-        if not trx_hashes or trx_hashes != TokenRebased_events.keys():
+        if not trx_hashes:
+            return Wei(0)
+
+        if trx_hashes != TokenRebased_events.keys():
             raise Exception("ETHDistributed, TokenRebased are not not consistent")
 
-        rewards_cl_speed, rewards_exe_speed = [], []
+        rewards_cl_speed, rewards_el_speed = [], []
         for h in trx_hashes:
             rewards_cl_speed.append(
                 ETHDistributed_events[h]['withdrawalsWithdrawn'] // TokenRebased_events[h]['timeElapsed'])
-            rewards_exe_speed.append(
+            rewards_el_speed.append(
                 ETHDistributed_events[h]['executionLayerRewardsWithdrawn'] // TokenRebased_events[h]['timeElapsed'])
 
         median_rewards_cl_speed = self.percentile(rewards_cl_speed, percentile_cl_rewards_bp)
-        median_rewards_exe_speed = self.percentile(rewards_exe_speed, percentile_el_rewards_bp)
-        rewards = median_rewards_cl_speed + median_rewards_exe_speed
+        median_rewards_el_speed = self.percentile(rewards_el_speed, percentile_el_rewards_bp)
+        rewards_speed = median_rewards_cl_speed + median_rewards_el_speed
 
-        return Wei(rewards * slots_per_epoch * seconds_per_slot)
+        return Wei(rewards_speed * slots_per_epoch * seconds_per_slot)
 
     @staticmethod
-    def get_block_interval(ref_block: int, duration_in_slots: int) -> (int, int):
+    def get_optimistic_block_interval(ref_block: int, duration_in_slots: int) -> (int, int):
         from_block = ref_block - duration_in_slots
         to_block = ref_block
         return int(from_block), to_block
@@ -82,6 +84,8 @@ class Prediction:
     def group_event_by_transaction_hash(events: [], events_gte_timestamp):
         result = {}
         for event in events:
+            if not event:
+                raise Exception('empty event')
             if event['args']['reportTimestamp'] >= events_gte_timestamp:
                 result[event['transactionHash']] = event['args']
 
