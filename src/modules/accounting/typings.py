@@ -66,3 +66,11 @@ class OracleReportLimits:
     max_positive_token_rebase: int
     max_validator_exit_requests_per_report: int
     max_accounting_extra_data_list_items_count: int
+
+
+@dataclass
+class LidoReportRebase:
+    post_total_pooled_ether: int
+    post_total_shares: int
+    withdrawals: int
+    el_reward: int

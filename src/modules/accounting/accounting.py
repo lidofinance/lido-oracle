@@ -5,7 +5,7 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, ProcessingState
+from src.modules.accounting.typings import ReportData, ProcessingState, LidoReportRebase
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -13,6 +13,7 @@ from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
+
 
 logger = logging.getLogger(__name__)
 
@@ -137,24 +138,28 @@ class Accounting(BaseModule, ConsensusModule):
         return 0
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
-        # handleOracleReport
+        simulation = self.get_rebase_after_report(blockstamp)
+        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 / simulation.post_total_shares)
+
+    @lru_cache(maxsize=1)
+    def get_rebase_after_report(self, blockstamp: BlockStamp):
+        chain_conf = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
+
         last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash,
         )
 
         if not last_ref_slot:
-            # Report wasn't done yet, do not finalize requests
-            return 0
-
-        chain_conf = self._get_chain_config(blockstamp)
-
-        slots_elapsed = blockstamp.ref_slot - last_ref_slot
+            slots_elapsed = frame_config.epochs_per_frame * chain_conf.slots_per_epoch
+        else:
+            slots_elapsed = blockstamp.ref_slot - last_ref_slot
 
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
         timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
-        pooled_eth, total_shares, _, _ = self.w3.lido_contracts.lido.functions.handleOracleReport(
+        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
             timestamp,  # _reportTimestamp
             slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
@@ -164,7 +169,8 @@ class Accounting(BaseModule, ConsensusModule):
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         ).call({'from': self.w3.lido_contracts.accounting_oracle.address})
-        return int(pooled_eth * SHARE_RATE_PRECISION_E27 / total_shares)
+
+        return LidoReportRebase(*result)
 
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
         frame_config = self._get_frame_config(blockstamp)
