@@ -180,7 +180,7 @@ class BunkerService:
         last_report_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             self.last_report_ref_slot,
-            EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
@@ -248,14 +248,14 @@ class BunkerService:
         nearest_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(nearest_slot),
-            EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         far_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(far_slot),
-            EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
