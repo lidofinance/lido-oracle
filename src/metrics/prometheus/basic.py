@@ -64,8 +64,8 @@ KEYS_API_REQUESTS = Counter(
 )
 
 TX_SEND = Counter(
-    f'tx_send',
-    f'Sent tx count.',
+    'tx_send',
+    'Sent tx count.',
     namespace=PROMETHEUS_PREFIX,
 )
 
