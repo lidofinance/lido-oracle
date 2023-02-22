@@ -102,7 +102,7 @@ class SafeBorder:
 
             if len(slashed_validators) > 0:
                 end_slot = mid_slot - 1
-                pubkeys = self.get_validators_pubkeysget_validators_pubkeys(slashed_validators)
+                pubkeys = get_validators_pubkeys(slashed_validators)
             else:
                 start_slot = mid_slot + 1
 
@@ -132,7 +132,7 @@ class SafeBorder:
         return [lv.validator for lv in self.w3.lido_validators.get_lido_validators(blockstamp.ref_slot)]
 
     def _get_archive_lido_validators_by_keys(self, ref_slot, pubkeys) -> list[Validator]:
-        return self.w3.cc.get_validators(ref_slot, tuple(pubkeys))
+        return self.w3.cc.get_validators(ref_slot, pubkeys)
 
     def _get_bunker_mode_start_timestamp(self, blockstamp: BlockStamp) -> int:
         return self.w3.lido_contracts.withdrawal_queue.functions.bunkerModeSinceTimestamp().call(block_identifier=blockstamp.block_hash)
