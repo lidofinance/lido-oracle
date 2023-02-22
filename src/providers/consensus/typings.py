@@ -12,6 +12,37 @@ class BlockRootResponse:
 
 
 @dataclass
+class BlockHeaderMessage:
+    slot: str
+    proposer_index: str
+    parent_root: str
+    state_root: StateRoot
+    body_root: str
+
+
+@dataclass
+class BlockHeader(Nested):
+    message: BlockHeaderMessage
+    signature: str
+
+
+@dataclass
+class BlockHeaderResponseData(Nested):
+    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+    root: BlockRoot
+    canonical: bool
+    header: BlockHeader
+
+
+@dataclass
+class BlockHeaderFullResponse(Nested):
+    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+    finalized: bool
+    execution_optimistic: bool
+    data: BlockHeaderResponseData
+
+
+@dataclass
 class BlockMessage:
     slot: str
     proposer_index: str

@@ -49,6 +49,7 @@ class BunkerService:
     simulated_rebase: LidoReportRebase
 
     last_report_ref_slot: SlotNumber = SlotNumber(0)
+    last_finalized_slot_number: SlotNumber = SlotNumber(0)
 
     all_validators: dict[str, Validator] = {}
     lido_keys: dict[str, LidoKey] = {}
@@ -64,10 +65,12 @@ class BunkerService:
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         simulated_rebase: LidoReportRebase,
+        last_finalized_slot_number: SlotNumber,
     ) -> bool:
         self.f_conf = frame_config
         self.c_conf = chain_config
         self.simulated_rebase = simulated_rebase
+        self.last_finalized_slot_number = last_finalized_slot_number
 
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
@@ -178,6 +181,7 @@ class BunkerService:
             self.w3.cc,
             self.last_report_ref_slot,
             EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         total_ref_effective_balance = self._calculate_total_active_effective_balance(
@@ -245,12 +249,14 @@ class BunkerService:
             self.w3.cc,
             SlotNumber(nearest_slot),
             EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         far_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(far_slot),
             EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         if nearest_blockstamp.block_number == far_blockstamp.block_number:

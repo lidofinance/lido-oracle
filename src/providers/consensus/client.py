@@ -3,7 +3,8 @@ from typing import Optional, Union
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ETH2_REQUESTS_DURATION, ETH2_REQUESTS
-from src.providers.consensus.typings import BlockRootResponse, BlockDetailsResponse, Validator
+from src.providers.consensus.typings import BlockRootResponse, BlockDetailsResponse, Validator, BlockHeaderFullResponse, \
+    BlockHeaderResponseData
 from src.providers.http_provider import HTTPProvider
 from src.typings import SlotNumber, StateRoot, BlockRoot
 from src.utils.dataclass import list_of_dataclasses
@@ -24,6 +25,7 @@ class ConsensusClient(HTTPProvider):
     PROMETHEUS_HISTOGRAM = ETH2_REQUESTS_DURATION
 
     API_GET_BLOCK_ROOT = 'eth/v1/beacon/blocks/{}/root'
+    API_GET_BLOCK_HEADER = '/eth/v1/beacon/headers/{}'
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
@@ -37,6 +39,20 @@ class ConsensusClient(HTTPProvider):
         """
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
         return BlockRootResponse(**data)
+
+    def get_block_header(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
+
+        No cache because this method is using to get finalized and head block, and they could not be cached by args.
+        """
+        data, rest_response = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
+        resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **rest_response)
+        if not resp.finalized:
+            raise Exception(f'Slot [{state_id}] is not finalized')
+        if not resp.data.canonical:
+            raise Exception(f'Slot [{state_id}] is not canonical')
+        return resp
 
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
