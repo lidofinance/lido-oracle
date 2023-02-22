@@ -3,8 +3,6 @@ from src.typings import BlockStamp
 from src.web3py.extentions.lido_validators import Validator
 from src.modules.submodules.consensus import ChainConfig
 
-DEFAULT_SHIFT = 8 # epochs ~50 min
-MAX_NEGATIVE_REBASE_SHIFT = 1536 # epochs ~6.8 days
 FAR_FUTURE_EPOCH = 2**64 - 1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13
@@ -19,6 +17,8 @@ class SafeBorder:
             return self._get_new_requests_border_epoch(blockstamp)
 
         self.chain_config = chain_config
+
+        self._retrieve_constants()
         
         negative_rebase_border_epoch = self._get_negative_rebase_border_epoch(blockstamp)
         associated_slashings_border_epoch = self._get_associated_slashings_border_epoch(blockstamp)
@@ -29,7 +29,7 @@ class SafeBorder:
         )
 
     def _get_new_requests_border_epoch(self, blockstamp: BlockStamp) -> int:
-        return self.get_epoch_by_slot(blockstamp.ref_slot) - DEFAULT_SHIFT
+        return self.get_epoch_by_slot(blockstamp.ref_slot) - self.finalization_default_shift
 
     def _get_negative_rebase_border_epoch(self, blockstamp: BlockStamp) -> int:  
         bunker_start_timestamp = self._get_bunker_mode_start_timestamp(blockstamp)
@@ -40,8 +40,8 @@ class SafeBorder:
         if bunker_start_slot > blockstamp.ref_slot:
             last_withdrawable_epoch = self.get_epoch_by_slot(self._get_last_successful_report_slot(blockstamp))
 
-        latest_allowable_epoch = last_withdrawable_epoch - DEFAULT_SHIFT
-        earliest_allowable_epoch = self.get_epoch_by_slot(blockstamp.ref_slot) - MAX_NEGATIVE_REBASE_SHIFT
+        latest_allowable_epoch = last_withdrawable_epoch - self.finalization_default_shift
+        earliest_allowable_epoch = self.get_epoch_by_slot(blockstamp.ref_slot) - self.finalization_max_negative_rebase_shift
 
         return max(earliest_allowable_epoch, latest_allowable_epoch)
 
@@ -49,9 +49,9 @@ class SafeBorder:
         earliest_slashed_epoch = self._get_earliest_slashed_epoch_among_incomplete_slashings(blockstamp)
 
         if earliest_slashed_epoch is None:
-            return self.get_epoch_by_slot(blockstamp.ref_slot) - DEFAULT_SHIFT
+            return self.get_epoch_by_slot(blockstamp.ref_slot) - self.finalization_default_shift
         
-        return earliest_slashed_epoch - DEFAULT_SHIFT
+        return earliest_slashed_epoch - self.finalization_default_shift
 
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self, blockstamp: BlockStamp) -> int:
         validators = self._get_lido_validators(blockstamp)
@@ -145,6 +145,14 @@ class SafeBorder:
 
     def _get_last_successful_report_slot(self, blockstamp: BlockStamp) -> int:
         return self.w3.lido_contracts.report_contract.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
+
+    def _retrieve_constants(self, blockstamp: BlockStamp):
+        self.finalization_default_shift = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+             'FINALIZATION_DEFAULT_SHIFT'
+        ).call(block_identifier=blockstamp.block_hash)
+        self.finalization_max_negative_rebase_shift = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+             'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
+        ).call(block_identifier=blockstamp.block_hash)
 
     def get_epoch_first_slot(self, epoch: int) -> int:
         return epoch * self.chain_config.slots_per_epoch

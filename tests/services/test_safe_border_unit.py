@@ -22,6 +22,9 @@ def chain_config():
 def subject(web3, chain_config, contracts, keys_api_client, consensus_client):
     safe_border = SafeBorder(web3)
     safe_border.chain_config = chain_config
+    safe_border._retrieve_constants = Mock()
+    safe_border.finalization_default_shift = NEW_REQUESTS_BORDER
+    safe_border.finalization_max_negative_rebase_shift = MAX_NEGATIVE_REBASE_BORDER
     return safe_border
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
