@@ -2,11 +2,11 @@ import pytest
 from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.modules.accounting.typings import OracleReportLimits
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.providers.keys.typings import LidoKey
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
 from src.web3py.extentions.lido_validators import NodeOperatorIndex, LidoValidator
+
 
 pytestmark = pytest.mark.unit
 
@@ -24,20 +24,23 @@ def validator():
             depositSignature=HexBytes(b""),
             operatorIndex=-1,
             used=True,
-            moduleAddress=Address(b"")),
-        validator=Validator(index="0",
-                            balance="0",
-                            status=ValidatorStatus.ACTIVE_ONGOING,
-                            validator=ValidatorState(pubkey="0x1",
-                                                     withdrawal_credentials="0x1",
-                                                     effective_balance="0",
-                                                     slashed=False,
-                                                     activation_eligibility_epoch="0",
-                                                     activation_epoch="0",
-                                                     exit_epoch="0",
-                                                     withdrawable_epoch="0",
-                                                     ))
-
+            moduleAddress=Address(b""),
+        ),
+        validator=Validator(
+            index="0",
+            balance="0",
+            status=ValidatorStatus.ACTIVE_ONGOING,
+            validator=ValidatorState(
+                pubkey="0x1",
+                withdrawal_credentials="0x1",
+                effective_balance="0",
+                slashed=False,
+                activation_eligibility_epoch="0",
+                activation_epoch="0",
+                exit_epoch="0",
+                withdrawable_epoch="0",
+            ),
+        ),
     )
 
 
