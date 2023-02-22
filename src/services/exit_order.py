@@ -109,7 +109,7 @@ class ValidatorsExit:
             # positive mean asc sorting
             # negative mean desc sorting
             self._operator_delayed_validators(operator_stats),
-            -self._operator_targeted_validators(operator_stats),
+            -self._operator_targeted_validators_to_exit(operator_stats),
             -self._operator_stake_weight(operator_stats, self.total_predictable_validators_count),
             -self._operator_predictable_validators(operator_stats),
             self._validator_activation_epoch(validator),
@@ -121,7 +121,7 @@ class ValidatorsExit:
         return operator_state.delayed_validators
 
     @staticmethod
-    def _operator_targeted_validators(operator_state: NodeOperatorPredictableState) -> int:
+    def _operator_targeted_validators_to_exit(operator_state: NodeOperatorPredictableState) -> int:
         if operator_state.targeted_validators is None:
             return 0
         return operator_state.predictable_validators_count - operator_state.targeted_validators
@@ -129,9 +129,9 @@ class ValidatorsExit:
     @staticmethod
     def _operator_stake_weight(
         operator_state: NodeOperatorPredictableState,
-        total_active_validators_count: int,
+        total_predictable_validators_count: int,
     ) -> int:
-        stake_volume = 100 * operator_state.predictable_validators_count / total_active_validators_count
+        stake_volume = 100 * operator_state.predictable_validators_count / total_predictable_validators_count
         stake_volume_weight = operator_state.predictable_validators_total_age if stake_volume > 1 else 0
         return stake_volume_weight
 
