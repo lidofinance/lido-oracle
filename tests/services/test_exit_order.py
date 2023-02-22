@@ -1,14 +1,19 @@
+from unittest.mock import Mock
+
 import pytest
 
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorsExit, NodeOperatorPredictableState
-from src.typings import BlockStamp
-from src.web3py.extentions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator, \
-    StakingModule
+from src.typings import BlockStamp, SlotNumber
+from src.web3py.extentions.lido_validators import (
+    LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
+    StakingModule,
+)
 
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
+TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
 
 
 @pytest.fixture()
@@ -25,138 +30,105 @@ def past_blockstamp():
     )
 
 
-@pytest.fixture(
-    params=[
-        # module, operator ids, returned indexes
-        {
-            (0, (0, 1)): [-1, 100500],
-            (1, (1,)): [-1],
-        },
-    ],
-    ids=['last_requested_validator_indices_default']
-)
-def last_requested_validator_indices_mocks_map(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=[
-        # from_bloc, to_block, returned events
-        {(3, 13): [
-            {'args': (0, 0, 2, '', 48)},
-            {'args': (0, 0, 3, '', 60)},
-            {'args': (0, 0, 4, '', 84)},
-            {'args': (0, 0, 5, '', 120)},
-            {'args': (0, 0, 6, '', 144)},
-            {'args': (0, 1, 7, '', 168)},
-            {'args': (1, 1, 8, '', 216)},
-            {'args': (0, 0, 10, '', 276)}
-        ]}
-    ],
-    ids=['validator_exit_request_events_default']
-)
-def validator_exit_request_mock(request):
-    return request.param
-
-
 @pytest.fixture
 def validator_exit(
-    web3,
-    contracts,
-    lido_validators,
-    past_blockstamp,
-    last_requested_validator_indices_mocks_map,
-    validator_exit_request_mock,
+        web3,
+        contracts,
+        lido_validators,
+        past_blockstamp,
 ) -> ValidatorsExit:
-    """Returns minimal initialized ValidatorsExit service instance with mocked methods"""
+    """Returns minimal initialized ValidatorsExit service instance"""
     service = object.__new__(ValidatorsExit)
     service.w3 = web3
     service.blockstamp = past_blockstamp
     service.c_conf = ChainConfig(32, 12, 0)
-    service.validator_delayed_timeout_in_slots = 3600
     service.left_queue_count = 0
-    service.validator_delayed_timeout_in_slots = 10
-
-    def mock_last_requested_validator_indices(module, operator_indexes):
-        _func = lambda _: _
-        _func.call = lambda *args, **kwargs: last_requested_validator_indices_mocks_map[(module, tuple(operator_indexes))]
-        return _func
-
-    service.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices = (
-        mock_last_requested_validator_indices
-    )
-
-    service.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs = (
-        lambda fromBlock, toBlock: (
-            validator_exit_request_mock[(fromBlock, toBlock)]
-        )
-    )
+    service.validator_delayed_timeout_in_slots = TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS
     return service
 
 
-# -- With mocks --
+def simple_blockstamp(slot_number, block_number, ref_slot):
+    return BlockStamp(
+        block_root='',
+        state_root='',
+        slot_number=slot_number,
+        block_hash='',
+        block_number=block_number,
+        block_timestamp=0,
+        ref_slot=ref_slot,
+        ref_epoch=0
+    )
+
+
+@pytest.fixture
+def mock_validator_exit_events(validator_exit):
+    def exit_event(module_id, operator_id, validator_index, timestamp):
+        return {'args': (module_id, operator_id, validator_index, '', timestamp)}
+
+    def exit_events(from_block, to_block):
+        # We do not expect other input values in tests
+        assert (from_block, to_block) == (3, 13)
+        return [
+            exit_event(0, 0, 1, SlotNumber(3) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 2, SlotNumber(4) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 3, SlotNumber(5) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 4, SlotNumber(7) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 5, SlotNumber(10) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 6, SlotNumber(12) * seconds_per_slot + genesis_time),
+            exit_event(0, 1, 7, SlotNumber(14) * seconds_per_slot + genesis_time),
+            exit_event(1, 1, 8, SlotNumber(18) * seconds_per_slot + genesis_time),
+            exit_event(0, 0, 10, SlotNumber(23) * seconds_per_slot + genesis_time),
+        ]
+
+    seconds_per_slot = validator_exit.c_conf.seconds_per_slot
+    genesis_time = validator_exit.c_conf.genesis_time
+    validator_exit._get_validator_exit_events = Mock(side_effect=exit_events)
+
+
+@pytest.fixture
+def mock_last_requested_validator_index(validator_exit):
+    def validator_index(_, module_id, operator_ids):
+        return {
+            (0, (0, 1)): [-1, 100500],
+            (1, (1,)): [-1],
+        }[(module_id, tuple(operator_ids))]
+
+    validator_exit._get_last_requested_validator_index = Mock(side_effect=validator_index)
+
+
+class TestRequestedToExitIndices:
+
+    @pytest.mark.unit
+    def test_get_recently_requested_to_exit_indices(self, validator_exit, mock_validator_exit_events):
+        blockstamp = simple_blockstamp(slot_number=18, block_number=13, ref_slot=22)
+        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
+                            (StakingModuleId(0), NodeOperatorId(1)),
+                            (StakingModuleId(1), NodeOperatorId(1))]
+        result = validator_exit._get_recently_requested_to_exit_indices(blockstamp, operator_indexes)
+        assert result == {
+            (StakingModuleId(0), NodeOperatorId(0)): {SlotNumber(10)},
+            (StakingModuleId(0), NodeOperatorId(1)): {SlotNumber(7)},
+            (StakingModuleId(1), NodeOperatorId(1)): {SlotNumber(8)},
+        }
+
+    @pytest.mark.unit
+    def test_get_last_requested_to_exit_indices(self,
+                                                validator_exit, mock_last_requested_validator_index
+                                                ):
+        blockstamp = simple_blockstamp(slot_number=18, block_number=13, ref_slot=22)
+        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
+                            (StakingModuleId(0), NodeOperatorId(1)),
+                            (StakingModuleId(1), NodeOperatorId(1))]
+        result = validator_exit._get_last_requested_to_exit_indices(blockstamp, operator_indexes)
+        assert result == {(StakingModuleId(0), NodeOperatorId(0)): -1,
+                          (StakingModuleId(0), NodeOperatorId(1)): 100500,
+                          (StakingModuleId(1), NodeOperatorId(1)): -1}
 
 
 @pytest.mark.unit
-def test_get_last_requested_validator_index(validator_exit, past_blockstamp):
-    """Check that wrapper work as expected and return mocked values"""
-    assert validator_exit._get_last_requested_validator_index(past_blockstamp, 0, [0, 1]) == [-1, 100500]
-
-
-@pytest.mark.unit
-def test_get_validator_exit_events(validator_exit):
-    """Check that wrapper work as expected and return mocked values"""
-    assert validator_exit._get_validator_exit_events(3, 13) == [
-        {'args': (0, 0, 2, '', 48)},
-        {'args': (0, 0, 3, '', 60)},
-        {'args': (0, 0, 4, '', 84)},
-        {'args': (0, 0, 5, '', 120)},
-        {'args': (0, 0, 6, '', 144)},
-        {'args': (0, 1, 7, '', 168)},
-        {'args': (1, 1, 8, '', 216)},
-        {'args': (0, 0, 10, '', 276)}
-    ]
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    'blockstamp, operator_indexes, expected_value',
-    [
-        (
-            BlockStamp('', '', 18, '', 13, 0, 22, 0),
-            [(0, 0), (0, 1), (1, 1)],
-            {(0, 0): {10}, (0, 1): {7}, (1, 1): {8}}
-        )
-    ],
-)
-def test_get_recently_requested_to_exit_indices(
-    validator_exit, blockstamp, operator_indexes, expected_value
-):
-    result = validator_exit._get_recently_requested_to_exit_indices(blockstamp, operator_indexes)
-    assert result == expected_value
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    'blockstamp, operator_indexes, expected_value',
-    [
-        (
-            BlockStamp('', '', 18, '', 13, 0, 22, 0),
-            [(0, 0), (0, 1), (1, 1)],
-            {(0, 0): -1, (0, 1): 100500, (1, 1): -1}
-        )
-    ],
-)
-def test_get_last_requested_to_exit_indices(
-    validator_exit, blockstamp, operator_indexes, expected_value
-):
-    result = validator_exit._get_last_requested_to_exit_indices(blockstamp, operator_indexes)
-    assert result == expected_value
-
-
-@pytest.mark.unit
-def test_prepare_lido_node_operator_stats(validator_exit):
-
+def test_prepare_lido_node_operator_stats(validator_exit,
+                                          mock_validator_exit_events,
+                                          mock_last_requested_validator_index):
     def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.key = object.__new__(LidoKey)
@@ -170,13 +142,13 @@ def test_prepare_lido_node_operator_stats(validator_exit):
         return validator
 
     def n(
-        index,
-        is_limited,
-        target_count,
-        refunded_count,
-        total_deposited,
-        module_id,
-        module_address
+            index,
+            is_limited,
+            target_count,
+            refunded_count,
+            total_deposited,
+            module_id,
+            module_address
     ):
         operator = object.__new__(NodeOperator)
         operator.staking_module = object.__new__(StakingModule)
@@ -200,9 +172,8 @@ def test_prepare_lido_node_operator_stats(validator_exit):
         (0, 1): [v('0x0', 1, 90, 1500, FAR_FUTURE_EPOCH)],
         (1, 1): [v('0x1', 1, 50, 1000, 0)],
     }
-    validator_exit.blockstamp = BlockStamp('', '', 18, '', 13, 0, 22, 0)
     result = validator_exit._prepare_lido_node_operator_stats(
-        BlockStamp('', '', 18, '', 13, 0, 22, 0),
+        simple_blockstamp(slot_number=18, block_number=13, ref_slot=22),
         operators,
         operator_validators,
     )
@@ -236,7 +207,6 @@ def test_prepare_lido_node_operator_stats(validator_exit):
 
 @pytest.mark.unit
 def test_predicates():
-
     def v(module_address, operator, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.key = object.__new__(LidoKey)
@@ -295,8 +265,7 @@ def test_predicates():
 
 
 @pytest.mark.unit
-def test_decrease_node_operator_stats(past_blockstamp):
-
+def test_decrease_node_operator_stats(validator_exit):
     def v(module_address, operator, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.key = object.__new__(LidoKey)
@@ -313,9 +282,7 @@ def test_decrease_node_operator_stats(past_blockstamp):
         v('0x4', 2, 1121, 5000),
     ]
 
-    validator_exit = object.__new__(ValidatorsExit)
     validator_exit.total_predictable_validators_count = 500000
-    validator_exit.blockstamp = past_blockstamp
     validator_exit.staking_module_id = {
         '0x0': StakingModuleId(0),
         '0x1': StakingModuleId(1),
@@ -342,20 +309,21 @@ def test_decrease_node_operator_stats(past_blockstamp):
     expected_after_decrease_first = NodeOperatorPredictableState(0, 5999, 2, 0)
     assert validator_exit.total_predictable_validators_count == 499999
     assert (
-        validator_exit.lido_node_operator_stats[(StakingModuleId(1), NodeOperatorId(2))] == expected_after_decrease_first
+            validator_exit.lido_node_operator_stats[
+                (StakingModuleId(1), NodeOperatorId(2))] == expected_after_decrease_first
     )
 
     validator_exit._decrease_node_operator_stats(exitable_validators[1])
     expected_after_decrease_second = NodeOperatorPredictableState(100500, 1, None, 2)
     assert validator_exit.total_predictable_validators_count == 499998
     assert (
-        validator_exit.lido_node_operator_stats[(StakingModuleId(4), NodeOperatorId(2))] == expected_after_decrease_second
+            validator_exit.lido_node_operator_stats[
+                (StakingModuleId(4), NodeOperatorId(2))] == expected_after_decrease_second
     )
 
 
-
 @pytest.mark.unit
-def test_get_delayed_validators_per_operator():
+def test_get_delayed_validators_count_per_operator():
     def v(index, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.validator = object.__new__(Validator)
@@ -395,7 +363,7 @@ def test_get_delayed_validators_per_operator():
         (StakingModuleId(3), NodeOperatorId(2)): {},
     }
 
-    delayed = ValidatorsExit._get_delayed_validators_per_operator(
+    delayed = ValidatorsExit._get_delayed_validators_count_per_operator(
         object.__new__(ValidatorsExit),
         operator_validators,
         recently_requested_to_exit_indices_per_operator,

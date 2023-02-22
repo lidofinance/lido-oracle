@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable
+from typing import Iterable
 
 from eth_typing import Address
 from web3.types import EventData
@@ -48,17 +48,16 @@ class ValidatorsExit:
         self.w3 = w3
         self.blockstamp = blockstamp
         self.c_conf = c_conf
-        self.validator_delayed_timeout_in_slots = Web3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash)
-        )
-
         self.exitable_lido_validators = exitable_lido_validators
         self.max_validators_to_exit = max_validators_to_exit
         self.left_queue_count = 0
 
         # -- State init part --
 
+        self.validator_delayed_timeout_in_slots = Web3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
+                block_identifier=blockstamp.block_hash)
+        )
         operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
@@ -162,21 +161,19 @@ class ValidatorsExit:
         # We don't consider validator as delayed if it was requested to exit
         # in last VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS slots
         recently_requested_to_exit_indices_per_operator = self._get_recently_requested_to_exit_indices(
-            blockstamp, list(operator_validators.keys())
+            blockstamp, operator_validators.keys()
         )
         last_requested_to_exit_indices_per_operator = self._get_last_requested_to_exit_indices(
-            blockstamp, list(operator_validators.keys())
+            blockstamp, operator_validators.keys()
         )
 
-        delayed_validators_per_operator = self._get_delayed_validators_per_operator(
+        delayed_validators_count = self._get_delayed_validators_count_per_operator(
             operator_validators,
             recently_requested_to_exit_indices_per_operator,
             last_requested_to_exit_indices_per_operator,
         )
 
-        operator_predictable_states: dict[NodeOperatorIndex, NodeOperatorPredictableState] = defaultdict(
-            NodeOperatorPredictableState
-        )
+        operator_predictable_states: dict[NodeOperatorIndex, NodeOperatorPredictableState] = {}
         for operator in operators:
             module_operator = (operator.staking_module.id, operator.id)
 
@@ -186,11 +183,11 @@ class ValidatorsExit:
                 predictable_validators_count=operator.total_deposited_validators,
                 targeted_validators=operator.target_validators_count if operator.is_target_limit_active else None,
                 delayed_validators=max(
-                    0, delayed_validators_per_operator[module_operator] - operator.refunded_validators_count
+                    0, delayed_validators_count[module_operator] - operator.refunded_validators_count
                 ),
             )
 
-            for validator in operator_validators[(operator.staking_module.id, operator.id)]:
+            for validator in operator_validators[module_operator]:
                 on_exit = self._is_on_exit(validator.validator)
                 previously_requested_to_exit = (
                     int(validator.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
@@ -206,7 +203,7 @@ class ValidatorsExit:
         return operator_predictable_states
 
     def _get_last_requested_to_exit_indices(
-        self, blockstamp: BlockStamp, operator_indexes: list[NodeOperatorIndex],
+        self, blockstamp: BlockStamp, operator_indexes: Iterable[NodeOperatorIndex],
     ) -> dict[NodeOperatorIndex, int]:
         """
         Get last requested to exit validator index for each operator
@@ -222,7 +219,7 @@ class ValidatorsExit:
                 last_requested_to_exit_indexes[(module_id, operator_id)] = per_operator_indexes[array_index]
         return last_requested_to_exit_indexes
 
-    def _get_delayed_validators_per_operator(
+    def _get_delayed_validators_count_per_operator(
         self,
         operator_validators: dict[NodeOperatorIndex, list[LidoValidator]],
         recently_requested_to_exit_indices_per_operator: dict[NodeOperatorIndex, set[int]],
@@ -232,7 +229,7 @@ class ValidatorsExit:
         Get delayed validators count for each operator
         """
 
-        delayed_validators_per_operator = defaultdict(int)
+        delayed_validators_count = defaultdict(int)
 
         for module_operator, validators in operator_validators.items():
             recently_requested_to_exit_indices = recently_requested_to_exit_indices_per_operator[module_operator]
@@ -243,20 +240,20 @@ class ValidatorsExit:
                 on_exit = self._is_on_exit(validator.validator)
                 recently_requested_to_exit = int(validator.validator.index) in recently_requested_to_exit_indices
                 if previously_requested_to_exit and not on_exit and not recently_requested_to_exit:
-                    delayed_validators_per_operator[module_operator] += 1
+                    delayed_validators_count[module_operator] += 1
 
-        return delayed_validators_per_operator
+        return delayed_validators_count
 
     def _get_recently_requested_to_exit_indices(
         self,
         blockstamp: BlockStamp,
-        operator_indexes: list[NodeOperatorIndex],
+        operator_indexes: Iterable[NodeOperatorIndex],
     ) -> dict[NodeOperatorIndex, set[int]]:
         """
         Returns recently requested to exit validators indices per operator
 
         We should get events between two time points - `ref_slot timestamp` and
-        `ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS timesamp`
+        `ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS timestamp`
         But we can't get events by time, so we should get events between two exited blocks and filter them by timestamp
         """
         #
