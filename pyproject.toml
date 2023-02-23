@@ -56,12 +56,9 @@ disable = [
     "too-many-locals",
     "unspecified-encoding",
     "bare-except",
-    "no-else-continue",
-    "broad-exception-raised",
     "fixme",
     "cell-var-from-loop",
     "invalid-envvar-default",
     "global-statement",
     "redefined-outer-name",
-    "no-else-return",
 ]
