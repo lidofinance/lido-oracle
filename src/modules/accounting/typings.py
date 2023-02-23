@@ -67,7 +67,7 @@ class OracleReportLimits:
     max_accounting_extra_data_list_items_count: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class LidoReportRebase:
     post_total_pooled_ether: int
     post_total_shares: int

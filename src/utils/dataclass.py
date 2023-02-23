@@ -1,7 +1,7 @@
 import functools
 from dataclasses import dataclass, is_dataclass, fields
 from types import GenericAlias
-from typing import Callable, ParamSpec
+from typing import Callable
 
 
 @dataclass

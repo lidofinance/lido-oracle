@@ -142,7 +142,7 @@ class Accounting(BaseModule, ConsensusModule):
         return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 / simulation.post_total_shares)
 
     @lru_cache(maxsize=1)
-    def get_rebase_after_report(self, blockstamp: BlockStamp):
+    def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
         chain_conf = self._get_chain_config(blockstamp)
         frame_config = self._get_frame_config(blockstamp)
 
@@ -175,7 +175,8 @@ class Accounting(BaseModule, ConsensusModule):
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
         frame_config = self._get_frame_config(blockstamp)
         chain_config = self._get_chain_config(blockstamp)
+        rebase_report = self.get_rebase_after_report(blockstamp)
 
-        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp, frame_config, chain_config)
+        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp, frame_config, chain_config, rebase_report)
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode
