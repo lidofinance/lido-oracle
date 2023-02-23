@@ -22,9 +22,44 @@ def get_first_non_missed_slot(
     ref_epoch: Optional[EpochNumber] = None,
 ) -> BlockStamp:
     """
-        Get past closest non-missed slot and generates blockstamp for it.
-        Raise NoSlotsAvailable if all slots are missed in max_deep range.
+    Get past closest non-missed (or existed on ref_slot) slot and generates blockstamp for it.
+
+    Raise NoSlotsAvailable if all slots are missed in range [ref_slot, last_finalized_slot_number]
+    and we have nowhere to take parent root.
     """
+    #
+    #
+    #  [ ] - slot
+    #  [x] - slot with existed block
+    #  [o] - slot with missed block
+    #
+    #  last_finalized = 24
+    #  ref_slot = 19
+    #
+    #                ref_slot           last_finalized
+    #                   |                   |
+    #                   v                   v
+    #   ---[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
+    #      16  17  18  19  20  21  22  23  24       slot
+    #       -  12  13   -   -   -   -  14  15       block
+    #
+    #  We have range [19, 24] and we need to find first non-missed slot.
+    #
+    #  Let's dive into the range circle and consider it in each tick:
+    #    1st tick - 19 slot is missed. Check next slot.
+    #    2nd tick - 20 slot is missed. Check next slot.
+    #    3rd tick - 21 slot is missed. Check next slot.
+    #    4th tick - 22 slot is missed. Check next slot.
+    #    5th tick - 23 slot is existed!
+    #               Get `parent_root` of 23 slot and get its parent slot by this root
+    #               In our case it is 18 slot because it's first non-missed slot before 23 slot.
+    #
+    #  So, in this strategy we always get parent slot of existed slot and can get the nearest slot for `ref_slot`
+    #
+    #  Exception case can be when all slots are missed in range [ref_slot, last_finalized_slot_number] it will mean that
+    #  block response of CL node contradicts itself, because few moments ago we got existed `last_finalized_slot_number`
+    #
+    #
     if ref_slot > last_finalized_slot_number:
         raise ValueError('ref_slot should be less or equal to last finalized slot_number ')
 

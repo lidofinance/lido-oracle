@@ -48,7 +48,7 @@ class ConsensusClient(HTTPProvider):
         """
         data, rest_response = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
         resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **rest_response)
-        if not resp.finalized:
+        if hasattr(resp, 'finalized') and not resp.finalized:
             raise Exception(f'Slot [{state_id}] is not finalized')
         if not resp.data.canonical:
             raise Exception(f'Slot [{state_id}] is not canonical')
