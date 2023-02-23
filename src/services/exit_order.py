@@ -124,7 +124,7 @@ class ValidatorToExitIterator:
     def _operator_targeted_validators_to_exit(operator_state: NodeOperatorPredictableState) -> int:
         if operator_state.targeted_validators is None:
             return 0
-        return operator_state.predictable_validators_count - operator_state.targeted_validators
+        return max(0, operator_state.predictable_validators_count - operator_state.targeted_validators)
 
     @staticmethod
     def _operator_stake_weight(
