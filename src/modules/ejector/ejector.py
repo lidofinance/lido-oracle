@@ -33,7 +33,8 @@ class Ejector(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
-        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        # not implemented
+        # lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
         return (
             self.CONSENSUS_VERSION,

@@ -63,5 +63,5 @@ class LidoContracts(Module):
 
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):
-        f = open(f'{abi_path}{abi_name}.json')
-        return json.load(f)
+        with open(f'{abi_path}{abi_name}.json') as f:
+            return json.load(f)

@@ -139,7 +139,7 @@ class LidoValidatorStateService:
 
         result = {}
 
-        for index, validators in lido_validators.items():
+        for index in lido_validators.keys():
             result[index] = reduce(lambda total, validator: total + exit_filter(validator), lido_validators[index], 0)
 
         return result
