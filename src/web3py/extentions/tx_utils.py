@@ -4,7 +4,7 @@ from typing import Optional
 from eth_account.signers.local import LocalAccount
 from web3.exceptions import ContractLogicError
 from web3.module import Module
-from web3.types import TxParams
+from web3.types import TxParams, TxReceipt
 
 from src.metrics.prometheus.basic import TX_SEND, TX_FAILURE
 
@@ -36,10 +36,10 @@ class TransactionUtils(Module):
         transaction: TxParams,
         gas_limit: int,
         account: Optional[LocalAccount] = None,
-    ):
+    ) -> Optional[TxReceipt]:
         if not account:
             logger.info({"msg": "No account provided. Dry mode."})
-            return
+            return None
 
         pending_block = self.w3.eth.get_block("pending")
 

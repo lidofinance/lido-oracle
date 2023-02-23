@@ -148,23 +148,23 @@ class ConsensusModule(ABC):
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
-            return
+            return None
 
         # Check if current slot is higher than member slot
         if latest_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
-            return
+            return None
 
         # Check if current slot is higher than member slot + slots_delay
         if not member_info.is_fast_lane:
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
-                return
+                return None
 
         # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number >= member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
-            return
+            return None
 
         chain_config = self._get_chain_config(last_finalized_blockstamp)
         bs = get_first_non_missed_slot(
