@@ -15,6 +15,7 @@ class Prediction:
                               blockstamp: BlockStamp,
                               percentile_el_rewards_bp,
                               percentile_cl_rewards_bp,
+                              genesis_time: int,
                               duration_in_slots: int,
                               slots_per_epoch: int = 32,
                               seconds_per_slot: int = 12,
@@ -27,10 +28,11 @@ class Prediction:
             duration_in_slots=duration_in_slots,
         )
 
-        left_block_timestamp = blockstamp['block_timestamp'] - duration_in_slots * seconds_per_slot
+        timeout_border = max(0, blockstamp['ref_slot'] - duration_in_slots)
+        left_border_timestamp = timeout_border * seconds_per_slot + genesis_time
 
-        ETHDistributed_events = self.get_ETHDistributed_events(optimistic_from_block, to_block, left_block_timestamp)
-        TokenRebased_events = self.get_TokenRebased_events(optimistic_from_block, to_block, left_block_timestamp)
+        ETHDistributed_events = self.get_ETHDistributed_events(optimistic_from_block, to_block, left_border_timestamp)
+        TokenRebased_events = self.get_TokenRebased_events(optimistic_from_block, to_block, left_border_timestamp)
 
         trx_hashes = ETHDistributed_events.keys()
         if not trx_hashes:

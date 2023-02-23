@@ -25,3 +25,4 @@ class BlockStamp(TypedDict):
     block_hash: BlockHash
     block_number: BlockNumber
     block_timestamp: Timestamp
+    ref_slot: int

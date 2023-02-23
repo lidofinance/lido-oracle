@@ -293,11 +293,14 @@ def test_get_optimistic_block_interval(token_rebased_logs):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot, percentile_el_rewards_bp, percentile_cl_rewards_bp, expected",
+    "genesis_time, blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot, percentile_el_rewards_bp, percentile_cl_rewards_bp, expected",
     [
         (
+                1606824000,
                 BlockStamp(block_number=SlotNumber(14),
-                           block_timestamp=1675441520),
+                           block_timestamp=1675441520,
+                           ref_slot=100000,
+                           ),
                 13,
                 32,
                 12,
@@ -306,17 +309,20 @@ def test_get_optimistic_block_interval(token_rebased_logs):
                 Wei(492799999999999999488)
         ),
         (
+                1606824000,
                 BlockStamp(block_number=SlotNumber(14),
-                           block_timestamp=1675441520),
+                           block_timestamp=1675441520,
+                           ref_slot=5718128,
+                           ),
                 11,
                 32,
                 12,
                 5000,
                 5000,
-                Wei(528000000000000000000)
+                Wei(598399999999999999488)
         ),
     ])
-def test_get_rewards_per_epoch(blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot,
+def test_get_rewards_per_epoch(genesis_time, blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot,
                                percentile_el_rewards_bp, percentile_cl_rewards_bp,
                                eth_distributed_logs, token_rebased_logs,
                                expected):
@@ -326,6 +332,7 @@ def test_get_rewards_per_epoch(blockstamp, duration_in_slots, slots_per_epoch, s
 
     p = Prediction(lido_contract)
     got = p.get_rewards_per_epoch(
+        genesis_time=genesis_time,
         blockstamp=blockstamp,
         duration_in_slots=duration_in_slots,
         slots_per_epoch=slots_per_epoch,
