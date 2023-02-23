@@ -118,7 +118,7 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         count = len(lido_validators)
-        balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
+        balance = Gwei(sum(int(validator.validator.balance) for validator in lido_validators))
         return count, balance
 
     def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:

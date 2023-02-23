@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Tuple, TYPE_CHECKING, NewType
 
