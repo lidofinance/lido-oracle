@@ -30,8 +30,7 @@ class ValidatorToExitIterator:
     2. Validator whose operator with the highest number of targeted validators to exit
     3. Validator whose operator with the highest stake weight
     4. Validator whose operator with the highest number of validators
-    5. Validator with the lowest activation epoch
-    6. Validator with the lowest index
+    5. Validator with the lowest index
     """
     staking_module_id: dict[Address, StakingModuleId]
     lido_node_operator_stats: dict[NodeOperatorIndex, NodeOperatorPredictableState]
@@ -112,7 +111,6 @@ class ValidatorToExitIterator:
             -self._operator_targeted_validators_to_exit(operator_stats),
             -self._operator_stake_weight(operator_stats, self.total_predictable_validators_count),
             -self._operator_predictable_validators(operator_stats),
-            self._validator_activation_epoch(validator),
             self._validator_index(validator),
         )
 
@@ -138,10 +136,6 @@ class ValidatorToExitIterator:
     @staticmethod
     def _operator_predictable_validators(operator_state: NodeOperatorPredictableState) -> int:
         return operator_state.predictable_validators_count
-
-    @staticmethod
-    def _validator_activation_epoch(validator: LidoValidator) -> int:
-        return int(validator.validator.validator.activation_epoch)
 
     @staticmethod
     def _validator_index(validator: LidoValidator) -> int:
