@@ -53,7 +53,7 @@ class TransactionUtils(Module):
             }
         )
 
-        signed_tx = self.w3.eth.account.sign_transaction(tx, account._private_key)
+        signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
 
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         TX_SEND.inc()
