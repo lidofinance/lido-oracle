@@ -124,12 +124,14 @@ class Accounting(BaseModule, ConsensusModule):
         balance = Gwei(sum(int(validator.validator.balance) for validator in lido_validators))
         return count, balance
 
+    @lru_cache(maxsize=1)
     def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(),
             block_identifier=blockstamp.block_hash,
         ))
 
+    @lru_cache(maxsize=1)
     def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.w3.lido_contracts.lido_locator.functions.elRewardsVault().call(),
@@ -141,15 +143,20 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_vault_balance = self._get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self._get_el_vault_balance(blockstamp)
         finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
+        chain_config = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
 
         return self.withdrawal_service.get_next_last_finalizable_id(
             is_bunker, 
             finalization_share_rate, 
             withdrawal_vault_balance, 
             el_rewards_vault_balance, 
-            blockstamp
+            blockstamp,
+            chain_config,
+            frame_config
         )
 
+    @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
         # handleOracleReport
         last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(

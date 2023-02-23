@@ -1,7 +1,7 @@
 from src.web3py.typings import Web3
 from src.typings import BlockStamp
 from src.services.safe_border import SafeBorder
-from src.modules.submodules.consensus import ChainConfig
+from src.modules.submodules.consensus import ChainConfig, FrameConfig
 
 class Withdrawal:
     def __init__(self, w3: Web3) -> None:
@@ -15,14 +15,15 @@ class Withdrawal:
         withdrawal_vault_balance: int, 
         el_rewards_vault_balance: int, 
         blockstamp: BlockStamp, 
-        chain_config: ChainConfig
+        chain_config: ChainConfig,
+        frame_config: FrameConfig
     ) -> int:
         if not self._has_unfinalized_requests(blockstamp):
             return 0
 
         self.chain_config = chain_config
 
-        withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode, blockstamp)
+        withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode, blockstamp, chain_config, frame_config)
         withdrawable_until_timestamp = chain_config.genesis_time + (withdrawable_until_epoch * chain_config.slots_per_epoch * chain_config.seconds_per_slot)
         available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance, blockstamp)
         
