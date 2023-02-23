@@ -73,7 +73,7 @@ class ConsensusModule(ABC):
         if variables.ACCOUNT:
             (
                 # Current frame's reference slot.
-                current_frame_ref_slot,
+                _,  # current_frame_ref_slot
                 # Consensus report for the current frame, if any. Zero bytes otherwise.
                 current_frame_consensus_report,
                 # Whether the provided address is a member of the oracle committee.
@@ -214,7 +214,7 @@ class ConsensusModule(ABC):
             return
 
         # In worst case exception will be raised in MAX_CYCLE_LIFETIME_IN_SECONDS seconds
-        for retry_num in range(2 * member_info.fast_lane_length_slot):
+        for _ in range(2 * member_info.fast_lane_length_slot):
             latest_blockstamp, member_info = self._get_latest_data()
             if HexBytes(member_info.current_frame_consensus_report) != ZERO_HASH:
                 break
@@ -240,7 +240,7 @@ class ConsensusModule(ABC):
             _, seconds_per_slot, _ = self._get_chain_config(blockstamp)
 
             logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
-            for slot in range(slots_to_sleep):
+            for _ in range(slots_to_sleep):
                 sleep(seconds_per_slot)
 
                 latest_blockstamp, member_info = self._get_latest_data()
@@ -337,14 +337,11 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
         """Returns ReportData struct with calculated data."""
-        pass
 
     @abstractmethod
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         """Returns if main data already submitted"""
-        pass
 
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         """Returns true if contract is ready for report"""
-        pass
