@@ -5,116 +5,47 @@
     "response": [
       [
         {
-          "key": "0x817479947b6054dd5b1b6efc19df11f78f9444a9f861f6cb5386415285586b841802e157852d6ad66f96186f36e40b7a",
-          "depositSignature": "0x972b2db7dabf7fcaa1022b9c6820e04ed060fc375494c4a706a5a7db9d0dda0acb6b312be5f6e23c782458c73f97d7e7023d85751182bea2038ded5efd5d3a76f8c8b33cf8911e34da75d9e4133815ae387d68682ba09ca3e2b25aef889316ea",
+          "key": "0x84da91680276928029f425fd4938deec2ab96fd78a7c75d46f522acdae9c0765d098afa7522cda148d4c5684bddfdd0e",
+          "depositSignature": "0xb85307ebbff247a6f8e41e666cec13c5093ce1e0529f8d92492cc3c393b802e4b66986da36b260b23f61cca55e175b5c0a48355abc03befec149fd131aa4dfaf8104acc96d1789707eae16582741a4cb0c1cc6983ac952a39e9ad47a4d7ce255",
           "operatorIndex": 0,
           "used": true,
-          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+          "moduleAddress": "0x8a1E2986E52b441058325c315f83C9D4129bDF72"
         },
         {
-          "key": "0xa381f6003d2ae73336add78e021354bcd5e086e8e5fc1448725193304dde3fada0e83fdf91f7dd4e8785448aa4ff3c19",
-          "depositSignature": "0xa817f12831cc3a3105b2491ecaaf7a60f054389840c65729ad2bde95d47c768ab147d6012d336046892417e7d2f65d29007b1429d163f6a43bc89dbb5edaa8c5f0e5514a570ff95c9ee51b52f5d3e005708675092b6c58d1acc982c145335ce1",
+          "key": "0xb392be0ff2cbf283a4f38d1d4d772bc330890f9e3785b1c36fc103528c75e16ff2e4c425949c6de65e9e56f85bbad78b",
+          "depositSignature": "0x8e8a40bcc34b1ef31c03950888175c6f71081fe59a1aacbc03d7ab254b27863779e7cadb8894f4ba2eea905f72517fbc0f6d3d46adc7006f9983a1ebb990871598abdb3be09442cf197d4f43fbb7836b7c6b914d136a75c89ec8aa2027c9f66b",
           "operatorIndex": 0,
           "used": true,
-          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+          "moduleAddress": "0x8a1E2986E52b441058325c315f83C9D4129bDF72"
         },
         {
-          "key": "0xacb8823ffa49ee93d37291ec1a3bb0d9915f23b21344e41e90edd9a898857b28c29fa8a34df4cfde19bf35c7f2394a09",
-          "depositSignature": "0x8fc904526b4674df06252b6243384b69c75ca4ee90ff7746f5f3b38cfca9bf39ed3be74f0dfc241ddba62987e0a615a9036cf0ab91088a3b097e4415e034ccc5dc5090849f672e9cd3f444bb2bc8463dd9dbc5a475c6caff307ac4bf58ed557c",
-          "operatorIndex": 1,
-          "used": true,
-          "moduleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
-        },
-        {
-          "key": "0x966948901f43e5abda169f2ca831190e8b623c3ff3d8933a31e326197080fc70f13d3c52593df5e7d22564b16613b45d",
-          "depositSignature": "0x8241b126d39c6a4bb796bbc42c1b0913b00163aa4f9788024621f81060a652b1734f0ec3070939ac8a8dbce43866664a0cd9781294006c98baf242b268470ea54982bc3dd64bfd20082ecc091d37ec41b9c21b7f1a96485c7f3f8a3979ad4a14",
+          "key": "0xa873550fea1f2ccbbd3c71f5beb3554b2e05533cdf5264e9c13118085943157d629f5287765d57f21b5984e8ecdd0f1c",
+          "depositSignature": "0xb2a98bfb34da2fa834d62089c6f8f4b1d234714a6109823c9844d3df09ddc8e4791e0a05a55aff0cc14d13ce25ba3ff50490e7a372f6ab3920dcf1b4432218127c83cd8ff6cda9ac29bd2637ff2afd2d607e97d2b32ba5b1f05975f88671ffb2",
           "operatorIndex": 0,
           "used": true,
-          "moduleAddress": "0x1D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+          "moduleAddress": "0x8a1E2986E52b441058325c315f83C9D4129bDF72"
         },
         {
-          "key": "0xa341827d092436d4279e04b3e7ff572b309ddefadcc60dfe4adc2b61a5a554c66d5242f16e698ce882694bcec39de181",
-          "depositSignature": "0x96b8a4b3a12a96d3521bfd58e322792278d6dd2c3e8aba6c4dd2fdb403812d56387e2dc858a488a7cc96ff09f0eb6c5e0c0d96746f0a3e84eb62e1316d1877f991b7349009fab75535103693d713e3b582d58ffabd05867a01aa4afcf5aab8c6",
+          "key": "0x892b41853e62c0e6de7e27bc08ed2883a45db1139589e71c6d1859bed2e54615e16431bb60f4e991738fc30a83f22bc9",
+          "depositSignature": "0x975f64aa7491c5c17a781ce50049597c636cbb84d72ff5580efc3f86b229e6ad0b3a078f09e9382f193e2bc4090615e115448f9707d63a48c48ad6bec01cac3f431cfda2bba65d35fcd19556a496ea13ba7a5576902dddb6e80264b842eac213",
           "operatorIndex": 0,
           "used": true,
-          "moduleAddress": "0x1D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320"
+          "moduleAddress": "0x8a1E2986E52b441058325c315f83C9D4129bDF72"
+        },
+        {
+          "key": "0xa4105d83e3e7f38dba1c1f115c976266d333de1cbb22d94ebe66aabe1218d7d403a6c0b584c1c9d3fde29fe970648737",
+          "depositSignature": "0xb9c559b1aa6c42613ef3bcec0fd7827aad50c63965c653a8a4187d0df4563fdb353a7620a2e26aed5ca72ae0dad6133f0006160b6c53db5833adb9985ac6b58cab2dcd8fb4e9b1962baadc3e0aa82feea0217a404dc99a16962866a3da578b2f",
+          "operatorIndex": 0,
+          "used": true,
+          "moduleAddress": "0x8a1E2986E52b441058325c315f83C9D4129bDF72"
         }
       ],
       {
         "meta": {
           "elBlockSnapshot": {
-            "blockNumber": 8458437,
-            "blockHash": "0x9896e953ccfccad26e5a823e5e579944e6b221b4e7815a10fe5eeeb8d2b3dcff",
-            "timestamp": 1675892748
-          }
-        }
-      }
-    ]
-  },
-  {
-    "url": "v1/operators",
-    "params": null,
-    "response": [
-      [
-        {
-          "operators": [
-            {
-              "index": 0,
-              "active": true,
-              "name": "Doom",
-              "rewardAddress": "0x1C292814671B60a56C4051cAf6E6C5fD583f2ce5",
-              "stakingLimit": 0,
-              "stoppedValidators": 0,
-              "totalSigningKeys": 0,
-              "usedSigningKeys": 0
-            },
-            {
-              "index": 1,
-              "active": true,
-              "name": "Guy",
-              "rewardAddress": "0xa988c92AEAA098c0cf00312Efc461f5b0B2F9FC9",
-              "stakingLimit": 51,
-              "stoppedValidators": 0,
-              "totalSigningKeys": 123,
-              "usedSigningKeys": 51
-            }
-          ],
-          "module": {
-            "nonce": 1705,
-            "type": "grouped-onchain-v1",
-            "id": 1,
-            "stakingModuleAddress": "0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320",
-            "name": "NodeOperatorRegistry"
-          }
-        },
-        {
-          "operators": [
-            {
-              "index": 0,
-              "active": true,
-              "name": "F4ever",
-              "rewardAddress": "0xeC2d2E81721A477798e938924266f92c4E5Fc54e",
-              "stakingLimit": 0,
-              "stoppedValidators": 0,
-              "totalSigningKeys": 0,
-              "usedSigningKeys": 0
-            }
-          ],
-          "module": {
-            "nonce": 1705,
-            "type": "grouped-onchain-v1",
-            "id": 2,
-            "stakingModuleAddress": "0x1D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320",
-            "name": "FakeRegistry"
-          }
-        }
-      ],
-      {
-        "meta": {
-          "elBlockSnapshot": {
-            "blockNumber": 8458437,
-            "blockHash": "0x9896e953ccfccad26e5a823e5e579944e6b221b4e7815a10fe5eeeb8d2b3dcff",
-            "timestamp": 1675892748
+            "blockNumber": 108101,
+            "blockHash": "0xd6cfc0c27dd95e0785faa15c36f9a3cc35b70d9e6c67f5f118c59d52f655412a",
+            "timestamp": 1676626752
           }
         }
       }

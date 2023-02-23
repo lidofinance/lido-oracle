@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import NewType
+from typing import NewType, Optional
 
-from hexbytes import HexBytes
+from eth_typing import HexStr
 
 
 class OracleModule(StrEnum):
@@ -12,12 +12,14 @@ class OracleModule(StrEnum):
 
 EpochNumber = NewType('EpochNumber', int)
 
-StateRoot = NewType('StateRoot', HexBytes)
-BlockRoot = NewType('BlockRoot', HexBytes)
+StateRoot = NewType('StateRoot', HexStr)
+BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
 
-BlockHash = NewType('BlockHash', HexBytes)
+BlockHash = NewType('BlockHash', HexStr)
 BlockNumber = NewType('BlockNumber', int)
+
+Gwei = NewType('Gwei', int)
 
 
 @dataclass(frozen=True)
@@ -27,15 +29,8 @@ class BlockStamp:
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
-
-
-@dataclass()
-class OracleReportLimits:
-    churnValidatorsPerDayLimit: int
-    oneOffCLBalanceDecreaseBPLimit: int
-    annualBalanceIncreaseBPLimit: int
-    shareRateDeviationBPLimit: int
-    requestTimestampMargin: int
-    maxPositiveTokenRebase: int
-    maxValidatorExitRequestsPerReport: int
-    maxAccountingExtraDataListItemsCount: int
+    block_timestamp: int
+    # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
+    ref_slot: SlotNumber
+    # ref_epoch could be empty if we do not know chain configs when generating this timestamp
+    ref_epoch: Optional[EpochNumber]

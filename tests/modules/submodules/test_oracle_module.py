@@ -33,12 +33,18 @@ def test_receive_last_finalized_slot(oracle):
         slot_number=50208,
         block_hash='0xac3e326576b16db5864545d3c8a4bfc6c91adbd0ac2f3f2946e7a949768c088d',
         block_number=49107,
+        block_timestamp=1675866096,
+        ref_slot=50208,
+        ref_epoch=None,
     )
 
 
 @pytest.mark.unit
 def test_cycle_handler_run_once_per_slot(monkeypatch, oracle):
     slot = lambda slot: lambda *args, **kwargs: BlockStamp(
+        ref_slot=None,
+        block_timestamp=0,
+        ref_epoch=None,
         block_root=None,
         state_root=None,
         slot_number=slot,

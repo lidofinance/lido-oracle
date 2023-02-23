@@ -13,7 +13,7 @@ KEYS_API_URI = os.getenv('KEYS_API_URI')
 ACCOUNT = None
 MEMBER_PRIV_KEY = os.getenv('MEMBER_PRIV_KEY')
 if MEMBER_PRIV_KEY:
-    ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)
+    ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)  # False-positive. pylint: disable=no-value-for-parameter
 
 
 # - App specific -
@@ -27,4 +27,4 @@ PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 HEALTHCHECK_SERVER_PORT = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
-MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 300))
+MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))

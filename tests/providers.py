@@ -1,7 +1,7 @@
-import dataclasses
 import json
 import os
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -50,7 +50,7 @@ class ResponseFromFile(JSONBaseProvider):
         raise Exception('There is no mock for response. Please re-run tests with --save-responses flag')
 
 
-@dataclasses.dataclass
+@dataclass
 class Mock:
     method: str
     params: Any

@@ -8,6 +8,7 @@ from src.providers.http_provider import HTTPProvider
 from src.typings import SlotNumber, StateRoot, BlockRoot
 from src.utils.dataclass import list_of_dataclasses
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,21 +27,34 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
-    @lru_cache(maxsize=1)
+    NON_CACHEABLE_STATES = ('head', 'finalized', 'justified')
+
     def get_block_root(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockRootResponse:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"""
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
+
+        No cache because this method is using to get finalized and head block, and they could not be cached by args.
+        """
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
         return BlockRootResponse(**data)
 
     @lru_cache(maxsize=1)
-    def get_block_details(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockDetailsResponse:
+    def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
+        if state_id in self.NON_CACHEABLE_STATES:
+            raise ValueError(f'Block details for state_id: {state_id} could not be cached. '
+                             'Please provide slot number or block root.')
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
         return BlockDetailsResponse(**data)
 
-    @lru_cache(maxsize=1)
+    # We need to store all validators from different slots for bunker mode.
+    # ToDo optimize RAM usage
+    @lru_cache(maxsize=5)
     @list_of_dataclasses(Validator)
-    def get_validators(self, state_id: Union[str, SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> list[Validator]:
+    def get_validators(self, state_id: Union[SlotNumber, StateRoot], pub_keys: Optional[str] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
+        if state_id in self.NON_CACHEABLE_STATES:
+            raise ValueError(f'Validators for state_id: {state_id} could not be cached. '
+                             'Please provide slot number or state root.')
         data, _ = self._get(self.API_GET_VALIDATORS.format(state_id), params={'id': pub_keys})
         return data
