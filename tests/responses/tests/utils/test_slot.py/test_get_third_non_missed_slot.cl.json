@@ -459,54 +459,6 @@
         "canonical": true,
         "header": {
           "message": {
-            "slot": "139458",
-            "proposer_index": "50919",
-            "parent_root": "0xff96013f342306524f674f5a6108b15c30de94772648ff188083e1629642f161",
-            "state_root": "0x6210382b36d235e135fae43252a905ec700cdf1b3b3fd67ddbe90d98c38467c4",
-            "body_root": "0x4d3b791fd0992a2b354279dbe4083836b145667946333ae38ada3fd244ff12bb"
-          },
-          "signature": "0xb33d9f7e1a462fa292231adfeba0ef64dcd553a19410d5be76c176be891f6d5aa82153dccf10c5605ef80b5d4586950a13d5076e062e0aa6292e6683867389f03a8c705d8a1e03b4ff512834545b38e0436283873334bfd93fcf6155c9db4a25"
-        }
-      },
-      {
-        "execution_optimistic": false,
-        "finalized": true
-      }
-    ]
-  },
-  {
-    "url": "/eth/v1/beacon/headers/0xff96013f342306524f674f5a6108b15c30de94772648ff188083e1629642f161",
-    "params": null,
-    "response": [
-      {
-        "root": "0xff96013f342306524f674f5a6108b15c30de94772648ff188083e1629642f161",
-        "canonical": true,
-        "header": {
-          "message": {
-            "slot": "139457",
-            "proposer_index": "41475",
-            "parent_root": "0xc5a8ba7e1e3d94ac3caac8636738ed526e588d1805ccfaff4cda6bff1f8987c6",
-            "state_root": "0xd1c33a3978cafe50784368e7f2b15968b6083dafecc59ce29a181482a2e1fcbb",
-            "body_root": "0x7828dbf56e5b14aba48658fc1e925225ea864afda8628da8d2f1522daf8266fe"
-          },
-          "signature": "0x890702d3668d6deb79dadd8bb7907773930bfdd89d442589bbccd86675f09c2ee9a5cfb900132f926e0f592dcae119500be737c1cd387b86cbb3e21baf2953e306e3e8ba1b82f3be965922e669acbe2033dade3d82c1b571cbc693c9c848d2b9"
-        }
-      },
-      {
-        "execution_optimistic": false,
-        "finalized": true
-      }
-    ]
-  },
-  {
-    "url": "/eth/v1/beacon/headers/0xc5a8ba7e1e3d94ac3caac8636738ed526e588d1805ccfaff4cda6bff1f8987c6",
-    "params": null,
-    "response": [
-      {
-        "root": "0xc5a8ba7e1e3d94ac3caac8636738ed526e588d1805ccfaff4cda6bff1f8987c6",
-        "canonical": true,
-        "header": {
-          "message": {
             "slot": "139456",
             "proposer_index": "9773",
             "parent_root": "0x538e7dc732812040863d789f23311f17a4a359a92e0553f6bc23a6e6d7ea27b7",
@@ -523,7 +475,7 @@
     ]
   },
   {
-    "url": "eth/v2/beacon/blocks/0xc5a8ba7e1e3d94ac3caac8636738ed526e588d1805ccfaff4cda6bff1f8987c6",
+    "url": "eth/v2/beacon/blocks/0x30d060fdb77628a9837536cb58c3c42366957349ffe5fa1e0cf15210681a99cd",
     "params": null,
     "response": [
       {
