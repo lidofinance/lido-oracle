@@ -108,7 +108,7 @@ class LidoValidatorStateService:
         for module in staking_modules:
             node_operators_ids_in_module = list(map(lambda op: op.id, filter(lambda operator: operator.staking_module.id == module.id, node_operators)))
 
-            last_requested_validators = self._get_last_requested_validator_indices(module, node_operators_ids_in_module)
+            last_requested_validators = self._get_last_requested_validator_indices(blockstamp, module, node_operators_ids_in_module)
 
             for no_id, validator_index in zip(node_operators_ids_in_module, last_requested_validators):
                 result[(module.id, no_id)] = validator_index
@@ -149,8 +149,8 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Fetch oracle sanity checks.', 'value': orl})
         return orl
 
-    def _get_last_requested_validator_indices(self, module: StakingModule, node_operators_ids_in_module: list[int]) -> list[int]:
+    def _get_last_requested_validator_indices(self, blockstamp: BlockStamp, module: StakingModule, node_operators_ids_in_module: list[int]) -> list[int]:
         return self.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices(
             module.id,
             node_operators_ids_in_module,
-        ).call()
+        ).call(block_identifier=blockstamp.block_hash)
