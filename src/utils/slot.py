@@ -15,6 +15,14 @@ class NoSlotsAvailable(Exception):
     pass
 
 
+class InconsistentData(Exception):
+    pass
+
+
+class SlotNotFinalized(Exception):
+    pass
+
+
 def get_first_non_missed_slot(
     cc: ConsensusClient,
     ref_slot: SlotNumber,
@@ -22,13 +30,11 @@ def get_first_non_missed_slot(
     ref_epoch: Optional[EpochNumber] = None,
 ) -> BlockStamp:
     """
-    Get past closest non-missed (or existed on ref_slot) slot and generates blockstamp for it.
+    Get past closest non-missed slot to ref_slot or ref_slot (if exists) and generates blockstamp for it.
 
     Raise NoSlotsAvailable if all slots are missed in range [ref_slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
     """
-    #
-    #
     #  [ ] - slot
     #  [x] - slot with existed block
     #  [o] - slot with missed block
@@ -58,19 +64,17 @@ def get_first_non_missed_slot(
     #
     #  Exception case can be when all slots are missed in range [ref_slot, last_finalized_slot_number] it will mean that
     #  block response of CL node contradicts itself, because few moments ago we got existed `last_finalized_slot_number`
-    #
-    #
+
     if ref_slot > last_finalized_slot_number:
-        raise ValueError('ref_slot should be less or equal to last finalized slot_number ')
+        raise ValueError('ref_slot should be less or equal to the last finalized slot_number.')
 
     logger.info({'msg': f'Get Blockstamp for ref slot: {ref_slot}.'})
+
     ref_slot_is_missed = False
-    next_existed_header = None
+    existed_header = None
     for i in range(ref_slot, last_finalized_slot_number + 1):
         try:
-            next_existed_header = cc.get_block_header(SlotNumber(i))
-            _check_block_header(next_existed_header)
-            break
+            existed_header = cc.get_block_header(SlotNumber(i))
         except NotOkResponse as error:
             if error.status != HTTPStatus.NOT_FOUND:
                 # Not expected status - raise exception
@@ -79,30 +83,30 @@ def get_first_non_missed_slot(
             ref_slot_is_missed = True
 
             logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
-            continue
+        else:
+            _check_block_header(existed_header)
+            break
 
-    if not ref_slot_is_missed and next_existed_header:
-        # Ref slot is not missed. Just get its details by root
+    if not existed_header:
+        raise NoSlotsAvailable('No slots available for current report. Check your CL node.')
 
-        return _build_blockstamp(cc, next_existed_header, ref_slot, ref_epoch)
-
-    if ref_slot_is_missed and next_existed_header:
+    if ref_slot_is_missed:
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
         # and get details of its parent slot until we found slot < ref_slot.
+        not_missed_header_parent_root = existed_header.data.header.message.parent_root
 
-        not_missed_header_slot = int(next_existed_header.data.header.message.slot)
-        not_missed_header_parent_root = next_existed_header.data.header.message.parent_root
-        while not_missed_header_slot > ref_slot:
-            next_existed_header = cc.get_block_header(not_missed_header_parent_root)
-            _check_block_header(next_existed_header)
-            not_missed_header_slot = int(next_existed_header.data.header.message.slot)
-            not_missed_header_parent_root = next_existed_header.data.header.message.parent_root
+        existed_header = cc.get_block_header(not_missed_header_parent_root)
+        _check_block_header(existed_header)
 
-        return _build_blockstamp(cc, next_existed_header, ref_slot, ref_epoch)
+        if int(existed_header.data.header.message.slot) > ref_slot:
+            raise InconsistentData(
+                'Parent root of next to ref slot existed header dot match to expected slot.'
+                'Probably problem with consensus node.'
+            )
 
-    if ref_slot_is_missed and not next_existed_header:
-        raise NoSlotsAvailable('No slots available for current report. Check your CL node.')
+    # Ref slot is not missed. Just get its details by root
+    return _build_blockstamp(cc, existed_header, ref_slot, ref_epoch)
 
 
 def _build_blockstamp(
@@ -129,6 +133,6 @@ def _build_blockstamp(
 
 def _check_block_header(block_header: BlockHeaderFullResponse):
     if hasattr(block_header, 'finalized') and not block_header.finalized:
-        raise NoSlotsAvailable(f'Slot [{block_header.data.header.message.slot}] is not finalized, but should be.')
+        raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not finalized, but should be.')
     if not block_header.data.canonical:
-        raise NoSlotsAvailable(f'Slot [{block_header.data.header.message.slot}] is not canonical, but should be.')
+        raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not canonical, but should be.')
