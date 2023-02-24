@@ -40,18 +40,13 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
         return BlockRootResponse(**data)
 
+    @lru_cache(maxsize=1)
     def get_block_header(self, state_id: Union[str, SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
         """
-        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
-
-        No cache because this method is using to get finalized and head block, and they could not be cached by args.
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
         """
         data, rest_response = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
         resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **rest_response)
-        if hasattr(resp, 'finalized') and not resp.finalized:
-            raise Exception(f'Slot [{state_id}] is not finalized')
-        if not resp.data.canonical:
-            raise Exception(f'Slot [{state_id}] is not canonical')
         return resp
 
     @lru_cache(maxsize=1)

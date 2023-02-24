@@ -69,6 +69,7 @@ def get_first_non_missed_slot(
     for i in range(ref_slot, last_finalized_slot_number + 1):
         try:
             next_existed_header = cc.get_block_header(SlotNumber(i))
+            _check_block_header(next_existed_header)
             break
         except NotOkResponse as error:
             if error.status != HTTPStatus.NOT_FOUND:
@@ -94,6 +95,7 @@ def get_first_non_missed_slot(
         not_missed_header_parent_root = next_existed_header.data.header.message.parent_root
         while not_missed_header_slot > ref_slot:
             next_existed_header = cc.get_block_header(not_missed_header_parent_root)
+            _check_block_header(next_existed_header)
             not_missed_header_slot = int(next_existed_header.data.header.message.slot)
             not_missed_header_parent_root = next_existed_header.data.header.message.parent_root
 
@@ -123,3 +125,10 @@ def _build_blockstamp(
         ref_slot=ref_slot,
         ref_epoch=ref_epoch,
     )
+
+
+def _check_block_header(block_header: BlockHeaderFullResponse):
+    if hasattr(block_header, 'finalized') and not block_header.finalized:
+        raise NoSlotsAvailable(f'Slot [{block_header.data.header.message.slot}] is not finalized, but should be.')
+    if not block_header.data.canonical:
+        raise NoSlotsAvailable(f'Slot [{block_header.data.header.message.slot}] is not canonical, but should be.')
