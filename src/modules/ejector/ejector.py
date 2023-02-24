@@ -3,9 +3,11 @@ from functools import lru_cache
 
 from web3.types import Wei
 
+from src.modules.ejector.typings import ProcessingState
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
+from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
@@ -34,9 +36,11 @@ class Ejector(BaseModule, ConsensusModule):
         super().__init__(w3)
 
     def execute_module(self, blockstamp: BlockStamp):
-        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
-        if report_blockstamp:
-            self.process_report(report_blockstamp)
+        self.process_report(blockstamp)
+
+        # report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        # if report_blockstamp:
+        #     self.process_report(report_blockstamp)
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
@@ -56,71 +60,58 @@ class Ejector(BaseModule, ConsensusModule):
             b'',
         )
 
-    def get_total_withdrawal_amount(self, blockstamp: BlockStamp) -> Wei:
+    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        pass
+
+    def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
         steth_to_finalize = self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
             block_identifier=blockstamp.block_hash,
         )
         logger.info({'msg': 'Wei to finalize.'})
         return steth_to_finalize
 
-    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        withdrawal_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
-        pass
-
-    def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
-        pass
-
-    def get_val_to_eject(self):
-        withdrawals_size = self.get_total_withdrawal_amount()
-        max_vals = 150
-        vals = []
-
-        budget = self.calculate_budget()
-        if budget > withdrawals_size:
-            return vals
-
-        for validator in range(self.exit_queue):
-            vals.append(validator)
-
-            budget = self.calculate_budget(vals)
-            if budget > withdrawals_size:
-                return vals
-
-    def calculate_budget(self):
-        prediction = self.get_queue_size(len([1])) * self.get_prediction()
-        ejection = self.get_ejecet_budget([])
-        return prediction + ejection
-
-    def get_queue_size(self, list_size):
-        pass
-
-    def get_prediction(self):
-        pass
-
-    def get_ejecet_budget(self):
-        # Считаем бюджет валидатора
-        pass
+    # def get_val_to_eject(self):
+    #     withdrawals_size = self.get_total_withdrawal_amount()
+    #     max_vals = 150
+    #     vals = []
+    #
+    #     budget = self.calculate_budget()
+    #     if budget > withdrawals_size:
+    #         return vals
+    #
+    #     for validator in range(self.exit_queue):
+    #         vals.append(validator)
+    #
+    #         budget = self.calculate_budget(vals)
+    #         if budget > withdrawals_size:
+    #             return vals
+    #
+    # def calculate_budget(self):
+    #     prediction = self.get_queue_size(len([1])) * self.get_prediction()
+    #     ejection = self.get_ejecet_budget([])
+    #     return prediction + ejection
+    #
+    # def get_queue_size(self, list_size):
+    #     pass
+    #
+    # def get_prediction(self):
+    #     pass
+    #
+    # def get_ejecet_budget(self):
+    #     # Считаем бюджет валидатора
+    #     pass
 
     @lru_cache(maxsize=1)
-    def _get_processing_state(self, blockstamp: BlockStamp) -> tuple[int, int, bytes, bool, int, int, int]:
-        """
-        struct ProcessingState {
-            uint256 currentFrameRefSlot;
-            uint256 processingDeadlineTime;
-            bytes32 dataHash;
-            bool dataSubmitted;
-            uint256 dataFormat;
-            uint256 requestsCount;
-            uint256 requestsSubmitted;
-        }
-        """
-        return self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash)
+    def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
+        return named_tuple_to_dataclass(
+            self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
+            ProcessingState,
+        )
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
-        return processing_state[3]
+        return processing_state.data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        processing_state = self._get_processing_state(blockstamp)
-        # --------- mainDataSubmitted ---- requestsCount ------- requestsSubmitted --
-        return not processing_state[3] or processing_state[5] != processing_state[6]
+        return self.is_main_data_submitted(blockstamp)
