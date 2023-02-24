@@ -124,13 +124,17 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
-            self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(),
+            self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
+                block_identifier=blockstamp.block_hash
+            ),
             block_identifier=blockstamp.block_hash,
         ))
 
     def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
-            self.w3.lido_contracts.lido_locator.functions.elRewardsVault().call(),
+            self.w3.lido_contracts.lido_locator.functions.elRewardsVault().call(
+                block_identifier=blockstamp.block_hash
+            ),
             block_identifier=blockstamp.block_hash,
         ))
 

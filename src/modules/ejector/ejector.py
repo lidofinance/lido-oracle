@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from web3.types import Wei
 
-from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, FAR_FUTURE_EPOCH, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.ejector.typings import ProcessingState
 from src.modules.submodules.consensus import ConsensusModule

@@ -1,8 +1,12 @@
 import pytest
-from typings import BlockStamp, SlotNumber
 from unittest.mock import MagicMock, ANY
+
+from hexbytes import HexBytes
 from web3.types import Wei
-from src.modules.accounting.prediction import Prediction
+
+from src.modules.ejector.prediction import RewardsPredictionService
+from src.modules.submodules.typings import ChainConfig
+from src.typings import BlockStamp, SlotNumber, BlockNumber
 
 
 @pytest.fixture()
@@ -57,8 +61,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(1000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(100000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[5],
             'args': {
@@ -74,8 +77,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(14000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1400000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[7],
             'args': {
@@ -83,8 +85,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(15000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1500000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[8],
             'args': {
@@ -92,8 +93,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(17000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1700000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[9],
             'args': {
@@ -101,8 +101,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(21000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(21000000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[10],
             'args': {
@@ -110,8 +109,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(32000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(32000000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[11],
             'args': {
@@ -119,8 +117,7 @@ def eth_distributed_logs(tr_hashes):
                 'withdrawalsWithdrawn': Wei(64000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(64000000000000000000),
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[12],
             'args': {
@@ -170,8 +167,7 @@ def token_rebased_logs(tr_hashes):
                 'reportTimestamp': 1675441424,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[5],
             'args': {
@@ -185,48 +181,42 @@ def token_rebased_logs(tr_hashes):
                 'reportTimestamp': 1675441448,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[7],
             'args': {
                 'reportTimestamp': 1675441460,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[8],
             'args': {
                 'reportTimestamp': 1675441472,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[9],
             'args': {
                 'reportTimestamp': 1675441484,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[10],
             'args': {
                 'reportTimestamp': 1675441496,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[11],
             'args': {
                 'reportTimestamp': 1675441508,
                 'timeElapsed': 12,
             }
-        }
-        ,
+        },
         {
             'transactionHash': tr_hashes[12],
             'args': {
@@ -237,24 +227,37 @@ def token_rebased_logs(tr_hashes):
     ]
 
 
+def test_group_by_tx_hash():
+    events_1 = [
+        {'transactionHash': HexBytes('0x123'), 'args': {'name': 'first'}},
+        {'transactionHash': HexBytes('0x456'), 'args': {'name': 'second'}},
+    ]
+
+    events_2 = [
+        {'transactionHash': HexBytes('0x456'), 'args': {'value': 2}},
+        {'transactionHash': HexBytes('0x123'), 'args': {'value': 1}},
+    ]
+
+    result = RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)
+
+    assert len(result) == 2
+
+    for event_data in result:
+        if event_data['name'] == 'first':
+            assert event_data['value'] == 1
+        elif event_data['name'] == 'second':
+            assert event_data['value'] == 2
+        else:
+            # No other events should be here
+            assert False
+
+
 @pytest.mark.unit
-def test_group_event_by_transaction_hash(eth_distributed_logs):
-    expected = {
-        eth_distributed_logs[11]['transactionHash']: eth_distributed_logs[11]['args'],
-        eth_distributed_logs[12]['transactionHash']: eth_distributed_logs[12]['args']
-    }
+def get_rewards_per_slot(web3, contracts, eth_distributed_logs):
+    web3.lido_contracts = MagicMock()
+    web3.lido_contracts.events.ETHDistributed.get_logs.return_value = eth_distributed_logs
 
-    got = Prediction.group_event_by_transaction_hash(eth_distributed_logs, 1675441508)
-
-    assert got == expected
-
-
-@pytest.mark.unit
-def test_get_ETHDistributed_events(eth_distributed_logs):
-    lido_contract = MagicMock()
-    lido_contract.events.ETHDistributed.get_logs.return_value = eth_distributed_logs
-
-    p = Prediction(lido_contract)
+    p = RewardsPredictionService(web3)
     got = p.get_ETHDistributed_events(ANY, ANY, 1675441508)
 
     expected = {
@@ -266,89 +269,33 @@ def test_get_ETHDistributed_events(eth_distributed_logs):
 
 
 @pytest.mark.unit
-def test_get_TokenRebased_events(token_rebased_logs):
-    lido_contract = MagicMock()
-    lido_contract.events.TokenRebased.get_logs.return_value = token_rebased_logs
-
-    p = Prediction(lido_contract)
-    got = p.get_TokenRebased_events(ANY, ANY, 1675441508)
-
-    expected = {
-        token_rebased_logs[11]['transactionHash']: token_rebased_logs[11]['args'],
-        token_rebased_logs[12]['transactionHash']: token_rebased_logs[12]['args']
-    }
-
-    assert got == expected
-
-
-@pytest.mark.unit
-def test_get_optimistic_block_interval(token_rebased_logs):
-    got_from, got_to = Prediction.get_optimistic_block_interval(912, 12)
-    expected_from = 900
-    expected_to = 912
-
-    assert got_from == expected_from
-    assert got_to == expected_to
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "genesis_time, blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot, percentile_el_rewards_bp, percentile_cl_rewards_bp, expected",
-    [
-        (
-                1606824000,
-                BlockStamp(block_number=SlotNumber(14),
-                           block_timestamp=1675441520,
-                           ref_slot=100000,
-                           ),
-                13,
-                32,
-                12,
-                5000,
-                5000,
-                Wei(492799999999999999488)
-        ),
-        (
-                1606824000,
-                BlockStamp(block_number=SlotNumber(14),
-                           block_timestamp=1675441520,
-                           ref_slot=5718128,
-                           ),
-                11,
-                32,
-                12,
-                5000,
-                5000,
-                Wei(598399999999999999488)
-        ),
-    ])
-def test_get_rewards_per_epoch(genesis_time, blockstamp, duration_in_slots, slots_per_epoch, seconds_per_slot,
-                               percentile_el_rewards_bp, percentile_cl_rewards_bp,
-                               eth_distributed_logs, token_rebased_logs,
-                               expected):
-    lido_contract = MagicMock()
-    lido_contract.events.ETHDistributed.get_logs.return_value = eth_distributed_logs
-    lido_contract.events.TokenRebased.get_logs.return_value = token_rebased_logs
-
-    p = Prediction(lido_contract)
-    got = p.get_rewards_per_epoch(
-        genesis_time=genesis_time,
-        blockstamp=blockstamp,
-        duration_in_slots=duration_in_slots,
-        slots_per_epoch=slots_per_epoch,
-        seconds_per_slot=seconds_per_slot,
-        percentile_el_rewards_bp=percentile_el_rewards_bp,
-        percentile_cl_rewards_bp=percentile_cl_rewards_bp,
+def test_get_rewards_no_matching_events(web3, contracts):
+    bp = BlockStamp(
+        block_number=BlockNumber(14),
+        block_timestamp=1675441520,
+        ref_slot=SlotNumber(100000),
+        block_root=None,
+        state_root=None,
+        slot_number=None,
+        block_hash=None,
+        ref_epoch=None,
     )
 
-    assert got == expected
+    cc = ChainConfig(
+        slots_per_epoch=32,
+        seconds_per_slot=12,
+        genesis_time=0,
+    )
 
+    web3.lido_contracts.lido.events = MagicMock()
+    web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = [
+        {'transactionHash': HexBytes('0x123'), 'args': {'name': 'first', 'reportTimestamp': 1675441508}},
+    ]
+    web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = [
+        {'transactionHash': HexBytes('0x456'), 'args': {'value': 2, 'reportTimestamp': 1675441508}},
+    ]
 
-@pytest.mark.unit
-@pytest.mark.parametrize("data, basis_point, expected", [
-    ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 7500, 7.75),
-    ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5000, 5.5),
-])
-def test_percentile(data, basis_point, expected):
-    got = Prediction.percentile(data, basis_point)
-    assert got == expected
+    p = RewardsPredictionService(web3)
+    rewards = p.get_rewards_per_slot(bp, cc)
+
+    assert rewards == Wei(0)
