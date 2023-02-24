@@ -181,6 +181,8 @@ class Accounting(BaseModule, ConsensusModule):
         chain_config = self._get_chain_config(blockstamp)
         rebase_report = self.get_rebase_after_report(blockstamp)
 
-        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp, frame_config, chain_config, rebase_report)
+        bunker_mode = self.bunker_service.is_bunker_mode(
+            blockstamp, frame_config, chain_config, rebase_report, self._previous_finalized_slot_number
+        )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode

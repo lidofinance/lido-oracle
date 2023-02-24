@@ -170,6 +170,7 @@ class ConsensusModule(ABC):
         bs = get_first_non_missed_slot(
             self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
+            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
             ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
