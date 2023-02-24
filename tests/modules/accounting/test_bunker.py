@@ -5,8 +5,6 @@ from src.providers.consensus.typings import Validator, ValidatorStatus, Validato
 from src.modules.accounting.bunker import BunkerService, BunkerConfig
 from src.typings import EpochNumber
 
-# Static functions
-
 
 test_data_calculate_real_balance = [
     (

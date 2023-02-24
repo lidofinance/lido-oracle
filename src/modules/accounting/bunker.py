@@ -17,7 +17,7 @@ from src.constants import (
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
 
-from src.modules.accounting.typings import Gwei
+from src.modules.accounting.typings import Gwei, LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber
@@ -46,7 +46,10 @@ class BunkerService:
     c_conf: ChainConfig
     f_conf: FrameConfig
 
+    simulated_rebase: LidoReportRebase
+
     last_report_ref_slot: SlotNumber = SlotNumber(0)
+    last_finalized_slot_number: SlotNumber = SlotNumber(0)
 
     all_validators: dict[str, Validator] = {}
     lido_keys: dict[str, LidoKey] = {}
@@ -60,10 +63,14 @@ class BunkerService:
         self,
         blockstamp: BlockStamp,
         frame_config: FrameConfig,
-        chain_config: ChainConfig
+        chain_config: ChainConfig,
+        simulated_rebase: LidoReportRebase,
+        last_finalized_slot_number: SlotNumber,
     ) -> bool:
         self.f_conf = frame_config
         self.c_conf = chain_config
+        self.simulated_rebase = simulated_rebase
+        self.last_finalized_slot_number = last_finalized_slot_number
 
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
@@ -112,36 +119,12 @@ class BunkerService:
 
     def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
-        ref_lido_balance = self._calculate_real_balance(self.lido_validators)
-        ref_withdrawal_vault_balance = self._get_withdrawal_vault_balance(blockstamp)
-        # Make a static call of 'handleOracleReport' without EL rewards
-        # to simulate report and get total pool ether after that
-        args = {
-            "_reportTimestamp": blockstamp.ref_slot * self.c_conf.seconds_per_slot + self.c_conf.genesis_time,
-            "_timeElapsed": (blockstamp.ref_slot - self.last_report_ref_slot) * self.c_conf.seconds_per_slot,
-            "_clValidators": len(self.lido_validators),
-            "_clBalance": self.w3.to_wei(ref_lido_balance, 'gwei'),
-            "_withdrawalVaultBalance": ref_withdrawal_vault_balance,
-            "_elRewardsVaultBalance": 0,
-            "_lastFinalizableRequestId": 0,
-            "_simulatedShareRate": 0,
-        }
         before_report_total_pooled_ether = self.w3.lido_contracts.lido.functions.totalSupply().call(
             block_identifier=blockstamp.block_hash
         )
-        after_report_total_pooled_ether, *_ = self.w3.lido_contracts.lido.functions.handleOracleReport(**args).call(
-            {'from': self.w3.lido_contracts.accounting_oracle.address},
-            block_identifier=blockstamp.block_hash
-        )
-        logger.info({
-            "msg": "Simulate 'handleOracleReport' contract function call",
-            "call_args": args,
-            "before_call": before_report_total_pooled_ether,
-            "after_call": after_report_total_pooled_ether,
-        })
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (after_report_total_pooled_ether - before_report_total_pooled_ether) / WEI_TO_GWEI
+        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) / WEI_TO_GWEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)
@@ -197,7 +180,8 @@ class BunkerService:
         last_report_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             self.last_report_ref_slot,
-            EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         total_ref_effective_balance = self._calculate_total_active_effective_balance(
@@ -264,13 +248,15 @@ class BunkerService:
         nearest_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(nearest_slot),
-            EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         far_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(far_slot),
-            EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         if nearest_blockstamp.block_number == far_blockstamp.block_number:
@@ -323,7 +309,7 @@ class BunkerService:
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
         validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
         if validators_diff_in_gwei < 0:
-            raise Exception("Validators diff should be positive or 0. Something went wrong with CL API")
+            raise ValueError("Validators diff should be positive or 0. Something went wrong with CL API")
 
         corrected_prev_lido_balance_with_vault = (
             prev_lido_balance_with_vault
@@ -363,10 +349,10 @@ class BunkerService:
         )
 
         if len(events) > 1:
-            raise Exception("More than one ETHDistributed event found")
+            raise ValueError("More than one ETHDistributed event found")
 
         if not events:
-            logger.info({"msg": f"No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
+            logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
             return 0
 
         vault_withdrawals = self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei')
@@ -438,15 +424,15 @@ class BunkerService:
         for key, validator in all_slashed_validators.items():
             v = validator.validator
             if not v.slashed:
-                raise Exception("Validator should be slashed to detect slashing epoch range")
+                raise ValueError("Validator should be slashed to detect slashing epoch range")
             if int(v.withdrawable_epoch) - int(v.exit_epoch) > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
                 determined_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
                 per_epoch_buckets[determined_slashed_epoch][key] = validator
                 continue
-            else:
-                possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-                for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
-                    per_epoch_buckets[epoch][key] = validator
+
+            possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
+            for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
+                per_epoch_buckets[epoch][key] = validator
 
         return per_epoch_buckets
 
@@ -544,4 +530,3 @@ class BunkerService:
             / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_mistake)
         )
         return Gwei(normal_cl_rebase)
-

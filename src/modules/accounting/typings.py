@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.modules.accounting.extra_data import FormatList
 from src.typings import SlotNumber, Gwei
 
 
@@ -66,3 +65,11 @@ class OracleReportLimits:
     max_positive_token_rebase: int
     max_validator_exit_requests_per_report: int
     max_accounting_extra_data_list_items_count: int
+
+
+@dataclass(frozen=True)
+class LidoReportRebase:
+    post_total_pooled_ether: int
+    post_total_shares: int
+    withdrawals: int
+    el_reward: int
