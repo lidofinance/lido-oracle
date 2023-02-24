@@ -139,7 +139,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
         simulation = self.get_rebase_after_report(blockstamp)
-        return simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares)
 
     @lru_cache(maxsize=1)
     def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
