@@ -38,7 +38,7 @@ def subject(web3, chain_config, frame_config, contracts, keys_api_client, consen
     return safe_border
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
-    assert subject._get_new_requests_border_epoch(past_blockstamp) == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
+    assert subject._get_default_requests_border_epoch(past_blockstamp) == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
 
 def test_calc_validator_slashed_epoch_from_state(subject):
     exit_epoch = 504800
