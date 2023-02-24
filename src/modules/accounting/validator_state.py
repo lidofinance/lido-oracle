@@ -13,7 +13,7 @@ from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.web3py.extentions.lido_validators import (
     NodeOperatorIndex,
-    LidoValidator,
+    LidoValidator, StakingModule,
 )
 from src.web3py.typings import Web3
 
@@ -57,10 +57,10 @@ class LidoValidatorStateService:
                     return total
 
                 # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
-                if validator.validator.validator.exit_epoch != FAR_FUTURE_EPOCH:
+                if int(validator.validator.validator.exit_epoch) != FAR_FUTURE_EPOCH:
                     return total
 
-                # If validator's pub key in recent events, node operator has steel time to eject this validators
+                # If validator's pub key in recent events, node operator has still time to eject these validators
                 if validator.key.key in recently_asked_to_exit_pubkeys:
                     return total
 
@@ -101,19 +101,16 @@ class LidoValidatorStateService:
 
     def get_operators_with_last_exited_validator_indexes(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
-        stacking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
+        staking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
 
         result = {}
 
-        for module in stacking_modules:
+        for module in staking_modules:
             node_operators_ids_in_module = list(map(lambda op: op.id, filter(lambda operator: operator.staking_module.id == module.id, node_operators)))
 
-            last_ejected_validators = self.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices(
-                module.id,
-                node_operators_ids_in_module,
-            ).call()
+            last_requested_validators = self._get_last_requested_validator_indices(module, node_operators_ids_in_module)
 
-            for no_id, validator_index in zip(node_operators_ids_in_module, last_ejected_validators):
+            for no_id, validator_index in zip(node_operators_ids_in_module, last_requested_validators):
                 result[(module.id, no_id)] = validator_index
 
         return result
@@ -151,3 +148,9 @@ class LidoValidatorStateService:
         orl = named_tuple_to_dataclass(result, OracleReportLimits)
         logger.info({'msg': 'Fetch oracle sanity checks.', 'value': orl})
         return orl
+
+    def _get_last_requested_validator_indices(self, module: StakingModule, node_operators_ids_in_module: list[int]) -> list[int]:
+        return self.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices(
+            module.id,
+            node_operators_ids_in_module,
+        ).call()
