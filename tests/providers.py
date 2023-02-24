@@ -16,6 +16,10 @@ from src.providers.http_provider import HTTPProvider
 from src.providers.keys.client import KeysAPIClient
 
 
+class NoMockException(Exception):
+    pass
+
+
 class ResponseToFileProvider(MultiProvider):
     responses = []
 
@@ -47,7 +51,7 @@ class ResponseFromFile(JSONBaseProvider):
         for response in self.responses:
             if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
-        raise Exception('There is no mock for response. Please re-run tests with --save-responses flag')
+        raise NoMockException('There is no mock for response. Please re-run tests with --save-responses flag')
 
 
 @dataclass
@@ -119,7 +123,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module):
         for response in self.responses:
             if response["url"] == url and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
-        raise Exception('There is no mock for response. Please re-run tests with --save-responses flag')
+        raise NoMockException('There is no mock for response. Please re-run tests with --save-responses flag')
 
 
 class ResponseToFileConsensusClientModule(ConsensusClient, ResponseToFileHTTPProvider):

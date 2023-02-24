@@ -72,14 +72,14 @@ class ExtraDataService:
     def collect(
         self,
         exited_validators: dict[NodeOperatorIndex, int],
-        stucked_validators: dict[NodeOperatorIndex, int],
+        stuck_validators: dict[NodeOperatorIndex, int],
         max_items_in_payload_count: int,
         max_items_count: int,
     ) -> ExtraData:
-        stucked_payloads = self.build_validators_payloads(stucked_validators, max_items_in_payload_count)
+        stuck_payloads = self.build_validators_payloads(stuck_validators, max_items_in_payload_count)
         exited_payloads = self.build_validators_payloads(exited_validators, max_items_in_payload_count)
 
-        extra_data = self.build_extra_data(stucked_payloads, exited_payloads, max_items_count)
+        extra_data = self.build_extra_data(stuck_payloads, exited_payloads, max_items_count)
         extra_data_bytes = self.to_bytes(extra_data)
 
         data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if extra_data else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
@@ -102,13 +102,13 @@ class ExtraDataService:
         return extra_data_bytes
 
     @staticmethod
-    def build_extra_data(stucked_payloads: list[ItemPayload], exited_payloads: list[ItemPayload], max_items_count: int):
+    def build_extra_data(stuck_payloads: list[ItemPayload], exited_payloads: list[ItemPayload], max_items_count: int):
         index = 0
         extra_data = []
         total_items_count = 0
 
         for item_type, payloads in [
-            (ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, stucked_payloads),
+            (ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, stuck_payloads),
             (ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, exited_payloads),
         ]:
             for item in payloads:

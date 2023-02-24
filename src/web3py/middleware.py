@@ -41,20 +41,20 @@ def metrics_collector(
                 domain=domain,
             ).inc()
             raise
-        else:
-            # https://www.jsonrpc.org/specification#error_object
-            # https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-            error = response.get("error")
-            code: int = 0
-            if isinstance(error, dict):
-                code = error.get("code") or code
 
-            ETH1_RPC_REQUESTS.labels(
-                method=method,
-                code=code,
-                domain=domain,
-            ).inc()
+        # https://www.jsonrpc.org/specification#error_object
+        # https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
+        error = response.get("error")
+        code: int = 0
+        if isinstance(error, dict):
+            code = error.get("code") or code
 
-            return response
+        ETH1_RPC_REQUESTS.labels(
+            method=method,
+            code=code,
+            domain=domain,
+        ).inc()
+
+        return response
 
     return middleware

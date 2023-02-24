@@ -14,4 +14,3 @@ def named_tuple_to_dataclass(response, dataclass):
         Output: ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1675263480)
     """
     return dataclass(**{camel_to_snake(key): value for key, value in response._asdict().items()})
-

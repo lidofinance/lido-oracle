@@ -6,6 +6,7 @@ from _pytest.fixtures import FixtureRequest
 from eth_typing import Address
 from hexbytes import HexBytes
 from web3.providers import JSONBaseProvider
+from web3.middleware import simple_cache_middleware
 
 from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
@@ -59,8 +60,7 @@ def mock_provider(responses_path) -> MockProvider:
 def provider(request, responses_path) -> JSONBaseProvider:
     if request.config.getoption("--save-responses"):
         return request.getfixturevalue("response_to_file_provider")
-    else:
-        return request.getfixturevalue("mock_provider")
+    return request.getfixturevalue("mock_provider")
 
 
 @pytest.fixture()
@@ -69,6 +69,7 @@ def web3(provider) -> Web3:
         provider.add_mocks(eth_call_el_rewards_vault, eth_call_beacon_spec)
     web3 = Web3(provider)
     tweak_w3_contracts(web3)
+    web3.middleware_onion.add(simple_cache_middleware)
 
     yield web3
 
@@ -150,6 +151,11 @@ class Contracts(LidoContracts):
             abi=self.load_abi('OracleReportSanityChecker'),
             decode_tuples=True
         )
+        self.oracle_daemon_config = self.w3.eth.contract(
+            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
+            abi=self.load_abi('OracleDaemonConfig'),
+            decode_tuples=True,
+        )
 
         self.oracle_daemon_config = self.w3.eth.contract(
             address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
@@ -179,19 +185,6 @@ def lido_validators(web3, consensus_client, keys_api_client):
     web3.attach_modules({
         'lido_validators': LidoValidatorsProvider,
     })
-
-
-@pytest.fixture()
-def past_blockstamp():
-    yield BlockStamp(
-        ref_slot_number=4947936,
-        ref_epoch=154623,
-        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
-        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
-        slot_number=4947936,
-        block_number=8457825,
-        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
-    )
 
 
 # ----- Account fixtures -----
@@ -249,7 +242,7 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         state_root=slot_details.message.state_root,
         block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
         block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=slot_details.message.body['execution_payload']['timestamp'],
+        block_timestamp=int(slot_details.message.body['execution_payload']['timestamp']),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
     )

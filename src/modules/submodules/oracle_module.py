@@ -95,8 +95,7 @@ class BaseModule(ABC):
         except ConnectionError as error:
             logger.error({"msg": error.args, "error": str(error)})
             raise ConnectionError from error
-        else:
-            time.sleep(DEFAULT_SLEEP)
+        time.sleep(DEFAULT_SLEEP)
 
     @abstractmethod
     def execute_module(self, blockstamp: BlockStamp):

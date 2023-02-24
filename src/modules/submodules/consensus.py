@@ -73,7 +73,7 @@ class ConsensusModule(ABC):
         if variables.ACCOUNT:
             (
                 # Current frame's reference slot.
-                current_frame_ref_slot,
+                _,  # current_frame_ref_slot
                 # Consensus report for the current frame, if any. Zero bytes otherwise.
                 current_frame_consensus_report,
                 # Whether the provided address is a member of the oracle committee.
@@ -135,38 +135,38 @@ class ConsensusModule(ABC):
         return fc
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, blockstamp: BlockStamp) -> Optional[BlockStamp]:
+    def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[BlockStamp]:
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
             Non-missed finalized blockstamp
         """
-        member_info = self._get_member_info(blockstamp)
+        member_info = self._get_member_info(last_finalized_blockstamp)
 
         latest_blockstamp = self._get_latest_blockstamp()
 
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
-            return
+            return None
 
         # Check if current slot is higher than member slot
         if latest_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
-            return
+            return None
 
         # Check if current slot is higher than member slot + slots_delay
         if not member_info.is_fast_lane:
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
-                return
+                return None
 
         # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number >= member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
-            return
+            return None
 
-        chain_config = self._get_chain_config(blockstamp)
+        chain_config = self._get_chain_config(last_finalized_blockstamp)
         bs = get_first_non_missed_slot(
             self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
@@ -214,7 +214,7 @@ class ConsensusModule(ABC):
             return
 
         # In worst case exception will be raised in MAX_CYCLE_LIFETIME_IN_SECONDS seconds
-        for retry_num in range(2 * member_info.fast_lane_length_slot):
+        for _ in range(2 * member_info.fast_lane_length_slot):
             latest_blockstamp, member_info = self._get_latest_data()
             if HexBytes(member_info.current_frame_consensus_report) != ZERO_HASH:
                 break
@@ -240,7 +240,7 @@ class ConsensusModule(ABC):
             _, seconds_per_slot, _ = self._get_chain_config(blockstamp)
 
             logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
-            for slot in range(slots_to_sleep):
+            for _ in range(slots_to_sleep):
                 sleep(seconds_per_slot)
 
                 latest_blockstamp, member_info = self._get_latest_data()
@@ -337,14 +337,11 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
         """Returns ReportData struct with calculated data."""
-        pass
 
     @abstractmethod
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         """Returns if main data already submitted"""
-        pass
 
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         """Returns true if contract is ready for report"""
-        pass

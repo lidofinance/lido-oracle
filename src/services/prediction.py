@@ -14,4 +14,3 @@ class PredictionModule:
         2. Get median income
         3. return median income / epoch_per_day
         """
-        pass

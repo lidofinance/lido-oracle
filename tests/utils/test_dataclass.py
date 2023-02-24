@@ -59,6 +59,9 @@ def test_dataclasses_utils():
         for wheel in car.wheels:
             assert is_dataclass(wheel)
 
+        for wheel in car.wheels_immutable:
+            assert is_dataclass(wheel)
+
 
 def test_dataclasses_utils_fail_on_unexpected_key():
     with pytest.raises(TypeError):

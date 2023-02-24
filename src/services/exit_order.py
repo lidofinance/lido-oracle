@@ -10,6 +10,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
 from src.typings import BlockStamp, BlockNumber
+from src.utils.events import get_events_in_past
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId, \
     NodeOperatorId
 from src.web3py.typings import Web3
@@ -41,22 +42,24 @@ class ValidatorToExitIterator:
         w3: Web3,
         blockstamp: BlockStamp,
         c_conf: ChainConfig,
-        exitable_lido_validators: list[LidoValidator],
-        max_validators_to_exit: int,
     ):
         self.w3 = w3
         self.blockstamp = blockstamp
         self.c_conf = c_conf
-        self.exitable_lido_validators = exitable_lido_validators
-        self.max_validators_to_exit = max_validators_to_exit
         self.left_queue_count = 0
 
         # -- State init part --
+
+        self.exitable_lido_validators = self._get_exitable_lido_validators(blockstamp)
 
         self.validator_delayed_timeout_in_slots = Web3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
                 block_identifier=blockstamp.block_hash)
         )
+
+        # ToDo fetch max_validators_to_exit from OracleSanityChecks
+        self.max_validators_to_exit = 100
+
         operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
@@ -73,6 +76,9 @@ class ValidatorToExitIterator:
             operators, operator_validators
         )
 
+    def _get_exitable_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        pass
+
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
         return StakingModuleId(self.staking_module_id[validator.key.moduleAddress]), NodeOperatorId(validator.key.operatorIndex)
 
@@ -80,13 +86,14 @@ class ValidatorToExitIterator:
         return self
 
     def __next__(self):
-        while self.left_queue_count < self.max_validators_to_exit:
-            self.exitable_lido_validators.sort(key=lambda validator: self._predicates(validator))
-            to_exit = self.exitable_lido_validators.pop(0)
-            self._decrease_node_operator_stats(to_exit)
-            self.left_queue_count += 1
-            return to_exit
-        raise StopIteration
+        if self.left_queue_count >= self.max_validators_to_exit:
+            raise StopIteration
+
+        self.exitable_lido_validators.sort(key=lambda validator: self._predicates(validator))
+        to_exit = self.exitable_lido_validators.pop(0)
+        self._decrease_node_operator_stats(to_exit)
+        self.left_queue_count += 1
+        return to_exit
 
     def _decrease_node_operator_stats(self, validator: LidoValidator) -> None:
         """
@@ -153,13 +160,15 @@ class ValidatorToExitIterator:
 
         # We don't consider validator as delayed if it was requested to exit
         # in last VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS slots
+        # DRY: validator_state.py code duplication (except one param "period")
         recently_requested_to_exit_indices_per_operator = self._get_recently_requested_to_exit_indices(
             operator_validators.keys()
         )
+        # DRY: validator_state.py code duplication
         last_requested_to_exit_indices_per_operator = self._get_last_requested_to_exit_indices(
             operator_validators.keys()
         )
-
+        # DRY: validator_state.py code duplication
         delayed_validators_count = self._get_delayed_validators_count_per_operator(
             operator_validators,
             recently_requested_to_exit_indices_per_operator,
@@ -251,55 +260,19 @@ class ValidatorToExitIterator:
 
         We should get events between two time points - `ref_slot timestamp` and
         `ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS timestamp`
-        But we can't get events by time, so we should get events between two exited blocks and filter them by timestamp
         """
-        #
-        #   [ ] - slot
-        #   [x] - slot with existed block
-        #   [o] - slot with missed block
-        #    e  - event
-        #
-        #   VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10 (for example)
-        #   ref_slot = 22
-        #   block_number = 13
-        #
-        #   timeout_border = ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 22 - 10 = 12
-        #   timeout_border_timestamp = timeout_border * SLOT_DURATION + genesis_time = 6 * 12 = 96
-        #   to_block = block_number = 13
-        #   from_block = to_block - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 13 - 10 = 3
-        #
-        #
-        #                  [--------------- Event search block period -------------]
-        #                                                  (---- Needed events ----]
-        #              from_block                      timeout_border            to_block       ref_slot
-        #                  |                               |                       |               |
-        #      e           e   e       e           e       e       e           e   e               v   e   e
-        #   --[x]-[o]-[x]-[x]-[x]-[x]-[x]-[o]-[o]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
-        #      1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24       slot
-        #      1   -   2   3   4   5   6   -   -   7   8   9   -  10  11   -  12  13   -   -   -   -  14  15       block
-        #
-        #   So we should consider events from blocks [10, 12, 13]
-        #
-        #
-
-        module_operator = {}
+        events = get_events_in_past(
+            contract_event=self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+            to_blockstamp=self.blockstamp,
+            for_slots=self.validator_delayed_timeout_in_slots,
+            seconds_per_slot=self.c_conf.seconds_per_slot,
+        )
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
-        for operator in operator_indexes:
-            module_operator[operator] = set()
+        module_operator = {operator: set() for operator in operator_indexes}
 
-        timeout_border = max(0, self.blockstamp.ref_slot - self.validator_delayed_timeout_in_slots)
-        timeout_border_timestamp = timeout_border * self.c_conf.seconds_per_slot + self.c_conf.genesis_time
-
-        to_block = self.blockstamp.block_number
-        from_block = max(0, to_block - self.validator_delayed_timeout_in_slots)
-        events = self._get_validator_exit_events(BlockNumber(from_block), to_block)
         for event in events:
-            module_id, operator_id, val_index, val_key, timestamp = event['args']
-            if timestamp <= timeout_border_timestamp:
-                # We don't consider events that were emitted before or on timeout border
-                # So we get a small bunch of events that are considered as "recently". Look at the example above
-                continue
+            module_id, operator_id, val_index, *_ = event['args']
             module_operator[(module_id, operator_id)].add(val_index)
 
         return module_operator
@@ -316,11 +289,6 @@ class ValidatorToExitIterator:
             module, operator_indexes
         ).call(
             block_identifier=self.blockstamp.block_hash
-        )
-
-    def _get_validator_exit_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
-        return self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
-            fromBlock=from_block, toBlock=to_block
         )
 
     @staticmethod
