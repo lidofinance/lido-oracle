@@ -3,6 +3,7 @@ from functools import lru_cache
 
 from web3.types import Wei
 
+from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.ejector.typings import ProcessingState
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -35,6 +36,8 @@ class Ejector(BaseModule, ConsensusModule):
         self.report_contract = w3.lido_contracts.validators_exit_bus_oracle
         super().__init__(w3)
 
+        self.prediction_service = RewardsPredictionService(w3)
+
     def execute_module(self, blockstamp: BlockStamp):
         self.process_report(blockstamp)
 
@@ -61,7 +64,11 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
     def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        chain_config = self._get_chain_config(blockstamp)
+
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        rewards_speed = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
+
         pass
 
     def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
