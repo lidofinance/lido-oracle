@@ -9,14 +9,6 @@ from src.web3py.extentions.lido_validators import NodeOperatorIndex
 from src.web3py.typings import Web3
 
 
-# Extra data is an array of items, each item being encoded as follows:
-# |  3 bytes  | 2 bytes  |   X bytes   |
-# | itemIndex | itemType | itemPayload |
-#
-# itemPayload format:
-#  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-#  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
-
 class Lengths:
     ITEM_INDEX = 3
     ITEM_TYPE = 2
@@ -91,6 +83,13 @@ class ExtraDataService:
         )
 
     def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
+        # Extra data is an array of items, each item being encoded as follows:
+        # |  3 bytes  | 2 bytes  |   X bytes   |
+        # | itemIndex | itemType | itemPayload |
+        #
+        # itemPayload format:
+        #  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
+        #  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
         extra_data_bytes = b''
         for item in extra_data:
             extra_data_bytes += item.item_index
