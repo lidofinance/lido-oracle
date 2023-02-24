@@ -63,4 +63,4 @@ def tweak_w3_contracts(w3: Web3):
     Remove parse_block_identifier(self.w3, block_identifier) from ContractFunction and setup new ContractFactory
     to remove redundant eth_getBlockByHash call.
     """
-    w3.eth._default_contract_factory = Contract
+    w3.eth._default_contract_factory = Contract  # pylint: disable=protected-access

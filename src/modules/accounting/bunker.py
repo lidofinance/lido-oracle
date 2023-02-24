@@ -309,7 +309,7 @@ class BunkerService:
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
         validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
         if validators_diff_in_gwei < 0:
-            raise Exception("Validators diff should be positive or 0. Something went wrong with CL API")
+            raise ValueError("Validators diff should be positive or 0. Something went wrong with CL API")
 
         corrected_prev_lido_balance_with_vault = (
             prev_lido_balance_with_vault
@@ -349,7 +349,7 @@ class BunkerService:
         )
 
         if len(events) > 1:
-            raise Exception("More than one ETHDistributed event found")
+            raise ValueError("More than one ETHDistributed event found")
 
         if not events:
             logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
@@ -424,15 +424,15 @@ class BunkerService:
         for key, validator in all_slashed_validators.items():
             v = validator.validator
             if not v.slashed:
-                raise Exception("Validator should be slashed to detect slashing epoch range")
+                raise ValueError("Validator should be slashed to detect slashing epoch range")
             if int(v.withdrawable_epoch) - int(v.exit_epoch) > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
                 determined_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
                 per_epoch_buckets[determined_slashed_epoch][key] = validator
                 continue
-            else:
-                possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-                for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
-                    per_epoch_buckets[epoch][key] = validator
+
+            possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
+            for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
+                per_epoch_buckets[epoch][key] = validator
 
         return per_epoch_buckets
 
