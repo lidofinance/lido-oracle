@@ -3,13 +3,12 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from eth_typing import Address
-from web3.types import EventData
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
-from src.typings import BlockStamp, BlockNumber
+from src.typings import BlockStamp
 from src.utils.events import get_events_in_past
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId, \
     NodeOperatorId
@@ -20,8 +19,8 @@ from src.web3py.typings import Web3
 class NodeOperatorPredictableState:
     predictable_validators_total_age: int
     predictable_validators_count: int
-    targeted_validators: int | None
-    delayed_validators: int
+    targeted_validators_count: int | None
+    delayed_validators_count: int
 
 
 class ValidatorToExitIterator:
@@ -48,41 +47,41 @@ class ValidatorToExitIterator:
         self.c_conf = c_conf
         self.left_queue_count = 0
 
+    def __iter__(self):
         # -- State init part --
-
-        self.exitable_lido_validators = self._get_exitable_lido_validators(blockstamp)
-
         self.validator_delayed_timeout_in_slots = Web3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash)
+                block_identifier=self.blockstamp.block_hash)
         )
-
         # ToDo fetch max_validators_to_exit from OracleSanityChecks
         self.max_validators_to_exit = 100
 
-        operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
-        operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        self.exitable_lido_validators = self._get_exitable_lido_validators(self.blockstamp)
+
+        lido_validators = {
+            v.validator.validator.pubkey: v for v in self.w3.lido_validators.get_lido_validators(self.blockstamp)
+        }
+        operators = self.w3.lido_validators.get_lido_node_operators(self.blockstamp)
+        operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
 
         self.staking_module_id = {
             operator.staking_module.staking_module_address: operator.staking_module.id
             for operator in operators
         }
 
-        self.total_predictable_validators_count = len([
-            validator for validator in self.w3.cc.get_validators(blockstamp.state_root)
-            if not self._is_on_exit(validator)
-        ])
         self.lido_node_operator_stats = self._prepare_lido_node_operator_stats(
             operators, operator_validators
         )
-
-    def _get_exitable_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        pass
-
-    def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
-        return StakingModuleId(self.staking_module_id[validator.key.moduleAddress]), NodeOperatorId(validator.key.operatorIndex)
-
-    def __iter__(self):
+        not_lido_predictable_validators_count = len([
+            v for v in self.w3.cc.get_validators(self.blockstamp.state_root)
+            if v.validator.pubkey not in lido_validators and not self._is_on_exit(v)
+        ])
+        lido_predictable_validators_count = sum(
+            o.predictable_validators_count for o in self.lido_node_operator_stats.values()
+        )
+        self.total_predictable_validators_count = (
+            not_lido_predictable_validators_count + lido_predictable_validators_count
+        )
         return self
 
     def __next__(self):
@@ -94,6 +93,12 @@ class ValidatorToExitIterator:
         self._decrease_node_operator_stats(to_exit)
         self.left_queue_count += 1
         return to_exit
+
+    def _get_exitable_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        pass
+
+    def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
+        return StakingModuleId(self.staking_module_id[validator.key.moduleAddress]), NodeOperatorId(validator.key.operatorIndex)
 
     def _decrease_node_operator_stats(self, validator: LidoValidator) -> None:
         """
@@ -123,13 +128,13 @@ class ValidatorToExitIterator:
 
     @staticmethod
     def _operator_delayed_validators(operator_state: NodeOperatorPredictableState) -> int:
-        return operator_state.delayed_validators
+        return operator_state.delayed_validators_count
 
     @staticmethod
     def _operator_targeted_validators_to_exit(operator_state: NodeOperatorPredictableState) -> int:
-        if operator_state.targeted_validators is None:
+        if operator_state.targeted_validators_count is None:
             return 0
-        return max(0, operator_state.predictable_validators_count - operator_state.targeted_validators)
+        return max(0, operator_state.predictable_validators_count - operator_state.targeted_validators_count)
 
     @staticmethod
     def _operator_stake_weight(
@@ -181,14 +186,13 @@ class ValidatorToExitIterator:
 
             # Validators that are not yet in CL
             in_flight_validators_count = operator.total_deposited_validators - len(operator_validators[module_operator])
-            self.total_predictable_validators_count += in_flight_validators_count
 
             # Set initial values
             operator_predictable_states[module_operator] = NodeOperatorPredictableState(
                 predictable_validators_total_age=0,
                 predictable_validators_count=in_flight_validators_count,
-                targeted_validators=operator.target_validators_count if operator.is_target_limit_active else None,
-                delayed_validators=max(
+                targeted_validators_count=operator.target_validators_count if operator.is_target_limit_active else None,
+                delayed_validators_count=max(
                     0, delayed_validators_count[module_operator] - operator.refunded_validators_count
                 ),
             )
@@ -204,8 +208,6 @@ class ValidatorToExitIterator:
                     )
                     operator_predictable_states[module_operator].predictable_validators_total_age += validator_age
                     operator_predictable_states[module_operator].predictable_validators_count += 1
-                if previously_requested_to_exit:
-                    self.total_predictable_validators_count -= 1
 
         return operator_predictable_states
 
