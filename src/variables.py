@@ -5,8 +5,8 @@ from eth_account import Account
 
 # - Providers-
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
-CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI')
-KEYS_API_URI = os.getenv('KEYS_API_URI')
+CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '')
+KEYS_API_URI = os.getenv('KEYS_API_URI', '')
 
 
 # - Account -
