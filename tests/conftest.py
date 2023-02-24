@@ -6,6 +6,7 @@ from _pytest.fixtures import FixtureRequest
 from eth_typing import Address
 from hexbytes import HexBytes
 from web3.providers import JSONBaseProvider
+from web3.middleware import simple_cache_middleware
 
 from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
@@ -68,6 +69,7 @@ def web3(provider) -> Web3:
         provider.add_mocks(eth_call_el_rewards_vault, eth_call_beacon_spec)
     web3 = Web3(provider)
     tweak_w3_contracts(web3)
+    web3.middleware_onion.add(simple_cache_middleware)
 
     yield web3
 
@@ -149,6 +151,11 @@ class Contracts(LidoContracts):
             abi=self.load_abi('OracleReportSanityChecker'),
             decode_tuples=True
         )
+        self.oracle_daemon_config = self.w3.eth.contract(
+            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
+            abi=self.load_abi('OracleDaemonConfig'),
+            decode_tuples=True,
+        )
 
 
 @pytest.fixture()
@@ -229,7 +236,7 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         state_root=slot_details.message.state_root,
         block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
         block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=slot_details.message.body['execution_payload']['timestamp'],
+        block_timestamp=int(slot_details.message.body['execution_payload']['timestamp']),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
     )
