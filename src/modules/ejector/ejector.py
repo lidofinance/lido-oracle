@@ -3,10 +3,12 @@ from functools import lru_cache
 
 from web3.types import Wei
 
+from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, FAR_FUTURE_EPOCH, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.ejector.typings import ProcessingState
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
+from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.extentions.lido_validators import LidoValidator
@@ -32,6 +34,8 @@ class Ejector(BaseModule, ConsensusModule):
     CONSENSUS_VERSION = 1
     CONTRACT_VERSION = 1
 
+    AVG_EXPECTING_TIME_IN_SWEEP_MULTIPLIER = 0.5
+
     def __init__(self, w3: Web3):
         self.report_contract = w3.lido_contracts.validators_exit_bus_oracle
         super().__init__(w3)
@@ -40,10 +44,9 @@ class Ejector(BaseModule, ConsensusModule):
 
     def execute_module(self, blockstamp: BlockStamp):
         self.process_report(blockstamp)
-
-        # report_blockstamp = self.get_blockstamp_for_report(blockstamp)
-        # if report_blockstamp:
-        #     self.process_report(report_blockstamp)
+        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        if report_blockstamp:
+            self.process_report(report_blockstamp)
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
@@ -67,7 +70,9 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self._get_chain_config(blockstamp)
 
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
-        rewards_speed = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
+        rewards_speed = self.prediction_service.get_rewards_per_slot(blockstamp, chain_config)
+
+        sweep = self._get_sweep_delay_in_slot(blockstamp)
 
         pass
 
@@ -77,6 +82,27 @@ class Ejector(BaseModule, ConsensusModule):
         )
         logger.info({'msg': 'Wei to finalize.'})
         return steth_to_finalize
+
+    def _get_exit_epoch_for_next_validator(self, validators_to_eject_count: int):
+        pass
+
+    def _get_sweep_delay_in_slot(self, blockstamp: BlockStamp):
+        validators = self.w3.cc.get_validators(blockstamp.state_root)
+
+        def if_validators_balance_withdrawable(validator: Validator):
+            if int(validator.validator.activation_epoch) > blockstamp.ref_epoch:
+                return False
+
+            if int(validator.balance) == 0:
+                return False
+
+            if validator.validator.withdrawal_credentials[:4] != ETH1_ADDRESS_WITHDRAWAL_PREFIX:
+                return False
+
+            return True
+
+        validators_count = len(list(filter(if_validators_balance_withdrawable, validators)))
+        return int(validators_count / MAX_WITHDRAWALS_PER_PAYLOAD * self.AVG_EXPECTING_TIME_IN_SWEEP_MULTIPLIER)
 
     # def get_val_to_eject(self):
     #     withdrawals_size = self.get_total_withdrawal_amount()
