@@ -1,9 +1,16 @@
+import logging
 from functools import lru_cache
+
+from web3.types import Wei
 
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
+from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
+
+
+logger = logging.getLogger(__name__)
 
 
 class Ejector(BaseModule, ConsensusModule):
@@ -33,15 +40,66 @@ class Ejector(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
-        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        # lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        #
+        # ws = self.get_total_withdrawal_amount(blockstamp)
+
+        validators = self.get_validators_to_eject(blockstamp)
+
+        # pass validators to extra data
 
         return (
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
-            2,
-            1,
+            0,
+            0,
             b'',
         )
+
+    def get_total_withdrawal_amount(self, blockstamp: BlockStamp) -> Wei:
+        steth_to_finalize = self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        logger.info({'msg': 'Wei to finalize.'})
+        return steth_to_finalize
+
+    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        withdrawal_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        pass
+
+    def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
+        pass
+
+    def get_val_to_eject(self):
+        withdrawals_size = self.get_total_withdrawal_amount()
+        max_vals = 150
+        vals = []
+
+        budget = self.calculate_budget()
+        if budget > withdrawals_size:
+            return vals
+
+        for validator in range(self.exit_queue):
+            vals.append(validator)
+
+            budget = self.calculate_budget(vals)
+            if budget > withdrawals_size:
+                return vals
+
+    def calculate_budget(self):
+        prediction = self.get_queue_size(len([1])) * self.get_prediction()
+        ejection = self.get_ejecet_budget([])
+        return prediction + ejection
+
+    def get_queue_size(self, list_size):
+        pass
+
+    def get_prediction(self):
+        pass
+
+    def get_ejecet_budget(self):
+        # Считаем бюджет валидатора
+        pass
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> tuple[int, int, bytes, bool, int, int, int]:
