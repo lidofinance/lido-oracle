@@ -18,6 +18,7 @@ pytest = "^7.2.1"
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pylint = "^2.16.2"
+mypy = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -62,3 +63,6 @@ disable = [
     "global-statement",
     "redefined-outer-name",
 ]
+
+[tool.mypy]
+strict_equality = true

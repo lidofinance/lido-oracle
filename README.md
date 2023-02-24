@@ -38,7 +38,18 @@ Modules:
 [Testing guide](/tests)
 
 ```bash
-petry run pytest .
+poetry run pytest .
+```
+
+## Code quality
+Used both pylint and mypy for code quality checks.
+See the [configuration](pyproject.toml) for details for each linter.
+
+```bash
+pylint src tests
+```
+```bash
+mypy src
 ```
 
 # Lido-Oracle daemon (deprecated)
