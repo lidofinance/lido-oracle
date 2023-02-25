@@ -36,8 +36,8 @@ class ConsensusModule(ABC):
         if self.report_contract is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-        if self.CONSENSUS_VERSION is None or self.CONSENSUS_VERSION is None:
-            raise NotImplementedError('CONSENSUS_VERSION and CONSENSUS_VERSION should be set.')
+        if self.CONTRACT_VERSION is None or self.CONSENSUS_VERSION is None:
+            raise NotImplementedError('CONTRACT_VERSION and CONSENSUS_VERSION should be set.')
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
