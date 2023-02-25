@@ -104,7 +104,7 @@ class ValidatorToExitIterator:
 
         return self
 
-    def __next__(self):
+    def __next__(self) -> LidoValidator:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
             raise StopIteration
 

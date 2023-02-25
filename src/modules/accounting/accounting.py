@@ -9,7 +9,6 @@ from src.modules.accounting.typings import ReportData, ProcessingState, LidoRepo
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
-from src.services.bunker import BunkerService
 from src.services.withdrawal import Withdrawal
 from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei
@@ -157,9 +156,9 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
 
         return withdrawal_service.get_next_last_finalizable_id(
-            is_bunker, 
-            finalization_share_rate, 
-            withdrawal_vault_balance, 
+            is_bunker,
+            finalization_share_rate,
+            withdrawal_vault_balance,
             el_rewards_vault_balance,
         )
 

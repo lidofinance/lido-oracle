@@ -20,13 +20,12 @@ class SafeBorder:
     blockstamp: BlockStamp
 
     def __init__(
-            self, 
-            w3: Web3, 
-            blockstamp: BlockStamp, 
-            chain_config: ChainConfig, 
-            frame_config: FrameConfig
-        ) -> None:
-
+        self,
+        w3: Web3,
+        blockstamp: BlockStamp,
+        chain_config: ChainConfig,
+        frame_config: FrameConfig,
+    ) -> None:
         self.w3 = w3
         self.lido_contracts = w3.lido_contracts
 
@@ -34,10 +33,12 @@ class SafeBorder:
         self.chain_config = chain_config
         self.frame_config = frame_config
 
+        self._retrieve_constants()
+
     def get_safe_border_epoch(
-        self, 
-        is_bunker: bool, 
-        
+            self,
+            is_bunker: bool,
+
     ) -> EpochNumber:
         if not is_bunker:
             return self._get_default_requests_border_epoch()
@@ -47,7 +48,7 @@ class SafeBorder:
 
         return min(
             negative_rebase_border_epoch,
-            associated_slashings_border_epoch
+            associated_slashings_border_epoch,
         )
 
     def _get_default_requests_border_epoch(self) -> EpochNumber:
@@ -57,26 +58,27 @@ class SafeBorder:
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
 
         latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
-        earliest_allowable_epoch = self.get_epoch_by_slot(self.blockstamp.ref_slot) - self.finalization_max_negative_rebase_shift
+        earliest_allowable_epoch = self.get_epoch_by_slot(
+            self.blockstamp.ref_slot) - self.finalization_max_negative_rebase_shift
 
-        return max(earliest_allowable_epoch, latest_allowable_epoch)
+        return EpochNumber(max(earliest_allowable_epoch, latest_allowable_epoch))
 
     def _get_bunker_start_or_last_successful_report_epoch(self) -> EpochNumber:
-        bunker_start_timestamp = self._get_bunker_mode_start_timestamp(self.blockstamp)
+        bunker_start_timestamp = self._get_bunker_mode_start_timestamp()
         if bunker_start_timestamp is not None:
             return self.get_epoch_by_timestamp(bunker_start_timestamp)
-        
-        last_report_slot = self._get_last_successful_report_slot(self.blockstamp)
+
+        last_report_slot = self._get_last_successful_report_slot()
         if last_report_slot != 0:
             return self.get_epoch_by_slot(last_report_slot)
 
-        return self.frame_config.initial_epoch
+        return EpochNumber(self.frame_config.initial_epoch)
 
-    def _get_associated_slashings_border_epoch(self) -> int:
+    def _get_associated_slashings_border_epoch(self) -> EpochNumber:
         earliest_slashed_epoch = self._get_earliest_slashed_epoch_among_incomplete_slashings()
 
         if earliest_slashed_epoch:
-            return self.round_epoch_by_frame(earliest_slashed_epoch) - self.finalization_default_shift
+            return EpochNumber(self.round_epoch_by_frame(earliest_slashed_epoch) - self.finalization_default_shift)
 
         return self._get_default_requests_border_epoch()
 
@@ -87,12 +89,14 @@ class SafeBorder:
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
         # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
-        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed, self.blockstamp.ref_epoch)
-        
+        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed,
+                                                                                 self.blockstamp.ref_epoch)
+
         if not validators_slashed_non_withdrawable:
             return None
-        
-        validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(validators_slashed_non_withdrawable)
+
+        validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(
+            validators_slashed_non_withdrawable)
 
         earliest_predicted_epoch = None
 
@@ -101,11 +105,10 @@ class SafeBorder:
 
             if not predicted_epoch:
                 return self._find_earliest_slashed_epoch(validators_with_earliest_exit_epoch)
-            
+
             if not earliest_predicted_epoch or earliest_predicted_epoch > predicted_epoch:
                 earliest_predicted_epoch = predicted_epoch
 
-        
         return earliest_predicted_epoch
 
     # If there are no so many validators in exit queue we can be quite sure that
@@ -126,7 +129,7 @@ class SafeBorder:
         last_finalized_request_id_slot = self._get_last_finalized_withdrawal_request_slot()
 
         start_slot = max(
-            last_finalized_request_id_slot, 
+            last_finalized_request_id_slot,
             self.get_epoch_first_slot(self._get_validators_earliest_activation_epoch(validators))
         )
         end_slot = min(
@@ -137,8 +140,8 @@ class SafeBorder:
         while not self._check_slots_in_one_frame_or_epoch(start_slot, end_slot):
             mid_slot = (end_slot + start_slot) // 2
             mid_non_missed_blockstamp = get_first_non_missed_slot(
-                self.w3.cc, 
-                mid_slot, 
+                self.w3.cc,
+                SlotNumber(mid_slot),
                 self.blockstamp.slot_number
             )
             validators = self._get_lido_validators(mid_non_missed_blockstamp)
@@ -151,7 +154,7 @@ class SafeBorder:
 
         return self.get_epoch_by_slot(start_slot)
 
-    def _check_slots_in_one_frame_or_epoch(self, start_slot: int, end_slot: int) -> bool:
+    def _check_slots_in_one_frame_or_epoch(self, start_slot: SlotNumber, end_slot: SlotNumber) -> bool:
         in_one_epoch = end_slot - start_slot <= self.chain_config.slots_per_epoch
         in_one_frame = self.get_frame_by_slot(start_slot) == self.get_frame_by_slot(end_slot)
 
@@ -163,17 +166,17 @@ class SafeBorder:
 
     def _get_validators_earliest_activation_epoch(self, validators) -> EpochNumber:
         if len(validators) == 0:
-            return 0
+            return EpochNumber(0)
 
         sorted_validators = sorted(
-            validators, 
-            key = lambda validator: (int(validator.validator.validator.activation_epoch))
+            validators,
+            key=lambda validator: (int(validator.validator.validator.activation_epoch))
         )
         return sorted_validators[0].validator.validator.activation_epoch
-    
+
     def _get_bunker_mode_start_timestamp(self) -> Optional[int]:
-        start_timestamp = self._get_bunker_start_timestamp(self.blockstamp)
-        
+        start_timestamp = self._get_bunker_start_timestamp()
+
         if start_timestamp > self.blockstamp.block_timestamp:
             return None
 
@@ -188,59 +191,61 @@ class SafeBorder:
         last_finalized_request_data = self._get_withdrawal_request_status(last_finalized_request_id)
 
         return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
-    
+
     def _get_bunker_start_timestamp(self) -> int:
         # If bunker mode is off returns max(uint256)
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(block_identifier=self.blockstamp.block_hash)
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
+            block_identifier=self.blockstamp.block_hash)
 
     def _get_last_finalized_request_id(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(block_identifier=self.blockstamp.block_hash)
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
+            block_identifier=self.blockstamp.block_hash)
 
     def _get_withdrawal_request_status(self, request_id: int) -> any:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(block_identifier=self.blockstamp.block_hash)
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
+            block_identifier=self.blockstamp.block_hash)
 
     def _get_lido_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         return [lv.validator for lv in self.w3.lido_validators.get_lido_validators(blockstamp)]
 
-    def _get_archive_lido_validators_by_keys(self, slot: SlotNumber, pubkeys: list[str]) -> list[Validator]:
-        return self.w3.cc.get_validators_no_cache(slot, pubkeys)
-
     def _get_last_successful_report_slot(self) -> SlotNumber:
-        return self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=self.blockstamp.block_hash)
+        return self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
+            block_identifier=self.blockstamp.block_hash)
 
     def _retrieve_constants(self):
         # Check self.w3.to_int works
         self.finalization_default_shift = self.w3.to_int(self.w3.lido_contracts.oracle_daemon_config.functions.get(
-             'FINALIZATION_DEFAULT_SHIFT'
+            'FINALIZATION_DEFAULT_SHIFT'
         ).call(block_identifier=self.blockstamp.block_hash))
-        self.finalization_max_negative_rebase_shift = self.w3.to_int(self.w3.lido_contracts.oracle_daemon_config.functions.get(
-             'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
-        ).call(block_identifier=self.blockstamp.block_hash))
+        self.finalization_max_negative_rebase_shift = self.w3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get(
+                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
+            ).call(block_identifier=self.blockstamp.block_hash))
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
-        return epoch * self.chain_config.slots_per_epoch
+        return SlotNumber(epoch * self.chain_config.slots_per_epoch)
 
     def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
         return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
 
     def get_epoch_by_timestamp(self, timestamp: int) -> EpochNumber:
-        return self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch
+        return EpochNumber(self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch)
 
     def get_slot_by_timestamp(self, timestamp: int) -> SlotNumber:
-        return (timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot
-    
+        return SlotNumber((timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot)
+
     def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
         rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))
         return self.get_epoch_first_slot(rounded_epoch)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
-        return self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch
+        return EpochNumber(self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
 
     def get_frame_by_slot(self, slot: SlotNumber) -> FrameNumber:
         return self.get_frame_by_epoch(self.get_epoch_by_slot(slot))
 
     def get_frame_by_epoch(self, epoch: EpochNumber) -> FrameNumber:
-        return (epoch - self.frame_config.initial_epoch) // self.frame_config.epochs_per_frame
+        return FrameNumber((epoch - self.frame_config.initial_epoch) // self.frame_config.epochs_per_frame)
 
 
 def filter_slashed_validators(validators: list[Validator]) -> list[Validator]:

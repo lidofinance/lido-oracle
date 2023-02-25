@@ -7,6 +7,7 @@ from typing import Optional
 from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
+from web3.types import Timestamp
 
 from src.modules.submodules.exceptions import IsNotMemberException, QuorumHashDoNotMatch
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
@@ -142,9 +143,9 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed finalized blockstamp
         """
-        member_info = self._get_member_info(last_finalized_blockstamp)
-
         latest_blockstamp = self._get_latest_blockstamp()
+
+        member_info = self._get_member_info(latest_blockstamp)
 
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
@@ -152,7 +153,7 @@ class ConsensusModule(ABC):
             return None
 
         # Check if current slot is higher than member slot
-        if latest_blockstamp.slot_number < member_info.current_frame_ref_slot:
+        if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
 
@@ -163,7 +164,7 @@ class ConsensusModule(ABC):
                 return None
 
         # Check latest block didn't miss deadline.
-        if latest_blockstamp.slot_number >= member_info.deadline_slot:
+        if latest_blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return None
 
@@ -284,7 +285,7 @@ class ConsensusModule(ABC):
     def _send_report_hash(self, blockstamp: BlockStamp, report_hash: bytes, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
 
-        tx = consensus_contract.functions.submitReport(blockstamp.slot_number, report_hash, consensus_version)
+        tx = consensus_contract.functions.submitReport(blockstamp.ref_slot, report_hash, consensus_version)
 
         if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
             self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
@@ -306,7 +307,7 @@ class ConsensusModule(ABC):
             state_root=slot_details.message.state_root,
             block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
             block_hash=slot_details.message.body['execution_payload']['block_hash'],
-            block_timestamp=int(slot_details.message.body['execution_payload']['timestamp']),
+            block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
             ref_slot=slot_number,
             ref_epoch=None,
         )

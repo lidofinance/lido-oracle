@@ -12,15 +12,15 @@ class Withdrawal:
     blockstamp: BlockStamp
 
     def __init__(
-        self, 
-        w3: Web3, 
-        blockstamp: BlockStamp, 
+        self,
+        w3: Web3,
+        blockstamp: BlockStamp,
         chain_config: ChainConfig,
-        frame_config: FrameConfig
+        frame_config: FrameConfig,
     ) -> None:
         self.w3 = w3
         self.safe_border_service = SafeBorder(self.w3, blockstamp, chain_config, frame_config)
-        
+
         self.chain_config = chain_config
         self.frame_config = frame_config
         self.blockstamp = blockstamp
@@ -38,7 +38,7 @@ class Withdrawal:
         withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode)
         withdrawable_until_timestamp = self.chain_config.genesis_time + (withdrawable_until_epoch * self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
         available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance)
-        
+
         return self._fetch_last_finalizable_request_id(available_eth, share_rate, withdrawable_until_timestamp)
 
     def _has_unfinalized_requests(self) -> bool:
