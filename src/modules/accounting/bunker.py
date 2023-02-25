@@ -1,3 +1,5 @@
+from typing import Any
+
 import math
 import logging
 from collections import defaultdict
@@ -297,17 +299,17 @@ class BunkerService:
             list(prev_all_validators.values()),
         )
 
-        prev_lido_validators = {
+        prev_lido_validators_by_key = {
             v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
             for v in prev_lido_validators
         }
 
-        prev_lido_balance = self._calculate_real_balance(prev_lido_validators)
+        prev_lido_balance = self._calculate_real_balance(prev_lido_validators_by_key)
         prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
         prev_lido_balance_with_vault = prev_lido_balance + self.w3.from_wei(prev_lido_vault_balance, "gwei")
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
-        validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
+        validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators_by_key)) * MIN_DEPOSIT_AMOUNT
         if validators_diff_in_gwei < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
 
@@ -369,17 +371,17 @@ class BunkerService:
     def _get_lido_validators_with_others(
         self, blockstamp: BlockStamp
     ) -> tuple[dict[str, Validator], dict[str, LidoKey], dict[str, ValidatorWithLidoKey]]:
-        validators = {v.validator.pubkey: v for v in self.w3.cc.get_validators(blockstamp.state_root)}
-        lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
+        validators: dict[str, Validator] = {v.validator.pubkey: v for v in self.w3.cc.get_validators(blockstamp.state_root)}
+        lido_keys: dict[str, LidoKey] = {str(k.key): k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
         lido_validators = {
-            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
+            str(v.key.key): ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
             for v in self.w3.lido_validators.get_lido_validators(blockstamp)
         }
 
         return validators, lido_keys, lido_validators
 
     @staticmethod
-    def _calculate_real_balance(validators: dict[str, Validator]) -> Gwei:
+    def _calculate_real_balance(validators: dict[Any, ValidatorWithLidoKey]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators.values()))
 
     @staticmethod
@@ -402,7 +404,7 @@ class BunkerService:
         """
         Get all slashed validators, who are not withdrawn yet
         """
-        slashed_validators: dict[str, Validator] = defaultdict(Validator)
+        slashed_validators: dict[str, Validator] = {}
 
         for key, v in all_validators.items():
             if v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch:
@@ -426,19 +428,19 @@ class BunkerService:
         https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#modified-slash_validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#initiate_validator_exit
         """
-        per_epoch_buckets = defaultdict(dict[str, Validator])
+        per_epoch_buckets: dict[EpochNumber, dict[str, Validator]] = {}
         for key, validator in all_slashed_validators.items():
             v = validator.validator
             if not v.slashed:
                 raise ValueError("Validator should be slashed to detect slashing epoch range")
             if int(v.withdrawable_epoch) - int(v.exit_epoch) > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-                determined_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
+                determined_slashed_epoch = EpochNumber(int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR)
                 per_epoch_buckets[determined_slashed_epoch][key] = validator
                 continue
 
             possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
             for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
-                per_epoch_buckets[epoch][key] = validator
+                per_epoch_buckets[EpochNumber(epoch)][key] = validator
 
         return per_epoch_buckets
 
@@ -453,7 +455,7 @@ class BunkerService:
         """
         per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]] = defaultdict(dict)
         for epoch, slashed_validators in per_epoch_buckets.items():
-            lido_validators_slashed_in_epoch: dict[str, ValidatorWithLidoKey] = {
+            lido_validators_slashed_in_epoch: dict[str, Validator] = {
                 key: slashed_validators[key] for key in lido_slashed_validators if key in slashed_validators
             }
             if not lido_validators_slashed_in_epoch:
@@ -472,7 +474,7 @@ class BunkerService:
                 midterm_penalty_epoch = EpochNumber(
                     int(v.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2
                 )
-                per_epoch_lido_midterm_penalties[midterm_penalty_epoch][key] = penalty
+                per_epoch_lido_midterm_penalties[midterm_penalty_epoch][key] = Gwei(penalty)
         return per_epoch_lido_midterm_penalties
 
     @staticmethod
@@ -486,7 +488,7 @@ class BunkerService:
         """
         min_bucket_epoch = min(per_epoch_buckets.keys())
         min_bounded_epoch = max(min_bucket_epoch, EpochNumber(bound_with_epoch - EPOCHS_PER_SLASHINGS_VECTOR))
-        bounded_slashed_validators: dict[str, Validator] = defaultdict(Validator)
+        bounded_slashed_validators: dict[str, Validator] = {}
         for epoch, slashed_validators in per_epoch_buckets.items():
             if min_bounded_epoch <= epoch <= bound_with_epoch:
                 for key, validator in slashed_validators.items():
@@ -508,7 +510,7 @@ class BunkerService:
             for val_key, penalty in validator_penalty.items():
                 if val_key not in per_frame_buckets[frame_index]:
                     per_frame_buckets[frame_index][val_key] = penalty
-        return [sum(penalties.values()) for penalties in per_frame_buckets.values()]
+        return [Gwei(sum(penalties.values())) for penalties in per_frame_buckets.values()]
 
     @staticmethod
     def _get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
