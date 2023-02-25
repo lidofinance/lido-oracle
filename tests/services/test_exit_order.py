@@ -5,7 +5,7 @@ import pytest
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
-from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState
+from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState, ValidatorToExitIteratorConfig
 from src.typings import BlockStamp, SlotNumber
 from src.web3py.extentions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
@@ -43,7 +43,10 @@ def validator_exit(
     service.blockstamp = past_blockstamp
     service.c_conf = ChainConfig(32, 12, 0)
     service.left_queue_count = 0
-    service.validator_delayed_timeout_in_slots = TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS
+    service.v_conf = ValidatorToExitIteratorConfig(
+        100,
+        TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS
+    )
     return service
 
 
@@ -123,6 +126,55 @@ class TestRequestedToExitIndices:
 
 
 @pytest.mark.unit
+def test_get_exitable_lido_validators(validator_exit):
+    def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
+        return LidoValidator(
+            key=LidoKey(
+                key=f'0x{index}',
+                depositSignature='',
+                operatorIndex=operator,
+                used=True,
+                moduleAddress=module_address
+            ),
+            validator=Validator(
+                index=index,
+                balance='0',
+                status='active',
+                validator=ValidatorState(
+                    pubkey=f'0x{index}',
+                    withdrawal_credentials='',
+                    effective_balance='0',
+                    slashed=False,
+                    activation_eligibility_epoch='0',
+                    activation_epoch=str(activation_epoch),
+                    exit_epoch=str(exit_epoch),
+                    withdrawable_epoch=''
+                )
+            )
+        )
+
+    operator_validators = {
+        (0, 0): [v('0x0', 0, 47, 500, FAR_FUTURE_EPOCH)],
+        (0, 1): [v('0x0', 1, 90, 1500, FAR_FUTURE_EPOCH)],
+        (1, 1): [v('0x1', 1, 50, 1000, 0)],
+        (1, 2): [],
+    }
+    result = validator_exit._get_exitable_lido_validators(
+        operator_validators, {
+            (0, 0): -1,
+            (0, 1): 100500,
+            (1, 1): -1,
+            (1, 2): -1,
+        }
+    )
+
+    expected_exitable_validators = [
+        v('0x0', 0, 47, 500, FAR_FUTURE_EPOCH),
+    ]
+    assert list(result) == expected_exitable_validators
+
+
+@pytest.mark.unit
 def test_prepare_lido_node_operator_stats(validator_exit,
                                           mock_validator_exit_events,
                                           mock_last_requested_validator_index):
@@ -174,10 +226,15 @@ def test_prepare_lido_node_operator_stats(validator_exit,
     validator_exit.blockstamp = simple_blockstamp(
         slot_number=18, block_number=13, ref_slot=22
     )
-    validator_exit.total_predictable_validators_count = 2
     result = validator_exit._prepare_lido_node_operator_stats(
         operators,
         operator_validators,
+        {
+            (0, 0): -1,
+            (0, 1): 100500,
+            (1, 1): -1,
+            (1, 2): -1,
+        },
     )
 
     expected_operator_predictable_states = {
