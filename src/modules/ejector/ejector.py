@@ -9,15 +9,16 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT, FAR_FUTURE_EPOCH, MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.prediction import RewardsPredictionService
-from src.modules.ejector.typings import ProcessingState
+from src.modules.ejector.typings import ProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, EpochNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.validator_state import is_validator_active
-from src.web3py.extentions.lido_validators import LidoValidator
+from src.web3py.extentions.lido_validators import LidoValidator, NodeOperatorIndex
 from src.web3py.typings import Web3
 
 
@@ -58,17 +59,17 @@ class Ejector(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: BlockStamp) -> tuple:
         validators = self.get_validators_to_eject(blockstamp)
 
-        # pass validators to toBytes service
+        data, data_format = encode_data(validators)
 
-        return (
+        return ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
-            0,
-            0,
-            b'',
-        )
+            len(validators),
+            data_format,
+            data,
+        ).as_tuple()
 
-    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[tuple[NodeOperatorIndex, LidoValidator]]:
         chain_config = self._get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
@@ -80,15 +81,15 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject = []
         validator_to_eject_balance_sum = 0
         # ToDo replace it with exit order
-        exit_order: list[LidoValidator] = []
-        for validator in exit_order:
+        exit_order: list[tuple[NodeOperatorIndex, LidoValidator]] = []
+        for no_index, validator in exit_order:
             withdrawal_epoch = self._get_withdrawal_epoch_for_latest_validator(blockstamp, len(validators_to_eject) + 1)
             future_rewards = (blockstamp.ref_slot - (withdrawal_epoch + epochs_to_sweep)) * rewards_speed_per_epoch
 
             if future_rewards + total_current_balance + validator_to_eject_balance_sum >= to_withdraw_amount:
                 return validators_to_eject
 
-            validators_to_eject.append(validator)
+            validators_to_eject.append((no_index, validator))
             validator_to_eject_balance_sum += int(validator.validator.validator.effective_balance)
 
         return validators_to_eject
