@@ -97,6 +97,8 @@ class LidoValidatorStateService:
             seconds_per_slot=chain_config.seconds_per_slot,
         )
 
+        logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
+
         return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in events)
 
     def get_operators_with_last_exited_validator_indexes(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
@@ -132,7 +134,7 @@ class LidoValidatorStateService:
 
         def exit_filter(validator: LidoValidator) -> int:
             # Returns 1 if True else 0
-            return int(int(validator.validator.validator.exit_epoch) < blockstamp.ref_epoch)
+            return int(int(validator.validator.validator.exit_epoch) <= blockstamp.ref_epoch)
 
         result = {}
 

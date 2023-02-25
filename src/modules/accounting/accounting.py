@@ -143,7 +143,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
         simulation = self.get_rebase_after_report(blockstamp)
-        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 / simulation.post_total_shares)
+        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares)
 
     @lru_cache(maxsize=1)
     def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
@@ -155,7 +155,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         if not last_ref_slot:
-            slots_elapsed = frame_config.epochs_per_frame * chain_conf.slots_per_epoch
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
         else:
             slots_elapsed = blockstamp.ref_slot - last_ref_slot
 
