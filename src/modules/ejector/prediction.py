@@ -15,7 +15,7 @@ class RewardsPredictionService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-    def get_rewards_per_slot(
+    def get_rewards_per_epoch(
             self,
             blockstamp: BlockStamp,
             chain_configs: ChainConfig,
@@ -54,7 +54,7 @@ class RewardsPredictionService:
             total_rewards += event['withdrawalsWithdrawn'] + event['executionLayerRewardsWithdrawn']
             time_spent += event['timeElapsed']
 
-        return Wei(total_rewards * chain_configs.seconds_per_slot // time_spent)
+        return Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent)
 
     @staticmethod
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
