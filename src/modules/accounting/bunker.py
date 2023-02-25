@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 
-from web3.types import Wei
+from web3.types import Wei, EventData
 
 from src.constants import (
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
@@ -20,7 +20,7 @@ from src.utils.slot import get_first_non_missed_slot
 from src.modules.accounting.typings import Gwei, LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
-from src.typings import BlockStamp, SlotNumber, EpochNumber
+from src.typings import BlockStamp, SlotNumber, EpochNumber, BlockNumber
 from src.web3py.typings import Web3
 
 
@@ -119,15 +119,16 @@ class BunkerService:
 
     def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
-        before_report_total_pooled_ether = self.w3.lido_contracts.lido.functions.totalSupply().call(
-            block_identifier=blockstamp.block_hash
-        )
+        before_report_total_pooled_ether = self._get_total_supply(blockstamp)
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) / GWEI_TO_WEI
+        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)
+
+    def _get_total_supply(self, blockstamp: BlockStamp) -> Gwei:
+        return self.w3.lido_contracts.lido.functions.totalSupply().call(block_identifier=blockstamp.block_hash)
 
     def _is_high_midterm_slashing_penalty(self, blockstamp: BlockStamp, cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
@@ -139,7 +140,7 @@ class BunkerService:
         if not lido_slashed_validators:
             return False
 
-        # We should calculate total_balance for eacdiff * chain_conf.seconds_per_slot,h bucket, but we do it once for all per_epoch_buckets
+        # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
         total_balance = self._calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
         per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
@@ -191,8 +192,7 @@ class BunkerService:
         )
 
         last_all_validators = {
-            # ToDo replace with state_root
-            v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.slot_number)
+            v.validator.pubkey: v for v in self.w3.cc.get_validators(last_report_blockstamp.state_root)
         }
 
         last_lido_validators = self.w3.lido_validators.merge_validators_with_keys(
@@ -309,7 +309,7 @@ class BunkerService:
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
         validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators)) * MIN_DEPOSIT_AMOUNT
         if validators_diff_in_gwei < 0:
-            raise ValueError("Validators diff should be positive or 0. Something went wrong with CL API")
+            raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
 
         corrected_prev_lido_balance_with_vault = (
             prev_lido_balance_with_vault
@@ -341,11 +341,11 @@ class BunkerService:
             {"msg": f"Get withdrawn from vault between {prev_blockstamp.ref_epoch,curr_blockstamp.ref_epoch} epochs"}
         )
 
-        events = self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(
+        events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
-            fromBlock=int(prev_blockstamp.block_number) + 1,
-            toBlock=int(curr_blockstamp.block_number),
+            from_block=BlockNumber(int(prev_blockstamp.block_number) + 1),
+            to_block=BlockNumber(int(curr_blockstamp.block_number)),
         )
 
         if len(events) > 1:
@@ -359,6 +359,12 @@ class BunkerService:
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
 
         return vault_withdrawals
+
+    def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
+        return self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(
+            fromBlock=from_block,
+            toBlock=to_block,
+        )
 
     def _get_lido_validators_with_others(
         self, blockstamp: BlockStamp
