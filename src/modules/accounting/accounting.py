@@ -9,6 +9,8 @@ from src.modules.accounting.typings import ReportData, ProcessingState, LidoRepo
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
+from src.services.bunker import BunkerService
+from src.services.withdrawal import Withdrawal
 from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass
@@ -125,6 +127,7 @@ class Accounting(BaseModule, ConsensusModule):
         balance = Gwei(sum(int(validator.validator.balance) for validator in lido_validators))
         return count, balance
 
+    @lru_cache(maxsize=1)
     def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
@@ -133,6 +136,7 @@ class Accounting(BaseModule, ConsensusModule):
             block_identifier=blockstamp.block_hash,
         ))
 
+    @lru_cache(maxsize=1)
     def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.w3.lido_contracts.lido_locator.functions.elRewardsVault().call(
@@ -142,11 +146,27 @@ class Accounting(BaseModule, ConsensusModule):
         ))
 
     def _get_last_withdrawal_request_to_finalize(self, blockstamp: BlockStamp) -> int:
-        return 0
+        chain_config = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
 
+        is_bunker = self._is_bunker(blockstamp)
+        withdrawal_vault_balance = self._get_withdrawal_balance(blockstamp)
+        el_rewards_vault_balance = self._get_el_vault_balance(blockstamp)
+        finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
+
+        withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
+
+        return withdrawal_service.get_next_last_finalizable_id(
+            is_bunker, 
+            finalization_share_rate, 
+            withdrawal_vault_balance, 
+            el_rewards_vault_balance,
+        )
+
+    @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
         simulation = self.get_rebase_after_report(blockstamp)
-        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares)
+        return simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
 
     @lru_cache(maxsize=1)
     def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
