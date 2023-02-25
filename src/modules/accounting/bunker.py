@@ -12,7 +12,7 @@ from src.constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     MIN_DEPOSIT_AMOUNT,
-    WEI_TO_GWEI,
+    GWEI_TO_WEI,
 )
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
@@ -49,6 +49,7 @@ class BunkerService:
     simulated_rebase: LidoReportRebase
 
     last_report_ref_slot: SlotNumber = SlotNumber(0)
+    last_finalized_slot_number: SlotNumber = SlotNumber(0)
 
     all_validators: dict[str, Validator] = {}
     lido_keys: dict[str, LidoKey] = {}
@@ -64,10 +65,12 @@ class BunkerService:
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         simulated_rebase: LidoReportRebase,
+        last_finalized_slot_number: SlotNumber,
     ) -> bool:
         self.f_conf = frame_config
         self.c_conf = chain_config
         self.simulated_rebase = simulated_rebase
+        self.last_finalized_slot_number = last_finalized_slot_number
 
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
@@ -119,7 +122,7 @@ class BunkerService:
         before_report_total_pooled_ether = self._get_total_supply(blockstamp)
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // WEI_TO_GWEI
+        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)
@@ -178,7 +181,8 @@ class BunkerService:
         last_report_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             self.last_report_ref_slot,
-            EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         total_ref_effective_balance = self._calculate_total_active_effective_balance(
@@ -244,13 +248,15 @@ class BunkerService:
         nearest_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(nearest_slot),
-            EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         far_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(far_slot),
-            EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
         if nearest_blockstamp.block_number == far_blockstamp.block_number:

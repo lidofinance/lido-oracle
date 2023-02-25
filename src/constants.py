@@ -10,5 +10,13 @@ PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
 MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
 SHARE_RATE_PRECISION_E27 = 1e27
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
+MAX_WITHDRAWALS_PER_PAYLOAD = 2 ** 4
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
+ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator-cycle
+MIN_PER_EPOCH_CHURN_LIMIT = 2 ** 2
+CHURN_LIMIT_QUOTIENT = 2 ** 16
 
-WEI_TO_GWEI = 10 ** 9
+# Local constants
+GWEI_TO_WEI = 10 ** 9

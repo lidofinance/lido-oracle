@@ -143,7 +143,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _get_finalization_shares_rate(self, blockstamp: BlockStamp) -> int:
         simulation = self.get_rebase_after_report(blockstamp)
-        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 / simulation.post_total_shares)
+        return int(simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares)
 
     @lru_cache(maxsize=1)
     def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
@@ -155,7 +155,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         if not last_ref_slot:
-            slots_elapsed = frame_config.epochs_per_frame * chain_conf.slots_per_epoch
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
         else:
             slots_elapsed = blockstamp.ref_slot - last_ref_slot
 
@@ -181,6 +181,8 @@ class Accounting(BaseModule, ConsensusModule):
         chain_config = self._get_chain_config(blockstamp)
         rebase_report = self.get_rebase_after_report(blockstamp)
 
-        bunker_mode = self.bunker_service.is_bunker_mode(blockstamp, frame_config, chain_config, rebase_report)
+        bunker_mode = self.bunker_service.is_bunker_mode(
+            blockstamp, frame_config, chain_config, rebase_report, self._previous_finalized_slot_number
+        )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode
