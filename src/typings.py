@@ -3,6 +3,7 @@ from enum import StrEnum
 from typing import NewType, Optional
 
 from eth_typing import HexStr
+from web3.types import Timestamp
 
 
 class OracleModule(StrEnum):
@@ -29,7 +30,7 @@ class BlockStamp:
     slot_number: SlotNumber
     block_hash: BlockHash
     block_number: BlockNumber
-    block_timestamp: int
+    block_timestamp: Timestamp
     # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
     ref_slot: SlotNumber
     # ref_epoch could be empty if we do not know chain configs when generating this timestamp

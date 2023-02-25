@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 from src.typings import BlockRoot, StateRoot
 from src.utils.dataclass import Nested
@@ -9,6 +10,37 @@ from src.utils.dataclass import Nested
 class BlockRootResponse:
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
     root: BlockRoot
+
+
+@dataclass
+class BlockHeaderMessage:
+    slot: str
+    proposer_index: str
+    parent_root: str
+    state_root: StateRoot
+    body_root: str
+
+
+@dataclass
+class BlockHeader(Nested):
+    message: BlockHeaderMessage
+    signature: str
+
+
+@dataclass
+class BlockHeaderResponseData(Nested):
+    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+    root: BlockRoot
+    canonical: bool
+    header: BlockHeader
+
+
+@dataclass
+class BlockHeaderFullResponse(Nested):
+    # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+    finalized: Optional[bool]
+    execution_optimistic: bool
+    data: BlockHeaderResponseData
 
 
 @dataclass

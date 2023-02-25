@@ -3,7 +3,13 @@ from web3.contract.contract import ContractEvent
 from src.typings import BlockStamp
 
 
-def get_events_in_past(contract_event: ContractEvent, to_blockstamp: BlockStamp, for_slots: int, seconds_per_slot: int):
+def get_events_in_past(
+        contract_event: ContractEvent,
+        to_blockstamp: BlockStamp,
+        for_slots: int,
+        seconds_per_slot: int,
+        timestamp_field_name: str = 'timestamp',
+):
     """
         This is protection against missed slots. When between 10 and 11 block number could be 5 missed slots.
         To filter events with this method Events should contain timestamp inside args.
@@ -40,9 +46,6 @@ def get_events_in_past(contract_event: ContractEvent, to_blockstamp: BlockStamp,
     from_block = max(0, to_blockstamp.block_number - for_slots_without_missed_blocks)
     from_timestamp = to_blockstamp.block_timestamp - for_slots_without_missed_blocks * seconds_per_slot
 
-    events = contract_event.get_logs(
-        fromBlock=from_block,
-        toBlock=to_blockstamp.block_number,
-    )
+    events = contract_event.get_logs(fromBlock=from_block, toBlock=to_blockstamp.block_number)
 
-    return [event for event in events if event['args']['timestamp'] > from_timestamp]
+    return [event for event in events if event['args'][timestamp_field_name] > from_timestamp]
