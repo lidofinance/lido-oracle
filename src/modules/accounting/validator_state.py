@@ -13,7 +13,8 @@ from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.web3py.extentions.lido_validators import (
     NodeOperatorIndex,
-    LidoValidator, StakingModule,
+    LidoValidator,
+    StakingModule,
 )
 from src.web3py.typings import Web3
 
