@@ -29,7 +29,6 @@ class Accounting(BaseModule, ConsensusModule):
         super().__init__(w3)
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
-        self.withdrawal_service = Withdrawal(self.w3)
 
     # Oracle module: loop method
     def execute_module(self, blockstamp: BlockStamp) -> None:
@@ -144,21 +143,21 @@ class Accounting(BaseModule, ConsensusModule):
         ))
 
     def _get_last_withdrawal_request_to_finalize(self, blockstamp: BlockStamp) -> int:
+        chain_config = self._get_chain_config(blockstamp)
+        frame_config = self._get_frame_config(blockstamp)
+
         is_bunker = self._is_bunker(blockstamp)
         withdrawal_vault_balance = self._get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self._get_el_vault_balance(blockstamp)
         finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
-        chain_config = self._get_chain_config(blockstamp)
-        frame_config = self._get_frame_config(blockstamp)
 
-        return self.withdrawal_service.get_next_last_finalizable_id(
+        withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
+
+        return withdrawal_service.get_next_last_finalizable_id(
             is_bunker, 
             finalization_share_rate, 
             withdrawal_vault_balance, 
-            el_rewards_vault_balance, 
-            blockstamp,
-            chain_config,
-            frame_config
+            el_rewards_vault_balance,
         )
 
     @lru_cache(maxsize=1)

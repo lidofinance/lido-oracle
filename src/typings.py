@@ -11,7 +11,7 @@ class OracleModule(StrEnum):
 
 
 EpochNumber = NewType('EpochNumber', int)
-
+FrameNumber = NewType('FrameNumber', int)
 StateRoot = NewType('StateRoot', HexStr)
 BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
