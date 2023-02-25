@@ -45,6 +45,9 @@ class Accounting(BaseModule, ConsensusModule):
 
         tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
 
+        if not variables.ACCOUNT:
+            logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
+            return
         if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
             self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
 
@@ -90,9 +93,9 @@ class Accounting(BaseModule, ConsensusModule):
 
         # Here report all exited validators even they were reported before.
         if exited_validators:
-            stacking_module_id_list, exit_validators_count_list = zip(*exited_validators.items())
+            staking_module_id_list, exit_validators_count_list = zip(*exited_validators.items())
         else:
-            stacking_module_id_list = exit_validators_count_list = []
+            staking_module_id_list = exit_validators_count_list = []
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
 
@@ -102,7 +105,7 @@ class Accounting(BaseModule, ConsensusModule):
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
-            stacking_module_id_with_exited_validators=stacking_module_id_list,
+            stacking_module_id_with_exited_validators=staking_module_id_list,
             count_exited_validators_by_stacking_module=exit_validators_count_list,
             withdrawal_vault_balance=self._get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self._get_el_vault_balance(blockstamp),
@@ -175,7 +178,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         if not last_ref_slot:
-            slots_elapsed = frame_config.epochs_per_frame * chain_conf.slots_per_epoch
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
         else:
             slots_elapsed = blockstamp.ref_slot - last_ref_slot
 

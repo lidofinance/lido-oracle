@@ -18,6 +18,7 @@ from web3.contract import Contract
 from src import variables
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
 
+
 logger = logging.getLogger(__name__)
 
 
