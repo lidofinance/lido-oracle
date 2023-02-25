@@ -45,6 +45,7 @@ class ValidatorToExitIterator:
     """
     v_conf: ValidatorToExitIteratorConfig
     staking_module_id: dict[Address, StakingModuleId]
+    exitable_lido_validators: list[LidoValidator]
     lido_node_operator_stats: dict[NodeOperatorIndex, NodeOperatorPredictableState]
     total_predictable_validators_count: int
 
@@ -107,7 +108,7 @@ class ValidatorToExitIterator:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
             raise StopIteration
 
-        self.exitable_lido_validators.sort(key=lambda validator: self._predicates(validator))
+        self.exitable_lido_validators.sort(key=self._predicates)
         to_exit = self.exitable_lido_validators.pop(0)
         self._decrease_node_operator_stats(to_exit)
         self.left_queue_count += 1
