@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from unittest.mock import Mock
 
 import pytest
@@ -129,14 +130,14 @@ class TestRequestedToExitIndices:
 def test_get_exitable_lido_validators(validator_exit):
     def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
         return LidoValidator(
-            key=LidoKey(
+            lido_id=LidoKey(
                 key=f'0x{index}',
                 depositSignature='',
                 operatorIndex=operator,
                 used=True,
                 moduleAddress=module_address
             ),
-            validator=Validator(
+            **asdict(Validator(
                 index=index,
                 balance='0',
                 status='active',
@@ -150,7 +151,7 @@ def test_get_exitable_lido_validators(validator_exit):
                     exit_epoch=str(exit_epoch),
                     withdrawable_epoch=''
                 )
-            )
+            ))
         )
 
     operator_validators = {
@@ -180,14 +181,13 @@ def test_prepare_lido_node_operator_stats(validator_exit,
                                           mock_last_requested_validator_index):
     def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
-        validator.key = object.__new__(LidoKey)
-        validator.validator = object.__new__(Validator)
-        validator.validator.validator = object.__new__(ValidatorState)
-        validator.key.moduleAddress = module_address
-        validator.key.operatorIndex = operator
-        validator.validator.index = index
-        validator.validator.validator.activation_epoch = activation_epoch
-        validator.validator.validator.exit_epoch = exit_epoch
+        validator.lido_id = object.__new__(LidoKey)
+        validator.validator = object.__new__(ValidatorState)
+        validator.lido_id.moduleAddress = module_address
+        validator.lido_id.operatorIndex = operator
+        validator.index = index
+        validator.validator.activation_epoch = activation_epoch
+        validator.validator.exit_epoch = exit_epoch
         return validator
 
     def n(
@@ -278,13 +278,12 @@ def test_prepare_lido_node_operator_stats(validator_exit,
 def test_predicates():
     def v(module_address, operator, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
-        validator.key = object.__new__(LidoKey)
-        validator.validator = object.__new__(Validator)
-        validator.validator.validator = object.__new__(ValidatorState)
-        validator.key.moduleAddress = module_address
-        validator.key.operatorIndex = operator
-        validator.validator.index = index
-        validator.validator.validator.activation_epoch = activation_epoch
+        validator.lido_id = object.__new__(LidoKey)
+        validator.validator = object.__new__(ValidatorState)
+        validator.lido_id.moduleAddress = module_address
+        validator.lido_id.operatorIndex = operator
+        validator.index = index
+        validator.validator.activation_epoch = activation_epoch
         return validator
 
     exitable_validators_random_sort = [
@@ -337,13 +336,12 @@ def test_predicates():
 def test_decrease_node_operator_stats(validator_exit):
     def v(module_address, operator, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
-        validator.key = object.__new__(LidoKey)
-        validator.validator = object.__new__(Validator)
-        validator.validator.validator = object.__new__(ValidatorState)
-        validator.key.moduleAddress = module_address
-        validator.key.operatorIndex = operator
-        validator.validator.index = index
-        validator.validator.validator.activation_epoch = activation_epoch
+        validator.lido_id = object.__new__(LidoKey)
+        validator.validator = object.__new__(ValidatorState)
+        validator.lido_id.moduleAddress = module_address
+        validator.lido_id.operatorIndex = operator
+        validator.index = index
+        validator.validator.activation_epoch = activation_epoch
         return validator
 
     exitable_validators = [
@@ -395,10 +393,9 @@ def test_decrease_node_operator_stats(validator_exit):
 def test_get_delayed_validators_count_per_operator():
     def v(index, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
-        validator.validator = object.__new__(Validator)
-        validator.validator.validator = object.__new__(ValidatorState)
-        validator.validator.index = index
-        validator.validator.validator.exit_epoch = exit_epoch
+        validator.validator = object.__new__(ValidatorState)
+        validator.index = index
+        validator.validator.exit_epoch = exit_epoch
         return validator
 
     last_requested_to_exit_indices_per_operator = {

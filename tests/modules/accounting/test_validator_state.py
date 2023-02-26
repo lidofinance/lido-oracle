@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from unittest.mock import Mock
 
 import pytest
@@ -37,14 +38,14 @@ class MockValidatorsProvider(LidoValidatorsProvider):
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         def validator(index: int, exit_epoch: int, pubkey: str):
             return LidoValidator(
-                key=LidoKey(
+                lido_id=LidoKey(
                     key=HexBytes(pubkey),
                     depositSignature=HexBytes(b""),
                     operatorIndex=-1,
                     used=True,
                     moduleAddress=Address(b""),
                 ),
-                validator=Validator(
+                **asdict(Validator(
                     index=str(index),
                     balance="0",
                     status="",
@@ -58,7 +59,7 @@ class MockValidatorsProvider(LidoValidatorsProvider):
                         exit_epoch=str(exit_epoch),
                         withdrawable_epoch="0",
                     ),
-                ),
+                )),
             )
 
         return {
