@@ -91,14 +91,14 @@ class BunkerService:
         logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
 
         logger.info({"msg": "Checking bunker mode"})
-        frame_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp)
-        if frame_cl_rebase < 0:
+        current_report_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp)
+        if current_report_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
-        if self._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase):
+        if self._is_high_midterm_slashing_penalty(blockstamp, current_report_cl_rebase):
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
             return True
-        if self._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase):
+        if self._is_abnormal_cl_rebase(blockstamp, current_report_cl_rebase):
             logger.info({"msg": "Bunker ON. Abnormal CL rebase"})
             return True
 
