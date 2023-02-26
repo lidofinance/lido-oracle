@@ -123,7 +123,7 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         count = len(lido_validators)
-        balance = Gwei(sum(int(validator.validator.balance) for validator in lido_validators))
+        balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
         return count, balance
 
     @lru_cache(maxsize=1)
@@ -167,8 +167,7 @@ class Accounting(BaseModule, ConsensusModule):
         simulation = self.get_rebase_after_report(blockstamp)
         return simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
 
-    @lru_cache(maxsize=1)
-    def get_rebase_after_report(self, blockstamp: BlockStamp) -> LidoReportRebase:
+    def get_rebase_after_report(self, blockstamp: BlockStamp, cl_only=False) -> LidoReportRebase:
         chain_conf = self._get_chain_config(blockstamp)
         frame_config = self._get_frame_config(blockstamp)
 
@@ -191,7 +190,7 @@ class Accounting(BaseModule, ConsensusModule):
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self._get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
+            0 if cl_only else self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         ).call({'from': self.w3.lido_contracts.accounting_oracle.address})
@@ -201,10 +200,10 @@ class Accounting(BaseModule, ConsensusModule):
     def _is_bunker(self, blockstamp: BlockStamp) -> bool:
         frame_config = self._get_frame_config(blockstamp)
         chain_config = self._get_chain_config(blockstamp)
-        rebase_report = self.get_rebase_after_report(blockstamp)
+        cl_rebase_report = self.get_rebase_after_report(blockstamp, cl_only=True)
 
         bunker_mode = self.bunker_service.is_bunker_mode(
-            blockstamp, frame_config, chain_config, rebase_report, self._previous_finalized_slot_number
+            blockstamp, frame_config, chain_config, cl_rebase_report, self._previous_finalized_slot_number
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode

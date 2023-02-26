@@ -83,7 +83,7 @@ class SafeBorder:
         return self._get_default_requests_border_epoch()
 
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> Optional[EpochNumber]:
-        validators = self._get_lido_validators(self.blockstamp)
+        validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
 
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
@@ -124,7 +124,7 @@ class SafeBorder:
 
         return withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
-    def _find_earliest_slashed_epoch(self, validators) -> EpochNumber:
+    def _find_earliest_slashed_epoch(self, validators: list[Validator]) -> EpochNumber:
         withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
         last_finalized_request_id_slot = self._get_last_finalized_withdrawal_request_slot()
 
@@ -144,7 +144,7 @@ class SafeBorder:
                 SlotNumber(mid_slot),
                 self.blockstamp.slot_number
             )
-            validators = self._get_lido_validators(mid_non_missed_blockstamp)
+            validators = self.w3.lido_validators.get_lido_validators(mid_non_missed_blockstamp)
             slashed_validators = filter_slashed_validators(validators)
 
             if slashed_validators:
@@ -160,19 +160,21 @@ class SafeBorder:
 
         return in_one_frame or in_one_epoch
 
-    def _filter_validators_with_earliest_exit_epoch(self, validators) -> list[Validator]:
+    def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
         sorted_validators = sorted(validators, key=lambda validator: (int(validator.validator.exit_epoch)))
-        return filter_validators_by_exit_epoch(sorted_validators, sorted_validators[0].validator.exit_epoch)
+        return filter_validators_by_exit_epoch(
+            sorted_validators, EpochNumber(int(sorted_validators[0].validator.exit_epoch))
+        )
 
-    def _get_validators_earliest_activation_epoch(self, validators) -> EpochNumber:
+    def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
         if len(validators) == 0:
             return EpochNumber(0)
 
         sorted_validators = sorted(
             validators,
-            key=lambda validator: (int(validator.validator.validator.activation_epoch))
+            key=lambda validator: (int(validator.validator.activation_epoch))
         )
-        return sorted_validators[0].validator.validator.activation_epoch
+        return EpochNumber(int(sorted_validators[0].validator.activation_epoch))
 
     def _get_bunker_mode_start_timestamp(self) -> Optional[int]:
         start_timestamp = self._get_bunker_start_timestamp()
@@ -204,9 +206,6 @@ class SafeBorder:
     def _get_withdrawal_request_status(self, request_id: int) -> any:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
             block_identifier=self.blockstamp.block_hash)
-
-    def _get_lido_validators(self, blockstamp: BlockStamp) -> list[Validator]:
-        return [lv.validator for lv in self.w3.lido_validators.get_lido_validators(blockstamp)]
 
     def _get_last_successful_report_slot(self) -> SlotNumber:
         return self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(

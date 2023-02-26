@@ -96,7 +96,7 @@ class Ejector(BaseModule, ConsensusModule):
                 return validators_to_eject
 
             validators_to_eject.append(validator)
-            validator_to_eject_balance_sum += int(validator.validator.validator.effective_balance)
+            validator_to_eject_balance_sum += int(validator.validator.effective_balance)
 
         return validators_to_eject
 

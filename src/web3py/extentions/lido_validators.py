@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import lru_cache
 from typing import Tuple, TYPE_CHECKING, NewType
 
@@ -59,9 +59,8 @@ class NodeOperator(Nested):
 
 
 @dataclass
-class LidoValidator(Nested):
-    key: LidoKey
-    validator: Validator
+class LidoValidator(Validator):
+    lido_id: LidoKey
 
 
 ValidatorsByNodeOperator = dict[NodeOperatorIndex, list[LidoValidator]]
@@ -87,8 +86,8 @@ class LidoValidatorsProvider(Module):
         for key in keys:
             if key.key in validators_keys_dict:
                 lido_validators.append(LidoValidator(
-                    key=key,
-                    validator=validators_keys_dict[key.key],
+                    lido_id=key,
+                    **asdict(validators_keys_dict[key.key]),
                 ))
 
         return lido_validators
@@ -108,8 +107,8 @@ class LidoValidatorsProvider(Module):
 
         for validator in merged_validators:
             no_validators[(
-                staking_module_address[validator.key.moduleAddress],
-                validator.key.operatorIndex,
+                staking_module_address[validator.lido_id.moduleAddress],
+                validator.lido_id.operatorIndex,
             )].append(validator)
 
         return no_validators

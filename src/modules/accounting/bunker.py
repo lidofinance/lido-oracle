@@ -23,6 +23,7 @@ from src.modules.accounting.typings import Gwei, LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber, BlockNumber
+from src.web3py.extentions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 
@@ -37,13 +38,10 @@ class BunkerConfig:
     rebase_check_far_epoch_distance: int
 
 
-@dataclass
-class ValidatorWithLidoKey(Validator):
-    # Will be fixed soon
-    key: LidoKey
-
-
 class BunkerService:
+    """
+    https://research.lido.fi/t/withdrawals-for-lido-on-ethereum-bunker-mode-design-and-implementation/
+    """
     b_conf: BunkerConfig
     c_conf: ChainConfig
     f_conf: FrameConfig
@@ -55,7 +53,7 @@ class BunkerService:
 
     all_validators: dict[str, Validator] = {}
     lido_keys: dict[str, LidoKey] = {}
-    lido_validators: dict[str, ValidatorWithLidoKey] = {}
+    lido_validators: dict[str, LidoValidator] = {}
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -82,11 +80,18 @@ class BunkerService:
             logger.info({"msg": "No one report yet. Bunker status will not be checked"})
             return False
 
-        self.all_validators, self.lido_keys, self.lido_validators = self._get_lido_validators_with_others(blockstamp)
+        self.all_validators = {
+            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(blockstamp.slot_number)
+        }
+        self.lido_keys = {str(k.key): k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
+        self.lido_validators = {
+            v.validator.pubkey: v
+            for v in self.w3.lido_validators.get_lido_validators(blockstamp)
+        }
         logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
 
         logger.info({"msg": "Checking bunker mode"})
-        frame_cl_rebase = self._get_cl_rebase_for_frame(blockstamp)
+        frame_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp)
         if frame_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
@@ -119,7 +124,7 @@ class BunkerService:
             )
         )
 
-    def _get_cl_rebase_for_frame(self, blockstamp: BlockStamp) -> Gwei:
+    def _get_cl_rebase_for_current_report(self, blockstamp: BlockStamp) -> Gwei:
         logger.info({"msg": "Getting CL rebase for frame"})
         before_report_total_pooled_ether = self._get_total_supply(blockstamp)
 
@@ -202,10 +207,7 @@ class BunkerService:
             list(last_all_validators.values()),
         )
 
-        last_lido_validators = {
-            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
-            for v in last_lido_validators
-        }
+        last_lido_validators = {v.validator.pubkey: v for v in last_lido_validators}
 
         total_last_effective_balance = self._calculate_total_active_effective_balance(
             last_all_validators, last_report_blockstamp.ref_epoch
@@ -228,16 +230,16 @@ class BunkerService:
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
         return Gwei(normal_cl_rebase)
 
-    def _is_negative_specific_cl_rebase(self, blockstamp: BlockStamp) -> bool:
+    def _is_negative_specific_cl_rebase(self, ref_blockstamp: BlockStamp) -> bool:
         """
         Calculate CL rebase from nearest and far epochs to ref epoch given the changes in withdrawal vault
         """
         logger.info({"msg": "Calculating nearest and far CL rebase"})
         nearest_slot = (
-            blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
+                ref_blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
         )
         far_slot = (
-            blockstamp.ref_slot - self.b_conf.rebase_check_far_epoch_distance * self.c_conf.slots_per_epoch
+                ref_blockstamp.ref_slot - self.b_conf.rebase_check_far_epoch_distance * self.c_conf.slots_per_epoch
         )
 
         if nearest_slot < far_slot:
@@ -265,18 +267,18 @@ class BunkerService:
             logger.info(
                 {"msg": "Nearest and far blocks are the same. Specific CL rebase will be calculated once"}
             )
-            specific_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
+            specific_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, ref_blockstamp)
             logger.info({"msg": f"Specific CL rebase: {specific_cl_rebase} Gwei"})
             return specific_cl_rebase < 0
 
-        nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, blockstamp)
-        far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, blockstamp)
+        nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, ref_blockstamp)
+        far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, ref_blockstamp)
 
         logger.info({"msg": f"Specific CL rebase {nearest_cl_rebase,far_cl_rebase=} Gwei"})
         return nearest_cl_rebase < 0 or far_cl_rebase < 0
 
     @lru_cache(maxsize=1)
-    def _calculate_cl_rebase_between(self, prev_blockstamp: BlockStamp, curr_blockstamp: BlockStamp) -> Gwei:
+    def _calculate_cl_rebase_between(self, prev_blockstamp: BlockStamp, ref_blockstamp: BlockStamp) -> Gwei:
         """
         Calculate CL rebase from prev_blockstamp to ref_blockstamp.
         Skimmed validator rewards are sent to 0x01 withdrawal credentials address
@@ -284,11 +286,11 @@ class BunkerService:
         we must account for WithdrawalVault balance changes (withdrawn events from it)
         """
         logger.info(
-            {"msg": f"Calculating CL rebase between {prev_blockstamp.ref_epoch, curr_blockstamp.ref_epoch} epochs"}
+            {"msg": f"Calculating CL rebase between {prev_blockstamp.ref_epoch, ref_blockstamp.ref_epoch} epochs"}
         )
 
         ref_lido_balance = self._calculate_real_balance(self.lido_validators)
-        ref_lido_vault_balance = self._get_withdrawal_vault_balance(curr_blockstamp)
+        ref_lido_vault_balance = self._get_withdrawal_vault_balance(ref_blockstamp)
         ref_lido_balance_with_vault = ref_lido_balance + self.w3.from_wei(ref_lido_vault_balance, "gwei")
 
         prev_all_validators = {
@@ -299,10 +301,7 @@ class BunkerService:
             list(prev_all_validators.values()),
         )
 
-        prev_lido_validators_by_key = {
-            v.key.key: ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
-            for v in prev_lido_validators
-        }
+        prev_lido_validators_by_key = {v.validator.pubkey: v for v in prev_lido_validators}
 
         prev_lido_balance = self._calculate_real_balance(prev_lido_validators_by_key)
         prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
@@ -316,13 +315,13 @@ class BunkerService:
         corrected_prev_lido_balance_with_vault = (
             prev_lido_balance_with_vault
             + validators_diff_in_gwei
-            - self._get_withdrawn_from_vault_between(prev_blockstamp, curr_blockstamp)
+            - self._get_withdrawn_from_vault_between(prev_blockstamp, ref_blockstamp)
         )
 
         cl_rebase = ref_lido_balance_with_vault - corrected_prev_lido_balance_with_vault
 
         logger.info(
-            {"msg": f"CL rebase between {prev_blockstamp.ref_epoch,curr_blockstamp.ref_epoch} epochs: {cl_rebase} Gwei"}
+            {"msg": f"CL rebase between {prev_blockstamp.ref_epoch,ref_blockstamp.ref_epoch} epochs: {cl_rebase} Gwei"}
         )
 
         return cl_rebase
@@ -368,20 +367,8 @@ class BunkerService:
             toBlock=to_block,
         )
 
-    def _get_lido_validators_with_others(
-        self, blockstamp: BlockStamp
-    ) -> tuple[dict[str, Validator], dict[str, LidoKey], dict[str, ValidatorWithLidoKey]]:
-        validators: dict[str, Validator] = {v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(blockstamp.slot_number)}
-        lido_keys: dict[str, LidoKey] = {str(k.key): k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
-        lido_validators = {
-            str(v.key.key): ValidatorWithLidoKey(key=v.key, **asdict(v.validator))
-            for v in self.w3.lido_validators.get_lido_validators(blockstamp)
-        }
-
-        return validators, lido_keys, lido_validators
-
     @staticmethod
-    def _calculate_real_balance(validators: dict[Any, ValidatorWithLidoKey]) -> Gwei:
+    def _calculate_real_balance(validators: dict[Any, Validator]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators.values()))
 
     @staticmethod
