@@ -34,6 +34,8 @@ class ResponseToFileProvider(MultiProvider):
 
     def save_responses(self, path: Path):
         if not self.responses:
+            if os.path.exists(path):
+                os.remove(path)
             return
         os.makedirs(path.parent, exist_ok=True)
         with open(path, 'w') as f:
@@ -118,6 +120,8 @@ class ResponseToFileHTTPProvider(HTTPProvider, Module):
 
     def save_responses(self, path: Path):
         if not self.responses:
+            if os.path.exists(path):
+                os.remove(path)
             return
         os.makedirs(path.parent, exist_ok=True)
         with open(path, 'w') as f:

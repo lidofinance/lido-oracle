@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from eth_typing import Address
 from hexbytes import HexBytes
 from web3.types import Wei
 
@@ -73,3 +74,8 @@ class LidoReportRebase:
     post_total_shares: int
     withdrawals: int
     el_reward: int
+
+@dataclass
+class Account:
+    address: Address
+    _private_key: HexBytes
