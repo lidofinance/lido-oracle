@@ -4,20 +4,17 @@ from abc import abstractmethod, ABC
 from dataclasses import asdict
 
 from timeout_decorator import timeout
-from web3.types import Timestamp
 
+from src.modules.submodules.exceptions import IsNotMemberException
+from src.utils.blockstamp import build_blockstamp
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.typings import SlotNumber, StateRoot, BlockHash, BlockStamp, BlockNumber, BlockRoot
+from src.typings import SlotNumber, BlockStamp, BlockRoot
 
 
 logger = logging.getLogger(__name__)
-
-
-# Sleep before new cycle begins
-DEFAULT_SLEEP = 12
 
 
 class BaseModule(ABC):
@@ -28,19 +25,16 @@ class BaseModule(ABC):
     - Catch errors and log them.
     - Raise exceptions that could not be proceeded automatically.
     - Check Module didn't stick inside cycle forever.
-
-    One cycle flow:
-    - Fetch last checkpoint
-    - If current_finalized_epoch > last_finalized_epoch: execute module
-    - else: sleep and start over
     """
-    _previous_finalized_slot_number = SlotNumber(0)
+    DEFAULT_SLEEP = 12
+    # This is reference mark for long sleep. Sleep until new finalized slot found.
+    _slot_threshold = SlotNumber(0)
 
     def __init__(self, w3: Web3):
         self.w3 = w3
 
     def run_as_daemon(self):
-        logger.info({'msg': '[Accounting] Run as daemon.'})
+        logger.info({'msg': 'Run as daemon.'})
         while True:
             logger.info({'msg': 'Startup new cycle.'})
             self._cycle_handler()
@@ -49,57 +43,45 @@ class BaseModule(ABC):
     def _cycle_handler(self):
         blockstamp = self._receive_last_finalized_slot()
 
-        if blockstamp.slot_number > self._previous_finalized_slot_number:
-            logger.info({'msg': 'New finalized block found.'})
-            self._previous_finalized_slot_number = blockstamp.slot_number
-            self.run_cycle(blockstamp)
-        else:
-            logger.info({'msg': f'No updates. Sleep for {DEFAULT_SLEEP} seconds.'})
-            time.sleep(DEFAULT_SLEEP)
+        if blockstamp.slot_number > self._slot_threshold:
+            long_sleep = self.run_cycle(blockstamp)
+
+            if long_sleep:
+                self._slot_threshold = blockstamp.slot_number
+
+        logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
+        time.sleep(self.DEFAULT_SLEEP)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
-        slot_details = self.w3.cc.get_block_details(block_root)
-
-        state_root = StateRoot(slot_details.message.state_root)
-        slot_number = SlotNumber(int(slot_details.message.slot))
-
-        # Get EL block data
-        execution_payload = slot_details.message.body['execution_payload']
-        block_hash = BlockHash(execution_payload['block_hash'])
-        block_number = BlockNumber(int(execution_payload['block_number']))
-
-        bs = BlockStamp(
-            block_root=block_root,
-            state_root=state_root,
-            slot_number=slot_number,
-            block_hash=block_hash,
-            block_number=block_number,
-            block_timestamp=Timestamp(int(execution_payload['timestamp'])),
-            ref_slot=slot_number,
-            ref_epoch=None,
-        )
-
+        bs = build_blockstamp(self.w3.cc, block_root)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
-
         return bs
 
-    def run_cycle(self, blockstamp: BlockStamp):
-        logger.info({'msg': 'Execute module.'})
+    def run_cycle(self, blockstamp: BlockStamp) -> bool:
+        logger.info({'msg': 'Execute module.', 'value': blockstamp})
+
         try:
-            self.execute_module(blockstamp)
+            return self.execute_module(blockstamp)
         except TimeoutError as exception:
-            logger.error({"msg": "Oracle module do not respond.", "error": str(exception)})
-            raise TimeoutError("Oracle module stuck.") from exception
+            logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
+            raise TimeoutError('Oracle module stuck.') from exception
+        except IsNotMemberException as exception:
+            logger.error({'msg': 'Wrong'})
+            raise exception from exception
         except NoActiveProviderError as exception:
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
-            raise NoActiveProviderError from exception
         except ConnectionError as error:
-            logger.error({"msg": error.args, "error": str(error)})
-            raise ConnectionError from error
-        time.sleep(DEFAULT_SLEEP)
+            logger.error({'msg': error.args, 'error': str(error)})
+
+        return False
 
     @abstractmethod
-    def execute_module(self, blockstamp: BlockStamp):
-        """Implement module business logic here."""
+    def execute_module(self, blockstamp: BlockStamp) -> bool:
+        """
+        Implement module business logic here.
+        Return
+            True - to sleep until new finalized epoch
+            False - to sleep for a slot
+        """
         raise NotImplementedError('Module should implement this method.')

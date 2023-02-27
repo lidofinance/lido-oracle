@@ -16,7 +16,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
-from src.typings import BlockStamp, EpochNumber
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.validator_state import is_active_validator
 from src.web3py.extentions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
@@ -60,7 +60,7 @@ class Ejector(BaseModule, ConsensusModule):
             self.process_report(report_blockstamp)
 
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: BlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         validators = self.get_validators_to_eject(blockstamp)
 
         data, data_format = encode_data(validators)
@@ -73,8 +73,8 @@ class Ejector(BaseModule, ConsensusModule):
             data,
         ).as_tuple()
 
-    def get_validators_to_eject(self, blockstamp: BlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        chain_config = self._get_chain_config(blockstamp)
+    def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+        chain_config = self.get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         epochs_to_sweep = self._get_sweep_delay_in_epochs(blockstamp)
@@ -103,29 +103,12 @@ class Ejector(BaseModule, ConsensusModule):
 
         return validators_to_eject
 
-    @lru_cache(maxsize=1)
     def _get_total_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(
-            self._get_withdrawal_balance(blockstamp) +
-            self._get_el_vault_balance(blockstamp) +
+            self.w3.lido_contracts.get_el_vault_balance(blockstamp) +
+            self.w3.lido_contracts.get_withdrawal_balance(blockstamp) +
             self._get_reserved_buffer(blockstamp)
         )
-
-    def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
-            self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
-            block_identifier=blockstamp.block_hash,
-        ))
-
-    def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
-            self.w3.lido_contracts.lido_locator.functions.elRewardsVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
-            block_identifier=blockstamp.block_hash,
-        ))
 
     def _get_reserved_buffer(self, blockstamp: BlockStamp) -> Wei:
         return Wei(
@@ -141,7 +124,11 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Wei to finalize.'})
         return steth_to_finalize
 
-    def _get_epoch_validators_will_be_withdrawn(self, blockstamp: BlockStamp, validators_to_eject_count: int) -> EpochNumber:
+    def _get_epoch_validators_will_be_withdrawn(
+            self,
+            blockstamp: ReferenceBlockStamp,
+            validators_to_eject_count: int,
+    ) -> EpochNumber:
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
@@ -168,7 +155,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         return EpochNumber(max_exit_epoch_number + need_to_exit_all_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
-    def _get_sweep_delay_in_epochs(self, blockstamp: BlockStamp):
+    def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp):
         validators = self.w3.cc.get_validators(blockstamp.state_root)
 
         def if_validators_balance_withdrawable(validator: Validator):
@@ -184,11 +171,10 @@ class Ejector(BaseModule, ConsensusModule):
             return True
 
         validators_count = len(list(filter(if_validators_balance_withdrawable, validators)))
-        chain_config = self._get_chain_config(blockstamp)
+        chain_config = self.get_chain_config(blockstamp)
         return int(validators_count * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch)
 
-    @lru_cache(maxsize=1)
-    def _get_churn_limit(self, blockstamp: BlockStamp) -> int:
+    def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
         total_active_validators = reduce(
             lambda total, validator: total + int(is_active_validator(validator, blockstamp.ref_epoch)),
             self.w3.cc.get_validators(blockstamp.state_root),
@@ -196,7 +182,6 @@ class Ejector(BaseModule, ConsensusModule):
         )
         return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
 
-    @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
         return named_tuple_to_dataclass(
             self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),

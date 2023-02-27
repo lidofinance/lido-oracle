@@ -7,10 +7,11 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
+from src.utils.validator_state import is_exited_validator
 from src.web3py.extentions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
@@ -28,7 +29,7 @@ class LidoValidatorStateService:
         self.extra_data_service = ExtraDataService(w3)
 
     @lru_cache(maxsize=1)
-    def get_extra_data(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> ExtraData:
+    def get_extra_data(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> ExtraData:
         stuck_validators = self.get_lido_new_stuck_validators(blockstamp, chain_config)
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.get_lido_newly_exited_validators(blockstamp)
@@ -117,7 +118,7 @@ class LidoValidatorStateService:
 
         return result
 
-    def get_lido_newly_exited_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
+    def get_lido_newly_exited_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = self._get_exited_lido_validators(blockstamp)
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
@@ -129,17 +130,17 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Fetch new lido exited validators by node operator.', 'value': lido_validators})
         return lido_validators
 
-    def _get_exited_lido_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
+    def _get_exited_lido_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-
-        def exit_filter(validator: LidoValidator) -> int:
-            # Returns 1 if True else 0
-            return int(int(validator.validator.exit_epoch) <= blockstamp.ref_epoch)
 
         result = {}
 
         for index in lido_validators.keys():
-            result[index] = reduce(lambda total, validator: total + exit_filter(validator), lido_validators[index], 0)
+            result[index] = reduce(
+                lambda total, validator: total + int(is_exited_validator(validator, blockstamp.ref_epoch)),
+                lido_validators[index],
+                0,
+            )
 
         return result
 

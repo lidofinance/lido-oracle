@@ -2,6 +2,7 @@
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
+SHARD_COMMITTEE_PERIOD = 256
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#state-list-lengths
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#rewards-and-penalties
