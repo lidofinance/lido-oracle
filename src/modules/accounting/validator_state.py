@@ -54,15 +54,15 @@ class LidoValidatorStateService:
         for key, validators in lido_validators_by_no.items():
             def filter_non_stuck(total: int, validator: LidoValidator) -> int:
                 # If validator index is higher than ejected index - we didn't asked this validator to exit
-                if int(validator.validator.index) > ejected_index[key]:
+                if int(validator.index) > ejected_index[key]:
                     return total
 
                 # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
-                if int(validator.validator.validator.exit_epoch) != FAR_FUTURE_EPOCH:
+                if int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH:
                     return total
 
                 # If validator's pub key in recent events, node operator has still time to eject these validators
-                if validator.key.key in recently_asked_to_exit_pubkeys:
+                if validator.lido_id.key in recently_asked_to_exit_pubkeys:
                     return total
 
                 return total + 1
@@ -135,7 +135,7 @@ class LidoValidatorStateService:
 
         def exit_filter(validator: LidoValidator) -> int:
             # Returns 1 if True else 0
-            return int(int(validator.validator.validator.exit_epoch) <= blockstamp.ref_epoch)
+            return int(int(validator.validator.exit_epoch) <= blockstamp.ref_epoch)
 
         result = {}
 

@@ -60,7 +60,7 @@ class ValidatorToExitIterator:
         self.c_conf = c_conf
         self.left_queue_count = 0
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[LidoValidator]:
         """
         Prepare queue state for the iteration:.
         Determine exitable Lido validators and collect operators stats to sort exitable validators
@@ -68,7 +68,7 @@ class ValidatorToExitIterator:
         self._get_config()
 
         lido_validators = {
-            v.validator.validator.pubkey: v for v in self.w3.lido_validators.get_lido_validators(self.blockstamp)
+            v.validator.pubkey: v for v in self.w3.lido_validators.get_lido_validators(self.blockstamp)
         }
         operators = self.w3.lido_validators.get_lido_node_operators(self.blockstamp)
         operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -153,7 +153,7 @@ class ValidatorToExitIterator:
 
     @staticmethod
     def _validator_index(validator: LidoValidator) -> int:
-        return int(validator.validator.index)
+        return int(validator.index)
 
     def _decrease_node_operator_stats(self, validator: LidoValidator) -> None:
         """
@@ -164,7 +164,7 @@ class ValidatorToExitIterator:
         self.total_predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_count -= 1
         self.lido_node_operator_stats[module_operator].predictable_validators_total_age -= max(
-            0, self.blockstamp.ref_epoch - int(validator.validator.validator.activation_epoch)
+            0, self.blockstamp.ref_epoch - int(validator.validator.activation_epoch)
         )
 
     #  -- Internal methods to interact with operators state for sorting --
@@ -193,19 +193,19 @@ class ValidatorToExitIterator:
             for v in validators:
                 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#voluntary-exits
                 previously_requested_to_exit = (
-                        int(v.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
+                        int(v.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
-                on_exit = self._is_on_exit(v.validator)
+                on_exit = self._is_on_exit(v)
                 active_long_enough = (
-                    self.blockstamp.ref_epoch >= (int(v.validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD)
+                    self.blockstamp.ref_epoch >= (int(v.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD)
                 )
                 if not on_exit and not previously_requested_to_exit and active_long_enough:
                     yield v
 
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
         return (
-            StakingModuleId(self.staking_module_id[validator.key.moduleAddress]),
-            NodeOperatorId(validator.key.operatorIndex)
+            StakingModuleId(self.staking_module_id[validator.lido_id.moduleAddress]),
+            NodeOperatorId(validator.lido_id.operatorIndex)
         )
 
     def _prepare_lido_node_operator_stats(
@@ -249,13 +249,13 @@ class ValidatorToExitIterator:
             )
 
             for validator in operator_validators[module_operator]:
-                on_exit = self._is_on_exit(validator.validator)
+                on_exit = self._is_on_exit(validator)
                 previously_requested_to_exit = (
-                    int(validator.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
+                    int(validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
                 if not on_exit and not previously_requested_to_exit:
                     validator_age = max(0, self.blockstamp.ref_epoch - int(
-                        validator.validator.validator.activation_epoch)
+                        validator.validator.activation_epoch)
                     )
                     operator_predictable_states[module_operator].predictable_validators_total_age += validator_age
                     operator_predictable_states[module_operator].predictable_validators_count += 1
@@ -295,10 +295,10 @@ class ValidatorToExitIterator:
             recently_requested_to_exit_indices = recently_requested_to_exit_indices_per_operator[module_operator]
             for validator in validators:
                 previously_requested_to_exit = (
-                    int(validator.validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
+                    int(validator.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
-                on_exit = self._is_on_exit(validator.validator)
-                recently_requested_to_exit = int(validator.validator.index) in recently_requested_to_exit_indices
+                on_exit = self._is_on_exit(validator)
+                recently_requested_to_exit = int(validator.index) in recently_requested_to_exit_indices
                 if previously_requested_to_exit and not on_exit and not recently_requested_to_exit:
                     delayed_validators_count[module_operator] += 1
 

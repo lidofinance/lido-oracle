@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import pytest
 from eth_typing import Address
 from hexbytes import HexBytes
@@ -19,14 +21,14 @@ def extra_data_service(web3, lido_validators):
 def validator():
     """None of the fields are used in tests"""
     return LidoValidator(
-        key=LidoKey(
+        lido_id=LidoKey(
             key=HexBytes(b""),
             depositSignature=HexBytes(b""),
             operatorIndex=-1,
             used=True,
             moduleAddress=Address(b""),
         ),
-        validator=Validator(
+        **asdict(Validator(
             index="0",
             balance="0",
             status=ValidatorStatus.ACTIVE_ONGOING,
@@ -40,7 +42,7 @@ def validator():
                 exit_epoch="0",
                 withdrawable_epoch="0",
             ),
-        ),
+        )),
     )
 
 
