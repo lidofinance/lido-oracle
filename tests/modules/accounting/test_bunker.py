@@ -169,10 +169,10 @@ def bunker(web3, lido_validators) -> BunkerService:
     service = BunkerService(web3)
     service.last_report_ref_slot = 0
     service.b_conf = BunkerConfig(
-        normalized_cl_per_epoch=64,
-        normalized_cl_mistake=0.1,
+        normalized_cl_reward_per_epoch=64,
+        normalized_cl_reward_mistake_rate=0.1,
         rebase_check_nearest_epoch_distance=4,
-        rebase_check_far_epoch_distance=25
+        rebase_check_distant_epoch_distance=25
     )
     service.f_conf = FrameConfig(
         initial_epoch=EpochNumber(0),
@@ -278,7 +278,7 @@ def test_is_abnormal_cl_rebase(
         genesis_time=0,
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
-    bunker.b_conf.rebase_check_far_epoch_distance = far_epoch_distance
+    bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[3:6]
     }
@@ -358,7 +358,7 @@ def test_is_negative_specific_cl_rebase(
         genesis_time=0,
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
-    bunker.b_conf.rebase_check_far_epoch_distance = far_epoch_distance
+    bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[3:6]
     }

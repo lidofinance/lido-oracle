@@ -3,7 +3,7 @@ from typing import Any
 import math
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from functools import lru_cache
 
 from web3.types import Wei, EventData
@@ -14,7 +14,8 @@ from src.constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     MAX_EFFECTIVE_BALANCE,
-    GWEI_TO_WEI, TOTAL_BASIS_POINTS,
+    GWEI_TO_WEI,
+    TOTAL_BASIS_POINTS,
 )
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
@@ -32,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BunkerConfig:
-    normalized_cl_per_epoch: int
-    normalized_cl_mistake: float
+    normalized_cl_reward_per_epoch: int
+    normalized_cl_reward_mistake_rate: float
     rebase_check_nearest_epoch_distance: int
-    rebase_check_far_epoch_distance: int
+    rebase_check_distant_epoch_distance: int
 
 
 class BunkerService:
@@ -172,7 +173,7 @@ class BunkerService:
         normal_cl_rebase = self._get_normal_cl_rebase(blockstamp)
         if frame_cl_rebase < normal_cl_rebase:
             logger.info({"msg": "Abnormal CL rebase in frame"})
-            if self.b_conf.rebase_check_nearest_epoch_distance == 0 and self.b_conf.rebase_check_far_epoch_distance == 0:
+            if self.b_conf.rebase_check_nearest_epoch_distance == 0 and self.b_conf.rebase_check_distant_epoch_distance == 0:
                 logger.info({"msg": "Specific CL rebase calculation are disabled"})
                 return True
             is_negative_specific_cl_rebase = self._is_negative_specific_cl_rebase(blockstamp)
@@ -232,21 +233,21 @@ class BunkerService:
 
     def _is_negative_specific_cl_rebase(self, ref_blockstamp: BlockStamp) -> bool:
         """
-        Calculate CL rebase from nearest and far epochs to ref epoch given the changes in withdrawal vault
+        Calculate CL rebase from nearest and distant epochs to ref epoch given the changes in withdrawal vault
         """
-        logger.info({"msg": "Calculating nearest and far CL rebase"})
+        logger.info({"msg": "Calculating nearest and distant CL rebase"})
         nearest_slot = (
                 ref_blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
         )
-        far_slot = (
-                ref_blockstamp.ref_slot - self.b_conf.rebase_check_far_epoch_distance * self.c_conf.slots_per_epoch
+        distant_slot = (
+                ref_blockstamp.ref_slot - self.b_conf.rebase_check_distant_epoch_distance * self.c_conf.slots_per_epoch
         )
 
-        if nearest_slot < far_slot:
-            raise ValueError(f"{nearest_slot=} should be less than {far_slot=} in specific CL rebase calculation")
-        if far_slot < self.last_report_ref_slot:
+        if nearest_slot < distant_slot:
+            raise ValueError(f"{nearest_slot=} should be less than {distant_slot=} in specific CL rebase calculation")
+        if distant_slot < self.last_report_ref_slot:
             raise ValueError(
-                f"{far_slot=} should be greater than {self.last_report_ref_slot=} in specific CL rebase calculation"
+                f"{distant_slot=} should be greater than {self.last_report_ref_slot=} in specific CL rebase calculation"
             )
 
         nearest_blockstamp = get_first_non_missed_slot(
@@ -256,26 +257,26 @@ class BunkerService:
             last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
-        far_blockstamp = get_first_non_missed_slot(
+        distant_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
-            SlotNumber(far_slot),
-            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
+            SlotNumber(distant_slot),
+            ref_epoch=EpochNumber(distant_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=self.last_finalized_slot_number,
         )
 
-        if nearest_blockstamp.block_number == far_blockstamp.block_number:
+        if nearest_blockstamp.block_number == distant_blockstamp.block_number:
             logger.info(
-                {"msg": "Nearest and far blocks are the same. Specific CL rebase will be calculated once"}
+                {"msg": "Nearest and distant blocks are the same. Specific CL rebase will be calculated once"}
             )
             specific_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, ref_blockstamp)
             logger.info({"msg": f"Specific CL rebase: {specific_cl_rebase} Gwei"})
             return specific_cl_rebase < 0
 
         nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, ref_blockstamp)
-        far_cl_rebase = self._calculate_cl_rebase_between(far_blockstamp, ref_blockstamp)
+        distant_cl_rebase = self._calculate_cl_rebase_between(distant_blockstamp, ref_blockstamp)
 
-        logger.info({"msg": f"Specific CL rebase {nearest_cl_rebase,far_cl_rebase=} Gwei"})
-        return nearest_cl_rebase < 0 or far_cl_rebase < 0
+        logger.info({"msg": f"Specific CL rebase {nearest_cl_rebase,distant_cl_rebase=} Gwei"})
+        return nearest_cl_rebase < 0 or distant_cl_rebase < 0
 
     @lru_cache(maxsize=1)
     def _calculate_cl_rebase_between(self, prev_blockstamp: BlockStamp, ref_blockstamp: BlockStamp) -> Gwei:
@@ -521,7 +522,7 @@ class BunkerService:
         To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
         """
         normal_cl_rebase = int(
-            (self.b_conf.normalized_cl_per_epoch * mean_total_lido_effective_balance * epochs_passed)
-            / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_mistake)
+            (self.b_conf.normalized_cl_reward_per_epoch * mean_total_lido_effective_balance * epochs_passed)
+            / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_reward_mistake_rate)
         )
         return Gwei(normal_cl_rebase)
