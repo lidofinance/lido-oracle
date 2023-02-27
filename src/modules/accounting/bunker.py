@@ -12,7 +12,7 @@ from src.constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     MIN_DEPOSIT_AMOUNT,
-    WEI_TO_GWEI,
+    GWEI_TO_WEI,
 )
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
@@ -124,7 +124,7 @@ class BunkerService:
         )
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) / WEI_TO_GWEI
+        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) / GWEI_TO_WEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)

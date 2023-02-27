@@ -4,6 +4,8 @@ from abc import abstractmethod, ABC
 from dataclasses import asdict
 
 from timeout_decorator import timeout
+from web3.types import Timestamp
+
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
@@ -73,7 +75,7 @@ class BaseModule(ABC):
             slot_number=slot_number,
             block_hash=block_hash,
             block_number=block_number,
-            block_timestamp=int(execution_payload['timestamp']),
+            block_timestamp=Timestamp(int(execution_payload['timestamp'])),
             ref_slot=slot_number,
             ref_epoch=None,
         )

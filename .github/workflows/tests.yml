@@ -34,8 +34,6 @@ jobs:
 
     - name: Test with pytest
       run: poetry run pytest -m "not integration" tests
-      env:
-        LIDO_CONTRACT_ADDRESS: "0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F"
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master

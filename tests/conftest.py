@@ -7,6 +7,7 @@ from eth_typing import Address
 from hexbytes import HexBytes
 from web3.providers import JSONBaseProvider
 from web3.middleware import simple_cache_middleware
+from web3.types import Timestamp
 
 from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
@@ -236,7 +237,7 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         state_root=slot_details.message.state_root,
         block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
         block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=int(slot_details.message.body['execution_payload']['timestamp']),
+        block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
     )
