@@ -5,7 +5,7 @@ from itertools import islice
 
 from hexbytes import HexBytes
 
-from src.web3py.extentions.lido_validators import NodeOperatorIndex
+from src.web3py.extentions.lido_validators import NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
 
 
@@ -63,8 +63,8 @@ class ExtraDataService:
 
     def collect(
         self,
-        exited_validators: dict[NodeOperatorIndex, int],
-        stuck_validators: dict[NodeOperatorIndex, int],
+        exited_validators: dict[NodeOperatorGlobalIndex, int],
+        stuck_validators: dict[NodeOperatorGlobalIndex, int],
         max_items_in_payload_count: int,
         max_items_count: int,
     ) -> ExtraData:
@@ -82,7 +82,8 @@ class ExtraDataService:
             items_count=len(extra_data),
         )
 
-    def to_bytes(self, extra_data: list[ExtraDataItem]) -> bytes:
+    @staticmethod
+    def to_bytes(extra_data: list[ExtraDataItem]) -> bytes:
         # Extra data is an array of items, each item being encoded as follows:
         # |  3 bytes  | 2 bytes  |   X bytes   |
         # | itemIndex | itemType | itemPayload |
@@ -125,7 +126,7 @@ class ExtraDataService:
         return extra_data
 
     @staticmethod
-    def build_validators_payloads(validators: dict[NodeOperatorIndex, int], max_list_items_count: int) -> list[ItemPayload]:
+    def build_validators_payloads(validators: dict[NodeOperatorGlobalIndex, int], max_list_items_count: int) -> list[ItemPayload]:
         # sort by module id and node operator id
         operator_validators = sorted(validators.items(), key=lambda x: (x[0][0], x[0][1]))
         payloads = []

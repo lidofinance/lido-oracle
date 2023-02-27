@@ -23,9 +23,6 @@ from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SLEEP = 12
-
-
 class ConsensusModule(ABC):
     report_contract: Contract
 
@@ -203,6 +200,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Provided hash already submitted.'})
 
     def _process_report_data(self, blockstamp: BlockStamp, report_data: tuple, report_hash: HexBytes):
+        chain_config = self._get_chain_config(blockstamp)
         latest_blockstamp, member_info = self._get_latest_data()
 
         # If the quorum is ready to report data, the member should have opportunity to send report
@@ -216,12 +214,12 @@ class ConsensusModule(ABC):
             return
 
         # In worst case exception will be raised in MAX_CYCLE_LIFETIME_IN_SECONDS seconds
-        for _ in range(2 * member_info.fast_lane_length_slot):
+        for _ in range(member_info.fast_lane_length_slot):
             latest_blockstamp, member_info = self._get_latest_data()
             if HexBytes(member_info.current_frame_consensus_report) != ZERO_HASH:
                 break
-            logger.info({'msg': f'Wait until consensus will be reached. Sleep for {DEFAULT_SLEEP}'})
-            sleep(DEFAULT_SLEEP)
+            logger.info({'msg': f'Wait until consensus will be reached. Sleep for {chain_config.seconds_per_slot}'})
+            sleep(chain_config.seconds_per_slot)
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
             msg = 'Oracle`s hash differs from consensus report hash.'
@@ -314,6 +312,7 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         return bs
 
+    @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
         consensus_contract = self._get_consensus_contract(blockstamp)

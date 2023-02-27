@@ -3,8 +3,13 @@ from typing import Optional, Union
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ETH2_REQUESTS_DURATION, ETH2_REQUESTS
-from src.providers.consensus.typings import BlockRootResponse, BlockDetailsResponse, Validator, BlockHeaderFullResponse, \
-    BlockHeaderResponseData
+from src.providers.consensus.typings import (
+    BlockRootResponse,
+    BlockDetailsResponse,
+    Validator,
+    BlockHeaderFullResponse,
+    BlockHeaderResponseData,
+)
 from src.providers.http_provider import HTTPProvider
 from src.typings import SlotNumber, StateRoot, BlockRoot
 from src.utils.dataclass import list_of_dataclasses

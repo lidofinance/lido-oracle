@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 # Sleep before new cycle begins
-DEFAULT_SLEEP = 15
+DEFAULT_SLEEP = 12
 
 
 class BaseModule(ABC):
@@ -89,8 +89,8 @@ class BaseModule(ABC):
         try:
             self.execute_module(blockstamp)
         except TimeoutError as exception:
-            logger.error({"msg": "Price balancer do not respond.", "error": str(exception)})
-            raise TimeoutError("Price balancer stuck.") from exception
+            logger.error({"msg": "Oracle module do not respond.", "error": str(exception)})
+            raise TimeoutError("Oracle module stuck.") from exception
         except NoActiveProviderError as exception:
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
             raise NoActiveProviderError from exception

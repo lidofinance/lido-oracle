@@ -13,8 +13,8 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    MIN_DEPOSIT_AMOUNT,
-    GWEI_TO_WEI,
+    MAX_EFFECTIVE_BALANCE,
+    GWEI_TO_WEI, TOTAL_BASIS_POINTS,
 )
 from src.providers.keys.typings import LidoKey
 from src.utils.slot import get_first_non_missed_slot
@@ -115,7 +115,7 @@ class BunkerService:
             ),
             Web3.to_int(
                 config.functions.get('NORMALIZED_CL_MISTAKE_BP').call(block_identifier=blockstamp.block_hash)
-            ) / 10000,
+            ) / TOTAL_BASIS_POINTS,
             Web3.to_int(
                 config.functions.get('REBASE_CHECK_NEAREST_EPOCH_DISTANCE').call(block_identifier=blockstamp.block_hash)
             ),
@@ -308,7 +308,7 @@ class BunkerService:
         prev_lido_balance_with_vault = prev_lido_balance + self.w3.from_wei(prev_lido_vault_balance, "gwei")
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
-        validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators_by_key)) * MIN_DEPOSIT_AMOUNT
+        validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators_by_key)) * MAX_EFFECTIVE_BALANCE
         if validators_diff_in_gwei < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
 

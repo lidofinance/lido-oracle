@@ -131,7 +131,7 @@ def test_get_operators_with_last_exited_validator_indexes(web3, validator_state)
 
 @pytest.mark.unit
 def test_get_lido_new_exited_validators(web3, validator_state):
-    exited_validators = validator_state.get_lido_new_exited_validators(blockstamp)
+    exited_validators = validator_state.get_lido_newly_exited_validators(blockstamp)
     # We didn't expect the second validator because total_exited_validators hasn't changed
     assert exited_validators == {(1, 0): 2}
 

@@ -8,7 +8,7 @@ EPOCHS_PER_SLASHINGS_VECTOR = 2**13
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
-MIN_DEPOSIT_AMOUNT = 32 * 10 ** 9
+MAX_EFFECTIVE_BALANCE = 32 * 10 ** 9
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2 ** 4
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -20,3 +20,4 @@ CHURN_LIMIT_QUOTIENT = 2 ** 16
 # Local constants
 GWEI_TO_WEI = 10 ** 9
 SHARE_RATE_PRECISION_E27 = 10**27
+TOTAL_BASIS_POINTS = 10000

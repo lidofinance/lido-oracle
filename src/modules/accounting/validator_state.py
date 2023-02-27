@@ -12,7 +12,7 @@ from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.web3py.extentions.lido_validators import (
-    NodeOperatorIndex,
+    NodeOperatorGlobalIndex,
     LidoValidator,
     StakingModule,
 )
@@ -31,7 +31,7 @@ class LidoValidatorStateService:
     def get_extra_data(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> ExtraData:
         stuck_validators = self.get_lido_new_stuck_validators(blockstamp, chain_config)
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
-        exited_validators = self.get_lido_new_exited_validators(blockstamp)
+        exited_validators = self.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
         orl = self._get_oracle_report_limits(blockstamp)
 
@@ -44,7 +44,7 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
         return extra_data
 
-    def get_lido_new_stuck_validators(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorIndex, int]:
+    def get_lido_new_stuck_validators(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
         recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp, chain_config)
@@ -88,8 +88,7 @@ class LidoValidatorStateService:
             'VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS'
         ).call(block_identifier=blockstamp.block_hash)
 
-        # parse to int
-        exiting_keys_stuck_border_in_slots = int(exiting_keys_stuck_border_in_slots_bytes.hex(), base=16)
+        exiting_keys_stuck_border_in_slots = self.w3.to_int(exiting_keys_stuck_border_in_slots_bytes)
 
         events = get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
@@ -102,7 +101,7 @@ class LidoValidatorStateService:
 
         return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in events)
 
-    def get_operators_with_last_exited_validator_indexes(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
+    def get_operators_with_last_exited_validator_indexes(self, blockstamp: BlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         staking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
 
@@ -118,7 +117,7 @@ class LidoValidatorStateService:
 
         return result
 
-    def get_lido_new_exited_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
+    def get_lido_newly_exited_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = self._get_exited_lido_validators(blockstamp)
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
@@ -130,7 +129,7 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Fetch new lido exited validators by node operator.', 'value': lido_validators})
         return lido_validators
 
-    def _get_exited_lido_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorIndex, int]:
+    def _get_exited_lido_validators(self, blockstamp: BlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
         def exit_filter(validator: LidoValidator) -> int:

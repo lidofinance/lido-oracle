@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 StakingModuleId = NewType('StakingModuleId', int)
 NodeOperatorId = NewType('NodeOperatorId', int)
-NodeOperatorIndex = Tuple[StakingModuleId, NodeOperatorId]
+NodeOperatorGlobalIndex = Tuple[StakingModuleId, NodeOperatorId]
 
 
 @dataclass
@@ -63,7 +63,7 @@ class LidoValidator(Validator):
     lido_id: LidoKey
 
 
-ValidatorsByNodeOperator = dict[NodeOperatorIndex, list[LidoValidator]]
+ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 
 
 class LidoValidatorsProvider(Module):

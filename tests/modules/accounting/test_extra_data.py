@@ -7,7 +7,7 @@ from hexbytes import HexBytes
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.providers.keys.typings import LidoKey
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
-from src.web3py.extentions.lido_validators import NodeOperatorIndex, LidoValidator
+from src.web3py.extentions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
 
 
 pytestmark = pytest.mark.unit
@@ -46,7 +46,7 @@ def validator():
     )
 
 
-def node_operator(module_id, node_operator_id) -> NodeOperatorIndex:
+def node_operator(module_id, node_operator_id) -> NodeOperatorGlobalIndex:
     return module_id, node_operator_id
 
 

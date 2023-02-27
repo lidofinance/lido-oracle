@@ -51,8 +51,7 @@ class RewardsPredictionService:
         total_rewards = 0
         time_spent = 0
         for event in events:
-            # (postCLBalance + withdrawalsWithdrawn) - preCLBalance + ex_rewards
-            total_rewards += event['withdrawalsWithdrawn'] + event['executionLayerRewardsWithdrawn']
+            total_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['preCLBalance'] + event['executionLayerRewardsWithdrawn']
             time_spent += event['timeElapsed']
 
         return Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent)

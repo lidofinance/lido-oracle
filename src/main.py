@@ -9,7 +9,6 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
-from src.protocol_upgrade_checker import wait_for_withdrawals
 from src.typings import OracleModule
 from src.web3py.extentions import (
     LidoContracts,
@@ -68,9 +67,6 @@ if __name__ == '__main__':
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     web3.middleware_onion.add(metrics_collector)
     web3.middleware_onion.add(simple_cache_middleware)
-
-    logger.info({'msg': 'Check protocol version.'})
-    wait_for_withdrawals(web3)
 
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})

@@ -20,7 +20,7 @@ class TransactionUtils(Module):
         True - transaction succeed.
         False - transaction reverted.
         """
-        logger.info({"msg": "Check transaction locally.", "value": str(transaction.args)})
+        logger.info({"msg": "Check transaction. Make static call.", "value": transaction.args})
 
         try:
             result = transaction.call({"from": from_address})

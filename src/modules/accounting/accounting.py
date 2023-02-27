@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from time import sleep
 
 from web3.types import Wei
 
@@ -37,6 +38,13 @@ class Accounting(BaseModule, ConsensusModule):
 
             latest_blockstamp = self._get_latest_blockstamp()
             if not self.is_extra_data_submitted(latest_blockstamp):
+
+                slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
+                chain_config = self._get_chain_config(blockstamp)
+                seconds_to_sleep = slots_to_sleep * chain_config.seconds_per_slot
+                logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
+                sleep(seconds_to_sleep)
+
                 self._submit_extra_data(report_blockstamp)
 
     def _submit_extra_data(self, blockstamp: BlockStamp) -> None:
@@ -88,23 +96,23 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
         last_withdrawal_id_to_finalize = self._get_last_withdrawal_request_to_finalize(blockstamp)
 
-        exited_validators = self.lido_validator_state_service.get_lido_new_exited_validators(blockstamp)
+        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
 
         # Here report all exited validators even they were reported before.
         if exited_validators:
-            staking_module_id_list, exit_validators_count_list = zip(*exited_validators.items())
+            node_operator_global_ids_list, exit_validators_count_list = zip(*exited_validators.items())
+            staking_module_ids_list = map(lambda no_global_id: no_global_id[0], node_operator_global_ids_list)
         else:
-            staking_module_id_list = exit_validators_count_list = []
+            staking_module_ids_list = exit_validators_count_list = []
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self._get_chain_config(blockstamp))
 
-        # Filter stuck and exited validators that was previously reported
         report_data = ReportData(
             consensus_version=self.CONSENSUS_VERSION,
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
-            stacking_module_id_with_exited_validators=staking_module_id_list,
+            stacking_module_id_with_exited_validators=staking_module_ids_list,
             count_exited_validators_by_stacking_module=exit_validators_count_list,
             withdrawal_vault_balance=self._get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self._get_el_vault_balance(blockstamp),
@@ -123,8 +131,8 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         count = len(lido_validators)
-        balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
-        return count, balance
+        total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
+        return count, total_balance
 
     @lru_cache(maxsize=1)
     def _get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -197,6 +205,8 @@ class Accounting(BaseModule, ConsensusModule):
             transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
             block_identifier=blockstamp.block_hash,
         )
+
+        logger.info({'msg': 'Fetch simulated lido rebase for report.', 'value': result})
 
         return LidoReportRebase(*result)
 

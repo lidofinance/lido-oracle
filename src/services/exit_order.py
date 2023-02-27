@@ -12,7 +12,7 @@ from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
-from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorIndex, StakingModuleId, \
+from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorGlobalIndex, StakingModuleId, \
     NodeOperatorId, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
@@ -46,7 +46,7 @@ class ValidatorToExitIterator:
     v_conf: ValidatorToExitIteratorConfig
     staking_module_id: dict[Address, StakingModuleId]
     exitable_lido_validators: list[LidoValidator]
-    lido_node_operator_stats: dict[NodeOperatorIndex, NodeOperatorPredictableState]
+    lido_node_operator_stats: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]
     total_predictable_validators_count: int
 
     def __init__(
@@ -187,7 +187,7 @@ class ValidatorToExitIterator:
     def _get_exitable_lido_validators(
         self,
         operator_validators: ValidatorsByNodeOperator,
-        last_requested_to_exit_indices_per_operator: dict[NodeOperatorIndex, int]
+        last_requested_to_exit_indices_per_operator: dict[NodeOperatorGlobalIndex, int]
     ) -> Iterable[LidoValidator]:
         for module_operator, validators in operator_validators.items():
             for v in validators:
@@ -202,7 +202,7 @@ class ValidatorToExitIterator:
                 if not on_exit and not previously_requested_to_exit and active_long_enough:
                     yield v
 
-    def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorIndex:
+    def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorGlobalIndex:
         return (
             StakingModuleId(self.staking_module_id[validator.lido_id.moduleAddress]),
             NodeOperatorId(validator.lido_id.operatorIndex)
@@ -211,9 +211,9 @@ class ValidatorToExitIterator:
     def _prepare_lido_node_operator_stats(
         self,
         operators: list[NodeOperator],
-        operator_validators: dict[NodeOperatorIndex, list[LidoValidator]],
-        last_requested_to_exit_indices_per_operator: dict[NodeOperatorIndex, int],
-    ) -> dict[NodeOperatorIndex, NodeOperatorPredictableState]:
+        operator_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]],
+        last_requested_to_exit_indices_per_operator: dict[NodeOperatorGlobalIndex, int],
+    ) -> dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]:
         """
         Prepare node operators stats for sorting their validators in exit queue
         """
@@ -231,7 +231,7 @@ class ValidatorToExitIterator:
             last_requested_to_exit_indices_per_operator,
         )
 
-        operator_predictable_states: dict[NodeOperatorIndex, NodeOperatorPredictableState] = {}
+        operator_predictable_states: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState] = {}
         for operator in operators:
             module_operator = (operator.staking_module.id, operator.id)
 
@@ -263,8 +263,8 @@ class ValidatorToExitIterator:
         return operator_predictable_states
 
     def _get_last_requested_to_exit_indices(
-        self, operator_indexes: Iterable[NodeOperatorIndex],
-    ) -> dict[NodeOperatorIndex, int]:
+        self, operator_indexes: Iterable[NodeOperatorGlobalIndex],
+    ) -> dict[NodeOperatorGlobalIndex, int]:
         """
         Get last requested to exit validator index for each operator
         """
@@ -281,10 +281,10 @@ class ValidatorToExitIterator:
 
     def _get_delayed_validators_count_per_operator(
         self,
-        operator_validators: dict[NodeOperatorIndex, list[LidoValidator]],
-        recently_requested_to_exit_indices_per_operator: dict[NodeOperatorIndex, set[int]],
-        last_requested_to_exit_indices_per_operator: dict[NodeOperatorIndex, int],
-    ) -> dict[NodeOperatorIndex, int]:
+        operator_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]],
+        recently_requested_to_exit_indices_per_operator: dict[NodeOperatorGlobalIndex, set[int]],
+        last_requested_to_exit_indices_per_operator: dict[NodeOperatorGlobalIndex, int],
+    ) -> dict[NodeOperatorGlobalIndex, int]:
         """
         Get delayed validators count for each operator
         """
@@ -306,8 +306,8 @@ class ValidatorToExitIterator:
 
     def _get_recently_requested_to_exit_indices(
         self,
-        operator_indexes: Iterable[NodeOperatorIndex],
-    ) -> dict[NodeOperatorIndex, set[int]]:
+        operator_indexes: Iterable[NodeOperatorGlobalIndex],
+    ) -> dict[NodeOperatorGlobalIndex, set[int]]:
         """
         Returns recently requested to exit validators indices per operator
 
