@@ -15,6 +15,7 @@ from src.modules.ejector.typings import ProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
+from src.services.exit_order import ValidatorToExitIterator
 from src.typings import BlockStamp, EpochNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.validator_state import is_validator_active
@@ -50,7 +51,6 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
 
     def execute_module(self, blockstamp: BlockStamp):
-        self.process_report(blockstamp)
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp:
             self.process_report(report_blockstamp)
@@ -80,17 +80,22 @@ class Ejector(BaseModule, ConsensusModule):
 
         validators_to_eject = []
         validator_to_eject_balance_sum = 0
-        # ToDo replace it with exit order
-        exit_order: list[tuple[NodeOperatorIndex, LidoValidator]] = []
-        for no_index, validator in exit_order:
+
+        validators_iterator = ValidatorToExitIterator(
+            w3=self.w3,
+            blockstamp=blockstamp,
+            c_conf=chain_config,
+        )
+
+        for validator in validators_iterator:
             withdrawal_epoch = self._get_withdrawal_epoch_for_latest_validator(blockstamp, len(validators_to_eject) + 1)
             future_rewards = (blockstamp.ref_slot - (withdrawal_epoch + epochs_to_sweep)) * rewards_speed_per_epoch
 
             if future_rewards + total_current_balance + validator_to_eject_balance_sum >= to_withdraw_amount:
                 return validators_to_eject
 
-            validators_to_eject.append((no_index, validator))
-            validator_to_eject_balance_sum += int(validator.validator.validator.effective_balance)
+            validators_to_eject.append(validator)
+            validator_to_eject_balance_sum += int(validator.validator.effective_balance)
 
         return validators_to_eject
 
@@ -195,4 +200,4 @@ class Ejector(BaseModule, ConsensusModule):
         return processing_state.data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        return self.is_main_data_submitted(blockstamp)
+        return not self.is_main_data_submitted(blockstamp)

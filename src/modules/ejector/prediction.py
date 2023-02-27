@@ -51,6 +51,7 @@ class RewardsPredictionService:
         total_rewards = 0
         time_spent = 0
         for event in events:
+            # (postCLBalance + withdrawalsWithdrawn) - preCLBalance + ex_rewards
             total_rewards += event['withdrawalsWithdrawn'] + event['executionLayerRewardsWithdrawn']
             time_spent += event['timeElapsed']
 

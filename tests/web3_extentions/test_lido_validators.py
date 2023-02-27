@@ -31,7 +31,7 @@ def test_get_lido_validators(web3, lido_validators, blockstamp):
     assert len(validators_in_cc) != len(lido_validators)
 
     for v in lido_validators:
-        assert v.key.key == v.validator.validator.pubkey
+        assert v.lido_id.key == v.validator.pubkey
 
 
 @pytest.mark.unit

@@ -158,6 +158,12 @@ class Contracts(LidoContracts):
             decode_tuples=True,
         )
 
+        self.oracle_daemon_config = self.w3.eth.contract(
+            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
+            abi=self.load_abi('OracleDaemonConfig'),
+            decode_tuples=True,
+        )
+
 
 @pytest.fixture()
 def contracts(web3):
@@ -180,6 +186,20 @@ def lido_validators(web3, consensus_client, keys_api_client):
     web3.attach_modules({
         'lido_validators': LidoValidatorsProvider,
     })
+
+
+@pytest.fixture()
+def past_blockstamp():
+    yield BlockStamp(
+        ref_slot=4947936,
+        ref_epoch=154623,
+        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
+        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
+        slot_number=4947936,
+        block_number=8457825,
+        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
+        block_timestamp=0
+    )
 
 
 # ----- Account fixtures -----
