@@ -41,5 +41,5 @@ class KeysAPIClient(HTTPProvider):
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey)
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
-        """Docs: https://keys-api.testnet.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
+        """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return self._get_with_blockstamp(self.ALL_KEYS, blockstamp)
