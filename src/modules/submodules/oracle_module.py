@@ -75,7 +75,7 @@ class BaseModule(ABC):
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
         except ConnectionError as error:
             logger.error({'msg': error.args, 'error': str(error)})
-        except Exception as error:
+        except Exception as error:  # pylint: disable=broad-exception-caught
             logger.error({'msg': error.args, 'error': str(error)})
 
         return False

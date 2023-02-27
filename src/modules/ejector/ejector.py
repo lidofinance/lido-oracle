@@ -5,7 +5,6 @@ from web3.types import Wei
 
 from src.constants import (
     MAX_WITHDRAWALS_PER_PAYLOAD,
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT, FAR_FUTURE_EPOCH, MIN_VALIDATOR_WITHDRAWABILITY_DELAY, MAX_EFFECTIVE_BALANCE,
 )
@@ -14,7 +13,6 @@ from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.ejector.typings import ProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
-from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, Gwei
 from src.utils.abi import named_tuple_to_dataclass

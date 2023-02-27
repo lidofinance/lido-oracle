@@ -64,7 +64,7 @@ class TransactionUtils(Module):
 
         if not tx_receipt:
             TX_FAILURE.inc()
-            return
+            return None
 
         logger.info(
             {
