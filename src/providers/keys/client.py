@@ -2,7 +2,8 @@ from functools import lru_cache
 from time import sleep
 from typing import Optional, cast
 
-from src.metrics.prometheus.basic import KEYS_API_REQUESTS, KEYS_API_REQUESTS_DURATION
+from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_REQUESTS_COUNT, \
+    KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
@@ -14,12 +15,13 @@ class KeysOutdatedException(Exception):
 
 
 class KeysAPIClient(HTTPProvider):
+
     RETRY_COUNT = 5
     REQUEST_TIMEOUT = 10
     SLEEP_SECONDS = 12
 
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
-    PROMETHEUS_COUNTER = KEYS_API_REQUESTS
+    PROMETHEUS_COUNTER = KEYS_API_REQUESTS_COUNT
 
     ALL_KEYS = 'v1/keys'
     ALL_OPERATORS = 'v1/operators'
@@ -30,7 +32,9 @@ class KeysAPIClient(HTTPProvider):
         """
         for i in range(self.RETRY_COUNT):
             data, meta = self._get(url, params)
-            if meta['meta']['elBlockSnapshot']['blockNumber'] >= blockstamp.block_number:
+            blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
+            KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
+            if blocknumber_meta >= blockstamp.block_number:
                 return data
 
             if i != self.RETRY_COUNT - 1:
@@ -43,3 +47,8 @@ class KeysAPIClient(HTTPProvider):
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return cast(list[dict], self._get_with_blockstamp(self.ALL_KEYS, blockstamp))
+
+    def _url_to_request_name_label(self, url: str) -> str:
+        return '/'.join(
+            ['{param}' if ('0x' in part or part.isdigit()) else part for part in url.split('?')[0].split('/')]
+        )

@@ -7,7 +7,7 @@ from web3.exceptions import ContractLogicError
 from web3.module import Module
 from web3.types import TxReceipt, Wei
 
-from src.metrics.prometheus.basic import TX_FAILURE, TX_SEND
+from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,8 @@ class TransactionUtils(Module):
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
             return None
+
+        ACCOUNT_BALANCE.set(self.w3.eth.get_balance(account.address))
 
         if self.check_transaction(transaction, account.address):
             return self.sign_and_send_transaction(transaction, account)
@@ -69,14 +71,13 @@ class TransactionUtils(Module):
         signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
 
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        TX_SEND.inc()
         logger.info({"msg": "Transaction sent.", "value": tx_hash.hex()})
 
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         if not tx_receipt:
+            TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
             logger.warning({"msg": "Transaction was not found in blockchain after 120 seconds."})
-            TX_FAILURE.inc()
             return None
 
         logger.info(
@@ -92,7 +93,9 @@ class TransactionUtils(Module):
             }
         )
 
-        if tx_receipt["status"] != 1:
-            TX_FAILURE.inc()
+        if tx_receipt.status == 1:
+            TRANSACTIONS_COUNT.labels(status=Status.SUCCESS).inc()
+        else:
+            TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
 
         return tx_receipt

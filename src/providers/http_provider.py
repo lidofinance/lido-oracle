@@ -1,11 +1,11 @@
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from http import HTTPStatus
 from typing import Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
-from prometheus_client import Counter, Histogram
-from requests import JSONDecodeError, Session
+from prometheus_client import Histogram, Counter
+from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -46,7 +46,8 @@ class HTTPProvider(ABC):
         """
         Returns (data, meta)
         """
-        with self.PROMETHEUS_HISTOGRAM.time():
+        request_name = self._url_to_request_name_label(url)
+        with self.PROMETHEUS_HISTOGRAM.labels(name=request_name).time():
             response = self.session.get(
                 urljoin(self.host, url),
                 params=params,
@@ -68,9 +69,13 @@ class HTTPProvider(ABC):
             raise error from error
         finally:
             self.PROMETHEUS_COUNTER.labels(
-                method='get',
+                name=request_name,
                 code=response.status_code,
                 domain=urlparse(self.host).netloc,
             ).inc()
 
         return data, json_response
+
+    @abstractmethod
+    def _url_to_request_name_label(self, url: str) -> str:
+        """Remove all params from url and replace them with {param}"""

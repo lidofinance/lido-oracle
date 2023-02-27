@@ -2,7 +2,7 @@ import pytest
 from requests import HTTPError
 from web3 import Web3, HTTPProvider
 
-from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS
+from src.metrics.prometheus.basic import EL_REQUESTS_COUNT
 from src.variables import EXECUTION_CLIENT_URI
 from src.web3py.middleware import metrics_collector
 
@@ -22,11 +22,11 @@ def web3(provider):
 @pytest.fixture(autouse=True)
 def clear_metrics():
     yield
-    ETH1_RPC_REQUESTS.clear()
+    EL_REQUESTS_COUNT.clear()
 
 
 def _get_requests_labels():
-    samples = ETH1_RPC_REQUESTS.collect()[0].samples
+    samples = EL_REQUESTS_COUNT.collect()[0].samples
     assert samples
     labels = samples[0].labels
     # We do not check domain because it is different for each provider

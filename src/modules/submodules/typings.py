@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from src.typings import SlotNumber
 
@@ -8,6 +9,7 @@ class MemberInfo:
     is_report_member: bool
     is_submit_member: bool
     is_fast_lane: bool
+    last_report_ref_slot: Optional[SlotNumber]
     fast_lane_length_slot: int
     current_frame_ref_slot: SlotNumber
     deadline_slot: SlotNumber

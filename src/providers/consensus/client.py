@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Literal, Optional, Union
 
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ETH2_REQUESTS, ETH2_REQUESTS_DURATION
+from src.metrics.prometheus.basic import CL_REQUESTS_DURATION, CL_REQUESTS_COUNT
 from src.providers.consensus.typings import (
     BlockDetailsResponse,
     BlockHeaderFullResponse,
@@ -28,8 +28,8 @@ class ConsensusClient(HTTPProvider):
     state_id
     State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
     """
-    PROMETHEUS_COUNTER = ETH2_REQUESTS
-    PROMETHEUS_HISTOGRAM = ETH2_REQUESTS_DURATION
+    PROMETHEUS_COUNTER = CL_REQUESTS_COUNT
+    PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
     API_GET_BLOCK_ROOT = 'eth/v1/beacon/blocks/{}/root'
     API_GET_BLOCK_HEADER = '/eth/v1/beacon/headers/{}'
@@ -88,3 +88,9 @@ class ConsensusClient(HTTPProvider):
                     raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
                 return data
             raise error from error
+
+    def _url_to_request_name_label(self, url: str) -> str:
+        return 'eth/' + '/'.join(
+            ['{param}' if ('0x' in part or part.isdigit()) else part
+             for part in url.split('eth/')[1].split('?')[0].split('/')]
+        )

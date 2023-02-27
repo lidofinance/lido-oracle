@@ -1,6 +1,13 @@
+from enum import Enum
+
 from prometheus_client import Gauge, Histogram, Counter
 
 from src.variables import PROMETHEUS_PREFIX
+
+
+class Status(Enum):
+    SUCCESS = 'success'
+    FAILURE = 'failure'
 
 
 BUILD_INFO = Gauge(
@@ -17,60 +24,71 @@ ACCOUNT_BALANCE = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-EXCEPTIONS_COUNT = Counter(
-    'exceptions_count',
-    'Exceptions count',
-    ['module'],
+TASKS_DURATION = Histogram(
+    'tasks_duration',
+    'Duration of oracle daemon tasks',
+    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ETH1_RPC_REQUESTS_DURATION = Histogram(
-    'eth_rpc_requests_duration',
-    'Duration of requests to ETH1 RPC',
+TASKS_COUNT = Counter(
+    'tasks_count',
+    'Oracle daemon tasks count',
+    ['name', 'status'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ETH1_RPC_REQUESTS = Counter(
-    'eth_rpc_requests',
-    'Total count of requests to ETH1 RPC',
-    ['method', 'code', 'domain'],
+EL_REQUESTS_DURATION = Histogram(
+    'el_requests_duration',
+    'Duration of requests to EL RPC',
+    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ETH2_REQUESTS_DURATION = Histogram(
-    'eth2_rpc_requests_duration',
-    'Duration of requests to ETH2 API',
+EL_REQUESTS_COUNT = Counter(
+    'el_requests_count',
+    'Total count of requests to EL RPC',
+    ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ETH2_REQUESTS = Counter(
-    'eth2_rpc_requests',
-    'Total count of requests to ETH2 API',
-    ['method', 'code', 'domain'],
+CL_REQUESTS_DURATION = Histogram(
+    'cl_requests_duration',
+    'Duration of requests to CL API',
+    ['name'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+CL_REQUESTS_COUNT = Counter(
+    'cl_requests_count',
+    'Total count of requests to CL API',
+    ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
 KEYS_API_REQUESTS_DURATION = Histogram(
     'keys_api_requests_duration',
     'Duration of requests to Keys API',
+    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-KEYS_API_REQUESTS = Counter(
-    'keys_api_requests',
+KEYS_API_REQUESTS_COUNT = Counter(
+    'keys_api_requests_count',
     'Total count of requests to Keys API',
-    ['method', 'code', 'domain'],
+    ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-TX_SEND = Counter(
-    'tx_send',
-    'Sent tx count.',
+KEYS_API_LATEST_BLOCKNUMBER = Gauge(
+    'keys_api_latest_blocknumber',
+    'Latest blocknumber from Keys API metadata',
     namespace=PROMETHEUS_PREFIX,
 )
 
-TX_FAILURE = Counter(
-    'tx_failure',
-    'Tx failures.',
+TRANSACTIONS_COUNT = Counter(
+    'transactions_count',
+    'Total count of transactions. Success or failure',
+    ['status'],
     namespace=PROMETHEUS_PREFIX,
 )

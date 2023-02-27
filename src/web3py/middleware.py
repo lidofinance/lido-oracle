@@ -6,7 +6,8 @@ from requests import HTTPError, Response
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
-from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS, ETH1_RPC_REQUESTS_DURATION
+from src.metrics.prometheus.basic import EL_REQUESTS_DURATION, EL_REQUESTS_COUNT
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,11 @@ def metrics_collector(
             domain = 'unavailable'
 
         try:
-            with ETH1_RPC_REQUESTS_DURATION.time():
+            with EL_REQUESTS_DURATION.labels(name=method).time():
                 response = make_request(method, params)
         except HTTPError as ex:
             failed: Response = ex.response
-            ETH1_RPC_REQUESTS.labels(
+            EL_REQUESTS_COUNT.labels(
                 method=method,
                 code=failed.status_code,
                 domain=domain,
@@ -48,8 +49,8 @@ def metrics_collector(
         if isinstance(error, dict):
             code = error.get("code") or code
 
-        ETH1_RPC_REQUESTS.labels(
-            method=method,
+        EL_REQUESTS_COUNT.labels(
+            name=method,
             code=code,
             domain=domain,
         ).inc()

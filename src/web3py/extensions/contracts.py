@@ -6,6 +6,7 @@ from web3.module import Module
 from web3.types import Wei
 
 from src import variables
+from src.metrics.prometheus.business import FRAME_LAST_REPORT_REF_SLOT
 from src.typings import BlockStamp, SlotNumber
 
 
@@ -95,4 +96,6 @@ class LidoContracts(Module):
 
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
-        return self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
+        result = self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
+        FRAME_LAST_REPORT_REF_SLOT.set(result)
+        return result

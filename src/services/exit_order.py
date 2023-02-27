@@ -5,6 +5,7 @@ from typing import Iterable, Iterator
 from eth_typing import ChecksumAddress
 
 from src.constants import FAR_FUTURE_EPOCH
+from src.metrics.prometheus.task import task
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
@@ -62,6 +63,7 @@ class ValidatorToExitIterator:
         self.blockstamp = blockstamp
         self.c_conf = c_conf
 
+    @task("prepare-exit-order-iterator-state")
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Prepare queue state for the iteration:.
@@ -108,6 +110,7 @@ class ValidatorToExitIterator:
 
         return self
 
+    @task("get-next-validator-to-exit")
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
             raise StopIteration
