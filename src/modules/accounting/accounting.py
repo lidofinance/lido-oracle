@@ -53,8 +53,8 @@ class Accounting(BaseModule, ConsensusModule):
     # Consensus module: main build report method
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: BlockStamp) -> tuple:
-        logger.info({'msg': 'Calculate report for accounting module.'})
         report_data = self._calculate_report(blockstamp)
+        logger.info({'msg': 'Calculate report for accounting module.', 'value': report_data})
         return report_data.as_tuple()
 
     # # Consensus module: if contract got report data
@@ -176,10 +176,10 @@ class Accounting(BaseModule, ConsensusModule):
             block_identifier=blockstamp.block_hash,
         )
 
-        if not last_ref_slot:
-            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
-        else:
+        if last_ref_slot:
             slots_elapsed = blockstamp.ref_slot - last_ref_slot
+        else:
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
 
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
@@ -194,7 +194,10 @@ class Accounting(BaseModule, ConsensusModule):
             self._get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
-        ).call({'from': self.w3.lido_contracts.accounting_oracle.address})
+        ).call(
+            transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
+            block_identifier=blockstamp.block_hash,
+        )
 
         return LidoReportRebase(*result)
 

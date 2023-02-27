@@ -50,7 +50,6 @@ class ConsensusModule(ABC):
             decode_tuples=True,
         )
 
-    @lru_cache(maxsize=1)
     def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
