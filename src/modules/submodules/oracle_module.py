@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
-from src.modules.submodules.exceptions import IsNotMemberException
+from src.modules.submodules.exceptions import IsNotMemberException, IncoplitableContractVersion
 from src.utils.blockstamp import build_blockstamp
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
@@ -63,15 +63,19 @@ class BaseModule(ABC):
 
         try:
             return self.execute_module(blockstamp)
+        except IsNotMemberException as exception:
+            logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
+            raise exception from exception
+        except IncoplitableContractVersion as exception:
+            logger.error({'msg': 'Incoplitable Contract version. Please update Oracle Daemon.'})
+            raise exception from exception
         except TimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
-            raise TimeoutError('Oracle module stuck.') from exception
-        except IsNotMemberException as exception:
-            logger.error({'msg': 'Wrong'})
-            raise exception from exception
         except NoActiveProviderError as exception:
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
         except ConnectionError as error:
+            logger.error({'msg': error.args, 'error': str(error)})
+        except Exception as error:
             logger.error({'msg': error.args, 'error': str(error)})
 
         return False

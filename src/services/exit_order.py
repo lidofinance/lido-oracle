@@ -63,7 +63,7 @@ class ValidatorToExitIterator:
         self.blockstamp = blockstamp
         self.c_conf = c_conf
 
-    def __iter__(self) -> Iterable[LidoValidator]:
+    def __iter__(self) -> Iterable[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Prepare queue state for the iteration:.
         Determine exitable Lido validators and collect operators stats to sort exitable validators

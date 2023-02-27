@@ -61,6 +61,11 @@ class TransactionUtils(Module):
         logger.info({"msg": "Transaction sent.", "value": tx_hash.hex()})
 
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        if not tx_receipt:
+            TX_FAILURE.inc()
+            return
+
         logger.info(
             {
                 "msg": "Transaction is in blockchain.",

@@ -46,7 +46,7 @@ class BunkerService:
     c_conf: ChainConfig
     f_conf: FrameConfig
 
-    simulated_rebase: LidoReportRebase
+    simulated_cl_rebase: LidoReportRebase
 
     last_report_ref_slot: SlotNumber = SlotNumber(0)
 
@@ -63,11 +63,11 @@ class BunkerService:
         blockstamp: ReferenceBlockStamp,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-        simulated_rebase: LidoReportRebase,
+        simulated_cl_rebase: LidoReportRebase,
     ) -> bool:
         self.f_conf = frame_config
         self.c_conf = chain_config
-        self.simulated_rebase = simulated_rebase
+        self.simulated_cl_rebase = simulated_cl_rebase
 
         self._get_config(blockstamp)
         self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
@@ -126,7 +126,7 @@ class BunkerService:
         before_report_total_pooled_ether = self._get_total_supply(blockstamp)
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (self.simulated_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
+        frame_cl_rebase = (self.simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
 
         return Gwei(frame_cl_rebase)
@@ -328,7 +328,8 @@ class BunkerService:
             block_identifier=blockstamp.block_hash
         )
         return self.w3.eth.get_balance(
-            withdrawal_vault_address, blockstamp.block_hash
+            withdrawal_vault_address,
+            block_identifier=blockstamp.block_hash,
         )
 
     def _get_withdrawn_from_vault_between(self, prev_blockstamp: ReferenceBlockStamp, curr_blockstamp: ReferenceBlockStamp) -> int:

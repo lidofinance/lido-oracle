@@ -8,7 +8,7 @@ from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.modules.submodules.exceptions import IsNotMemberException
+from src.modules.submodules.exceptions import IsNotMemberException, IncoplitableContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
@@ -141,6 +141,8 @@ class ConsensusModule(ABC):
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
+        self._check_contract_versions(latest_blockstamp)
+
         member_info = self.get_member_info(latest_blockstamp)
 
         # Check if contract is currently reportable
@@ -173,6 +175,17 @@ class ConsensusModule(ABC):
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
         return bs
+
+    def _check_contract_versions(self, blockstamp: BlockStamp):
+        contract_version = self.report_contract.functions.getContractVersion().call(block_identifier=blockstamp.block_hash)
+        consensus_version = self.report_contract.functions.getConsensusVersion().call(block_identifier=blockstamp.block_hash)
+
+        if contract_version != self.CONTRACT_VERSION or consensus_version != self.CONSENSUS_VERSION:
+            raise IncoplitableContractVersion(
+                f'Incoplitable Oracle version. '
+                f'Expected contract version {contract_version} got {self.CONTRACT_VERSION}.'
+                f'Expected consensus version {consensus_version} got {self.CONSENSUS_VERSION}.'
+            )
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:

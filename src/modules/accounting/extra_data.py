@@ -9,15 +9,6 @@ from src.web3py.extentions.lido_validators import NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
 
 
-class Lengths:
-    ITEM_INDEX = 3
-    ITEM_TYPE = 2
-    MODULE_ID = 3
-    NODE_OPS_COUNT = 8
-    NODE_OPERATOR_IDS = 8
-    STUCK_AND_EXITED_VALS_COUNT = 16
-
-
 class ItemType(Enum):
     EXTRA_DATA_TYPE_STUCK_VALIDATORS = 0
     EXTRA_DATA_TYPE_EXITED_VALIDATORS = 1
@@ -58,6 +49,21 @@ def chunks(it, size):
 
 
 class ExtraDataService:
+    # Extra data is an array of items, each item being encoded as follows:
+    # |  3 bytes  | 2 bytes  |   X bytes   |
+    # | itemIndex | itemType | itemPayload |
+    #
+    # itemPayload format:
+    #  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
+    #  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+    class Lengths:
+        ITEM_INDEX = 3
+        ITEM_TYPE = 2
+        MODULE_ID = 3
+        NODE_OPS_COUNT = 8
+        NODE_OPERATOR_IDS = 8
+        STUCK_AND_EXITED_VALS_COUNT = 16
+
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -84,17 +90,10 @@ class ExtraDataService:
 
     @staticmethod
     def to_bytes(extra_data: list[ExtraDataItem]) -> bytes:
-        # Extra data is an array of items, each item being encoded as follows:
-        # |  3 bytes  | 2 bytes  |   X bytes   |
-        # | itemIndex | itemType | itemPayload |
-        #
-        # itemPayload format:
-        #  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-        #  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
         extra_data_bytes = b''
         for item in extra_data:
             extra_data_bytes += item.item_index
-            extra_data_bytes += item.item_type.value.to_bytes(Lengths.ITEM_TYPE)
+            extra_data_bytes += item.item_type.value.to_bytes(ExtraDataService.Lengths.ITEM_TYPE)
             extra_data_bytes += item.item_payload.module_id
             extra_data_bytes += item.item_payload.node_ops_count
             extra_data_bytes += item.item_payload.node_operator_ids
@@ -117,7 +116,7 @@ class ExtraDataService:
                     return extra_data
 
                 extra_data.append(ExtraDataItem(
-                    item_index=index.to_bytes(Lengths.ITEM_INDEX),
+                    item_index=index.to_bytes(ExtraDataService.Lengths.ITEM_INDEX),
                     item_type=item_type,
                     item_payload=item
                 ))
@@ -136,12 +135,12 @@ class ExtraDataService:
                 operator_ids = []
                 vals_count = []
                 for (_, operator_id), validators_count in chunk:
-                    operator_ids.append(operator_id.to_bytes(Lengths.NODE_OPERATOR_IDS))
-                    vals_count.append(validators_count.to_bytes(Lengths.STUCK_AND_EXITED_VALS_COUNT))
+                    operator_ids.append(operator_id.to_bytes(ExtraDataService.Lengths.NODE_OPERATOR_IDS))
+                    vals_count.append(validators_count.to_bytes(ExtraDataService.Lengths.STUCK_AND_EXITED_VALS_COUNT))
 
                 payloads.append(ItemPayload(
-                    module_id=module_id.to_bytes(Lengths.MODULE_ID),
-                    node_ops_count=len(chunk).to_bytes(Lengths.NODE_OPS_COUNT),
+                    module_id=module_id.to_bytes(ExtraDataService.Lengths.MODULE_ID),
+                    node_ops_count=len(chunk).to_bytes(ExtraDataService.Lengths.NODE_OPS_COUNT),
                     node_operator_ids=b"".join(operator_ids),
                     vals_counts=b"".join(vals_count),
                 ))

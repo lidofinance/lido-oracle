@@ -30,7 +30,7 @@ class LidoValidatorStateService:
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> ExtraData:
-        stuck_validators = self.get_lido_new_stuck_validators(blockstamp, chain_config)
+        stuck_validators = self.get_lido_newly_stuck_validators(blockstamp, chain_config)
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
@@ -45,7 +45,7 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
         return extra_data
 
-    def get_lido_new_stuck_validators(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
+    def get_lido_newly_stuck_validators(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
         recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp, chain_config)

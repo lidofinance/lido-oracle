@@ -54,10 +54,12 @@ class Ejector(BaseModule, ConsensusModule):
 
         self.prediction_service = RewardsPredictionService(w3)
 
-    def execute_module(self, blockstamp: BlockStamp):
+    def execute_module(self, blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp:
             self.process_report(report_blockstamp)
+            return True
+        return False
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
@@ -132,6 +134,19 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
+        max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
+        churn_limit = self._get_churn_limit(blockstamp)
+
+        free_slots_in_current_epoch = churn_limit - latest_to_exit_validators_count
+        need_to_exit_all_epochs = (validators_to_eject_count - free_slots_in_current_epoch) // churn_limit + 1
+
+        return EpochNumber(max_exit_epoch_number + need_to_exit_all_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+
+    @lru_cache(maxsize=1)
+    def _get_latest_exit_epoch(self, blockstamp: BlockStamp) -> tuple[EpochNumber, int]:
+        """
+        Returns the latest exit epoch and amount of validators that are exiting in this epoch
+        """
         max_exit_epoch_number = 0
         latest_to_exit_validators_count = 0
 
@@ -148,12 +163,7 @@ class Ejector(BaseModule, ConsensusModule):
                 max_exit_epoch_number = val_exit_epoch
                 latest_to_exit_validators_count = 1
 
-        churn_limit = self._get_churn_limit(blockstamp)
-
-        free_slots_in_current_epoch = churn_limit - latest_to_exit_validators_count
-        need_to_exit_all_epochs = (validators_to_eject_count - free_slots_in_current_epoch) // churn_limit + 1
-
-        return EpochNumber(max_exit_epoch_number + need_to_exit_all_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+        return max_exit_epoch_number, latest_to_exit_validators_count
 
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp):
         validators = self.w3.cc.get_validators(blockstamp.state_root)

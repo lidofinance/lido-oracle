@@ -10,7 +10,7 @@ from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
-from src.typings import BlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp
 from src.web3py.extentions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
@@ -18,7 +18,7 @@ from src.web3py.extentions.lido_validators import (
 
 TESTING_REF_EPOCH = 100
 
-blockstamp = BlockStamp(
+blockstamp = ReferenceBlockStamp(
     ref_slot=0,
     ref_epoch=TESTING_REF_EPOCH,
     block_root=None,
@@ -118,7 +118,7 @@ def chain_config():
 
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
     validator_state.get_last_asked_to_exit_pubkeys = Mock(return_value={HexBytes("0x6")})
-    stuck_validators = validator_state.get_lido_new_stuck_validators(blockstamp, chain_config)
+    stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
     assert stuck_validators == {(1, 0): 1}
 
 

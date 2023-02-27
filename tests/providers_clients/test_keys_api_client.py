@@ -2,7 +2,7 @@
 import pytest
 
 from src.providers.keys.client import KeysAPIClient
-from src.typings import BlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp
 from src.variables import KEYS_API_URI
 
 
@@ -14,7 +14,7 @@ def keys_api_client():
     return KeysAPIClient(KEYS_API_URI)
 
 
-empty_blockstamp = BlockStamp(
+empty_blockstamp = ReferenceBlockStamp(
         ref_slot=0,
         ref_epoch=0,
         block_root=None,

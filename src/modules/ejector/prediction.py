@@ -60,6 +60,9 @@ class RewardsPredictionService:
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
         result_event_data = []
 
+        if len(event_type_1) != len(event_type_2):
+            raise ValueError('Events are inconsistent.')
+
         for event_1 in event_type_1:
             for event_2 in event_type_2:
                 if event_2['transactionHash'] == event_1['transactionHash']:
