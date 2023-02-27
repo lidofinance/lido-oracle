@@ -284,14 +284,12 @@ class ConsensusModule(ABC):
 
         tx = consensus_contract.functions.submitReport(blockstamp.ref_slot, report_hash, consensus_version)
 
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
 
     def _submit_report(self, report: tuple, contract_version: int):
         tx = self.report_contract.functions.submitReportData(report, contract_version)
 
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root

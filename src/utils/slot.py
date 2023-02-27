@@ -132,7 +132,7 @@ def _build_blockstamp(
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):
-    if hasattr(block_header, 'finalized') and not block_header.finalized:
+    if block_header.finalized is False:
         raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not finalized, but should be.')
     if not block_header.data.canonical:
         raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not canonical, but should be.')
