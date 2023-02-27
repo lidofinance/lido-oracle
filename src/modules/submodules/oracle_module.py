@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class BaseModule(ABC):
     """
-    Base sceleton for Oracle modules.
+    Base skeleton for Oracle modules.
 
     Goals:
     - Catch errors and log them.

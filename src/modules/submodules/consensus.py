@@ -29,6 +29,9 @@ class ConsensusModule(ABC):
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
 
+    # Default delay for default Oracle members. Member with submit data role should submit data first.
+    SUBMIT_DATA_DELAY_IN_SLOTS = 8
+
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -313,6 +316,10 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
+        member = self.get_member_info(blockstamp)
+        if member.is_submit_member:
+            return 0
+
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
@@ -329,8 +336,8 @@ class ConsensusModule(ABC):
         if sleep_count < 0:
             sleep_count += len(members)
 
-        logger.info({'msg': 'Calculate slots to sleep.', 'value': sleep_count})
-        return sleep_count
+        logger.info({'msg': 'Calculate slots to sleep.', 'value': sleep_count + self.SUBMIT_DATA_DELAY_IN_SLOTS})
+        return sleep_count + self.SUBMIT_DATA_DELAY_IN_SLOTS
 
     @abstractmethod
     @lru_cache(maxsize=1)
