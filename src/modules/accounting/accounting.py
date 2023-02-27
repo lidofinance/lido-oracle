@@ -8,6 +8,7 @@ from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase, \
     SharesRequestedToBurn
 from src.metrics.prometheus.task import task
+from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
