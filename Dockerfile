@@ -50,4 +50,3 @@ HEALTHCHECK --interval=10s --timeout=3s \
 WORKDIR /app/
 
 ENTRYPOINT ["python3", "-m", "src.main"]
-CMD ["accounting"]
