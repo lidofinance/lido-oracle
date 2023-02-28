@@ -78,7 +78,7 @@ class LidoValidatorsProvider(Module):
     @lru_cache(maxsize=1)
     def get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
-        validators = self.w3.cc.get_validators(blockstamp.state_root)
+        validators = self.w3.cc.get_validators(blockstamp)
 
         return self.merge_validators_with_keys(lido_keys, validators)
 
