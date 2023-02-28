@@ -26,8 +26,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 logger = logging.getLogger()
 
 
-if __name__ == '__main__':
-    module_name = sys.argv[-1]
+def main(module_name: str):
     if module_name not in iter(OracleModule):
         msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
         logger.error({'msg': msg})
@@ -76,3 +75,8 @@ if __name__ == '__main__':
         logger.info({'msg': 'Initialize Ejector module.'})
         ejector = Ejector(web3)
         ejector.run_as_daemon()
+
+
+if __name__ == '__main__':
+    module_name = sys.argv[-1]
+    main(module_name)
