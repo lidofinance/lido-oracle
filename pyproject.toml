@@ -28,7 +28,8 @@ build-backend = "poetry.core.masonry.api"
 markers = [
     "unit: tests with using mocks and don't make external requests",
     "integration: tests with using providers",
-    "possible_integration: tests with using providers, but can be run using mocks"
+    "possible_integration: tests with using providers, but can be run using mocks",
+    "e2e: complex tests with using providers and real Ethereum network",
 ]
 
 [tool.pylint."messages control"]
