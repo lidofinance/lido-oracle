@@ -16,7 +16,7 @@ class KeysOutdatedException(Exception):
 class KeysAPIClient(HTTPProvider):
     RETRY_COUNT = 5
     REQUEST_TIMEOUT = 10
-    SLEEP_SECONDS = 5
+    SLEEP_SECONDS = 12
 
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
     PROMETHEUS_COUNTER = KEYS_API_REQUESTS
@@ -30,7 +30,7 @@ class KeysAPIClient(HTTPProvider):
         """
         for i in range(self.RETRY_COUNT):
             data, meta = self._get(url, params)
-            if meta['meta']['elBlockSnapshot']['blockNumber'] >= int(blockstamp.block_number):
+            if meta['meta']['elBlockSnapshot']['blockNumber'] >= blockstamp.block_number:
                 return data
 
             if i != self.RETRY_COUNT - 1:

@@ -97,7 +97,7 @@ def get_first_non_missed_slot(
         existed_header = cc.get_block_header(not_missed_header_parent_root)
         _check_block_header(existed_header)
 
-        if int(existed_header.data.header.message.slot) > ref_slot:
+        if int(existed_header.data.header.message.slot) >= ref_slot:
             raise InconsistentData(
                 'Parent root of next to ref slot existed header dot match to expected slot.'
                 'Probably problem with consensus node.'

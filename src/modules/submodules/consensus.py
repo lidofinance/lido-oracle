@@ -255,11 +255,11 @@ class ConsensusModule(ABC):
         # Fast lane offchain implementation for report data
         slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
         if slots_to_sleep:
-            _, seconds_per_slot, _ = self.get_chain_config(blockstamp)
+            chain_configs = self.get_chain_config(blockstamp)
 
             logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
             for _ in range(slots_to_sleep):
-                sleep(seconds_per_slot)
+                sleep(chain_configs.seconds_per_slot)
 
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):

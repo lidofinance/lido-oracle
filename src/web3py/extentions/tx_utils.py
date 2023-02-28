@@ -54,7 +54,7 @@ class TransactionUtils(Module):
         tx = transaction.build_transaction(
             {
                 "from": account.address,
-                "gas": transaction.estimate_gas({'from': account.address}) * self.GAS_MULTIPLIER,
+                "gas": int(transaction.estimate_gas({'from': account.address}) * self.GAS_MULTIPLIER),
                 "maxFeePerGas": pending_block.baseFeePerGas * 2 + self.w3.eth.max_priority_fee,
                 "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
                 "nonce": self.w3.eth.get_transaction_count(account.address),

@@ -46,17 +46,17 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
         return extra_data
 
-    def get_lido_newly_stuck_validators(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
+    def get_lido_newly_stuck_validators(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
         recently_asked_to_exit_pubkeys = self.get_last_asked_to_exit_pubkeys(blockstamp, chain_config)
 
         result = {}
 
-        for key, validators in lido_validators_by_no.items():
-            def filter_non_stuck(total: int, validator: LidoValidator) -> int:
+        for global_no_index, validators in lido_validators_by_no.items():
+            def sum_stuck_validators(total: int, validator: LidoValidator) -> int:
                 # If validator index is higher than ejected index - we didn't asked this validator to exit
-                if int(validator.index) > ejected_index[key]:
+                if int(validator.index) > ejected_index[global_no_index]:
                     return total
 
                 # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
@@ -69,8 +69,8 @@ class LidoValidatorStateService:
 
                 return total + 1
 
-            result[key] = reduce(
-                filter_non_stuck,
+            result[global_no_index] = reduce(
+                sum_stuck_validators,
                 validators,
                 0,
             )
@@ -85,7 +85,7 @@ class LidoValidatorStateService:
 
         return result
 
-    def get_last_asked_to_exit_pubkeys(self, blockstamp: BlockStamp, chain_config: ChainConfig) -> set[HexStr]:
+    def get_last_asked_to_exit_pubkeys(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> set[HexStr]:
         exiting_keys_stuck_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
             'VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS'
         ).call(block_identifier=blockstamp.block_hash)
@@ -138,10 +138,10 @@ class LidoValidatorStateService:
 
         result = {}
 
-        for index in lido_validators.keys():
-            result[index] = reduce(
+        for global_no_index in lido_validators.keys():
+            result[global_no_index] = reduce(
                 lambda total, validator: total + int(is_exited_validator(validator, blockstamp.ref_epoch)),
-                lido_validators[index],
+                lido_validators[global_no_index],
                 0,
             )
 

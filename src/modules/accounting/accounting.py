@@ -37,9 +37,9 @@ class Accounting(BaseModule, ConsensusModule):
         if report_blockstamp:
             self.process_report(report_blockstamp)
             self.process_extra_data(report_blockstamp)
-            return True
+            return False
 
-        return False
+        return True
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
@@ -100,7 +100,11 @@ class Accounting(BaseModule, ConsensusModule):
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
+        staking_module_stats = self._get_newly_exited_validators_by_modules(blockstamp)
+        if staking_module_stats:
+            staking_module_ids_list, exit_validators_count_list = staking_module_stats
+        else:
+            staking_module_ids_list = exit_validators_count_list = []
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
@@ -124,13 +128,17 @@ class Accounting(BaseModule, ConsensusModule):
         return report_data
 
     def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[int]]:
+        """
+        Calculate exited validators count in all modules.
+        Exclude modules without changes from the report.
+        """
         stacking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
 
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
         module_stats = defaultdict(int)
 
-        for (module_id, _), validators_exited_count in exited_validators:
+        for (module_id, _), validators_exited_count in exited_validators.items():
             module_stats[module_id] += validators_exited_count
 
         for module in stacking_modules:

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 from typing import Tuple, TYPE_CHECKING, NewType
@@ -8,7 +9,10 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
-from src.utils.dataclass import Nested
+from src.utils.dataclass import Nested, list_of_dataclasses
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -108,10 +112,18 @@ class LidoValidatorsProvider(Module):
         }
 
         for validator in merged_validators:
-            no_validators[(
+            global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
                 validator.lido_id.operatorIndex,
-            )].append(validator)
+            )
+
+            if global_no_id in no_validators:
+                no_validators[global_no_id].append(validator)
+            else:
+                logger.warning({
+                    'msg': f'Got global node operator id: {global_no_id}, '
+                           f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
+                })
 
         return no_validators
 
@@ -160,8 +172,12 @@ class LidoValidatorsProvider(Module):
         return operators
 
     @lru_cache(maxsize=1)
+    @list_of_dataclasses(StakingModule)
     def get_staking_modules(self, blockstamp: BlockStamp) -> list[StakingModule]:
         modules = self.w3.lido_contracts.staking_router.functions.getStakingModules().call(
             block_identifier=blockstamp.block_hash,
         )
-        return [StakingModule(*module) for module in modules]
+
+        logger.info({'msg': 'Fetch staking modules.', 'value': modules})
+
+        return modules

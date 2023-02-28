@@ -10,14 +10,14 @@ from src.web3py.typings import Web3
 
 
 class ItemType(Enum):
-    EXTRA_DATA_TYPE_STUCK_VALIDATORS = 0
-    EXTRA_DATA_TYPE_EXITED_VALIDATORS = 1
+    EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
+    EXTRA_DATA_TYPE_EXITED_VALIDATORS = 2
 
 
 class FormatList(Enum):
-    EXTRA_DATA_FORMAT_LIST_EMPTY = 0
+    EXTRA_DATA_FORMAT_LIST_EMPTY = 1
     # TODO old contracts have 0, new contracts have 1, don't forget to change it
-    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 0
+    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 1
 
 
 @dataclass
@@ -43,11 +43,6 @@ class ExtraData:
     items_count: int
 
 
-def chunks(it, size):
-    it = iter(it)
-    return iter(lambda: tuple(islice(it, size)), ())
-
-
 class ExtraDataService:
     # Extra data is an array of items, each item being encoded as follows:
     # |  3 bytes  | 2 bytes  |   X bytes   |
@@ -62,26 +57,24 @@ class ExtraDataService:
         MODULE_ID = 3
         NODE_OPS_COUNT = 8
         NODE_OPERATOR_IDS = 8
-        STUCK_AND_EXITED_VALS_COUNT = 16
+        STUCK_OR_EXITED_VALS_COUNT = 16
 
     def __init__(self, w3: Web3):
         self.w3 = w3
 
     def collect(
         self,
-        exited_validators: dict[NodeOperatorGlobalIndex, int],
         stuck_validators: dict[NodeOperatorGlobalIndex, int],
+        exited_validators: dict[NodeOperatorGlobalIndex, int],
         max_items_in_payload_count: int,
         max_items_count: int,
     ) -> ExtraData:
-        stuck_payloads, items_count = self.build_validators_payloads(stuck_validators, max_items_in_payload_count, max_items_count)
+        stuck_payloads, rest_items = self.build_validators_payloads(stuck_validators, max_items_in_payload_count, max_items_count)
 
-        free_space_for_items = max_items_count - items_count
-
-        if free_space_for_items > 0:
-            exited_payloads = self.build_validators_payloads(exited_validators, max_items_in_payload_count, free_space_for_items)
+        if rest_items:
+            exited_payloads, _ = self.build_validators_payloads(exited_validators, max_items_in_payload_count, rest_items)
         else:
-            exited_payloads = []
+            exited_payloads = tuple()
 
         extra_data = self.build_extra_data(stuck_payloads, exited_payloads)
         extra_data_bytes = self.to_bytes(extra_data)
@@ -96,49 +89,44 @@ class ExtraDataService:
 
     @staticmethod
     def build_validators_payloads(
-            validators: dict[NodeOperatorGlobalIndex, int],
-            max_list_items_count: int,
-            max_items_count: int,
+        validators: dict[NodeOperatorGlobalIndex, int],
+        max_items_in_payload: int,
+        max_items_total: int,
     ) -> tuple[list[ItemPayload], int]:
         # sort by module id and node operator id
-        operator_validators = sorted(validators.items(), key=lambda x: (x[0][0], x[0][1]))
+        operator_validators = sorted(validators.items(), key=lambda x: x[0])
+        payload_size_limit = min(max_items_in_payload, max_items_total)
+
         payloads = []
-        rest_items = max_items_count
 
-        for module_id, group in itertools.groupby(operator_validators, key=lambda x: x[0][0]):
-            for chunk in chunks(group, max_list_items_count):
-                item_payload, items_count = ExtraDataService.build_chunk(module_id, chunk, rest_items)
-                rest_items -= items_count
-                payloads.append(item_payload)
+        for module_id, operators_by_module in itertools.groupby(operator_validators, key=lambda x: x[0][0]):
+            operator_ids = []
+            vals_count = []
 
-                if not rest_items:
-                    return payloads, rest_items
+            for ((_, no_id), validators_count) in operators_by_module:
+                operator_ids.append(no_id.to_bytes(ExtraDataService.Lengths.NODE_OPERATOR_IDS))
+                vals_count.append(validators_count.to_bytes(ExtraDataService.Lengths.STUCK_OR_EXITED_VALS_COUNT))
+                payload_size_limit -= 1
+                
+                if not payload_size_limit:
+                    break
 
-        return payloads, rest_items
+            payloads.append(
+                ItemPayload(
+                    module_id=module_id.to_bytes(ExtraDataService.Lengths.MODULE_ID),
+                    node_ops_count=len(operator_ids).to_bytes(ExtraDataService.Lengths.NODE_OPS_COUNT),
+                    node_operator_ids=b"".join(operator_ids),
+                    vals_counts=b"".join(vals_count),
+                )
+            )
 
-    @staticmethod
-    def build_chunk(module_id: int, chunk: tuple, max_items_count: int):
-        rest_items = max_items_count
-        operator_ids = []
-        vals_count = []
-
-        for (_, operator_id), validators_count in chunk:
-            operator_ids.append(operator_id.to_bytes(ExtraDataService.Lengths.NODE_OPERATOR_IDS))
-            vals_count.append(validators_count.to_bytes(ExtraDataService.Lengths.STUCK_AND_EXITED_VALS_COUNT))
-
-            rest_items -= 1
-            if not rest_items:
+            if not payload_size_limit:
                 break
 
-        return ItemPayload(
-            module_id=module_id.to_bytes(ExtraDataService.Lengths.MODULE_ID),
-            node_ops_count=len(chunk).to_bytes(ExtraDataService.Lengths.NODE_OPS_COUNT),
-            node_operator_ids=b"".join(operator_ids),
-            vals_counts=b"".join(vals_count),
-        ), rest_items
+        return payloads, payload_size_limit
 
     @staticmethod
-    def build_extra_data(stuck_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
+    def build_extra_data(stuck_payloads: tuple[ItemPayload], exited_payloads: tuple[ItemPayload]):
         index = 0
         extra_data = []
 

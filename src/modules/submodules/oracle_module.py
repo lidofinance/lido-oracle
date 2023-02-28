@@ -7,8 +7,9 @@ from timeout_decorator import timeout
 
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
+from src.providers.keys.client import KeysOutdatedException
 from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import NoSlotsAvailable
+from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
@@ -79,8 +80,10 @@ class BaseModule(ABC):
             logger.error({'msg': error.args, 'error': str(error)})
         except NotOkResponse as error:
             logger.error({'msg': 'Received non-ok response.', 'error': str(error)})
-        except NoSlotsAvailable as error:
-            logger.error({'msg': 'No non-missed finalized slots found.', 'error': str(error)})
+        except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
+            logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
+        except KeysOutdatedException as error:
+            logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
 
         return False
 
