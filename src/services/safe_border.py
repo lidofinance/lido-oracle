@@ -215,13 +215,17 @@ class SafeBorder:
 
     def _retrieve_constants(self):
         # Check self.w3.to_int works
-        self.finalization_default_shift = self.w3.to_int(self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'FINALIZATION_DEFAULT_SHIFT'
-        ).call(block_identifier=self.blockstamp.block_hash))
+        self.finalization_default_shift = self.w3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get(
+                'FINALIZATION_DEFAULT_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
+        )
+
         self.finalization_max_negative_rebase_shift = self.w3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
-            ).call(block_identifier=self.blockstamp.block_hash))
+                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
+        )
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)

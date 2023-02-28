@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from unittest.mock import MagicMock, Mock
 from src.services.safe_border import SafeBorder
+from src.typings import ReferenceBlockStamp
 from src.web3py.extentions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -32,16 +33,30 @@ def frame_config():
 
 
 @pytest.fixture()
-def subject(web3, chain_config, frame_config, past_blockstamp, contracts, keys_api_client, consensus_client):
-    safe_border = SafeBorder(web3, past_blockstamp, chain_config, frame_config)
+def blockstamp():
+    yield ReferenceBlockStamp(
+        ref_slot=194976,
+        ref_epoch=194976/32,
+        block_root='0x86075f4611b308362377fdb4315b8a2c127b06a9f274069b3a946a0c8b92e864',
+        state_root='0xc72bff5cff78755f68e43af99d0425976a69799271626053476d633ec80d7275',
+        slot_number=194976,
+        block_number=186622,
+        block_hash='0xf1474639f20f6444a2bc52a8159592ef28405649b40b9d44f86dbaa83b7b3b1a',
+        block_timestamp=1677603312,
+    )
+
+
+@pytest.fixture()
+def subject(web3, chain_config, frame_config, blockstamp, contracts, keys_api_client, consensus_client):
+    safe_border = SafeBorder(web3, blockstamp, chain_config, frame_config)
     safe_border._retrieve_constants = Mock()
     safe_border.finalization_default_shift = NEW_REQUESTS_BORDER
     safe_border.finalization_max_negative_rebase_shift = MAX_NEGATIVE_REBASE_BORDER
     return safe_border
 
 
-def test_get_new_requests_border_epoch(subject, past_blockstamp):
-    assert subject._get_default_requests_border_epoch() == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
+def test_get_new_requests_border_epoch(subject, blockstamp):
+    assert subject._get_default_requests_border_epoch() == blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
 
 
 def test_calc_validator_slashed_epoch_from_state(subject):
@@ -57,7 +72,7 @@ def test_calc_validator_slashed_epoch_from_state_undetectable(subject):
     withdrawable_epoch = exit_epoch + 1000
     validator = create_validator_stub(exit_epoch, withdrawable_epoch)
 
-    assert subject._predict_earliest_slashed_epoch(validator) == None
+    assert subject._predict_earliest_slashed_epoch(validator) is None
 
 
 def test_filter_validators_with_earliest_exit_epoch(subject):
@@ -70,30 +85,30 @@ def test_filter_validators_with_earliest_exit_epoch(subject):
     assert subject._filter_validators_with_earliest_exit_epoch(validators) == [validators[0]]
 
 
-def test_get_negative_rebase_border_epoch(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
+def test_get_negative_rebase_border_epoch(subject, blockstamp):
+    ref_epoch = blockstamp.ref_slot // SLOTS_PER_EPOCH
     subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(return_value=ref_epoch)
 
     assert subject._get_negative_rebase_border_epoch() == ref_epoch - NEW_REQUESTS_BORDER
 
 
-def test_get_negative_rebase_border_epoch_bunker_not_started_yet(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
+def test_get_negative_rebase_border_epoch_bunker_not_started_yet(subject, blockstamp):
+    ref_epoch = blockstamp.ref_slot // SLOTS_PER_EPOCH
     subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(return_value=ref_epoch)
 
     assert subject._get_negative_rebase_border_epoch() == ref_epoch - NEW_REQUESTS_BORDER
 
 
-def test_get_negative_rebase_border_epoch_max(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
+def test_get_negative_rebase_border_epoch_max(subject, blockstamp):
+    ref_epoch = blockstamp.ref_slot // SLOTS_PER_EPOCH
     test_epoch = ref_epoch - MAX_NEGATIVE_REBASE_BORDER - 1
     subject._get_bunker_mode_start_timestamp = MagicMock(return_value=test_epoch * SLOTS_PER_EPOCH * SLOT_TIME)
 
     assert subject._get_negative_rebase_border_epoch() == ref_epoch - MAX_NEGATIVE_REBASE_BORDER
 
 
-def test_get_associated_slashings_border_epoch(subject, past_blockstamp):
-    ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
+def test_get_associated_slashings_border_epoch(subject, blockstamp):
+    ref_epoch = blockstamp.ref_slot // SLOTS_PER_EPOCH
 
     subject._get_earliest_slashed_epoch_among_incomplete_slashings = MagicMock(return_value=None)
     assert subject._get_associated_slashings_border_epoch() == ref_epoch - NEW_REQUESTS_BORDER
@@ -104,34 +119,34 @@ def test_get_associated_slashings_border_epoch(subject, past_blockstamp):
         test_epoch) - NEW_REQUESTS_BORDER
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(subject, past_blockstamp):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(subject, blockstamp, lido_validators):
     subject._get_lido_validators = MagicMock(return_value=[])
 
-    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
+    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(subject, past_blockstamp):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(subject, blockstamp, lido_validators):
     subject._get_lido_validators = MagicMock(return_value=[
         create_validator_stub(100, 105),
         create_validator_stub(102, 107),
         create_validator_stub(103, 108),
     ])
 
-    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
+    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(subject, past_blockstamp):
-    withdrawable_epoch = past_blockstamp.ref_epoch - 10
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(subject, blockstamp, lido_validators):
+    withdrawable_epoch = blockstamp.ref_epoch - 10
     validators = [
         create_validator_stub(100, withdrawable_epoch, True)
     ]
     subject._get_lido_validators = MagicMock(return_value=validators)
 
-    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
+    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(subject, past_blockstamp):
-    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(subject, blockstamp, lido_validators):
+    non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 1, non_withdrawable_epoch,
                               True)
@@ -142,29 +157,18 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(subject, past_blockstamp):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(subject, blockstamp, lido_validators):
     validators = [
-        create_validator_stub(past_blockstamp.ref_epoch - 100, past_blockstamp.ref_epoch - 1, True),
-        create_validator_stub(past_blockstamp.ref_epoch - 100, past_blockstamp.ref_epoch - 2, True),
+        create_validator_stub(blockstamp.ref_epoch - 100, blockstamp.ref_epoch - 1, True),
+        create_validator_stub(blockstamp.ref_epoch - 100, blockstamp.ref_epoch - 2, True),
     ]
     subject._get_lido_validators = MagicMock(return_value=validators)
 
-    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
+    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject, past_blockstamp):
-    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
-    validators = [
-        create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch, True),
-        create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
-    ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
-
-    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
-
-
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_different_exit_epoch(subject, past_blockstamp):
-    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject, blockstamp, lido_validators):
+    non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch, True),
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
@@ -174,9 +178,19 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_differe
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(subject,
-                                                                                                past_blockstamp):
-    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_different_exit_epoch(subject, blockstamp, lido_validators):
+    non_withdrawable_epoch = blockstamp.ref_epoch + 10
+    validators = [
+        create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch, True),
+        create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
+    ]
+    subject._get_lido_validators = MagicMock(return_value=validators)
+
+    assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
+
+
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(subject, blockstamp, lido_validators):
+    non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(non_withdrawable_epoch - 100,
                               non_withdrawable_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY, True),
@@ -188,17 +202,17 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
-def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(subject, past_blockstamp):
+def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(subject, blockstamp):
     subject._get_bunker_mode_start_timestamp = MagicMock(return_value=None)
-    subject._get_last_successful_report_slot = MagicMock(return_value=past_blockstamp.ref_slot)
+    subject._get_last_successful_report_slot = MagicMock(return_value=blockstamp.ref_slot)
 
-    assert subject._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
+    assert subject._get_bunker_start_or_last_successful_report_epoch() == blockstamp.ref_slot // 32
 
 
-def test_get_bunker_start_or_last_successful_report_epoch(subject, past_blockstamp):
-    subject._get_bunker_mode_start_timestamp = MagicMock(return_value=past_blockstamp.ref_slot * 12)
+def test_get_bunker_start_or_last_successful_report_epoch(subject, blockstamp):
+    subject._get_bunker_mode_start_timestamp = MagicMock(return_value=blockstamp.ref_slot * 12)
 
-    assert subject._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
+    assert subject._get_bunker_start_or_last_successful_report_epoch() == blockstamp.ref_slot // 32
 
 
 def test_get_last_finalized_withdrawal_request_slot(subject):
