@@ -17,7 +17,11 @@ from src.providers.keys.client import KeysAPIClient
 
 
 class NoMockException(Exception):
-    pass
+    def __init__(self, *args: object) -> None:
+        args = list(args)
+        args[0] += '\nPlease re-run tests with --save-responses or --update-responses flags. ' \
+                   '\nSee tests/README.md for details.'
+        super().__init__(*args)
 
 
 class ResponseToFileProvider(MultiProvider):
@@ -51,7 +55,21 @@ class ResponseFromFile(JSONBaseProvider):
         for response in self.responses:
             if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
-        raise NoMockException('There is no mock for response. Please re-run tests with --save-responses flag')
+        raise NoMockException('There is no mock for response')
+
+
+class UpdateResponsesProvider(ResponseToFileProvider):
+    def __init__(self, mock_path: Path, host):
+        super().__init__(host)
+        self.from_file = ResponseFromFile(mock_path)
+
+    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        try:
+            response = self.from_file.make_request(method, params)
+        except NoMockException:
+            response = super().make_request(method, params)
+        self.responses.append({"method": method, "params": params, "response": response})
+        return response
 
 
 @dataclass
@@ -123,7 +141,21 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module):
         for response in self.responses:
             if response["url"] == url and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
-        raise NoMockException('There is no mock for response. Please re-run tests with --save-responses flag')
+        raise NoMockException('There is no mock for response')
+
+
+class UpdateResponsesHTTPProvider(ResponseToFileHTTPProvider):
+    def __init__(self, mock_path: Path, host: str, w3: Web3):
+        super().__init__(host, w3)
+        self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
+
+    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
+        try:
+            response = self.from_file._get(url, params)
+        except NoMockException:
+            response = super()._get(url, params)
+        self.responses.append({"url": url, "params": params, "response": response})
+        return response
 
 
 class ResponseToFileConsensusClientModule(ConsensusClient, ResponseToFileHTTPProvider):
@@ -134,9 +166,17 @@ class ResponseFromFileConsensusClientModule(ConsensusClient, ResponseFromFileHTT
     pass
 
 
+class UpdateResponsesConsensusClientModule(ConsensusClient, UpdateResponsesHTTPProvider):
+    pass
+
+
 class ResponseToFileKeysAPIClientModule(KeysAPIClient, ResponseToFileHTTPProvider):
     pass
 
 
 class ResponseFromFileKeysAPIClientModule(KeysAPIClient, ResponseFromFileHTTPProvider):
+    pass
+
+
+class UpdateResponsesKeysAPIClientModule(KeysAPIClient, UpdateResponsesHTTPProvider):
     pass

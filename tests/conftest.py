@@ -16,7 +16,6 @@ from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidator
 from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
-from tests.mocks import chain_id_mainnet, eth_call_el_rewards_vault, eth_call_beacon_spec
 from tests.providers import (
     ResponseToFileProvider,
     ResponseFromFile,
@@ -25,6 +24,9 @@ from tests.providers import (
     ResponseFromFileConsensusClientModule,
     ResponseToFileKeysAPIClientModule,
     ResponseFromFileKeysAPIClientModule,
+    UpdateResponsesProvider,
+    UpdateResponsesConsensusClientModule,
+    UpdateResponsesKeysAPIClientModule,
 )
 
 
@@ -34,6 +36,13 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Save responses from web3 providers",
+    )
+    parser.addoption(
+        "--update-responses",
+        action="store_true",
+        default=False,
+        help="Update responses from web3 providers. "
+             "New responses will be added to the files, unused responses will be removed.",
     )
 
 
@@ -51,9 +60,15 @@ def response_to_file_provider(responses_path) -> ResponseToFileProvider:
 
 
 @pytest.fixture()
+def update_responses_provider(responses_path) -> UpdateResponsesProvider:
+    provider = UpdateResponsesProvider(responses_path, EXECUTION_CLIENT_URI)
+    yield provider
+    provider.save_responses(responses_path)
+
+
+@pytest.fixture()
 def mock_provider(responses_path) -> MockProvider:
     provider = MockProvider(fallback_provider=ResponseFromFile(responses_path))
-    provider.add_mock(chain_id_mainnet)
     return provider
 
 
@@ -61,13 +76,13 @@ def mock_provider(responses_path) -> MockProvider:
 def provider(request, responses_path) -> JSONBaseProvider:
     if request.config.getoption("--save-responses"):
         return request.getfixturevalue("response_to_file_provider")
+    elif request.config.getoption("--update-responses"):
+        return request.getfixturevalue("update_responses_provider")
     return request.getfixturevalue("mock_provider")
 
 
 @pytest.fixture()
 def web3(provider) -> Web3:
-    if isinstance(provider, MockProvider):
-        provider.add_mocks(eth_call_el_rewards_vault, eth_call_beacon_spec)
     web3 = Web3(provider)
     tweak_w3_contracts(web3)
     web3.middleware_onion.add(simple_cache_middleware)
@@ -84,9 +99,18 @@ def response_to_file_cl_client(web3, responses_path) -> ResponseToFileConsensusC
 
 
 @pytest.fixture()
+def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensusClientModule:
+    client = UpdateResponsesConsensusClientModule(responses_path, CONSENSUS_CLIENT_URI, web3)
+    yield client
+    client.save_responses(responses_path.with_suffix('.cl.json'))
+
+
+@pytest.fixture()
 def consensus_client(request, responses_path, web3):
     if request.config.getoption("--save-responses"):
         client = request.getfixturevalue("response_to_file_cl_client")
+    elif request.config.getoption("--update-responses"):
+        client = request.getfixturevalue("update_responses_cl_client")
     else:
         client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
     web3.attach_modules({"cc": lambda: client})
@@ -101,9 +125,18 @@ def response_to_file_ka_client(web3, responses_path) -> ResponseToFileKeysAPICli
 
 
 @pytest.fixture()
+def update_responses_ka_client(web3, responses_path) -> UpdateResponsesKeysAPIClientModule:
+    client = UpdateResponsesKeysAPIClientModule(responses_path, KEYS_API_URI, web3)
+    yield client
+    client.save_responses(responses_path.with_suffix('.ka.json'))
+
+
+@pytest.fixture()
 def keys_api_client(request, responses_path, web3):
     if request.config.getoption("--save-responses"):
         client = request.getfixturevalue("response_to_file_ka_client")
+    elif request.config.getoption("--update-responses"):
+        client = request.getfixturevalue("update_responses_ka_client")
     else:
         client = ResponseFromFileKeysAPIClientModule(responses_path.with_suffix('.ka.json'), web3)
     web3.attach_modules({"kac": lambda: client})
