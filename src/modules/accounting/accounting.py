@@ -31,8 +31,8 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
-    def execute_module(self, blockstamp: BlockStamp) -> bool:
-        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+        report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if report_blockstamp:
             self.process_report(report_blockstamp)
@@ -86,6 +86,10 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
         return is_reportable
 
+    def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
+        processing_state = self._get_processing_state(blockstamp)
+        return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
+
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
         ps = named_tuple_to_dataclass(
@@ -94,10 +98,6 @@ class Accounting(BaseModule, ConsensusModule):
         )
         logger.info({'msg': 'Fetch processing state.', 'value': ps})
         return ps
-
-    def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        processing_state = self._get_processing_state(blockstamp)
-        return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
 
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)

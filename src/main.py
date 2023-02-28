@@ -72,10 +72,10 @@ def main(module_name: OracleModule):
 
 
 if __name__ == '__main__':
-    module_name = sys.argv[-1]
-    if module_name not in iter(OracleModule):
-        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
+    last_arg = sys.argv[-1]
+    if last_arg not in iter(OracleModule):
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {last_arg}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 
-    main(OracleModule(module_name))
+    main(OracleModule(last_arg))

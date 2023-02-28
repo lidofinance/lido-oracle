@@ -29,7 +29,7 @@ def get_first_non_missed_slot(
     ref_epoch: EpochNumber,
 ) -> ReferenceBlockStamp:
     """
-    Get past closest non-missed slot to ref_slot or ref_slot (if exists) and generates blockstamp for it.
+    Get past closest non-missed slot to ref_slot or ref_slot (if not missed) and generates reference blockstamp for it.
 
     Raise NoSlotsAvailable if all slots are missed in range [ref_slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
@@ -81,7 +81,7 @@ def get_first_non_missed_slot(
 
             ref_slot_is_missed = True
 
-            logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
+            logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error.__dict__)})
         else:
             _check_block_header(existed_header)
             break

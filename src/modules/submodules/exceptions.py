@@ -2,5 +2,5 @@ class IsNotMemberException(Exception):
     pass
 
 
-class IncoplitableContractVersion(Exception):
+class IncompatibleContractVersion(Exception):
     pass

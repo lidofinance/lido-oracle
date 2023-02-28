@@ -8,7 +8,7 @@ from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncoplitableContractVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
@@ -57,22 +57,30 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return named_tuple_to_dataclass(
+        cc = named_tuple_to_dataclass(
             consensus_contract.functions.getChainConfig().call(block_identifier=blockstamp.block_hash),
             ChainConfig,
         )
+        logger.info({'msg': 'Fetch chain config.', 'value': cc})
+        return cc
 
     @lru_cache(maxsize=1)
     def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        cf = CurrentFrame(*consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash))
+        cf = named_tuple_to_dataclass(
+            consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash),
+            CurrentFrame,
+        )
         logger.info({'msg': 'Fetch current frame.', 'value': cf})
         return cf
 
     @lru_cache(maxsize=1)
     def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        fc = FrameConfig(*consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash))
+        fc = named_tuple_to_dataclass(
+            consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash),
+            FrameConfig,
+        )
         logger.info({'msg': 'Fetch frame config.', 'value': fc})
         return fc
 
@@ -141,35 +149,35 @@ class ConsensusModule(ABC):
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:
-            Non-missed finalized blockstamp
+            Non-missed reference slot blockstamp in case contract is reportable.
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
         self._check_contract_versions(latest_blockstamp)
-
-        member_info = self.get_member_info(latest_blockstamp)
 
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
             return None
 
+        member_info = self.get_member_info(latest_blockstamp)
+
         # Check if current slot is higher than member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
 
-        # Check latest block didn't miss deadline.
-        if latest_blockstamp.slot_number > member_info.deadline_slot:
+        # Check latest block didn't miss the deadline.
+        if latest_blockstamp.slot_number >= member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return None
 
         chain_config = self.get_chain_config(last_finalized_blockstamp)
         bs = get_first_non_missed_slot(
-            self.w3.cc,
+            cc=self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
-            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
             ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
+            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
         return bs
@@ -179,9 +187,9 @@ class ConsensusModule(ABC):
         consensus_version = self.report_contract.functions.getConsensusVersion().call(block_identifier=blockstamp.block_hash)
 
         if contract_version != self.CONTRACT_VERSION or consensus_version != self.CONSENSUS_VERSION:
-            raise IncoplitableContractVersion(
-                f'Incoplitable Oracle version. '
-                f'Expected contract version {contract_version} got {self.CONTRACT_VERSION}.'
+            raise IncompatibleContractVersion(
+                f'Incompatible Oracle version. '
+                f'Expected contract version {contract_version} got {self.CONTRACT_VERSION}. '
                 f'Expected consensus version {consensus_version} got {self.CONSENSUS_VERSION}.'
             )
 

@@ -55,7 +55,7 @@ class HTTPProvider(ABC):
 
         if response.status_code != HTTPStatus.OK:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
-            logger.error({'msg': msg})
+            logger.debug({'msg': msg})
             raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
         try:
@@ -64,7 +64,7 @@ class HTTPProvider(ABC):
             del json_response['data']
         except (KeyError, JSONDecodeError) as error:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
-            logger.error({'msg': msg})
+            logger.debug({'msg': msg})
             raise error from error
         finally:
             self.PROMETHEUS_COUNTER.labels(

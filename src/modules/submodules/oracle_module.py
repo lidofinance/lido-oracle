@@ -5,8 +5,10 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncoplitableContractVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
+from src.providers.http_provider import NotOkResponse
 from src.utils.blockstamp import build_blockstamp
+from src.utils.slot import NoSlotsAvailable
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
 
@@ -44,9 +46,9 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:
-            long_sleep = self.run_cycle(blockstamp)
+            sleep_for_this_finalized_epoch = self.run_cycle(blockstamp)
 
-            if long_sleep:
+            if sleep_for_this_finalized_epoch:
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
@@ -66,8 +68,8 @@ class BaseModule(ABC):
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception from exception
-        except IncoplitableContractVersion as exception:
-            logger.error({'msg': 'Incoplitable Contract version. Please update Oracle Daemon.'})
+        except IncompatibleContractVersion as exception:
+            logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise exception from exception
         except TimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
@@ -75,6 +77,10 @@ class BaseModule(ABC):
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
         except ConnectionError as error:
             logger.error({'msg': error.args, 'error': str(error)})
+        except NotOkResponse as error:
+            logger.error({'msg': 'Received non-ok response.', 'error': str(error)})
+        except NoSlotsAvailable as error:
+            logger.error({'msg': 'No non-missed finalized slots found.', 'error': str(error)})
 
         return False
 
