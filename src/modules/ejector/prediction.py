@@ -54,11 +54,17 @@ class RewardsPredictionService:
             total_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['preCLBalance'] + event['executionLayerRewardsWithdrawn']
             time_spent += event['timeElapsed']
 
-        return Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent)
+        return max(
+            Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent),
+            Wei(0),
+        )
 
     @staticmethod
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
         result_event_data = []
+
+        if len(event_type_1) != len(event_type_2):
+            raise ValueError('Events are inconsistent.')
 
         for event_1 in event_type_1:
             for event_2 in event_type_2:

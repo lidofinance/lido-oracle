@@ -4,20 +4,23 @@ from typing import Iterable
 
 from eth_typing import Address
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 
-from src.typings import BlockStamp
+from src.typings import ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
-from src.web3py.extentions.lido_validators import LidoValidator, NodeOperator, NodeOperatorGlobalIndex, StakingModuleId, \
-    NodeOperatorId, ValidatorsByNodeOperator
+from src.web3py.extentions.lido_validators import (
+    LidoValidator,
+    NodeOperator,
+    NodeOperatorGlobalIndex,
+    StakingModuleId,
+    NodeOperatorId,
+    ValidatorsByNodeOperator,
+)
 from src.web3py.typings import Web3
-
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
-SHARD_COMMITTEE_PERIOD = 256
 
 
 @dataclass
@@ -48,23 +51,25 @@ class ValidatorToExitIterator:
     exitable_lido_validators: list[LidoValidator]
     lido_node_operator_stats: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]
     total_predictable_validators_count: int
+    left_queue_count: int = 0
 
     def __init__(
         self,
         w3: Web3,
-        blockstamp: BlockStamp,
+        blockstamp: ReferenceBlockStamp,
         c_conf: ChainConfig,
     ):
         self.w3 = w3
         self.blockstamp = blockstamp
         self.c_conf = c_conf
-        self.left_queue_count = 0
 
-    def __iter__(self) -> Iterable[LidoValidator]:
+    def __iter__(self) -> Iterable[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Prepare queue state for the iteration:.
         Determine exitable Lido validators and collect operators stats to sort exitable validators
         """
+        self.left_queue_count = 0
+
         self._get_config()
 
         lido_validators = {
@@ -92,7 +97,7 @@ class ValidatorToExitIterator:
 
         # Count total predictable validators count
         not_lido_predictable_validators_count = len([
-            v for v in self.w3.cc.get_validators(self.blockstamp.state_root)
+            v for v in self.w3.cc.get_validators(self.blockstamp.slot_number)
             if v.validator.pubkey not in lido_validators and not self._is_on_exit(v)
         ])
         lido_predictable_validators_count = sum(
@@ -104,7 +109,7 @@ class ValidatorToExitIterator:
 
         return self
 
-    def __next__(self) -> LidoValidator:
+    def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
             raise StopIteration
 
@@ -112,7 +117,7 @@ class ValidatorToExitIterator:
         to_exit = self.exitable_lido_validators.pop(0)
         self._decrease_node_operator_stats(to_exit)
         self.left_queue_count += 1
-        return to_exit
+        return self._no_index_by_validator(to_exit), to_exit
 
     # -- Predicates for sorting validators --
     def _predicates(self, validator: LidoValidator) -> tuple:

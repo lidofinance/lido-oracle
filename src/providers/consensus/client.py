@@ -50,8 +50,8 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
         """
-        data, rest_response = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
-        resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **rest_response)
+        data, meta_data = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
+        resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **meta_data)
         return resp
 
     @lru_cache(maxsize=1)

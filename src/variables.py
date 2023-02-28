@@ -15,7 +15,6 @@ if MEMBER_PRIV_KEY:
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
-GAS_LIMIT = int(os.getenv('GAS_LIMIT', 2_000_000))
 
 # - Metrics -
 PROMETHEUS_PORT = int(os.getenv('PROMETHEUS_PORT', 9000))

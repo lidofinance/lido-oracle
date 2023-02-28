@@ -1,6 +1,6 @@
 import pytest
 
-from src.typings import BlockStamp
+from src.typings import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
 
 
@@ -37,7 +37,7 @@ class ContractEvent:
 @pytest.mark.possible_integration
 def test_get_contract_events_in_past():
     seconds_per_slot = 10
-    bs = BlockStamp(
+    bs = ReferenceBlockStamp(
         block_root='',
         state_root='',
         slot_number=36,

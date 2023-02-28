@@ -8,11 +8,11 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.modules.accounting.bunker import BunkerService, BunkerConfig
 from src.providers.keys.typings import LidoKey
-from src.typings import EpochNumber, BlockNumber, BlockStamp
+from src.typings import EpochNumber, BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
 def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
-    return BlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number)
+    return ReferenceBlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -42,7 +42,7 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
 @pytest.fixture
 def mock_get_first_non_missed_slot(monkeypatch):
 
-    def _get_first_non_missed_slot(_, slot_number, __):
+    def _get_first_non_missed_slot(_, ref_slot, last_finalized_slot_number, ref_epoch):
 
         slots = {
             0: simple_blockstamp(0, '0x0'),
@@ -51,7 +51,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
             30: simple_blockstamp(30, '0x30'),
         }
 
-        return slots[slot_number]
+        return slots[ref_slot]
 
     monkeypatch.setattr(
         'src.modules.accounting.bunker.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
@@ -107,9 +107,9 @@ def mock_get_withdrawal_vault_balance(bunker):
 @pytest.fixture
 def mock_get_validators(bunker):
 
-    def _get_validators(state_root: str):
+    def _get_validators(slot_number: int):
         validators = {
-            '0x0': [
+            0: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
@@ -117,7 +117,7 @@ def mock_get_validators(bunker):
                 simple_validator(4, '0x04', 32 * 10 ** 9),
                 simple_validator(5, '0x05', 32 * 10 ** 9),
             ],
-            '0x10': [
+            10: [
                 simple_validator(0, '0x00', 15 + 32 * 10 ** 9),
                 simple_validator(1, '0x01', 17 + 32 * 10 ** 9),
                 simple_validator(2, '0x02', 63 + 32 * 10 ** 9),
@@ -125,7 +125,7 @@ def mock_get_validators(bunker):
                 simple_validator(4, '0x04', 32 * 10 ** 9),
                 simple_validator(5, '0x05', (32 * 10 ** 9) + 99),
             ],
-            '0x20': [
+            20: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
@@ -133,14 +133,14 @@ def mock_get_validators(bunker):
                 simple_validator(4, '0x04', 0),
                 simple_validator(5, '0x05', (32 * 10 ** 9) - 100500),
             ],
-            '0x30': [
+            30: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
                 simple_validator(3, '0x03', 32 * 10 ** 9),
                 simple_validator(4, '0x04', 32 * 10 ** 9),
             ],
-            '0x40': [
+            40: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
@@ -148,7 +148,7 @@ def mock_get_validators(bunker):
                 simple_validator(4, '0x04', 32 * 10 ** 9),
                 simple_validator(5, '0x05', (32 * 10 ** 9) + 824112),
             ],
-            '0x1000': [
+            1000: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
@@ -158,9 +158,9 @@ def mock_get_validators(bunker):
                 *[simple_validator(i, f'0x0{i}', 32 * 10 ** 9) for i in range(6, 200)],
             ]
         }
-        return validators[state_root]
+        return validators[slot_number]
 
-    bunker.w3.cc.get_validators = Mock(side_effect=_get_validators)
+    bunker.w3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
 
 
 @pytest.fixture
@@ -169,10 +169,10 @@ def bunker(web3, lido_validators) -> BunkerService:
     service = BunkerService(web3)
     service.last_report_ref_slot = 0
     service.b_conf = BunkerConfig(
-        normalized_cl_per_epoch=64,
-        normalized_cl_mistake=0.1,
+        normalized_cl_reward_per_epoch=64,
+        normalized_cl_reward_mistake_rate=0.1,
         rebase_check_nearest_epoch_distance=4,
-        rebase_check_far_epoch_distance=25
+        rebase_check_distant_epoch_distance=25
     )
     service.f_conf = FrameConfig(
         initial_epoch=EpochNumber(0),
@@ -203,7 +203,7 @@ def test_get_cl_rebase_for_frame(
     expected_rebase,
 ):
     blockstamp = simple_blockstamp(0, '0x0')
-    bunker.simulated_rebase = LidoReportRebase(
+    bunker.simulated_cl_rebase = LidoReportRebase(
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
         withdrawals=0,
@@ -235,10 +235,10 @@ def test_is_high_midterm_slashing_penalty(
     blockstamp = simple_blockstamp(1000, '0x1000')
     _from, _to = lido_validators_range
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[_from:_to]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[_from:_to]
     }
     bunker.all_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)
     }
 
     result = bunker._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
@@ -278,9 +278,9 @@ def test_is_abnormal_cl_rebase(
         genesis_time=0,
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
-    bunker.b_conf.rebase_check_far_epoch_distance = far_epoch_distance
+    bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
     }
 
     result = bunker._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
@@ -312,7 +312,7 @@ def test_get_normal_cl_rebase(
         genesis_time=0,
     )
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
     }
 
     result = bunker._get_normal_cl_rebase(blockstamp)
@@ -331,12 +331,12 @@ def test_get_normal_cl_rebase(
             simple_blockstamp(20, '0x20'),
             20,
             10,
-            ValueError("nearest_slot=0 should be less than far_slot=10 in specific CL rebase calculation")),
+            ValueError("nearest_slot=0 should be less than distant_slot=10 in specific CL rebase calculation")),
         (
             simple_blockstamp(20, '0x20'),
             10,
             500,
-            ValueError("far_slot=-480 should be greater than self.last_report_ref_slot=0 in specific CL rebase calculation")
+            ValueError("distant_slot=-480 should be greater than self.last_report_ref_slot=0 in specific CL rebase calculation")
         ),
     ]
 )
@@ -358,9 +358,9 @@ def test_is_negative_specific_cl_rebase(
         genesis_time=0,
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
-    bunker.b_conf.rebase_check_far_epoch_distance = far_epoch_distance
+    bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.state_root)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
     }
 
     if isinstance(expected_is_negative, Exception):
@@ -395,7 +395,7 @@ def test_calculate_cl_rebase_between(
 ):
 
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(curr_blockstamp.state_root)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(curr_blockstamp.slot_number)[3:6]
     }
 
     if isinstance(expected_rebase, Exception):
@@ -415,7 +415,7 @@ def test_get_withdrawn_from_vault_between(
     bunker, mock_get_eth_distributed_events, from_block, to_block, expected_result
 ):
     def b(block_number: int) -> BlockStamp:
-        return BlockStamp('', '', block_number, '', block_number, 0, block_number, 0)
+        return ReferenceBlockStamp('', '', block_number, '', block_number, 0, block_number, 0)
 
     if isinstance(expected_result, Exception):
         with pytest.raises(expected_result.__class__, match=expected_result.args[0]):

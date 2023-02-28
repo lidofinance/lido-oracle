@@ -26,19 +26,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 logger = logging.getLogger()
 
 
-def main(module_name: str):
-    if module_name not in iter(OracleModule):
-        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
-        logger.error({'msg': msg})
-        raise ValueError(msg)
-
+def main(module_name: OracleModule):
     logger.info({
         'msg': 'Oracle startup.',
         'variables': {
             'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
-            'GAS_LIMIT': variables.GAS_LIMIT,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
         },
     })
@@ -52,7 +46,7 @@ def main(module_name: str):
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
 
-    logger.info({'msg': 'Modify web3 with custom function call.'})
+    logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
 
     web3.attach_modules({
@@ -78,5 +72,10 @@ def main(module_name: str):
 
 
 if __name__ == '__main__':
-    module_name = sys.argv[-1]
-    main(module_name)
+    last_arg = sys.argv[-1]
+    if last_arg not in iter(OracleModule):
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {last_arg}.'
+        logger.error({'msg': msg})
+        raise ValueError(msg)
+
+    main(OracleModule(last_arg))

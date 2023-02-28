@@ -4,7 +4,7 @@ from eth_typing import HexStr
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.web3py.typings import Web3
-from src.typings import BlockStamp, EpochNumber, SlotNumber, FrameNumber
+from src.typings import EpochNumber, SlotNumber, FrameNumber, ReferenceBlockStamp
 from src.web3py.extentions.lido_validators import Validator
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.utils.slot import get_first_non_missed_slot
@@ -17,12 +17,12 @@ class NoPreviousReport(Exception):
 class SafeBorder:
     chain_config: ChainConfig
     frame_config: FrameConfig
-    blockstamp: BlockStamp
+    blockstamp: ReferenceBlockStamp
 
     def __init__(
         self,
         w3: Web3,
-        blockstamp: BlockStamp,
+        blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
         frame_config: FrameConfig,
     ) -> None:
@@ -142,7 +142,9 @@ class SafeBorder:
             mid_non_missed_blockstamp = get_first_non_missed_slot(
                 self.w3.cc,
                 SlotNumber(mid_slot),
-                self.blockstamp.slot_number
+                self.blockstamp.slot_number,
+                # Fake epoch number here
+                EpochNumber(0),
             )
             validators = self.w3.lido_validators.get_lido_validators(mid_non_missed_blockstamp)
             slashed_validators = filter_slashed_validators(validators)
@@ -213,13 +215,17 @@ class SafeBorder:
 
     def _retrieve_constants(self):
         # Check self.w3.to_int works
-        self.finalization_default_shift = self.w3.to_int(self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'FINALIZATION_DEFAULT_SHIFT'
-        ).call(block_identifier=self.blockstamp.block_hash))
+        self.finalization_default_shift = self.w3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get(
+                'FINALIZATION_DEFAULT_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
+        )
+
         self.finalization_max_negative_rebase_shift = self.w3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
-            ).call(block_identifier=self.blockstamp.block_hash))
+                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
+        )
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)

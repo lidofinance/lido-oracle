@@ -7,7 +7,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState, ValidatorToExitIteratorConfig
-from src.typings import BlockStamp, SlotNumber
+from src.typings import SlotNumber, ReferenceBlockStamp
 from src.web3py.extentions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
     StakingModule,
@@ -19,7 +19,7 @@ TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
 
 @pytest.fixture()
 def past_blockstamp():
-    yield BlockStamp(
+    yield ReferenceBlockStamp(
         block_root='0x85c753bd0674f483dceeb138e7b35554291176a3edb6274c57b0bbd158dca050',
         state_root='0x4a5424e368d5b4c2f971f76fd4435f289c2966330a65caac292e4ed73ec007b1',
         slot_number=142271,
@@ -52,7 +52,7 @@ def validator_exit(
 
 
 def simple_blockstamp(slot_number, block_number, ref_slot):
-    return BlockStamp(
+    return ReferenceBlockStamp(
         block_root='',
         state_root='',
         slot_number=slot_number,
@@ -326,7 +326,7 @@ def test_predicates():
     }
 
     exitable_validators_random_sort.sort(key=lambda validator: ValidatorToExitIterator._predicates(validators_exit, validator))
-    exitable_validators_indexes = [v.validator.index for v in exitable_validators_random_sort]
+    exitable_validators_indexes = [v.index for v in exitable_validators_random_sort]
 
     expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]
     assert exitable_validators_indexes == expected_queue_sort_indexes

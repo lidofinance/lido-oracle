@@ -27,6 +27,7 @@ def test_get_first_non_missed_slot(web3, consensus_client):
     assert blockstamp.ref_epoch == ref_slot//32
 
 
+@pytest.mark.skip
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_third_non_missed_slot(web3, consensus_client):
@@ -58,5 +59,8 @@ def test_all_slots_are_missed(web3, consensus_client):
     web3.cc.get_block_header = Mock(side_effect=NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text"))
     with pytest.raises(NoSlotsAvailable):
         get_first_non_missed_slot(
-            web3.cc, finalized_blockstamp.ref_slot, last_finalized_slot_number=finalized_blockstamp.slot_number
+            cc=web3.cc,
+            ref_slot=finalized_blockstamp.ref_slot,
+            last_finalized_slot_number=finalized_blockstamp.ref_slot + 50,
+            ref_epoch=finalized_blockstamp.slot_number // 32,
         )

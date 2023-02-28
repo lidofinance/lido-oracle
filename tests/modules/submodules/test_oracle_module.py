@@ -1,6 +1,5 @@
 import pytest
 
-from src.modules.submodules import oracle_module
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
 
@@ -10,12 +9,13 @@ class SimpleOracle(BaseModule):
 
     def execute_module(self, blockstamp):
         self.call_count += 1
+        return True
 
 
 @pytest.fixture(autouse=True)
 def set_default_sleep(monkeypatch):
     with monkeypatch.context():
-        monkeypatch.setattr(oracle_module, "DEFAULT_SLEEP", 1)
+        monkeypatch.setattr(BaseModule, "DEFAULT_SLEEP", 1)
         yield
 
 
@@ -34,17 +34,13 @@ def test_receive_last_finalized_slot(oracle):
         block_hash='0xac3e326576b16db5864545d3c8a4bfc6c91adbd0ac2f3f2946e7a949768c088d',
         block_number=49107,
         block_timestamp=1675866096,
-        ref_slot=50208,
-        ref_epoch=None,
     )
 
 
 @pytest.mark.unit
 def test_cycle_handler_run_once_per_slot(monkeypatch, oracle):
     slot = lambda slot: lambda *args, **kwargs: BlockStamp(
-        ref_slot=None,
         block_timestamp=0,
-        ref_epoch=None,
         block_root=None,
         state_root=None,
         slot_number=slot,

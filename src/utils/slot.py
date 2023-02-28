@@ -1,12 +1,11 @@
 import logging
 from http import HTTPStatus
-from typing import Optional
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.typings import BlockHeaderFullResponse
 from src.providers.http_provider import NotOkResponse
-from src.typings import BlockStamp, SlotNumber, EpochNumber, BlockNumber
-
+from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp
+from src.utils.blockstamp import build_reference_blockstamp
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +26,10 @@ def get_first_non_missed_slot(
     cc: ConsensusClient,
     ref_slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
-    ref_epoch: Optional[EpochNumber] = None,
-) -> BlockStamp:
+    ref_epoch: EpochNumber,
+) -> ReferenceBlockStamp:
     """
-    Get past closest non-missed slot to ref_slot or ref_slot (if exists) and generates blockstamp for it.
+    Get past closest non-missed slot to ref_slot or ref_slot (if not missed) and generates reference blockstamp for it.
 
     Raise NoSlotsAvailable if all slots are missed in range [ref_slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
@@ -82,7 +81,7 @@ def get_first_non_missed_slot(
 
             ref_slot_is_missed = True
 
-            logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error)})
+            logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error.__dict__)})
         else:
             _check_block_header(existed_header)
             break
@@ -93,42 +92,19 @@ def get_first_non_missed_slot(
     if ref_slot_is_missed:
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
-        # and get details of its parent slot until we found slot < ref_slot.
         not_missed_header_parent_root = existed_header.data.header.message.parent_root
 
         existed_header = cc.get_block_header(not_missed_header_parent_root)
         _check_block_header(existed_header)
 
-        if int(existed_header.data.header.message.slot) > ref_slot:
+        if int(existed_header.data.header.message.slot) >= ref_slot:
             raise InconsistentData(
                 'Parent root of next to ref slot existed header dot match to expected slot.'
                 'Probably problem with consensus node.'
             )
 
     # Ref slot is not missed. Just get its details by root
-    return _build_blockstamp(cc, existed_header, ref_slot, ref_epoch)
-
-
-def _build_blockstamp(
-    cc: ConsensusClient,
-    header: BlockHeaderFullResponse,
-    ref_slot: SlotNumber,
-    ref_epoch: Optional[EpochNumber] = None,
-):
-    slot_details = cc.get_block_details(header.data.root)
-
-    execution_data = slot_details.message.body['execution_payload']
-
-    return BlockStamp(
-        block_root=header.data.root,
-        slot_number=SlotNumber(int(slot_details.message.slot)),
-        state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(execution_data['block_number'])),
-        block_hash=execution_data['block_hash'],
-        block_timestamp=int(execution_data['timestamp']),
-        ref_slot=ref_slot,
-        ref_epoch=ref_epoch,
-    )
+    return build_reference_blockstamp(cc, existed_header.data.root, ref_slot, ref_epoch)
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):

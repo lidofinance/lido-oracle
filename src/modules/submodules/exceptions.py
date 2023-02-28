@@ -2,5 +2,5 @@ class IsNotMemberException(Exception):
     pass
 
 
-class QuorumHashDoNotMatch(Exception):
+class IncompatibleContractVersion(Exception):
     pass

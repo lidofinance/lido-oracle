@@ -1,20 +1,16 @@
 from web3.types import Wei
 
 from src.web3py.typings import Web3
-from src.typings import BlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 
 
 class Withdrawal:
-    chain_config: ChainConfig
-    frame_config: FrameConfig
-    blockstamp: BlockStamp
-
     def __init__(
         self,
         w3: Web3,
-        blockstamp: BlockStamp,
+        blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
         frame_config: FrameConfig,
     ) -> None:

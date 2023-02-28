@@ -26,7 +26,7 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 
 @pytest.mark.integration
 def test_get_validators(consensus_client: ConsensusClient):
-    root = consensus_client.get_block_root('head').root
+    root = consensus_client.get_block_root('finalized').root
     details = consensus_client.get_block_details(root)
     validators: list[Validator] = consensus_client.get_validators(details.message.state_root)
     assert validators
