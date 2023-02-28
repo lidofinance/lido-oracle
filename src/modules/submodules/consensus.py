@@ -205,22 +205,6 @@ class ConsensusModule(ABC):
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
 
-    def _get_report_hash(self, report_data: tuple):
-        # The Accounting Oracle and Ejector Bus has same named method to report data
-        report_function_name = 'submitReportData'
-        report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
-
-        # First input is ReportData structure
-        report_data_abi = report_function_abi['inputs'][0]['components']
-
-        # Transform abi to string
-        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))
-        # Transform str abi to tuple, because ReportData is struct
-        encoded = encode([f'({report_str_abi})'], [report_data])
-
-        report_hash = self.w3.keccak(encoded)
-        return report_hash
-
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
@@ -241,17 +225,6 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Provided hash already submitted.'})
 
         return None
-
-    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
-        if not variables.ACCOUNT:
-            logger.info({'msg': 'Dry mode. Skip sending report hash.', 'value': report_hash})
-
-        consensus_contract = self._get_consensus_contract(blockstamp)
-
-        tx = consensus_contract.functions.submitReport(blockstamp.ref_slot, report_hash, consensus_version)
-
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.ACCOUNT)
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
@@ -309,20 +282,42 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Get current member info.', 'value': member_info})
         return latest_blockstamp, member_info
 
+    def _get_report_hash(self, report_data: tuple):
+        # The Accounting Oracle and Ejector Bus has same named method to report data
+        report_function_name = 'submitReportData'
+
+        report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
+
+        # First input is ReportData structure
+        report_data_abi = report_function_abi['inputs'][0]['components']
+
+        # Transform abi to string
+        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))
+
+        # Transform str abi to tuple, because ReportData is struct
+        encoded = encode([f'({report_str_abi})'], [report_data])
+
+        report_hash = self.w3.keccak(encoded)
+        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        return report_hash
+
+    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
+        consensus_contract = self._get_consensus_contract(blockstamp)
+
+        tx = consensus_contract.functions.submitReport(blockstamp.ref_slot, report_hash, consensus_version)
+
+        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+
+    def _submit_report(self, report: tuple, contract_version: int):
+        tx = self.report_contract.functions.submitReportData(report, contract_version)
+
+        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
         bs = build_blockstamp(self.w3.cc, root)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         return bs
-
-    def _submit_report(self, report: tuple, contract_version: int):
-        if not variables.ACCOUNT:
-            logger.info({'msg': 'Dry mode. Skip sending report data.', 'value': (report, contract_version)})
-
-        tx = self.report_contract.functions.submitReportData(report, contract_version)
-
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.ACCOUNT)
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:

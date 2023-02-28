@@ -63,9 +63,7 @@ class Accounting(BaseModule, ConsensusModule):
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
         tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
-
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     # Consensus module: main build report method
     @lru_cache(maxsize=1)

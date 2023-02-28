@@ -29,11 +29,8 @@ jobs:
       run: |
         poetry install --no-interaction --with=dev
 
-    - name: Lint
-      run: poetry run pylint src tests
-
     - name: Test with pytest
-      run: poetry run pytest -m "not integration" tests
+      run: poetry run pytest -m "not integration and not e2e" tests
 
   linters:
     runs-on: ubuntu-latest

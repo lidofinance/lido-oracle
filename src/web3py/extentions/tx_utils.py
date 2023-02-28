@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 class TransactionUtils(Module):
     GAS_MULTIPLIER = 1.15
 
+    def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
+        if not account:
+            logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
+            return
+        if self.check_transaction(transaction, account.address):
+            return self.sign_and_send_transaction(transaction, account)
+
     @staticmethod
     def check_transaction(transaction, from_address: str) -> bool:
         """

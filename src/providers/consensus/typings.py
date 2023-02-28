@@ -38,9 +38,9 @@ class BlockHeaderResponseData(Nested):
 @dataclass
 class BlockHeaderFullResponse(Nested):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
-    finalized: Optional[bool]
     execution_optimistic: bool
     data: BlockHeaderResponseData
+    finalized: Optional[bool] = None
 
 
 @dataclass
