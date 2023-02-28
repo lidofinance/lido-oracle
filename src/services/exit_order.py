@@ -97,7 +97,7 @@ class ValidatorToExitIterator:
 
         # Count total predictable validators count
         not_lido_predictable_validators_count = len([
-            v for v in self.w3.cc.get_validators(self.blockstamp.state_root)
+            v for v in self.w3.cc.get_validators(self.blockstamp.slot_number)
             if v.validator.pubkey not in lido_validators and not self._is_on_exit(v)
         ])
         lido_predictable_validators_count = sum(

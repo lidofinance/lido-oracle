@@ -414,7 +414,7 @@ class BunkerService:
         https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#modified-slash_validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#initiate_validator_exit
         """
-        per_epoch_buckets: dict[EpochNumber, dict[str, Validator]] = {}
+        per_epoch_buckets: dict[EpochNumber, dict[str, Validator]] = defaultdict(dict[str, Validator])
         for key, validator in all_slashed_validators.items():
             v = validator.validator
             if not v.slashed:
