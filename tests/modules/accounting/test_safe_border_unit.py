@@ -28,7 +28,8 @@ def frame_config():
     return FrameConfig(initial_epoch=0, epochs_per_frame=10, fast_lane_length_slots=0)
 
 @pytest.fixture()
-def subject(web3, chain_config, frame_config, past_blockstamp, contracts, keys_api_client, consensus_client):
+def subject( chain_config, frame_config, past_blockstamp, contracts, keys_api_client, consensus_client):
+    web3 = Mock()
     safe_border = SafeBorder(web3, past_blockstamp, chain_config, frame_config)
     safe_border._retrieve_constants = Mock()
     safe_border.finalization_default_shift = NEW_REQUESTS_BORDER
@@ -91,12 +92,12 @@ def test_get_associated_slashings_border_epoch(subject, past_blockstamp):
     assert subject._get_associated_slashings_border_epoch() == subject.round_epoch_by_frame(test_epoch) - NEW_REQUESTS_BORDER
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(subject, past_blockstamp):
-    subject._get_lido_validators = MagicMock(return_value=[])
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=[])
 
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(subject, past_blockstamp):
-    subject._get_lido_validators = MagicMock(return_value=[
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=[
         create_validator_stub(100, 105),
         create_validator_stub(102, 107),
         create_validator_stub(103, 108),
@@ -109,7 +110,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
     validators = [
         create_validator_stub(100, withdrawable_epoch, True)
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
 
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
 
@@ -118,8 +119,8 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
     validators = [
         create_validator_stub(non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 1, non_withdrawable_epoch, True)
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
-    subject._find_earliest_slashed_epoch = MagicMock(return_value=1331)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
+    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
@@ -128,7 +129,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
         create_validator_stub(past_blockstamp.ref_epoch - 100, past_blockstamp.ref_epoch - 1, True),
         create_validator_stub(past_blockstamp.ref_epoch - 100, past_blockstamp.ref_epoch - 2, True),
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == None
 
@@ -138,7 +139,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch, True),
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
@@ -148,7 +149,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_differe
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch, True),
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
@@ -158,8 +159,8 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY, True),
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
     ]
-    subject._get_lido_validators = MagicMock(return_value=validators)
-    subject._find_earliest_slashed_epoch = MagicMock(return_value=1331)
+    subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
+    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
@@ -195,9 +196,9 @@ def test_check_slots_in_one_frame(subject):
     slot_b = 319
     slot_c = 320
 
-    assert subject._check_slots_in_one_frame_or_epoch(slot_a, slot_b)
-    assert subject._check_slots_in_one_frame_or_epoch(slot_b, slot_c)
-    assert not subject._check_slots_in_one_frame_or_epoch(slot_a, slot_c)
+    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_b)
+    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_b, slot_c)
+    assert not subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_c)
 
 def create_validator_stub(exit_epoch, withdrawable_epoch, slashed = False):
     return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
