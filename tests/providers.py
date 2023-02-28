@@ -139,7 +139,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module):
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
         for response in self.responses:
-            if response["url"] == url and json.dumps(response["params"]) == json.dumps(params):
+            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
                 return response["response"]
         raise NoMockException('There is no mock for response')
 

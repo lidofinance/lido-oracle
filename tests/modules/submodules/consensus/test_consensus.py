@@ -72,7 +72,7 @@ def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
     consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
 
-    consensus.get_blockstamp_for_report(latest_blockstamp)
+    consensus.get_blockstamp_for_report(previous_blockstamp)
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
 
 
