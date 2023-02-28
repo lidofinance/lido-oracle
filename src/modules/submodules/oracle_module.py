@@ -34,7 +34,7 @@ class BaseModule(ABC):
         self.w3 = w3
 
     def run_as_daemon(self):
-        logger.info({'msg': 'Run as daemon.'})
+        logger.info({'msg': 'Run module as daemon.'})
         while True:
             logger.info({'msg': 'Startup new cycle.'})
             self._cycle_handler()
@@ -74,8 +74,6 @@ class BaseModule(ABC):
         except NoActiveProviderError as exception:
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
         except ConnectionError as error:
-            logger.error({'msg': error.args, 'error': str(error)})
-        except Exception as error:  # pylint: disable=broad-exception-caught
             logger.error({'msg': error.args, 'error': str(error)})
 
         return False

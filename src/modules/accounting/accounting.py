@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from functools import lru_cache
 from time import sleep
 
@@ -12,6 +13,7 @@ from src.services.withdrawal import Withdrawal
 from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.web3py.extentions.lido_validators import StakingModuleId
 from src.web3py.typings import Web3
 
 
@@ -100,14 +102,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
-
-        # Here report all exited validators even they were reported before.
-        if exited_validators:
-            node_operator_global_ids_list, exit_validators_count_list = zip(*exited_validators.items())
-            staking_module_ids_list = map(lambda no_global_id: no_global_id[0], node_operator_global_ids_list)
-        else:
-            staking_module_ids_list = exit_validators_count_list = []
+        staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
@@ -129,6 +124,21 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         return report_data
+
+    def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[int]]:
+        newly_exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
+        # We should report only this modules
+        updated_modules = set(module_id for (module_id, _) in newly_exited_validators.keys())
+
+        exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
+
+        module_stats = defaultdict(int)
+
+        for (module_id, op_id), validators_exited_count in exited_validators:
+            if module_id in updated_modules:
+                module_stats[module_id] += validators_exited_count
+
+        return tuple(zip(*module_stats.items()))
 
     @lru_cache(maxsize=1)
     def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[int, Gwei]:

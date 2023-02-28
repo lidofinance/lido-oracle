@@ -249,15 +249,15 @@ class BunkerService:
         nearest_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(nearest_slot),
-            ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
         )
 
         far_blockstamp = get_first_non_missed_slot(
             self.w3.cc,
             SlotNumber(far_slot),
-            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            ref_epoch=EpochNumber(far_slot // self.c_conf.slots_per_epoch),
         )
 
         if nearest_blockstamp.block_number == far_blockstamp.block_number:

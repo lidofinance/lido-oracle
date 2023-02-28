@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from functools import lru_cache, reduce
 
 from eth_typing import HexStr
@@ -118,8 +119,9 @@ class LidoValidatorStateService:
 
         return result
 
+    @lru_cache(maxsize=1)
     def get_lido_newly_exited_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
-        lido_validators = self._get_exited_lido_validators(blockstamp)
+        lido_validators = deepcopy(self.get_exited_lido_validators(blockstamp))
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
         for operator in node_operators:
@@ -130,7 +132,8 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Fetch new lido exited validators by node operator.', 'value': lido_validators})
         return lido_validators
 
-    def _get_exited_lido_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
+    @lru_cache(maxsize=1)
+    def get_exited_lido_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
         result = {}

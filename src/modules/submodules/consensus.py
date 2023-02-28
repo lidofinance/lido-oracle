@@ -30,7 +30,8 @@ class ConsensusModule(ABC):
     CONSENSUS_VERSION: int
 
     # Default delay for default Oracle members. Member with submit data role should submit data first.
-    SUBMIT_DATA_DELAY_IN_SLOTS = 8
+    # If contract is reportable each member in order will submit data with difference with this amount of slots
+    SUBMIT_DATA_DELAY_IN_SLOTS = 6
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -158,12 +159,6 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
 
-        # Check if current slot is higher than member slot + slots_delay
-        if not member_info.is_fast_lane:
-            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
-                logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
-                return None
-
         # Check latest block didn't miss deadline.
         if latest_blockstamp.slot_number > member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
@@ -219,11 +214,17 @@ class ConsensusModule(ABC):
         return report_hash
 
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
-        _, member_info = self._get_latest_data()
+        latest_blockstamp, member_info = self._get_latest_data()
+
+        # Check if current slot is higher than member slot + slots_delay
+        if not member_info.is_fast_lane:
+            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
+                logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
+                return None
 
         if not member_info.is_report_member:
             logger.info({'msg': 'Account can`t submit report hash.'})
-            return
+            return None
 
         if HexBytes(member_info.current_frame_member_report) != report_hash:
             logger.info({'msg': f'Send report hash. Consensus version: [{self.CONSENSUS_VERSION}]'})
@@ -336,8 +337,11 @@ class ConsensusModule(ABC):
         if sleep_count < 0:
             sleep_count += len(members)
 
-        logger.info({'msg': 'Calculate slots to sleep.', 'value': sleep_count + self.SUBMIT_DATA_DELAY_IN_SLOTS})
-        return sleep_count + self.SUBMIT_DATA_DELAY_IN_SLOTS
+        # 1 - is default delay for non submit members.
+        total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
+
+        logger.info({'msg': 'Calculate slots to sleep.', 'value': total_delay})
+        return total_delay
 
     @abstractmethod
     @lru_cache(maxsize=1)

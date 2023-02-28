@@ -92,7 +92,6 @@ def get_first_non_missed_slot(
     if ref_slot_is_missed:
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
-        # and get details of its parent slot until we found slot < ref_slot.
         not_missed_header_parent_root = existed_header.data.header.message.parent_root
 
         existed_header = cc.get_block_header(not_missed_header_parent_root)

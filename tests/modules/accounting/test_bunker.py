@@ -12,7 +12,7 @@ from src.typings import EpochNumber, BlockNumber, BlockStamp, ReferenceBlockStam
 
 
 def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
-    return ReferenceBlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number)
+    return ReferenceBlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number/12)
 
 
 def simple_key(pubkey: str) -> LidoKey:

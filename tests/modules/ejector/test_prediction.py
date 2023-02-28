@@ -6,7 +6,7 @@ from web3.types import Wei
 
 from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp, SlotNumber, BlockNumber
+from src.typings import SlotNumber, BlockNumber, ReferenceBlockStamp
 
 
 @pytest.fixture()
@@ -270,13 +270,13 @@ def get_rewards_per_slot(web3, contracts, eth_distributed_logs):
 
 @pytest.mark.unit
 def test_get_rewards_no_matching_events(web3, contracts):
-    bp = BlockStamp(
+    bp = ReferenceBlockStamp(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
         ref_slot=SlotNumber(100000),
         block_root=None,
         state_root=None,
-        slot_number=None,
+        slot_number=14,
         block_hash=None,
         ref_epoch=None,
     )
@@ -296,6 +296,6 @@ def test_get_rewards_no_matching_events(web3, contracts):
     ]
 
     p = RewardsPredictionService(web3)
-    rewards = p.get_rewards_per_slot(bp, cc)
+    rewards = p.get_rewards_per_epoch(bp, cc)
 
     assert rewards == Wei(0)

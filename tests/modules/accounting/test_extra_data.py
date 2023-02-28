@@ -63,11 +63,11 @@ class TestBuildValidators:
             node_operator(1, 0): 1,
             node_operator(1, 1): 2,
         }
-        payload = extra_data_service.build_validators_payloads(vals, 10)[0]
-        assert payload.module_id == b'\x00\x00\x01'
-        assert payload.node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
-        assert payload.node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        assert payload.vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+        payload, rest_items_count = extra_data_service.build_validators_payloads(vals, 10, 10)
+        assert payload[0].module_id == b'\x00\x00\x01'
+        assert payload[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        assert payload[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+        assert payload[0].vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
 
     def test_order(self, extra_data_service, monkeypatch):
         vals = {
@@ -80,7 +80,7 @@ class TestBuildValidators:
             node_operator(1, 5): 1,
         }
 
-        payloads = extra_data_service.build_validators_payloads(vals, 2)
+        payloads, rest_items_count = extra_data_service.build_validators_payloads(vals, 2, 10)
         assert len(payloads) == 3
         assert payloads[0].module_id == b'\x00\x00\x01'
         assert payloads[1].module_id == b'\x00\x00\x01'
