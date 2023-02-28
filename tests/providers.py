@@ -151,7 +151,7 @@ class UpdateResponsesHTTPProvider(ResponseToFileHTTPProvider):
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
         try:
-            response = self.from_file._get(url, params)
+            response = self.from_file._get(url, params)  # pylint: disable=protected-access
         except NoMockException:
             response = super()._get(url, params)
         self.responses.append({"url": url, "params": params, "response": response})

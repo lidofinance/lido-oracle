@@ -232,6 +232,8 @@ class ConsensusModule(ABC):
         else:
             logger.info({'msg': 'Provided hash already submitted.'})
 
+        return None
+
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
         if not variables.ACCOUNT:
             logger.info({'msg': 'Dry mode. Skip sending report hash.', 'value': report_hash})

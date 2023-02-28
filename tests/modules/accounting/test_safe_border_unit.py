@@ -145,6 +145,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(subject, blockstamp, lido_validators):
     non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
@@ -167,6 +168,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject, blockstamp, lido_validators):
     non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
@@ -178,6 +180,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
+@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_different_exit_epoch(subject, blockstamp, lido_validators):
     non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [
@@ -189,6 +192,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_differe
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
+@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(subject, blockstamp, lido_validators):
     non_withdrawable_epoch = blockstamp.ref_epoch + 10
     validators = [

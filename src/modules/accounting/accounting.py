@@ -132,7 +132,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         module_stats = defaultdict(int)
 
-        for (module_id, op_id), validators_exited_count in exited_validators:
+        for (module_id, _), validators_exited_count in exited_validators:
             module_stats[module_id] += validators_exited_count
 
         for module in stacking_modules:

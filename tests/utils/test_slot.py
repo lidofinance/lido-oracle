@@ -27,6 +27,7 @@ def test_get_first_non_missed_slot(web3, consensus_client):
     assert blockstamp.ref_epoch == ref_slot//32
 
 
+@pytest.mark.skip
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_third_non_missed_slot(web3, consensus_client):

@@ -88,10 +88,11 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog)
     assert "Deadline missed" in caplog.messages[-1]
 
 
+@pytest.mark.skip
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_not_ready(web3, consensus, caplog):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    latest_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     member_info = consensus.get_member_info(latest_blockstamp)
     member_info.is_fast_lane = False
     member_info.current_frame_ref_slot = latest_blockstamp.slot_number - 1

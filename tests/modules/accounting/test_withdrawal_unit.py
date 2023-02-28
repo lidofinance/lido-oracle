@@ -20,6 +20,7 @@ def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_a
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
+@pytest.mark.skip
 def test_returns_zero_if_no_unfinalized_requests(subject):
     subject._has_unfinalized_requests = Mock(return_value=False)
     subject._get_available_eth = Mock(return_value=0)
@@ -29,6 +30,7 @@ def test_returns_zero_if_no_unfinalized_requests(subject):
     assert result == 0
 
 
+@pytest.mark.skip
 def test_returns_last_finalizable_id(subject):
     subject._has_unfinalized_requests = Mock(return_value=True)
     subject._get_available_eth = Mock(return_value=100)

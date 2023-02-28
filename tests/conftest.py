@@ -76,8 +76,10 @@ def mock_provider(responses_path) -> MockProvider:
 def provider(request, responses_path) -> JSONBaseProvider:
     if request.config.getoption("--save-responses"):
         return request.getfixturevalue("response_to_file_provider")
-    elif request.config.getoption("--update-responses"):
+
+    if request.config.getoption("--update-responses"):
         return request.getfixturevalue("update_responses_provider")
+
     return request.getfixturevalue("mock_provider")
 
 
