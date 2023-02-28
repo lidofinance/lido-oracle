@@ -10,8 +10,10 @@ from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 from src.utils.dataclass import Nested
 
+
 if TYPE_CHECKING:
     from src.web3py.typings import Web3
+
 
 StakingModuleId = NewType('StakingModuleId', int)
 NodeOperatorId = NewType('NodeOperatorId', int)

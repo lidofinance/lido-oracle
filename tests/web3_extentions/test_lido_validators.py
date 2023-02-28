@@ -1,12 +1,12 @@
 import pytest
 from eth_typing import HexStr
 
-from src.typings import BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber
+from src.typings import BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber, ReferenceBlockStamp
 
 
 @pytest.fixture
 def blockstamp():
-    return BlockStamp(
+    return ReferenceBlockStamp(
         block_root=BlockRoot(HexStr('0x8cae2ea12fb6b488225277929e8905b533e3b09491b15d9948949ced9119c6da')),
         state_root=StateRoot(HexStr('0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e')),
         slot_number=SlotNumber(113500),

@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class TransactionUtils(Module):
+    GAS_MULTIPLIER = 1.15
+
     @staticmethod
     def check_transaction(transaction, from_address: str) -> bool:
         """
@@ -34,7 +36,6 @@ class TransactionUtils(Module):
     def sign_and_send_transaction(
         self,
         transaction: TxParams,
-        gas_limit: int,
         account: Optional[LocalAccount] = None,
     ) -> Optional[TxReceipt]:
         if not account:
@@ -46,7 +47,7 @@ class TransactionUtils(Module):
         tx = transaction.build_transaction(
             {
                 "from": account.address,
-                "gas": gas_limit,
+                "gas": transaction.estimate_gas({'from': account.address}) * self.GAS_MULTIPLIER,
                 "maxFeePerGas": pending_block.baseFeePerGas * 2 + self.w3.eth.max_priority_fee,
                 "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
                 "nonce": self.w3.eth.get_transaction_count(account.address),
@@ -60,6 +61,11 @@ class TransactionUtils(Module):
         logger.info({"msg": "Transaction sent.", "value": tx_hash.hex()})
 
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        if not tx_receipt:
+            TX_FAILURE.inc()
+            return None
+
         logger.info(
             {
                 "msg": "Transaction is in blockchain.",

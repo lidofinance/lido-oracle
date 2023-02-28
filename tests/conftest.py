@@ -11,7 +11,7 @@ from web3.types import Timestamp
 
 from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber
+from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
@@ -190,7 +190,7 @@ def lido_validators(web3, consensus_client, keys_api_client):
 
 @pytest.fixture()
 def past_blockstamp():
-    yield BlockStamp(
+    yield ReferenceBlockStamp(
         ref_slot=4947936,
         ref_epoch=154623,
         block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
@@ -251,7 +251,7 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
     root = w3.cc.get_block_root(state_id).root
     slot_details = w3.cc.get_block_details(root)
 
-    return BlockStamp(
+    return ReferenceBlockStamp(
         block_root=root,
         slot_number=SlotNumber(int(slot_details.message.slot)),
         state_root=slot_details.message.state_root,

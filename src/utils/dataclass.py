@@ -27,7 +27,7 @@ def list_of_dataclasses(_dataclass):
     """Decorator to transform list of dicts from func response to list of dataclasses"""
     def decorator(func) -> Callable:
         @functools.wraps(func)
-        def wrapper_decorator(*args, **kwargs) -> list[_dataclass]:
+        def wrapper_decorator(*args, **kwargs):
             list_of_dicts = func(*args, **kwargs)
             return list(map(lambda x: _dataclass(**x), list_of_dicts))
         return wrapper_decorator

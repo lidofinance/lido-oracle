@@ -8,11 +8,11 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.modules.accounting.bunker import BunkerService, BunkerConfig
 from src.providers.keys.typings import LidoKey
-from src.typings import EpochNumber, BlockNumber, BlockStamp
+from src.typings import EpochNumber, BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
 def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
-    return BlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number)
+    return ReferenceBlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number/12)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -203,7 +203,7 @@ def test_get_cl_rebase_for_frame(
     expected_rebase,
 ):
     blockstamp = simple_blockstamp(0, '0x0')
-    bunker.simulated_rebase = LidoReportRebase(
+    bunker.simulated_cl_rebase = LidoReportRebase(
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
         withdrawals=0,

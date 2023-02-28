@@ -20,7 +20,7 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
 
 def test_do_not_report_same_hash(web3, consensus, caplog):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    member_info = consensus._get_member_info(latest_blockstamp)
+    member_info = consensus.get_member_info(latest_blockstamp)
 
     consensus._process_report_hash(latest_blockstamp, HexBytes(member_info.current_frame_member_report))
     assert "Provided hash already submitted" in caplog.messages[-1]

@@ -39,7 +39,6 @@ if __name__ == '__main__':
             'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
-            'GAS_LIMIT': variables.GAS_LIMIT,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
         },
     })
@@ -53,7 +52,7 @@ if __name__ == '__main__':
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
 
-    logger.info({'msg': 'Modify web3 with custom function call.'})
+    logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
 
     web3.attach_modules({
