@@ -126,17 +126,18 @@ class Accounting(BaseModule, ConsensusModule):
         return report_data
 
     def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[int]]:
-        newly_exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
-        # We should report only this modules
-        updated_modules = set(module_id for (module_id, _) in newly_exited_validators.keys())
+        stacking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
 
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
         module_stats = defaultdict(int)
 
         for (module_id, op_id), validators_exited_count in exited_validators:
-            if module_id in updated_modules:
-                module_stats[module_id] += validators_exited_count
+            module_stats[module_id] += validators_exited_count
+
+        for module in stacking_modules:
+            if module_stats[module.id] == module.exited_validators_count:
+                del module_stats[module.id]
 
         return tuple(zip(*module_stats.items()))
 

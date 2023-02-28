@@ -190,7 +190,8 @@ class BunkerService:
         )
 
         total_ref_effective_balance = self._calculate_total_active_effective_balance(
-            self.all_validators, blockstamp.ref_epoch)
+            self.all_validators, blockstamp.ref_epoch
+        )
         total_ref_lido_effective_balance = self._calculate_total_active_effective_balance(
             self.lido_validators, blockstamp.ref_epoch
         )

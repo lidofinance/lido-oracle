@@ -63,6 +63,7 @@ class TransactionUtils(Module):
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         if not tx_receipt:
+            logger.warning({"msg": "Transaction was not found in blockchain after 120 seconds."})
             TX_FAILURE.inc()
             return None
 
