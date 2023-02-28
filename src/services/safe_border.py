@@ -104,7 +104,7 @@ class SafeBorder:
             predicted_epoch = self._predict_earliest_slashed_epoch(validator)
 
             if not predicted_epoch:
-                return self._find_earliest_slashed_epoch(validators_with_earliest_exit_epoch)
+                return self._find_latest_non_slashed_epoch(validators_with_earliest_exit_epoch)
 
             if not earliest_predicted_epoch or earliest_predicted_epoch > predicted_epoch:
                 earliest_predicted_epoch = predicted_epoch
@@ -124,7 +124,7 @@ class SafeBorder:
 
         return withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
-    def _find_earliest_slashed_epoch(self, validators: list[Validator]) -> EpochNumber:
+    def _find_latest_non_slashed_epoch(self, validators: list[Validator]) -> EpochNumber:
         withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
         last_finalized_request_id_slot = self._get_last_finalized_withdrawal_request_slot()
 
@@ -137,7 +137,7 @@ class SafeBorder:
             self.get_epoch_first_slot(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         )
 
-        while not self._check_slots_in_one_frame_or_epoch(start_slot, end_slot):
+        while not self._check_slots_in_one_frame_or_close_than_in_one_epoch(start_slot, end_slot):
             mid_slot = (end_slot + start_slot) // 2
             mid_non_missed_blockstamp = get_first_non_missed_slot(
                 self.w3.cc,
@@ -150,15 +150,15 @@ class SafeBorder:
             if slashed_validators:
                 end_slot = mid_non_missed_blockstamp.slot_number
             else:
-                start_slot = mid_non_missed_blockstamp.slot_number + 1
+                start_slot = mid_slot + 1
 
         return self.get_epoch_by_slot(start_slot)
 
-    def _check_slots_in_one_frame_or_epoch(self, start_slot: SlotNumber, end_slot: SlotNumber) -> bool:
-        in_one_epoch = end_slot - start_slot <= self.chain_config.slots_per_epoch
+    def _check_slots_in_one_frame_or_close_than_in_one_epoch(self, start_slot: SlotNumber, end_slot: SlotNumber) -> bool:
+        close_than_in_one_epoch = end_slot - start_slot <= self.chain_config.slots_per_epoch
         in_one_frame = self.get_frame_by_slot(start_slot) == self.get_frame_by_slot(end_slot)
 
-        return in_one_frame or in_one_epoch
+        return in_one_frame or close_than_in_one_epoch
 
     def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
         sorted_validators = sorted(validators, key=lambda validator: (int(validator.validator.exit_epoch)))
