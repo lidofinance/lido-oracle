@@ -52,11 +52,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
 
-        if not variables.ACCOUNT:
-            logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
-            return
-        if self.w3.transaction.check_transaction(tx, variables.ACCOUNT.address):
-            self.w3.transaction.sign_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx, variables.GAS_LIMIT, variables.ACCOUNT)
 
     # Consensus module: main build report method
     @lru_cache(maxsize=1)
