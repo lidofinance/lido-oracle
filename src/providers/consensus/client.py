@@ -62,9 +62,9 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse(**data)
 
     @lru_cache(maxsize=1)
-    def get_validators(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[Validator]:
+    def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
-        return self.get_validators_no_cache(blockstamp, pub_keys)
+        return self.get_validators_no_cache(blockstamp)
 
     @list_of_dataclasses(Validator)
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[Validator]:

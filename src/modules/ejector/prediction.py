@@ -3,7 +3,7 @@ import logging
 from web3.types import Wei, EventData
 
 from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp
+from src.typings import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
 from src.web3py.typings import Web3
 
@@ -17,20 +17,20 @@ class RewardsPredictionService:
 
     def get_rewards_per_epoch(
             self,
-            blockstamp: BlockStamp,
+            blockstamp: ReferenceBlockStamp,
             chain_configs: ChainConfig,
     ) -> Wei:
-        prediction_frame_in_slots = Web3.to_int(
+        prediction_duration_in_slots = Web3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
                 block_identifier=blockstamp.block_hash,
             )
         )
-        logger.info({'msg': 'Fetch prediction frame in slots.', 'value': prediction_frame_in_slots})
+        logger.info({'msg': 'Fetch prediction frame in slots.', 'value': prediction_duration_in_slots})
 
         token_rebase_events = get_events_in_past(
             self.w3.lido_contracts.lido.events.TokenRebased,
             blockstamp,
-            prediction_frame_in_slots,
+            prediction_duration_in_slots,
             chain_configs.seconds_per_slot,
             'reportTimestamp',
         )
@@ -38,7 +38,7 @@ class RewardsPredictionService:
         eth_distributed_events = get_events_in_past(
             self.w3.lido_contracts.lido.events.ETHDistributed,
             blockstamp,
-            prediction_frame_in_slots,
+            prediction_duration_in_slots,
             chain_configs.seconds_per_slot,
             'reportTimestamp',
         )
@@ -63,9 +63,6 @@ class RewardsPredictionService:
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
         result_event_data = []
 
-        if len(event_type_1) != len(event_type_2):
-            raise ValueError('Events are inconsistent.')
-
         for event_1 in event_type_1:
             for event_2 in event_type_2:
                 if event_2['transactionHash'] == event_1['transactionHash']:
@@ -74,5 +71,8 @@ class RewardsPredictionService:
                         **event_2['args'],
                     })
                     break
+
+        if len(event_type_1) != len(event_type_2) != len(result_event_data):
+            raise ValueError('Events are inconsistent.')
 
         return result_event_data
