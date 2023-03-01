@@ -155,7 +155,9 @@ class SafeBorder:
             else:
                 start_frame = mid_frame + 1
 
-        return self.get_frame_first_slot(start_frame)
+        slot_number = self.get_frame_first_slot(start_frame)
+        epoch_number = self.get_epoch_by_slot(slot_number)
+        return epoch_number
 
     def _slashings_in_frame(self, frame: FrameNumber, validators: list[Validator]) -> bool:
         """
