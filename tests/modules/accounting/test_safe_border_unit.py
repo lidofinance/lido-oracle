@@ -120,7 +120,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
         create_validator_stub(non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 1, non_withdrawable_epoch, True)
     ]
     subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
-    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
+    subject._find_earliest_slashed_epoch_rounded_to_frame = MagicMock(return_value=1331)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
@@ -160,7 +160,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
     ]
     subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
-    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
+    subject._find_earliest_slashed_epoch_rounded_to_frame = MagicMock(return_value=1331)
     
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
@@ -190,15 +190,6 @@ def test_get_last_finalized_withdrawal_request_slot_no_requests(subject):
     subject._get_last_finalized_request_id = MagicMock(return_value=0)
     
     assert subject._get_last_finalized_withdrawal_request_slot() == 0
-
-def test_check_slots_in_one_frame(subject):
-    slot_a = 1
-    slot_b = 319
-    slot_c = 320
-
-    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_b)
-    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_b, slot_c)
-    assert not subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_c)
 
 def create_validator_stub(exit_epoch, withdrawable_epoch, slashed = False):
     return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
