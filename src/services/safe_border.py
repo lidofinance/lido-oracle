@@ -145,12 +145,14 @@ class SafeBorder:
         start_frame = self.get_frame_by_epoch(start_epoch)
         end_frame = self.get_frame_by_epoch(end_epoch)
 
+        validators_set = set(validators)
+
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
         while start_frame < end_frame:
             mid_frame = (end_frame + start_frame) // 2
 
-            if self._slashings_in_frame(mid_frame, validators):
+            if self._slashings_in_frame(mid_frame, validators_set):
                 end_frame = mid_frame
             else:
                 start_frame = mid_frame + 1
@@ -159,7 +161,7 @@ class SafeBorder:
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, validators: list[Validator]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, validators: set[Validator]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
