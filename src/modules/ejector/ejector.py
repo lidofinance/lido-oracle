@@ -102,7 +102,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exited_validators(blockstamp, chain_config)
         going_to_withdraw_balance = sum(map(
-            lambda val: self._get_predicted_withdrawable_balance(val),
+            self._get_predicted_withdrawable_balance,
             validators_going_to_exit,
         ))
 
