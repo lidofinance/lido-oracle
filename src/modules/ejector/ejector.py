@@ -14,7 +14,7 @@ from src.constants import (
 )
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.ejector.data_encode import encode_data
-from services.prediction import RewardsPredictionService
+from src.services.prediction import RewardsPredictionService
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule

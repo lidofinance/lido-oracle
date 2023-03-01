@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, ANY
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from services.prediction import RewardsPredictionService
+from src.services.prediction import RewardsPredictionService
 from src.modules.submodules.typings import ChainConfig
 from src.typings import SlotNumber, BlockNumber, ReferenceBlockStamp
 
