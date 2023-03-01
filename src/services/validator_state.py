@@ -225,12 +225,12 @@ class LidoValidatorStateService:
             self, blockstamp: ReferenceBlockStamp,
             chain_config: ChainConfig,
     ) -> set[HexStr]:
-        exiting_keys_border_in_slots = self.get_validator_delayed_timeout_in_slot(blockstamp)
+        exiting_keys_delayed_border_in_slots = self.get_validator_delayed_timeout_in_slot(blockstamp)
 
         events = get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
             to_blockstamp=blockstamp,
-            for_slots=exiting_keys_border_in_slots,
+            for_slots=exiting_keys_delayed_border_in_slots,
             seconds_per_slot=chain_config.seconds_per_slot,
         )
 
@@ -240,8 +240,8 @@ class LidoValidatorStateService:
 
     @lru_cache(maxsize=1)
     def get_validator_delayed_timeout_in_slot(self, blockstamp: ReferenceBlockStamp) -> int:
-        exiting_keys_stuck_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+        exiting_keys_delayed_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
             'VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS'
         ).call(block_identifier=blockstamp.block_hash)
 
-        return self.w3.to_int(exiting_keys_stuck_border_in_slots_bytes)
+        return self.w3.to_int(exiting_keys_delayed_border_in_slots_bytes)
