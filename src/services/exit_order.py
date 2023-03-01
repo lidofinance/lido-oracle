@@ -4,7 +4,7 @@ from typing import Iterable
 
 from eth_typing import Address
 
-from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
@@ -111,6 +111,9 @@ class ValidatorToExitIterator:
 
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
+            raise StopIteration
+
+        if not self.exitable_lido_validators:
             raise StopIteration
 
         self.exitable_lido_validators.sort(key=self._predicates)

@@ -201,7 +201,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
-        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
+        handle_report_data = (
             timestamp,  # _reportTimestamp
             slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
@@ -210,6 +210,12 @@ class Accounting(BaseModule, ConsensusModule):
             0 if cl_only else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
+        )
+
+        logger.info({'msg': 'Simulate lido rebase for report.', 'value': handle_report_data})
+
+        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
+            *handle_report_data
         ).call(
             transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
             block_identifier=blockstamp.block_hash,
