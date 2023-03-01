@@ -6,7 +6,7 @@ from eth_typing import HexStr
 from hexbytes import HexBytes
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.accounting.validator_state import LidoValidatorStateService
+from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
