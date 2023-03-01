@@ -130,7 +130,7 @@ class SafeBorder:
         """
         withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
-        
+
         earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
         max_possible_earliest_slashed_epoch = withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
@@ -145,25 +145,30 @@ class SafeBorder:
         start_frame = self.get_frame_by_epoch(start_epoch)
         end_frame = self.get_frame_by_epoch(end_epoch)
 
-        # Since the border will be rounded to the frame, we are iterating over the frames 
+        # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
         while start_frame < end_frame:
             mid_frame = (end_frame + start_frame) // 2
 
-            if self._slashings_in_frame(mid_frame):                    
+            if self._slashings_in_frame(mid_frame):
                 end_frame = mid_frame
             else:
                 start_frame = mid_frame + 1
 
         return self.get_frame_first_slot(start_frame)
-    
+
     def _slashings_in_frame(self, frame):
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
-        last_slot_in_frame_blockstamp = get_first_non_missed_slot(last_slot_in_frame)
+        last_slot_in_frame_blockstamp = get_first_non_missed_slot(
+            self.w3.cc,
+            last_slot_in_frame,
+            self.blockstamp.ref_slot,
+            self.blockstamp.ref_epoch
+        )
 
         validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
         slashed_validators = filter_slashed_validators(validators)
@@ -237,10 +242,10 @@ class SafeBorder:
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
-    
+
     def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
         return SlotNumber(self.get_frame_first_slot(frame + 1) - 1)
-    
+
     def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
         return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
 
