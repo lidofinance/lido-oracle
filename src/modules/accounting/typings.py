@@ -45,7 +45,7 @@ class ReportData:
 
 
 @dataclass
-class ProcessingState:
+class AccountingProcessingState:
     current_frame_ref_slot: SlotNumber
     processing_deadline_time: SlotNumber
     main_data_hash: HexBytes

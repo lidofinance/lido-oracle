@@ -4,7 +4,7 @@ from src.typings import SlotNumber
 
 
 @dataclass
-class ProcessingState:
+class EjectorProcessingState:
     current_frame_ref_slot: SlotNumber
     processing_deadline_time: int
     data_hash: bytes

@@ -333,8 +333,8 @@ class ValidatorToExitIterator:
         module_operator = {operator: set() for operator in operator_indexes}
 
         for event in events:
-            no_global_index = (event.args.stakingModuleId, event.args.nodeOperatorId)
-            module_operator[no_global_index].add(event.args.validatorIndex)
+            no_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
+            module_operator[no_global_index].add(event['args']['validatorIndex'])
 
         return module_operator
 

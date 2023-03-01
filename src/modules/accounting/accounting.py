@@ -5,7 +5,7 @@ from time import sleep
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, ProcessingState, LidoReportRebase
+from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -89,10 +89,10 @@ class Accounting(BaseModule, ConsensusModule):
         return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
 
     @lru_cache(maxsize=1)
-    def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
+    def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
         ps = named_tuple_to_dataclass(
             self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
-            ProcessingState,
+            AccountingProcessingState,
         )
         logger.info({'msg': 'Fetch processing state.', 'value': ps})
         return ps
