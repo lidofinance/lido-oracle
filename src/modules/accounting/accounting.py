@@ -5,7 +5,7 @@ from time import sleep
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, ProcessingState, LidoReportRebase
+from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
 from src.modules.accounting.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -88,10 +88,10 @@ class Accounting(BaseModule, ConsensusModule):
         return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
 
     @lru_cache(maxsize=1)
-    def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
+    def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
         ps = named_tuple_to_dataclass(
             self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
-            ProcessingState,
+            AccountingProcessingState,
         )
         logger.info({'msg': 'Fetch processing state.', 'value': ps})
         return ps
@@ -200,7 +200,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
-        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
+        handle_report_data = (
             timestamp,  # _reportTimestamp
             slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
@@ -209,6 +209,12 @@ class Accounting(BaseModule, ConsensusModule):
             0 if cl_only else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
+        )
+
+        logger.info({'msg': 'Simulate lido rebase for report.', 'value': handle_report_data})
+
+        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
+            *handle_report_data
         ).call(
             transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
             block_identifier=blockstamp.block_hash,

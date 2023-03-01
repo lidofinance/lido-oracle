@@ -145,19 +145,23 @@ class SafeBorder:
         start_frame = self.get_frame_by_epoch(start_epoch)
         end_frame = self.get_frame_by_epoch(end_epoch)
 
+        validators_set = set(validators)
+
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
         while start_frame < end_frame:
             mid_frame = (end_frame + start_frame) // 2
 
-            if self._slashings_in_frame(mid_frame):
+            if self._slashings_in_frame(mid_frame, validators_set):
                 end_frame = mid_frame
             else:
                 start_frame = mid_frame + 1
 
-        return self.get_frame_first_slot(start_frame)
+        slot_number = self.get_frame_first_slot(start_frame)
+        epoch_number = self.get_epoch_by_slot(slot_number)
+        return epoch_number
 
-    def _slashings_in_frame(self, frame):
+    def _slashings_in_frame(self, frame: FrameNumber, validators: set[Validator]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
@@ -170,8 +174,8 @@ class SafeBorder:
             self.blockstamp.ref_epoch
         )
 
-        validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
-        slashed_validators = filter_slashed_validators(validators)
+        lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
+        slashed_validators = filter_slashed_validators(list(filter(lambda x: x in validators, lido_validators)))
 
         return len(slashed_validators) > 0
 
@@ -244,7 +248,7 @@ class SafeBorder:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
 
     def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(self.get_frame_first_slot(frame + 1) - 1)
+        return SlotNumber(self.get_frame_first_slot(FrameNumber(frame + 1)) - 1)
 
     def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
         return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
