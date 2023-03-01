@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from eth_typing import HexStr
+from hexbytes import HexBytes
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.validator_state import LidoValidatorStateService
