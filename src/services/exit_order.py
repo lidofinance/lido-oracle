@@ -202,14 +202,7 @@ class ValidatorToExitIterator:
                     int(v.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
                 on_exit = self._is_on_exit(v)
-                # ToDo
-                # If validator was deposited at least with 1 ETH it would get validator_index
-                # If node operators`s validator activation epoch is smaller than another validator,
-                # but validator_index bigger than another validator have
-                active_long_enough = (
-                    self.blockstamp.ref_epoch >= (int(v.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD)
-                )
-                if not on_exit and not requested_to_exit and active_long_enough:
+                if not on_exit and not requested_to_exit:
                     yield v
 
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorGlobalIndex:

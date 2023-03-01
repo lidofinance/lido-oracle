@@ -117,7 +117,7 @@ def chain_config():
 
 
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_asked_to_exit_pubkeys = Mock(return_value={HexBytes("0x6")})
+    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={HexBytes("0x6")})
     stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
     assert stuck_validators == {(1, 0): 1}
 
