@@ -150,14 +150,14 @@ class SafeBorder:
         while start_frame < end_frame:
             mid_frame = (end_frame + start_frame) // 2
 
-            if self._slashings_in_frame(mid_frame):
+            if self._slashings_in_frame(mid_frame, validators):
                 end_frame = mid_frame
             else:
                 start_frame = mid_frame + 1
 
         return self.get_frame_first_slot(start_frame)
 
-    def _slashings_in_frame(self, frame):
+    def _slashings_in_frame(self, frame: FrameNumber, validators: list[Validator]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
@@ -170,8 +170,8 @@ class SafeBorder:
             self.blockstamp.ref_epoch
         )
 
-        validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
-        slashed_validators = filter_slashed_validators(validators)
+        lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
+        slashed_validators = filter_slashed_validators(list(filter(lambda x: x in validators, lido_validators)))
 
         return len(slashed_validators) > 0
 
