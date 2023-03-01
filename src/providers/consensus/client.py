@@ -37,7 +37,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
-    def get_block_root(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockRootResponse:
+    def get_block_root(self, state_id: Union[SlotNumber, BlockRoot, LiteralState]) -> BlockRootResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
@@ -62,25 +62,20 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse(**data)
 
     @lru_cache(maxsize=1)
-    def get_validators(self, blockstamp: Union[BlockStamp], pub_keys: Optional[str | tuple] = None) -> list[Validator]:
+    def get_validators(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         return self.get_validators_no_cache(blockstamp, pub_keys)
 
     @list_of_dataclasses(Validator)
-    def get_validators_no_cache(
-        self, state_id: Union[BlockStamp, LiteralState], pub_keys: Optional[str | tuple] = None
-    ) -> list[Validator]:
+    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
-            data, _ = self._get(
-                self.API_GET_VALIDATORS.format(state_id.state_root if isinstance(state_id, BlockStamp) else state_id),
-                params={'id': pub_keys}
-            )
+            data, _ = self._get(self.API_GET_VALIDATORS.format(blockstamp.state_root), params={'id': pub_keys})
             return data
         except NotOkResponse as error:
             # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
             # Trying to get validators by slot number
-            if 'State not found: state not found in the last' in error.text and isinstance(state_id, BlockStamp):
-                data, _ = self._get(self.API_GET_VALIDATORS.format(state_id.slot_number), params={'id': pub_keys})
+            if 'State not found: state not found in the last' in error.text:
+                data, _ = self._get(self.API_GET_VALIDATORS.format(blockstamp.slot_number), params={'id': pub_keys})
                 return data
             raise error from error
