@@ -241,25 +241,25 @@ def test_prepare_lido_node_operator_stats(validator_exit,
         (0, 0): NodeOperatorPredictableState(
             predictable_validators_total_age=0,
             predictable_validators_count=1,
-            targeted_validators_count=None,
+            targeted_validators_limit_count=None,
             delayed_validators_count=0
         ),
         (0, 1): NodeOperatorPredictableState(
             predictable_validators_total_age=0,
             predictable_validators_count=0,
-            targeted_validators_count=None,
+            targeted_validators_limit_count=None,
             delayed_validators_count=1
         ),
         (1, 1): NodeOperatorPredictableState(
             predictable_validators_total_age=0,
             predictable_validators_count=0,
-            targeted_validators_count=None,
+            targeted_validators_limit_count=None,
             delayed_validators_count=0
         ),
         (1, 2): NodeOperatorPredictableState(
             predictable_validators_total_age=0,
             predictable_validators_count=50,
-            targeted_validators_count=None,
+            targeted_validators_limit_count=None,
             delayed_validators_count=0
         )
     }

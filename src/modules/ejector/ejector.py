@@ -83,10 +83,16 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
+        logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
+
         epochs_to_sweep = self._get_sweep_delay_in_epochs(blockstamp)
+        logger.info({'msg': 'Calculate epochs to sweep.', 'value': epochs_to_sweep})
 
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
+
         total_current_balance = self._get_total_balance(blockstamp)
+        logger.info({'msg': 'Calculate available balance.', 'value': total_current_balance})
 
         validators_to_eject = []
         validator_to_eject_balance_sum = 0
