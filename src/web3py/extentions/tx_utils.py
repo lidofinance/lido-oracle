@@ -18,9 +18,12 @@ class TransactionUtils(Module):
     def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
-            return
+            return None
+
         if self.check_transaction(transaction, account.address):
             return self.sign_and_send_transaction(transaction, account)
+
+        return None
 
     @staticmethod
     def check_transaction(transaction, from_address: str) -> bool:

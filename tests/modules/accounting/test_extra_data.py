@@ -75,17 +75,15 @@ class TestBuildValidators:
             node_operator(2, 1): 1,
             node_operator(1, 3): 1,
             node_operator(1, 3): 1,
-            node_operator(1, 2): 1,
-            node_operator(1, 4): 1,
-            node_operator(1, 5): 1,
+            node_operator(2, 2): 1,
+            node_operator(3, 4): 1,
+            node_operator(3, 5): 1,
         }
 
-        payloads, rest_items_count = extra_data_service.build_validators_payloads(vals, 2, 10)
-        assert len(payloads) == 3
+        payloads, rest_items_count = extra_data_service.build_validators_payloads(vals, 4, 10)
+        assert len(payloads) == 2
         assert payloads[0].module_id == b'\x00\x00\x01'
-        assert payloads[1].module_id == b'\x00\x00\x01'
-        assert payloads[2].module_id == b'\x00\x00\x02'
+        assert payloads[1].module_id == b'\x00\x00\x02'
 
-        assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03'
-        assert payloads[1].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05'
-        assert payloads[2].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+        assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payloads[1].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
