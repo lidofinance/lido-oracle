@@ -2,6 +2,7 @@ import pytest
 from dataclasses import dataclass
 
 from unittest.mock import MagicMock, Mock
+from src.typings import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from src.web3py.extentions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
@@ -41,6 +42,18 @@ def subject(chain_config, frame_config, past_blockstamp, contracts, keys_api_cli
     safe_border.finalization_max_negative_rebase_shift = MAX_NEGATIVE_REBASE_BORDER
     return safe_border
 
+@pytest.fixture()
+def past_blockstamp():
+    yield ReferenceBlockStamp(
+        ref_slot=4947936,
+        ref_epoch=154623,
+        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
+        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
+        slot_number=4947936,
+        block_number=8457825,
+        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
+        block_timestamp=0
+    )
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
     assert subject._get_default_requests_border_epoch() == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
@@ -141,8 +154,8 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
                               True)
     ]
     subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
-    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
-
+    subject._find_earliest_slashed_epoch_rounded_to_frame = MagicMock(return_value=1331)
+    
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
@@ -191,8 +204,8 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
         create_validator_stub(non_withdrawable_epoch - 100, non_withdrawable_epoch + 1, True),
     ]
     subject.w3.lido_validators.get_lido_validators = MagicMock(return_value=validators)
-    subject._find_latest_non_slashed_epoch = MagicMock(return_value=1331)
-
+    subject._find_earliest_slashed_epoch_rounded_to_frame = MagicMock(return_value=1331)
+    
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
@@ -226,18 +239,7 @@ def test_get_last_finalized_withdrawal_request_slot_no_requests(subject):
 
     assert subject._get_last_finalized_withdrawal_request_slot() == 0
 
-
-def test_check_slots_in_one_frame(subject):
-    slot_a = 1
-    slot_b = 319
-    slot_c = 320
-
-    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_b)
-    assert subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_b, slot_c)
-    assert not subject._check_slots_in_one_frame_or_close_than_in_one_epoch(slot_a, slot_c)
-
-
-def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):
+def create_validator_stub(exit_epoch, withdrawable_epoch, slashed = False):
     return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
 
 

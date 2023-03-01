@@ -1,15 +1,11 @@
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from eth_typing import Address
-from hexbytes import HexBytes
 from web3.providers import JSONBaseProvider
 from web3.middleware import simple_cache_middleware
 from web3.types import Timestamp
 
-from src import variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
@@ -48,7 +44,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture()
 def responses_path(request: FixtureRequest) -> Path:
-    return Path('tests/responses') / request.node.parent.name / (request.node.name + '.json')
+    return Path('fixtures') / request.node.parent.name / (request.node.name + '.json')
 
 
 # ----- Web3 Provider Mock -----
@@ -221,65 +217,6 @@ def lido_validators(web3, consensus_client, keys_api_client):
     web3.attach_modules({
         'lido_validators': LidoValidatorsProvider,
     })
-
-
-@pytest.fixture()
-def past_blockstamp():
-    yield ReferenceBlockStamp(
-        ref_slot=4947936,
-        ref_epoch=154623,
-        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
-        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
-        slot_number=4947936,
-        block_number=8457825,
-        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
-        block_timestamp=0
-    )
-
-
-# ----- Account fixtures -----
-@dataclass
-class Account:
-    """Two methods that used in Lido Oracle"""
-    address: Address
-    _private_key: HexBytes
-
-
-@pytest.fixture()
-def set_no_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", None)
-        yield
-
-
-@pytest.fixture()
-def set_report_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
-            _private_key='0x0',
-        ))
-        yield
-
-
-@pytest.fixture()
-def set_submit_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
-            _private_key='0x0',
-        ))
-        yield
-
-
-@pytest.fixture()
-def set_not_member_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
-            _private_key='0x0',
-        ))
-        yield
 
 
 def get_blockstamp_by_state(w3, state_id) -> BlockStamp:

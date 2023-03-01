@@ -79,7 +79,7 @@ class BunkerService:
             return False
 
         self.all_validators = {
-            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(blockstamp.slot_number)
+            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(blockstamp)
         }
         self.lido_keys = {str(k.key): k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
         self.lido_validators = {
@@ -198,7 +198,7 @@ class BunkerService:
         )
 
         last_all_validators = {
-            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(last_report_blockstamp.slot_number)
+            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(last_report_blockstamp)
         }
 
         last_lido_validators = self.w3.lido_validators.merge_validators_with_keys(
@@ -293,7 +293,7 @@ class BunkerService:
         ref_lido_balance_with_vault = ref_lido_balance + self.w3.from_wei(ref_lido_vault_balance, "gwei")
 
         prev_all_validators = {
-            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(prev_blockstamp.slot_number)
+            v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(prev_blockstamp)
         }
         prev_lido_validators = self.w3.lido_validators.merge_validators_with_keys(
             list(self.lido_keys.values()),

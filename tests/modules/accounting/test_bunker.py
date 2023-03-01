@@ -107,7 +107,7 @@ def mock_get_withdrawal_vault_balance(bunker):
 @pytest.fixture
 def mock_get_validators(bunker):
 
-    def _get_validators(slot_number: int):
+    def _get_validators(state: ReferenceBlockStamp, _=None):
         validators = {
             0: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
@@ -158,7 +158,7 @@ def mock_get_validators(bunker):
                 *[simple_validator(i, f'0x0{i}', 32 * 10 ** 9) for i in range(6, 200)],
             ]
         }
-        return validators[slot_number]
+        return validators[state.slot_number]
 
     bunker.w3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
 
@@ -235,10 +235,10 @@ def test_is_high_midterm_slashing_penalty(
     blockstamp = simple_blockstamp(1000, '0x1000')
     _from, _to = lido_validators_range
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[_from:_to]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[_from:_to]
     }
     bunker.all_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
     }
 
     result = bunker._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
@@ -280,7 +280,7 @@ def test_is_abnormal_cl_rebase(
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
     bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
 
     result = bunker._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
@@ -312,7 +312,7 @@ def test_get_normal_cl_rebase(
         genesis_time=0,
     )
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
 
     result = bunker._get_normal_cl_rebase(blockstamp)
@@ -360,7 +360,7 @@ def test_is_negative_specific_cl_rebase(
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
     bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp.slot_number)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
 
     if isinstance(expected_is_negative, Exception):
@@ -395,7 +395,7 @@ def test_calculate_cl_rebase_between(
 ):
 
     bunker.lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(curr_blockstamp.slot_number)[3:6]
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(curr_blockstamp)[3:6]
     }
 
     if isinstance(expected_rebase, Exception):
