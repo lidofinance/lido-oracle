@@ -20,7 +20,7 @@ def blockstamp():
 
 @pytest.mark.unit
 def test_get_lido_validators(web3, lido_validators, blockstamp):
-    validators_in_cc = web3.cc.get_validators(blockstamp.state_root)
+    validators_in_cc = web3.cc.get_validators(blockstamp)
 
     lido_keys = web3.kac.get_all_lido_keys(blockstamp)
 
