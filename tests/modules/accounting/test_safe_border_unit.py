@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from unittest.mock import MagicMock, Mock
 from src.typings import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
-from src.web3py.extentions.lido_validators import Validator
+from src.web3py.extensions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 

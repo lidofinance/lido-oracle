@@ -10,7 +10,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp, ReferenceBlockStamp
-from src.web3py.extentions.lido_validators import (
+from src.web3py.extensions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
 )

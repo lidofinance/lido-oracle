@@ -12,7 +12,7 @@ from src.providers.consensus.typings import Validator
 from src.typings import ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
-from src.web3py.extentions.lido_validators import (
+from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
     NodeOperatorGlobalIndex,

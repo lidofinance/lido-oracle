@@ -8,7 +8,7 @@ from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState, ValidatorToExitIteratorConfig
 from src.typings import SlotNumber, ReferenceBlockStamp
-from src.web3py.extentions.lido_validators import (
+from src.web3py.extensions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
     StakingModule,
 )

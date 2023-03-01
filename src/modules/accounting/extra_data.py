@@ -4,7 +4,7 @@ from enum import Enum
 
 from hexbytes import HexBytes
 
-from src.web3py.extentions.lido_validators import NodeOperatorGlobalIndex
+from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
 
 

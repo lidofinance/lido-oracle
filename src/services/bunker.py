@@ -24,7 +24,7 @@ from src.modules.accounting.typings import Gwei, LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.typings import BlockStamp, SlotNumber, EpochNumber, BlockNumber, ReferenceBlockStamp
-from src.web3py.extentions.lido_validators import LidoValidator
+from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 

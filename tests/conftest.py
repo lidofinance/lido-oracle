@@ -8,7 +8,7 @@ from web3.types import Timestamp
 
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
-from src.web3py.extentions import LidoContracts, TransactionUtils, LidoValidatorsProvider
+from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts

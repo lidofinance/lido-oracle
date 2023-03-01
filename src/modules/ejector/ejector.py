@@ -24,7 +24,7 @@ from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.validator_state import is_active_validator, is_partially_withdrawable_validator, \
     is_fully_withdrawable_validator
-from src.web3py.extentions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
 
 

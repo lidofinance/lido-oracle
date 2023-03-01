@@ -10,7 +10,7 @@ from src.metrics.logging import logging
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.typings import OracleModule
-from src.web3py.extentions import (
+from src.web3py.extensions import (
     LidoContracts,
     TransactionUtils,
     ConsensusClientModule,

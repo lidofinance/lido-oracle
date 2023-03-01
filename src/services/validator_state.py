@@ -14,7 +14,7 @@ from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
-from src.web3py.extentions.lido_validators import (
+from src.web3py.extensions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
     StakingModule,

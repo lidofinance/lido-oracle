@@ -5,7 +5,7 @@ from eth_typing import HexStr
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.web3py.typings import Web3
 from src.typings import EpochNumber, SlotNumber, FrameNumber, ReferenceBlockStamp
-from src.web3py.extentions.lido_validators import Validator
+from src.web3py.extensions.lido_validators import Validator
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.utils.slot import get_first_non_missed_slot
 
