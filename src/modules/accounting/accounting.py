@@ -6,7 +6,7 @@ from time import sleep
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
-from src.modules.accounting.validator_state import LidoValidatorStateService
+from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.services.withdrawal import Withdrawal
