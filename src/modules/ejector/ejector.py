@@ -6,7 +6,10 @@ from web3.types import Wei
 from src.constants import (
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_PER_EPOCH_CHURN_LIMIT,
-    CHURN_LIMIT_QUOTIENT, FAR_FUTURE_EPOCH, MIN_VALIDATOR_WITHDRAWABILITY_DELAY, MAX_EFFECTIVE_BALANCE,
+    CHURN_LIMIT_QUOTIENT,
+    FAR_FUTURE_EPOCH,
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+    MAX_EFFECTIVE_BALANCE,
     MAX_SEED_LOOKAHEAD,
 )
 from src.modules.ejector.data_encode import encode_data
@@ -214,10 +217,12 @@ class Ejector(BaseModule, ConsensusModule):
         return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
-        return named_tuple_to_dataclass(
+        ps = named_tuple_to_dataclass(
             self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
             ProcessingState,
         )
+        logger.info({'msg': 'Fetch processing state.', 'value': ps})
+        return ps
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
