@@ -6,7 +6,7 @@ from src.modules.accounting.typings import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.modules.accounting.bunker import BunkerService, BunkerConfig
+from src.services.bunker import BunkerService, BunkerConfig
 from src.providers.keys.typings import LidoKey
 from src.typings import EpochNumber, BlockNumber, BlockStamp, ReferenceBlockStamp
 
@@ -54,7 +54,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.modules.accounting.bunker.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
+        'src.services.bunker.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
     )
 
 
