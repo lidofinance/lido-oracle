@@ -67,7 +67,12 @@ def simple_blockstamp(slot_number, block_number, ref_slot):
 @pytest.fixture
 def mock_validator_exit_events(validator_exit, monkeypatch):
     def exit_event(module_id, operator_id, validator_index, timestamp):
-        return {'args': (module_id, operator_id, validator_index, '', timestamp)}
+        return {'args': {
+            'stakingModuleId': module_id,
+            'nodeOperatorId': operator_id,
+            'validatorIndex': validator_index,
+            'timestamp': timestamp,
+        }}
 
     def _get_events_in_past(to_blockstamp, *args, **kwargs, ):
         # We do not expect other input values in tests

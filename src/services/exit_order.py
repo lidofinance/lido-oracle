@@ -4,7 +4,7 @@ from typing import Iterable
 
 from eth_typing import Address
 
-from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
@@ -113,6 +113,9 @@ class ValidatorToExitIterator:
         if self.left_queue_count >= self.v_conf.max_validators_to_exit:
             raise StopIteration
 
+        if not self.exitable_lido_validators:
+            raise StopIteration
+
         self.exitable_lido_validators.sort(key=self._predicates)
         to_exit = self.exitable_lido_validators.pop(0)
         self._decrease_node_operator_stats(to_exit)
@@ -202,14 +205,7 @@ class ValidatorToExitIterator:
                     int(v.index) <= last_requested_to_exit_indices_per_operator[module_operator]
                 )
                 on_exit = self._is_on_exit(v)
-                # ToDo
-                # If validator was deposited at least with 1 ETH it would get validator_index
-                # If node operators`s validator activation epoch is smaller than another validator,
-                # but validator_index bigger than another validator have
-                active_long_enough = (
-                    self.blockstamp.ref_epoch >= (int(v.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD)
-                )
-                if not on_exit and not requested_to_exit and active_long_enough:
+                if not on_exit and not requested_to_exit:
                     yield v
 
     def _no_index_by_validator(self, validator: LidoValidator) -> NodeOperatorGlobalIndex:
@@ -337,8 +333,8 @@ class ValidatorToExitIterator:
         module_operator = {operator: set() for operator in operator_indexes}
 
         for event in events:
-            no_global_index = (event.args.stakingModuleId, event.args.nodeOperatorId)
-            module_operator[no_global_index].add(event.args.validatorIndex)
+            no_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
+            module_operator[no_global_index].add(event['args']['validatorIndex'])
 
         return module_operator
 

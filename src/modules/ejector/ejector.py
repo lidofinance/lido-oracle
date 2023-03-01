@@ -14,7 +14,7 @@ from src.constants import (
 )
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.prediction import RewardsPredictionService
-from src.modules.ejector.typings import ProcessingState, ReportData
+from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
@@ -222,10 +222,10 @@ class Ejector(BaseModule, ConsensusModule):
         )
         return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
 
-    def _get_processing_state(self, blockstamp: BlockStamp) -> ProcessingState:
+    def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
         ps = named_tuple_to_dataclass(
             self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
-            ProcessingState,
+            EjectorProcessingState,
         )
         logger.info({'msg': 'Fetch processing state.', 'value': ps})
         return ps
