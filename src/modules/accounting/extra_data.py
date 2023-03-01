@@ -74,7 +74,7 @@ class ExtraDataService:
         if rest_items:
             exited_payloads, _ = self.build_validators_payloads(exited_validators, max_items_in_payload_count, rest_items)
         else:
-            exited_payloads = tuple()
+            exited_payloads = []
 
         extra_data = self.build_extra_data(stuck_payloads, exited_payloads)
         extra_data_bytes = self.to_bytes(extra_data)
@@ -126,7 +126,7 @@ class ExtraDataService:
         return payloads, payload_size_limit
 
     @staticmethod
-    def build_extra_data(stuck_payloads: tuple[ItemPayload], exited_payloads: tuple[ItemPayload]):
+    def build_extra_data(stuck_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
         index = 0
         extra_data = []
 
