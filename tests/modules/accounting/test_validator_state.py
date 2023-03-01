@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import pytest
 from eth_typing import HexStr
-from hexbytes import HexBytes
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.services.validator_state import LidoValidatorStateService
@@ -117,7 +116,7 @@ def chain_config():
 
 
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={HexBytes("0x6")})
+    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x6"})
     validator_state.get_validator_delinquent_timeout_in_slot = Mock(return_value=0)
     stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
     assert stuck_validators == {(1, 0): 1}
