@@ -67,7 +67,7 @@ class LidoValidatorStateService:
                 if validator.lido_id.key in recently_asked_to_exit_pubkeys:
                     return total
 
-                validator_available_to_exit_epoch = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD
+                validator_available_to_exit_epoch = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD
                 delinquent_timeout_in_slots = self.get_validator_delinquent_in_slot(blockstamp)
 
                 last_slot_to_exit = validator_available_to_exit_epoch * chain_config.slots_per_epoch + delinquent_timeout_in_slots
