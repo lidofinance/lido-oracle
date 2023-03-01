@@ -104,7 +104,7 @@ class SafeBorder:
             predicted_epoch = self._predict_earliest_slashed_epoch(validator)
 
             if not predicted_epoch:
-                return self._find_latest_non_slashed_epoch(validators_with_earliest_exit_epoch)
+                return self._find_earliest_slashed_epoch_rounded_to_frame(validators_with_earliest_exit_epoch)
 
             if not earliest_predicted_epoch or earliest_predicted_epoch > predicted_epoch:
                 earliest_predicted_epoch = predicted_epoch
@@ -124,43 +124,51 @@ class SafeBorder:
 
         return withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
-    def _find_latest_non_slashed_epoch(self, validators: list[Validator]) -> EpochNumber:
+    def _find_earliest_slashed_epoch_rounded_to_frame(self, validators: list[Validator]) -> EpochNumber:
+        """
+        Returns the earliest slashed epoch for the given validators rounded to the frame
+        """
         withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
-        last_finalized_request_id_slot = self._get_last_finalized_withdrawal_request_slot()
+        last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
+        
+        earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
+        max_possible_earliest_slashed_epoch = withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
-        start_slot = max(
-            last_finalized_request_id_slot,
-            self.get_epoch_first_slot(self._get_validators_earliest_activation_epoch(validators))
-        )
-        end_slot = min(
-            self.blockstamp.ref_slot,
-            self.get_epoch_first_slot(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
-        )
+        # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
+        # or the earliest activation epoch among the given validators for optimization
+        start_epoch = max(last_finalized_request_id_epoch, earliest_activation_slot)
 
-        while not self._check_slots_in_one_frame_or_close_than_in_one_epoch(start_slot, end_slot):
-            mid_slot = (end_slot + start_slot) // 2
-            mid_non_missed_blockstamp = get_first_non_missed_slot(
-                self.w3.cc,
-                SlotNumber(mid_slot),
-                self.blockstamp.slot_number,
-                # Fake epoch number here
-                EpochNumber(0),
-            )
-            validators = self.w3.lido_validators.get_lido_validators(mid_non_missed_blockstamp)
-            slashed_validators = filter_slashed_validators(validators)
+        # We can stop searching for the slashed epoch when we reach the reference epoch
+        # or the max possible earliest slashed epoch for the given validators
+        end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
-            if slashed_validators:
-                end_slot = mid_non_missed_blockstamp.slot_number
+        start_frame = self.get_frame_by_epoch(start_epoch)
+        end_frame = self.get_frame_by_epoch(end_epoch)
+
+        # Since the border will be rounded to the frame, we are iterating over the frames 
+        # to avoid unnecessary queries
+        while start_frame < end_frame:
+            mid_frame = (end_frame + start_frame) // 2
+
+            if self._slashings_in_frame(mid_frame):                    
+                end_frame = mid_frame
             else:
-                start_slot = mid_slot + 1
+                start_frame = mid_frame + 1
 
-        return self.get_epoch_by_slot(start_slot)
+        return self.get_frame_first_slot(start_frame)
+    
+    def _slashings_in_frame(self, frame):
+        """
+        Returns number of slashed validators for the frame for the given validators
+        Slashed flag can't be undone, so we can only look at the last slot
+        """
+        last_slot_in_frame = self.get_frame_last_slot(frame)
+        last_slot_in_frame_blockstamp = get_first_non_missed_slot(last_slot_in_frame)
 
-    def _check_slots_in_one_frame_or_close_than_in_one_epoch(self, start_slot: SlotNumber, end_slot: SlotNumber) -> bool:
-        close_than_in_one_epoch = end_slot - start_slot <= self.chain_config.slots_per_epoch
-        in_one_frame = self.get_frame_by_slot(start_slot) == self.get_frame_by_slot(end_slot)
+        validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
+        slashed_validators = filter_slashed_validators(validators)
 
-        return in_one_frame or close_than_in_one_epoch
+        return len(slashed_validators) > 0
 
     def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
         sorted_validators = sorted(validators, key=lambda validator: (int(validator.validator.exit_epoch)))
@@ -229,6 +237,12 @@ class SafeBorder:
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
+    
+    def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
+        return SlotNumber(self.get_frame_first_slot(frame + 1) - 1)
+    
+    def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
+        return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
 
     def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
         return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
