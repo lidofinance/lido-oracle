@@ -25,8 +25,8 @@ class Withdrawal:
         self,
         is_bunker_mode: bool,
         share_rate: int,
-        withdrawal_vault_balance: int,
-        el_rewards_vault_balance: int
+        withdrawal_vault_balance: Wei,
+        el_rewards_vault_balance: Wei
     ) -> int:
         if not self._has_unfinalized_requests():
             return 0
@@ -49,7 +49,7 @@ class Withdrawal:
 
         reserved_buffer = min(buffered_ether, unfinalized_steth)
 
-        return withdrawal_vault_balance + el_rewards_vault_balance + reserved_buffer
+        return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_buffer)
 
     def _fetch_last_finalizable_request_id(self, available_eth: int, share_rate: int, withdrawable_until_timestamp: int) -> int:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.findLastFinalizableRequestId(available_eth, share_rate, withdrawable_until_timestamp).call(block_identifier=self.blockstamp.block_hash)

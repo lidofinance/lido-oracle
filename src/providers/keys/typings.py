@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from eth_typing import Address, HexStr
+from eth_typing import HexAddress, HexStr
 
 
 @dataclass
@@ -9,4 +9,4 @@ class LidoKey:
     depositSignature: HexStr
     operatorIndex: int
     used: bool
-    moduleAddress: Address
+    moduleAddress: HexAddress

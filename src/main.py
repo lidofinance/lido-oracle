@@ -1,7 +1,7 @@
 import sys
 
 from prometheus_client import start_http_server
-from web3_multi_provider import MultiProvider
+from web3_multi_provider import MultiProvider  # type: ignore[import]
 from web3.middleware import simple_cache_middleware
 
 from src import variables
@@ -53,8 +53,8 @@ def main(module_name: OracleModule):
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
-        'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3),
-        'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, web3),
+        'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3),  # type: ignore[dict-item]
+        'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, web3),  # type: ignore[dict-item]
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})

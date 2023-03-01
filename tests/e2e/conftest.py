@@ -3,9 +3,20 @@ import time
 from logging.handlers import QueueHandler
 import pytest
 
+from pytest import Item
 from src.main import main
 from multiprocessing import Process, Queue
 from src.variables import EXECUTION_CLIENT_URI
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_collection_modifyitems(items: list[Item]):
+    yield
+    if any(not item.get_closest_marker("e2e") for item in items):
+        for item in items:
+            if item.get_closest_marker("e2e"):
+                item.add_marker(pytest.mark.skip(reason="e2e tests are take a lot of time "
+                                                        "and skipped if any other tests are selected"))
 
 
 def worker_process(queue, module_name, execution_client_uri):

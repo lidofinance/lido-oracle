@@ -13,7 +13,7 @@ class ReportData:
     ref_slot: SlotNumber
     validators_count: int
     cl_balance_gwei: Gwei
-    stacking_module_id_with_exited_validators: list[int]
+    staking_module_id_with_exited_validators: list[int]
     count_exited_validators_by_stacking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
@@ -31,7 +31,7 @@ class ReportData:
             self.ref_slot,
             self.validators_count,
             self.cl_balance_gwei,
-            self.stacking_module_id_with_exited_validators,
+            self.staking_module_id_with_exited_validators,
             self.count_exited_validators_by_stacking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
@@ -74,6 +74,7 @@ class LidoReportRebase:
     post_total_shares: int
     withdrawals: int
     el_reward: int
+
 
 @dataclass
 class Account:
