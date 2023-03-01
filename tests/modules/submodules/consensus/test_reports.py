@@ -1,7 +1,18 @@
+import pytest
 from hexbytes import HexBytes
+from src import variables
+from src.modules.accounting.typings import Account
 
 from tests.conftest import get_blockstamp_by_state
 
+@pytest.fixture()
+def set_report_account(monkeypatch):
+    with monkeypatch.context():
+        monkeypatch.setattr(variables, "ACCOUNT", Account(
+            address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
+            _private_key='0x0',
+        ))
+        yield
 
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
