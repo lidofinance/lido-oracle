@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Mapping
 
 import math
 import logging
@@ -81,7 +81,7 @@ class BunkerService:
         self.all_validators = {
             v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(blockstamp)
         }
-        self.lido_keys = {str(k.key): k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
+        self.lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
         self.lido_validators = {
             v.validator.pubkey: v
             for v in self.w3.lido_validators.get_lido_validators(blockstamp)
@@ -206,13 +206,13 @@ class BunkerService:
             list(last_all_validators.values()),
         )
 
-        last_lido_validators = {v.validator.pubkey: v for v in last_lido_validators}
+        last_lido_validators_dict = {v.validator.pubkey: v for v in last_lido_validators}
 
         total_last_effective_balance = self._calculate_total_active_effective_balance(
             last_all_validators, last_report_blockstamp.ref_epoch
         )
         total_last_lido_effective_balance = self._calculate_total_active_effective_balance(
-            last_lido_validators, last_report_blockstamp.ref_epoch
+            last_lido_validators_dict, last_report_blockstamp.ref_epoch
         )
 
         mean_total_effective_balance = (total_ref_effective_balance + total_last_effective_balance) // 2
@@ -290,7 +290,7 @@ class BunkerService:
 
         ref_lido_balance = self._calculate_real_balance(self.lido_validators)
         ref_lido_vault_balance = self._get_withdrawal_vault_balance(ref_blockstamp)
-        ref_lido_balance_with_vault = ref_lido_balance + self.w3.from_wei(ref_lido_vault_balance, "gwei")
+        ref_lido_balance_with_vault = ref_lido_balance + int(self.w3.from_wei(ref_lido_vault_balance, "gwei"))
 
         prev_all_validators = {
             v.validator.pubkey: v for v in self.w3.cc.get_validators_no_cache(prev_blockstamp)
@@ -304,7 +304,7 @@ class BunkerService:
 
         prev_lido_balance = self._calculate_real_balance(prev_lido_validators_by_key)
         prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
-        prev_lido_balance_with_vault = prev_lido_balance + self.w3.from_wei(prev_lido_vault_balance, "gwei")
+        prev_lido_balance_with_vault = prev_lido_balance + int(self.w3.from_wei(prev_lido_vault_balance, "gwei"))
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
         validators_diff_in_gwei = (len(self.lido_validators) - len(prev_lido_validators_by_key)) * MAX_EFFECTIVE_BALANCE
@@ -323,7 +323,7 @@ class BunkerService:
             {"msg": f"CL rebase between {prev_blockstamp.ref_epoch,ref_blockstamp.ref_epoch} epochs: {cl_rebase} Gwei"}
         )
 
-        return cl_rebase
+        return Gwei(cl_rebase)
 
     def _get_withdrawal_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         withdrawal_vault_address = self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
@@ -356,7 +356,7 @@ class BunkerService:
             logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
             return 0
 
-        vault_withdrawals = self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei')
+        vault_withdrawals = int(self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei'))
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
 
         return vault_withdrawals
@@ -368,11 +368,11 @@ class BunkerService:
         )
 
     @staticmethod
-    def _calculate_real_balance(validators: dict[Any, Validator]) -> Gwei:
+    def _calculate_real_balance(validators: Mapping[Any, Validator]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators.values()))
 
     @staticmethod
-    def _calculate_total_active_effective_balance(validators: dict[str, Validator], ref_epoch: EpochNumber) -> Gwei:
+    def _calculate_total_active_effective_balance(validators: Mapping[str, Validator], ref_epoch: EpochNumber) -> Gwei:
         """
         Calculates total balance of all active validators in network
         """
@@ -386,7 +386,7 @@ class BunkerService:
 
     @staticmethod
     def _not_withdrawn_slashed_validators(
-        all_validators: dict[str, Validator], ref_epoch: EpochNumber
+        all_validators: Mapping[str, Validator], ref_epoch: EpochNumber
     ) -> dict[str, Validator]:
         """
         Get all slashed validators, who are not withdrawn yet

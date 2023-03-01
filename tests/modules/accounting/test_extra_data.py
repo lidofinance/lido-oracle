@@ -22,11 +22,11 @@ def validator():
     """None of the fields are used in tests"""
     return LidoValidator(
         lido_id=LidoKey(
-            key=HexBytes(b""),
-            depositSignature=HexBytes(b""),
+            key="0x1",
+            depositSignature="0x1",
             operatorIndex=-1,
             used=True,
-            moduleAddress=Address(b""),
+            moduleAddress="0x1",
         ),
         **asdict(Validator(
             index="0",

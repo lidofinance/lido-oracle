@@ -13,7 +13,6 @@ from src.services.withdrawal import Withdrawal
 from src.modules.accounting.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
-from src.web3py.extentions.lido_validators import StakingModuleId
 from src.web3py.typings import Web3
 
 
@@ -113,7 +112,7 @@ class Accounting(BaseModule, ConsensusModule):
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
-            stacking_module_id_with_exited_validators=staking_module_ids_list,
+            staking_module_id_with_exited_validators=staking_module_ids_list,
             count_exited_validators_by_stacking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
@@ -127,7 +126,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return report_data
 
-    def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[int]]:
+    def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[int], list[int]]:
         """
         Calculate exited validators count in all modules.
         Exclude modules without changes from the report.
@@ -136,7 +135,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
-        module_stats = defaultdict(int)
+        module_stats: dict[int, int] = defaultdict(int)
 
         for (module_id, _), validators_exited_count in exited_validators.items():
             module_stats[module_id] += validators_exited_count
@@ -145,7 +144,7 @@ class Accounting(BaseModule, ConsensusModule):
             if module_stats[module.id] == module.exited_validators_count:
                 del module_stats[module.id]
 
-        return tuple(zip(*module_stats.items()))
+        return list(module_stats.keys()), list(module_stats.values())
 
     @lru_cache(maxsize=1)
     def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[int, Gwei]:

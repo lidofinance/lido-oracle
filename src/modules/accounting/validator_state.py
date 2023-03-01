@@ -1,6 +1,7 @@
 import logging
 from copy import deepcopy
 from functools import lru_cache, reduce
+from typing import Sequence
 
 from eth_typing import HexStr
 
@@ -155,7 +156,7 @@ class LidoValidatorStateService:
         logger.info({'msg': 'Fetch oracle sanity checks.', 'value': orl})
         return orl
 
-    def _get_last_requested_validator_indices(self, blockstamp: BlockStamp, module: StakingModule, node_operators_ids_in_module: list[int]) -> list[int]:
+    def _get_last_requested_validator_indices(self, blockstamp: BlockStamp, module: StakingModule, node_operators_ids_in_module: Sequence[int]) -> list[int]:
         return self.w3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices(
             module.id,
             node_operators_ids_in_module,

@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 
-from eth_typing import Address
-from hexbytes import HexBytes
+from eth_typing import HexAddress, HexStr
 
 
 @dataclass
 class LidoKey:
-    key: HexBytes
-    depositSignature: HexBytes
+    key: HexStr
+    depositSignature: HexStr
     operatorIndex: int
     used: bool
-    moduleAddress: Address
+    moduleAddress: HexAddress

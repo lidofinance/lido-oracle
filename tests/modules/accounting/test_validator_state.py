@@ -2,8 +2,7 @@ from dataclasses import asdict
 from unittest.mock import Mock
 
 import pytest
-from eth_typing import Address
-from hexbytes import HexBytes
+from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.validator_state import LidoValidatorStateService
@@ -36,14 +35,14 @@ class MockValidatorsProvider(LidoValidatorsProvider):
         raise NotImplementedError
 
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        def validator(index: int, exit_epoch: int, pubkey: str):
+        def validator(index: int, exit_epoch: int, pubkey: HexStr):
             return LidoValidator(
                 lido_id=LidoKey(
-                    key=HexBytes(pubkey),
-                    depositSignature=HexBytes(b""),
+                    key=pubkey,
+                    depositSignature="",
                     operatorIndex=-1,
                     used=True,
-                    moduleAddress=Address(b""),
+                    moduleAddress="",
                 ),
                 **asdict(Validator(
                     index=str(index),
@@ -117,7 +116,7 @@ def chain_config():
 
 
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_asked_to_exit_pubkeys = Mock(return_value={HexBytes("0x6")})
+    validator_state.get_last_asked_to_exit_pubkeys = Mock(return_value={HexStr("0x6")})
     stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
     assert stuck_validators == {(1, 0): 1}
 

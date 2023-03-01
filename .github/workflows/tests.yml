@@ -54,7 +54,7 @@ jobs:
       run: |
         poetry install --no-interaction --with=dev
 
-    - name: Lint poetry
+    - name: Lint with pylint
       run: poetry run pylint src tests
 
 #    - name: Lint mypy

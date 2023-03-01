@@ -354,7 +354,6 @@ class ConsensusModule(ABC):
         """Returns ReportData struct with calculated data."""
 
     @abstractmethod
-    @lru_cache(maxsize=1)
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         """Returns if main data already submitted"""
 
