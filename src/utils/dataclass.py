@@ -35,9 +35,11 @@ def list_of_dataclasses(_dataclass):
         @functools.wraps(func)
         def wrapper_decorator(*args, **kwargs):
             list_of_elements = func(*args, **kwargs)
+
             if isinstance(list_of_elements[0], dict):
                 return list(map(lambda x: _dataclass(**x), list_of_elements))
-            elif isinstance(list_of_elements[0], tuple):
+
+            if isinstance(list_of_elements[0], tuple):
                 return list(map(lambda x: named_tuple_to_dataclass(x, _dataclass), list_of_elements))
 
             raise DecodeToDataclassException(f'Type {type(list_of_elements[0])} is not supported.')

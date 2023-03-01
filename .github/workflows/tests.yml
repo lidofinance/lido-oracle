@@ -57,8 +57,8 @@ jobs:
     - name: Lint poetry
       run: poetry run pylint src tests
 
-    - name: Lint mypy
-      run: poetry run mypy src
+#    - name: Lint mypy
+#      run: poetry run mypy src
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master

@@ -88,7 +88,7 @@ class BaseModule(ABC):
         return False
 
     @abstractmethod
-    def execute_module(self, blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         """
         Implement module business logic here.
         Return

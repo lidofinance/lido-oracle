@@ -1,7 +1,7 @@
 from web3.types import Wei
 
 from src.web3py.typings import Web3
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.typings import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 
