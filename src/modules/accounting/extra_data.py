@@ -1,7 +1,6 @@
 import itertools
 from dataclasses import dataclass
 from enum import Enum
-from itertools import islice
 
 from hexbytes import HexBytes
 
@@ -107,7 +106,7 @@ class ExtraDataService:
                 operator_ids.append(no_id.to_bytes(ExtraDataService.Lengths.NODE_OPERATOR_IDS))
                 vals_count.append(validators_count.to_bytes(ExtraDataService.Lengths.STUCK_OR_EXITED_VALS_COUNT))
                 payload_size_limit -= 1
-                
+
                 if not payload_size_limit:
                     break
 

@@ -55,8 +55,8 @@ class Ejector(BaseModule, ConsensusModule):
 
         self.prediction_service = RewardsPredictionService(w3)
 
-    def execute_module(self, blockstamp: BlockStamp) -> bool:
-        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+        report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if report_blockstamp:
             self.process_report(report_blockstamp)
             return True
