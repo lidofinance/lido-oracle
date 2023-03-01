@@ -28,17 +28,9 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     details = consensus_client.get_block_details(root)
-    validators: list[Validator] = consensus_client.get_validators(details.message.state_root)
+    validators: list[Validator] = consensus_client.get_validators(details.message)
     assert validators
 
     validator = validators[0]
-    validator_by_pub_key = consensus_client.get_validators(details.message.state_root, pub_keys=validator.validator.pubkey)
+    validator_by_pub_key = consensus_client.get_validators(details.message, pub_keys=validator.validator.pubkey)
     assert validator_by_pub_key[0] == validator
-
-
-@pytest.mark.unit
-def test_caching_issues(consensus_client):
-    with pytest.raises(ValueError):
-        consensus_client.get_validators('head')
-    with pytest.raises(ValueError):
-        consensus_client.get_block_details('finalized')

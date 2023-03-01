@@ -178,7 +178,7 @@ class Ejector(BaseModule, ConsensusModule):
         max_exit_epoch_number = 0
         latest_to_exit_validators_count = 0
 
-        for validator in self.w3.cc.get_validators(blockstamp.state_root):
+        for validator in self.w3.cc.get_validators(blockstamp):
             val_exit_epoch = EpochNumber(int(validator.validator.exit_epoch))
 
             if val_exit_epoch == FAR_FUTURE_EPOCH:
@@ -194,7 +194,7 @@ class Ejector(BaseModule, ConsensusModule):
         return max_exit_epoch_number, latest_to_exit_validators_count
 
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp):
-        validators = self.w3.cc.get_validators(blockstamp.state_root)
+        validators = self.w3.cc.get_validators(blockstamp)
 
         total_withdrawable_validators = len(list(filter(lambda validator: (
             is_partially_withdrawable_validator(validator) or
@@ -208,7 +208,7 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
         total_active_validators = reduce(
             lambda total, validator: total + int(is_active_validator(validator, blockstamp.ref_epoch)),
-            self.w3.cc.get_validators(blockstamp.state_root),
+            self.w3.cc.get_validators(blockstamp),
             0,
         )
         return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
