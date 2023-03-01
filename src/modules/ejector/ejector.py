@@ -12,6 +12,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     MAX_SEED_LOOKAHEAD,
 )
+from src.services.validator_state import LidoValidatorStateService
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.prediction import RewardsPredictionService
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
@@ -19,7 +20,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, Gwei
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.validator_state import is_active_validator, is_partially_withdrawable_validator, \
     is_fully_withdrawable_validator
@@ -57,6 +58,7 @@ class Ejector(BaseModule, ConsensusModule):
         super().__init__(w3)
 
         self.prediction_service = RewardsPredictionService(w3)
+        self.validators_state_service = LidoValidatorStateService(w3)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -68,6 +70,7 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         validators = self.get_validators_to_eject(blockstamp)
+        logger.info({'msg': f'Calculate validators to eject. Count: {len(validators)}', 'value': validators})
 
         data, data_format = encode_data(validators)
 
@@ -80,6 +83,12 @@ class Ejector(BaseModule, ConsensusModule):
         ).as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+        to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
+
+        if to_withdraw_amount == Wei(0):
+            return []
+
         chain_config = self.get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
@@ -88,11 +97,14 @@ class Ejector(BaseModule, ConsensusModule):
         epochs_to_sweep = self._get_sweep_delay_in_epochs(blockstamp)
         logger.info({'msg': 'Calculate epochs to sweep.', 'value': epochs_to_sweep})
 
-        to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
-        logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
+        total_available_balance = self._get_total_balance(blockstamp)
+        logger.info({'msg': 'Calculate available balance.', 'value': total_available_balance})
 
-        total_current_balance = self._get_total_balance(blockstamp)
-        logger.info({'msg': 'Calculate available balance.', 'value': total_current_balance})
+        validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exited_validators(blockstamp, chain_config)
+        going_to_withdraw_balance = sum(map(
+            self._get_predicted_withdrawable_balance,
+            validators_going_to_exit,
+        ))
 
         validators_to_eject = []
         validator_to_eject_balance_sum = 0
@@ -104,16 +116,17 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
         for validator in validators_iterator:
-            withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + 1)
+            withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
             future_rewards = (withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch) * rewards_speed_per_epoch
 
             future_withdrawals = self._get_withdrawable_lido_validators(blockstamp, withdrawal_epoch)
 
-            if future_withdrawals + future_rewards + total_current_balance + validator_to_eject_balance_sum >= to_withdraw_amount:
+            expected_balance = future_withdrawals + future_rewards + total_available_balance + validator_to_eject_balance_sum + going_to_withdraw_balance
+            if expected_balance >= to_withdraw_amount:
                 return validators_to_eject
 
             validators_to_eject.append(validator)
-            validator_to_eject_balance_sum += min(int(validator[1].balance), MAX_EFFECTIVE_BALANCE)
+            validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator[1])
 
         return validators_to_eject
 
@@ -121,17 +134,22 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
 
-        def get_total_withdrawable_balance(balance: Gwei, validator: Validator) -> Gwei:
-            withdrawable_balance = min(int(validator.balance), MAX_EFFECTIVE_BALANCE) if is_fully_withdrawable_validator(validator, on_epoch) else 0
-            return Gwei(balance + withdrawable_balance)
+        def get_total_withdrawable_balance(balance: Wei, validator: Validator) -> Wei:
+            if is_fully_withdrawable_validator(validator, on_epoch):
+                balance += self._get_predicted_withdrawable_balance(validator)
+
+            return balance
 
         result = reduce(
             get_total_withdrawable_balance,
             lido_validators,
-            Gwei(0),
+            Wei(0),
         )
 
-        return self.w3.to_wei(result, 'gwei')
+        return result
+
+    def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
+        return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
 
     def _get_total_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(

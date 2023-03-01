@@ -8,11 +8,11 @@ from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp, EpochNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
-from src.utils.validator_state import is_exited_validator
+from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
 from src.web3py.extentions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
@@ -172,3 +172,76 @@ class LidoValidatorStateService:
             module.id,
             node_operators_ids_in_module,
         ).call(block_identifier=blockstamp.block_hash)
+
+    def get_recently_requested_but_not_exited_validators(
+        self, blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ) -> list[LidoValidator]:
+        """
+        Validators requested to exit, but didn't send exit message.
+        In case:
+        - Activation epoch is not old enough to initiate exit
+        - Node operator had not enough time to send exit message (VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS)
+        """
+        lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
+        recent_pubkeys = self.get_recently_requests_to_exit_pubkeys(blockstamp, chain_config)
+
+        validators_recently_requested_to_exit = []
+
+        for global_no_index, validators in lido_validators_by_no.items():
+            def validator_asked_to_exit(validator: LidoValidator) -> bool:
+                return int(validator.index) <= ejected_index[global_no_index]
+
+            def validator_recently_asked_to_exit(validator: LidoValidator) -> bool:
+                return validator.validator.pubkey in recent_pubkeys
+
+            def validator_eligible_to_exit(validator: LidoValidator) -> bool:
+                delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
+                return is_validator_eligible_to_exit(validator, EpochNumber(blockstamp.ref_epoch - delayed_timeout_in_epoch))
+
+            def non_exited_validators(validator: LidoValidator) -> bool:
+                if not validator_asked_to_exit(validator):
+                    return False
+
+                if is_on_exit(validator):
+                    return False
+
+                if validator_recently_asked_to_exit(validator):
+                    return True
+
+                if not validator_eligible_to_exit(validator):
+                    return True
+
+                return False
+
+            validators_recently_requested_to_exit.extend(
+                list(filter(non_exited_validators, validators))
+            )
+
+        return validators_recently_requested_to_exit
+
+    def get_recently_requests_to_exit_pubkeys(
+            self, blockstamp: ReferenceBlockStamp,
+            chain_config: ChainConfig,
+    ) -> set[HexStr]:
+        exiting_keys_delayed_border_in_slots = self.get_validator_delayed_timeout_in_slot(blockstamp)
+
+        events = get_events_in_past(
+            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+            to_blockstamp=blockstamp,
+            for_slots=exiting_keys_delayed_border_in_slots,
+            seconds_per_slot=chain_config.seconds_per_slot,
+        )
+
+        logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
+
+        return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in events)
+
+    @lru_cache(maxsize=1)
+    def get_validator_delayed_timeout_in_slot(self, blockstamp: ReferenceBlockStamp) -> int:
+        exiting_keys_delayed_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+            'VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS'
+        ).call(block_identifier=blockstamp.block_hash)
+
+        return self.w3.to_int(exiting_keys_delayed_border_in_slots_bytes)
