@@ -58,9 +58,6 @@ class ExtraDataService:
         NODE_OPERATOR_IDS = 8
         STUCK_OR_EXITED_VALS_COUNT = 16
 
-    def __init__(self, w3: Web3):
-        self.w3 = w3
-
     def collect(
         self,
         stuck_validators: dict[NodeOperatorGlobalIndex, int],
@@ -81,7 +78,7 @@ class ExtraDataService:
         data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if extra_data else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
         return ExtraData(
             extra_data=extra_data_bytes,
-            data_hash=self.w3.keccak(extra_data_bytes),
+            data_hash=Web3.keccak(extra_data_bytes),
             format=data_format.value,
             items_count=len(extra_data),
         )

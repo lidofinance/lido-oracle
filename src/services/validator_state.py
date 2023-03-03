@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class LidoValidatorStateService:
     def __init__(self, w3: Web3):
         self.w3 = w3
-        self.extra_data_service = ExtraDataService(w3)
+        self.extra_data_service = ExtraDataService()
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> ExtraData:

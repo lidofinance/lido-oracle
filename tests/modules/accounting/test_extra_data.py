@@ -1,11 +1,6 @@
-from dataclasses import asdict
-
 import pytest
-from eth_typing import Address
 from hexbytes import HexBytes
 
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.providers.keys.typings import LidoKey
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
 
@@ -14,36 +9,8 @@ pytestmark = pytest.mark.unit
 
 
 @pytest.fixture()
-def extra_data_service(web3, lido_validators):
-    return ExtraDataService(web3)
-
-
-def validator():
-    """None of the fields are used in tests"""
-    return LidoValidator(
-        lido_id=LidoKey(
-            key="0x1",
-            depositSignature="0x1",
-            operatorIndex=-1,
-            used=True,
-            moduleAddress="0x1",
-        ),
-        **asdict(Validator(
-            index="0",
-            balance="0",
-            status=ValidatorStatus.ACTIVE_ONGOING,
-            validator=ValidatorState(
-                pubkey="0x1",
-                withdrawal_credentials="0x1",
-                effective_balance="0",
-                slashed=False,
-                activation_eligibility_epoch="0",
-                activation_epoch="0",
-                exit_epoch="0",
-                withdrawable_epoch="0",
-            ),
-        )),
-    )
+def extra_data_service(lido_validators):
+    return ExtraDataService()
 
 
 def node_operator(module_id, node_operator_id) -> NodeOperatorGlobalIndex:
