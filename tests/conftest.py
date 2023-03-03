@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from web3.providers import JSONBaseProvider
 from web3.middleware import simple_cache_middleware
 from web3.types import Timestamp
 

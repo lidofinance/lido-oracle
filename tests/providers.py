@@ -27,14 +27,14 @@ class NoMockException(Exception):
 
 class FromFile:
     responses: dict[Path, list[dict[str, Any]]]
-    
+
     def __init__(self, mock_path: Path):
         mock_path = BASE_FIXTURES_PATH / mock_path
         self.responses = {}
         if not mock_path.exists():
             return
         self.load_from_file(mock_path)
-    
+
     @contextmanager
     def use_mock(self, mock_path: Path):
         mock_path = BASE_FIXTURES_PATH / mock_path
@@ -77,10 +77,11 @@ class ResponseFromFile(JSONBaseProvider, FromFile):
     responses: dict[Path, list[dict[str, Any]]]
 
     def __init__(self, mock_path: Path):
+        JSONBaseProvider.__init__(self)
         FromFile.__init__(self, mock_path)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        for file, responses in self.responses.items():
+        for _, responses in self.responses.items():
             for response in responses:
                 if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
                     return response["response"]
@@ -112,7 +113,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
         FromFile.__init__(self, mock_path)
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
-        for file, responses in self.responses.items():
+        for _, responses in self.responses.items():
             for response in responses:
                 if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
                     return response["response"]
