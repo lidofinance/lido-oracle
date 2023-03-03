@@ -63,7 +63,7 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     return partial_metrics
 
 
-def get_full_current_metrics(w3, beacon, beacon_spec, partial_metrics) -> PoolMetrics:
+def get_full_current_metrics(w3, pool, beacon, beacon_spec, partial_metrics) -> PoolMetrics:
     """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
     slots_per_epoch = beacon_spec[1]
     slot = partial_metrics.epoch * slots_per_epoch
@@ -77,6 +77,13 @@ def get_full_current_metrics(w3, beacon, beacon_spec, partial_metrics) -> PoolMe
         full_metrics.beaconValidators,
         full_metrics.activeValidatorBalance,
     ) = beacon.get_balances(slot, validators_keys)
+
+    block_number = beacon.get_block_by_beacon_slot(slot)
+    full_metrics.beaconBalance += w3.eth.get_balance(
+        pool.functions.getWithdrawalCredentials().call(block_identifier=block_number),
+        block_identifier=block_number
+    )
+
     logging.info(
         f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
     )
@@ -136,7 +143,7 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
         logging.info('No time delta between current and previous epochs. Skip APR calculations.')
         assert reward == 0
         assert current.beaconValidators == previous.beaconValidators
-        assert current.beaconBalance == current.beaconBalance
+        assert current.beaconBalance == previous.beaconBalance
         return
 
     # APR calculation
