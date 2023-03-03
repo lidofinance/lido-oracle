@@ -152,9 +152,9 @@ def mock_get_validators(bunker):
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
                 simple_validator(2, '0x02', 32 * 10 ** 9),
-                simple_validator(3, '0x03', 32 * 10 ** 9, slashed=True, withdrawable_epoch='1001'),
-                simple_validator(4, '0x04', 32 * 10 ** 9, slashed=True, withdrawable_epoch='1001'),
-                simple_validator(5, '0x05', 32 * 10 ** 9, slashed=True, withdrawable_epoch='1001'),
+                simple_validator(3, '0x03', 32 * 10 ** 9, slashed=True, withdrawable_epoch='10001'),
+                simple_validator(4, '0x04', 32 * 10 ** 9, slashed=True, withdrawable_epoch='10001'),
+                simple_validator(5, '0x05', 32 * 10 ** 9, slashed=True, withdrawable_epoch='10001'),
                 *[simple_validator(i, f'0x0{i}', 32 * 10 ** 9) for i in range(6, 200)],
             ]
         }
@@ -547,7 +547,7 @@ def test_get_bounded_slashed_validators():
     determined_slashed_epoch = EpochNumber(10000)
     per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
-    bounded_slashed_validators = BunkerService._get_bounded_slashed_validators(
+    bounded_slashed_validators = BunkerService._get_bound_slashed_validators(
         per_epoch_buckets, determined_slashed_epoch
     )
 
@@ -569,7 +569,9 @@ def test_get_per_epoch_lido_midterm_penalties():
     )
 
     assert len(per_epoch_lido_midterm_penalties) == 1
-    assert per_epoch_lido_midterm_penalties[EpochNumber(14096)] == {'0x0': 1000000000, '0x1': 0, '0x2': 1000000000}
+    assert per_epoch_lido_midterm_penalties[EpochNumber(14096)] == {
+        '0x0': 1000000000, '0x1': 1000000000, '0x2': 1000000000
+    }
 
 
 @pytest.mark.unit
@@ -596,7 +598,7 @@ def test_get_per_frame_lido_midterm_penalties():
     )
 
     assert len(per_frame_lido_midterm_penalties) == 1
-    assert per_frame_lido_midterm_penalties[0] == 2000000000
+    assert per_frame_lido_midterm_penalties[0] == 3000000000
 
 
 @pytest.mark.unit

@@ -426,7 +426,7 @@ class BunkerService:
                 continue
 
             possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-            for epoch in range(ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR, possible_slashed_epoch + 1):
+            for epoch in range(max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR), possible_slashed_epoch + 1):
                 per_epoch_buckets[EpochNumber(epoch)][key] = validator
 
         return per_epoch_buckets
@@ -441,31 +441,25 @@ class BunkerService:
         Iterate through per_epoch_buckets and calculate lido midterm penalties for each bucket
         """
         per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]] = defaultdict(dict)
-        for epoch, slashed_validators in per_epoch_buckets.items():
-            lido_validators_slashed_in_epoch: dict[str, Validator] = {
-                key: slashed_validators[key] for key in lido_slashed_validators if key in slashed_validators
-            }
-            if not lido_validators_slashed_in_epoch:
-                continue
-            # We should calculate penalties according to bounded slashings in past EPOCHS_PER_SLASHINGS_VECTOR
-            bounded_slashed_validators = self._get_bounded_slashed_validators(per_epoch_buckets, epoch)
-            slashings = sum(int(v.validator.effective_balance) for v in bounded_slashed_validators.values())
+        for key, v in lido_slashed_validators.items():
+            midterm_penalty_epoch = EpochNumber(
+                int(v.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2
+            )
+            # We should calculate midterm penalties by sum of slashings which bound with midterm penalty epoch
+            bound_slashed_validators = self._get_bound_slashed_validators(per_epoch_buckets, midterm_penalty_epoch)
+            slashings = sum(int(v.validator.effective_balance) for v in bound_slashed_validators.values())
             adjusted_total_slashing_balance = min(
                 slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
                 total_balance
             )
-            for key, v in lido_validators_slashed_in_epoch.items():
-                effective_balance = int(v.validator.effective_balance)
-                penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
-                penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
-                midterm_penalty_epoch = EpochNumber(
-                    int(v.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2
-                )
-                per_epoch_lido_midterm_penalties[midterm_penalty_epoch][key] = Gwei(penalty)
+            effective_balance = int(v.validator.effective_balance)
+            penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
+            penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
+            per_epoch_lido_midterm_penalties[midterm_penalty_epoch][key] = Gwei(penalty)
         return per_epoch_lido_midterm_penalties
 
     @staticmethod
-    def _get_bounded_slashed_validators(
+    def _get_bound_slashed_validators(
         per_epoch_buckets: dict[EpochNumber, dict[str, Validator]],
         bound_with_epoch: EpochNumber
     ) -> dict[str, Validator]:
