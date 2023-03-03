@@ -14,6 +14,8 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.client import KeysAPIClient
 
+BASE_FIXTURES_PATH = Path.cwd() / 'fixtures'
+
 
 class NoMockException(Exception):
     def __init__(self, *args: object) -> None:
@@ -27,6 +29,7 @@ class FromFile:
     responses: dict[Path, list[dict[str, Any]]]
     
     def __init__(self, mock_path: Path):
+        mock_path = BASE_FIXTURES_PATH / mock_path
         self.responses = {}
         if not mock_path.exists():
             return
@@ -34,9 +37,14 @@ class FromFile:
     
     @contextmanager
     def use_mock(self, mock_path: Path):
+        mock_path = BASE_FIXTURES_PATH / mock_path
         self.load_from_file(mock_path)
+        yield
 
     def load_from_file(self, mock_path: Path):
+        mock_path = BASE_FIXTURES_PATH / mock_path
+        if not mock_path.exists():
+            return
         with open(mock_path, "r") as f:
             self.responses[mock_path] = json.load(f)
 
@@ -45,6 +53,7 @@ class UpdateResponses:
     responses = []
 
     def save_responses(self, path: Path):
+        path = BASE_FIXTURES_PATH / path
         if not self.responses:
             if os.path.exists(path):
                 os.remove(path)
@@ -57,9 +66,11 @@ class UpdateResponses:
     def use_mock(self, mock_path: Path):
         previous_responses = self.responses
         self.responses = []
-        yield
-        self.save_responses(mock_path)
-        self.responses = previous_responses
+        try:
+            yield
+        finally:
+            self.save_responses(mock_path)
+            self.responses = previous_responses
 
 
 class ResponseFromFile(JSONBaseProvider, FromFile):

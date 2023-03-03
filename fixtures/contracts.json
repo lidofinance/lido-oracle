@@ -1,0 +1,116 @@
+[
+  {
+    "method": "eth_chainId",
+    "params": [],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x1469cb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0x23509a2d"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x000000000000000000000000ec9ac956d7c7fe5a94919fd23bac4a42f950a403"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0x5a2031f9"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x0000000000000000000000005704fb15ba3e56383a93a33ca2fc5ec4c8b7cb3a"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0xef6c064c"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x000000000000000000000000dd7d15490748a803aec6987046311af76a5a6502"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0x12f8d4b9"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x0000000000000000000000005c7ba617c0b25835554fa93d031294aa0878dab2"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0x37d5fe99"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x0000000000000000000000007d22f2b8319e51055c88778bcd6658c2982c696b"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0xf5e6d50f"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x0000000000000000000000005de66f1e2fc2beafa802d6b8fb00805745266bcb"
+    }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC",
+        "data": "0x3fe7d554"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x000000000000000000000000ce59e362b6a91bc090775b230e4efe791d5005fb"
+    }
+  }
+]

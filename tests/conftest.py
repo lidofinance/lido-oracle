@@ -34,7 +34,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture()
 def responses_path(request: FixtureRequest) -> Path:
-    return Path('fixtures') / request.node.parent.name / (request.node.name + '.json')
+    return Path(request.node.parent.name) / (request.node.name + '.json')
 
 
 # ----- Web3 Provider Mock -----
@@ -52,7 +52,7 @@ def mock_provider(responses_path) -> ResponseFromFile:
 
 
 @pytest.fixture()
-def provider(request, responses_path) -> JSONBaseProvider:
+def provider(request, responses_path) -> UpdateResponsesProvider | ResponseFromFile:
     if request.config.getoption("--update-responses"):
         return request.getfixturevalue("update_responses_provider")
 
@@ -105,66 +105,12 @@ def keys_api_client(request, responses_path, web3):
 
 
 # ---- Lido contracts ----
-class Contracts(LidoContracts):
-    """Hardcoded addresses to simplify building fixtures"""
-    def _load_contracts(self):
-        self.lido_locator = self.w3.eth.contract(
-            address='0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC',
-            abi=self.load_abi('LidoLocator'),
-        )
-
-        self.lido = self.w3.eth.contract(
-            address='0xEC9ac956D7C7fE5a94919fD23BAc4a42f950A403',
-            abi=self.load_abi('Lido'),
-            decode_tuples=True,
-        )
-
-        self.accounting_oracle = self.w3.eth.contract(
-            address='0x5704fb15ba3E56383a93A33ca2Fc5Ec4C8B7Cb3a',
-            abi=self.load_abi('AccountingOracle'),
-            decode_tuples=True,
-        )
-
-        self.staking_router = self.w3.eth.contract(
-            address='0xDd7d15490748a803AeC6987046311AF76a5A6502',
-            abi=self.load_abi('StakingRouter'),
-            decode_tuples=True,
-        )
-
-        self.validators_exit_bus_oracle = self.w3.eth.contract(
-            address='0x5c7Ba617C0B25835554Fa93D031294aA0878DAb2',
-            abi=self.load_abi('ValidatorsExitBusOracle'),
-            decode_tuples=True,
-        )
-
-        self.withdrawal_queue_nft = self.w3.eth.contract(
-            address='0x7D22F2B8319e51055C88778BcD6658c2982c696b',
-            abi=self.load_abi('WithdrawalRequestNFT'),
-            decode_tuples=True,
-        )
-        self.oracle_report_sanity_checker = self.w3.eth.contract(
-            address='0xC9F35dfd24588A2db1398d60B3391CC14CA00C3B',
-            abi=self.load_abi('OracleReportSanityChecker'),
-            decode_tuples=True
-        )
-        self.oracle_daemon_config = self.w3.eth.contract(
-            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
-            abi=self.load_abi('OracleDaemonConfig'),
-            decode_tuples=True,
-        )
-
-        self.oracle_daemon_config = self.w3.eth.contract(
-            address='0xce59E362b6a91bC090775B230e4EFe791d5005FB',
-            abi=self.load_abi('OracleDaemonConfig'),
-            decode_tuples=True,
-        )
-
-
 @pytest.fixture()
-def contracts(web3):
-    web3.attach_modules({
-        'lido_contracts': Contracts,
-    })
+def contracts(web3, provider):
+    with provider.use_mock(Path('contracts.json')):
+        web3.attach_modules({
+            'lido_contracts': LidoContracts,
+        })
 
 
 # ---- Transaction Utils
