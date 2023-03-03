@@ -1,7 +1,6 @@
 import json
 import os
-from collections import defaultdict
-from dataclasses import dataclass
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
 
@@ -19,18 +18,31 @@ from src.providers.keys.client import KeysAPIClient
 class NoMockException(Exception):
     def __init__(self, *args: object) -> None:
         args = list(args)
-        args[0] += '\nPlease re-run tests with --save-responses or --update-responses flags. ' \
+        args[0] += '\nPlease re-run tests with --update-responses flags. ' \
                    '\nSee tests/README.md for details.'
         super().__init__(*args)
 
 
-class ResponseToFileProvider(MultiProvider):
-    responses = []
+class FromFile:
+    responses: dict[Path, list[dict[str, Any]]]
+    
+    def __init__(self, mock_path: Path):
+        self.responses = {}
+        if not mock_path.exists():
+            return
+        self.load_from_file(mock_path)
+    
+    @contextmanager
+    def use_mock(self, mock_path: Path):
+        self.load_from_file(mock_path)
 
-    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        response = super().make_request(method, params)
-        self.responses.append({"method": method, "params": params, "response": response})
-        return response
+    def load_from_file(self, mock_path: Path):
+        with open(mock_path, "r") as f:
+            self.responses[mock_path] = json.load(f)
+
+
+class UpdateResponses:
+    responses = []
 
     def save_responses(self, path: Path):
         if not self.responses:
@@ -41,26 +53,31 @@ class ResponseToFileProvider(MultiProvider):
         with open(path, 'w') as f:
             json.dump(self.responses, f, indent=2)
 
+    @contextmanager
+    def use_mock(self, mock_path: Path):
+        previous_responses = self.responses
+        self.responses = []
+        yield
+        self.save_responses(mock_path)
+        self.responses = previous_responses
 
-class ResponseFromFile(JSONBaseProvider):
-    responses: list[dict[str, Any]]
+
+class ResponseFromFile(JSONBaseProvider, FromFile):
+    responses: dict[Path, list[dict[str, Any]]]
 
     def __init__(self, mock_path: Path):
-        super().__init__()
-        if not mock_path.exists():
-            self.responses = []
-            return
-        with open(mock_path, "r") as f:
-            self.responses = json.load(f)
+        FromFile.__init__(self, mock_path)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        for response in self.responses:
-            if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
-                return response["response"]
+        for file, responses in self.responses.items():
+            for response in responses:
+                if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
+                    return response["response"]
         raise NoMockException('There is no mock for response')
 
 
-class UpdateResponsesProvider(ResponseToFileProvider):
+class UpdateResponsesProvider(MultiProvider, UpdateResponses):
+
     def __init__(self, mock_path: Path, host):
         super().__init__(host)
         self.from_file = ResponseFromFile(mock_path)
@@ -74,83 +91,30 @@ class UpdateResponsesProvider(ResponseToFileProvider):
         return response
 
 
-@dataclass
-class Mock:
-    method: str
-    params: Any
-    result: Any
+class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
+    responses: dict[list[dict[str, Any]]]
+
+    def __init__(self, mock_path: Path, w3: Web3):
+        self.w3 = w3
+        HTTPProvider.__init__(self, host="")
+        Module.__init__(self, w3)
+        FromFile.__init__(self, mock_path)
+
+    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
+        for file, responses in self.responses.items():
+            for response in responses:
+                if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
+                    return response["response"]
+        raise NoMockException('There is no mock for response')
 
 
-class MockProvider(JSONBaseProvider):
-    def __init__(self, fallback_provider: JSONBaseProvider = None):
-        super().__init__()
-        self.fallback_provider = fallback_provider
-        self.responses = defaultdict(dict)
-
-    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        params_json = json.dumps(params)
-        if method not in self.responses or params_json not in self.responses[method]:
-            return self.fallback_provider.make_request(method, params)
-        return self.responses[method][params_json]
-
-    def add_mock(self, mock: Mock) -> None:
-        self.responses[mock.method][json.dumps(mock.params)] = {"result": mock.result, "id": next(self.request_counter), "jsonrpc": "2.0"}
-
-    def add_mocks(self, *mocks: Mock) -> None:
-        for mock in mocks:
-            self.add_mock(mock)
-
-    def clear_mocks(self) -> None:
-        self.responses = {}
-
-
-class ResponseToFileHTTPProvider(HTTPProvider, Module):
-    def __init__(self, host: str, w3: Web3):
+class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
+    def __init__(self, mock_path: Path, host: str, w3: Web3):
         self.w3 = w3
 
         super().__init__(host)
         super(Module, self).__init__()
-
         self.responses = []
-
-    def _get(self, url: str, params: Optional[dict] = None) -> tuple[dict | list, dict]:
-        response = super()._get(url, params)
-        self.responses.append({"url": url, "params": params, "response": response})
-        return response
-
-    def save_responses(self, path: Path):
-        if not self.responses:
-            if os.path.exists(path):
-                os.remove(path)
-            return
-        os.makedirs(path.parent, exist_ok=True)
-        with open(path, 'w') as f:
-            json.dump(self.responses, f, indent=2)
-
-
-class ResponseFromFileHTTPProvider(HTTPProvider, Module):
-    responses: list[dict[str, Any]]
-
-    def __init__(self, mock_path: Path, w3: Web3):
-        self.w3 = w3
-        super().__init__(host="")
-        super(Module, self).__init__()
-        if not mock_path.exists():
-            self.responses = []
-            return
-        with open(mock_path, "r") as f:
-            self.responses = json.load(f)
-
-    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
-        for response in self.responses:
-            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
-                return response["response"]
-        raise NoMockException('There is no mock for response')
-
-
-class UpdateResponsesHTTPProvider(ResponseToFileHTTPProvider):
-    def __init__(self, mock_path: Path, host: str, w3: Web3):
-        super().__init__(host, w3)
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
@@ -162,19 +126,11 @@ class UpdateResponsesHTTPProvider(ResponseToFileHTTPProvider):
         return response
 
 
-class ResponseToFileConsensusClientModule(ConsensusClient, ResponseToFileHTTPProvider):
-    pass
-
-
 class ResponseFromFileConsensusClientModule(ConsensusClient, ResponseFromFileHTTPProvider):
     pass
 
 
 class UpdateResponsesConsensusClientModule(ConsensusClient, UpdateResponsesHTTPProvider):
-    pass
-
-
-class ResponseToFileKeysAPIClientModule(KeysAPIClient, ResponseToFileHTTPProvider):
     pass
 
 

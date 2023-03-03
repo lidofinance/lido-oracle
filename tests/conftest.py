@@ -13,12 +13,8 @@ from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 from tests.providers import (
-    ResponseToFileProvider,
     ResponseFromFile,
-    MockProvider,
-    ResponseToFileConsensusClientModule,
     ResponseFromFileConsensusClientModule,
-    ResponseToFileKeysAPIClientModule,
     ResponseFromFileKeysAPIClientModule,
     UpdateResponsesProvider,
     UpdateResponsesConsensusClientModule,
@@ -27,12 +23,6 @@ from tests.providers import (
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--save-responses",
-        action="store_true",
-        default=False,
-        help="Save responses from web3 providers",
-    )
     parser.addoption(
         "--update-responses",
         action="store_true",
@@ -49,13 +39,6 @@ def responses_path(request: FixtureRequest) -> Path:
 
 # ----- Web3 Provider Mock -----
 @pytest.fixture()
-def response_to_file_provider(responses_path) -> ResponseToFileProvider:
-    provider = ResponseToFileProvider(EXECUTION_CLIENT_URI)
-    yield provider
-    provider.save_responses(responses_path)
-
-
-@pytest.fixture()
 def update_responses_provider(responses_path) -> UpdateResponsesProvider:
     provider = UpdateResponsesProvider(responses_path, EXECUTION_CLIENT_URI)
     yield provider
@@ -63,16 +46,13 @@ def update_responses_provider(responses_path) -> UpdateResponsesProvider:
 
 
 @pytest.fixture()
-def mock_provider(responses_path) -> MockProvider:
-    provider = MockProvider(fallback_provider=ResponseFromFile(responses_path))
+def mock_provider(responses_path) -> ResponseFromFile:
+    provider = ResponseFromFile(responses_path)
     return provider
 
 
 @pytest.fixture()
 def provider(request, responses_path) -> JSONBaseProvider:
-    if request.config.getoption("--save-responses"):
-        return request.getfixturevalue("response_to_file_provider")
-
     if request.config.getoption("--update-responses"):
         return request.getfixturevalue("update_responses_provider")
 
@@ -90,13 +70,6 @@ def web3(provider) -> Web3:
 
 # ---- Consensus Client Mock ----
 @pytest.fixture()
-def response_to_file_cl_client(web3, responses_path) -> ResponseToFileConsensusClientModule:
-    client = ResponseToFileConsensusClientModule(CONSENSUS_CLIENT_URI, web3)
-    yield client
-    client.save_responses(responses_path.with_suffix('.cl.json'))
-
-
-@pytest.fixture()
 def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensusClientModule:
     path = responses_path.with_suffix('.cl.json')
     client = UpdateResponsesConsensusClientModule(path, CONSENSUS_CLIENT_URI, web3)
@@ -106,9 +79,7 @@ def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensus
 
 @pytest.fixture()
 def consensus_client(request, responses_path, web3):
-    if request.config.getoption("--save-responses"):
-        client = request.getfixturevalue("response_to_file_cl_client")
-    elif request.config.getoption("--update-responses"):
+    if request.config.getoption("--update-responses"):
         client = request.getfixturevalue("update_responses_cl_client")
     else:
         client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
@@ -116,13 +87,6 @@ def consensus_client(request, responses_path, web3):
 
 
 # ---- Keys API Client Mock ----
-@pytest.fixture()
-def response_to_file_ka_client(web3, responses_path) -> ResponseToFileKeysAPIClientModule:
-    client = ResponseToFileKeysAPIClientModule(KEYS_API_URI, web3)
-    yield client
-    client.save_responses(responses_path.with_suffix('.ka.json'))
-
-
 @pytest.fixture()
 def update_responses_ka_client(web3, responses_path) -> UpdateResponsesKeysAPIClientModule:
     path = responses_path.with_suffix('.ka.json')
@@ -133,9 +97,7 @@ def update_responses_ka_client(web3, responses_path) -> UpdateResponsesKeysAPICl
 
 @pytest.fixture()
 def keys_api_client(request, responses_path, web3):
-    if request.config.getoption("--save-responses"):
-        client = request.getfixturevalue("response_to_file_ka_client")
-    elif request.config.getoption("--update-responses"):
+    if request.config.getoption("--update-responses"):
         client = request.getfixturevalue("update_responses_ka_client")
     else:
         client = ResponseFromFileKeysAPIClientModule(responses_path.with_suffix('.ka.json'), web3)
