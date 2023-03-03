@@ -2,12 +2,11 @@ import pytest
 from dataclasses import dataclass
 
 from unittest.mock import MagicMock, Mock
-from src.typings import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from src.web3py.extensions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-
+from tests.conftest import get_blockstamp_by_state
 
 NEW_REQUESTS_BORDER = 8  # epochs ~50 min
 MAX_NEGATIVE_REBASE_BORDER = 1536  # epochs ~6.8 days
@@ -43,17 +42,9 @@ def subject(chain_config, frame_config, past_blockstamp, contracts, keys_api_cli
     return safe_border
 
 @pytest.fixture()
-def past_blockstamp():
-    yield ReferenceBlockStamp(
-        ref_slot=4947936,
-        ref_epoch=154623,
-        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
-        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
-        slot_number=4947936,
-        block_number=8457825,
-        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
-        block_timestamp=0
-    )
+def past_blockstamp(web3, consensus_client):
+    return get_blockstamp_by_state(web3, 'finalized')
+
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
     assert subject._get_default_requests_border_epoch() == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - NEW_REQUESTS_BORDER
@@ -146,7 +137,6 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(subject, past_blockstamp, lido_validators):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -169,7 +159,6 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject, past_blockstamp, lido_validators):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -181,7 +170,6 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
-@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_different_exit_epoch(subject, past_blockstamp,
                                                                                               lido_validators):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
@@ -194,7 +182,6 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted_differe
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
-@pytest.mark.skip
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(subject, past_blockstamp,
                                                                                                 lido_validators):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10

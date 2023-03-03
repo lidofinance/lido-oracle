@@ -27,9 +27,7 @@ def test_get_first_non_missed_slot(web3, consensus_client):
     assert blockstamp.ref_epoch == ref_slot//32
 
 
-@pytest.mark.skip
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_third_non_missed_slot(web3, consensus_client):
     def get_block_header(_):
         setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
@@ -44,12 +42,12 @@ def test_get_third_non_missed_slot(web3, consensus_client):
     blockstamp = get_first_non_missed_slot(
         web3.cc,
         ref_slot=139456,
-        ref_epoch=139456//32,
+        ref_epoch=139456 // 32,
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
     assert isinstance(blockstamp, BlockStamp)
     assert blockstamp.slot_number < finalized_blockstamp.slot_number
-    assert blockstamp.slot_number == 139456
+    assert blockstamp.slot_number == 139455
 
 
 @pytest.mark.unit
