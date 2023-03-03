@@ -82,7 +82,7 @@ def get_full_current_metrics(w3: Web3, pool, beacon, beacon_spec, partial_metric
     ) = beacon.get_balances(slot, validators_keys)
 
     block_number = beacon.get_block_by_beacon_slot(slot)
-    withdrawal_credentials = w3.toText(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
+    withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
     full_metrics.beaconBalance += w3.eth.get_balance(
         w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),
         block_identifier=block_number

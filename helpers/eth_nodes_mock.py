@@ -99,6 +99,8 @@ async def eth1(request):
     elif req['method'] == 'eth_call':
         if req['params'][0]['data'] == '0x833b1fce':  # getOracle
             resp["result"] = "0x000000000000000000000000cd3db5ca818a645359e09543cc0e5b7bb9593229"
+        elif req['params'][0]['data'] == '0x56396715':  # getWithdrawalCredentials
+            resp["result"] = "0x010000000000000000000000b9d7934878b5fb9610b3fe8a5e441e8fad7e293f"
         elif req['params'][0]['data'] == '0x27a099d8':  # getOperators
             resp["result"] = "0x0000000000000000000000007faf80e96530e5cd13a1f35701fcc6b334b2fd75"
         elif req['params'][0]['data'] == '0xe547c77c':  # getBeaconSpec
@@ -218,6 +220,8 @@ async def eth1(request):
             "transactionsRoot": "0xf7b548ef7f8f13bff5ed8a74c955b76dc33597a6dffe2ff062738e528fcf41a0",
             "uncles": [],
         }
+    elif req['method'] == 'eth_getBalance':
+        resp['result'] = str(1 * 10 ** 18)
 
     return web.json_response(resp)
 
