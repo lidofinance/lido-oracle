@@ -71,7 +71,7 @@ class BeaconChainClient:
     def get_block_by_beacon_slot(self, slot):
         response = session.get(urljoin(self.url, self.api_beacon_block.format(slot)), timeout=DEFAULT_TIMEOUT)
         try:
-            return response.json()['data']['message']['body']['execution_payload']['block_number']
+            return int(response.json()['data']['message']['body']['execution_payload']['block_number'])
         except KeyError as error:
             logging.error(f'Response [{response.status_code}] with text: {str(response.text)} was returned.')
             raise KeyError from error

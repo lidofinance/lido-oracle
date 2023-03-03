@@ -36,6 +36,7 @@ def lighthouse_requests(monkeypatch):
     finalized_epoch = json.dumps(responses['lighthouse']['finalized_epoch'])
     head_actual = json.dumps(responses['lighthouse']['head_actual'])
     head_finalized = json.dumps(responses['lighthouse']['head_finalized'])
+    block_finalized = json.dumps(responses['lighthouse']['block_finalized'])
     validators = json.dumps(responses['lighthouse']['validators'])
 
     def mocked_get(self, uri, *args, **kwargs):
@@ -52,6 +53,8 @@ def lighthouse_requests(monkeypatch):
             return MockResponse(head_actual)
         if 'eth/v1/beacon/headers/finalized' in uri:
             return MockResponse(head_finalized)
+        if '/eth/v2/beacon/blocks/finalized' in uri:
+            return MockResponse(block_finalized)
         if 'validators' in uri:
             return MockResponse(validators)
         else:
@@ -87,3 +90,9 @@ def test_balance(lighthouse_requests):
     beacon = BeaconChainClient('localhost', 1)
     result = beacon.get_balances(10, key_list)
     assert result == (445738262310000000000, 4, 221738262310000000000)
+
+
+def test_block(lighthouse_requests):
+    beacon = BeaconChainClient('localhost', 1)
+    result = beacon.get_block_by_beacon_slot('finalized')
+    assert result == 8590563

@@ -49,6 +49,13 @@ async def validators_lighthouse(request):
     return web.json_response('404: Not Found')
 
 
+@routes.get('/eth/v2/beacon/blocks/9120')
+async def block_lighthouse(request):
+    if request.app['lighthouse']:
+        return web.json_response(lighthouse_responses['block_finalized'])
+    return web.json_response('404: Not Found')
+
+
 @routes.post('/')
 async def eth1(request):
     req = await request.json()
