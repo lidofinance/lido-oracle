@@ -9,21 +9,15 @@ from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
+from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import ReferenceBlockStamp, Gwei, BlockStamp, EpochNumber, BlockNumber, SlotNumber
 from src.utils.slot import get_first_non_missed_slot
+from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class BunkerConfig:
-    normalized_cl_reward_per_epoch: int
-    normalized_cl_reward_mistake_rate: float
-    rebase_check_nearest_epoch_distance: int
-    rebase_check_distant_epoch_distance: int
 
 
 class AbnormalClRebase:
@@ -63,10 +57,10 @@ class AbnormalClRebase:
             last_finalized_slot_number=blockstamp.slot_number,
         )
 
-        total_ref_effective_balance = self._calculate_total_active_effective_balance(
+        total_ref_effective_balance = calculate_total_active_effective_balance(
             self.all_validators, blockstamp.ref_epoch
         )
-        total_ref_lido_effective_balance = self._calculate_total_active_effective_balance(
+        total_ref_lido_effective_balance = calculate_total_active_effective_balance(
             self.lido_validators, blockstamp.ref_epoch
         )
 
@@ -81,10 +75,10 @@ class AbnormalClRebase:
 
         last_lido_validators_dict = {v.validator.pubkey: v for v in last_lido_validators}
 
-        total_last_effective_balance = self._calculate_total_active_effective_balance(
+        total_last_effective_balance = calculate_total_active_effective_balance(
             last_all_validators, last_report_blockstamp.ref_epoch
         )
-        total_last_lido_effective_balance = self._calculate_total_active_effective_balance(
+        total_last_lido_effective_balance = calculate_total_active_effective_balance(
             last_lido_validators_dict, last_report_blockstamp.ref_epoch
         )
 
@@ -265,16 +259,3 @@ class AbnormalClRebase:
             / math.sqrt(mean_total_effective_balance) * (1 - self.b_conf.normalized_cl_reward_mistake_rate)
         )
         return Gwei(normal_cl_rebase)
-
-    @staticmethod
-    def _calculate_total_active_effective_balance(validators: Mapping[str, Validator], ref_epoch: EpochNumber) -> Gwei:
-        """
-        Calculates total balance of all active validators in network
-        """
-        total_effective_balance = 0
-
-        for v in validators.values():
-            if int(v.validator.activation_epoch) <= ref_epoch < int(v.validator.exit_epoch):
-                total_effective_balance += int(v.validator.effective_balance)
-
-        return Gwei(total_effective_balance)

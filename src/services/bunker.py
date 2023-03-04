@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from functools import lru_cache
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
@@ -10,20 +9,13 @@ from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPe
 from src.modules.accounting.typings import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
+from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import BlockStamp, SlotNumber, ReferenceBlockStamp, Gwei
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class BunkerConfig:
-    normalized_cl_reward_per_epoch: int
-    normalized_cl_reward_mistake_rate: float
-    rebase_check_nearest_epoch_distance: int
-    rebase_check_distant_epoch_distance: int
 
 
 class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):

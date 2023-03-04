@@ -11,6 +11,7 @@ from src.constants import (
 from src.modules.submodules.typings import FrameConfig
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei, ReferenceBlockStamp
+from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
@@ -38,7 +39,7 @@ class MidtermSlashingPenalty:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
-        total_balance = self._calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
+        total_balance = calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
         per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
         per_epoch_lido_midterm_penalties = self._get_per_epoch_lido_midterm_penalties(
@@ -165,19 +166,6 @@ class MidtermSlashingPenalty:
                     if key not in bounded_slashed_validators:
                         bounded_slashed_validators[key] = validator
         return bounded_slashed_validators
-
-    @staticmethod
-    def _calculate_total_active_effective_balance(validators: Mapping[str, Validator], ref_epoch: EpochNumber) -> Gwei:
-        """
-        Calculates total balance of all active validators in network
-        """
-        total_effective_balance = 0
-
-        for v in validators.values():
-            if int(v.validator.activation_epoch) <= ref_epoch < int(v.validator.exit_epoch):
-                total_effective_balance += int(v.validator.effective_balance)
-
-        return Gwei(total_effective_balance)
 
     @staticmethod
     def _get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
