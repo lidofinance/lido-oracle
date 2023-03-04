@@ -1,6 +1,5 @@
 import logging
 import math
-from dataclasses import dataclass
 from typing import Mapping, Any
 
 from web3.types import Wei, EventData
