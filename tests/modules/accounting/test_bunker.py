@@ -54,7 +54,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.services.bunker.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
+        'src.services.bunker_cases.abnormal_cl_rebase.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
     )
 
 
@@ -241,7 +241,7 @@ def test_is_high_midterm_slashing_penalty(
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
     }
 
-    result = bunker._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
+    result = bunker.is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
     assert result == expected_is_high_midterm_slashing_penalty
 
 
@@ -249,14 +249,13 @@ def test_is_high_midterm_slashing_penalty(
 @pytest.mark.parametrize(
     ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal"),
     [
-        (simple_blockstamp(40, '0x40'), 713868291, 0, 0, False),    # > normal cl rebase
-        (simple_blockstamp(40, '0x40'), 713868290, 0, 0, False),    # == normal cl rebase and no check specific rebase
-        (simple_blockstamp(40, '0x40'), 535401216, 10, 20, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40, '0x40'), 535401216, 10, 10, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40, '0x40'), 535401216, 0, 0, True),     # < normal cl rebase and no check specific rebase
-        (simple_blockstamp(20, '0x20'), 356934144, 10, 20, True),   # < normal cl rebase and specific rebase is negative
-        (simple_blockstamp(20, '0x20'), 356934144, 10, 10, True),   # < normal cl rebase and specific rebase is negative
-
+        (simple_blockstamp(40, '0x40'), 504781109, 0, 0, False),    # > normal cl rebase
+        (simple_blockstamp(40, '0x40'), 504781108, 0, 0, False),    # == normal cl rebase and no check specific rebase
+        (simple_blockstamp(40, '0x40'), 504781107, 10, 20, False),  # < normal cl rebase but specific rebase is positive
+        (simple_blockstamp(40, '0x40'), 504781107, 10, 10, False),  # < normal cl rebase but specific rebase is positive
+        (simple_blockstamp(40, '0x40'), 504781107, 0, 0, True),     # < normal cl rebase and no check specific rebase
+        (simple_blockstamp(20, '0x20'), 252390553, 10, 20, True),   # < normal cl rebase and specific rebase is negative
+        (simple_blockstamp(20, '0x20'), 252390553, 10, 10, True),   # < normal cl rebase and specific rebase is negative
     ]
 )
 def test_is_abnormal_cl_rebase(
@@ -279,11 +278,14 @@ def test_is_abnormal_cl_rebase(
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
     bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
+    bunker.all_validators = {
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
+    }
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
 
-    result = bunker._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
+    result = bunker.is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
 
     assert result == expected_is_abnormal
 
@@ -292,8 +294,8 @@ def test_is_abnormal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_rebase"),
     [
-        (simple_blockstamp(40, '0x40'), 535401217),
-        (simple_blockstamp(20, '0x20'), 178467072),
+        (simple_blockstamp(40, '0x40'), 378585831),
+        (simple_blockstamp(20, '0x20'), 126195277),
     ]
 )
 def test_get_normal_cl_rebase(
@@ -311,6 +313,9 @@ def test_get_normal_cl_rebase(
         seconds_per_slot=12,
         genesis_time=0,
     )
+    bunker.all_validators = {
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
+    }
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
