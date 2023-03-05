@@ -38,17 +38,23 @@ class MidtermSlashingPenalty:
         )
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
+        future_midterm_penalty_lido_slashed_validators = {
+            k: v for k, v in lido_slashed_validators.items()
+            if MidtermSlashingPenalty.get_midterm_slashing_epoch(v) > blockstamp.ref_epoch
+        }
         # If no one Lido in current not withdrawn slashed validators
         # and no one midterm slashing epoch in the future - no need to bunker
-        if not lido_slashed_validators:
+        if not future_midterm_penalty_lido_slashed_validators:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
         total_balance = calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
-        per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
+        per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(
+            future_midterm_penalty_lido_slashed_validators, blockstamp.ref_epoch
+        )
         per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
-            per_epoch_buckets, lido_slashed_validators, total_balance
+            per_epoch_buckets, future_midterm_penalty_lido_slashed_validators, total_balance
         )
         # Calculate lido midterm penalties impact in each frame
         per_frame_buckets = MidtermSlashingPenalty.get_per_frame_lido_midterm_penalties(
@@ -125,7 +131,9 @@ class MidtermSlashingPenalty:
         for key, v in lido_slashed_validators.items():
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_slashing_epoch(v)
             # We should calculate midterm penalties by sum of slashings which bound with midterm penalty epoch
-            bound_slashed_validators = MidtermSlashingPenalty.get_bound_slashed_validators(per_epoch_buckets, midterm_penalty_epoch)
+            bound_slashed_validators = MidtermSlashingPenalty.get_bound_slashed_validators(
+                per_epoch_buckets, midterm_penalty_epoch
+            )
             slashings = sum(int(v.validator.effective_balance) for v in bound_slashed_validators.values())
             adjusted_total_slashing_balance = min(
                 slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
@@ -149,8 +157,9 @@ class MidtermSlashingPenalty:
         for epoch, validator_penalty in per_epoch_lido_midterm_penalties.items():
             frame_index = MidtermSlashingPenalty.get_frame_by_epoch(epoch, frame_config)
             for val_key, penalty in validator_penalty.items():
-                if val_key not in per_frame_buckets[frame_index]:
-                    per_frame_buckets[frame_index][val_key] = penalty
+                per_frame_buckets[frame_index][val_key] = (
+                    max(penalty, per_frame_buckets[frame_index].get(val_key, Gwei(0)))
+                )
         return [Gwei(sum(penalties.values())) for penalties in per_frame_buckets.values()]
 
     @staticmethod
