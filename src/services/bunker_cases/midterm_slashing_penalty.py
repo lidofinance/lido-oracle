@@ -30,23 +30,30 @@ class MidtermSlashingPenalty:
 
     def is_high_midterm_slashing_penalty(self, blockstamp: ReferenceBlockStamp, cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
-        all_slashed_validators = self._not_withdrawn_slashed_validators(self.all_validators, blockstamp.ref_epoch)
-        lido_slashed_validators = self._not_withdrawn_slashed_validators(self.lido_validators, blockstamp.ref_epoch)
+        all_slashed_validators = MidtermSlashingPenalty.not_withdrawn_slashed_validators(
+            self.all_validators, blockstamp.ref_epoch
+        )
+        lido_slashed_validators = MidtermSlashingPenalty.not_withdrawn_slashed_validators(
+            self.lido_validators, blockstamp.ref_epoch
+        )
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
-        # If no one Lido in current slashed validators - no need to bunker
+        # If no one Lido in current not withdrawn slashed validators
+        # and no one midterm slashing epoch in the future - no need to bunker
         if not lido_slashed_validators:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
         total_balance = calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
-        per_epoch_buckets = self._get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
-        per_epoch_lido_midterm_penalties = self._get_per_epoch_lido_midterm_penalties(
+        per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
+        per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
             per_epoch_buckets, lido_slashed_validators, total_balance
         )
         # Calculate lido midterm penalties impact in each frame
-        per_frame_buckets = self._get_per_frame_lido_midterm_penalties(per_epoch_lido_midterm_penalties, self.f_conf)
+        per_frame_buckets = MidtermSlashingPenalty.get_per_frame_lido_midterm_penalties(
+            per_epoch_lido_midterm_penalties, self.f_conf
+        )
 
         # If any midterm penalty sum of lido validators in frame bucket greater than rebase we should trigger bunker
         max_lido_midterm_penalty = max(per_frame_buckets)
@@ -59,7 +66,7 @@ class MidtermSlashingPenalty:
         return False
 
     @staticmethod
-    def _get_per_epoch_buckets(
+    def get_per_epoch_buckets(
         all_slashed_validators: dict[str, Validator], ref_epoch: EpochNumber
     ) -> dict[EpochNumber, dict[str, Validator]]:
         """
@@ -91,7 +98,7 @@ class MidtermSlashingPenalty:
         return per_epoch_buckets
 
     @staticmethod
-    def _not_withdrawn_slashed_validators(
+    def not_withdrawn_slashed_validators(
         all_validators: Mapping[str, Validator], ref_epoch: EpochNumber
     ) -> dict[str, Validator]:
         """
@@ -105,8 +112,8 @@ class MidtermSlashingPenalty:
 
         return slashed_validators
 
-    def _get_per_epoch_lido_midterm_penalties(
-        self,
+    @staticmethod
+    def get_per_epoch_lido_midterm_penalties(
         per_epoch_buckets: dict[EpochNumber, dict[str, Validator]],
         lido_slashed_validators: dict[str, Validator],
         total_balance: Gwei,
@@ -116,11 +123,9 @@ class MidtermSlashingPenalty:
         """
         per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]] = defaultdict(dict)
         for key, v in lido_slashed_validators.items():
-            midterm_penalty_epoch = EpochNumber(
-                int(v.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2
-            )
+            midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_slashing_epoch(v)
             # We should calculate midterm penalties by sum of slashings which bound with midterm penalty epoch
-            bound_slashed_validators = self._get_bound_slashed_validators(per_epoch_buckets, midterm_penalty_epoch)
+            bound_slashed_validators = MidtermSlashingPenalty.get_bound_slashed_validators(per_epoch_buckets, midterm_penalty_epoch)
             slashings = sum(int(v.validator.effective_balance) for v in bound_slashed_validators.values())
             adjusted_total_slashing_balance = min(
                 slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
@@ -132,8 +137,8 @@ class MidtermSlashingPenalty:
             per_epoch_lido_midterm_penalties[midterm_penalty_epoch][key] = Gwei(penalty)
         return per_epoch_lido_midterm_penalties
 
-    def _get_per_frame_lido_midterm_penalties(
-        self,
+    @staticmethod
+    def get_per_frame_lido_midterm_penalties(
         per_epoch_lido_midterm_penalties: dict[EpochNumber, dict[str, Gwei]],
         frame_config: FrameConfig,
     ) -> list[Gwei]:
@@ -142,14 +147,14 @@ class MidtermSlashingPenalty:
         """
         per_frame_buckets: dict[int, dict[str, Gwei]] = defaultdict(dict)
         for epoch, validator_penalty in per_epoch_lido_midterm_penalties.items():
-            frame_index = self._get_frame_by_epoch(epoch, frame_config)
+            frame_index = MidtermSlashingPenalty.get_frame_by_epoch(epoch, frame_config)
             for val_key, penalty in validator_penalty.items():
                 if val_key not in per_frame_buckets[frame_index]:
                     per_frame_buckets[frame_index][val_key] = penalty
         return [Gwei(sum(penalties.values())) for penalties in per_frame_buckets.values()]
 
     @staticmethod
-    def _get_bound_slashed_validators(
+    def get_bound_slashed_validators(
         per_epoch_buckets: dict[EpochNumber, dict[str, Validator]],
         bound_with_epoch: EpochNumber
     ) -> dict[str, Validator]:
@@ -168,5 +173,9 @@ class MidtermSlashingPenalty:
         return bounded_slashed_validators
 
     @staticmethod
-    def _get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
+    def get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
         return abs(epoch - frame_config.initial_epoch) // frame_config.epochs_per_frame
+
+    @staticmethod
+    def get_midterm_slashing_epoch(validator: Validator) -> EpochNumber:
+        return EpochNumber(int(validator.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2)

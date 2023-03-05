@@ -456,7 +456,7 @@ test_data_calculate_real_balance = [
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_real_balance)
 def test_calculate_real_balance(validators, expected_balance):
-    total_effective_balance = BunkerService._calculate_real_balance(validators)
+    total_effective_balance = BunkerService.calculate_real_balance(validators)
     assert total_effective_balance == expected_balance
 
 
@@ -483,7 +483,7 @@ test_data_calculate_total_effective_balance = [
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_indexes"), test_data_calculate_total_effective_balance)
 def test_not_withdrawn_slashed_validators(validators, expected_indexes):
-    slashed_validators = BunkerService._not_withdrawn_slashed_validators(validators, EpochNumber(15000))
+    slashed_validators = BunkerService.not_withdrawn_slashed_validators(validators, EpochNumber(15000))
     slashed_validators_keys = [*slashed_validators.keys()]
     assert slashed_validators_keys == expected_indexes
 
@@ -512,7 +512,7 @@ def test_get_per_epoch_buckets():
         expected_determined_slashed_epoch - expected_buckets + 1, expected_determined_slashed_epoch
     )
 
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
     assert len(per_epoch_buckets) == expected_buckets
     assert per_epoch_buckets[expected_determined_slashed_epoch] == all_slashed_validators
@@ -523,9 +523,9 @@ def test_get_per_epoch_buckets():
 @pytest.mark.unit
 def test_get_bounded_slashed_validators():
     determined_slashed_epoch = EpochNumber(10000)
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
-    bounded_slashed_validators = BunkerService._get_bound_slashed_validators(
+    bounded_slashed_validators = BunkerService.get_bound_slashed_validators(
         per_epoch_buckets, determined_slashed_epoch
     )
 
@@ -540,10 +540,10 @@ def test_get_per_epoch_lido_midterm_penalties():
         '0x2': all_slashed_validators['0x2']
     }
     total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
-    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
-        object.__new__(BunkerService), per_epoch_buckets, lido_slashed_validators, total_balance
+    per_epoch_lido_midterm_penalties = BunkerService.get_per_epoch_lido_midterm_penalties(
+        per_epoch_buckets, lido_slashed_validators, total_balance
     )
 
     assert len(per_epoch_lido_midterm_penalties) == 1
@@ -560,13 +560,12 @@ def test_get_per_frame_lido_midterm_penalties():
         '0x2': all_slashed_validators['0x2']
     }
     total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
-    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
-        object.__new__(BunkerService), per_epoch_buckets, lido_slashed_validators, total_balance
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_lido_midterm_penalties = BunkerService.get_per_epoch_lido_midterm_penalties(
+       per_epoch_buckets, lido_slashed_validators, total_balance
     )
 
-    per_frame_lido_midterm_penalties = BunkerService._get_per_frame_lido_midterm_penalties(
-        object.__new__(BunkerService),
+    per_frame_lido_midterm_penalties = BunkerService.get_per_frame_lido_midterm_penalties(
         per_epoch_lido_midterm_penalties,
         FrameConfig(
             initial_epoch=EpochNumber(0),
@@ -594,7 +593,7 @@ def test_get_frame_by_epoch(epoch, expected_frame):
         epochs_per_frame=EpochNumber(225),
         fast_lane_length_slots=0,
     )
-    frame_by_epoch = BunkerService._get_frame_by_epoch(epoch, frame_config)
+    frame_by_epoch = BunkerService.get_frame_by_epoch(epoch, frame_config)
     assert frame_by_epoch == expected_frame
 
 

@@ -153,7 +153,7 @@ class AbnormalClRebase:
             {"msg": f"Calculating CL rebase between {prev_blockstamp.ref_epoch, ref_blockstamp.ref_epoch} epochs"}
         )
 
-        ref_lido_balance = self._calculate_real_balance(self.lido_validators)
+        ref_lido_balance = AbnormalClRebase.calculate_real_balance(self.lido_validators)
         ref_lido_vault_balance = self._get_withdrawal_vault_balance(ref_blockstamp)
         ref_lido_balance_with_vault = ref_lido_balance + int(self.w3.from_wei(ref_lido_vault_balance, "gwei"))
 
@@ -167,7 +167,7 @@ class AbnormalClRebase:
 
         prev_lido_validators_by_key = {v.validator.pubkey: v for v in prev_lido_validators}
 
-        prev_lido_balance = self._calculate_real_balance(prev_lido_validators_by_key)
+        prev_lido_balance = AbnormalClRebase.calculate_real_balance(prev_lido_validators_by_key)
         prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
         prev_lido_balance_with_vault = prev_lido_balance + int(self.w3.from_wei(prev_lido_vault_balance, "gwei"))
 
@@ -233,7 +233,7 @@ class AbnormalClRebase:
         )
 
     @staticmethod
-    def _calculate_real_balance(validators: Mapping[Any, Validator]) -> Gwei:
+    def calculate_real_balance(validators: Mapping[Any, Validator]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators.values()))
 
     def _calculate_normal_cl_rebase(
