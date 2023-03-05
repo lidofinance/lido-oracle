@@ -54,7 +54,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.services.bunker.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
+        'src.services.bunker_cases.abnormal_cl_rebase.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
     )
 
 
@@ -241,7 +241,7 @@ def test_is_high_midterm_slashing_penalty(
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
     }
 
-    result = bunker._is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
+    result = bunker.is_high_midterm_slashing_penalty(blockstamp, frame_cl_rebase)
     assert result == expected_is_high_midterm_slashing_penalty
 
 
@@ -249,14 +249,13 @@ def test_is_high_midterm_slashing_penalty(
 @pytest.mark.parametrize(
     ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal"),
     [
-        (simple_blockstamp(40, '0x40'), 713868291, 0, 0, False),    # > normal cl rebase
-        (simple_blockstamp(40, '0x40'), 713868290, 0, 0, False),    # == normal cl rebase and no check specific rebase
-        (simple_blockstamp(40, '0x40'), 535401216, 10, 20, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40, '0x40'), 535401216, 10, 10, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40, '0x40'), 535401216, 0, 0, True),     # < normal cl rebase and no check specific rebase
-        (simple_blockstamp(20, '0x20'), 356934144, 10, 20, True),   # < normal cl rebase and specific rebase is negative
-        (simple_blockstamp(20, '0x20'), 356934144, 10, 10, True),   # < normal cl rebase and specific rebase is negative
-
+        (simple_blockstamp(40, '0x40'), 504781109, 0, 0, False),    # > normal cl rebase
+        (simple_blockstamp(40, '0x40'), 504781108, 0, 0, False),    # == normal cl rebase and no check specific rebase
+        (simple_blockstamp(40, '0x40'), 504781107, 10, 20, False),  # < normal cl rebase but specific rebase is positive
+        (simple_blockstamp(40, '0x40'), 504781107, 10, 10, False),  # < normal cl rebase but specific rebase is positive
+        (simple_blockstamp(40, '0x40'), 504781107, 0, 0, True),     # < normal cl rebase and no check specific rebase
+        (simple_blockstamp(20, '0x20'), 252390553, 10, 20, True),   # < normal cl rebase and specific rebase is negative
+        (simple_blockstamp(20, '0x20'), 252390553, 10, 10, True),   # < normal cl rebase and specific rebase is negative
     ]
 )
 def test_is_abnormal_cl_rebase(
@@ -279,11 +278,14 @@ def test_is_abnormal_cl_rebase(
     )
     bunker.b_conf.rebase_check_nearest_epoch_distance = nearest_epoch_distance
     bunker.b_conf.rebase_check_distant_epoch_distance = far_epoch_distance
+    bunker.all_validators = {
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
+    }
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
 
-    result = bunker._is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
+    result = bunker.is_abnormal_cl_rebase(blockstamp, frame_cl_rebase)
 
     assert result == expected_is_abnormal
 
@@ -292,8 +294,8 @@ def test_is_abnormal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_rebase"),
     [
-        (simple_blockstamp(40, '0x40'), 535401217),
-        (simple_blockstamp(20, '0x20'), 178467072),
+        (simple_blockstamp(40, '0x40'), 378585831),
+        (simple_blockstamp(20, '0x20'), 126195277),
     ]
 )
 def test_get_normal_cl_rebase(
@@ -311,6 +313,9 @@ def test_get_normal_cl_rebase(
         seconds_per_slot=12,
         genesis_time=0,
     )
+    bunker.all_validators = {
+        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
+    }
     bunker.lido_validators = {
         v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[3:6]
     }
@@ -451,34 +456,7 @@ test_data_calculate_real_balance = [
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_real_balance)
 def test_calculate_real_balance(validators, expected_balance):
-    total_effective_balance = BunkerService._calculate_real_balance(validators)
-    assert total_effective_balance == expected_balance
-
-
-test_data_calculate_total_effective_balance = [
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', False, '', '1', '100500', '')),
-         '0x1': Validator('1', '1', ValidatorStatus.ACTIVE_EXITING,
-                          ValidatorState('0x1', '', '3', False, '', '1', '100500', '')),
-         '0x2': Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED,
-                          ValidatorState('0x2', '', '4', True, '', '1', '100500', ''))},
-        9,
-    ),
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', False, '', '1', '100500', '')),
-         '0x1': Validator('1', '1', ValidatorStatus.EXITED_SLASHED,
-                          ValidatorState('0x1', '', '2', True, '', '1', '200', ''))},
-        2,
-    ),
-]
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_total_effective_balance)
-def test_calculate_total_active_effective_balance(validators, expected_balance):
-    total_effective_balance = BunkerService._calculate_total_active_effective_balance(validators, EpochNumber(15000))
+    total_effective_balance = BunkerService.calculate_real_balance(validators)
     assert total_effective_balance == expected_balance
 
 
@@ -505,7 +483,7 @@ test_data_calculate_total_effective_balance = [
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_indexes"), test_data_calculate_total_effective_balance)
 def test_not_withdrawn_slashed_validators(validators, expected_indexes):
-    slashed_validators = BunkerService._not_withdrawn_slashed_validators(validators, EpochNumber(15000))
+    slashed_validators = BunkerService.not_withdrawn_slashed_validators(validators, EpochNumber(15000))
     slashed_validators_keys = [*slashed_validators.keys()]
     assert slashed_validators_keys == expected_indexes
 
@@ -534,7 +512,7 @@ def test_get_per_epoch_buckets():
         expected_determined_slashed_epoch - expected_buckets + 1, expected_determined_slashed_epoch
     )
 
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
     assert len(per_epoch_buckets) == expected_buckets
     assert per_epoch_buckets[expected_determined_slashed_epoch] == all_slashed_validators
@@ -545,9 +523,9 @@ def test_get_per_epoch_buckets():
 @pytest.mark.unit
 def test_get_bounded_slashed_validators():
     determined_slashed_epoch = EpochNumber(10000)
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
-    bounded_slashed_validators = BunkerService._get_bound_slashed_validators(
+    bounded_slashed_validators = BunkerService.get_bound_slashed_validators(
         per_epoch_buckets, determined_slashed_epoch
     )
 
@@ -562,10 +540,10 @@ def test_get_per_epoch_lido_midterm_penalties():
         '0x2': all_slashed_validators['0x2']
     }
     total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
 
-    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
-        object.__new__(BunkerService), per_epoch_buckets, lido_slashed_validators, total_balance
+    per_epoch_lido_midterm_penalties = BunkerService.get_per_epoch_lido_midterm_penalties(
+        per_epoch_buckets, lido_slashed_validators, total_balance
     )
 
     assert len(per_epoch_lido_midterm_penalties) == 1
@@ -582,13 +560,12 @@ def test_get_per_frame_lido_midterm_penalties():
         '0x2': all_slashed_validators['0x2']
     }
     total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = BunkerService._get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
-    per_epoch_lido_midterm_penalties = BunkerService._get_per_epoch_lido_midterm_penalties(
-        object.__new__(BunkerService), per_epoch_buckets, lido_slashed_validators, total_balance
+    per_epoch_buckets = BunkerService.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+    per_epoch_lido_midterm_penalties = BunkerService.get_per_epoch_lido_midterm_penalties(
+       per_epoch_buckets, lido_slashed_validators, total_balance
     )
 
-    per_frame_lido_midterm_penalties = BunkerService._get_per_frame_lido_midterm_penalties(
-        object.__new__(BunkerService),
+    per_frame_lido_midterm_penalties = BunkerService.get_per_frame_lido_midterm_penalties(
         per_epoch_lido_midterm_penalties,
         FrameConfig(
             initial_epoch=EpochNumber(0),
@@ -616,7 +593,7 @@ def test_get_frame_by_epoch(epoch, expected_frame):
         epochs_per_frame=EpochNumber(225),
         fast_lane_length_slots=0,
     )
-    frame_by_epoch = BunkerService._get_frame_by_epoch(epoch, frame_config)
+    frame_by_epoch = BunkerService.get_frame_by_epoch(epoch, frame_config)
     assert frame_by_epoch == expected_frame
 
 
