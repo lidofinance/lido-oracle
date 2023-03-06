@@ -98,6 +98,11 @@ class UpdateResponsesProvider(MultiProvider, UpdateResponses):
         self.responses.append({"method": method, "params": params, "response": response})
         return response
 
+    @contextmanager
+    def use_mock(self, mock_path: Path):
+        with self.from_file.use_mock(mock_path), super().use_mock(mock_path):
+            yield
+
 
 class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     responses: dict[list[dict[str, Any]]]
@@ -132,6 +137,11 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
             response = super()._get(url, params)
         self.responses.append({"url": url, "params": params, "response": response})
         return response
+
+    @contextmanager
+    def use_mock(self, mock_path: Path):
+        with self.from_file.use_mock(mock_path), super().use_mock(mock_path):
+            yield
 
 
 class ResponseFromFileConsensusClientModule(ConsensusClient, ResponseFromFileHTTPProvider):
