@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 class MidtermSlashingPenalty:
 
     f_conf: FrameConfig
-    all_validators: dict[str, Validator]
-    lido_validators: dict[str, LidoValidator]
+
+    all_validators: dict[str, Validator] = {}
+    lido_validators: dict[str, LidoValidator] = {}
 
     def __init__(self, w3: Web3):
         self.w3 = w3

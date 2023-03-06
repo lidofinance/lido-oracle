@@ -22,17 +22,8 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
     """
     https://research.lido.fi/t/withdrawals-for-lido-on-ethereum-bunker-mode-design-and-implementation/
     """
-    b_conf: BunkerConfig
-    c_conf: ChainConfig
-    f_conf: FrameConfig
 
     simulated_cl_rebase: LidoReportRebase
-
-    last_report_ref_slot: SlotNumber
-
-    all_validators: dict[str, Validator]
-    lido_keys: dict[str, LidoKey]
-    lido_validators: dict[str, LidoValidator]
 
     def __init__(self, w3: Web3):
         self.w3 = w3
