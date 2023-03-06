@@ -2,7 +2,6 @@ import logging
 from functools import lru_cache
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
-from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 

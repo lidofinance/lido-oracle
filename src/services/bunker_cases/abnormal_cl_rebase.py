@@ -2,7 +2,7 @@ import logging
 import math
 from typing import Mapping, Any
 
-from web3.types import Wei, EventData
+from web3.types import EventData
 
 from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.submodules.typings import ChainConfig
