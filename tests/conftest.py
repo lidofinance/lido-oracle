@@ -106,7 +106,7 @@ def keys_api_client(request, responses_path, web3):
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
-    with provider.use_mock(Path('contracts.json')):
+    with provider.use_mock(Path('contracts.v1.json')):
         web3.attach_modules({
             'lido_contracts': LidoContracts,
         })
