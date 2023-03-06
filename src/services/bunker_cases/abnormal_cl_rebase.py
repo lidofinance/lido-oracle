@@ -137,10 +137,14 @@ class AbnormalClRebase:
             return specific_cl_rebase < 0
 
         nearest_cl_rebase = self._calculate_cl_rebase_between(nearest_blockstamp, ref_blockstamp)
+        logger.info({"msg": f"Nearest specific CL rebase {nearest_cl_rebase} Gwei"})
+        if nearest_cl_rebase < 0:
+            return True
         distant_cl_rebase = self._calculate_cl_rebase_between(distant_blockstamp, ref_blockstamp)
-
-        logger.info({"msg": f"Specific CL rebase {nearest_cl_rebase,distant_cl_rebase=} Gwei"})
-        return nearest_cl_rebase < 0 or distant_cl_rebase < 0
+        logger.info({"msg": f"Distant specific CL rebase {distant_cl_rebase} Gwei"})
+        if distant_cl_rebase < 0:
+            return True
+        return False
 
     def _calculate_cl_rebase_between(self, prev_blockstamp: ReferenceBlockStamp, ref_blockstamp: ReferenceBlockStamp) -> Gwei:
         """
