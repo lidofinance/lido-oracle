@@ -14,7 +14,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.client import KeysAPIClient
 
-BASE_FIXTURES_PATH = Path.cwd() / 'fixtures'
+BASE_FIXTURES_PATH = Path().absolute() / 'fixtures'
 
 
 class NoMockException(Exception):
@@ -29,15 +29,11 @@ class FromFile:
     responses: dict[Path, list[dict[str, Any]]]
 
     def __init__(self, mock_path: Path):
-        mock_path = BASE_FIXTURES_PATH / mock_path
         self.responses = {}
-        if not mock_path.exists():
-            return
         self.load_from_file(mock_path)
 
     @contextmanager
     def use_mock(self, mock_path: Path):
-        mock_path = BASE_FIXTURES_PATH / mock_path
         self.load_from_file(mock_path)
         yield
 
@@ -45,6 +41,7 @@ class FromFile:
         mock_path = BASE_FIXTURES_PATH / mock_path
         if not mock_path.exists():
             return
+            # raise FileNotFoundError(f'No such file: {mock_path}')
         with open(mock_path, "r") as f:
             self.responses[mock_path] = json.load(f)
 
