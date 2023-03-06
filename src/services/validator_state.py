@@ -73,7 +73,7 @@ class LidoValidatorStateService:
 
                 last_slot_to_exit = validator_available_to_exit_epoch * chain_config.slots_per_epoch + delinquent_timeout_in_slots
 
-                if blockstamp.ref_slot < last_slot_to_exit:
+                if blockstamp.ref_slot <= last_slot_to_exit:
                     return total
 
                 return total + 1
