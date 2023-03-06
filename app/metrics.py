@@ -83,13 +83,23 @@ def get_full_current_metrics(w3: Web3, pool, beacon, beacon_spec, partial_metric
 
     block_number = beacon.get_block_by_beacon_slot(slot)
     withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
-    full_metrics.beaconBalance += w3.eth.get_balance(
+    withdrawal_vault_balance = w3.eth.get_balance(
         w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),
         block_identifier=block_number
     )
+    logging.info(
+        f'Lido validators\' sum. balance on Beacon: '
+        f'{full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
+    )
+    logging.info(
+        f'Withdrawal vault balance: {withdrawal_vault_balance} wei or {withdrawal_vault_balance/1e18} ETH'
+    )
+
+    full_metrics.beaconBalance += withdrawal_vault_balance
 
     logging.info(
-        f'Lido validators\' sum. balance on Beacon: {full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
+        f'Lido validators\' sum. balance on Beacon corrected by withdrawals: '
+        f'{full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
     )
     logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
     return full_metrics
@@ -147,7 +157,7 @@ def compare_pool_metrics(previous: PoolMetrics, current: PoolMetrics) -> bool:
         logging.info('No time delta between current and previous epochs. Skip APR calculations.')
         assert reward == 0
         assert current.beaconValidators == previous.beaconValidators
-        assert current.beaconBalance == previous.beaconBalance
+        assert current.beaconBalance == current.beaconBalance
         return
 
     # APR calculation
