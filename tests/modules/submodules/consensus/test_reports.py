@@ -1,9 +1,12 @@
+from unittest.mock import Mock
+
 import pytest
 from hexbytes import HexBytes
 from src import variables
 from src.modules.accounting.typings import Account
 
 from tests.conftest import get_blockstamp_by_state
+
 
 @pytest.fixture()
 def set_report_account(monkeypatch):
@@ -27,6 +30,27 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
     # TODO add check that report hash was submitted
+
+
+def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info.is_fast_lane = False
+    member_info.current_frame_ref_slot = latest_blockstamp.slot_number - 1
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
+    assert "report will be postponed" in caplog.messages[-1]
+
+
+def test_report_hash_member_is_not_report_member(web3, consensus, caplog):
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info.is_report_member = False
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
+    assert "Account can`t submit report hash" in caplog.messages[-1]
 
 
 def test_do_not_report_same_hash(web3, consensus, caplog):

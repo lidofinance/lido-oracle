@@ -98,9 +98,10 @@ def response_to_file_cl_client(web3, responses_path) -> ResponseToFileConsensusC
 
 @pytest.fixture()
 def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensusClientModule:
-    client = UpdateResponsesConsensusClientModule(responses_path, CONSENSUS_CLIENT_URI, web3)
+    path = responses_path.with_suffix('.cl.json')
+    client = UpdateResponsesConsensusClientModule(path, CONSENSUS_CLIENT_URI, web3)
     yield client
-    client.save_responses(responses_path.with_suffix('.cl.json'))
+    client.save_responses(path)
 
 
 @pytest.fixture()
@@ -124,9 +125,10 @@ def response_to_file_ka_client(web3, responses_path) -> ResponseToFileKeysAPICli
 
 @pytest.fixture()
 def update_responses_ka_client(web3, responses_path) -> UpdateResponsesKeysAPIClientModule:
-    client = UpdateResponsesKeysAPIClientModule(responses_path, KEYS_API_URI, web3)
+    path = responses_path.with_suffix('.ka.json')
+    client = UpdateResponsesKeysAPIClientModule(path, KEYS_API_URI, web3)
     yield client
-    client.save_responses(responses_path.with_suffix('.ka.json'))
+    client.save_responses(path)
 
 
 @pytest.fixture()
