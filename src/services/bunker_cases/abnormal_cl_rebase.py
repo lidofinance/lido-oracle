@@ -9,7 +9,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import ReferenceBlockStamp, Gwei, BlockStamp, EpochNumber, BlockNumber, SlotNumber
+from src.typings import ReferenceBlockStamp, Gwei, EpochNumber, BlockNumber, SlotNumber
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator

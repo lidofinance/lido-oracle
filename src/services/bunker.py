@@ -9,7 +9,7 @@ from src.modules.accounting.typings import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.providers.consensus.typings import Validator
 from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import BlockStamp, SlotNumber, ReferenceBlockStamp, Gwei
+from src.typings import BlockStamp, ReferenceBlockStamp, Gwei
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
 
