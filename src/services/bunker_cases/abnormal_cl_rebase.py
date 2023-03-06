@@ -154,7 +154,7 @@ class AbnormalClRebase:
         )
 
         ref_lido_balance = AbnormalClRebase.calculate_real_balance(self.lido_validators)
-        ref_lido_vault_balance = self._get_withdrawal_vault_balance(ref_blockstamp)
+        ref_lido_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(ref_blockstamp)
         ref_lido_balance_with_vault = ref_lido_balance + int(self.w3.from_wei(ref_lido_vault_balance, "gwei"))
 
         prev_all_validators = {
@@ -168,7 +168,7 @@ class AbnormalClRebase:
         prev_lido_validators_by_key = {v.validator.pubkey: v for v in prev_lido_validators}
 
         prev_lido_balance = AbnormalClRebase.calculate_real_balance(prev_lido_validators_by_key)
-        prev_lido_vault_balance = self._get_withdrawal_vault_balance(prev_blockstamp)
+        prev_lido_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(prev_blockstamp)
         prev_lido_balance_with_vault = prev_lido_balance + int(self.w3.from_wei(prev_lido_vault_balance, "gwei"))
 
         # handle 32 ETH balances of freshly baked validators, who was activated between epochs
@@ -189,15 +189,6 @@ class AbnormalClRebase:
         )
 
         return Gwei(cl_rebase)
-
-    def _get_withdrawal_vault_balance(self, blockstamp: BlockStamp) -> Wei:
-        withdrawal_vault_address = self.w3.lido_contracts.lido_locator.functions.withdrawalVault().call(
-            block_identifier=blockstamp.block_hash
-        )
-        return self.w3.eth.get_balance(
-            withdrawal_vault_address,
-            block_identifier=blockstamp.block_hash,
-        )
 
     def _get_withdrawn_from_vault_between(self, prev_blockstamp: ReferenceBlockStamp, curr_blockstamp: ReferenceBlockStamp) -> int:
         """

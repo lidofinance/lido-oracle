@@ -34,6 +34,10 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
     lido_keys: dict[str, LidoKey]
     lido_validators: dict[str, LidoValidator]
 
+    def __init__(self, w3: Web3):
+        self.w3 = w3
+        super().__init__(w3)
+
     @lru_cache(maxsize=1)
     def is_bunker_mode(
         self,

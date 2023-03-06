@@ -9,6 +9,7 @@ from src.providers.consensus.typings import Validator, ValidatorStatus, Validato
 from src.services.bunker import BunkerService, BunkerConfig
 from src.providers.keys.typings import LidoKey
 from src.typings import EpochNumber, BlockNumber, BlockStamp, ReferenceBlockStamp
+from src.web3py.extensions import LidoContracts
 
 
 def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
@@ -101,7 +102,7 @@ def mock_get_withdrawal_vault_balance(bunker):
         }
         return balance[blockstamp.block_number]
 
-    bunker._get_withdrawal_vault_balance = Mock(side_effect=_get_withdrawal_vault_balance)
+    bunker.w3.lido_contracts.get_withdrawal_balance = Mock(side_effect=_get_withdrawal_vault_balance)
 
 
 @pytest.fixture
@@ -184,6 +185,8 @@ def bunker(web3, lido_validators) -> BunkerService:
         '0x04': simple_key('0x04'),
         '0x05': simple_key('0x05'),
     }
+    service.w3.lido_contracts = object.__new__(LidoContracts)
+    service.w3.lido_contracts.w3 = web3
     return service
 
 
