@@ -50,9 +50,7 @@ class MidtermSlashingPenalty:
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
         total_balance = calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
-        per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(
-            future_midterm_penalty_lido_slashed_validators, blockstamp.ref_epoch
-        )
+        per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, blockstamp.ref_epoch)
         per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
             per_epoch_buckets, future_midterm_penalty_lido_slashed_validators, total_balance
         )
@@ -134,7 +132,9 @@ class MidtermSlashingPenalty:
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_slashed_validators(
                 per_epoch_buckets, midterm_penalty_epoch
             )
-            slashings = sum(int(v.validator.effective_balance) for v in bound_slashed_validators.values())
+            # We don't know which effective balance was at the time of slashing
+            # So we make a pessimistic assumption that it was 32 ETH
+            slashings = len(bound_slashed_validators) * 32 * 10 ** 9
             adjusted_total_slashing_balance = min(
                 slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
                 total_balance
@@ -154,12 +154,10 @@ class MidtermSlashingPenalty:
         Put per epoch buckets into per frame buckets to calculate lido midterm penalties impact in each frame
         """
         per_frame_buckets: dict[int, dict[str, Gwei]] = defaultdict(dict)
-        for epoch, validator_penalty in per_epoch_lido_midterm_penalties.items():
-            frame_index = MidtermSlashingPenalty.get_frame_by_epoch(epoch, frame_config)
+        for midterm_penalty_epoch, validator_penalty in per_epoch_lido_midterm_penalties.items():
+            frame_index = MidtermSlashingPenalty.get_frame_by_epoch(midterm_penalty_epoch, frame_config)
             for val_key, penalty in validator_penalty.items():
-                per_frame_buckets[frame_index][val_key] = (
-                    max(penalty, per_frame_buckets[frame_index].get(val_key, Gwei(0)))
-                )
+                per_frame_buckets[frame_index][val_key] = penalty
         return [Gwei(sum(penalties.values())) for penalties in per_frame_buckets.values()]
 
     @staticmethod
@@ -183,7 +181,7 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> int:
-        return abs(epoch - frame_config.initial_epoch) // frame_config.epochs_per_frame
+        return (epoch - frame_config.initial_epoch) // frame_config.epochs_per_frame
 
     @staticmethod
     def get_midterm_slashing_epoch(validator: Validator) -> EpochNumber:
