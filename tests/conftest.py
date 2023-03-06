@@ -5,6 +5,7 @@ from _pytest.fixtures import FixtureRequest
 from web3.middleware import simple_cache_middleware
 from web3.types import Timestamp
 
+import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
@@ -106,10 +107,14 @@ def keys_api_client(request, responses_path, web3):
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
+    old_locator = src.variables.LIDO_LOCATOR_ADDRESS
+    src.variables.LIDO_LOCATOR_ADDRESS = "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC"
     with provider.use_mock(Path('contracts.v1.json')):
+        # First contracts deployment
         web3.attach_modules({
             'lido_contracts': LidoContracts,
         })
+    src.variables.LIDO_LOCATOR_ADDRESS = old_locator
 
 
 # ---- Transaction Utils

@@ -41,7 +41,6 @@ class FromFile:
         mock_path = BASE_FIXTURES_PATH / mock_path
         if not mock_path.exists():
             return
-            # raise FileNotFoundError(f'No such file: {mock_path}')
         with open(mock_path, "r") as f:
             self.responses[mock_path] = json.load(f)
 
