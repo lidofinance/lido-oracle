@@ -85,16 +85,16 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
         config = self.w3.lido_contracts.oracle_daemon_config
         return BunkerConfig(
             Web3.to_int(
-                config.functions.get('NORMALIZED_CL_PER_EPOCH').call(block_identifier=blockstamp.block_hash)
+                config.functions.get('NORMALIZED_CL_REWARD_PER_EPOCH').call(block_identifier=blockstamp.block_hash)
             ),
             Web3.to_int(
-                config.functions.get('NORMALIZED_CL_MISTAKE_BP').call(block_identifier=blockstamp.block_hash)
+                config.functions.get('NORMALIZED_CL_REWARD_MISTAKE_RATE_BP').call(block_identifier=blockstamp.block_hash)
             ) / TOTAL_BASIS_POINTS,
             Web3.to_int(
                 config.functions.get('REBASE_CHECK_NEAREST_EPOCH_DISTANCE').call(block_identifier=blockstamp.block_hash)
             ),
             Web3.to_int(
-                config.functions.get('REBASE_CHECK_FAR_EPOCH_DISTANCE').call(block_identifier=blockstamp.block_hash)
+                config.functions.get('REBASE_CHECK_DISTANT_EPOCH_DISTANCE').call(block_identifier=blockstamp.block_hash)
             )
         )
 
