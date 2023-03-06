@@ -11,6 +11,7 @@ class PoolMetrics:
     bufferedBalance = 0
     depositedValidators = 0
     activeValidatorBalance = 0
+    withdrawalVaultBalance = 0
     validatorsKeysNumber = None
 
     def getTotalPooledEther(self):
