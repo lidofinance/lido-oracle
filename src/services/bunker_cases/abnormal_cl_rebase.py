@@ -39,8 +39,7 @@ class AbnormalClRebase:
             if self.b_conf.rebase_check_nearest_epoch_distance == 0 and self.b_conf.rebase_check_distant_epoch_distance == 0:
                 logger.info({"msg": "Specific CL rebase calculation are disabled"})
                 return True
-            is_negative_specific_cl_rebase = self._is_negative_specific_cl_rebase(blockstamp)
-            if is_negative_specific_cl_rebase:
+            if self._is_negative_specific_cl_rebase(blockstamp):
                 return True
         return False
 
