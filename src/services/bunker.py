@@ -17,16 +17,12 @@ from src.web3py.typings import Web3
 logger = logging.getLogger(__name__)
 
 
-class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
+class BunkerService:
     """
     https://research.lido.fi/t/withdrawals-for-lido-on-ethereum-bunker-mode-design-and-implementation/
     """
-
-    simulated_cl_rebase: LidoReportRebase
-
     def __init__(self, w3: Web3):
         self.w3 = w3
-        super().__init__(w3)
 
     @lru_cache(maxsize=1)
     def is_bunker_mode(
@@ -36,37 +32,43 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
         chain_config: ChainConfig,
         simulated_cl_rebase: LidoReportRebase,
     ) -> bool:
-        self.f_conf = frame_config
-        self.c_conf = chain_config
-        self.simulated_cl_rebase = simulated_cl_rebase
-        self.b_conf = self._get_config(blockstamp)
-        self.last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
+        b_conf = self._get_config(blockstamp)
+        last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
             block_identifier=blockstamp.block_hash
         )
 
-        if self.last_report_ref_slot == 0:
+        if last_report_ref_slot == 0:
             logger.info({"msg": "No one report yet. Bunker status will not be checked"})
             return False
 
-        self.lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
-        self.all_validators: dict[str, Validator] = {
+        lido_keys = {k.key: k for k in self.w3.kac.get_all_lido_keys(blockstamp)}
+        all_validators: dict[str, Validator] = {
             v.validator.pubkey: v for v in self.w3.cc.get_validators(blockstamp)
         }
-        self.lido_validators: dict[str, LidoValidator] = {
+        lido_validators: dict[str, LidoValidator] = {
             v.validator.pubkey: v
             for v in self.w3.lido_validators.get_lido_validators(blockstamp)
         }
-        logger.info({"msg": f"Validators - all: {len(self.all_validators)} lido: {len(self.lido_validators)}"})
+        logger.info({"msg": f"Validators - all: {len(all_validators)} lido: {len(lido_validators)}"})
 
         logger.info({"msg": "Checking bunker mode"})
-        current_report_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp)
+
+        current_report_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
         if current_report_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
-        if self.is_high_midterm_slashing_penalty(blockstamp, current_report_cl_rebase):
+
+        high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
+            blockstamp, frame_config, all_validators, lido_validators, current_report_cl_rebase
+        )
+        if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
             return True
-        if self.is_abnormal_cl_rebase(blockstamp, current_report_cl_rebase):
+
+        abnormal_cl_rebase = AbnormalClRebase(
+            self.w3, b_conf, chain_config, last_report_ref_slot, all_validators, lido_keys, lido_validators
+        ).is_abnormal_cl_rebase(blockstamp, current_report_cl_rebase)
+        if abnormal_cl_rebase:
             logger.info({"msg": "Bunker ON. Abnormal CL rebase"})
             return True
 
@@ -92,7 +94,7 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
             )
         )
 
-    def _get_cl_rebase_for_current_report(self, blockstamp: BlockStamp) -> Gwei:
+    def _get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: LidoReportRebase) -> Gwei:
         """
         Get CL rebase from Accounting contract
         """
@@ -100,7 +102,7 @@ class BunkerService(MidtermSlashingPenalty, AbnormalClRebase):
         before_report_total_pooled_ether = self._get_total_supply(blockstamp)
 
         # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (self.simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
+        frame_cl_rebase = (simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
         return Gwei(frame_cl_rebase)
 
