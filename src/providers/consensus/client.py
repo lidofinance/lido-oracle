@@ -44,7 +44,7 @@ class ConsensusClient(HTTPProvider):
         No cache because this method is using to get finalized and head block, and they could not be cached by args.
         """
         data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
-        return BlockRootResponse(**data)
+        return BlockRootResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
@@ -52,21 +52,21 @@ class ConsensusClient(HTTPProvider):
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
         """
         data, meta_data = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
-        resp = BlockHeaderFullResponse(data=BlockHeaderResponseData(**data), **meta_data)
+        resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
         return resp
 
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
-        return BlockDetailsResponse(**data)
+        return BlockDetailsResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         return self.get_validators_no_cache(blockstamp)
 
-    @list_of_dataclasses(Validator)
+    @list_of_dataclasses(Validator.from_response)
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[Validator]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:

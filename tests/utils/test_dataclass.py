@@ -2,7 +2,9 @@ from dataclasses import dataclass, is_dataclass
 
 import pytest
 
-from src.utils.dataclass import list_of_dataclasses, Nested
+from src.utils.dataclass import list_of_dataclasses, Nested, FromResponse
+
+pytestmark = pytest.mark.unit
 
 
 @dataclass
@@ -23,7 +25,6 @@ class Car(Nested):
     state: State
 
 
-@pytest.mark.unit
 def test_dataclasses_utils():
     @list_of_dataclasses(Car)
     def get_cars() -> list[Car]:
@@ -71,3 +72,32 @@ def test_dataclasses_utils_fail_on_unexpected_key():
             wheels_immutable=({'size': 1},),
             state={'cost': None},
         )
+
+
+@dataclass
+class Pet(FromResponse):
+    name: str
+    age: int
+
+
+def test_dataclass_ignore_extra_fields():
+    response = {"name": "Bob", "age": 5}
+    pet = Pet.from_response(**response)
+    assert pet == Pet(name="Bob", age=5)
+
+    response_with_extra_fields = {"name": "Bob", "age": 5, "extra": "field"}
+    pet = Pet.from_response(**response_with_extra_fields)
+    assert pet == Pet(name="Bob", age=5)
+
+
+@dataclass
+class Hooman(Nested, FromResponse):
+    favourite_pet: Pet
+    pets: list[Pet]
+
+
+def test_dataclass_nested_with_extra_fields():
+    hooman_response = dict(favourite_pet={"name": "Bob", "age": 5, "extra": "field"},
+                           pets=[{"name": "Bob", "age": 5, "extra": "field"}])
+    hooman = Hooman.from_response(**hooman_response)
+    assert hooman == Hooman(favourite_pet=Pet(name="Bob", age=5), pets=[Pet(name="Bob", age=5)])
