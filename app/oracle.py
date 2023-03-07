@@ -106,6 +106,8 @@ GAS_LIMIT = int(os.getenv('GAS_LIMIT', DEFAULT_GAS_LIMIT))
 
 ORACLE_FROM_BLOCK = int(os.getenv('ORACLE_FROM_BLOCK', 0))
 
+consider_withdrawals_from_epoch = os.environ.get('CONSIDER_WITHDRAWALS_FROM_EPOCH')
+
 provider = MultiProvider(eth1_provider.split(','))
 w3 = Web3(provider)
 
@@ -263,6 +265,9 @@ def prompt(prompt_message, prompt_end):
 
 
 def main():
+    if not consider_withdrawals_from_epoch:
+        raise ValueError('CONSIDER_WITHDRAWALS_FROM_EPOCH is not set')
+
     logger.info(f'start prometheus metrics server on the port: {prometheus_metrics_port}')
     start_http_server(prometheus_metrics_port)
 
@@ -373,7 +378,9 @@ def update_beacon_data():
         return
 
     # Get full metrics using polling (get keys from registry, get balances from beacon)
-    current_metrics = get_full_current_metrics(w3, pool, beacon, beacon_spec, current_metrics)
+    current_metrics = get_full_current_metrics(
+        w3, pool, beacon, beacon_spec, current_metrics, consider_withdrawals_from_epoch
+    )
     metrics_exporter_state.set_current_pool_metrics(current_metrics)
     warnings = compare_pool_metrics(prev_metrics, current_metrics)
 
