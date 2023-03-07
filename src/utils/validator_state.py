@@ -1,5 +1,3 @@
-from typing import Mapping
-
 from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,

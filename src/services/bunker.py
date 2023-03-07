@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
