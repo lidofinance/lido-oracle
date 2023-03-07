@@ -3,193 +3,425 @@ import pytest
 from src.modules.submodules.consensus import FrameConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-from src.typings import EpochNumber
-from tests.modules.accounting.bunker.conftest import simple_blockstamp
+from src.typings import EpochNumber, ReferenceBlockStamp
+
+
+def simple_blockstamp(block_number: int,) -> ReferenceBlockStamp:
+    return ReferenceBlockStamp(
+        '', f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number // 32
+    )
+
+
+def simple_validators(
+    from_index: int, to_index: int, stashed=False, withdrawable_epoch="8192", exit_epoch="7892"
+) -> list[Validator]:
+    validators = []
+    for index in range(from_index, to_index + 1):
+        validator = Validator(
+            index=str(index),
+            balance=str(32 * 10 ** 9),
+            status=ValidatorStatus.ACTIVE_ONGOING,
+            validator=ValidatorState(
+                pubkey=f"0x{index}",
+                withdrawal_credentials='',
+                effective_balance=str(32 * 10 ** 9),
+                slashed=stashed,
+                activation_eligibility_epoch='',
+                activation_epoch='0',
+                exit_epoch=exit_epoch,
+                withdrawable_epoch=withdrawable_epoch,
+            )
+        )
+        validators.append(validator)
+    return validators
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("lido_validators_range", "frame_cl_rebase", "expected_is_high_midterm_slashing_penalty"),
+    ("blockstamp", "all_validators", "lido_validators", "frame_cl_rebase", "expected_result"),
     [
-        ((0, 3), 100, False),         # lido is not slashed
-        ((3, 6), 2999999999, True),   # penalty greater than rebase
-        ((3, 6), 3000000000, False),  # penalty equal than rebase
-        ((3, 6), 3000000001, False),  # penalty less than rebase
+        (
+            # no one slashed
+            simple_blockstamp(0),
+            {v.validator.pubkey: v for v in simple_validators(0, 50)},
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            0,
+            False
+        ),
+        (
+            # no one Lido slashed
+            simple_blockstamp(0),
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 49)},
+                **{v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)}
+            },
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            0,
+            False
+        ),
+        (
+            # Lido slashed, but midterm penalty is not in the future
+            simple_blockstamp(1500000),
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 49)},
+                **{v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True, exit_epoch="16084", withdrawable_epoch="16384")}
+            },
+            {v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True, exit_epoch="16084", withdrawable_epoch="16384")},
+            0,
+            False
+        ),
+        (
+            # penalty greater than rebase
+            simple_blockstamp(0),
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 49)},
+                **{v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)}
+            },
+            {v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)},
+            49 * 32 * 10 ** 9,
+            True
+        ),
+        (
+            # penalty equal rebase
+            simple_blockstamp(0),
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 49)},
+                **{v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)}
+            },
+            {v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)},
+            50 * 32 * 10 ** 9,
+            False
+        ),
+        (
+            # penalty less rebase
+            simple_blockstamp(0),
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 49)},
+                **{v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)}
+            },
+            {v.validator.pubkey: v for v in simple_validators(50, 99, stashed=True)},
+            51 * 32 * 10 ** 9,
+            False
+        )
     ]
 )
 def test_is_high_midterm_slashing_penalty(
-    bunker,
-    mock_get_validators,
-    lido_validators_range,
+    blockstamp,
+    all_validators,
+    lido_validators,
     frame_cl_rebase,
-    expected_is_high_midterm_slashing_penalty
+    expected_result
 ):
-    blockstamp = simple_blockstamp(1000, '0x1000')
-    _from, _to = lido_validators_range
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
         epochs_per_frame=EpochNumber(225),
         fast_lane_length_slots=0,
     )
-    lido_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)[_from:_to]
-    }
-    all_validators = {
-        v.validator.pubkey: v for v in bunker.w3.cc.get_validators(blockstamp)
-    }
 
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
         blockstamp, frame_config, all_validators, lido_validators, frame_cl_rebase
     )
-    assert result == expected_is_high_midterm_slashing_penalty
-
-
-test_data_calculate_real_balance = [
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', False, '', '', '', '')),
-         '0x1': Validator('1', '1', ValidatorStatus.ACTIVE_EXITING,
-                          ValidatorState('0x1', '', '3', False, '', '', '', '')),
-         '0x2': Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED,
-                          ValidatorState('0x2', '', '4', True, '', '', '', ''))},
-        3,
-    ),
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', False, '', '', '', '')),
-         '0x1': Validator('1', '1', ValidatorStatus.EXITED_SLASHED,
-                          ValidatorState('0x1', '', '2', True, '', '', '', ''))},
-        2,
-    ),
-]
-
-
-test_data_calculate_total_effective_balance = [
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', True, '', '', '', '15001')),
-         '0x1': Validator('1', '1', ValidatorStatus.ACTIVE_EXITING,
-                          ValidatorState('0x1', '', '3', True, '', '', '', '15001')),
-         '0x2': Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED,
-                          ValidatorState('0x2', '', '4', True, '', '', '', '15001'))},
-        ['0x0', '0x1', '0x2'],
-    ),
-    (
-        {'0x0': Validator('0', '1', ValidatorStatus.ACTIVE_ONGOING,
-                          ValidatorState('0x0', '', '2', True, '', '', '', '15000')),
-         '0x1': Validator('1', '1', ValidatorStatus.EXITED_SLASHED,
-                          ValidatorState('0x1', '', '2', True, '', '', '', '15000'))},
-        [],
-    ),
-]
+    assert result == expected_result
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(("validators", "expected_indexes"), test_data_calculate_total_effective_balance)
-def test_not_withdrawn_slashed_validators(validators, expected_indexes):
-    slashed_validators = MidtermSlashingPenalty.not_withdrawn_slashed_validators(validators, EpochNumber(15000))
-    slashed_validators_keys = [*slashed_validators.keys()]
-    assert slashed_validators_keys == expected_indexes
+@pytest.mark.parametrize(
+    ("all_slashed_validators", "ref_epoch", "expected_result"),
+    [
+        (
+            # slashing epoch is determined
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            EpochNumber(225),
+            {0: {v.validator.pubkey: v for v in simple_validators(0, 9)}}
+        ),
+        (
+            # slashing epoch is not determined
+            {
+                v.validator.pubkey: v
+                for v in simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384")
+            },
+            EpochNumber(16000),
+            {
+                epoch: {
+                    v.validator.pubkey: v
+                    for v in simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384")}
+                for epoch in range(7808, 8193)
+            }
+        ),
+    ]
+)
+def test_get_per_possible_slashed_epoch_buckets(all_slashed_validators, ref_epoch, expected_result):
 
+    result = MidtermSlashingPenalty.get_per_possible_slashed_epoch_buckets(all_slashed_validators, ref_epoch)
 
-all_slashed_validators = {
-    '0x0': Validator('0', '1', ValidatorStatus.ACTIVE_SLASHED,
-                     ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '1', '18192')),
-    '0x1': Validator('1', '1', ValidatorStatus.ACTIVE_SLASHED,
-                     ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '18000', '18192')),
-    '0x2': Validator('2', '1', ValidatorStatus.ACTIVE_SLASHED,
-                     ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '1', '18192')),
-}
-for i in range(int([*all_slashed_validators.values()][-1].index) + 1,
-               int([*all_slashed_validators.values()][-1].index) + 1000):
-    all_slashed_validators[f"0x{i}"] = (
-        Validator(str(i), '1', ValidatorStatus.ACTIVE_SLASHED,
-                  ValidatorState('', '', str(32 * 10 ** 9), True, '', '', '1', '18192'))
-    )
-
-
-@pytest.mark.unit
-def test_get_per_epoch_buckets():
-    expected_buckets = 3193
-    expected_determined_slashed_epoch = EpochNumber(10000)
-    expected_possible_slashed_epochs = range(
-        expected_determined_slashed_epoch - expected_buckets + 1, expected_determined_slashed_epoch
-    )
-
-    per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
-
-    assert len(per_epoch_buckets) == expected_buckets
-    assert per_epoch_buckets[expected_determined_slashed_epoch] == all_slashed_validators
-    for epoch in expected_possible_slashed_epochs:
-        assert per_epoch_buckets[EpochNumber(epoch)] == {'0x1': all_slashed_validators['0x1']}
+    assert result == expected_result
 
 
 @pytest.mark.unit
-def test_get_bounded_slashed_validators():
-    determined_slashed_epoch = EpochNumber(10000)
-    per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
+@pytest.mark.parametrize(
+    ("validator", "ref_epoch", "expected_result"),
+    [
+        # slashing epoch is first epoch and it's determined
+        (simple_validators(0, 0)[0], EpochNumber(225), [0]),
+        # slashing epoch is not first epoch and it's determined
+        (simple_validators(0, 0, exit_epoch="16084", withdrawable_epoch="16384")[0], EpochNumber(225), [8192]),
+        # slashing epoch is not determined
+        (
+                simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384")[0],
+                EpochNumber(225),
+                list(range(8193))
+        ),
+        # slashing epoch is not determined and ref epoch is not last epoch in first frame
+        (
+                simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384")[0],
+                EpochNumber(16000),
+                list(range(7808, 8193))
+        ),
+    ]
+)
+def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
 
-    bounded_slashed_validators = MidtermSlashingPenalty.get_bound_slashed_validators(
-        per_epoch_buckets, determined_slashed_epoch
-    )
+    result = MidtermSlashingPenalty.get_possible_slashed_epochs(validator, ref_epoch)
 
-    assert len(bounded_slashed_validators) == len(all_slashed_validators)
-
-
-@pytest.mark.unit
-def test_get_per_epoch_lido_midterm_penalties():
-    lido_slashed_validators = {
-        '0x0': all_slashed_validators['0x0'],
-        '0x1': all_slashed_validators['0x1'],
-        '0x2': all_slashed_validators['0x2']
-    }
-    total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
-
-    per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
-        per_epoch_buckets, lido_slashed_validators, total_balance
-    )
-
-    assert len(per_epoch_lido_midterm_penalties) == 1
-    assert per_epoch_lido_midterm_penalties[EpochNumber(14096)] == {
-        '0x0': 1000000000, '0x1': 1000000000, '0x2': 1000000000
-    }
+    assert result == expected_result
 
 
 @pytest.mark.unit
-def test_get_per_frame_lido_midterm_penalties():
-    lido_slashed_validators = {
-        '0x0': all_slashed_validators['0x0'],
-        '0x1': all_slashed_validators['0x1'],
-        '0x2': all_slashed_validators['0x2']
-    }
-    total_balance = 32 * 60000 * 10 ** 9
-    per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, EpochNumber(15000))
-    per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
-       per_epoch_buckets, lido_slashed_validators, total_balance
+@pytest.mark.parametrize(
+    ("future_midterm_penalty_lido_slashed_validators", "expected_result"),
+    [
+        ({}, {}),
+        (
+            # the same midterm epoch
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            {18: {4096: simple_validators(0, 9)}}
+        ),
+        (
+            # different midterm epochs in different frames
+            {
+                **{v.validator.pubkey: v for v in simple_validators(0, 9)},
+                **{v.validator.pubkey: v for v in simple_validators(10, 59, withdrawable_epoch="8417")}
+            },
+            {
+                18: {4096: simple_validators(0, 9)},
+                19: {4321: simple_validators(10, 59, withdrawable_epoch="8417")}
+            }
+        ),
+    ]
+)
+def test_get_per_frame_lido_validators_with_future_midterm_epoch(
+    future_midterm_penalty_lido_slashed_validators, expected_result
+):
+    frame_config = FrameConfig(
+        initial_epoch=EpochNumber(0),
+        epochs_per_frame=EpochNumber(225),
+        fast_lane_length_slots=0,
     )
 
-    per_frame_lido_midterm_penalties = MidtermSlashingPenalty.get_per_frame_lido_midterm_penalties(
-        per_epoch_lido_midterm_penalties,
-        FrameConfig(
-            initial_epoch=EpochNumber(0),
-            epochs_per_frame=EpochNumber(225),
-            fast_lane_length_slots=0,
+    result = MidtermSlashingPenalty.get_per_frame_lido_validators_with_future_midterm_epoch(
+        future_midterm_penalty_lido_slashed_validators, frame_config
+    )
+
+    assert result == expected_result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("per_frame_validators", "per_slashing_epoch_buckets", "active_validators_count", "expected_result"),
+    [
+        ({}, {}, 100, {}),
+        (
+            # one is slashed
+            {18: {4096: simple_validators(0, 0)}},
+            {0: {"0x0": simple_validators(0, 0)[0]}},
+            100,
+            {18: 0}
+        ),
+        (
+            # all are slashed
+            {18: {4096: simple_validators(0, 99)}},
+            {0: {v.validator.pubkey: v for v in simple_validators(0, 99)}},
+            100,
+            {18: 100 * 32 * 10 ** 9}
+        ),
+        (
+            # slashed in the same epoch in different frames
+            {
+                18: {4096: simple_validators(0, 9)},
+                19: {4321: simple_validators(10, 59)}},
+            {
+                0: {v.validator.pubkey: v for v in simple_validators(0, 9)},
+                225: {v.validator.pubkey: v for v in simple_validators(10, 59)}
+            },
+            100,
+            {18: 10 * 32 * 10 ** 9, 19: 50 * 32 * 10 ** 9}
+        ),
+        (
+            # slashed in different epochs in different frames
+            {
+                18: {
+                    4096: simple_validators(0, 5),
+                    4106: simple_validators(6, 9)
+                },
+                19: {
+                    4321: simple_validators(10, 29),
+                    4330: simple_validators(30, 59),
+                }
+            },
+            {
+                0: {v.validator.pubkey: v for v in simple_validators(0, 5)},
+                5: {v.validator.pubkey: v for v in simple_validators(6, 9)},
+                10: {v.validator.pubkey: v for v in simple_validators(6, 9)},
+                225: {v.validator.pubkey: v for v in simple_validators(10, 29)},
+                227: {v.validator.pubkey: v for v in simple_validators(30, 59)},
+                234: {v.validator.pubkey: v for v in simple_validators(30, 59)}
+            },
+            100,
+            {18: 10 * 32 * 10 ** 9, 19: 50 * 32 * 10 ** 9}
+        ),
+    ]
+)
+def test_get_future_midterm_penalty_sum_in_frames(
+    per_frame_validators, per_slashing_epoch_buckets, active_validators_count, expected_result
+):
+
+    result = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
+        per_frame_validators, per_slashing_epoch_buckets, active_validators_count * 32 * 10 ** 9
+    )
+
+    assert result == expected_result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("bound_slashed_validators_count", "active_validators_count", "expected_result"),
+    [
+        (1,  100, 96 * 10 ** 9),
+        (3,  100, 3 * 96 * 10 ** 9),
+        (33, 100, 33 * 96 * 10 ** 9),
+        (50, 100, 100 * 32 * 10 ** 9),
+    ]
+)
+def test_get_adjusted_total_slashing_balance(bound_slashed_validators_count, active_validators_count, expected_result):
+
+    result = MidtermSlashingPenalty.get_adjusted_total_slashing_balance(
+        bound_slashed_validators_count, active_validators_count * 32 * 10 ** 9
+    )
+
+    assert result == expected_result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("bounded_slashings_count", "active_validators_count", "expected_penalty"),
+    [
+        (1,    500000, 0),
+        (100,  500000, 0),
+        (1000, 500000, 0),
+        (5000, 500000, 0),
+        (10000, 500000, 1000000000),
+        (20000, 500000, 3000000000),
+        (50000, 500000, 9000000000),
+    ]
+)
+def test_get_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
+
+    result = MidtermSlashingPenalty.get_midterm_penalty(
+        32 * 10 ** 9, bounded_slashings_count * 96 * 10 ** 9, active_validators_count * 32 * 10 ** 9
+    )
+
+    assert result == expected_penalty
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("per_slashing_epoch_buckets", "midterm_penalty_epoch", "expected_bounded"),
+    [
+        ({0: {"0x01": {}}}, 4096, {"0x01"}),
+        ({0: {"0x01": {}}, 1: {"0x01": {}}}, 4096, {"0x01"}),
+        ({4096: {"0x01": {}}}, 4096, {"0x01"}),
+        ({4096: {"0x01": {}}}, 8192, {"0x01"}),
+        ({4096: {"0x01": {}}}, 12288, {"0x01"}),
+        ({4096: {"0x01": {}}}, 16384, set())
+    ]
+)
+def test_get_bound_with_midterm_epoch_slashed_validators(per_slashing_epoch_buckets, midterm_penalty_epoch, expected_bounded):
+
+    result = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
+        per_slashing_epoch_buckets, midterm_penalty_epoch
+    )
+
+    assert set(result) == expected_bounded
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("lido_validators", "ref_epoch", "expected_len"),
+    [
+        (
+            # no one slashed
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            EpochNumber(20000000),
+            0
+        ),
+        (
+            # slashed and withdrawable epoch greater than ref_epoch
+            {v.validator.pubkey: v for v in simple_validators(0, 9, stashed=True)},
+            EpochNumber(0),
+            10
+        ),
+        (
+            # slashed and withdrawable epoch less than ref_epoch
+            {v.validator.pubkey: v for v in simple_validators(0, 9, stashed=True)},
+            EpochNumber(20000000),
+            0
         )
-    )
+    ]
+)
+def test_get_not_withdrawn_slashed_validators(lido_validators, ref_epoch, expected_len):
+    result = MidtermSlashingPenalty.get_not_withdrawn_slashed_validators(lido_validators, ref_epoch)
+    assert len(result) == expected_len
 
-    assert len(per_frame_lido_midterm_penalties) == 1
-    assert per_frame_lido_midterm_penalties[0] == 3000000000
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("slashed_validators", "ref_epoch", "expected_len"),
+    [
+        (
+            # no one slashed
+            {v.validator.pubkey: v for v in simple_validators(0, 9)},
+            EpochNumber(20000000),
+            0
+        ),
+        (
+            # slashed and withdrawable epoch greater than ref_epoch
+            {v.validator.pubkey: v for v in simple_validators(0, 9, stashed=True)},
+            EpochNumber(0),
+            10
+        ),
+        (
+            # slashed and withdrawable epoch less than ref_epoch
+            {v.validator.pubkey: v for v in simple_validators(0, 9, stashed=True)},
+            EpochNumber(20000000),
+            0
+        )
+    ]
+)
+def test_get_future_midterm_penalty_slashed_validators(slashed_validators, ref_epoch, expected_len):
+    result = MidtermSlashingPenalty.get_future_midterm_penalty_slashed_validators(slashed_validators, ref_epoch)
+    assert len(result) == expected_len
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("epoch", "expected_frame"),
-    [(EpochNumber(0), 0),
-     (EpochNumber(224), 0),
-     (EpochNumber(225), 1),
-     (EpochNumber(449), 1),
-     (EpochNumber(450), 2)]
+    [
+        (EpochNumber(0), 0),
+        (EpochNumber(224), 0),
+        (EpochNumber(225), 1),
+        (EpochNumber(449), 1),
+        (EpochNumber(450), 2)
+    ]
 )
 def test_get_frame_by_epoch(epoch, expected_frame):
     frame_config = FrameConfig(
@@ -199,3 +431,10 @@ def test_get_frame_by_epoch(epoch, expected_frame):
     )
     frame_by_epoch = MidtermSlashingPenalty.get_frame_by_epoch(epoch, frame_config)
     assert frame_by_epoch == expected_frame
+
+
+@pytest.mark.unit
+def test_get_midterm_slashing_epoch():
+    result = MidtermSlashingPenalty.get_midterm_slashing_epoch(simple_validators(0, 0)[0])
+    assert result == 4096
+
