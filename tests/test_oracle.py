@@ -1,4 +1,8 @@
+import os
 import subprocess
+
+env = os.environ.copy()
+env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
 
 
 def test_interactive_oracle_with_no_response():
@@ -9,6 +13,7 @@ def test_interactive_oracle_with_no_response():
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         while True:
             if 'Tx data' in proc.stdout.readline():
@@ -32,6 +37,7 @@ def test_interactive_oracle_with_yes_response():
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     ) as proc:
         while True:
             if 'Calling tx locally succeeded' in proc.stdout.readline():

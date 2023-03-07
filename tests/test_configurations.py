@@ -7,8 +7,32 @@ from oracle import DEFAULT_GAS_LIMIT, DEFAULT_SLEEP
 from tests.utils import get_log_lines
 
 
+def test_no_considered_withdrawals_from_epoch():
+    env = os.environ.copy()
+    env.pop('CONSIDER_WITHDRAWALS_FROM_EPOCH', None)
+    assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
+    env['DAEMON'] = '1'
+    env['FORCE_DO_NOT_USE_IN_PRODUCTION'] = '1'
+    custom_sleep = 42
+    env['SLEEP'] = f'{custom_sleep}'
+    with subprocess.Popen(
+        ['python3', '-u', './app/oracle.py'],
+        bufsize=0,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+    ) as proc:
+        lines = get_log_lines(proc, n_lines=100, timeout=30, stop_on_substring='We are in DAEMON mode. Sleep')
+        err_line = lines[-1]
+        assert 'CONSIDER_WITHDRAWALS_FROM_EPOCH is not set' in err_line
+    assert proc.returncode == 1, f'output {lines}'
+
+
 def test_no_priv_key():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     env.pop('MEMBER_PRIV_KEY', None)
     env.pop('DAEMON', None)
     with subprocess.Popen(
@@ -33,6 +57,7 @@ def test_no_priv_key():
 
 def test_with_priv_key_with_gaslimit_no_daemon():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     assert 'DAEMON' not in env, 'DAEMON must not be set in environment variables'
     custom_gas = 42
@@ -73,6 +98,7 @@ def test_with_priv_key_with_gaslimit_no_daemon():
 
 def test_with_priv_key_no_gaslimit_no_daemon():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     assert 'DAEMON' not in env, 'DAEMON must not be set in environment variables'
     env.pop('GAS_LIMIT', None)
@@ -112,6 +138,7 @@ def test_with_priv_key_no_gaslimit_no_daemon():
 
 def test_with_priv_key_with_daemon_no_sleep():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     assert 'SLEEP' not in env, 'SLEEP must not be set in environment variables'
     env['DAEMON'] = '1'
@@ -153,6 +180,7 @@ def test_with_priv_key_with_daemon_no_sleep():
 
 def test_with_priv_key_with_daemon_with_sleep():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     assert env.get('MEMBER_PRIV_KEY'), 'MEMBER_PRIV_KEY must be set in environment variables'
     env['DAEMON'] = '1'
     env['FORCE_DO_NOT_USE_IN_PRODUCTION'] = '1'
