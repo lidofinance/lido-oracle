@@ -13,7 +13,6 @@ from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei, ReferenceBlockStamp
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
-from src.web3py.typings import Web3
 
 
 logger = logging.getLogger(__name__)
@@ -21,20 +20,20 @@ logger = logging.getLogger(__name__)
 
 class MidtermSlashingPenalty:
 
-    f_conf: FrameConfig
-    all_validators: dict[str, Validator]
-    lido_validators: dict[str, LidoValidator]
-
-    def __init__(self, w3: Web3):
-        self.w3 = w3
-
-    def is_high_midterm_slashing_penalty(self, blockstamp: ReferenceBlockStamp, cl_rebase: Gwei) -> bool:
+    @staticmethod
+    def is_high_midterm_slashing_penalty(
+        blockstamp: ReferenceBlockStamp,
+        frame_config: FrameConfig,
+        all_validators: dict[str, Validator],
+        lido_validators: dict[str, LidoValidator],
+        cl_rebase: Gwei
+    ) -> bool:
         logger.info({"msg": "Detecting high midterm slashing penalty"})
         all_slashed_validators = MidtermSlashingPenalty.not_withdrawn_slashed_validators(
-            self.all_validators, blockstamp.ref_epoch
+            all_validators, blockstamp.ref_epoch
         )
         lido_slashed_validators = MidtermSlashingPenalty.not_withdrawn_slashed_validators(
-            self.lido_validators, blockstamp.ref_epoch
+            lido_validators, blockstamp.ref_epoch
         )
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
@@ -44,7 +43,7 @@ class MidtermSlashingPenalty:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
-        total_balance = calculate_total_active_effective_balance(self.all_validators, blockstamp.ref_epoch)
+        total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
         per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(lido_slashed_validators, blockstamp.ref_epoch)
         per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(
@@ -52,7 +51,7 @@ class MidtermSlashingPenalty:
         )
         # Calculate lido midterm penalties impact in each frame
         per_frame_buckets = MidtermSlashingPenalty.get_per_frame_lido_midterm_penalties(
-            per_epoch_lido_midterm_penalties, self.f_conf
+            per_epoch_lido_midterm_penalties, frame_config
         )
 
         # If any midterm penalty sum of lido validators in frame bucket greater than rebase we should trigger bunker

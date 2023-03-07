@@ -21,15 +21,23 @@ logger = logging.getLogger(__name__)
 
 class AbnormalClRebase:
 
-    b_conf: BunkerConfig
-    c_conf: ChainConfig
-    last_report_ref_slot: SlotNumber
-    all_validators: dict[str, Validator]
-    lido_keys: dict[str, LidoKey]
-    lido_validators: dict[str, LidoValidator]
-
-    def __init__(self, w3: Web3):
+    def __init__(
+        self,
+        w3: Web3,
+        b_conf: BunkerConfig,
+        c_conf: ChainConfig,
+        last_report_ref_slot: SlotNumber,
+        all_validators: dict[str, Validator],
+        lido_keys: dict[str, LidoKey],
+        lido_validators: dict[str, LidoValidator]
+    ):
         self.w3 = w3
+        self.b_conf = b_conf
+        self.c_conf = c_conf
+        self.last_report_ref_slot = last_report_ref_slot
+        self.all_validators = all_validators
+        self.lido_keys = lido_keys
+        self.lido_validators = lido_validators
 
     def is_abnormal_cl_rebase(self, blockstamp: ReferenceBlockStamp, frame_cl_rebase: Gwei) -> bool:
         logger.info({"msg": "Checking abnormal CL rebase"})
