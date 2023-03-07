@@ -54,3 +54,33 @@ class TestBuildValidators:
 
         assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payloads[1].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
+
+    def test_max_items_count(self, extra_data_service):
+        """
+        nodeOpsCount must not be greater than maxAccountingExtraDataListItemsCount specified
+        in OracleReportSanityChecker contract. If a staking module has more node operators
+        with total stuck validators counts changed compared to the staking module smart contract
+        storage (as observed at the reference slot), reporting for that module should be split
+        into multiple items.
+        """
+        vals = {
+            node_operator(1, 0): 1,
+            node_operator(1, 1): 1,
+            node_operator(1, 1): 2,
+            node_operator(1, 2): 1,
+            node_operator(1, 2): 2,
+            node_operator(1, 2): 3,
+        }
+
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 4)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 3)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 4)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 3)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 2)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 2, 3)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
