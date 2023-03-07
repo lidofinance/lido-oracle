@@ -27,5 +27,5 @@ test_data_calculate_total_effective_balance = [
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_total_effective_balance)
 def test_calculate_total_active_effective_balance(validators, expected_balance):
-    total_effective_balance = calculate_total_active_effective_balance(validators, EpochNumber(15000))
+    total_effective_balance = calculate_total_active_effective_balance(validators.values(), EpochNumber(15000))
     assert total_effective_balance == expected_balance

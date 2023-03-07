@@ -47,7 +47,7 @@ class MidtermSlashingPenalty:
             return False
 
         # We should calculate total_balance for each bucket, but we do it once for all per_epoch_buckets
-        total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
+        total_balance = calculate_total_active_effective_balance(list(all_validators.values()), blockstamp.ref_epoch)
         # Calculate lido midterm penalties in each epoch where lido slashed
         per_epoch_buckets = MidtermSlashingPenalty.get_per_epoch_buckets(all_slashed_validators, blockstamp.ref_epoch)
         per_epoch_lido_midterm_penalties = MidtermSlashingPenalty.get_per_epoch_lido_midterm_penalties(

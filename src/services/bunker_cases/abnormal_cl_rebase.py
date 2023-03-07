@@ -64,10 +64,10 @@ class AbnormalClRebase:
         )
 
         total_ref_effective_balance = calculate_total_active_effective_balance(
-            self.all_validators, blockstamp.ref_epoch
+            list(self.all_validators.values()), blockstamp.ref_epoch
         )
         total_ref_lido_effective_balance = calculate_total_active_effective_balance(
-            self.lido_validators, blockstamp.ref_epoch
+            list(self.lido_validators.values()), blockstamp.ref_epoch
         )
 
         last_all_validators = {
@@ -82,10 +82,10 @@ class AbnormalClRebase:
         last_lido_validators_dict = {v.validator.pubkey: v for v in last_lido_validators}
 
         total_last_effective_balance = calculate_total_active_effective_balance(
-            last_all_validators, last_report_blockstamp.ref_epoch
+            list(last_all_validators.values()), last_report_blockstamp.ref_epoch
         )
         total_last_lido_effective_balance = calculate_total_active_effective_balance(
-            last_lido_validators_dict, last_report_blockstamp.ref_epoch
+            list(last_lido_validators_dict.values()), last_report_blockstamp.ref_epoch
         )
 
         mean_total_effective_balance = (total_ref_effective_balance + total_last_effective_balance) // 2

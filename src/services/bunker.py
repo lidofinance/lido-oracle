@@ -24,7 +24,6 @@ class BunkerService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-    @lru_cache(maxsize=1)
     def is_bunker_mode(
         self,
         blockstamp: ReferenceBlockStamp,
@@ -37,7 +36,7 @@ class BunkerService:
             block_identifier=blockstamp.block_hash
         )
 
-        if last_report_ref_slot == 0:
+        if not last_report_ref_slot:
             logger.info({"msg": "No one report yet. Bunker status will not be checked"})
             return False
 
