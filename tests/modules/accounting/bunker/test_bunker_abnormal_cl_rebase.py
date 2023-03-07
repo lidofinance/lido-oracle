@@ -4,7 +4,7 @@ from src.providers.consensus.typings import Validator, ValidatorStatus, Validato
 from src.services.bunker import BunkerConfig
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.typings import BlockStamp, ReferenceBlockStamp
-from tests.modules.accounting.bunker.test_bunker_medterm_penalty import simple_blockstamp
+from tests.modules.accounting.bunker.conftest import simple_blockstamp
 
 
 @pytest.mark.unit
