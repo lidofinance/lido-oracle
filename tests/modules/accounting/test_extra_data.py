@@ -26,18 +26,18 @@ class TestBuildValidators:
         assert extra_data.data_hash == HexBytes(b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p")
 
     def test_payload(self, extra_data_service):
-        vals = {
+        vals_payload = {
             node_operator(1, 0): 1,
             node_operator(1, 1): 2,
         }
-        payload, rest_items_count = extra_data_service.build_validators_payloads(vals, 10, 10)
+        payload, rest_items_count = extra_data_service.build_validators_payloads(vals_payload, 10, 10)
         assert payload[0].module_id == b'\x00\x00\x01'
         assert payload[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
         assert payload[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
         assert payload[0].vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
 
     def test_order(self, extra_data_service, monkeypatch):
-        vals = {
+        vals_order = {
             node_operator(2, 0): 1,
             node_operator(2, 1): 1,
             node_operator(1, 3): 1,
@@ -47,7 +47,7 @@ class TestBuildValidators:
             node_operator(3, 5): 1,
         }
 
-        payloads, rest_items_count = extra_data_service.build_validators_payloads(vals, 4, 10)
+        payloads, rest_items_count = extra_data_service.build_validators_payloads(vals_order, 4, 10)
         assert len(payloads) == 2
         assert payloads[0].module_id == b'\x00\x00\x01'
         assert payloads[1].module_id == b'\x00\x00\x02'
@@ -63,7 +63,7 @@ class TestBuildValidators:
         storage (as observed at the reference slot), reporting for that module should be split
         into multiple items.
         """
-        vals = {
+        vals_max_items_count = {
             node_operator(1, 0): 1,
             node_operator(1, 1): 1,
             node_operator(1, 1): 2,
@@ -72,25 +72,25 @@ class TestBuildValidators:
             node_operator(1, 2): 3,
         }
 
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 10, 10)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 10, 10)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payload_size_limit == 7
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 4)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 4, 4)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payload_size_limit == 1
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 3)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 4, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payload_size_limit == 0
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 4)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 3, 4)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payload_size_limit == 0
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 3)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 3, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payload_size_limit == 0
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 2)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 3, 2)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
         assert payload_size_limit == 0
-        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 2, 3)
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 2, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
         assert payload_size_limit == 0
 
@@ -111,11 +111,11 @@ class TestBuildValidators:
         assert extra_data[1].item_payload.vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
     def test_stuck_exited_validators_count_is_empty(self, extra_data_service):
-        vals_stuck = {}
-        vals_exited = {}
+        vals_stuck_empty = {}
+        vals_exited_empty = {}
 
-        stuck_validators_payload, stuck_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_stuck, 10, 10)
-        exited_validators_payload, exited_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
+        stuck_validators_payload, stuck_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_stuck_empty, 10, 10)
+        exited_validators_payload, exited_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_exited_empty, 10, 10)
         extra_data = extra_data_service.build_extra_data(stuck_validators_payload, exited_validators_payload)
         assert extra_data == []
 
