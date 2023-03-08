@@ -1,7 +1,7 @@
 import functools
 from dataclasses import dataclass, is_dataclass, fields
 from types import GenericAlias
-from typing import Callable
+from typing import Callable, Self
 
 from src.utils.abi import named_tuple_to_dataclass
 
@@ -36,6 +36,7 @@ class Nested:
             return field_type.from_response
         return field_type
 
+
 @dataclass
 class FromResponse:
     """
@@ -43,7 +44,7 @@ class FromResponse:
     """
 
     @classmethod
-    def from_response(cls, **kwargs):
+    def from_response(cls, **kwargs) -> Self:
         class_field_names = [field.name for field in fields(cls)]
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 

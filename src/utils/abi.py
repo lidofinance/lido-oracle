@@ -1,4 +1,6 @@
 import re
+from collections.abc import Callable
+from typing import TypeVar
 
 
 def camel_to_snake(name):
@@ -6,7 +8,10 @@ def camel_to_snake(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
-def named_tuple_to_dataclass(response, dataclass_factory):
+T = TypeVar('T')
+
+
+def named_tuple_to_dataclass(response, dataclass_factory: Callable[..., T] | type[T]) -> T:
     """
     Converts ABIDecodedNamedTuple to provided dataclass
     Example:
