@@ -41,7 +41,6 @@ class TestBuildValidators:
             node_operator(2, 0): 1,
             node_operator(2, 1): 1,
             node_operator(1, 3): 1,
-            node_operator(1, 3): 1,
             node_operator(2, 2): 1,
             node_operator(3, 4): 1,
             node_operator(3, 5): 1,
@@ -66,10 +65,7 @@ class TestBuildValidators:
         vals_max_items_count = {
             node_operator(1, 0): 1,
             node_operator(1, 1): 1,
-            node_operator(1, 1): 2,
             node_operator(1, 2): 1,
-            node_operator(1, 2): 2,
-            node_operator(1, 2): 3,
         }
 
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_max_items_count, 10, 10)
@@ -130,7 +126,6 @@ class TestBuildValidators:
             node_operator(1, 0): 1,
             node_operator(1, 1): 1,
             node_operator(2, 0): 1,
-            node_operator(2, 0): 2,
             node_operator(3, 0): 1,
             node_operator(3, 1): 1,
         }
@@ -150,7 +145,6 @@ class TestBuildValidators:
             node_operator(2, 0): 1,
             node_operator(1, 0): 1,
             node_operator(3, 1): 1,
-            node_operator(2, 0): 2,
         }
 
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals_incorrect_order, 10, 10)
