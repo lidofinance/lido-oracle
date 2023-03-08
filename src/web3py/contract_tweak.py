@@ -17,7 +17,7 @@ from web3.exceptions import BadFunctionCallOutput
 from web3.types import ABI, TxParams, BlockIdentifier, CallOverride, FunctionIdentifier, ABIFunction
 
 
-def call_contract_function(
+def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     w3: "Web3",
     address: ChecksumAddress,
     normalizers: Tuple[Callable[..., Any], ...],
@@ -93,7 +93,7 @@ def call_contract_function(
         decoded = named_tree(fn_abi["outputs"], normalized_data)
         normalized_data = recursive_dict_to_namedtuple(decoded)
 
-    if len(normalized_data) == 1:
+    if len(normalized_data) == 1:  # pylint: disable=no-else-return
         return normalized_data[0]
     else:
         return normalized_data
