@@ -150,5 +150,9 @@ def tweak_w3_contracts(w3: Web3):
     Normal call to contract's method with blockhash would parse blockhash into block_number.
     Remove parse_block_identifier(self.w3, block_identifier) from ContractFunction and setup new ContractFactory
     to remove redundant eth_getBlockByHash call.
+
+    Here are two tweaks:
+    1. https://github.com/ethereum/web3.py/issues/2816
+    2. https://github.com/ethereum/web3.py/issues/2865
     """
     w3.eth._default_contract_factory = Contract  # pylint: disable=protected-access
