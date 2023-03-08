@@ -95,22 +95,20 @@ class TestBuildValidators:
             node_operator(1, 1): 2,
             node_operator(1, 2): 1,
         }
-        stucked_validators_payload = extra_data_service.build_validators_payloads(vals_stucked, 10, 10)
-        exited_validators_payload = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
+        stucked_validators_payload, stucked_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_stucked, 10, 10)
+        exited_validators_payload, exited_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
         extra_data = extra_data_service.build_extra_data(stucked_validators_payload, exited_validators_payload)
-        assert extra_data[0].item_payload[0].vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        # Should it be the second index? Is it okay that odd index is always empty?
-        assert extra_data[2].item_payload[0].vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+        assert extra_data[0].item_payload.vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+        assert extra_data[1].item_payload.vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
     def test_stucked_exited_validators_count_is_empty(self, extra_data_service):
         vals_stucked = {}
         vals_exited = {}
 
-        stucked_validators_payload = extra_data_service.build_validators_payloads(vals_stucked, 10, 10)
-        exited_validators_payload = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
+        stucked_validators_payload, stucked_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_stucked, 10, 10)
+        exited_validators_payload, exited_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
         extra_data = extra_data_service.build_extra_data(stucked_validators_payload, exited_validators_payload)
-        assert extra_data[0].item_payload == []
-        assert extra_data[2].item_payload == []
+        assert extra_data == []
 
     def test_payload_sorting(self, extra_data_service):
         """
