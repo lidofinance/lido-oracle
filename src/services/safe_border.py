@@ -10,7 +10,7 @@ from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.utils.slot import get_first_non_missed_slot
 
 
-class NoPreviousReport(Exception):
+class WrongExitPeriod(Exception):
     pass
 
 
@@ -111,14 +111,19 @@ class SafeBorder:
 
         return earliest_predicted_epoch
 
-    # If there are no so many validators in exit queue we can be quite sure that
-    # slashing has started not earlier than 8,192 epochs or ~36 days ago
+    # The exit period for a specific validator may be equal to the MIN_VALIDATOR_WITHDRAWAL_DELAY.
+    # This means that there are so many validators in the queue that the exit epoch moves with the withdrawable epoch,
+    # and we cannot detect when slashing has started.
     def _predict_earliest_slashed_epoch(self, validator: Validator) -> Optional[EpochNumber]:
         exit_epoch = int(validator.validator.exit_epoch)
         withdrawable_epoch = int(validator.validator.withdrawable_epoch)
 
         exited_period = withdrawable_epoch - exit_epoch
-        is_slashed_epoch_undetectable = exited_period > MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+        if exited_period < MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
+            raise WrongExitPeriod("exit_epoch and withdrawable_epoch are too close")
+
+        is_slashed_epoch_undetectable = exited_period == MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         if is_slashed_epoch_undetectable:
             return None
 
