@@ -67,3 +67,17 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     """
     active_long_enough = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
+
+
+def calculate_total_active_effective_balance(validators: list[Validator], ref_epoch: EpochNumber) -> Gwei:
+    """
+    Return the combined effective balance of the active validators.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
+    """
+    total_effective_balance = 0
+
+    for v in validators:
+        if is_active_validator(v, ref_epoch):
+            total_effective_balance += int(v.validator.effective_balance)
+
+    return Gwei(total_effective_balance)
