@@ -72,18 +72,27 @@ class TestBuildValidators:
             node_operator(1, 2): 3,
         }
 
+        payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 10, 10)
+        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payload_size_limit == 7
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 4)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payload_size_limit == 1
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 4, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payload_size_limit == 0
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 4)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payload_size_limit == 0
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
+        assert payload_size_limit == 0
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 3, 2)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        assert payload_size_limit == 0
         payloads, payload_size_limit = extra_data_service.build_validators_payloads(vals, 2, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        assert payload_size_limit == 0
 
     def test_stucked_exited_validators_count_non_zero(self, extra_data_service):
         vals_stucked = {
@@ -103,7 +112,6 @@ class TestBuildValidators:
 
     def test_stucked_exited_validators_count_is_empty(self, extra_data_service):
         vals_stucked = {}
-        vals_exited = {}
 
         stucked_validators_payload, stucked_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_stucked, 10, 10)
         exited_validators_payload, exited_validators_payload_size_limit = extra_data_service.build_validators_payloads(vals_exited, 10, 10)
