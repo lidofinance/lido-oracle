@@ -39,7 +39,7 @@ class KeysAPIClient(HTTPProvider):
         raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.SLEEP_SECONDS * self.RETRY_COUNT} seconds.')
 
     @lru_cache(maxsize=1)
-    @list_of_dataclasses(LidoKey)
+    @list_of_dataclasses(LidoKey.from_response)
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return self._get_with_blockstamp(self.ALL_KEYS, blockstamp)
