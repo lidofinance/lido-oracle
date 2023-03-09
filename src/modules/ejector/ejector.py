@@ -173,17 +173,19 @@ class Ejector(BaseModule, ConsensusModule):
         return steth_to_finalize
 
     def _get_predicted_withdrawable_epoch(
-            self,
-            blockstamp: ReferenceBlockStamp,
-            validators_to_eject_count: int,
+        self,
+        blockstamp: ReferenceBlockStamp,
+        validators_to_eject_count: int,
     ) -> EpochNumber:
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
         max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
 
-        # If order is empty exit epoch is current epoch + MAX_SEED_LOOKAHEAD + 1
-        max_exit_epoch_number = max(max_exit_epoch_number, self.compute_activation_exit_epoch(blockstamp))
+        max_exit_epoch_number = max(
+            max_exit_epoch_number,
+            self.compute_activation_exit_epoch(blockstamp),
+        )
 
         churn_limit = self._get_churn_limit(blockstamp)
 
@@ -192,10 +194,9 @@ class Ejector(BaseModule, ConsensusModule):
 
         return EpochNumber(max_exit_epoch_number + need_to_exit_all_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
-    def compute_activation_exit_epoch(self, blockstamp: BlockStamp):
-        chain_config = self.get_chain_config(blockstamp)
-        latest_blockstamp = self._get_latest_blockstamp()
-        return latest_blockstamp.slot_number // chain_config.slots_per_epoch + 1 + MAX_SEED_LOOKAHEAD
+    @staticmethod
+    def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):
+        return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: BlockStamp) -> tuple[EpochNumber, int]:
