@@ -66,6 +66,7 @@ class OracleReportLimits:
     max_positive_token_rebase: int
     max_validator_exit_requests_per_report: int
     max_accounting_extra_data_list_items_count: int
+    max_node_operators_per_extra_data_item_count: int
 
 
 @dataclass(frozen=True)
