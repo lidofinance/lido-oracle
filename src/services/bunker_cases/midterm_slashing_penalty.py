@@ -75,7 +75,8 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_per_possible_slashed_epoch_buckets(
-        all_slashed_validators: dict[str, Validator], ref_epoch: EpochNumber
+        all_slashed_validators: dict[str, Validator],
+        ref_epoch: EpochNumber
     ) -> dict[EpochNumber, dict[str, Validator]]:
         """
         Fill epoch number buckets by possible slashed epochs
@@ -107,8 +108,9 @@ class MidtermSlashingPenalty:
             determined_slashed_epoch = EpochNumber(int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR)
             return [determined_slashed_epoch]
 
-        possible_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-        return list(range(max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR), possible_slashed_epoch + 1))
+        earliest_slashed_epoch = max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+        latest_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
+        return list(range(earliest_slashed_epoch, latest_slashed_epoch + 1))
 
     @staticmethod
     def get_per_frame_lido_validators_with_future_midterm_epoch(
@@ -158,12 +160,12 @@ class MidtermSlashingPenalty:
     def get_adjusted_total_slashing_balance(
         bound_slashed_validators_count: int,
         total_balance: Gwei,
-    ):
+    ) -> Gwei:
         """
         Calculate adjusted total slashing balance for particular midterm penalty epoch
         """
         # We don't know which balance was at slashing epoch, so we make an assumption that it was 32 ETH
-        slashings = bound_slashed_validators_count * 32 * 10 ** 9
+        slashings = Gwei(bound_slashed_validators_count * 32 * 10 ** 9)
         return min(
             slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
         )
@@ -203,7 +205,8 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_not_withdrawn_slashed_validators(
-        all_validators: Mapping[str, Validator], ref_epoch: EpochNumber
+        all_validators: Mapping[str, Validator],
+        ref_epoch: EpochNumber
     ) -> dict[str, Validator]:
         """
         Get all slashed validators, who are not withdrawn yet
