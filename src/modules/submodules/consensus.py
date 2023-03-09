@@ -7,18 +7,16 @@ from typing import Optional
 from eth_abi import encode
 from eth_typing import Address
 from hexbytes import HexBytes
+from web3.contract import AsyncContract, Contract
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
-from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src import variables
+from src.modules.submodules.exceptions import IncompatibleContractVersion, IsNotMemberException
+from src.modules.submodules.typings import ZERO_HASH, ChainConfig, CurrentFrame, FrameConfig, MemberInfo
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_first_non_missed_slot
 from src.web3py.typings import Web3
-from web3.contract import Contract
-
-from src import variables
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,7 @@ class ConsensusModule(ABC):
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
-    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
+    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract | AsyncContract:
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
             abi=self.w3.lido_contracts.load_abi('HashConsensus'),
@@ -286,13 +284,13 @@ class ConsensusModule(ABC):
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
-        report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
+        report_function_abi = next(x for x in self.report_contract.abi if x.get('name') == report_function_name)
 
         # First input is ReportData structure
-        report_data_abi = report_function_abi['inputs'][0]['components']
+        report_data_abi = report_function_abi['inputs'][0]['components']  # type: ignore
 
         # Transform abi to string
-        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))
+        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))  # type: ignore
 
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
@@ -330,7 +328,7 @@ class ConsensusModule(ABC):
 
         members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
 
-        mem_position = members.index(variables.ACCOUNT.address)
+        mem_position = members.index(variables.ACCOUNT.address)  # TODO: fix me
 
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)

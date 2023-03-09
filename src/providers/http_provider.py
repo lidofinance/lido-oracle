@@ -4,10 +4,10 @@ from http import HTTPStatus
 from typing import Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
-from requests import Session, JSONDecodeError
+from prometheus_client import Counter, Histogram
+from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
-
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ class NotOkResponse(Exception):
 class HTTPProvider(ABC):
     REQUEST_TIMEOUT = 300
 
-    PROMETHEUS_HISTOGRAM = None
-    PROMETHEUS_COUNTER = None
+    PROMETHEUS_HISTOGRAM: Histogram
+    PROMETHEUS_COUNTER: Counter
 
     def __init__(self, host: str):
         self.host = host

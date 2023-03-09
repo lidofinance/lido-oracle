@@ -1,16 +1,15 @@
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from functools import lru_cache
-from typing import Tuple, TYPE_CHECKING, NewType
+from typing import TYPE_CHECKING, NewType, Tuple
 
-from eth_typing import Address
+from eth_typing import HexAddress
 from web3.module import Module
 
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 from src.utils.dataclass import Nested, list_of_dataclasses
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class StakingModule:
     # unique id of the staking module
     id: StakingModuleId
     # address of staking module
-    staking_module_address: Address
+    staking_module_address: HexAddress
     # part of the fee taken from staking rewards that goes to the staking module
     staking_module_fee: int
     # part of the fee taken from staking rewards that goes to the treasury
@@ -104,7 +103,9 @@ class LidoValidatorsProvider(Module):
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict
-        no_validators = {(operator.staking_module.id, operator.id): [] for operator in no_operators}
+        no_validators: ValidatorsByNodeOperator = {
+            (operator.staking_module.id, operator.id): [] for operator in no_operators
+        }
 
         staking_module_address = {
             operator.staking_module.staking_module_address: operator.staking_module.id
@@ -114,7 +115,7 @@ class LidoValidatorsProvider(Module):
         for validator in merged_validators:
             global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
-                validator.lido_id.operatorIndex,
+                NodeOperatorId(validator.lido_id.operatorIndex),
             )
 
             if global_no_id in no_validators:

@@ -11,54 +11,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Setup poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python - && echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
-      env:
-        POETRY_HOME: "/opt/poetry"
-        POETRY_VERSION: 1.3.2
+      - name: Setup poetry
+        run: >
+          curl -sSL https://install.python-poetry.org | python - &&
+          echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
+        env:
+          POETRY_HOME: "/opt/poetry"
+          POETRY_VERSION: 1.3.2
 
-    - name: Install dependencies
-      run: |
-        poetry install --no-interaction --with=dev
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction --with=dev
 
-    - name: Test with pytest
-      run: poetry run pytest -m "not integration and not e2e" --cov=src tests
+      - name: Test with pytest
+        run: poetry run pytest -m "not integration and not e2e" --cov=src tests
 
   linters:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Setup poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python - && echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
-      env:
-        POETRY_HOME: "/opt/poetry"
-        POETRY_VERSION: 1.3.2
+      - name: Setup poetry
+        run: >
+          curl -sSL https://install.python-poetry.org | python - &&
+          echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
+        env:
+          POETRY_HOME: "/opt/poetry"
+          POETRY_VERSION: 1.3.2
 
-    - name: Install dependencies
-      run: |
-        poetry install --no-interaction --with=dev
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction --with=dev
 
-    - name: Lint with pylint
-      run: poetry run pylint src tests
+      - name: Lint with pylint
+        run: poetry run pylint src tests
 
-#    - name: Lint mypy
-#      run: poetry run mypy src
+      - name: Lint mypy
+        run: poetry run mypy src
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
