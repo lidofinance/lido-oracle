@@ -7,7 +7,9 @@ from src.web3py.typings import Web3
 from src.typings import EpochNumber, SlotNumber, FrameNumber, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import Validator
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.modules.accounting.typings import OracleReportLimits
 from src.utils.slot import get_first_non_missed_slot
+from src.utils.abi import named_tuple_to_dataclass
 
 
 class WrongExitPeriod(Exception):
@@ -236,17 +238,23 @@ class SafeBorder:
             block_identifier=self.blockstamp.block_hash)
 
     def _retrieve_constants(self):
-        # Check self.w3.to_int works
-        self.finalization_default_shift = self.w3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_DEFAULT_SHIFT',
-            ).call(block_identifier=self.blockstamp.block_hash)
+        limits_list = named_tuple_to_dataclass(
+            self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
+                block_identifier=self.blockstamp.block_hash
+            ),
+            OracleReportLimits
+        )
+        self.finalization_default_shift = (
+            limits_list.request_timestamp_margin // (
+                self.chain_config.seconds_per_slot * self.chain_config.slots_per_epoch
+            )
         )
 
+        max_negative_rebase_shift_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
+            'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
+        ).call(block_identifier=self.blockstamp.block_hash)
         self.finalization_max_negative_rebase_shift = self.w3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT',
-            ).call(block_identifier=self.blockstamp.block_hash)
+            primitive=max_negative_rebase_shift_bytes
         )
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
