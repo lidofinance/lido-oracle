@@ -29,6 +29,7 @@ base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pylint = "^2.16.2"
 mypy = "^1.0.1"
+pytest-cov = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -41,6 +42,9 @@ markers = [
     "possible_integration: tests with using providers, but can be run using mocks",
     "e2e: complex tests with using providers and real Ethereum network",
 ]
+
+[tool.coverage.run]
+branch = true
 
 [tool.pylint."messages control"]
 disable = [
