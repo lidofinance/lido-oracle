@@ -26,27 +26,30 @@ class NoMockException(Exception):
 
 
 class FromFile:
-    responses: dict[Path, list[dict[str, Any]]]
+    responses: list[dict[str, Any]]
 
     def __init__(self, mock_path: Path):
-        self.responses = {}
+        self.responses = []
         self.load_from_file(mock_path)
 
     @contextmanager
     def use_mock(self, mock_path: Path):
+        previous_responses = self.responses
         self.load_from_file(mock_path)
         yield
+        self.responses = previous_responses
 
     def load_from_file(self, mock_path: Path):
         mock_path = BASE_FIXTURES_PATH / mock_path
         if not mock_path.exists():
             return
         with open(mock_path, "r") as f:
-            self.responses[mock_path] = json.load(f)
+            self.responses = json.load(f)
 
 
 class UpdateResponses:
-    responses = []
+    def __init__(self):
+        self.responses: list[dict[str, Any]] = []
 
     def save_responses(self, path: Path):
         path = BASE_FIXTURES_PATH / path
@@ -70,24 +73,22 @@ class UpdateResponses:
 
 
 class ResponseFromFile(JSONBaseProvider, FromFile):
-    responses: dict[Path, list[dict[str, Any]]]
-
     def __init__(self, mock_path: Path):
         JSONBaseProvider.__init__(self)
         FromFile.__init__(self, mock_path)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
-        for _, responses in self.responses.items():
-            for response in responses:
-                if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
-                    return response["response"]
+        for response in self.responses:
+            if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
+                return response["response"]
         raise NoMockException('There is no mock for response')
 
 
 class UpdateResponsesProvider(MultiProvider, UpdateResponses):
 
     def __init__(self, mock_path: Path, host):
-        super().__init__(host)
+        MultiProvider.__init__(self, host)
+        UpdateResponses.__init__(self)
         self.from_file = ResponseFromFile(mock_path)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -105,8 +106,6 @@ class UpdateResponsesProvider(MultiProvider, UpdateResponses):
 
 
 class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
-    responses: dict[list[dict[str, Any]]]
-
     def __init__(self, mock_path: Path, w3: Web3):
         self.w3 = w3
         HTTPProvider.__init__(self, host="")
@@ -114,10 +113,9 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
         FromFile.__init__(self, mock_path)
 
     def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
-        for _, responses in self.responses.items():
-            for response in responses:
-                if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
-                    return response["response"]
+        for response in self.responses:
+            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
+                return response["response"]
         raise NoMockException('There is no mock for response')
 
 

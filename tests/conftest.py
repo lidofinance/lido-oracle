@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.fixtures import FixtureRequest
-from web3.middleware import simple_cache_middleware
+from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
@@ -63,8 +63,10 @@ def provider(request, responses_path) -> UpdateResponsesProvider | ResponseFromF
 def web3(provider) -> Web3:
     web3 = Web3(provider)
     tweak_w3_contracts(web3)
-    web3.middleware_onion.add(simple_cache_middleware)
+    web3.middleware_onion.add(construct_simple_cache_middleware())
 
+    with provider.use_mock(Path('common/chainId.json')):
+        _ = web3.eth.chain_id
     yield web3
 
 
@@ -109,7 +111,7 @@ def keys_api_client(request, responses_path, web3):
 def contracts(web3, provider):
     old_locator = src.variables.LIDO_LOCATOR_ADDRESS
     src.variables.LIDO_LOCATOR_ADDRESS = "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC"
-    with provider.use_mock(Path('contracts.v1.json')):
+    with provider.use_mock(Path('common/contracts.v1.json')):
         # First contracts deployment
         web3.attach_modules({
             'lido_contracts': LidoContracts,

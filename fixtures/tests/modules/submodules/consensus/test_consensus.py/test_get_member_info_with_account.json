@@ -1,14 +1,5 @@
 [
   {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 0,
-      "result": "0x1469cb"
-    }
-  },
-  {
     "method": "eth_call",
     "params": [
       {
@@ -21,15 +12,6 @@
       "jsonrpc": "2.0",
       "id": 1,
       "result": "0x000000000000000000000000787fe214327fe9d50123a544433370a85de0bc87"
-    }
-  },
-  {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 2,
-      "result": "0x1469cb"
     }
   },
   {
@@ -48,15 +30,6 @@
     }
   },
   {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 4,
-      "result": "0x1469cb"
-    }
-  },
-  {
     "method": "eth_call",
     "params": [
       {
@@ -69,15 +42,6 @@
       "jsonrpc": "2.0",
       "id": 5,
       "result": "0x00000000000000000000000000000000000000000000000000000000000008ca000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000a"
-    }
-  },
-  {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 6,
-      "result": "0x1469cb"
     }
   },
   {
@@ -96,15 +60,6 @@
     }
   },
   {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 8,
-      "result": "0x1469cb"
-    }
-  },
-  {
     "method": "eth_call",
     "params": [
       {
@@ -117,15 +72,6 @@
       "jsonrpc": "2.0",
       "id": 9,
       "result": "0x65fa0c17458517c727737e4153dd477fa3e328cf706640b0f68b1a285c5990da"
-    }
-  },
-  {
-    "method": "eth_chainId",
-    "params": [],
-    "response": {
-      "jsonrpc": "2.0",
-      "id": 10,
-      "result": "0x1469cb"
     }
   },
   {
