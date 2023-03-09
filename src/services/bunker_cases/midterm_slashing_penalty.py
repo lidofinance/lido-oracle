@@ -11,7 +11,7 @@ from src.constants import (
 from src.modules.submodules.typings import FrameConfig
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei, ReferenceBlockStamp, FrameNumber
-from src.utils.validator_state import calculate_total_active_effective_balance
+from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator
 
 
@@ -55,7 +55,7 @@ class MidtermSlashingPenalty:
 
         # We should calculate total balance for each midterm penalty epoch, but we can't do it for the future epochs
         # So we get total balance by current ref epoch
-        total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
+        total_balance = calculate_active_effective_balance_sum(all_validators, blockstamp.ref_epoch)
 
         # Calculate sum of Lido midterm penalties in each future frame
         frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(

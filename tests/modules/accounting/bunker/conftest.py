@@ -4,14 +4,15 @@ import pytest
 
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.services.bunker import BunkerService, BunkerConfig
+from src.services.bunker import BunkerService
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
+from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
-def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
-    return ReferenceBlockStamp(state_root, block_number, '', block_number, 0, block_number, block_number)
+def simple_blockstamp(block_number: int) -> ReferenceBlockStamp:
+    return ReferenceBlockStamp('', f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -39,21 +40,47 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
 
 
 @pytest.fixture
-def mock_get_reference_blockstamp(monkeypatch):
+def mock_get_accounting_last_processing_ref_slot(abnormal_case):
+    def _get_accounting_last_processing_ref_slot(blockstamp: ReferenceBlockStamp):
+        return 10
 
-    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
+    abnormal_case.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
+        side_effect=_get_accounting_last_processing_ref_slot
+    )
+
+
+@pytest.fixture
+def mock_get_all_lido_keys(abnormal_case):
+
+    def _get_all_lido_keys(blockstamp: ReferenceBlockStamp):
+        return [
+            simple_key('0x03'),
+            simple_key('0x04'),
+            simple_key('0x05'),
+        ]
+
+    abnormal_case.w3.kac.get_all_lido_keys = Mock(side_effect=_get_all_lido_keys)
+
+
+@pytest.fixture
+def mock_get_first_non_missed_slot(monkeypatch):
+
+    def _get_first_non_missed_slot(_, ref_slot, last_finalized_slot_number, ref_epoch):
 
         slots = {
-            0: simple_blockstamp(0, '0x0'),
-            10: simple_blockstamp(10, '0x10'),
-            20: simple_blockstamp(20, '0x20'),
-            30: simple_blockstamp(30, '0x30'),
+            0: simple_blockstamp(0),
+            10: simple_blockstamp(10),
+            20: simple_blockstamp(20),
+            30: simple_blockstamp(30),
+            444427: simple_blockstamp(444420),
+            444434: simple_blockstamp(444431),
+            444444: simple_blockstamp(444444),
         }
 
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp', Mock(side_effect=_get_reference_blockstamp)
+        'src.services.bunker_cases.abnormal_cl_rebase.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
     )
 
 
@@ -171,12 +198,11 @@ def bunker(web3, lido_validators) -> BunkerService:
 
 @pytest.fixture
 def blockstamp():
-    return simple_blockstamp(10, '0x10')
+    return simple_blockstamp(10)
 
 
 @pytest.fixture
-def abnormal_case(web3, lido_validators, mock_get_validators, blockstamp) -> AbnormalClRebase:
-    last_report_ref_slot = 0
+def abnormal_case(web3, lido_validators, contracts, mock_get_validators, blockstamp) -> AbnormalClRebase:
     c_conf = ChainConfig(
         slots_per_epoch=1,
         seconds_per_slot=12,
@@ -188,15 +214,4 @@ def abnormal_case(web3, lido_validators, mock_get_validators, blockstamp) -> Abn
         rebase_check_nearest_epoch_distance=4,
         rebase_check_distant_epoch_distance=25
     )
-    all_validators = {
-        v.validator.pubkey: v for v in web3.cc.get_validators(blockstamp)
-    }
-    lido_validators = {
-        v.validator.pubkey: v for v in web3.cc.get_validators(blockstamp)[3:6]
-    }
-    lido_keys = {
-        '0x03': simple_key('0x03'),
-        '0x04': simple_key('0x04'),
-        '0x05': simple_key('0x05'),
-    }
-    return AbnormalClRebase(web3, b_conf, c_conf, last_report_ref_slot, all_validators, lido_keys, lido_validators)
+    return AbnormalClRebase(web3, c_conf, b_conf)

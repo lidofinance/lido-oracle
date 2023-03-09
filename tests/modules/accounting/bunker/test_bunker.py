@@ -19,7 +19,7 @@ def test_get_cl_rebase_for_frame(
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):
-    blockstamp = simple_blockstamp(0, '0x0')
+    blockstamp = simple_blockstamp(0)
     simulated_cl_rebase = LidoReportRebase(
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
