@@ -179,7 +179,16 @@ class Accounting(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
         simulation = self.get_rebase_after_report(blockstamp)
-        shares_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+        cover_shares, non_cover_shares = self.w3.lido_contracts.burner.functions.getSharesRequestedToBurn().call(
+            block_identifier=blockstamp.block_hash
+        )
+        shares_to_burn = cover_shares + non_cover_shares
+
+        shares_rate = (
+            simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // (
+                simulation.post_total_shares - shares_to_burn
+            )
+        )
         logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
         return shares_rate
 

@@ -64,6 +64,12 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
+        self.burner = self.w3.eth.contract(
+            address=self.lido_locator.functions.burner().call(),
+            abi=self.load_abi('Burner'),
+            decode_tuples=True,
+        )
+
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):
         with open(f'{abi_path}{abi_name}.json') as f:
