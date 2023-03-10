@@ -1,4 +1,3 @@
-import factory
 from eth_typing import HexStr
 from src.typings import (
     BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber, ReferenceBlockStamp,

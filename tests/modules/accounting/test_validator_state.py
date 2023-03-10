@@ -14,7 +14,7 @@ from src.web3py.extensions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
 )
-from tests.factories import Factories
+from tests.factory.factories import Factories
 
 TESTING_REF_EPOCH = 100
 

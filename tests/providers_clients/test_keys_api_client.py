@@ -3,7 +3,7 @@ import pytest
 
 from src.providers.keys.client import KeysAPIClient
 from src.variables import KEYS_API_URI
-from tests.factories import Factories
+from tests.factory.factories import Factories
 
 pytestmark = pytest.mark.integration
 

@@ -12,7 +12,7 @@ from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidator
 from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
-from tests.factories import Factories
+from tests.factory.factories import Factories
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
