@@ -25,6 +25,19 @@ class TestBuildValidators:
         assert extra_data.extra_data == b''
         assert extra_data.data_hash == HexBytes(b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p")
 
+    def test_collect_non_zero(self, extra_data_service):
+        vals_stuck_non_zero = {
+            node_operator(1, 0): 1,
+        }
+        vals_exited_non_zero = {
+            node_operator(1, 0): 2,
+        }
+        extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 10, 10)
+        assert isinstance(extra_data, ExtraData)
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
+        assert extra_data.extra_data == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+        assert extra_data.data_hash == HexBytes(b"\x1a\xa3\x94\x9dqI\xcb\xd9y\xbf\xabG\x8d\xeb\xb1j\x91\x8b\xce\xd9\xda;!x*aPk\xf5^\x19\xd1")
+
     def test_payload(self, extra_data_service):
         vals_payload = {
             node_operator(1, 0): 1,
