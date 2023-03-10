@@ -12,14 +12,15 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
     StakingModule,
 )
+from tests.factory.base import ReferenceBlockStampFactory
 
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
 
 
 @pytest.fixture()
-def past_blockstamp(factories):
-    yield factories.reference_blockstamp(ref_epoch=4445)
+def past_blockstamp():
+    yield ReferenceBlockStampFactory.build(ref_epoch=4445)
 
 
 @pytest.fixture
@@ -43,7 +44,7 @@ def validator_exit(
 
 
 @pytest.fixture
-def mock_validator_exit_events(validator_exit, monkeypatch, factories):
+def mock_validator_exit_events(validator_exit, monkeypatch):
     def exit_event(module_id, operator_id, validator_index, timestamp):
         return {'args': {
             'stakingModuleId': module_id,
@@ -54,8 +55,13 @@ def mock_validator_exit_events(validator_exit, monkeypatch, factories):
 
     def _get_events_in_past(to_blockstamp, *args, **kwargs, ):
         # We do not expect other input values in tests
-        assert to_blockstamp == factories.reference_blockstamp(slot_number=18, block_number=13, ref_slot=22,
-                                                               ref_epoch=0)
+        assert to_blockstamp == ReferenceBlockStampFactory.build(
+            slot_number=18,
+            block_number=13,
+            ref_slot=22,
+            ref_epoch=0,
+        )
+
         return [
             exit_event(0, 1, 7, SlotNumber(14) * seconds_per_slot + genesis_time),
             exit_event(0, 0, 10, SlotNumber(17) * seconds_per_slot + genesis_time),
@@ -82,12 +88,19 @@ def mock_last_requested_validator_index(validator_exit):
 class TestRequestedToExitIndices:
 
     @pytest.mark.unit
-    def test_get_recently_requested_to_exit_indices(self, validator_exit, mock_validator_exit_events, factories):
-        validator_exit.blockstamp = factories.reference_blockstamp(slot_number=18, block_number=13, ref_slot=22,
-                                                                   ref_epoch=0)
-        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
-                            (StakingModuleId(0), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(1))]
+    def test_get_recently_requested_to_exit_indices(self, validator_exit, mock_validator_exit_events):
+        validator_exit.blockstamp = ReferenceBlockStampFactory.build(
+            slot_number=18,
+            block_number=13,
+            ref_slot=22,
+            ref_epoch=0,
+        )
+
+        operator_indexes = [
+            (StakingModuleId(0), NodeOperatorId(0)),
+            (StakingModuleId(0), NodeOperatorId(1)),
+            (StakingModuleId(1), NodeOperatorId(1)),
+        ]
         result = validator_exit._get_recently_requested_to_exit_indices(operator_indexes)
         assert result == {
             (StakingModuleId(0), NodeOperatorId(0)): {10},
@@ -96,10 +109,12 @@ class TestRequestedToExitIndices:
         }
 
     @pytest.mark.unit
-    def test_get_last_requested_to_exit_indices(self,
-                                                validator_exit, mock_last_requested_validator_index, factories
-                                                ):
-        validator_exit.blockstamp = factories.reference_blockstamp(slot_number=18, block_number=13, ref_slot=22)
+    def test_get_last_requested_to_exit_indices(
+        self,
+        validator_exit,
+        mock_last_requested_validator_index,
+    ):
+        validator_exit.blockstamp = ReferenceBlockStampFactory.build(slot_number=18, block_number=13, ref_slot=22)
         operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
                             (StakingModuleId(0), NodeOperatorId(1)),
                             (StakingModuleId(1), NodeOperatorId(1)),
@@ -161,10 +176,11 @@ def test_get_exitable_lido_validators(validator_exit):
 
 
 @pytest.mark.unit
-def test_prepare_lido_node_operator_stats(validator_exit,
-                                          mock_validator_exit_events,
-                                          mock_last_requested_validator_index,
-                                          factories):
+def test_prepare_lido_node_operator_stats(
+    validator_exit,
+    mock_validator_exit_events,
+    mock_last_requested_validator_index,
+):
     def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.lido_id = object.__new__(LidoKey)
@@ -177,13 +193,13 @@ def test_prepare_lido_node_operator_stats(validator_exit,
         return validator
 
     def n(
-            index,
-            is_limited,
-            target_count,
-            refunded_count,
-            total_deposited,
-            module_id,
-            module_address
+        index,
+        is_limited,
+        target_count,
+        refunded_count,
+        total_deposited,
+        module_id,
+        module_address
     ):
         operator = object.__new__(NodeOperator)
         operator.staking_module = object.__new__(StakingModule)
@@ -209,8 +225,14 @@ def test_prepare_lido_node_operator_stats(validator_exit,
         (1, 1): [v('0x1', 1, 50, 1000, 0)],
         (1, 2): [],
     }
-    validator_exit.blockstamp = factories.reference_blockstamp(slot_number=18, block_number=13, ref_slot=22,
-                                                               ref_epoch=0)
+
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(
+        slot_number=18,
+        block_number=13,
+        ref_slot=22,
+        ref_epoch=0,
+    )
+
     result = validator_exit._prepare_lido_node_operator_stats(
         operators,
         operator_validators,

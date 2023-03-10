@@ -5,7 +5,7 @@ from time import sleep
 from typing import Optional
 
 from eth_abi import encode
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
@@ -51,7 +51,7 @@ class ConsensusModule(ABC):
             decode_tuples=True,
         )
 
-    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
+    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> ChecksumAddress:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)

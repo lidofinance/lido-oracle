@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
@@ -78,5 +78,5 @@ class LidoReportRebase:
 
 @dataclass
 class Account:
-    address: Address
+    address: ChecksumAddress
     _private_key: HexBytes

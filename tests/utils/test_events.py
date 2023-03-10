@@ -2,6 +2,7 @@ import pytest
 
 from src.typings import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
+from tests.factory.base import ReferenceBlockStampFactory
 
 
 class ContractEvent:
@@ -35,12 +36,12 @@ class ContractEvent:
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_contract_events_in_past(factories):
+def test_get_contract_events_in_past():
     seconds_per_slot = 10
-    bs = factories.reference_blockstamp(
+    bs = ReferenceBlockStampFactory.build(
         slot_number=36,
         block_number=31,
-        block_timestamp=36*10,
+        block_timestamp=36 * 10,
         ref_slot=36,
         ref_epoch=0,
     )

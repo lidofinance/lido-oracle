@@ -1,9 +1,11 @@
 import pytest
 
+from tests.factory.base import ReferenceBlockStampFactory
+
 
 @pytest.fixture()
-def past_blockstamp(factories):
-    yield factories.reference_blockstamp()
+def past_blockstamp():
+    yield ReferenceBlockStampFactory.build()
 
 
 @pytest.fixture()

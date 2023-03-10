@@ -14,11 +14,13 @@ from src.web3py.extensions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
 )
-from tests.factory.factories import Factories
+from tests.factory.base import ReferenceBlockStampFactory
+
 
 TESTING_REF_EPOCH = 100
 
-blockstamp = Factories.reference_blockstamp(
+
+blockstamp = ReferenceBlockStampFactory.build(
     ref_slot=9024,
     ref_epoch=TESTING_REF_EPOCH,
 )
