@@ -1,5 +1,3 @@
-from typing import Generic, TypeVar
-
 import factory
 from eth_typing import HexStr
 from src.typings import (
