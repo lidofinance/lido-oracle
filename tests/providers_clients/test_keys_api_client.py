@@ -2,9 +2,8 @@
 import pytest
 
 from src.providers.keys.client import KeysAPIClient
-from src.typings import BlockStamp, ReferenceBlockStamp
 from src.variables import KEYS_API_URI
-
+from tests.factories import Factories
 
 pytestmark = pytest.mark.integration
 
@@ -14,16 +13,7 @@ def keys_api_client():
     return KeysAPIClient(KEYS_API_URI)
 
 
-empty_blockstamp = ReferenceBlockStamp(
-        ref_slot=0,
-        ref_epoch=0,
-        block_root=None,
-        state_root=None,
-        slot_number='',
-        block_hash='',
-        block_number=0,
-        block_timestamp=0,
-    )
+empty_blockstamp = Factories.reference_blockstamp(block_number=0)
 
 
 def test_get_all_lido_keys(keys_api_client):
