@@ -269,16 +269,13 @@ def get_rewards_per_slot(web3, contracts, eth_distributed_logs):
 
 
 @pytest.mark.unit
-def test_get_rewards_no_matching_events(web3, contracts):
-    bp = ReferenceBlockStamp(
+def test_get_rewards_no_matching_events(web3, contracts, factories):
+    bp = factories.reference_blockstamp(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
         ref_slot=SlotNumber(100000),
-        block_root=None,
-        state_root=None,
         slot_number=14,
         block_hash=None,
-        ref_epoch=None,
     )
 
     cc = ChainConfig(
