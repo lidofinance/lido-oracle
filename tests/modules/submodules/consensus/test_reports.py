@@ -17,6 +17,7 @@ def set_report_account(monkeypatch):
         ))
         yield
 
+
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
     report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
@@ -62,12 +63,12 @@ def test_do_not_report_same_hash(web3, consensus, caplog):
 
 
 # -------- Process report data ---------
-def test_process_report_data_hash_not_actualized(web3, consensus, caplog):
+def test_quorum_is_no_ready(web3, consensus, caplog):
     blockstamp = get_blockstamp_by_state(web3, "head")
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Quorum is not ready and member did not send the report hash." in caplog.messages[-1]
+    assert "Quorum is not ready." in caplog.messages[-1]
 
 
 def test_process_report_data_wait_for_consensus(consensus):

@@ -229,14 +229,8 @@ class ConsensusModule(ABC):
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # If the quorum is ready to report data, the member should have opportunity to send report
-        if (
-            # If there is no quorum
-            member_info.current_frame_consensus_report == ZERO_HASH
-            # And member did not send the report
-            and HexBytes(member_info.current_frame_member_report) != report_hash
-        ):
-            logger.info({'msg': 'Quorum is not ready and member did not send the report hash.'})
+        if member_info.current_frame_consensus_report == ZERO_HASH:
+            logger.info({'msg': 'Quorum is not ready.'})
             return
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
@@ -298,7 +292,6 @@ class ConsensusModule(ABC):
         encoded = encode([f'({report_str_abi})'], [report_data])
 
         report_hash = self.w3.keccak(encoded)
-        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         return report_hash
 
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
@@ -323,7 +316,7 @@ class ConsensusModule(ABC):
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
         member = self.get_member_info(blockstamp)
-        if member.is_submit_member:
+        if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
         consensus_contract = self._get_consensus_contract(blockstamp)
