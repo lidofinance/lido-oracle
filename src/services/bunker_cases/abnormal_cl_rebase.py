@@ -10,7 +10,7 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import ReferenceBlockStamp, Gwei, EpochNumber, BlockNumber, SlotNumber
+from src.typings import ReferenceBlockStamp, Gwei, EpochNumber, BlockNumber, SlotNumber, BlockStamp
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
@@ -36,7 +36,7 @@ class AbnormalClRebase:
         blockstamp: ReferenceBlockStamp,
         all_validators: list[Validator],
         lido_validators: list[LidoValidator],
-        current_frame_cl_rebase: Gwei
+        ref_frame_cl_rebase: Gwei
     ) -> bool:
         self.all_validators = all_validators
         self.lido_validators = lido_validators
@@ -46,7 +46,7 @@ class AbnormalClRebase:
 
         normal_frame_cl_rebase = self._calculate_lido_normal_cl_rebase(blockstamp)
 
-        if normal_frame_cl_rebase > current_frame_cl_rebase:
+        if normal_frame_cl_rebase > ref_frame_cl_rebase:
             logger.info({"msg": "CL rebase in frame is abnormal"})
 
             no_need_specific_cl_rebase_check = (
@@ -119,97 +119,96 @@ class AbnormalClRebase:
         return False
 
     def _get_nearest_and_distant_blockstamps(
-        self, blockstamp: ReferenceBlockStamp
+        self, ref_blockstamp: ReferenceBlockStamp
     ) -> tuple[ReferenceBlockStamp, ReferenceBlockStamp]:
         """Get nearest and distant blockstamps. Calculation including missed slots"""
         nearest_slot = SlotNumber(
-            blockstamp.slot_number - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
+            ref_blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
         )
         distant_slot = SlotNumber(
-            blockstamp.slot_number - self.b_conf.rebase_check_distant_epoch_distance * self.c_conf.slots_per_epoch
+            ref_blockstamp.ref_slot - self.b_conf.rebase_check_distant_epoch_distance * self.c_conf.slots_per_epoch
         )
 
         AbnormalClRebase.validate_slot_distance(
-            distant_slot, nearest_slot, blockstamp.slot_number
+            distant_slot, nearest_slot, ref_blockstamp.slot_number
         )
 
-        nearest_blockstamp = self._get_ref_blockstamp(needed=nearest_slot, finalized=blockstamp.slot_number)
-
-        missed_slots = nearest_blockstamp.slot_number - nearest_slot
-
-        distant_blockstamp = self._get_ref_blockstamp(
-            needed=SlotNumber(distant_slot - missed_slots), finalized=blockstamp.slot_number
-        )
+        nearest_blockstamp = self._get_blockstamp_for_slot(needed=nearest_slot, finalized=ref_blockstamp.slot_number)
+        distant_blockstamp = self._get_blockstamp_for_slot(needed=distant_slot, finalized=ref_blockstamp.slot_number)
 
         return nearest_blockstamp, distant_blockstamp
 
     def _calculate_cl_rebase_between_blocks(
-        self, prev_blockstamp: ReferenceBlockStamp, curr_blockstamp: ReferenceBlockStamp
+        self, prev_blockstamp: ReferenceBlockStamp, ref_blockstamp: ReferenceBlockStamp
     ) -> Gwei:
         """
-        Calculate CL rebase from prev_blockstamp to curr_blockstamp.
+        Calculate CL rebase from prev_blockstamp to ref_blockstamp.
         Skimmed validator rewards are sent to 0x01 withdrawal credentials address
-        which in Lido case is WithdrawalVault contract. To account for all changes in validators' balances,
-        we must account for WithdrawalVault balance changes (withdrawn events from it)
+        which in Lido case is WithdrawalVault contract.
+        To account for all changes in validators' balances, we must account
+        withdrawn events from WithdrawalVault contract.
+        Check for these events is enough to account for all withdrawals since the protocol assumes that
+        the vault can only be withdrawn at the time of the Oracle report
         """
-        logger.info(
-            {"msg": f"Calculating CL rebase between {prev_blockstamp.ref_epoch, curr_blockstamp.ref_epoch} epochs"}
-        )
         prev_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )
 
         # Get Lido validators' balances with WithdrawalVault balance
-        curr_lido_balance_with_vault = self._get_validators_balance_with_vault(curr_blockstamp, self.lido_validators)
-        prev_lido_balance_with_vault = self._get_validators_balance_with_vault(prev_blockstamp, prev_lido_validators)
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            ref_blockstamp, self.lido_validators
+        )
+        prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            prev_blockstamp, prev_lido_validators
+        )
 
-        # Raw CL rebase are calculated as difference between current and previous Lido validators' balances
-        raw_cl_rebase = curr_lido_balance_with_vault - prev_lido_balance_with_vault
+        # Raw CL rebase are calculated as difference between reference and previous Lido validators' balances
+        raw_cl_rebase = ref_lido_balance_with_vault - prev_lido_balance_with_vault
 
         # We should account validators who have been activated between blocks
         # And withdrawals from WithdrawalVault
         validators_count_diff_in_gwei = AbnormalClRebase.calculate_validators_count_diff_in_gwei(
-            self.lido_validators, prev_lido_validators
+            prev_lido_validators, self.lido_validators
         )
-        withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, curr_blockstamp)
+        withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
         # Finally, we can calculate corrected CL rebase
         cl_rebase = Gwei(raw_cl_rebase + validators_count_diff_in_gwei + withdrawn_from_vault)
 
         logger.info({
-            "msg": f"CL rebase between {prev_blockstamp.ref_epoch,curr_blockstamp.ref_epoch} epochs: {cl_rebase} Gwei"
+            "msg": f"CL rebase between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks: {cl_rebase} Gwei"
         })
 
         return cl_rebase
 
-    def _get_validators_balance_with_vault(
-        self, blockstamp: ReferenceBlockStamp, lido_validators: list[LidoValidator]
+    def _get_lido_validators_balance_with_vault(
+        self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance
         """
-        real_cl_balance = AbnormalClRebase.calculate_real_balance(lido_validators)
+        real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
         withdrawals_vault_balance = int(
-            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance(blockstamp), "gwei")
+            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
         )
         return Gwei(real_cl_balance + withdrawals_vault_balance)
 
     def _get_withdrawn_from_vault_between_blocks(
-        self, prev_blockstamp: ReferenceBlockStamp, curr_blockstamp: ReferenceBlockStamp
-    ) -> int:
+        self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
+    ) -> Gwei:
         """
         Lookup for ETHDistributed event and sum up all withdrawalsWithdrawn
         """
         logger.info(
-            {"msg": f"Get withdrawn from vault between {prev_blockstamp.ref_epoch,curr_blockstamp.ref_epoch} epochs"}
+            {"msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"}
         )
 
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
             from_block=BlockNumber(int(prev_blockstamp.block_number) + 1),
-            to_block=BlockNumber(int(curr_blockstamp.block_number)),
+            to_block=BlockNumber(int(ref_blockstamp.block_number)),
         )
 
         if len(events) > 1:
@@ -217,12 +216,12 @@ class AbnormalClRebase:
 
         if not events:
             logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
-            return 0
+            return Gwei(0)
 
         vault_withdrawals = int(self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei'))
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
 
-        return vault_withdrawals
+        return Gwei(vault_withdrawals)
 
     def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
         """Get ETHDistributed events between blocks"""
@@ -234,9 +233,9 @@ class AbnormalClRebase:
     def _get_last_report_blockstamp(self, blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
-        return self._get_ref_blockstamp(needed=last_report_ref_slot, finalized=blockstamp.slot_number)
+        return self._get_blockstamp_for_slot(needed=last_report_ref_slot, finalized=blockstamp.slot_number)
 
-    def _get_ref_blockstamp(self, needed: SlotNumber, finalized: SlotNumber) -> ReferenceBlockStamp:
+    def _get_blockstamp_for_slot(self, needed: SlotNumber, finalized: SlotNumber) -> ReferenceBlockStamp:
         """Get blockstamp of needed slot"""
         return get_first_non_missed_slot(
             self.w3.cc,
@@ -246,19 +245,25 @@ class AbnormalClRebase:
         )
 
     @staticmethod
-    def calculate_validators_count_diff_in_gwei(curr_validators: list[Validator], prev_validators: list[Validator]):
-        """Handle 32 ETH balances of freshly baked validators, who was activated between epochs"""
-        validators_diff_in_gwei = (len(curr_validators) - len(prev_validators)) * MAX_EFFECTIVE_BALANCE
-        if validators_diff_in_gwei < 0:
+    def calculate_validators_count_diff_in_gwei(prev_validators: list[Validator], ref_validators: list[Validator]):
+        """
+        Handle 32 ETH balances of freshly baked validators, who was activated between epochs
+        Lido validators are counted by public keys that the protocol deposited with 32 ETH,
+        so we can safely count the differences in the number of validators when they occur by deposit size.
+        Any predeposits to Lido keys will not be counted until the key is deposited through the protocol
+        and goes into `used` state
+        """
+        validators_diff = len(ref_validators) - len(prev_validators)
+        if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return validators_diff_in_gwei
+        return validators_diff * MAX_EFFECTIVE_BALANCE
 
     @staticmethod
     def get_mean_effective_balance_sum(
         last_report_blockstamp: ReferenceBlockStamp,
-        curr_blockstamp: ReferenceBlockStamp,
+        ref_blockstamp: ReferenceBlockStamp,
         last_report_validators: list[Validator],
-        curr_validators: list[Validator],
+        ref_validators: list[Validator],
     ) -> Gwei:
         """
         Calculate mean of effective balance sums
@@ -266,21 +271,21 @@ class AbnormalClRebase:
         last_report_effective_balance_sum = calculate_active_effective_balance_sum(
             last_report_validators, last_report_blockstamp.ref_epoch
         )
-        current_effective_balance_sum = calculate_active_effective_balance_sum(
-            curr_validators, curr_blockstamp.ref_epoch
+        ref_effective_balance_sum = calculate_active_effective_balance_sum(
+            ref_validators, ref_blockstamp.ref_epoch
         )
-        return mean((current_effective_balance_sum, last_report_effective_balance_sum))
+        return mean((ref_effective_balance_sum, last_report_effective_balance_sum))
 
     @staticmethod
-    def validate_slot_distance(distant_slot: SlotNumber, nearest_slot: SlotNumber, current_slot: SlotNumber):
-        if distant_slot <= nearest_slot <= current_slot:
+    def validate_slot_distance(distant_slot: SlotNumber, nearest_slot: SlotNumber, ref_slot: SlotNumber):
+        if distant_slot <= nearest_slot <= ref_slot:
             return
         raise ValueError(
-            f"{nearest_slot=} should be between {distant_slot=} and {current_slot=} in specific CL rebase calculation"
+            f"{nearest_slot=} should be between {distant_slot=} and {ref_slot=} in specific CL rebase calculation"
         )
 
     @staticmethod
-    def calculate_real_balance(validators: list[Validator]) -> Gwei:
+    def calculate_validators_balance_sum(validators: list[Validator]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators))
 
     @staticmethod
@@ -293,7 +298,7 @@ class AbnormalClRebase:
         """
         Calculate normal CL rebase for particular effective balance
 
-        Actual value of NORMALIZED_CL_PER_EPOCH is a random variable with embedded variance for four reasons:
+        Actual value of NORMALIZED_CL_REWARD_PER_EPOCH is a random variable with embedded variance for four reasons:
          * Calculating expected proposer rewards instead of actual - Randomness within specification
          * Calculating expected sync committee rewards instead of actual  - Randomness within specification
          * Instead of using data on active validators for each epoch
@@ -302,7 +307,7 @@ class AbnormalClRebase:
          * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
         If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
         those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
-        To formalize “high enough” difference we’re suggesting NORMALIZED_CL_MISTAKE_PERCENT constant
+        To formalize “high enough” difference we’re suggesting NORMALIZED_CL_REWARD_MISTAKE_RATE_BP constant
         """
         normal_cl_rebase = int(
             (bunker_config.normalized_cl_reward_per_epoch * mean_lido_effective_balance_sum * epochs_passed)

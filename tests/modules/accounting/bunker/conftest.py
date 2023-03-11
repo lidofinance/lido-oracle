@@ -72,7 +72,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
             10: simple_blockstamp(10),
             20: simple_blockstamp(20),
             30: simple_blockstamp(30),
-            444427: simple_blockstamp(444420),
+            444424: simple_blockstamp(444420),
             444434: simple_blockstamp(444431),
             444444: simple_blockstamp(444444),
         }
@@ -127,7 +127,7 @@ def mock_get_withdrawal_vault_balance(abnormal_case, contracts):
         }
         return balance[blockstamp.block_number]
 
-    abnormal_case.w3.lido_contracts.get_withdrawal_balance = Mock(side_effect=_get_withdrawal_vault_balance)
+    abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(side_effect=_get_withdrawal_vault_balance)
 
 
 @pytest.fixture

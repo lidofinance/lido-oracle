@@ -4,7 +4,6 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import BlockStamp, ReferenceBlockStamp
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key
 
 
@@ -109,12 +108,13 @@ def test_calculate_lido_normal_cl_rebase(
             simple_blockstamp(20),
             20,
             10,
-            ValueError("nearest_slot=0 should be between distant_slot=10 and current_slot=20 in specific CL rebase calculation")),
+            "nearest_slot=0 should be between distant_slot=10 and ref_slot=20 in specific CL rebase calculation"
+        ),
         (
             simple_blockstamp(20),
             10,
             -10,
-            ValueError("nearest_slot=10 should be between distant_slot=30 and current_slot=20 in specific CL rebase calculation")
+            "nearest_slot=10 should be between distant_slot=30 and ref_slot=20 in specific CL rebase calculation"
         ),
     ]
 )
@@ -140,8 +140,8 @@ def test_is_negative_specific_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance
     )
-    if isinstance(expected_is_negative, Exception):
-        with pytest.raises(expected_is_negative.__class__, match=expected_is_negative.args[0]):
+    if isinstance(expected_is_negative, str):
+        with pytest.raises(ValueError, match=expected_is_negative):
             abnormal_case._is_negative_specific_cl_rebase(blockstamp)
     else:
         result = abnormal_case._is_negative_specific_cl_rebase(blockstamp)
@@ -187,7 +187,7 @@ def test_get_nearest_and_distant_blockstamps(
         (
             simple_blockstamp(20),
             simple_blockstamp(30),
-            ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
+            "Validators count diff should be positive or 0. Something went wrong with CL API"
         ),
     ]
 )
@@ -206,8 +206,8 @@ def test_calculate_cl_rebase_between_blocks(
         simple_key('0x04'),
         simple_key('0x05'),
     ]
-    if isinstance(expected_rebase, Exception):
-        with pytest.raises(expected_rebase.__class__, match=expected_rebase.args[0]):
+    if isinstance(expected_rebase, str):
+        with pytest.raises(ValueError, match=expected_rebase):
             abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
     else:
         result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
@@ -222,7 +222,7 @@ def test_calculate_cl_rebase_between_blocks(
         (simple_blockstamp(20), 77999899300),
     ]
 )
-def test_get_validators_balance_with_vault(
+def test_get_lido_validators_balance_with_vault(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
     blockstamp,
@@ -230,7 +230,7 @@ def test_get_validators_balance_with_vault(
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
-    result = abnormal_case._get_validators_balance_with_vault(
+    result = abnormal_case._get_lido_validators_balance_with_vault(
         blockstamp, lido_validators
     )
 
@@ -286,13 +286,13 @@ def test_get_withdrawn_from_vault_between(
         )
     ]
 )
-def test_get_validators_diff_in_gwei(curr_validators, prev_validators, expected_result):
+def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result):
 
     if isinstance(expected_result, str):
         with pytest.raises(ValueError, match=expected_result):
-            AbnormalClRebase.calculate_validators_count_diff_in_gwei(curr_validators, prev_validators)
+            AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
     else:
-        result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(curr_validators, prev_validators)
+        result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
         assert result == expected_result
 
 
@@ -330,9 +330,9 @@ def test_get_mean_effective_balance_sum(curr_validators, last_report_validators,
     ("distant_slot", "nearest_slot", "ref_slot", "expected_result"),
     [
         (1, 2, 3, None),
-        (2, 1, 3, "nearest_slot=1 should be between distant_slot=2 and current_slot=3 in specific CL rebase calculation"),
-        (3, 2, 1, "nearest_slot=2 should be between distant_slot=3 and current_slot=1 in specific CL rebase calculation"),
-        (3, 1, 2, "nearest_slot=1 should be between distant_slot=3 and current_slot=2 in specific CL rebase calculation"),
+        (2, 1, 3, "nearest_slot=1 should be between distant_slot=2 and ref_slot=3 in specific CL rebase calculation"),
+        (3, 2, 1, "nearest_slot=2 should be between distant_slot=3 and ref_slot=1 in specific CL rebase calculation"),
+        (3, 1, 2, "nearest_slot=1 should be between distant_slot=3 and ref_slot=2 in specific CL rebase calculation"),
     ]
 )
 def test_validate_slot_distance(
@@ -366,7 +366,7 @@ def test_validate_slot_distance(
 )
 def test_calculate_real_balance(validators, expected_balance):
 
-    total_effective_balance = AbnormalClRebase.calculate_real_balance(validators)
+    total_effective_balance = AbnormalClRebase.calculate_validators_balance_sum(validators)
 
     assert total_effective_balance == expected_balance
 
