@@ -1,4 +1,4 @@
-from modules.submodules.typings import ChainConfig, FrameConfig
+from src.modules.submodules.typings import ChainConfig, FrameConfig
 from tests.factory.web3_factory import Web3Factory
 
 

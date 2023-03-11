@@ -2,7 +2,7 @@ from eth_typing import BlockNumber, HexStr
 from web3.types import Timestamp
 
 from tests.factory.web3_factory import Web3Factory
-from typings import BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, ReferenceBlockStamp, EpochNumber
+from src.typings import BlockStamp, BlockRoot, StateRoot, SlotNumber, BlockHash, ReferenceBlockStamp, EpochNumber
 
 
 class BlockStampFactory(Web3Factory):

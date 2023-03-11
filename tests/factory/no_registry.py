@@ -4,9 +4,9 @@ from itertools import count
 from faker import Faker
 from pydantic_factories import Use
 
-from providers.keys.typings import LidoKey
+from src.providers.keys.typings import LidoKey
 from tests.factory.web3_factory import Web3Factory
-from web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
+from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
 faker = Faker()
 

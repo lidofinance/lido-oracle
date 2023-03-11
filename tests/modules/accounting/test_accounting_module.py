@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from modules.accounting.accounting import Accounting
+from src.modules.accounting.accounting import Accounting
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
