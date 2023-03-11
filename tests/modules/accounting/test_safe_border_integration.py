@@ -1,6 +1,6 @@
 import pytest
 
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 @pytest.fixture()

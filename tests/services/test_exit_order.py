@@ -7,12 +7,13 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState, ValidatorToExitIteratorConfig
-from src.typings import SlotNumber, ReferenceBlockStamp
+from src.typings import SlotNumber
 from src.web3py.extensions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
     StakingModule,
 )
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+
 
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
@@ -85,45 +86,43 @@ def mock_last_requested_validator_index(validator_exit):
     validator_exit._get_last_requested_validator_index = Mock(side_effect=validator_index)
 
 
-class TestRequestedToExitIndices:
+@pytest.mark.unit
+def test_get_recently_requested_to_exit_indices(validator_exit, mock_validator_exit_events):
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(
+        slot_number=18,
+        block_number=13,
+        ref_slot=22,
+        ref_epoch=0,
+    )
 
-    @pytest.mark.unit
-    def test_get_recently_requested_to_exit_indices(self, validator_exit, mock_validator_exit_events):
-        validator_exit.blockstamp = ReferenceBlockStampFactory.build(
-            slot_number=18,
-            block_number=13,
-            ref_slot=22,
-            ref_epoch=0,
-        )
+    operator_indexes = [
+        (StakingModuleId(0), NodeOperatorId(0)),
+        (StakingModuleId(0), NodeOperatorId(1)),
+        (StakingModuleId(1), NodeOperatorId(1)),
+    ]
+    result = validator_exit._get_recently_requested_to_exit_indices(operator_indexes)
+    assert result == {
+        (StakingModuleId(0), NodeOperatorId(0)): {10},
+        (StakingModuleId(0), NodeOperatorId(1)): {7},
+        (StakingModuleId(1), NodeOperatorId(1)): {8},
+    }
 
-        operator_indexes = [
-            (StakingModuleId(0), NodeOperatorId(0)),
-            (StakingModuleId(0), NodeOperatorId(1)),
-            (StakingModuleId(1), NodeOperatorId(1)),
-        ]
-        result = validator_exit._get_recently_requested_to_exit_indices(operator_indexes)
-        assert result == {
-            (StakingModuleId(0), NodeOperatorId(0)): {10},
-            (StakingModuleId(0), NodeOperatorId(1)): {7},
-            (StakingModuleId(1), NodeOperatorId(1)): {8},
-        }
 
-    @pytest.mark.unit
-    def test_get_last_requested_to_exit_indices(
-        self,
-        validator_exit,
-        mock_last_requested_validator_index,
-    ):
-        validator_exit.blockstamp = ReferenceBlockStampFactory.build(slot_number=18, block_number=13, ref_slot=22)
-        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
-                            (StakingModuleId(0), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(2))]
-        result = validator_exit._get_last_requested_to_exit_indices(operator_indexes)
-        assert result == {(StakingModuleId(0), NodeOperatorId(0)): -1,
-                          (StakingModuleId(0), NodeOperatorId(1)): 100500,
-                          (StakingModuleId(1), NodeOperatorId(1)): -1,
-                          (StakingModuleId(1), NodeOperatorId(2)): -1}
+@pytest.mark.unit
+def test_get_last_requested_to_exit_indices(
+    validator_exit,
+    mock_last_requested_validator_index,
+):
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(slot_number=18, block_number=13, ref_slot=22)
+    operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
+                        (StakingModuleId(0), NodeOperatorId(1)),
+                        (StakingModuleId(1), NodeOperatorId(1)),
+                        (StakingModuleId(1), NodeOperatorId(2))]
+    result = validator_exit._get_last_requested_to_exit_indices(operator_indexes)
+    assert result == {(StakingModuleId(0), NodeOperatorId(0)): -1,
+                      (StakingModuleId(0), NodeOperatorId(1)): 100500,
+                      (StakingModuleId(1), NodeOperatorId(1)): -1,
+                      (StakingModuleId(1), NodeOperatorId(2)): -1}
 
 
 @pytest.mark.unit

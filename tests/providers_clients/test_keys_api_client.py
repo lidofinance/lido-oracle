@@ -3,7 +3,7 @@ import pytest
 
 from src.providers.keys.client import KeysAPIClient
 from src.variables import KEYS_API_URI
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 pytestmark = pytest.mark.integration

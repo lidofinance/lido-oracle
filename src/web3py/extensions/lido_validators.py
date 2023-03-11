@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 from functools import lru_cache
 from typing import Tuple, TYPE_CHECKING, NewType
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from web3.module import Module
 
 from src.providers.consensus.typings import Validator
@@ -29,7 +29,7 @@ class StakingModule:
     # unique id of the staking module
     id: StakingModuleId
     # address of staking module
-    staking_module_address: Address
+    staking_module_address: ChecksumAddress
     # part of the fee taken from staking rewards that goes to the staking module
     staking_module_fee: int
     # part of the fee taken from staking rewards that goes to the treasury

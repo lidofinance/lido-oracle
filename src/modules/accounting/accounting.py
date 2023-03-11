@@ -198,25 +198,14 @@ class Accounting(BaseModule, ConsensusModule):
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
-        chain_conf = self.get_chain_config(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
-
-        last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(
-            block_identifier=blockstamp.block_hash,
-        )
-
-        if last_ref_slot:
-            slots_elapsed = blockstamp.ref_slot - last_ref_slot
-        else:
-            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
-
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
+        chain_conf = self.get_chain_config(blockstamp)
         timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
             timestamp,  # _reportTimestamp
-            slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
+            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
@@ -235,6 +224,23 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch simulated lido rebase for report.', 'value': result})
 
         return LidoReportRebase(*result)
+
+    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
+        """If no report was finalized return slots elapsed from initial epoch from contract"""
+        chain_conf = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
+
+        last_ref_slot = self._get_processing_ref_slot(blockstamp)
+
+        if last_ref_slot:
+            slots_elapsed = blockstamp.ref_slot - last_ref_slot
+        else:
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
+
+        return slots_elapsed
+
+    def _get_processing_ref_slot(self, blockstamp: BlockStamp):
+        return self.report_contract.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> bool:

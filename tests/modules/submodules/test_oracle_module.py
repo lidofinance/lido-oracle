@@ -4,7 +4,7 @@ import pytest
 
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 class SimpleOracle(BaseModule):

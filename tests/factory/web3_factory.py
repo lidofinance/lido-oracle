@@ -6,6 +6,7 @@ from inspect import isclass
 from typing import Any, Optional, Union, cast, NewType
 
 from eth_typing import HexStr, HexAddress
+from eth_utils import to_checksum_address
 from hexbytes import HexBytes
 from pydantic import BaseModel
 from pydantic.fields import ModelField
@@ -97,8 +98,8 @@ class Web3Factory(ModelFactory[Any]):
         faker = cls.get_faker()
 
         return {
-            HexAddress: lambda: HexBytes(faker.binary(length=42)).hex(),
-            HexStr: lambda: HexBytes(faker.binary(length=42)).hex(),
+            HexAddress: lambda: to_checksum_address(HexBytes(faker.binary(length=20)).hex()),
+            HexStr: lambda: HexBytes(faker.binary(length=20)).hex(),
             HexBytes: lambda: HexBytes(faker.binary(length=64)),
         }
 

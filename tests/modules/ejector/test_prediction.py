@@ -7,7 +7,7 @@ from web3.types import Wei
 from src.services.prediction import RewardsPredictionService
 from src.modules.submodules.typings import ChainConfig
 from src.typings import SlotNumber, BlockNumber, ReferenceBlockStamp
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 @pytest.fixture()

@@ -2,7 +2,7 @@ import pytest
 
 from src.typings import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
-from tests.factory.base import ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 class ContractEvent:
