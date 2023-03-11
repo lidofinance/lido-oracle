@@ -82,7 +82,7 @@ def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
     accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
     accounting_module.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
 
-    accounting_module._get_processing_ref_slot = Mock(return_value=None)
+    accounting_module.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=None)
 
     bs = ReferenceBlockStampFactory.build(ref_slot=100)
     slots_elapsed = accounting_module._get_slots_elapsed_from_last_report(bs)
@@ -95,7 +95,7 @@ def test_get_slots_elapsed_from_last_report(accounting_module, contracts):
     accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
     accounting_module.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
 
-    accounting_module._get_processing_ref_slot = Mock(return_value=70)
+    accounting_module.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=70)
 
     bs = ReferenceBlockStampFactory.build(ref_slot=100)
     slots_elapsed = accounting_module._get_slots_elapsed_from_last_report(bs)

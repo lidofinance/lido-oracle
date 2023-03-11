@@ -27,4 +27,4 @@ class ReferenceBlockStampFactory(Web3Factory):
     block_timestamp: Timestamp = Timestamp(0)
 
     ref_slot: SlotNumber = SlotNumber(113500)
-    ref_epoch: EpochNumber = EpochNumber(113500//12)
+    ref_epoch: EpochNumber = EpochNumber(113500//32)
