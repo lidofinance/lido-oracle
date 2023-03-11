@@ -8,6 +8,7 @@ from src.providers.keys.typings import LidoKey
 from tests.factory.web3_factory import Web3Factory
 from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
+
 faker = Faker()
 
 
