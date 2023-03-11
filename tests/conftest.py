@@ -140,7 +140,6 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
     slot_details = w3.cc.get_block_details(root)
 
     return ReferenceBlockStamp(
-        block_root=root,
         slot_number=SlotNumber(int(slot_details.message.slot)),
         state_root=slot_details.message.state_root,
         block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),

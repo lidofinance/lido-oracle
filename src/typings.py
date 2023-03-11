@@ -25,7 +25,6 @@ Gwei = NewType('Gwei', int)
 
 @dataclass(frozen=True)
 class BlockStamp:
-    block_root: BlockRoot
     state_root: StateRoot
     slot_number: SlotNumber
     block_hash: BlockHash

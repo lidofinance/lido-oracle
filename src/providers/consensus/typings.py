@@ -16,7 +16,7 @@ class BlockRootResponse(FromResponse):
 class BlockHeaderMessage(FromResponse):
     slot: str
     proposer_index: str
-    parent_root: str
+    parent_root: BlockRoot
     state_root: StateRoot
     body_root: str
 

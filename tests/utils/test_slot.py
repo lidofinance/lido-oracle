@@ -5,7 +5,6 @@ from unittest.mock import Mock
 import pytest
 
 from src.providers.http_provider import NotOkResponse
-from src.typings import BlockStamp
 from src.utils.slot import NoSlotsAvailable, get_first_non_missed_slot
 from tests.conftest import get_blockstamp_by_state
 
@@ -16,15 +15,13 @@ def test_get_first_non_missed_slot(web3, consensus_client):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     ref_slot = finalized_blockstamp.slot_number - 225
 
-    blockstamp = get_first_non_missed_slot(
+    slot_details = get_first_non_missed_slot(
         web3.cc,
-        ref_slot=ref_slot,
-        ref_epoch=ref_slot//32,
+        slot=ref_slot,
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
 
-    assert blockstamp.slot_number == ref_slot
-    assert blockstamp.ref_epoch == ref_slot//32
+    assert int(slot_details.message.slot) == ref_slot
 
 
 @pytest.mark.unit
@@ -39,15 +36,13 @@ def test_get_third_non_missed_slot(web3, consensus_client):
 
     original = web3.cc.get_block_header
     web3.cc.get_block_header = Mock(side_effect=get_block_header)
-    blockstamp = get_first_non_missed_slot(
+    slot_details = get_first_non_missed_slot(
         web3.cc,
-        ref_slot=139456,
-        ref_epoch=139456 // 32,
+        slot=139456,
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
-    assert isinstance(blockstamp, BlockStamp)
-    assert blockstamp.slot_number < finalized_blockstamp.slot_number
-    assert blockstamp.slot_number == 139455
+    assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
+    assert int(slot_details.message.slot) == 139455
 
 
 @pytest.mark.unit
@@ -58,7 +53,6 @@ def test_all_slots_are_missed(web3, consensus_client):
     with pytest.raises(NoSlotsAvailable):
         get_first_non_missed_slot(
             cc=web3.cc,
-            ref_slot=finalized_blockstamp.ref_slot,
+            slot=finalized_blockstamp.ref_slot,
             last_finalized_slot_number=finalized_blockstamp.ref_slot + 50,
-            ref_epoch=finalized_blockstamp.slot_number // 32,
         )

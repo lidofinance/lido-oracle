@@ -11,7 +11,7 @@ from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import ReferenceBlockStamp, Gwei, EpochNumber, BlockNumber, SlotNumber
-from src.utils.slot import get_first_non_missed_slot
+from src.utils.slot import get_reference_blockstamp
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.typings import Web3
@@ -57,7 +57,7 @@ class AbnormalClRebase:
         Calculate normal CL rebase (relative to all validators and the previous Lido frame)
         for current frame for Lido validators
         """
-        last_report_blockstamp = get_first_non_missed_slot(
+        last_report_blockstamp = get_reference_blockstamp(
             self.w3.cc,
             self.last_report_ref_slot,
             ref_epoch=EpochNumber(self.last_report_ref_slot // self.c_conf.slots_per_epoch),
@@ -122,14 +122,14 @@ class AbnormalClRebase:
                 f"{distant_slot=} should be greater than {self.last_report_ref_slot=} in specific CL rebase calculation"
             )
 
-        nearest_blockstamp = get_first_non_missed_slot(
+        nearest_blockstamp = get_reference_blockstamp(
             self.w3.cc,
             SlotNumber(nearest_slot),
             last_finalized_slot_number=ref_blockstamp.slot_number,
             ref_epoch=EpochNumber(nearest_slot // self.c_conf.slots_per_epoch),
         )
 
-        distant_blockstamp = get_first_non_missed_slot(
+        distant_blockstamp = get_reference_blockstamp(
             self.w3.cc,
             SlotNumber(distant_slot),
             last_finalized_slot_number=ref_blockstamp.slot_number,
