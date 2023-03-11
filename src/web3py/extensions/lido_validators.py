@@ -9,6 +9,7 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
+from src.utils.abi import named_tuple_to_dataclass
 from src.utils.dataclass import Nested, list_of_dataclasses
 
 
@@ -129,47 +130,18 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
-        operators = []
+        result = []
 
         for module in self.get_staking_modules(blockstamp):
-            # Replace with getAllNodeOperatorDigests after update
-            module_operators = self.w3.lido_contracts.staking_router.functions.getAllNodeOperatorReports(
+            operators = self.w3.lido_contracts.staking_router.functions.getAllNodeOperatorDigests(
                 module.id
             ).call(block_identifier=blockstamp.block_hash)
-            for operator in module_operators:
-                # _id, is_active, summary = operator
-                # operator = NodeOperator(_id, is_active, *summary, stakingModule=module)
-                (
-                    _id,
-                    isActive,
-                    isTargetLimitActive,
-                    targetValidatorsCount,
-                    stuckValidatorsCount,
-                    refundedValidatorsCount,
-                    stuckPenaltyEndTimestamp,
-                    (
-                        totalExited,
-                        totalDeposited,
-                        depositable,
-                    )
-                ) = operator
 
-                operator = NodeOperator(
-                    id=_id,
-                    is_active=isActive,
-                    is_target_limit_active=isTargetLimitActive,
-                    target_validators_count=targetValidatorsCount,
-                    stuck_validators_count=stuckValidatorsCount,
-                    refunded_validators_count=refundedValidatorsCount,
-                    stuck_penalty_end_timestamp=stuckPenaltyEndTimestamp,
-                    total_exited_validators=totalExited,
-                    total_deposited_validators=totalDeposited,
-                    depositable_validators_count=depositable,
-                    staking_module=module,
-                )
-                operators.append(operator)
+            for operator in operators:
+                _id, is_active, summary = operator
+                result.append(NodeOperator(_id, is_active, *summary, staking_module=module))
 
-        return operators
+        return result
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(StakingModule)

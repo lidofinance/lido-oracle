@@ -85,7 +85,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
-        return processing_state.extra_data_items_count == processing_state.extra_data_items_submitted
+        return processing_state.extra_data_submitted
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
