@@ -139,7 +139,7 @@ class AbnormalClRebase:
         return nearest_blockstamp, distant_blockstamp
 
     def _calculate_cl_rebase_between_blocks(
-        self, prev_blockstamp: ReferenceBlockStamp, ref_blockstamp: ReferenceBlockStamp
+        self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
     ) -> Gwei:
         """
         Calculate CL rebase from prev_blockstamp to ref_blockstamp.
