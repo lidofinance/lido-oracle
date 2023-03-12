@@ -321,7 +321,7 @@ class ConsensusModule(ABC):
 
         members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
 
-        mem_position = members.index(variables.ACCOUNT.address)  # TODO: fix me
+        mem_position = members.index(variables.ACCOUNT.address)
 
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)

@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from typing import Sequence, TypeVar
 
 from src.constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
@@ -17,6 +18,9 @@ from src.web3py.extensions.lido_validators import LidoValidator
 logger = logging.getLogger(__name__)
 
 
+TValidator = TypeVar('TValidator', bound=Validator)
+
+
 class MidtermSlashingPenalty:
 
     @staticmethod
@@ -32,13 +36,16 @@ class MidtermSlashingPenalty:
             all_validators, blockstamp.ref_epoch
         )
         lido_slashed_validators = MidtermSlashingPenalty.get_not_withdrawn_slashed_validators(
-            lido_validators, blockstamp.ref_epoch
+            lido_validators,
+            blockstamp.ref_epoch,
         )
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
 
         # Put all Lido slashed validators to future frames by midterm penalty epoch
         future_frames_lido_validators = MidtermSlashingPenalty.get_per_frame_lido_validators_with_future_midterm_epoch(
-            blockstamp.ref_epoch, frame_config, lido_slashed_validators
+            blockstamp.ref_epoch,
+            frame_config,
+            lido_slashed_validators,
         )
 
         # If no one Lido in current not withdrawn slashed validators
@@ -85,7 +92,7 @@ class MidtermSlashingPenalty:
 
         earliest_slashed_epoch = max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         latest_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-        return list(range(earliest_slashed_epoch, latest_slashed_epoch + 1))
+        return list(map(lambda x: EpochNumber(x), range(earliest_slashed_epoch, latest_slashed_epoch + 1)))
 
     @staticmethod
     def get_per_frame_lido_validators_with_future_midterm_epoch(
@@ -187,9 +194,9 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_not_withdrawn_slashed_validators(
-        all_validators: list[Validator],
+        all_validators: Sequence[TValidator],
         ref_epoch: EpochNumber
-    ) -> list[Validator | LidoValidator]:
+    ) -> list[TValidator]:
         """Get all slashed validators, who are not withdrawn yet"""
         slashed_validators = []
 
