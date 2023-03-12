@@ -92,7 +92,7 @@ class MidtermSlashingPenalty:
 
         earliest_slashed_epoch = max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         latest_slashed_epoch = int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR
-        return list(map(lambda x: EpochNumber(x), range(earliest_slashed_epoch, latest_slashed_epoch + 1)))
+        return list(map(EpochNumber, range(earliest_slashed_epoch, latest_slashed_epoch + 1)))
 
     @staticmethod
     def get_per_frame_lido_validators_with_future_midterm_epoch(
