@@ -6,7 +6,7 @@ from web3.module import Module
 from web3.types import Wei
 
 from src import variables
-from src.typings import BlockStamp
+from src.typings import BlockStamp, SlotNumber
 
 
 class LidoContracts(Module):
@@ -86,3 +86,7 @@ class LidoContracts(Module):
             ),
             block_identifier=blockstamp.block_hash,
         ))
+
+    @lru_cache(maxsize=1)
+    def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
+        return self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)

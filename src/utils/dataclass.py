@@ -1,7 +1,7 @@
 import functools
-from dataclasses import dataclass, is_dataclass, fields
+from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
-from typing import Callable, Self
+from typing import Callable, Self, Sequence, TypeVar
 
 from src.utils.abi import named_tuple_to_dataclass
 
@@ -36,6 +36,7 @@ class Nested:
             return field_type.from_response
         return field_type
 
+T = TypeVar('T')
 
 @dataclass
 class FromResponse:
@@ -49,9 +50,11 @@ class FromResponse:
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 
 
-def list_of_dataclasses(_dataclass_factory):
+def list_of_dataclasses(
+    _dataclass_factory: Callable[..., T]
+) -> Callable[[Callable[..., Sequence]], Callable[..., list[T]]]:
     """Decorator to transform list of dicts from func response to list of dataclasses"""
-    def decorator(func) -> Callable:
+    def decorator(func: Callable[..., Sequence]) -> Callable[..., list[T]]:
         @functools.wraps(func)
         def wrapper_decorator(*args, **kwargs):
             list_of_elements = func(*args, **kwargs)

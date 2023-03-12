@@ -1,5 +1,7 @@
 import pytest
 
+from hypothesis import given, strategies, settings, HealthCheck
+from dataclasses import dataclass
 from unittest.mock import Mock
 from src.services.withdrawal import Withdrawal
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -22,24 +24,73 @@ def past_blockstamp(web3, consensus_client):
 
 
 @pytest.fixture()
-def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
+def subject(
+    web3,
+    past_blockstamp,
+    chain_config,
+    frame_config,
+    contracts,
+    keys_api_client,
+    consensus_client
+):
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
-def test_returns_zero_if_no_unfinalized_requests(subject):
-    subject._has_unfinalized_requests = Mock(return_value=False)
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("is_paused", "has_unfinalized_requests", "expected_result"),
+    [
+        (False, True, 100),
+        (False, False, 0),
+        (True, True, 0)
+    ]
+)
+def test_returns_zero_if_no_unfinalized_requests(
+    subject: Withdrawal,
+    is_paused: bool,
+    has_unfinalized_requests: bool,
+    expected_result: int,
+):
+    subject._fetch_is_paused = Mock(return_value=is_paused)
+    subject._has_unfinalized_requests = Mock(return_value=has_unfinalized_requests)
     subject._get_available_eth = Mock(return_value=0)
+    subject.safe_border_service.get_safe_border_epoch = Mock(return_value=0)
+    subject._fetch_last_finalizable_request_id = Mock(return_value=expected_result)
 
     result = subject.get_next_last_finalizable_id(True, 100, 0, 0)
 
-    assert result == 0
+    assert result == expected_result
 
 
-def test_returns_last_finalizable_id(subject):
-    subject._has_unfinalized_requests = Mock(return_value=True)
-    subject._get_available_eth = Mock(return_value=100)
+@pytest.mark.unit
+@pytest.mark.parametrize(("last_finalized_id", "last_requested_id"), [(2, 1), (1, 1)])
+def test_has_unfinalized_requests(subject: Withdrawal, last_finalized_id: int, last_requested_id: int):
+    subject._fetch_last_finalized_request_id = Mock(return_value=last_finalized_id)
+    subject._fetch_last_request_id = Mock(return_value=last_requested_id)
 
-    subject.safe_border_service.get_safe_border_epoch = Mock(return_value=0)
-    subject._fetch_last_finalizable_request_id = Mock(return_value=1)
+    assert subject._has_unfinalized_requests() == (last_finalized_id > last_requested_id)
 
-    assert subject.get_next_last_finalizable_id(True, 100, 0, 0) == 1
+
+@pytest.mark.unit
+@given(
+    buffered_ether=strategies.integers(min_value=0),
+    unfinalized_stheth=strategies.integers(min_value=0),
+    withdrawal_vault_balance=strategies.integers(min_value=0),
+    el_vault_balance=strategies.integers(min_value=0),
+)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_get_available_eth(
+    subject: Withdrawal,
+    buffered_ether,
+    unfinalized_stheth,
+    withdrawal_vault_balance,
+    el_vault_balance,
+):
+    subject._fetch_buffered_ether = Mock(return_value=buffered_ether)
+    subject._fetch_unfinalized_steth = Mock(return_value=unfinalized_stheth)
+
+    reserved_buffer = min(buffered_ether, unfinalized_stheth)
+
+    expected_available_eth = withdrawal_vault_balance + el_vault_balance + reserved_buffer
+
+    assert subject._get_available_eth(withdrawal_vault_balance, el_vault_balance) == expected_available_eth

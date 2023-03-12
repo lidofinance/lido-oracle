@@ -2,12 +2,12 @@ import logging
 from typing import Optional
 
 from eth_account.signers.local import LocalAccount
+from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.module import Module
-from web3.types import TxParams, TxReceipt
+from web3.types import TxReceipt, Wei
 
-from src.metrics.prometheus.basic import TX_SEND, TX_FAILURE
-
+from src.metrics.prometheus.basic import TX_FAILURE, TX_SEND
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class TransactionUtils(Module):
 
     def sign_and_send_transaction(
         self,
-        transaction: TxParams,
+        transaction: ContractFunction,
         account: Optional[LocalAccount] = None,
     ) -> Optional[TxReceipt]:
         if not account:
@@ -58,7 +58,9 @@ class TransactionUtils(Module):
             {
                 "from": account.address,
                 "gas": int(transaction.estimate_gas({'from': account.address}) * self.GAS_MULTIPLIER),
-                "maxFeePerGas": pending_block.baseFeePerGas * 2 + self.w3.eth.max_priority_fee,
+                "maxFeePerGas": Wei(
+                    pending_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+                ),
                 "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
                 "nonce": self.w3.eth.get_transaction_count(account.address),
             }
@@ -80,17 +82,17 @@ class TransactionUtils(Module):
         logger.info(
             {
                 "msg": "Transaction is in blockchain.",
-                "blockHash": tx_receipt.blockHash.hex(),
-                "blockNumber": tx_receipt.blockNumber,
-                "gasUsed": tx_receipt.gasUsed,
-                "effectiveGasPrice": tx_receipt.effectiveGasPrice,
-                "status": tx_receipt.status,
-                "transactionHash": tx_receipt.transactionHash.hex(),
-                "transactionIndex": tx_receipt.transactionIndex,
+                "blockHash": tx_receipt["blockHash"].hex(),
+                "blockNumber": tx_receipt["blockNumber"],
+                "gasUsed": tx_receipt["gasUsed"],
+                "effectiveGasPrice": tx_receipt["effectiveGasPrice"],
+                "status": tx_receipt["status"],
+                "transactionHash": tx_receipt["transactionHash"].hex(),
+                "transactionIndex": tx_receipt["transactionIndex"],
             }
         )
 
-        if tx_receipt.status != 1:
+        if tx_receipt["status"] != 1:
             TX_FAILURE.inc()
 
         return tx_receipt
