@@ -70,7 +70,7 @@ class SafeBorder:
         if bunker_start_timestamp is not None:
             return self.get_epoch_by_timestamp(bunker_start_timestamp)
 
-        last_report_slot = self._get_last_successful_report_slot()
+        last_report_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(self.blockstamp)
         if last_report_slot != 0:
             return self.get_epoch_by_slot(last_report_slot)
 
@@ -231,10 +231,6 @@ class SafeBorder:
 
     def _get_withdrawal_request_status(self, request_id: int) -> Any:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
-            block_identifier=self.blockstamp.block_hash)
-
-    def _get_last_successful_report_slot(self) -> SlotNumber:
-        return self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
             block_identifier=self.blockstamp.block_hash)
 
     def _retrieve_constants(self):

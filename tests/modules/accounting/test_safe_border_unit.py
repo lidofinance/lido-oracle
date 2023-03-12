@@ -217,7 +217,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(subject, past_blockstamp):
     subject._get_bunker_mode_start_timestamp = Mock(return_value=None)
-    subject._get_last_successful_report_slot = Mock(return_value=past_blockstamp.ref_slot)
+    subject.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=past_blockstamp.ref_slot)
 
     assert subject._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
 

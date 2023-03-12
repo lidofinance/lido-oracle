@@ -31,9 +31,7 @@ class BunkerService:
         simulated_cl_rebase: LidoReportRebase,
     ) -> bool:
         b_conf = self._get_config(blockstamp)
-        last_report_ref_slot = self.w3.lido_contracts.accounting_oracle.functions.getLastProcessingRefSlot().call(
-            block_identifier=blockstamp.block_hash
-        )
+        last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
 
         if not last_report_ref_slot:
             logger.info({"msg": "No one report yet. Bunker status will not be checked"})
@@ -57,7 +55,7 @@ class BunkerService:
             return True
 
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, frame_config, all_validators, lido_validators, current_report_cl_rebase
+            blockstamp, frame_config, list(all_validators.values()), list(lido_validators.values()), current_report_cl_rebase
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
