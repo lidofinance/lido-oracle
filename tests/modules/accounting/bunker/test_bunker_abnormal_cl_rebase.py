@@ -25,7 +25,7 @@ def test_is_abnormal_cl_rebase(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_reference_blockstamp,
     frame_cl_rebase,
     nearest_epoch_distance,
     far_epoch_distance,
@@ -54,7 +54,7 @@ def test_get_normal_cl_rebase(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_reference_blockstamp,
     blockstamp,
     expected_rebase
 ):
@@ -89,7 +89,7 @@ def test_is_negative_specific_cl_rebase(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_reference_blockstamp,
     blockstamp,
     nearest_epoch_distance,
     far_epoch_distance,
@@ -126,7 +126,7 @@ def test_calculate_cl_rebase_between(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_reference_blockstamp,
     prev_blockstamp,
     blockstamp,
     expected_rebase,
@@ -148,7 +148,7 @@ def test_get_withdrawn_from_vault_between(
     abnormal_case, mock_get_eth_distributed_events, from_block, to_block, expected_result
 ):
     def b(block_number: int) -> BlockStamp:
-        return ReferenceBlockStamp('', '', block_number, '', block_number, 0, block_number, 0)
+        return ReferenceBlockStamp('', block_number, '', block_number, 0, block_number, 0)
 
     if isinstance(expected_result, Exception):
         with pytest.raises(expected_result.__class__, match=expected_result.args[0]):

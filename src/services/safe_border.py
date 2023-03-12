@@ -7,9 +7,9 @@ from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
 from src.utils.abi import named_tuple_to_dataclass
 from src.typings import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.slot import get_first_non_missed_slot
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.typings import Web3
+from src.utils.slot import get_blockstamp
 
 
 class WrongExitPeriod(Exception):
@@ -173,11 +173,10 @@ class SafeBorder:
         Slashed flag can't be undone, so we can only look at the last slot
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
-        last_slot_in_frame_blockstamp = get_first_non_missed_slot(
+        last_slot_in_frame_blockstamp = get_blockstamp(
             self.w3.cc,
             last_slot_in_frame,
             self.blockstamp.ref_slot,
-            self.blockstamp.ref_epoch
         )
 
         lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)

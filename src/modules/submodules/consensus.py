@@ -15,7 +15,7 @@ from src.modules.submodules.typings import ZERO_HASH, ChainConfig, CurrentFrame,
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import get_first_non_missed_slot
+from src.utils.slot import get_reference_blockstamp
 from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ class ConsensusModule(ABC):
             return None
 
         chain_config = self.get_chain_config(last_finalized_blockstamp)
-        bs = get_first_non_missed_slot(
+        bs = get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
             ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
@@ -306,7 +306,8 @@ class ConsensusModule(ABC):
 
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
-        bs = build_blockstamp(self.w3.cc, root)
+        block_details = self.w3.cc.get_block_details(root)
+        bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         return bs
 

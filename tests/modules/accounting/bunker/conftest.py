@@ -11,7 +11,7 @@ from src.typings import BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
 def simple_blockstamp(block_number: int, state_root: str) -> BlockStamp:
-    return ReferenceBlockStamp('', state_root, block_number, '', block_number, 0, block_number, block_number)
+    return ReferenceBlockStamp(state_root, block_number, '', block_number, 0, block_number, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -39,9 +39,9 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
 
 
 @pytest.fixture
-def mock_get_first_non_missed_slot(monkeypatch):
+def mock_get_reference_blockstamp(monkeypatch):
 
-    def _get_first_non_missed_slot(_, ref_slot, last_finalized_slot_number, ref_epoch):
+    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
 
         slots = {
             0: simple_blockstamp(0, '0x0'),
@@ -53,7 +53,7 @@ def mock_get_first_non_missed_slot(monkeypatch):
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
+        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp', Mock(side_effect=_get_reference_blockstamp)
     )
 
 
