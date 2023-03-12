@@ -11,7 +11,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.typings import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
+from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
