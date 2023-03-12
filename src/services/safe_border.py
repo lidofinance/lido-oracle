@@ -38,9 +38,8 @@ class SafeBorder:
         self._retrieve_constants()
 
     def get_safe_border_epoch(
-            self,
-            is_bunker: bool,
-
+        self,
+        is_bunker: bool,
     ) -> EpochNumber:
         if not is_bunker:
             return self._get_default_requests_border_epoch()
@@ -246,11 +245,10 @@ class SafeBorder:
             )
         )
 
-        max_negative_rebase_shift_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT'
-        ).call(block_identifier=self.blockstamp.block_hash)
         self.finalization_max_negative_rebase_shift = self.w3.to_int(
-            primitive=max_negative_rebase_shift_bytes
+            primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
+                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
         )
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
