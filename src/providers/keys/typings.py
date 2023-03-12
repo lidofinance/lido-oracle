@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from eth_typing import HexAddress, HexStr
+from eth_typing import ChecksumAddress, HexStr
 
 from src.utils.dataclass import FromResponse
 
@@ -11,4 +11,4 @@ class LidoKey(FromResponse):
     depositSignature: HexStr
     operatorIndex: int
     used: bool
-    moduleAddress: HexAddress
+    moduleAddress: ChecksumAddress

@@ -7,11 +7,13 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order import ValidatorToExitIterator, NodeOperatorPredictableState, ValidatorToExitIteratorConfig
-from src.typings import SlotNumber, ReferenceBlockStamp
+from src.typings import SlotNumber
 from src.web3py.extensions.lido_validators import (
     LidoValidator, StakingModuleId, NodeOperatorId, NodeOperator,
     StakingModule,
 )
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+
 
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
@@ -19,16 +21,7 @@ TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10
 
 @pytest.fixture()
 def past_blockstamp():
-    yield ReferenceBlockStamp(
-        block_root='0x85c753bd0674f483dceeb138e7b35554291176a3edb6274c57b0bbd158dca050',
-        state_root='0x4a5424e368d5b4c2f971f76fd4435f289c2966330a65caac292e4ed73ec007b1',
-        slot_number=142271,
-        block_hash='0xf95212b31c976ad09af3af4e627859eaa425b2513c939112074cf14bc04e21d0',
-        block_number=135080,
-        block_timestamp=1676970852,
-        ref_slot=142271,
-        ref_epoch=4445
-    )
+    yield ReferenceBlockStampFactory.build(ref_epoch=4445)
 
 
 @pytest.fixture
@@ -51,19 +44,6 @@ def validator_exit(
     return service
 
 
-def simple_blockstamp(slot_number, block_number, ref_slot):
-    return ReferenceBlockStamp(
-        block_root='',
-        state_root='',
-        slot_number=slot_number,
-        block_hash='',
-        block_number=block_number,
-        block_timestamp=slot_number * 12 + 0,
-        ref_slot=ref_slot,
-        ref_epoch=0
-    )
-
-
 @pytest.fixture
 def mock_validator_exit_events(validator_exit, monkeypatch):
     def exit_event(module_id, operator_id, validator_index, timestamp):
@@ -76,7 +56,13 @@ def mock_validator_exit_events(validator_exit, monkeypatch):
 
     def _get_events_in_past(to_blockstamp, *args, **kwargs, ):
         # We do not expect other input values in tests
-        assert to_blockstamp == simple_blockstamp(slot_number=18, block_number=13, ref_slot=22)
+        assert to_blockstamp == ReferenceBlockStampFactory.build(
+            slot_number=18,
+            block_number=13,
+            ref_slot=22,
+            ref_epoch=0,
+        )
+
         return [
             exit_event(0, 1, 7, SlotNumber(14) * seconds_per_slot + genesis_time),
             exit_event(0, 0, 10, SlotNumber(17) * seconds_per_slot + genesis_time),
@@ -100,35 +86,43 @@ def mock_last_requested_validator_index(validator_exit):
     validator_exit._get_last_requested_validator_index = Mock(side_effect=validator_index)
 
 
-class TestRequestedToExitIndices:
+@pytest.mark.unit
+def test_get_recently_requested_to_exit_indices(validator_exit, mock_validator_exit_events):
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(
+        slot_number=18,
+        block_number=13,
+        ref_slot=22,
+        ref_epoch=0,
+    )
 
-    @pytest.mark.unit
-    def test_get_recently_requested_to_exit_indices(self, validator_exit, mock_validator_exit_events):
-        validator_exit.blockstamp = simple_blockstamp(slot_number=18, block_number=13, ref_slot=22)
-        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
-                            (StakingModuleId(0), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(1))]
-        result = validator_exit._get_recently_requested_to_exit_indices(operator_indexes)
-        assert result == {
-            (StakingModuleId(0), NodeOperatorId(0)): {10},
-            (StakingModuleId(0), NodeOperatorId(1)): {7},
-            (StakingModuleId(1), NodeOperatorId(1)): {8},
-        }
+    operator_indexes = [
+        (StakingModuleId(0), NodeOperatorId(0)),
+        (StakingModuleId(0), NodeOperatorId(1)),
+        (StakingModuleId(1), NodeOperatorId(1)),
+    ]
+    result = validator_exit._get_recently_requested_to_exit_indices(operator_indexes)
+    assert result == {
+        (StakingModuleId(0), NodeOperatorId(0)): {10},
+        (StakingModuleId(0), NodeOperatorId(1)): {7},
+        (StakingModuleId(1), NodeOperatorId(1)): {8},
+    }
 
-    @pytest.mark.unit
-    def test_get_last_requested_to_exit_indices(self,
-                                                validator_exit, mock_last_requested_validator_index
-                                                ):
-        validator_exit.blockstamp = simple_blockstamp(slot_number=18, block_number=13, ref_slot=22)
-        operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
-                            (StakingModuleId(0), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(1)),
-                            (StakingModuleId(1), NodeOperatorId(2))]
-        result = validator_exit._get_last_requested_to_exit_indices(operator_indexes)
-        assert result == {(StakingModuleId(0), NodeOperatorId(0)): -1,
-                          (StakingModuleId(0), NodeOperatorId(1)): 100500,
-                          (StakingModuleId(1), NodeOperatorId(1)): -1,
-                          (StakingModuleId(1), NodeOperatorId(2)): -1}
+
+@pytest.mark.unit
+def test_get_last_requested_to_exit_indices(
+    validator_exit,
+    mock_last_requested_validator_index,
+):
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(slot_number=18, block_number=13, ref_slot=22)
+    operator_indexes = [(StakingModuleId(0), NodeOperatorId(0)),
+                        (StakingModuleId(0), NodeOperatorId(1)),
+                        (StakingModuleId(1), NodeOperatorId(1)),
+                        (StakingModuleId(1), NodeOperatorId(2))]
+    result = validator_exit._get_last_requested_to_exit_indices(operator_indexes)
+    assert result == {(StakingModuleId(0), NodeOperatorId(0)): -1,
+                      (StakingModuleId(0), NodeOperatorId(1)): 100500,
+                      (StakingModuleId(1), NodeOperatorId(1)): -1,
+                      (StakingModuleId(1), NodeOperatorId(2)): -1}
 
 
 @pytest.mark.unit
@@ -181,9 +175,11 @@ def test_get_exitable_lido_validators(validator_exit):
 
 
 @pytest.mark.unit
-def test_prepare_lido_node_operator_stats(validator_exit,
-                                          mock_validator_exit_events,
-                                          mock_last_requested_validator_index):
+def test_prepare_lido_node_operator_stats(
+    validator_exit,
+    mock_validator_exit_events,
+    mock_last_requested_validator_index,
+):
     def v(module_address, operator, index, activation_epoch, exit_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.lido_id = object.__new__(LidoKey)
@@ -196,13 +192,13 @@ def test_prepare_lido_node_operator_stats(validator_exit,
         return validator
 
     def n(
-            index,
-            is_limited,
-            target_count,
-            refunded_count,
-            total_deposited,
-            module_id,
-            module_address
+        index,
+        is_limited,
+        target_count,
+        refunded_count,
+        total_deposited,
+        module_id,
+        module_address
     ):
         operator = object.__new__(NodeOperator)
         operator.staking_module = object.__new__(StakingModule)
@@ -228,9 +224,14 @@ def test_prepare_lido_node_operator_stats(validator_exit,
         (1, 1): [v('0x1', 1, 50, 1000, 0)],
         (1, 2): [],
     }
-    validator_exit.blockstamp = simple_blockstamp(
-        slot_number=18, block_number=13, ref_slot=22
+
+    validator_exit.blockstamp = ReferenceBlockStampFactory.build(
+        slot_number=18,
+        block_number=13,
+        ref_slot=22,
+        ref_epoch=0,
     )
+
     result = validator_exit._prepare_lido_node_operator_stats(
         operators,
         operator_validators,
@@ -330,7 +331,8 @@ def test_predicates():
         (StakingModuleId(5), NodeOperatorId(1)): NodeOperatorPredictableState(100500, 2, None, 2),
     }
 
-    exitable_validators_random_sort.sort(key=lambda validator: ValidatorToExitIterator._predicates(validators_exit, validator))
+    exitable_validators_random_sort.sort(
+        key=lambda validator: ValidatorToExitIterator._predicates(validators_exit, validator))
     exitable_validators_indexes = [v.index for v in exitable_validators_random_sort]
 
     expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]

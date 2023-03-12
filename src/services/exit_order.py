@@ -1,14 +1,13 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Iterator
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
-
 from src.typings import ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
@@ -16,8 +15,8 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
     NodeOperatorGlobalIndex,
-    StakingModuleId,
     NodeOperatorId,
+    StakingModuleId,
     ValidatorsByNodeOperator,
 )
 from src.web3py.typings import Web3
@@ -47,7 +46,7 @@ class ValidatorToExitIterator:
     5. Validator with the lowest index
     """
     v_conf: ValidatorToExitIteratorConfig
-    staking_module_id: dict[Address, StakingModuleId]
+    staking_module_id: dict[ChecksumAddress, StakingModuleId]
     exitable_lido_validators: list[LidoValidator]
     lido_node_operator_stats: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]
     total_predictable_validators_count: int
@@ -63,7 +62,7 @@ class ValidatorToExitIterator:
         self.blockstamp = blockstamp
         self.c_conf = c_conf
 
-    def __iter__(self) -> Iterable[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+    def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Prepare queue state for the iteration:.
         Determine exitable Lido validators and collect operators stats to sort exitable validators
@@ -297,7 +296,7 @@ class ValidatorToExitIterator:
         Get delayed validators count for each operator
         """
 
-        delayed_validators_count = defaultdict(int)
+        delayed_validators_count: dict[NodeOperatorGlobalIndex, int] = defaultdict(int)
 
         for module_operator, validators in operator_validators.items():
             recently_requested_to_exit_indices = recently_requested_to_exit_indices_per_operator[module_operator]
@@ -330,7 +329,7 @@ class ValidatorToExitIterator:
         )
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
-        module_operator = {operator: set() for operator in operator_indexes}
+        module_operator: dict[NodeOperatorGlobalIndex, set[int]] = {operator: set() for operator in operator_indexes}
 
         for event in events:
             no_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])

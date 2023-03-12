@@ -5,20 +5,18 @@ from time import sleep
 from typing import Optional
 
 from eth_abi import encode
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from web3.contract import AsyncContract, Contract
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
-from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src import variables
+from src.modules.submodules.exceptions import IncompatibleContractVersion, IsNotMemberException
+from src.modules.submodules.typings import ZERO_HASH, ChainConfig, CurrentFrame, FrameConfig, MemberInfo
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_first_non_missed_slot
 from src.web3py.typings import Web3
-from web3.contract import Contract
-
-from src import variables
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +42,14 @@ class ConsensusModule(ABC):
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
-    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
+    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract | AsyncContract:
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
             abi=self.w3.lido_contracts.load_abi('HashConsensus'),
             decode_tuples=True,
         )
 
-    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
+    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> ChecksumAddress:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
@@ -229,14 +227,8 @@ class ConsensusModule(ABC):
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # If the quorum is ready to report data, the member should have opportunity to send report
-        if (
-            # If there is no quorum
-            member_info.current_frame_consensus_report == ZERO_HASH
-            # And member did not send the report
-            and HexBytes(member_info.current_frame_member_report) != report_hash
-        ):
-            logger.info({'msg': 'Quorum is not ready and member did not send the report hash.'})
+        if member_info.current_frame_consensus_report == ZERO_HASH:
+            logger.info({'msg': 'Quorum is not ready.'})
             return
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
@@ -286,19 +278,18 @@ class ConsensusModule(ABC):
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
-        report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
+        report_function_abi = next(x for x in self.report_contract.abi if x.get('name') == report_function_name)
 
         # First input is ReportData structure
-        report_data_abi = report_function_abi['inputs'][0]['components']
+        report_data_abi = report_function_abi['inputs'][0]['components']  # type: ignore
 
         # Transform abi to string
-        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))
+        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))  # type: ignore
 
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
         report_hash = self.w3.keccak(encoded)
-        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         return report_hash
 
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
@@ -323,7 +314,7 @@ class ConsensusModule(ABC):
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
         member = self.get_member_info(blockstamp)
-        if member.is_submit_member:
+        if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
         consensus_contract = self._get_consensus_contract(blockstamp)

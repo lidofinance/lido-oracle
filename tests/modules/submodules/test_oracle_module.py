@@ -1,7 +1,10 @@
+from unittest.mock import Mock
+
 import pytest
 
 from src.modules.submodules.oracle_module import BaseModule
 from src.typings import BlockStamp
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 class SimpleOracle(BaseModule):
@@ -38,20 +41,12 @@ def test_receive_last_finalized_slot(oracle):
 
 
 @pytest.mark.unit
-def test_cycle_handler_run_once_per_slot(monkeypatch, oracle):
-    slot = lambda slot: lambda *args, **kwargs: BlockStamp(
-        block_timestamp=0,
-        block_root=None,
-        state_root=None,
-        slot_number=slot,
-        block_hash='',
-        block_number=None
-    )
-    monkeypatch.setattr(SimpleOracle, '_receive_last_finalized_slot', slot(1))
+def test_cycle_handler_run_once_per_slot(oracle):
+    SimpleOracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     oracle._cycle_handler()
     assert oracle.call_count == 1
     oracle._cycle_handler()
     assert oracle.call_count == 1
-    monkeypatch.setattr(SimpleOracle, '_receive_last_finalized_slot', slot(2))
+    SimpleOracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
     oracle._cycle_handler()
     assert oracle.call_count == 2

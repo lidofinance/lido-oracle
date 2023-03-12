@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.typings import SlotNumber, Gwei
+from src.web3py.extensions.lido_validators import StakingModuleId
 
 
 @dataclass
@@ -13,8 +14,8 @@ class ReportData:
     ref_slot: SlotNumber
     validators_count: int
     cl_balance_gwei: Gwei
-    staking_module_id_with_exited_validators: list[int]
-    count_exited_validators_by_stacking_module: list[int]
+    staking_module_id_with_exited_validators: list[StakingModuleId]
+    count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     last_withdrawal_request_to_finalize: int
@@ -32,7 +33,7 @@ class ReportData:
             self.validators_count,
             self.cl_balance_gwei,
             self.staking_module_id_with_exited_validators,
-            self.count_exited_validators_by_stacking_module,
+            self.count_exited_validators_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.last_withdrawal_request_to_finalize,
@@ -78,5 +79,5 @@ class LidoReportRebase:
 
 @dataclass
 class Account:
-    address: Address
+    address: ChecksumAddress
     _private_key: HexBytes

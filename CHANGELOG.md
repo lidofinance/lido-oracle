@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Withdrawals support
-- Stacking router support
+- Staking router support
 
 ### Changes
 - Oracle split in two separate modules: ejector and accounting
