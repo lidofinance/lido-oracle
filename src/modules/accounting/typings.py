@@ -83,3 +83,9 @@ class LidoReportRebase:
 class Account:
     address: ChecksumAddress
     _private_key: HexBytes
+
+
+@dataclass
+class SharesRequestedToBurn:
+    cover_shares: int
+    non_cover_shares: int
