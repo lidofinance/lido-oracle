@@ -1,20 +1,30 @@
 import itertools
-from typing import Optional, Any, Tuple, Callable
+from typing import Any, Callable, Optional, Tuple
 
 from eth_abi.exceptions import DecodingError
 from eth_typing import ChecksumAddress
 from web3 import Web3
-from web3._utils.abi import get_abi_output_types, map_abi_data, named_tree, recursive_dict_to_namedtuple
-from web3._utils.contracts import prepare_transaction, find_matching_fn_abi
+from web3._utils.abi import (
+    get_abi_output_types,
+    map_abi_data,
+    named_tree,
+    recursive_dict_to_namedtuple,
+)
+from web3._utils.contracts import find_matching_fn_abi, prepare_transaction
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 from web3.contract import Contract as _Contract
-from web3.contract.contract import (
-    ContractFunction as _ContractFunction,
-    ContractFunctions as _ContractFunctions,
-)
+from web3.contract.contract import ContractFunction as _ContractFunction
+from web3.contract.contract import ContractFunctions as _ContractFunctions
 from web3.contract.utils import ACCEPTABLE_EMPTY_STRINGS
 from web3.exceptions import BadFunctionCallOutput
-from web3.types import ABI, TxParams, BlockIdentifier, CallOverride, FunctionIdentifier, ABIFunction
+from web3.types import (
+    ABI,
+    ABIFunction,
+    BlockIdentifier,
+    CallOverride,
+    FunctionIdentifier,
+    TxParams,
+)
 
 
 def call_contract_function(  # pylint: disable=keyword-arg-before-vararg

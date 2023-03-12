@@ -4,29 +4,31 @@ from functools import lru_cache, reduce
 from web3.types import Wei
 
 from src.constants import (
-    MAX_WITHDRAWALS_PER_PAYLOAD,
-    MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT,
     FAR_FUTURE_EPOCH,
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     MAX_EFFECTIVE_BALANCE,
     MAX_SEED_LOOKAHEAD,
+    MAX_WITHDRAWALS_PER_PAYLOAD,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.services.validator_state import LidoValidatorStateService
 from src.modules.ejector.data_encode import encode_data
-from src.services.prediction import RewardsPredictionService
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
+from src.services.prediction import RewardsPredictionService
+from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
-from src.utils.validator_state import is_active_validator, is_partially_withdrawable_validator, \
-    is_fully_withdrawable_validator
+from src.utils.validator_state import (
+    is_active_validator,
+    is_fully_withdrawable_validator,
+    is_partially_withdrawable_validator,
+)
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
-
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class Ejector(BaseModule, ConsensusModule):
             validators_going_to_exit,
         ))
 
-        validators_to_eject = []
+        validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
         validators_iterator = ValidatorToExitIterator(
@@ -136,7 +138,9 @@ class Ejector(BaseModule, ConsensusModule):
 
         def get_total_withdrawable_balance(balance: Wei, validator: Validator) -> Wei:
             if is_fully_withdrawable_validator(validator, on_epoch):
-                balance += self._get_predicted_withdrawable_balance(validator)
+                balance = Wei(
+                    balance + self._get_predicted_withdrawable_balance(validator)
+                )
 
             return balance
 
@@ -203,7 +207,7 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns the latest exit epoch and amount of validators that are exiting in this epoch
         """
-        max_exit_epoch_number = 0
+        max_exit_epoch_number = EpochNumber(0)
         latest_to_exit_validators_count = 0
 
         for validator in self.w3.cc.get_validators(blockstamp):

@@ -1,8 +1,8 @@
 from functools import lru_cache
 from time import sleep
-from typing import Optional
+from typing import Optional, cast
 
-from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_REQUESTS
+from src.metrics.prometheus.basic import KEYS_API_REQUESTS, KEYS_API_REQUESTS_DURATION
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
@@ -40,6 +40,6 @@ class KeysAPIClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey.from_response)
-    def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
+    def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
-        return self._get_with_blockstamp(self.ALL_KEYS, blockstamp)
+        return cast(list[dict], self._get_with_blockstamp(self.ALL_KEYS, blockstamp))

@@ -5,6 +5,7 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.typings import SlotNumber, Gwei
+from src.web3py.extensions.lido_validators import StakingModuleId
 
 
 @dataclass
@@ -13,7 +14,7 @@ class ReportData:
     ref_slot: SlotNumber
     validators_count: int
     cl_balance_gwei: Gwei
-    staking_module_id_with_exited_validators: list[int]
+    staking_module_id_with_exited_validators: list[StakingModuleId]
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei

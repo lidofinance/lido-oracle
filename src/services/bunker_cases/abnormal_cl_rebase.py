@@ -1,6 +1,7 @@
 import logging
 import math
 from typing import Mapping, Any
+from eth_typing.encoding import HexStr
 
 from web3.types import EventData
 
@@ -28,7 +29,7 @@ class AbnormalClRebase:
         c_conf: ChainConfig,
         last_report_ref_slot: SlotNumber,
         all_validators: dict[str, Validator],
-        lido_keys: dict[str, LidoKey],
+        lido_keys: dict[HexStr, LidoKey],
         lido_validators: dict[str, LidoValidator]
     ):
         self.w3 = w3
