@@ -85,13 +85,22 @@ class Ejector(BaseModule, ConsensusModule):
         ).as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+        chain_config = self.get_chain_config(blockstamp)
+        validators_iterator = ValidatorToExitIterator(
+            w3=self.w3,
+            blockstamp=blockstamp,
+            c_conf=chain_config,
+        )
+
+        if validators_iterator.v_conf.max_validators_to_exit == 0:
+            logger.info({'msg': 'Contract is paused, skip getting validators to eject.'})
+            return []
+
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
 
         if to_withdraw_amount == Wei(0):
             return []
-
-        chain_config = self.get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
@@ -110,12 +119,6 @@ class Ejector(BaseModule, ConsensusModule):
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
-
-        validators_iterator = ValidatorToExitIterator(
-            w3=self.w3,
-            blockstamp=blockstamp,
-            c_conf=chain_config,
-        )
 
         for validator in validators_iterator:
             withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
