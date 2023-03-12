@@ -39,20 +39,20 @@ class BunkerService:
 
         logger.info({"msg": "Checking bunker mode"})
 
-        current_frame_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
-        if current_frame_cl_rebase < 0:
+        current_report_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
+        if current_report_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
 
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, frame_config, all_validators, lido_validators, current_frame_cl_rebase
+            blockstamp, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
             return True
 
         abnormal_cl_rebase = AbnormalClRebase(self.w3, chain_config, bunker_config).is_abnormal_cl_rebase(
-            blockstamp, all_validators, lido_validators, current_frame_cl_rebase
+            blockstamp, all_validators, lido_validators, current_report_cl_rebase
         )
         if abnormal_cl_rebase:
             logger.info({"msg": "Bunker ON. Abnormal CL rebase"})

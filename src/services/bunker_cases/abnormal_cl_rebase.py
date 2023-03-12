@@ -36,7 +36,7 @@ class AbnormalClRebase:
         blockstamp: ReferenceBlockStamp,
         all_validators: list[Validator],
         lido_validators: list[LidoValidator],
-        ref_frame_cl_rebase: Gwei
+        current_report_cl_rebase: Gwei
     ) -> bool:
         self.all_validators = all_validators
         self.lido_validators = lido_validators
@@ -44,9 +44,9 @@ class AbnormalClRebase:
 
         logger.info({"msg": "Checking abnormal CL rebase"})
 
-        normal_frame_cl_rebase = self._calculate_lido_normal_cl_rebase(blockstamp)
+        normal_report_cl_rebase = self._calculate_lido_normal_cl_rebase(blockstamp)
 
-        if normal_frame_cl_rebase > ref_frame_cl_rebase:
+        if normal_report_cl_rebase > current_report_cl_rebase:
             logger.info({"msg": "CL rebase in frame is abnormal"})
 
             no_need_specific_cl_rebase_check = (
