@@ -57,7 +57,8 @@ class BaseModule(ABC):
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
-        bs = build_blockstamp(self.w3.cc, block_root)
+        block_details = self.w3.cc.get_block_details(block_root)
+        bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
         return bs
 
