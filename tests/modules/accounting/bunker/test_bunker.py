@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.accounting.typings import LidoReportRebase
-from tests.modules.accounting.bunker.conftest import simple_blockstamp
+from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp
 
 
 @pytest.mark.unit
@@ -19,7 +19,7 @@ def test_get_cl_rebase_for_frame(
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):
-    blockstamp = simple_blockstamp(0)
+    blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = LidoReportRebase(
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,

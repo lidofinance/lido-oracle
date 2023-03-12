@@ -11,8 +11,12 @@ from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
-def simple_blockstamp(block_number: int) -> ReferenceBlockStamp:
-    return ReferenceBlockStamp('', f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number)
+def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
+    return ReferenceBlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number)
+
+
+def simple_blockstamp(block_number: int) -> BlockStamp:
+    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -63,10 +67,9 @@ def mock_get_all_lido_keys(abnormal_case):
 
 
 @pytest.fixture
-def mock_get_first_non_missed_slot(monkeypatch):
+def mock_get_blockstamp(monkeypatch):
 
-    def _get_first_non_missed_slot(_, ref_slot, last_finalized_slot_number, ref_epoch):
-
+    def _get_blockstamp(_, ref_slot, last_finalized_slot_number):
         slots = {
             0: simple_blockstamp(0),
             10: simple_blockstamp(10),
@@ -76,11 +79,25 @@ def mock_get_first_non_missed_slot(monkeypatch):
             444434: simple_blockstamp(444431),
             444444: simple_blockstamp(444444),
         }
+        return slots[ref_slot]
 
+    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
+        slots = {
+            0: simple_ref_blockstamp(0),
+            10: simple_ref_blockstamp(10),
+            20: simple_ref_blockstamp(20),
+            30: simple_ref_blockstamp(30),
+            444424: simple_ref_blockstamp(444420),
+            444434: simple_ref_blockstamp(444431),
+            444444: simple_ref_blockstamp(444444),
+        }
         return slots[ref_slot]
 
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_first_non_missed_slot', Mock(side_effect=_get_first_non_missed_slot)
+        'src.services.bunker_cases.abnormal_cl_rebase.get_blockstamp', Mock(side_effect=_get_blockstamp)
+    )
+    monkeypatch.setattr(
+        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp', Mock(side_effect=_get_reference_blockstamp)
     )
 
 
@@ -198,7 +215,7 @@ def bunker(web3, lido_validators) -> BunkerService:
 
 @pytest.fixture
 def blockstamp():
-    return simple_blockstamp(10)
+    return simple_ref_blockstamp(10)
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.typings import BunkerConfig
-from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key
+from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
 def simple_validators(
@@ -35,13 +35,13 @@ def simple_validators(
 @pytest.mark.parametrize(
     ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal"),
     [
-        (simple_blockstamp(40), 378585832, 0, 0, False),    # > normal cl rebase
-        (simple_blockstamp(40), 378585831, 0, 0, False),    # == normal cl rebase and no check specific rebase
-        (simple_blockstamp(40), 378585830, 10, 20, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40), 378585830, 10, 10, False),  # < normal cl rebase but specific rebase is positive
-        (simple_blockstamp(40), 378585830, 0, 0, True),     # < normal cl rebase and no check specific rebase
-        (simple_blockstamp(20), 126195276, 10, 20, True),   # < normal cl rebase and specific rebase is negative
-        (simple_blockstamp(20), 126195276, 10, 10, True),   # < normal cl rebase and specific rebase is negative
+        (simple_ref_blockstamp(40), 378585832, 0, 0, False),    # > normal cl rebase
+        (simple_ref_blockstamp(40), 378585831, 0, 0, False),    # == normal cl rebase and no check specific rebase
+        (simple_ref_blockstamp(40), 378585830, 10, 20, False),  # < normal cl rebase but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 10, 10, False),  # < normal cl rebase but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 0, 0, True),     # < normal cl rebase and no check specific rebase
+        (simple_ref_blockstamp(20), 126195276, 10, 20, True),   # < normal cl rebase and specific rebase is negative
+        (simple_ref_blockstamp(20), 126195276, 10, 10, True),   # < normal cl rebase and specific rebase is negative
     ],
 )
 def test_is_abnormal_cl_rebase(
@@ -51,7 +51,7 @@ def test_is_abnormal_cl_rebase(
     mock_get_all_lido_keys,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_blockstamp,
     frame_cl_rebase,
     nearest_epoch_distance,
     far_epoch_distance,
@@ -74,8 +74,8 @@ def test_is_abnormal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_rebase"),
     [
-        (simple_blockstamp(40), 378585831),
-        (simple_blockstamp(20), 126195277),
+        (simple_ref_blockstamp(40), 378585831),
+        (simple_ref_blockstamp(20), 126195277),
     ]
 )
 def test_calculate_lido_normal_cl_rebase(
@@ -84,7 +84,7 @@ def test_calculate_lido_normal_cl_rebase(
     mock_get_accounting_last_processing_ref_slot,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_blockstamp,
     blockstamp,
     expected_rebase
 ):
@@ -101,19 +101,19 @@ def test_calculate_lido_normal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "nearest_epoch_distance", "far_epoch_distance", "expected_is_negative"),
     [
-        (simple_blockstamp(40), 10, 20, False),
-        (simple_blockstamp(20), 10, 20, True),
-        (simple_blockstamp(20), 10, 10, True),
+        (simple_ref_blockstamp(40), 10, 20, False),
+        (simple_ref_blockstamp(20), 10, 20, True),
+        (simple_ref_blockstamp(20), 10, 10, True),
         (
-            simple_blockstamp(20),
-            20,
-            10,
+                simple_ref_blockstamp(20),
+                20,
+                10,
             "nearest_slot=0 should be between distant_slot=10 and ref_slot=20 in specific CL rebase calculation"
         ),
         (
-            simple_blockstamp(20),
-            10,
-            -10,
+                simple_ref_blockstamp(20),
+                10,
+                -10,
             "nearest_slot=10 should be between distant_slot=30 and ref_slot=20 in specific CL rebase calculation"
         ),
     ]
@@ -122,7 +122,7 @@ def test_is_negative_specific_cl_rebase(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_blockstamp,
     blockstamp,
     nearest_epoch_distance,
     far_epoch_distance,
@@ -152,14 +152,14 @@ def test_is_negative_specific_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_blockstamps"),
     [
-        (simple_blockstamp(40), (simple_blockstamp(30), simple_blockstamp(20))),
-        (simple_blockstamp(20), (simple_blockstamp(10), simple_blockstamp(0))),
-        (simple_blockstamp(444444), (simple_blockstamp(444431), simple_blockstamp(444420))),
+        (simple_ref_blockstamp(40), (simple_blockstamp(30), simple_blockstamp(20))),
+        (simple_ref_blockstamp(20), (simple_blockstamp(10), simple_blockstamp(0))),
+        (simple_ref_blockstamp(444444), (simple_blockstamp(444431), simple_blockstamp(444420))),
     ]
 )
 def test_get_nearest_and_distant_blockstamps(
     abnormal_case,
-    mock_get_first_non_missed_slot,
+    mock_get_blockstamp,
     blockstamp,
     expected_blockstamps,
 ):
@@ -182,11 +182,11 @@ def test_get_nearest_and_distant_blockstamps(
 @pytest.mark.parametrize(
     ("prev_blockstamp", "blockstamp", "expected_rebase"),
     [
-        (simple_blockstamp(0), simple_blockstamp(10), 100),
-        (simple_blockstamp(10), simple_blockstamp(20), -32000100800),
+        (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 100),
+        (simple_ref_blockstamp(10), simple_ref_blockstamp(20), -32000100800),
         (
-            simple_blockstamp(20),
-            simple_blockstamp(30),
+                simple_ref_blockstamp(20),
+                simple_ref_blockstamp(30),
             "Validators count diff should be positive or 0. Something went wrong with CL API"
         ),
     ]
@@ -195,7 +195,7 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-    mock_get_first_non_missed_slot,
+        mock_get_blockstamp,
     prev_blockstamp,
     blockstamp,
     expected_rebase,
@@ -218,8 +218,8 @@ def test_calculate_cl_rebase_between_blocks(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_blockstamp(40), 98001157445),
-        (simple_blockstamp(20), 77999899300),
+        (simple_ref_blockstamp(40), 98001157445),
+        (simple_ref_blockstamp(20), 77999899300),
     ]
 )
 def test_get_lido_validators_balance_with_vault(
@@ -242,13 +242,13 @@ def test_get_lido_validators_balance_with_vault(
     ("prev_blockstamp", "blockstamp", "expected_result"),
     [
         (
-            simple_blockstamp(0), simple_blockstamp(10), 1 * 10 ** 9
+                simple_ref_blockstamp(0), simple_ref_blockstamp(10), 1 * 10 ** 9
         ),
         (
-            simple_blockstamp(10), simple_blockstamp(20), 0
+                simple_ref_blockstamp(10), simple_ref_blockstamp(20), 0
         ),
         (
-            simple_blockstamp(20), simple_blockstamp(30), "More than one ETHDistributed event found"
+                simple_ref_blockstamp(20), simple_ref_blockstamp(30), "More than one ETHDistributed event found"
         )
     ]
 )
@@ -316,8 +316,8 @@ def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_
 def test_get_mean_effective_balance_sum(curr_validators, last_report_validators, expected_result):
 
     result = AbnormalClRebase.get_mean_effective_balance_sum(
-        simple_blockstamp(0),
-        simple_blockstamp(0),
+        simple_ref_blockstamp(0),
+        simple_ref_blockstamp(0),
         curr_validators,
         last_report_validators
     )

@@ -10,8 +10,8 @@ from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import ReferenceBlockStamp, Gwei, EpochNumber, BlockNumber, SlotNumber, BlockStamp
-from src.utils.slot import get_first_non_missed_slot
+from src.typings import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
+from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.typings import Web3
@@ -67,7 +67,7 @@ class AbnormalClRebase:
         Calculate normal CL rebase for Lido validators (relative to all validators and the previous Lido frame)
         for current frame for Lido validators
         """
-        last_report_blockstamp = self._get_last_report_blockstamp(blockstamp)
+        last_report_blockstamp = self._get_last_report_reference_blockstamp(blockstamp)
 
         epochs_passed_since_last_report = blockstamp.ref_epoch - last_report_blockstamp.ref_epoch
 
@@ -120,7 +120,7 @@ class AbnormalClRebase:
 
     def _get_nearest_and_distant_blockstamps(
         self, ref_blockstamp: ReferenceBlockStamp
-    ) -> tuple[ReferenceBlockStamp, ReferenceBlockStamp]:
+    ) -> tuple[BlockStamp, BlockStamp]:
         """Get nearest and distant blockstamps. Calculation including missed slots"""
         nearest_slot = SlotNumber(
             ref_blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
@@ -133,8 +133,12 @@ class AbnormalClRebase:
             distant_slot, nearest_slot, ref_blockstamp.slot_number
         )
 
-        nearest_blockstamp = self._get_blockstamp_for_slot(needed=nearest_slot, finalized=ref_blockstamp.slot_number)
-        distant_blockstamp = self._get_blockstamp_for_slot(needed=distant_slot, finalized=ref_blockstamp.slot_number)
+        nearest_blockstamp = get_blockstamp(
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        )
+        distant_blockstamp = get_blockstamp(
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        )
 
         return nearest_blockstamp, distant_blockstamp
 
@@ -230,18 +234,14 @@ class AbnormalClRebase:
             toBlock=to_block,
         )
 
-    def _get_last_report_blockstamp(self, blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
+    def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
-        last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
-        return self._get_blockstamp_for_slot(needed=last_report_ref_slot, finalized=blockstamp.slot_number)
-
-    def _get_blockstamp_for_slot(self, needed: SlotNumber, finalized: SlotNumber) -> ReferenceBlockStamp:
-        """Get blockstamp of needed slot"""
-        return get_first_non_missed_slot(
+        last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(ref_blockstamp)
+        return get_reference_blockstamp(
             self.w3.cc,
-            needed,
-            ref_epoch=EpochNumber(needed // self.c_conf.slots_per_epoch),
-            last_finalized_slot_number=finalized,
+            last_report_ref_slot,
+            ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
+            last_finalized_slot_number=ref_blockstamp.slot_number
         )
 
     @staticmethod
