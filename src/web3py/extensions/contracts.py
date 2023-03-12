@@ -48,7 +48,7 @@ class LidoContracts(Module):
 
         self.withdrawal_queue_nft = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalQueue().call(),
-            abi=self.load_abi('WithdrawalRequestNFT'),
+            abi=self.load_abi('WithdrawalQueueERC721'),
             decode_tuples=True,
         )
 

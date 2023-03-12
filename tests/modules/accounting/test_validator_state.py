@@ -9,23 +9,18 @@ from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.typings import BlockStamp
 from src.web3py.extensions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
 )
+from tests.factories import Factories
 
 TESTING_REF_EPOCH = 100
 
-blockstamp = ReferenceBlockStamp(
+blockstamp = Factories.reference_blockstamp(
     ref_slot=9024,
     ref_epoch=TESTING_REF_EPOCH,
-    block_root=None,
-    state_root=None,
-    slot_number='',
-    block_hash='',
-    block_number=0,
-    block_timestamp=0,
 )
 
 

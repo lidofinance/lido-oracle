@@ -35,13 +35,10 @@ class ContractEvent:
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_contract_events_in_past():
+def test_get_contract_events_in_past(factories):
     seconds_per_slot = 10
-    bs = ReferenceBlockStamp(
-        block_root='',
-        state_root='',
+    bs = factories.reference_blockstamp(
         slot_number=36,
-        block_hash='',
         block_number=31,
         block_timestamp=36*10,
         ref_slot=36,
