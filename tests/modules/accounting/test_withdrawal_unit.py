@@ -72,15 +72,25 @@ def test_has_unfinalized_requests(subject: Withdrawal, last_finalized_id: int, l
 
 
 @pytest.mark.unit
-@given(strategies.lists(strategies.integers(min_value=0), min_size=4, max_size=4))
+@given(
+    buffered_ether=strategies.integers(min_value=0),
+    unfinalized_stheth=strategies.integers(min_value=0),
+    withdrawal_vault_balance=strategies.integers(min_value=0),
+    el_vault_balance=strategies.integers(min_value=0),
+)
 @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_get_available_eth(
     subject: Withdrawal,
-    params: list[int]
+    buffered_ether,
+    unfinalized_stheth,
+    withdrawal_vault_balance,
+    el_vault_balance,
 ):
-    subject._fetch_buffered_ether = Mock(return_value=params[0])
-    subject._fetch_unfinalized_steth = Mock(return_value=params[1])
+    subject._fetch_buffered_ether = Mock(return_value=buffered_ether)
+    subject._fetch_unfinalized_steth = Mock(return_value=unfinalized_stheth)
 
-    reserved_buffer = min(params[0], params[1])
+    reserved_buffer = min(buffered_ether, unfinalized_stheth)
 
-    assert subject._get_available_eth(params[2], params[3]) == params[2] + params[3] + reserved_buffer
+    expected_available_eth = withdrawal_vault_balance + el_vault_balance + reserved_buffer
+
+    assert subject._get_available_eth(withdrawal_vault_balance, el_vault_balance) == expected_available_eth
