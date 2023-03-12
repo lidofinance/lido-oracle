@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.accounting.typings import OracleReportLimits
@@ -47,7 +47,7 @@ class ValidatorToExitIterator:
     5. Validator with the lowest index
     """
     v_conf: ValidatorToExitIteratorConfig
-    staking_module_id: dict[Address, StakingModuleId]
+    staking_module_id: dict[ChecksumAddress, StakingModuleId]
     exitable_lido_validators: list[LidoValidator]
     lido_node_operator_stats: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]
     total_predictable_validators_count: int

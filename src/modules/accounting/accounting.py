@@ -14,6 +14,7 @@ from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
+from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
 
 logger = logging.getLogger(__name__)
@@ -99,11 +100,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        staking_module_stats = self._get_newly_exited_validators_by_modules(blockstamp)
-        if staking_module_stats:
-            staking_module_ids_list, exit_validators_count_list = staking_module_stats
-        else:
-            staking_module_ids_list = exit_validators_count_list = []
+        staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
@@ -113,7 +110,7 @@ class Accounting(BaseModule, ConsensusModule):
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
             staking_module_id_with_exited_validators=staking_module_ids_list,
-            count_exited_validators_by_stacking_module=exit_validators_count_list,
+            count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
             last_withdrawal_request_to_finalize=self._get_last_withdrawal_request_to_finalize(blockstamp),
@@ -126,21 +123,31 @@ class Accounting(BaseModule, ConsensusModule):
 
         return report_data
 
-    def _get_newly_exited_validators_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[int], list[int]]:
+    def _get_newly_exited_validators_by_modules(
+        self,
+        blockstamp: ReferenceBlockStamp,
+    ) -> tuple[list[StakingModuleId], list[int]]:
         """
         Calculate exited validators count in all modules.
         Exclude modules without changes from the report.
         """
-        stacking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
-
+        staking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
-        module_stats: dict[int, int] = defaultdict(int)
+        return self.get_updated_modules_stats(staking_modules, exited_validators)
 
-        for (module_id, _), validators_exited_count in exited_validators.items():
+    @staticmethod
+    def get_updated_modules_stats(
+        staking_modules: list[StakingModule],
+        exited_validators_by_no: dict[NodeOperatorGlobalIndex, int],
+    ) -> tuple[list[StakingModuleId], list[int]]:
+        """Returns exited validators count by node operators that should be updated."""
+        module_stats: dict[StakingModuleId, int] = defaultdict(int)
+
+        for (module_id, _), validators_exited_count in exited_validators_by_no.items():
             module_stats[module_id] += validators_exited_count
 
-        for module in stacking_modules:
+        for module in staking_modules:
             if module_stats[module.id] == module.exited_validators_count:
                 del module_stats[module.id]
 
@@ -183,39 +190,34 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
         return shares_rate
 
-    def get_rebase_after_report(self, blockstamp: ReferenceBlockStamp, cl_only=False) -> LidoReportRebase:
-        chain_conf = self.get_chain_config(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
-
-        last_ref_slot = self.report_contract.functions.getLastProcessingRefSlot().call(
-            block_identifier=blockstamp.block_hash,
-        )
-
-        if last_ref_slot:
-            slots_elapsed = blockstamp.ref_slot - last_ref_slot
-        else:
-            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
-
+    def get_rebase_after_report(
+        self,
+        blockstamp: ReferenceBlockStamp,
+        ignore_execution_rewards: bool = False,
+    ) -> LidoReportRebase:
+        """
+        To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
+        """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        timestamp = chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
+        timestamp = self.get_slot_timestamp(blockstamp)
 
-        handle_report_data = (
+        chain_conf = self.get_chain_config(blockstamp)
+
+        simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
             timestamp,  # _reportTimestamp
-            slots_elapsed * chain_conf.seconds_per_slot,  # _timeElapsed
+            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            0 if cl_only else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
+            0 if ignore_execution_rewards else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
             0,  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         )
 
-        logger.info({'msg': 'Simulate lido rebase for report.', 'value': handle_report_data})
+        logger.info({'msg': 'Simulate lido rebase for report.', 'value': simulated_tx.args})
 
-        result = self.w3.lido_contracts.lido.functions.handleOracleReport(
-            *handle_report_data
-        ).call(
+        result = simulated_tx.call(
             transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
             block_identifier=blockstamp.block_hash,
         )
@@ -224,11 +226,29 @@ class Accounting(BaseModule, ConsensusModule):
 
         return LidoReportRebase(*result)
 
+    def get_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
+        chain_conf = self.get_chain_config(blockstamp)
+        return chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
+
+    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
+        """If no report was finalized return slots elapsed from initial epoch from contract"""
+        chain_conf = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
+
+        last_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+
+        if last_ref_slot:
+            slots_elapsed = blockstamp.ref_slot - last_ref_slot
+        else:
+            slots_elapsed = blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch
+
+        return slots_elapsed
+
     @lru_cache(maxsize=1)
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> bool:
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
-        cl_rebase_report = self.get_rebase_after_report(blockstamp, cl_only=True)
+        cl_rebase_report = self.get_rebase_after_report(blockstamp, ignore_execution_rewards=True)
 
         bunker_mode = self.bunker_service.is_bunker_mode(
             blockstamp,

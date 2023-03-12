@@ -1,18 +1,15 @@
 import pytest
-from eth_typing import HexStr
 
-from src.typings import BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber, ReferenceBlockStamp
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
-@pytest.fixture
-def blockstamp(factories):
-    return factories.reference_blockstamp(
-        state_root=StateRoot(HexStr('0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e'))
-    )
+blockstamp = ReferenceBlockStampFactory.build(
+    state_root='0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e'
+)
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, lido_validators, blockstamp):
+def test_get_lido_validators(web3, lido_validators):
     validators_in_cc = web3.cc.get_validators(blockstamp)
 
     lido_keys = web3.kac.get_all_lido_keys(blockstamp)
@@ -28,7 +25,7 @@ def test_get_lido_validators(web3, lido_validators, blockstamp):
 
 
 @pytest.mark.unit
-def test_get_node_operators(web3, lido_validators, contracts, blockstamp):
+def test_get_node_operators(web3, lido_validators, contracts):
     node_operators = web3.lido_validators.get_lido_node_operators(blockstamp)
 
     assert len(node_operators) == 2
@@ -43,7 +40,7 @@ def test_get_node_operators(web3, lido_validators, contracts, blockstamp):
 
 
 @pytest.mark.unit
-def test_get_lido_validators_by_node_operator(web3, lido_validators, blockstamp, contracts):
+def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
     no_validators = web3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
     assert len(no_validators.keys()) == 2
