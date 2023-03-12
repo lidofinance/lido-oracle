@@ -25,7 +25,9 @@ def task(name: str):
                     raise e
                 finally:
                     stop = perf_counter()
-                    logger.debug({"msg": f"Task '{name}' finished", "duration (sec)": max(0, stop - t._start)})
+                    logger.debug({
+                        "msg": f"Task '{name}' finished", "duration (sec)": max(0, stop - t._start)  # pylint: disable=protected-access
+                    })
 
         return wrapper
 
