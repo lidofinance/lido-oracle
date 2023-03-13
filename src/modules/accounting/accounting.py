@@ -7,6 +7,12 @@ from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase, \
     SharesRequestedToBurn
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_CL_BALANCE_GWEI,
+    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+)
 from src.metrics.prometheus.task import task
 from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
 from src.services.validator_state import LidoValidatorStateService
@@ -125,6 +131,11 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
+        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
         return report_data
 
