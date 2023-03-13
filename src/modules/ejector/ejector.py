@@ -12,6 +12,7 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.metrics.prometheus.ejector import EJECTOR_VALIDATORS_COUNT_TO_EJECT, EJECTOR_TO_WITHDRAW_WEI_AMOUNT
 from src.metrics.prometheus.task import task
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
@@ -79,17 +80,23 @@ class Ejector(BaseModule, ConsensusModule):
 
         data, data_format = encode_data(validators)
 
-        return ReportData(
+        report_data = ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
             len(validators),
             data_format,
             data,
-        ).as_tuple()
+        )
+
+        EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
+
+        return report_data.as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
+
+        EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
 
         if to_withdraw_amount == Wei(0):
             return []
