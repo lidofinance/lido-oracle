@@ -4,7 +4,6 @@ from typing import Callable, Iterable
 from unittest.mock import Mock
 
 import pytest
-from eth_typing.encoding import HexStr
 
 from src.modules.ejector.data_encode import (
     MODULE_ID_LENGTH,
@@ -13,7 +12,12 @@ from src.modules.ejector.data_encode import (
     VALIDATOR_PUB_KEY_LENGTH,
     encode_data,
 )
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
+from src.web3py.extensions.lido_validators import (
+    LidoValidator,
+    NodeOperatorId,
+    StakingModuleId,
+)
+from tests.factory.no_registry import LidoValidatorFactory
 
 RECORD_LENGTH = sum(
     [
@@ -30,26 +34,33 @@ def pubkey_factory() -> Callable:
     def _factory():
         symbols = string.hexdigits
         length = VALIDATOR_PUB_KEY_LENGTH * 2  # 2 hex digits per byte
-        return HexStr("0x" + "".join(random.choice(symbols) for _ in range(length)))
+        return "0x" + "".join(random.choice(symbols) for _ in range(length))
+
+    return _factory
+
+
+@pytest.fixture()
+def validator_factory(pubkey_factory: Callable[[], str]) -> Callable:
+    def _factory(index: int, pubkey: str | None = None):
+        v = LidoValidatorFactory.build(index=str(index))
+        v.validator.pubkey = pubkey or pubkey_factory()
+        return v
 
     return _factory
 
 
 @pytest.mark.unit
-def test_encode_data(pubkey_factory: Callable[[], HexStr]) -> None:
-    def _lido_validator(index: int):
-        return Mock(index=index, validator=Mock(pubkey=pubkey_factory()))
-
+def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
     data = [
-        ((StakingModuleId(42), NodeOperatorId(3)), _lido_validator(0)),
-        ((StakingModuleId(8), NodeOperatorId(17)), _lido_validator(1)),
-        ((StakingModuleId(0), NodeOperatorId(0)), _lido_validator(0)),
+        ((StakingModuleId(42), NodeOperatorId(3)), validator_factory(0)),
+        ((StakingModuleId(8), NodeOperatorId(17)), validator_factory(1)),
+        ((StakingModuleId(0), NodeOperatorId(0)), validator_factory(2)),
         (
             (
                 StakingModuleId(_max_num_fits_bytes(MODULE_ID_LENGTH)),
                 NodeOperatorId(_max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH)),
             ),
-            _lido_validator(_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH)),
+            validator_factory(_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH)),
         ),
     ]
 
@@ -76,7 +87,9 @@ def test_encode_data(pubkey_factory: Callable[[], HexStr]) -> None:
 
         assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
         assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
-        assert int.from_bytes(chunks[2]) == _val.index, "Validator's index mismatch"
+        assert int.from_bytes(chunks[2]) == int(
+            _val.index
+        ), "Validator's index mismatch"
         assert chunks[3] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
 
 
@@ -87,7 +100,7 @@ def test_encode_data_empty() -> None:
 
 
 @pytest.mark.unit
-def test_encode_data_overflow() -> None:
+def test_encode_data_overflow(validator_factory: Callable[..., LidoValidator]) -> None:
     with pytest.raises(OverflowError):
         encode_data(
             [
@@ -96,7 +109,7 @@ def test_encode_data_overflow() -> None:
                         StakingModuleId(_max_num_fits_bytes(MODULE_ID_LENGTH) + 1),
                         NodeOperatorId(0),
                     ),
-                    Mock(index=0),
+                    validator_factory(0),
                 )
             ]
         )
@@ -111,7 +124,7 @@ def test_encode_data_overflow() -> None:
                             _max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH) + 1
                         ),
                     ),
-                    Mock(index=0),
+                    validator_factory(0),
                 )
             ]
         )
@@ -124,7 +137,9 @@ def test_encode_data_overflow() -> None:
                         StakingModuleId(0),
                         NodeOperatorId(0),
                     ),
-                    Mock(index=_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH) + 1),
+                    validator_factory(
+                        index=_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH) + 1
+                    ),
                 )
             ]
         )
@@ -137,7 +152,7 @@ def test_encode_data_overflow() -> None:
                         StakingModuleId(-1),
                         NodeOperatorId(0),
                     ),
-                    Mock(index=0),
+                    validator_factory(0),
                 )
             ]
         )
@@ -150,7 +165,7 @@ def test_encode_data_overflow() -> None:
                         StakingModuleId(0),
                         NodeOperatorId(-1),
                     ),
-                    Mock(index=0),
+                    validator_factory(0),
                 )
             ]
         )
@@ -163,14 +178,14 @@ def test_encode_data_overflow() -> None:
                         StakingModuleId(0),
                         NodeOperatorId(0),
                     ),
-                    Mock(index=-1),
+                    validator_factory(index=-1),
                 )
             ]
         )
 
 
 @pytest.mark.unit
-def test_encode_broken_pubkey() -> None:
+def test_encode_broken_pubkey(validator_factory: Callable[..., LidoValidator]) -> None:
     with pytest.raises(ValueError, match="Unexpected size of validator pub key"):
         encode_data(
             [
@@ -179,7 +194,7 @@ def test_encode_broken_pubkey() -> None:
                         StakingModuleId(0),
                         NodeOperatorId(0),
                     ),
-                    Mock(index=0, validator=Mock(pubkey="0x")),
+                    validator_factory(index=0, pubkey="0x"),
                 )
             ]
         )
@@ -192,11 +207,9 @@ def test_encode_broken_pubkey() -> None:
                         StakingModuleId(0),
                         NodeOperatorId(0),
                     ),
-                    Mock(
+                    validator_factory(
                         index=0,
-                        validator=Mock(
-                            pubkey="0xgggggggggggggggggggggggggggggggggggggggggggggggg"
-                        ),
+                        pubkey="0xgggggggggggggggggggggggggggggggggggggggggggggggg",
                     ),
                 )
             ]

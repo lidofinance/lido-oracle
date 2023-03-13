@@ -8,17 +8,13 @@ from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector, EjectorProcessingState
 from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.submodules.typings import ChainConfig
-from src.services.exit_order import (
-    ValidatorToExitIterator,
-    ValidatorToExitIteratorConfig,
-)
 from src.typings import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.contracts import LidoContracts
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.typings import Web3
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
+from tests.modules.accounting.test_safe_border_unit import FAR_FUTURE_EPOCH
 
 
 @pytest.fixture(autouse=True)
@@ -43,28 +39,7 @@ def ref_blockstamp() -> ReferenceBlockStamp:
 
 @pytest.fixture()
 def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
-    mod = object.__new__(Ejector)
-    mod.report_contract = web3.lido_contracts.validators_exit_bus_oracle
-    mod.validators_state_service = Mock()
-    mod.prediction_service = Mock()
-    super(Ejector, mod).__init__(web3)
-    return mod
-
-
-@pytest.fixture()
-def validator_to_exit_it(
-    web3,
-    ref_blockstamp: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-) -> ValidatorToExitIterator:
-    it = Mock(spec=ValidatorToExitIterator)
-    it.w3 = web3
-    it.blockstamp = ref_blockstamp
-    it.c_conf = chain_config
-    it.left_queue_count = 0
-    it.v_conf = Mock(spec=ValidatorToExitIteratorConfig)
-    it.v_conf.max_validators_to_exit = 100
-    return it
+    return Ejector(web3)
 
 
 @pytest.mark.unit
@@ -85,7 +60,9 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 @pytest.mark.unit
-def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+def test_ejector_build_report(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
     result = ejector.build_report(ref_blockstamp)
     _, ref_slot, _, _, data = result
@@ -97,35 +74,13 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
 
 
 class TestGetValidatorsToEject:
-    @pytest.fixture(autouse=True)
-    def mock_validator_to_exit_it(
-        self,
-        validator_to_exit_it: ValidatorToExitIterator,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> Iterator:
-        with monkeypatch.context() as m:
-
-            def _validator_to_exit_iter(*args, **kwargs):
-                return validator_to_exit_it
-
-            m.setattr(
-                ejector_module,
-                "ValidatorToExitIterator",
-                Mock(side_effect=_validator_to_exit_iter),
-            )
-
-            yield
-
     @pytest.mark.unit
     def test_should_not_report_on_paused(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        validator_to_exit_it: ValidatorToExitIterator,
-        chain_config: ChainConfig,
     ) -> None:
-        ejector.get_chain_config = Mock(return_value=chain_config)
-        validator_to_exit_it.v_conf.max_validators_to_exit = 0
+        ejector._is_paused = Mock(return_value=True)
         result = ejector.get_validators_to_eject(ref_blockstamp)
         assert result == [], "Should not report on paused"
 
@@ -134,12 +89,8 @@ class TestGetValidatorsToEject:
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        validator_to_exit_it: ValidatorToExitIterator,
-        chain_config: ChainConfig,
     ) -> None:
-        ejector.get_chain_config = Mock(return_value=chain_config)
         ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=0)
-        validator_to_exit_it.v_conf.max_validators_to_exit = 100
         result = ejector.get_validators_to_eject(ref_blockstamp)
         assert result == [], "Should not report on no withdraw requests"
 
@@ -149,15 +100,14 @@ class TestGetValidatorsToEject:
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        validator_to_exit_it: ValidatorToExitIterator,
         chain_config: ChainConfig,
+        monkeypatch: pytest.MonkeyPatch,
     ):
-        validator_to_exit_it.__iter__ = Mock(return_value=iter([]))
-
         ejector.get_chain_config = Mock(return_value=chain_config)
         ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(
             return_value=100
         )
+
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
         ejector._get_total_balance = Mock(return_value=50)
@@ -165,8 +115,14 @@ class TestGetValidatorsToEject:
             return_value=[]
         )
 
-        result = ejector.get_validators_to_eject(ref_blockstamp)
-        assert result == [], "Unexpected validators to eject"
+        with monkeypatch.context() as m:
+            m.setattr(
+                ejector_module.ValidatorToExitIterator,
+                "__iter__",
+                Mock(return_value=iter([])),
+            )
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+            assert result == [], "Unexpected validators to eject"
 
     # NOTE: not sure if this test makes sense
     # @pytest.mark.unit
@@ -218,11 +174,11 @@ def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None
 @pytest.mark.unit
 def test_compute_activation_exit_epoch(
     ejector: Ejector,
-    ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with monkeypatch.context() as m:
         m.setattr(ejector_module, "MAX_SEED_LOOKAHEAD", 17)
+        ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
         result = ejector.compute_activation_exit_epoch(ref_blockstamp)
         assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
 
@@ -231,7 +187,7 @@ def test_compute_activation_exit_epoch(
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector._get_processing_state = Mock(return_value=Mock(data_submitted=True))
     assert (
-        ejector.is_main_data_submitted(blockstamp) == True
+        ejector.is_main_data_submitted(blockstamp) is True
     ), "Unexpected is_main_data_submitted result"
     ejector._get_processing_state.assert_called_once_with(blockstamp)
 
@@ -240,17 +196,16 @@ def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> Non
 def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.is_main_data_submitted = Mock(return_value=False)
     assert (
-        ejector.is_contract_reportable(blockstamp) == True
+        ejector.is_contract_reportable(blockstamp) is True
     ), "Unexpected is_contract_reportable result"
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
 
 
 @pytest.mark.unit
-def test_get_predicted_withdrawable_epoch(
-    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
-) -> None:
+def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
+    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
     result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, 2)
     assert result == 3824, "Unexpected predicted withdrawable epoch"
 
@@ -308,13 +263,7 @@ def test_get_sweep_delay_in_epochs(
     chain_config: ChainConfig,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build(),
-        ]
-        * 1024
-    )
-
+    ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
     ejector.get_chain_config = Mock(return_value=chain_config)
 
     with monkeypatch.context() as m:
@@ -386,12 +335,15 @@ class TestChurnLimit:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
-    def test_get_churn_limit_no_validators(self, ejector: Ejector) -> None:
+    def test_get_churn_limit_no_validators(
+        self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
         assert (
             result == ejector_module.MIN_PER_EPOCH_CHURN_LIMIT
         ), "Unexpected churn limit"
+        ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
@@ -437,24 +389,19 @@ def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("consensus_client")
-def test_get_latest_exit_epoch(
-    ejector: Ejector, blockstamp: BlockStamp, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.cc.get_validators = Mock(
         return_value=[
-            Mock(validator=Mock(exit_epoch=999)),
+            Mock(validator=Mock(exit_epoch=FAR_FUTURE_EPOCH)),
             Mock(validator=Mock(exit_epoch=42)),
             Mock(validator=Mock(exit_epoch=42)),
             Mock(validator=Mock(exit_epoch=1)),
         ]
     )
 
-    with monkeypatch.context() as m:
-        m.setattr(ejector_module, "FAR_FUTURE_EPOCH", 999)
+    (max_epoch, count) = ejector._get_latest_exit_epoch(blockstamp)
+    assert count == 2, "Unexpected count of exiting validators"
+    assert max_epoch == 42, "Unexpected max epoch"
 
-        (max_epoch, count) = ejector._get_latest_exit_epoch(blockstamp)
-        assert count == 2, "Unexpected count of exiting validators"
-        assert max_epoch == 42, "Unexpected max epoch"
-
-        ejector._get_latest_exit_epoch(blockstamp)
-        ejector.w3.cc.get_validators.assert_called_once_with(blockstamp)
+    ejector._get_latest_exit_epoch(blockstamp)
+    ejector.w3.cc.get_validators.assert_called_once_with(blockstamp)
