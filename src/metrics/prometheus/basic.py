@@ -22,11 +22,24 @@ ENV_VARIABLES_INFO = Info(
     namespace=PROMETHEUS_PREFIX,
 )
 
-
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
     'Account balance',
     ['address'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+ORACLE_SLOT_NUMBER = Gauge(
+    "slot_number",
+    "Oracle head or finalized slot number",
+    ["state"],  # "head" or "finalized"
+    namespace=PROMETHEUS_PREFIX,
+)
+
+ORACLE_BLOCK_NUMBER = Gauge(
+    "block_number",
+    "Oracle head or finalized block number",
+    ["state"],  # "head" or "finalized"
     namespace=PROMETHEUS_PREFIX,
 )
 

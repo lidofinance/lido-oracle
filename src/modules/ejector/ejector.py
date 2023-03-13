@@ -12,6 +12,12 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.metrics.prometheus.business import CONTRACT_ON_PAUSE, FRAME_PREV_REPORT_REF_SLOT
+from src.metrics.prometheus.ejector import (
+    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
+    EJECTOR_MAX_EXIT_EPOCH
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
@@ -68,7 +74,9 @@ class Ejector(BaseModule, ConsensusModule):
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        if self._is_paused(report_blockstamp):
+        on_pause = self._is_paused(report_blockstamp)
+        CONTRACT_ON_PAUSE.set(on_pause)
+        if on_pause:
             logger.info({'msg': 'Ejector is paused. Skip report.'})
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -78,6 +86,8 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+        last_report_ref_slot = self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
+        FRAME_PREV_REPORT_REF_SLOT.set(last_report_ref_slot)
         validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = self.get_validators_to_eject(blockstamp)
         logger.info({
             'msg': f'Calculate validators to eject. Count: {len(validators)}',
@@ -86,17 +96,23 @@ class Ejector(BaseModule, ConsensusModule):
 
         data, data_format = encode_data(validators)
 
-        return ReportData(
+        report_data = ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
             len(validators),
             data_format,
             data,
-        ).as_tuple()
+        )
+
+        EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
+
+        return report_data.as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
+
+        EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
 
         if to_withdraw_amount == Wei(0):
             return []
@@ -218,6 +234,8 @@ class Ejector(BaseModule, ConsensusModule):
             max_exit_epoch_number,
             self.compute_activation_exit_epoch(blockstamp),
         )
+
+        EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
 
         churn_limit = self._get_churn_limit(blockstamp)
 

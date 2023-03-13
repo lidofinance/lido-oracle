@@ -10,12 +10,13 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
+from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
-    ORACLE_SLOT_NUMBER, ORACLE_MEMBER_INFO
+    ORACLE_MEMBER_INFO
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
@@ -362,6 +363,7 @@ class ConsensusModule(ABC):
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
         return bs
 
     @lru_cache(maxsize=1)
