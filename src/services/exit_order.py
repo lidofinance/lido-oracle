@@ -61,7 +61,6 @@ class ValidatorToExitIterator:
         self.w3 = w3
         self.blockstamp = blockstamp
         self.c_conf = c_conf
-        self._get_config()
 
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
@@ -69,6 +68,8 @@ class ValidatorToExitIterator:
         Determine exitable Lido validators and collect operators stats to sort exitable validators
         """
         self.left_queue_count = 0
+
+        self._get_config()
 
         lido_validators = {
             v.validator.pubkey: v for v in self.w3.lido_validators.get_lido_validators(self.blockstamp)

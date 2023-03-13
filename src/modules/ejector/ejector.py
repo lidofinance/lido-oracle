@@ -85,14 +85,7 @@ class Ejector(BaseModule, ConsensusModule):
         ).as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        chain_config = self.get_chain_config(blockstamp)
-        validators_iterator = ValidatorToExitIterator(
-            w3=self.w3,
-            blockstamp=blockstamp,
-            c_conf=chain_config,
-        )
-
-        if validators_iterator.v_conf.max_validators_to_exit == 0:
+        if self._is_paused(blockstamp):
             logger.info({'msg': 'Contract is paused, skip getting validators to eject.'})
             return []
 
@@ -101,6 +94,8 @@ class Ejector(BaseModule, ConsensusModule):
 
         if to_withdraw_amount == Wei(0):
             return []
+
+        chain_config = self.get_chain_config(blockstamp)
 
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
@@ -120,6 +115,12 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
+        validators_iterator = ValidatorToExitIterator(
+            w3=self.w3,
+            blockstamp=blockstamp,
+            c_conf=chain_config,
+        )
+
         for validator in validators_iterator:
             withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
             future_rewards = (withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch) * rewards_speed_per_epoch
@@ -134,6 +135,12 @@ class Ejector(BaseModule, ConsensusModule):
             validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator[1])
 
         return validators_to_eject
+
+    @lru_cache(maxsize=1)
+    def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.isPaused().call(
+            block_identifier=blockstamp.block_hash
+        )
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
