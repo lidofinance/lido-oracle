@@ -18,6 +18,7 @@ from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleI
 from src.web3py.typings import Web3
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
+from tests.factory.no_registry import LidoValidatorFactory
 
 
 @pytest.fixture(autouse=True)
@@ -84,17 +85,15 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 @pytest.mark.unit
-def test_ejector_build_report(ejector: Ejector) -> None:
+def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
-    blockstamp = Mock(ref_slot=42)
-    result = ejector.build_report(blockstamp)
+    result = ejector.build_report(ref_blockstamp)
     _, ref_slot, _, _, data = result
-    assert ref_slot == blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
+    assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
     assert data == b"", "Unexpected encoded data"
-    ejector.get_validators_to_eject.assert_called_once_with(blockstamp)
 
-    ejector.build_report(blockstamp)
-    ejector.get_validators_to_eject.assert_called_once_with(blockstamp)
+    ejector.build_report(ref_blockstamp)
+    ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
 
 
 class TestGetValidatorsToEject:
@@ -265,10 +264,10 @@ def test_get_withdrawable_lido_validators(
 ) -> None:
     ejector.w3.lido_validators.get_lido_validators = Mock(
         return_value=[
-            Mock(balance="0"),
-            Mock(balance="0"),
-            Mock(balance="31"),
-            Mock(balance="42"),
+            LidoValidatorFactory.build(balance="0"),
+            LidoValidatorFactory.build(balance="0"),
+            LidoValidatorFactory.build(balance="31"),
+            LidoValidatorFactory.build(balance="42"),
         ]
     )
 
@@ -288,15 +287,15 @@ def test_get_withdrawable_lido_validators(
 
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
-    validator = Mock(balance="0")
+    validator = LidoValidatorFactory.build(balance="0")
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 0, "Expected zero"
 
-    validator = Mock(balance="42")
+    validator = LidoValidatorFactory.build(balance="42")
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 42 * 10**9, "Expected validator's balance in gwei"
 
-    validator = Mock(balance=MAX_EFFECTIVE_BALANCE + 1)
+    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
 
@@ -311,7 +310,7 @@ def test_get_sweep_delay_in_epochs(
 ) -> None:
     ejector.w3.cc.get_validators = Mock(
         return_value=[
-            Mock(),
+            LidoValidatorFactory.build(),
         ]
         * 1024
     )
