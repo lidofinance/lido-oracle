@@ -64,7 +64,7 @@ class Withdrawal:
     def _calculate_finalization_batches(
         self, share_rate: int, available_eth: int, until_timestamp: int
     ) -> list[int]:
-        batches = []
+        batches: list[int] = []
 
         state = BatchState(
             remaining_eth_budget=available_eth,

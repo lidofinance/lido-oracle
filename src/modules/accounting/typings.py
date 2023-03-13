@@ -36,7 +36,7 @@ class ReportData:
             self.count_exited_validators_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
-            self.last_withdrawal_request_to_finalize,
+            self.withdrawal_finalization_batches,
             self.finalization_share_rate,
             self.is_bunker,
             self.extra_data_format,
