@@ -99,3 +99,8 @@ class BatchState:
             self.batches,
             self.batches_length
         )
+
+
+class SharesRequestedToBurn:
+    cover_shares: int
+    non_cover_shares: int

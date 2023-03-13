@@ -5,7 +5,8 @@ from time import sleep
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
+from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase, \
+    SharesRequestedToBurn
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -204,13 +205,18 @@ class Accounting(BaseModule, ConsensusModule):
         chain_conf = self.get_chain_config(blockstamp)
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
+            # Oracle timings
             timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
+            # CL values
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
+            # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             0 if ignore_execution_rewards else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
-            0,  # _lastFinalizableRequestId
+            self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
+            # Decision about withdrawals processing
+            [],  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         )
 
@@ -224,6 +230,16 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch simulated lido rebase for report.', 'value': result})
 
         return LidoReportRebase(*result)
+
+    def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
+        shares_data = named_tuple_to_dataclass(
+            self.w3.lido_contracts.burner.functions.getSharesRequestedToBurn().call(
+                block_identifier=blockstamp.block_hash,
+            ),
+            SharesRequestedToBurn,
+        )
+
+        return shares_data.cover_shares + shares_data.non_cover_shares
 
     def get_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
         chain_conf = self.get_chain_config(blockstamp)
