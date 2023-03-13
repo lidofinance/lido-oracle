@@ -75,8 +75,18 @@ def test_process_report_data_wait_for_consensus(consensus):
     pass
 
 
-def test_process_report_data_hash_differs_from_quorums(consensus):
-    pass
+def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
+    blockstamp = get_blockstamp_by_state(web3, 'head')
+
+    member_info = consensus.get_member_info(blockstamp)
+    member_info.current_frame_consensus_report = int.to_bytes(1, 32)
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    report_data = tuple()
+    report_hash = int.to_bytes(2, 32)
+
+    consensus._process_report_data(blockstamp, report_data, report_hash)
+    assert "Oracle`s hash differs from consensus report hash." in caplog.messages[-1]
 
 
 def test_process_report_data_main_data_submitted(consensus):
