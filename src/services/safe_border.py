@@ -246,7 +246,7 @@ class SafeBorder:
 
         self.finalization_max_negative_rebase_shift = self.w3.to_int(
             primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_SHIFT',
+                'FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT',
             ).call(block_identifier=self.blockstamp.block_hash)
         )
 

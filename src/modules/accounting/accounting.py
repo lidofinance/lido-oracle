@@ -114,7 +114,7 @@ class Accounting(BaseModule, ConsensusModule):
             count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
-            last_withdrawal_request_to_finalize=self._get_last_withdrawal_request_to_finalize(blockstamp),
+            withdrawal_finalization_batches=self._get_withdrawal_batches(blockstamp),
             finalization_share_rate=self._get_finalization_shares_rate(blockstamp),
             is_bunker=self._is_bunker(blockstamp),
             extra_data_format=extra_data.format,
@@ -164,7 +164,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
         return count, total_balance
 
-    def _get_last_withdrawal_request_to_finalize(self, blockstamp: ReferenceBlockStamp) -> int:
+    def _get_withdrawal_batches(self, blockstamp: ReferenceBlockStamp) -> list[int]:
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
@@ -174,15 +174,14 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
-
-        last_wr_id = withdrawal_service.get_next_last_finalizable_id(
+        withdrawal_batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             finalization_share_rate,
             withdrawal_vault_balance,
             el_rewards_vault_balance,
         )
-        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': last_wr_id})
-        return last_wr_id
+        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': withdrawal_batches})
+        return withdrawal_batches
 
     @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
