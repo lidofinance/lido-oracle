@@ -5,6 +5,7 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
+from src.metrics.prometheus.basic import ENV_VARIABLE_METRIC
 from src.metrics.prometheus.business import SLOT_NUMBER_INFO
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
@@ -39,6 +40,7 @@ class BaseModule(ABC):
 
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
+        ENV_VARIABLE_METRIC.labels('MAX_CYCLE_LIFETIME_IN_SECONDS').set(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
         while True:
             logger.info({'msg': 'Startup new cycle.'})
             self._cycle_handler()

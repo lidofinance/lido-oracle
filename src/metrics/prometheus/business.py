@@ -2,11 +2,6 @@ from prometheus_client import Gauge
 
 from src.variables import PROMETHEUS_PREFIX
 
-DRY_RUN = Gauge(
-    "oracle_dry_run",
-    "Oracle dry run",
-    namespace=PROMETHEUS_PREFIX,
-)
 
 ORACLE_MEMBER = Gauge(
     "oracle_member",
@@ -47,12 +42,6 @@ FRAME_DEADLINE_SLOT = Gauge(
 FRAME_LAST_REPORT_REF_SLOT = Gauge(
     "oracle_frame_last_report_ref_slot",
     "Oracle frame last report ref slot",
-    namespace=PROMETHEUS_PREFIX,
-)
-
-ACCOUNT_BALANCE = Gauge(
-    "oracle_account_balance",
-    "Oracle account balance",
     namespace=PROMETHEUS_PREFIX,
 )
 

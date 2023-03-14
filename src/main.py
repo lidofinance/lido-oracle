@@ -7,7 +7,7 @@ from web3.middleware import simple_cache_middleware
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.business import DRY_RUN
+from src.metrics.prometheus.basic import DRY_RUN
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.typings import OracleModule

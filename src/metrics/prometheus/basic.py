@@ -17,6 +17,19 @@ BUILD_INFO = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
+ENV_VARIABLE_METRIC = Gauge(
+    'env_variable',
+    'Env variables for the app',
+    ['name'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+DRY_RUN = Gauge(
+    "oracle_dry_run",
+    "Oracle dry run",
+    namespace=PROMETHEUS_PREFIX,
+)
+
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
     'Account balance',

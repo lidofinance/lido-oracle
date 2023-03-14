@@ -20,7 +20,7 @@ class TransactionUtils(Module):
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
             return None
 
-        ACCOUNT_BALANCE.set(self.w3.eth.get_balance(account.address))
+        ACCOUNT_BALANCE.labels(account.address).set(self.w3.eth.get_balance(account.address))
 
         if self.check_transaction(transaction, account.address):
             return self.sign_and_send_transaction(transaction, account)
