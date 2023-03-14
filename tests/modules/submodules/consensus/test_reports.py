@@ -72,10 +72,6 @@ def test_quorum_is_no_ready(web3, consensus, caplog):
     assert "Quorum is not ready." in caplog.messages[-1]
 
 
-def test_process_report_data_wait_for_consensus(consensus):
-    pass
-
-
 def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
     blockstamp = get_blockstamp_by_state(web3, 'head')
     member_info = consensus.get_member_info(blockstamp)
@@ -109,6 +105,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus):
     # It should wake in half of the sleep
     #
     # Should it? There is nothing about it in consensus._process_report_data
+    # Checking the same thing in test_process_report_data_sleep_ends
     pass
 
 
@@ -129,7 +126,11 @@ def test_process_report_data_sleep_ends(web3, consensus, caplog):
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
 
-    consensus.is_main_data_submitted = Mock(side_effect = [False, True])
+    # is_main_data_submitted False n times
+    main_data_submitted_base = [False, True]
+    main_data_submitted_false = 9999
+    main_data_submitted_n_times = [main_data_submitted_base[0]]*main_data_submitted_false + [main_data_submitted_base[1]]
+    consensus.is_main_data_submitted = Mock(side_effect = main_data_submitted_n_times)
     consensus._get_slot_delay_before_data_submit = Mock(return_value=10000)
 
     report = consensus._process_report_data(latest_blockstamp, report_data, report_hash)
@@ -140,3 +141,4 @@ def test_process_report_data_sleep_ends(web3, consensus, caplog):
 # ----- Test sleep calculations
 def test_get_slot_delay_before_data_submit(consensus):
     pass
+    # Does it needed as we have test_process_report_data_sleep_ends?
