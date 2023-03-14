@@ -12,7 +12,11 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.metrics.prometheus.ejector import EJECTOR_VALIDATORS_COUNT_TO_EJECT, EJECTOR_TO_WITHDRAW_WEI_AMOUNT
+from src.metrics.prometheus.ejector import (
+    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
+    EJECTOR_MAX_EXIT_EPOCH
+)
 from src.metrics.prometheus.task import task
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
@@ -127,8 +131,11 @@ class Ejector(BaseModule, ConsensusModule):
             c_conf=chain_config,
         )
 
+        withdrawal_epoch = self._get_predicted_withdrawable_epoch(
+            blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1
+        )
+
         for validator in validators_iterator:
-            withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
             future_rewards = (withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch) * rewards_speed_per_epoch
 
             future_withdrawals = self._get_withdrawable_lido_validators(blockstamp, withdrawal_epoch)
@@ -200,6 +207,8 @@ class Ejector(BaseModule, ConsensusModule):
             max_exit_epoch_number,
             self.compute_activation_exit_epoch(blockstamp),
         )
+
+        EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
 
         churn_limit = self._get_churn_limit(blockstamp)
 

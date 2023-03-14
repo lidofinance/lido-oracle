@@ -8,7 +8,7 @@ EJECTOR_TO_WITHDRAW_WEI_AMOUNT = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-EJECTOR_CLOSEST_EXIT_EPOCH = Gauge(
+EJECTOR_MAX_EXIT_EPOCH = Gauge(
     "ejector_closest_exit_epoch",
     "The closest exit epoch",
     namespace=PROMETHEUS_PREFIX,
