@@ -106,7 +106,8 @@ def test_process_report_data_main_data_submitted(web3, consensus, caplog):
 
 def test_process_report_data_main_sleep_until_data_submitted(consensus):
     # It should wake in half of the sleep
-
+    #
+    # Should it? There is nothing about it in consensus._process_report_data
 
 def test_process_report_data_sleep_ends(consensus):
     # No infinity sleep?
