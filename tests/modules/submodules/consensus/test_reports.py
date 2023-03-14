@@ -77,11 +77,9 @@ def test_process_report_data_wait_for_consensus(consensus):
 
 def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
     blockstamp = get_blockstamp_by_state(web3, 'head')
-
     member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
-
     report_data = tuple()
     report_hash = int.to_bytes(2, 32)
 
@@ -89,14 +87,25 @@ def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
     assert "Oracle`s hash differs from consensus report hash." in caplog.messages[-1]
 
 
-def test_process_report_data_main_data_submitted(consensus):
+def test_process_report_data_main_data_submitted(web3, consensus, caplog):
     # Check there is no sleep
-    pass
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+
+    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info.current_frame_consensus_report = int.to_bytes(1, 32)
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    report_data = tuple()
+    report_hash = int.to_bytes(1, 32)
+   
+    consensus.is_main_data_submitted = Mock(side_effect = [False, True])
+    
+    report = consensus._process_report_data(latest_blockstamp, report_data, report_hash)
+    assert "Sleep for" not in caplog.text
 
 
 def test_process_report_data_main_sleep_until_data_submitted(consensus):
     # It should wake in half of the sleep
-    pass
 
 
 def test_process_report_data_sleep_ends(consensus):
