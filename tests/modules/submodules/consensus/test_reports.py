@@ -94,9 +94,9 @@ def test_process_report_data_main_data_submitted(web3, consensus, caplog):
 
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
-   
+
     consensus.is_main_data_submitted = Mock(side_effect = [False, True])
-    
+
     report = consensus._process_report_data(latest_blockstamp, report_data, report_hash)
     assert "Sleep for" not in caplog.text
 
