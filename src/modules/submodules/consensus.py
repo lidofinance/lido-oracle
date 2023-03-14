@@ -40,6 +40,20 @@ class ConsensusModule(ABC):
         if self.CONTRACT_VERSION is None or self.CONSENSUS_VERSION is None:
             raise NotImplementedError('CONTRACT_VERSION and CONSENSUS_VERSION should be set.')
 
+    def check_sanity(self):
+        root = self.w3.cc.get_block_root('head').root
+        block_details = self.w3.cc.get_block_details(root)
+        bs = build_blockstamp(block_details)
+
+        config = self.get_chain_config(bs)
+        cc_config = self.w3.cc.get_config_spec()
+        if any((config.genesis_time != cc_config.MIN_GENESIS_TIME,
+                config.seconds_per_slot != cc_config.SECONDS_PER_SLOT,
+                config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH)):
+            raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
+                             f'Contract config: {config}\n'
+                             f'Beacon chain config: {cc_config}')
+
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract | AsyncContract:

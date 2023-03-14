@@ -9,6 +9,7 @@ from src.providers.consensus.typings import (
     BlockHeaderResponseData,
     BlockRootResponse,
     Validator,
+    BeaconSpecResponse,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.typings import BlockRoot, BlockStamp, SlotNumber
@@ -35,6 +36,16 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_HEADER = '/eth/v1/beacon/headers/{}'
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
+    API_GET_SPEC = 'eth/v1/config/spec'
+
+    def get_config_spec(self):
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec
+        """
+        data, _ = self._get(self.API_GET_SPEC)
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getSpec")
+        return BeaconSpecResponse.from_response(**data)
 
     def get_block_root(self, state_id: Union[SlotNumber, BlockRoot, LiteralState]) -> BlockRootResponse:
         """

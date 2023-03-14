@@ -60,8 +60,13 @@ class HTTPProvider(ABC):
 
         try:
             json_response = response.json()
-            data = json_response['data']
-            del json_response['data']
+            if 'data' in json_response:
+                data = json_response['data']
+                del json_response['data']
+                meta = json_response
+            else:
+                data = json_response
+                meta = {}
         except (KeyError, JSONDecodeError) as error:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
             logger.debug({'msg': msg})
@@ -73,4 +78,4 @@ class HTTPProvider(ABC):
                 domain=urlparse(self.host).netloc,
             ).inc()
 
-        return data, json_response
+        return data, meta
