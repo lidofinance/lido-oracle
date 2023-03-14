@@ -4,6 +4,7 @@ import pytest
 from hexbytes import HexBytes
 from src import variables
 from src.modules.accounting.typings import Account
+from src.modules.submodules.typings import ChainConfig
 
 from tests.conftest import get_blockstamp_by_state
 
@@ -108,10 +109,32 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus):
     # It should wake in half of the sleep
     #
     # Should it? There is nothing about it in consensus._process_report_data
-
-def test_process_report_data_sleep_ends(consensus):
-    # No infinity sleep?
     pass
+
+
+def test_process_report_data_sleep_ends(web3, consensus, caplog):
+    # No infinity sleep?
+    chain_configs = ChainConfig(
+        slots_per_epoch=32,
+        seconds_per_slot=0,
+        genesis_time=0,
+    )
+    consensus.get_chain_config = Mock(return_value=chain_configs)
+    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+
+    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info.current_frame_consensus_report = int.to_bytes(1, 32)
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    report_data = tuple()
+    report_hash = int.to_bytes(1, 32)
+
+    consensus.is_main_data_submitted = Mock(side_effect = [False, True])
+    consensus._get_slot_delay_before_data_submit = Mock(return_value=10000)
+
+    report = consensus._process_report_data(latest_blockstamp, report_data, report_hash)
+    assert "Sleep for 10000 slots before sending data." in caplog.text
+    assert "Main data was submitted." in caplog.messages[-1]
 
 
 # ----- Test sleep calculations
