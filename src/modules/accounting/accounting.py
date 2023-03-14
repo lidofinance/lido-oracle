@@ -35,12 +35,12 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if report_blockstamp:
-            self.process_report(report_blockstamp)
-            self.process_extra_data(report_blockstamp)
-            return False
+        if not report_blockstamp:
+            return True
 
-        return True
+        self.process_report(report_blockstamp)
+        self.process_extra_data(report_blockstamp)
+        return False
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
@@ -114,6 +114,7 @@ class Accounting(BaseModule, ConsensusModule):
             count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
+            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
             withdrawal_finalization_batches=self._get_withdrawal_batches(blockstamp),
             finalization_share_rate=self._get_finalization_shares_rate(blockstamp),
             is_bunker=self._is_bunker(blockstamp),

@@ -91,7 +91,6 @@ class NodeOperator(Nested):
         )
 
 
-
 @dataclass
 class LidoValidator(Validator):
     lido_id: LidoKey

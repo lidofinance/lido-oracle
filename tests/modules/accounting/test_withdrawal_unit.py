@@ -33,7 +33,7 @@ def subject(
     keys_api_client,
     consensus_client
 ):
-    web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = Mock(return_value=0)
+    # web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = Mock(return_value=0)
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 

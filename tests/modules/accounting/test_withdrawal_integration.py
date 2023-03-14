@@ -1,20 +1,10 @@
 import pytest
-from pathlib import Path
 
 from src.modules.submodules.typings import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
-from src.typings import ReferenceBlockStamp
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.web3py.extensions import LidoContracts
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
-
-@pytest.fixture()
-def contracts_local(web3, provider):
-    with provider.use_mock(Path('common/contracts-withdrawal.v2.json')):
-        # First contracts deployment
-        web3.attach_modules({
-            'lido_contracts': LidoContracts,
-        })
 
 @pytest.fixture()
 def chain_config():
@@ -28,15 +18,7 @@ def frame_config():
 
 @pytest.fixture()
 def past_blockstamp(web3, consensus_client):
-    return ReferenceBlockStamp(
-        state_root='0xb8517bb1cb4ca6bfadaa5732c24cec0c937db0faaba9806e166dcc0c8bc20160',
-        slot_number=286752,
-        block_hash='0x01483df91303d4b2b0f3e871e99abbb9c071325477050b6a4ac7377a9ef66ec6',
-        block_number=274685,
-        block_timestamp='1678704624',
-        ref_slot=286752,
-        ref_epoch=23896
-    )
+    yield ReferenceBlockStampFactory.build()
 
 
 @pytest.fixture()
@@ -45,7 +27,7 @@ def subject(
         past_blockstamp,
         chain_config,
         frame_config,
-        contracts_local,
+        contracts,
         keys_api_client,
         consensus_client
 ):
@@ -63,4 +45,4 @@ def test_returns_none_if_no_unfinalized_requests(subject, past_blockstamp):
         el_rewards_vault_balance
     )
 
-    assert result == [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12241]
+    assert result == [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12262]

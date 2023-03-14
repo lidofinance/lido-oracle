@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from pydantic.fields import ModelField
 from pydantic_factories import ModelFactory
 from pydantic_factories.exceptions import ParameterError
+from pydantic_factories.factory import T
 from pydantic_factories.utils import unwrap_new_type_if_needed, is_pydantic_model, is_literal
 from pydantic_factories.value_generators.complex_types import handle_complex_type
 from typing_extensions import is_typeddict, get_args
@@ -129,3 +130,13 @@ class Web3Factory(ModelFactory[Any]):
             f"Unsupported type: {field_type!r}"
             f"\n\nEither extend the providers map or add a factory function for this model field"
         )
+
+    @classmethod
+    def butch_with(cls, field_name: str, field_values: list[Any], **kwargs: Any) -> T:
+        result = []
+
+        for value in field_values:
+            kwargs[field_name] = value
+            result.append(cls.build(**kwargs))
+
+        return result

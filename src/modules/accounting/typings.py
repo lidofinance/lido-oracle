@@ -18,6 +18,7 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
+    shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
     finalization_share_rate: int
     is_bunker: bool
@@ -34,6 +35,7 @@ class ReportData:
             self.cl_balance_gwei,
             self.staking_module_id_with_exited_validators,
             self.count_exited_validators_by_staking_module,
+            self.shares_requested_to_burn,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.withdrawal_finalization_batches,

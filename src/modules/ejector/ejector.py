@@ -64,9 +64,10 @@ class Ejector(BaseModule, ConsensusModule):
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
-        if report_blockstamp:
-            self.process_report(report_blockstamp)
+        if not report_blockstamp:
             return True
+
+        self.process_report(report_blockstamp)
         return False
 
     @lru_cache(maxsize=1)
