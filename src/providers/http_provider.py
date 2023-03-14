@@ -42,13 +42,19 @@ class HTTPProvider(ABC):
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
+    @staticmethod
+    def _urljoin(host, url):
+        if not host.endswith('/'):
+            host += '/'
+        return urljoin(host, url)
+
     def _get(self, url: str, params: Optional[dict] = None) -> Tuple[dict | list, dict]:
         """
         Returns (data, meta)
         """
         with self.PROMETHEUS_HISTOGRAM.time():
             response = self.session.get(
-                urljoin(self.host, url),
+                self._urljoin(self.host, url),
                 params=params,
                 timeout=self.REQUEST_TIMEOUT,
             )
