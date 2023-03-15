@@ -28,7 +28,7 @@ class RewardsPredictionService:
         logger.info({'msg': 'Fetch prediction frame in slots.', 'value': prediction_duration_in_slots})
 
         token_rebase_events = get_events_in_past(
-            self.w3.lido_contracts.lido.events.TokenRebased,
+            self.w3.lido_contracts.lido.events.TokenRebased,  # type: ignore[arg-type]
             blockstamp,
             prediction_duration_in_slots,
             chain_configs.seconds_per_slot,
@@ -36,7 +36,7 @@ class RewardsPredictionService:
         )
 
         eth_distributed_events = get_events_in_past(
-            self.w3.lido_contracts.lido.events.ETHDistributed,
+            self.w3.lido_contracts.lido.events.ETHDistributed,  # type: ignore[arg-type]
             blockstamp,
             prediction_duration_in_slots,
             chain_configs.seconds_per_slot,

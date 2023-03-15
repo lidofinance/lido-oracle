@@ -322,7 +322,7 @@ class ValidatorToExitIterator:
         `ref_slot - VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS timestamp`
         """
         events = get_events_in_past(
-            contract_event=self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+            contract_event=self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=self.blockstamp,
             for_slots=self.v_conf.validator_delayed_timeout_in_slots,
             seconds_per_slot=self.c_conf.seconds_per_slot,
