@@ -59,7 +59,7 @@ def proxy_connect_timeout_exception(func):
 
 
 class BeaconChainClient:
-    api_beacon_block = '/eth/v2/beacon/blocks/{}'
+    api_beacon_block = 'eth/v2/beacon/blocks/{}'
     api_beacon_head_finality_checkpoints = 'eth/v1/beacon/states/head/finality_checkpoints'
     api_get_validators = 'eth/v1/beacon/states/{}/validators'
 
