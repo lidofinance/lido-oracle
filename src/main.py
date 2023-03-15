@@ -63,6 +63,7 @@ def main(module_name: OracleModule):
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
     })
+    web3.lido_contracts.reload_contracts()
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     web3.middleware_onion.add(metrics_collector)

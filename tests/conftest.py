@@ -115,6 +115,7 @@ def contracts(web3, provider):
         web3.attach_modules({
             'lido_contracts': LidoContracts,
         })
+        web3.lido_contracts.reload_contracts()
 
 
 # ---- Transaction Utils

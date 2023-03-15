@@ -58,6 +58,7 @@ class BaseModule(ABC):
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
+                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})

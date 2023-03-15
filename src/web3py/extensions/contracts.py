@@ -1,20 +1,44 @@
 import json
+import logging
 from functools import lru_cache
 
 from web3 import Web3
+from web3.contract import Contract
 from web3.module import Module
 from web3.types import Wei
 
 from src import variables
 from src.typings import BlockStamp, SlotNumber
 
+logger = logging.getLogger()
+
 
 class LidoContracts(Module):
+    contracts_attrs = ('lido_locator', 'lido', 'accounting_oracle',
+                       'staking_router', 'validators_exit_bus_oracle',
+                       'withdrawal_queue_nft', 'oracle_report_sanity_checker',
+                       'oracle_daemon_config', 'burner')
+    lido_locator: Contract
+    lido: Contract
+    accounting_oracle: Contract
+    staking_router: Contract
+    validators_exit_bus_oracle: Contract
+    withdrawal_queue_nft: Contract
+    oracle_report_sanity_checker: Contract
+    oracle_daemon_config: Contract
+    burner: Contract
+
     def __init__(self, w3: Web3):
         super().__init__(w3)
-        self._load_contracts()
 
-    def _load_contracts(self):
+    def __setattr__(self, key, value):
+        if key in self.contracts_attrs:
+            current_value = getattr(self, key, None)
+            if current_value is not None and value != current_value:
+                logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
+        super().__setattr__(key, value)
+
+    def reload_contracts(self):
         # Contract that stores all lido contract addresses
         self.lido_locator = self.w3.eth.contract(
             address=variables.LIDO_LOCATOR_ADDRESS,
