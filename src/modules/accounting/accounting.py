@@ -5,7 +5,8 @@ from time import sleep
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
+from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase, \
+    SharesRequestedToBurn
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -34,12 +35,12 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if report_blockstamp:
-            self.process_report(report_blockstamp)
-            self.process_extra_data(report_blockstamp)
-            return False
+        if not report_blockstamp:
+            return True
 
-        return True
+        self.process_report(report_blockstamp)
+        self.process_extra_data(report_blockstamp)
+        return False
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
@@ -113,7 +114,8 @@ class Accounting(BaseModule, ConsensusModule):
             count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
-            last_withdrawal_request_to_finalize=self._get_last_withdrawal_request_to_finalize(blockstamp),
+            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
+            withdrawal_finalization_batches=self._get_withdrawal_batches(blockstamp),
             finalization_share_rate=self._get_finalization_shares_rate(blockstamp),
             is_bunker=self._is_bunker(blockstamp),
             extra_data_format=extra_data.format,
@@ -163,7 +165,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
         return count, total_balance
 
-    def _get_last_withdrawal_request_to_finalize(self, blockstamp: ReferenceBlockStamp) -> int:
+    def _get_withdrawal_batches(self, blockstamp: ReferenceBlockStamp) -> list[int]:
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
@@ -173,15 +175,14 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
-
-        last_wr_id = withdrawal_service.get_next_last_finalizable_id(
+        withdrawal_batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             finalization_share_rate,
             withdrawal_vault_balance,
             el_rewards_vault_balance,
         )
-        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': last_wr_id})
-        return last_wr_id
+        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': withdrawal_batches})
+        return withdrawal_batches
 
     @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -205,13 +206,18 @@ class Accounting(BaseModule, ConsensusModule):
         chain_conf = self.get_chain_config(blockstamp)
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
+            # Oracle timings
             timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
+            # CL values
             validators_count,  # _clValidators
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
+            # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             0 if ignore_execution_rewards else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
-            0,  # _lastFinalizableRequestId
+            self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
+            # Decision about withdrawals processing
+            [],  # _lastFinalizableRequestId
             0,  # _simulatedShareRate
         )
 
@@ -225,6 +231,16 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch simulated lido rebase for report.', 'value': result})
 
         return LidoReportRebase(*result)
+
+    def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
+        shares_data = named_tuple_to_dataclass(
+            self.w3.lido_contracts.burner.functions.getSharesRequestedToBurn().call(
+                block_identifier=blockstamp.block_hash,
+            ),
+            SharesRequestedToBurn,
+        )
+
+        return shares_data.cover_shares + shares_data.non_cover_shares
 
     def get_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
         chain_conf = self.get_chain_config(blockstamp)

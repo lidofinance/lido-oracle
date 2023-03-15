@@ -3,9 +3,10 @@ from unittest.mock import Mock
 import pytest
 from hexbytes import HexBytes
 from src import variables
-from src.modules.accounting.typings import Account
+from src.modules.accounting.typings import Account, ReportData
 
 from tests.conftest import get_blockstamp_by_state
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 @pytest.fixture()
@@ -20,16 +21,16 @@ def set_report_account(monkeypatch):
 
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
-    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
-    report_hash = consensus._get_report_hash(report_data)
+    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_hash = consensus._get_report_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == b'\x10\xb7_&\xde\r\\\xbc\xc6a\xb5\xa1\x83u\xf6\x14\xf6:\xf9\r6:\x8cQ\xf6\xb2^\xffG\xee\xf5\xc1'
+    assert report_hash == HexBytes('0xd3e5057187b661362378c0e32284bde3c9b0cb54e904ee5c1204b04e64f1c328')
 
 
 # ------ Process report hash -----------
 def test_report_hash(web3, consensus, tx_utils, set_report_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
+    bs = ReferenceBlockStampFactory.build()
+    consensus._process_report_hash(bs, HexBytes(int.to_bytes(1, 32)))
     # TODO add check that report hash was submitted
 
 

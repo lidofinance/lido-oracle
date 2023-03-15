@@ -9,8 +9,8 @@ from web3.module import Module
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
-from src.utils.abi import named_tuple_to_dataclass
 from src.utils.dataclass import Nested, list_of_dataclasses
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,33 @@ class NodeOperator(Nested):
     total_deposited_validators: int
     depositable_validators_count: int
     staking_module: StakingModule
+
+    @classmethod
+    def from_response(cls, data, staking_module):
+        _id, is_active, (
+            is_target_limit_active,
+            target_validators_count,
+            stuck_validators_count,
+            refunded_validators_count,
+            stuck_penalty_end_timestamp,
+            total_exited_validators,
+            total_deposited_validators,
+            depositable_validators_count,
+        ) = data
+
+        return cls(
+            _id,
+            is_active,
+            is_target_limit_active,
+            target_validators_count,
+            stuck_validators_count,
+            refunded_validators_count,
+            stuck_penalty_end_timestamp,
+            total_exited_validators,
+            total_deposited_validators,
+            depositable_validators_count,
+            staking_module,
+        )
 
 
 @dataclass
@@ -139,8 +166,7 @@ class LidoValidatorsProvider(Module):
             ).call(block_identifier=blockstamp.block_hash)
 
             for operator in operators:
-                _id, is_active, summary = operator
-                result.append(NodeOperator(_id, is_active, *summary, staking_module=module))
+                result.append(NodeOperator.from_response(operator, module))
 
         return result
 

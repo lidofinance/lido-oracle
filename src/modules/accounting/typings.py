@@ -18,7 +18,8 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
-    last_withdrawal_request_to_finalize: int
+    shares_requested_to_burn: int
+    withdrawal_finalization_batches: list[int]
     finalization_share_rate: int
     is_bunker: bool
     extra_data_format: int
@@ -34,9 +35,10 @@ class ReportData:
             self.cl_balance_gwei,
             self.staking_module_id_with_exited_validators,
             self.count_exited_validators_by_staking_module,
+            self.shares_requested_to_burn,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
-            self.last_withdrawal_request_to_finalize,
+            self.withdrawal_finalization_batches,
             self.finalization_share_rate,
             self.is_bunker,
             self.extra_data_format,
@@ -83,3 +85,24 @@ class LidoReportRebase:
 class Account:
     address: ChecksumAddress
     _private_key: HexBytes
+
+
+@dataclass
+class BatchState:
+    remaining_eth_budget: int
+    finished: bool
+    batches: list[int]
+    batches_length: int
+
+    def as_tuple(self):
+        return (
+            self.remaining_eth_budget,
+            self.finished,
+            self.batches,
+            self.batches_length
+        )
+
+
+class SharesRequestedToBurn:
+    cover_shares: int
+    non_cover_shares: int
