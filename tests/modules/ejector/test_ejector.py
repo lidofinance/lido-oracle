@@ -7,9 +7,11 @@ from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector, EjectorProcessingState
 from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.submodules.oracle_module import RetVal
 from src.modules.submodules.typings import ChainConfig
 from src.typings import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.contracts import LidoContracts
+from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.typings import Web3
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
@@ -47,16 +49,18 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.get_blockstamp_for_report = Mock(return_value=None)
     ejector._is_paused = Mock(return_value=False)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is False
-    ), "execute_module should return False"
+        ejector.execute_module(last_finalized_blockstamp=blockstamp)
+        is RetVal.WAIT_NEXT_FINALIZED_EPOCH
+    ), "execute_module should wait for the next finalized epoch"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
-    ejector.process_report = Mock(return_value=True)
+    ejector.process_report = Mock(return_value=None)
     ejector._is_paused = Mock(return_value=False)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is True
-    ), "execute_module should return True"
+        ejector.execute_module(last_finalized_blockstamp=blockstamp)
+        is RetVal.WAIT_NEXT_SLOT
+    ), "execute_module should wait for the next slot"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
     ejector.process_report.assert_called_once_with(blockstamp)
 
@@ -68,8 +72,9 @@ def test_ejector_execute_module_on_pause(
     ejector.get_blockstamp_for_report = Mock(return_value=None)
     ejector._is_paused = Mock(return_value=True)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is False
-    ), "execute_module should return False"
+        ejector.execute_module(last_finalized_blockstamp=blockstamp)
+        is RetVal.WAIT_NEXT_FINALIZED_EPOCH
+    ), "execute_module should wait for the next finalized epoch"
 
 
 @pytest.mark.unit
@@ -127,44 +132,44 @@ class TestGetValidatorsToEject:
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [], "Unexpected validators to eject"
 
-    # NOTE: not sure if this test makes sense
-    # @pytest.mark.unit
-    # @pytest.mark.usefixtures("consensus_client")
-    # def test_simple(
-    #     self,
-    #     ejector: Ejector,
-    #     ref_blockstamp: ReferenceBlockStamp,
-    #     validator_to_exit_it: ValidatorToExitIterator,
-    #     chain_config: ChainConfig,
-    # ):
-    #     def _lido_validator(index: int):
-    #         return Mock(index=index, validator=Mock(pubkey="0x00"))
-    #
-    #     validators = [
-    #         ((StakingModuleId(0), NodeOperatorId(1)), _lido_validator(0)),
-    #         ((StakingModuleId(0), NodeOperatorId(3)), _lido_validator(1)),
-    #         ((StakingModuleId(0), NodeOperatorId(5)), _lido_validator(2)),
-    #     ]
-    #
-    #     validator_to_exit_it.__iter__ = Mock(return_value=iter(validators))
-    #
-    #     ejector.get_chain_config = Mock(return_value=chain_config)
-    #     ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(
-    #         return_value=200
-    #     )
-    #     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
-    #     ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
-    #     ejector._get_total_balance = Mock(return_value=100)
-    #     ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
-    #         return_value=[]
-    #     )
-    #
-    #     ejector._get_withdrawable_lido_validators = Mock(return_value=0)
-    #     ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
-    #     ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
-    #
-    #     result = ejector.get_validators_to_eject(ref_blockstamp)
-    #     assert result == [validators[0]], "Unexpected validators to eject"
+    @pytest.mark.unit
+    @pytest.mark.usefixtures("consensus_client")
+    def test_simple(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(
+            return_value=200
+        )
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector._get_total_balance = Mock(return_value=100)
+        ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
+            return_value=[]
+        )
+
+        ejector._get_withdrawable_lido_validators = Mock(return_value=0)
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
+        ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), LidoValidatorFactory.build()),
+            ((StakingModuleId(0), NodeOperatorId(3)), LidoValidatorFactory.build()),
+            ((StakingModuleId(0), NodeOperatorId(5)), LidoValidatorFactory.build()),
+        ]
+
+        with monkeypatch.context() as m:
+            m.setattr(
+                ejector_module.ValidatorToExitIterator,
+                "__iter__",
+                Mock(return_value=iter(validators)),
+            )
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+            assert result == [validators[0]], "Unexpected validators to eject"
 
 
 @pytest.mark.unit

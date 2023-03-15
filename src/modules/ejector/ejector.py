@@ -15,7 +15,7 @@ from src.constants import (
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, RetVal
 from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
 from src.services.prediction import RewardsPredictionService
@@ -62,15 +62,15 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
         self.validators_state_service = LidoValidatorStateService(w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> RetVal:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if report_blockstamp:
             if self._is_paused(report_blockstamp):
                 logger.info({'msg': 'Ejector is paused. Skip report.'})
-                return False  # TODO: what to return?
+                return RetVal.WAIT_NEXT_FINALIZED_EPOCH
             self.process_report(report_blockstamp)
-            return True
-        return False
+            return RetVal.WAIT_NEXT_SLOT
+        return RetVal.WAIT_NEXT_FINALIZED_EPOCH
 
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
