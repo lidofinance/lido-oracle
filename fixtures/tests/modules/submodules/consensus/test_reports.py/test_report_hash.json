@@ -105,6 +105,18 @@
     }
   },
   {
+    "method": "eth_getBalance",
+    "params": [
+      "0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7",
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0xbb7abc2e2c7d7e3"
+    }
+  },
+  {
     "method": "eth_call",
     "params": [
       {
