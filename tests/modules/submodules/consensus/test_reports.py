@@ -6,6 +6,7 @@ from src import variables
 from src.modules.accounting.typings import Account
 from src.modules.submodules.typings import ChainConfig
 
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.conftest import get_blockstamp_by_state
 
 
@@ -151,7 +152,8 @@ def test_process_report_data_sleep_ends(web3, consensus, caplog):
 
 
 # ----- Test sleep calculations
-def test_get_slot_delay_before_data_submit(web3, consensus, caplog, set_report_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    delay = consensus._get_slot_delay_before_data_submit(latest_blockstamp)
+def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account):
+    blockstamp = ReferenceBlockStampFactory.build()
+    delay = consensus._get_slot_delay_before_data_submit(blockstamp)
     assert "Calculate slots to sleep." and "6" in caplog.messages[-1]
+    #TODO: sleep_count < 0
