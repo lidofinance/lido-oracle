@@ -158,6 +158,24 @@ def test_process_report_data_sleep_ends(web3, consensus, caplog):
     assert "Main data was submitted." in caplog.messages[-1]
 
 
+def test_process_report_submit_report(consensus, tx_utils, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
+
+    member_info = consensus.get_member_info(blockstamp)
+    member_info.current_frame_consensus_report = int.to_bytes(1, 32)
+    consensus.get_member_info = Mock(return_value=member_info)
+
+    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_hash = int.to_bytes(1, 32)
+
+    main_data_submitted_base = [False, False]
+    consensus.is_main_data_submitted = Mock(side_effect = main_data_submitted_base)
+    consensus._get_slot_delay_before_data_submit = Mock(return_value=0)
+
+    report = consensus._process_report_data(blockstamp, report_data, report_hash)
+    assert "Send report data. Contract version: [1]" in caplog.messages[-2]
+
+
 # ----- Test sleep calculations
 def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account):
     blockstamp = ReferenceBlockStampFactory.build()
