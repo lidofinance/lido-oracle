@@ -3,7 +3,7 @@ import pytest
 from src.modules.submodules.typings import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
-from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.conftest import get_blockstamp_by_state
 
 
 @pytest.fixture()
@@ -18,7 +18,7 @@ def frame_config():
 
 @pytest.fixture()
 def past_blockstamp(web3, consensus_client):
-    yield ReferenceBlockStampFactory.build()
+    return get_blockstamp_by_state(web3, 'finalized')
 
 
 @pytest.fixture()
@@ -34,15 +34,23 @@ def subject(
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
-def test_returns_none_if_no_unfinalized_requests(subject, past_blockstamp):
+def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)
 
-    result = subject.get_finalization_batches(
+    expected_min_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
+        block_identifier=past_blockstamp.block_hash
+    )
+    expected_max_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.functions.getLastRequestId().call(
+        block_identifier=past_blockstamp.block_hash
+    )
+
+    results = subject.get_finalization_batches(
         False,
         SHARE_RATE_PRECISION_E27,
         withdrawal_vault_balance,
         el_rewards_vault_balance
     )
 
-    assert result == [12262]
+    for result in results:
+        assert expected_min_withdrawal_id < result <= expected_max_withdrawal_id
