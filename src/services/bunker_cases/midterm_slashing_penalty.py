@@ -8,6 +8,7 @@ from src.constants import (
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
     EFFECTIVE_BALANCE_INCREMENT
 )
+from src.metrics.prometheus.validators import ALL_SLASHED_VALIDATORS, LIDO_SLASHED_VALIDATORS
 from src.modules.submodules.typings import FrameConfig
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei, ReferenceBlockStamp, FrameNumber
@@ -40,6 +41,8 @@ class MidtermSlashingPenalty:
             blockstamp.ref_epoch,
         )
         logger.info({"msg": f"Slashed: All={len(all_slashed_validators)} | Lido={len(lido_slashed_validators)}"})
+        ALL_SLASHED_VALIDATORS.set(len(all_slashed_validators))
+        LIDO_SLASHED_VALIDATORS.set(len(lido_slashed_validators))
 
         # Put all Lido slashed validators to future frames by midterm penalty epoch
         future_frames_lido_validators = MidtermSlashingPenalty.get_per_frame_lido_validators_with_future_midterm_epoch(

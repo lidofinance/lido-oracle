@@ -2,6 +2,7 @@ import logging
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
 from src.metrics.prometheus.task import task
+from src.metrics.prometheus.validators import ALL_VALIDATORS, LIDO_VALIDATORS
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 
@@ -48,6 +49,8 @@ class BunkerService:
             for v in self.w3.lido_validators.get_lido_validators(blockstamp)
         }
         logger.info({"msg": f"Validators - all: {len(all_validators)} lido: {len(lido_validators)}"})
+        ALL_VALIDATORS.set(len(all_validators))
+        LIDO_VALIDATORS.set(len(lido_validators))
 
         logger.info({"msg": "Checking bunker mode"})
 
