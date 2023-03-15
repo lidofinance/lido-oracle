@@ -19,6 +19,13 @@ def set_report_account(monkeypatch):
         ))
         yield
 
+# ----- Process report main ----------
+def test_process_report_main(consensus, tx_utils, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    consensus.build_report = Mock(return_value=report_data)
+    report = consensus.process_report(blockstamp)
+    assert "Build report." and "Calculate report hash." in caplog.text
 
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
