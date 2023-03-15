@@ -45,18 +45,31 @@ def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
 @pytest.mark.unit
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=None)
-    assert not ejector.execute_module(
-        last_finalized_blockstamp=blockstamp
+    ejector._is_paused = Mock(return_value=False)
+    assert (
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is False
     ), "execute_module should return False"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=True)
-    assert ejector.execute_module(
-        last_finalized_blockstamp=blockstamp
+    ejector._is_paused = Mock(return_value=False)
+    assert (
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is True
     ), "execute_module should return True"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
     ejector.process_report.assert_called_once_with(blockstamp)
+
+
+@pytest.mark.unit
+def test_ejector_execute_module_on_pause(
+    ejector: Ejector, blockstamp: BlockStamp
+) -> None:
+    ejector.get_blockstamp_for_report = Mock(return_value=None)
+    ejector._is_paused = Mock(return_value=True)
+    assert (
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is False
+    ), "execute_module should return False"
 
 
 @pytest.mark.unit
@@ -74,16 +87,6 @@ def test_ejector_build_report(
 
 
 class TestGetValidatorsToEject:
-    @pytest.mark.unit
-    def test_should_not_report_on_paused(
-        self,
-        ejector: Ejector,
-        ref_blockstamp: ReferenceBlockStamp,
-    ) -> None:
-        ejector._is_paused = Mock(return_value=True)
-        result = ejector.get_validators_to_eject(ref_blockstamp)
-        assert result == [], "Should not report on paused"
-
     @pytest.mark.unit
     def test_should_not_report_on_no_withdraw_requests(
         self,

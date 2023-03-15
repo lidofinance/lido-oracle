@@ -65,6 +65,9 @@ class Ejector(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if report_blockstamp:
+            if self._is_paused(report_blockstamp):
+                logger.info({'msg': 'Ejector is paused. Skip report.'})
+                return False  # TODO: what to return?
             self.process_report(report_blockstamp)
             return True
         return False
@@ -85,10 +88,6 @@ class Ejector(BaseModule, ConsensusModule):
         ).as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        if self._is_paused(blockstamp):
-            logger.info({'msg': 'Contract is paused, skip getting validators to eject.'})
-            return []
-
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
 
@@ -138,7 +137,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.isPaused().call(
+        return self.report_contract.functions.isPaused().call(
             block_identifier=blockstamp.block_hash
         )
 
