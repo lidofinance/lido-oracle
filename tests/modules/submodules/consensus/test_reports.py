@@ -40,6 +40,7 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
     # TODO add check that report hash was submitted
+    # by choooze: does it needed since we're checking it in test_do_not_report_same_hash as I see 
 
 
 def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
