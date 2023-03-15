@@ -53,7 +53,7 @@ def lighthouse_requests(monkeypatch):
             return MockResponse(head_actual)
         if 'eth/v1/beacon/headers/finalized' in uri:
             return MockResponse(head_finalized)
-        if '/eth/v2/beacon/blocks/finalized' in uri:
+        if 'eth/v2/beacon/blocks/finalized' in uri:
             return MockResponse(block_finalized)
         if 'validators' in uri:
             return MockResponse(validators)
