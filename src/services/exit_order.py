@@ -1,6 +1,5 @@
 from typing import Iterator
 
-from eth_typing import HexStr
 from eth_typing import ChecksumAddress
 
 from src.modules.submodules.typings import ChainConfig
