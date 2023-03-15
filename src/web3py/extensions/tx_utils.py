@@ -93,7 +93,7 @@ class TransactionUtils(Module):
             }
         )
 
-        if tx_receipt.status == 1:
+        if tx_receipt["status"] == 1:
             TRANSACTIONS_COUNT.labels(status=Status.SUCCESS).inc()
         else:
             TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()

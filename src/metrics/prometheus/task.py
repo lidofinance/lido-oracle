@@ -1,8 +1,7 @@
 import logging
 from functools import wraps
 from time import perf_counter
-
-from prometheus_client.context_managers import Timer
+from typing import Callable
 
 from src.metrics.prometheus.basic import TASKS_DURATION, TASKS_COUNT, Status
 
@@ -12,9 +11,8 @@ logger = logging.getLogger(__name__)
 def task(name: str):
     def decorator(func):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Callable:
             with TASKS_DURATION.labels(name=name).time() as t:
-                t: Timer
                 try:
                     logger.debug({"msg": f"Task '{name}' started"})
                     result = func(*args, **kwargs)
