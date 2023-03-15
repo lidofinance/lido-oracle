@@ -2,6 +2,7 @@ import logging
 import math
 
 from statistics import mean
+from typing import Sequence
 
 from web3.types import EventData
 
@@ -245,7 +246,7 @@ class AbnormalClRebase:
         )
 
     @staticmethod
-    def calculate_validators_count_diff_in_gwei(prev_validators: list[Validator], ref_validators: list[Validator]):
+    def calculate_validators_count_diff_in_gwei(prev_validators: Sequence[Validator], ref_validators: Sequence[Validator]):
         """
         Handle 32 ETH balances of freshly baked validators, who was activated between epochs
         Lido validators are counted by public keys that the protocol deposited with 32 ETH,
@@ -262,8 +263,8 @@ class AbnormalClRebase:
     def get_mean_effective_balance_sum(
         last_report_blockstamp: ReferenceBlockStamp,
         ref_blockstamp: ReferenceBlockStamp,
-        last_report_validators: list[Validator],
-        ref_validators: list[Validator],
+        last_report_validators: Sequence[Validator],
+        ref_validators: Sequence[Validator],
     ) -> Gwei:
         """
         Calculate mean of effective balance sums
@@ -274,7 +275,7 @@ class AbnormalClRebase:
         ref_effective_balance_sum = calculate_active_effective_balance_sum(
             ref_validators, ref_blockstamp.ref_epoch
         )
-        return mean((ref_effective_balance_sum, last_report_effective_balance_sum))
+        return Gwei(int(mean((ref_effective_balance_sum, last_report_effective_balance_sum))))
 
     @staticmethod
     def validate_slot_distance(distant_slot: SlotNumber, nearest_slot: SlotNumber, ref_slot: SlotNumber):
@@ -285,7 +286,7 @@ class AbnormalClRebase:
         )
 
     @staticmethod
-    def calculate_validators_balance_sum(validators: list[Validator]) -> Gwei:
+    def calculate_validators_balance_sum(validators: Sequence[Validator]) -> Gwei:
         return Gwei(sum(int(v.balance) for v in validators))
 
     @staticmethod

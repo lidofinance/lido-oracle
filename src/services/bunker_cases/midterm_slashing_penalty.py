@@ -89,7 +89,7 @@ class MidtermSlashingPenalty:
         # We get here `min` because exit queue can be greater than `EPOCHS_PER_SLASHINGS_VECTOR`
         # So possible slashed epoch can not be greater than `ref_epoch`
         latest_possible_epoch = min(ref_epoch, int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR)
-        return list(range(earliest_possible_slashed_epoch, latest_possible_epoch + 1))
+        return [EpochNumber(epoch) for epoch in range(earliest_possible_slashed_epoch, latest_possible_epoch + 1)]
 
     @staticmethod
     def get_lido_validators_with_future_midterm_epoch(
