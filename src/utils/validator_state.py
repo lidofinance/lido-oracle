@@ -3,6 +3,7 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     SHARD_COMMITTEE_PERIOD,
     FAR_FUTURE_EPOCH,
+    EFFECTIVE_BALANCE_INCREMENT,
 )
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei
@@ -79,5 +80,8 @@ def calculate_total_active_effective_balance(validators: list[Validator], ref_ep
     for v in validators:
         if is_active_validator(v, ref_epoch):
             total_effective_balance += int(v.validator.effective_balance)
+
+    if total_effective_balance == 0:
+        total_effective_balance = EFFECTIVE_BALANCE_INCREMENT
 
     return Gwei(total_effective_balance)

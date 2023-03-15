@@ -13,7 +13,7 @@ def simple_blockstamp(block_number: int,) -> ReferenceBlockStamp:
 
 
 def simple_validators(
-    from_index: int, to_index: int, slashed=False, withdrawable_epoch="8192", exit_epoch="7892"
+    from_index: int, to_index: int, slashed=False, withdrawable_epoch="8192", exit_epoch="7892", effective_balance=str(32 * 10 ** 9)
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
@@ -24,7 +24,7 @@ def simple_validators(
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
-                effective_balance=str(32 * 10 ** 9),
+                effective_balance=effective_balance,
                 slashed=slashed,
                 activation_eligibility_epoch='',
                 activation_epoch='0',
