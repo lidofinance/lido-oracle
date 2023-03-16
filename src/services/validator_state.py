@@ -243,7 +243,9 @@ class LidoValidatorStateService:
         logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
-        module_operator = {operator: set() for operator in operator_global_indexes}
+        module_operator: dict[NodeOperatorGlobalIndex, set[int]] = {
+            operator: set() for operator in operator_global_indexes
+        }
 
         for event in events:
             operator_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
