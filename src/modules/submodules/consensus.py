@@ -284,9 +284,9 @@ class ConsensusModule(ABC):
         # Set member info metrics
         ORACLE_MEMBER_INFO.info(
             {
-                'is_report_member': member_info.is_report_member,
-                'is_submit_member': member_info.is_submit_member,
-                'is_fast_lane': member_info.is_fast_lane,
+                'is_report_member': str(member_info.is_report_member),
+                'is_submit_member': str(member_info.is_submit_member),
+                'is_fast_lane': str(member_info.is_fast_lane),
             }
         )
         ORACLE_MEMBER_LAST_REPORT_REF_SLOT.set(member_info.last_report_ref_slot or 0)
