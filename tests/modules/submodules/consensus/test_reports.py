@@ -7,6 +7,7 @@ from src.modules.accounting.typings import Account
 from src.modules.submodules.typings import ChainConfig
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.member_info import MemberInfoFactory
 from tests.conftest import get_blockstamp_by_state
 
 
@@ -86,7 +87,7 @@ def test_quorum_is_no_ready(consensus, caplog):
 
 def test_process_report_data_hash_differs_from_quorums(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
     report_data = tuple()
@@ -98,7 +99,7 @@ def test_process_report_data_hash_differs_from_quorums(consensus, caplog):
 
 def test_process_report_data_already_submitted(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
     report_data = tuple()
@@ -111,7 +112,7 @@ def test_process_report_data_already_submitted(consensus, caplog):
 def test_process_report_data_main_data_submitted(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -134,7 +135,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     consensus.get_chain_config = Mock(return_value=chain_configs)
     blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -158,7 +159,7 @@ def test_process_report_data_sleep_ends(consensus, caplog):
     consensus.get_chain_config = Mock(return_value=chain_configs)
     blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -178,7 +179,7 @@ def test_process_report_data_sleep_ends(consensus, caplog):
 def test_process_report_submit_report(consensus, tx_utils, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(blockstamp)
+    member_info = MemberInfoFactory.build()
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
