@@ -52,6 +52,11 @@ class ConsensusModule(ABC):
     def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> ChecksumAddress:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
 
+    def _get_consensus_contract_members(self, blockstamp: BlockStamp):
+        consensus_contract = self._get_consensus_contract(blockstamp)
+        members, last_reported_ref_slots = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
+        return members, last_reported_ref_slots
+
     @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -318,9 +323,7 @@ class ConsensusModule(ABC):
         if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
-        consensus_contract = self._get_consensus_contract(blockstamp)
-
-        members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
+        members, last_reported_ref_slots = self._get_consensus_contract_members(blockstamp)
 
         mem_position = members.index(variables.ACCOUNT.address)
 
