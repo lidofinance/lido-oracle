@@ -64,7 +64,11 @@ class Accounting(BaseModule, ConsensusModule):
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
-        tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
+        if extra_data.extra_data:
+            tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
+        else:
+            tx = self.report_contract.functions.submitReportExtraDataEmpty()
+
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     # Consensus module: main build report method
@@ -203,7 +207,7 @@ class Accounting(BaseModule, ConsensusModule):
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        timestamp = self.get_slot_timestamp(blockstamp)
+        timestamp = self.get_ref_slot_timestamp(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
@@ -244,7 +248,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return shares_data.cover_shares + shares_data.non_cover_shares
 
-    def get_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
+    def get_ref_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
         chain_conf = self.get_chain_config(blockstamp)
         return chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 

@@ -78,4 +78,4 @@ def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
         past_blockstamp.block_timestamp
     )
 
-    assert result == [1, 2]
+    assert result == [2]

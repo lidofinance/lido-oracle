@@ -78,6 +78,9 @@ class LidoContracts(Module):
 
     @lru_cache(maxsize=1)
     def get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
+        return self.get_withdrawal_balance_no_cache(blockstamp)
+
+    def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.lido_locator.functions.withdrawalVault().call(
                 block_identifier=blockstamp.block_hash

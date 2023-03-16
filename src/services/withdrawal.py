@@ -31,16 +31,16 @@ class Withdrawal:
         withdrawal_vault_balance: Wei,
         el_rewards_vault_balance: Wei
     ) -> list[int]:
-        is_paused = self._fetch_is_paused()
-        has_unfinalized_requests = self._has_unfinalized_requests()
+        if self._fetch_is_paused():
+            return []
 
-        if is_paused or not has_unfinalized_requests:
+        if not self._has_unfinalized_requests():
             return []
 
         withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode)
         withdrawable_until_timestamp = (
                 self.chain_config.genesis_time + (
-                withdrawable_until_epoch * self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot
+                    withdrawable_until_epoch * self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot
             )
         )
         available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance)
@@ -55,6 +55,7 @@ class Withdrawal:
 
     def _get_available_eth(self, withdrawal_vault_balance: Wei, el_rewards_vault_balance: Wei) -> Wei:
         buffered_ether = self._fetch_buffered_ether()
+        # This amount of eth could not be spent for deposits.
         unfinalized_steth = self._fetch_unfinalized_steth()
 
         reserved_buffer = min(buffered_ether, unfinalized_steth)
@@ -64,8 +65,6 @@ class Withdrawal:
     def _calculate_finalization_batches(
         self, share_rate: int, available_eth: int, until_timestamp: int
     ) -> list[int]:
-        batches: list[int] = []
-
         state = BatchState(
             remaining_eth_budget=available_eth,
             finished=False,
@@ -79,9 +78,8 @@ class Withdrawal:
                 until_timestamp,
                 state
             )
-            batches.extend(filter(lambda value: value > 0, state.batches))
 
-        return batches
+        return list(filter(lambda value: value > 0, state.batches))
 
     def _fetch_last_finalized_request_id(self) -> int:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
