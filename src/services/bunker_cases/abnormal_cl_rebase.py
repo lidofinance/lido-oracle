@@ -122,7 +122,7 @@ class AbnormalClRebase:
     def _get_nearest_and_distant_blockstamps(
         self, ref_blockstamp: ReferenceBlockStamp
     ) -> tuple[BlockStamp, BlockStamp]:
-        """Get nearest and distant blockstamps. Calculation including missed slots"""
+        """Get nearest and distant blockstamps by given reference blockstamp"""
         nearest_slot = SlotNumber(
             ref_blockstamp.ref_slot - self.b_conf.rebase_check_nearest_epoch_distance * self.c_conf.slots_per_epoch
         )
@@ -203,7 +203,8 @@ class AbnormalClRebase:
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
     ) -> Gwei:
         """
-        Lookup for ETHDistributed event and sum up all withdrawalsWithdrawn
+        Lookup for ETHDistributed event and expect no one or only one event,
+        from which we'll get withdrawalsWithdrawn value
         """
         logger.info(
             {"msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"}
