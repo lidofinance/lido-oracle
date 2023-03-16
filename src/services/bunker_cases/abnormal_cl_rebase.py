@@ -300,16 +300,17 @@ class AbnormalClRebase:
         """
         Calculate normal CL rebase for particular effective balance
 
-        Actual value of NORMALIZED_CL_REWARD_PER_EPOCH is a random variable with embedded variance for four reasons:
+        Actual value of `normal_cl_rebase` is a random variable with embedded variance for four reasons:
          * Calculating expected proposer rewards instead of actual - Randomness within specification
          * Calculating expected sync committee rewards instead of actual  - Randomness within specification
          * Instead of using data on active validators for each epoch
           estimation on number of active validators through interception of
           active validators between current oracle report epoch and last one - Randomness within measurement algorithm
          * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
-        If the difference between observed real CL rewards and its theoretical normalized couldn't be explained by
+        If the difference between observed real CL rewards and its theoretical value (normal_cl_rebase) couldn't be explained by
         those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
-        To formalize “high enough” difference we’re suggesting NORMALIZED_CL_REWARD_MISTAKE_RATE_BP constant
+        To formalize “high enough” difference we’re suggesting `normalized_cl_reward_per_epoch` constant
+        represent ethereum specification and equals to `BASE_REWARD_FACTOR` constant
         """
         normal_cl_rebase = int(
             (bunker_config.normalized_cl_reward_per_epoch * mean_lido_effective_balance_sum * epochs_passed)
