@@ -108,6 +108,9 @@ def get_full_current_metrics(
     if full_metrics.epoch >= int(consider_withdrawals_from_epoch):
         full_metrics.beaconBalance = corrected_balance
         logging.info('Corrected balance on Beacon is accounted')
+    else:
+        remaining = int(consider_withdrawals_from_epoch) - full_metrics.epoch
+        logging.info(f'Corrected balance on Beacon is NOT accounted yet. Remaining epochs before account: {remaining}')
 
     logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
     return full_metrics
