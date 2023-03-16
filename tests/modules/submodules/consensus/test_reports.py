@@ -57,35 +57,35 @@ def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
     assert "report will be postponed" in caplog.messages[-1]
 
 
-def test_report_hash_member_is_not_report_member(web3, consensus, caplog):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    member_info = consensus.get_member_info(latest_blockstamp)
+def test_report_hash_member_is_not_report_member(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
+    member_info = consensus.get_member_info(blockstamp)
     member_info.is_report_member = False
     consensus.get_member_info = Mock(return_value=member_info)
 
-    consensus._process_report_hash(latest_blockstamp, HexBytes(int.to_bytes(1, 32)))
+    consensus._process_report_hash(blockstamp, HexBytes(int.to_bytes(1, 32)))
     assert "Account can`t submit report hash" in caplog.messages[-1]
 
 
-def test_do_not_report_same_hash(web3, consensus, caplog):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    member_info = consensus.get_member_info(latest_blockstamp)
+def test_do_not_report_same_hash(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
+    member_info = consensus.get_member_info(blockstamp)
 
-    consensus._process_report_hash(latest_blockstamp, HexBytes(member_info.current_frame_member_report))
+    consensus._process_report_hash(blockstamp, HexBytes(member_info.current_frame_member_report))
     assert "Provided hash already submitted" in caplog.messages[-1]
 
 
 # -------- Process report data ---------
-def test_quorum_is_no_ready(web3, consensus, caplog):
-    blockstamp = get_blockstamp_by_state(web3, "head")
+def test_quorum_is_no_ready(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Quorum is not ready." in caplog.messages[-1]
 
 
-def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
-    blockstamp = get_blockstamp_by_state(web3, 'head')
+def test_process_report_data_hash_differs_from_quorums(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
     member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
@@ -96,8 +96,8 @@ def test_process_report_data_hash_differs_from_quorums(web3, consensus, caplog):
     assert "Oracle`s hash differs from consensus report hash." in caplog.messages[-1]
 
 
-def test_process_report_data_already_submitted(web3, consensus, caplog):
-    blockstamp = get_blockstamp_by_state(web3, 'head')
+def test_process_report_data_already_submitted(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
     member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
@@ -108,10 +108,10 @@ def test_process_report_data_already_submitted(web3, consensus, caplog):
     assert "Main data already submitted." in caplog.messages[-1]
 
 
-def test_process_report_data_main_data_submitted(web3, consensus, caplog):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+def test_process_report_data_main_data_submitted(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -120,21 +120,21 @@ def test_process_report_data_main_data_submitted(web3, consensus, caplog):
 
     consensus.is_main_data_submitted = Mock(side_effect=[False, True])
 
-    consensus._process_report_data(latest_blockstamp, report_data, report_hash)
+    consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Main data was submitted." in caplog.messages[-1]
     assert "Sleep for" not in caplog.text
 
 
-def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, web3, tx_utils):
+def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, tx_utils):
     chain_configs = ChainConfig(
         slots_per_epoch=32,
         seconds_per_slot=0,
         genesis_time=0,
     )
     consensus.get_chain_config = Mock(return_value=chain_configs)
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -144,21 +144,21 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     consensus.is_main_data_submitted = Mock(return_value=False)
     consensus._get_slot_delay_before_data_submit = Mock(return_value=100)
 
-    consensus._process_report_data(latest_blockstamp, report_data, report_hash)
+    consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
     assert "Send report data. Contract version: [1]" in caplog.messages[-2]
 
 
-def test_process_report_data_sleep_ends(web3, consensus, caplog):
+def test_process_report_data_sleep_ends(consensus, caplog):
     chain_configs = ChainConfig(
         slots_per_epoch=32,
         seconds_per_slot=0,
         genesis_time=0,
     )
     consensus.get_chain_config = Mock(return_value=chain_configs)
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
+    blockstamp = ReferenceBlockStampFactory.build()
 
-    member_info = consensus.get_member_info(latest_blockstamp)
+    member_info = consensus.get_member_info(blockstamp)
     member_info.current_frame_consensus_report = int.to_bytes(1, 32)
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -170,7 +170,7 @@ def test_process_report_data_sleep_ends(web3, consensus, caplog):
     consensus.is_main_data_submitted = Mock(side_effect=main_data_submitted_n_times)
     consensus._get_slot_delay_before_data_submit = Mock(return_value=10000)
 
-    consensus._process_report_data(latest_blockstamp, report_data, report_hash)
+    consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 10000 slots before sending data." in caplog.text
     assert "Main data was submitted." in caplog.messages[-1]
 

@@ -424,18 +424,5 @@
         "finalized": false
       }
     ]
-  },
-  {
-    "url": "eth/v1/beacon/blocks/head/root",
-    "params": null,
-    "response": [
-      {
-        "root": "0xae40fe509ef213b6ec94228269cbaac7dfb2dc1aac3ddb58d5b7d81f6e511448"
-      },
-      {
-        "execution_optimistic": false,
-        "finalized": false
-      }
-    ]
   }
 ]
