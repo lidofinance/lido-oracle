@@ -323,7 +323,7 @@ class ConsensusModule(ABC):
         if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
-        members, last_reported_ref_slots = self._get_consensus_contract_members(blockstamp)
+        members, _ = self._get_consensus_contract_members(blockstamp)
 
         mem_position = members.index(variables.ACCOUNT.address)
 
