@@ -88,22 +88,26 @@ def get_full_current_metrics(
         f'{full_metrics.beaconBalance} wei or {full_metrics.beaconBalance / 1e18} ETH'
     )
 
-    if full_metrics.epoch >= int(consider_withdrawals_from_epoch):
-        block_number = beacon.get_block_by_beacon_slot(slot)
-        withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
-        full_metrics.withdrawalVaultBalance = w3.eth.get_balance(
-            w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),
-            block_identifier=block_number
-        )
-        logging.info(
-            f'Withdrawal vault balance: {full_metrics.withdrawalVaultBalance} wei or {full_metrics.withdrawalVaultBalance/1e18} ETH'
-        )
+    block_number = beacon.get_block_by_beacon_slot(slot)
+    withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
+    full_metrics.withdrawalVaultBalance = w3.eth.get_balance(
+        w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),
+        block_identifier=block_number
+    )
 
-        full_metrics.beaconBalance += full_metrics.withdrawalVaultBalance
-        logging.info(
-            f'Lido validators\' sum. balance on Beacon corrected by withdrawals: '
-            f'{full_metrics.beaconBalance} wei or {full_metrics.beaconBalance/1e18} ETH'
-        )
+    logging.info(
+        f'Withdrawal vault balance: {full_metrics.withdrawalVaultBalance} wei or {full_metrics.withdrawalVaultBalance / 1e18} ETH'
+    )
+
+    corrected_balance = full_metrics.beaconBalance + full_metrics.withdrawalVaultBalance
+    logging.info(
+        f'Lido validators\' sum. balance on Beacon corrected by withdrawals: '
+        f'{corrected_balance} wei or {corrected_balance / 1e18} ETH'
+    )
+
+    if full_metrics.epoch >= int(consider_withdrawals_from_epoch):
+        full_metrics.beaconBalance = corrected_balance
+        logging.info('Corrected balance on Beacon is accounted')
 
     logging.info(f'Lido validators visible on Beacon: {full_metrics.beaconValidators}')
     return full_metrics
