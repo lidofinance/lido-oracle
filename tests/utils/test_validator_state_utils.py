@@ -2,7 +2,7 @@ import pytest
 
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.typings import EpochNumber
-from src.utils.validator_state import calculate_total_active_effective_balance
+from src.utils.validator_state import calculate_active_effective_balance_sum
 
 test_data_calculate_total_effective_balance = [
     (
@@ -26,6 +26,6 @@ test_data_calculate_total_effective_balance = [
 
 @pytest.mark.unit
 @pytest.mark.parametrize(("validators", "expected_balance"), test_data_calculate_total_effective_balance)
-def test_calculate_total_active_effective_balance(validators, expected_balance):
-    total_effective_balance = calculate_total_active_effective_balance(validators.values(), EpochNumber(15000))
+def test_calculate_active_effective_balance_sum(validators, expected_balance):
+    total_effective_balance = calculate_active_effective_balance_sum(validators.values(), EpochNumber(15000))
     assert total_effective_balance == expected_balance
