@@ -7,10 +7,11 @@ from web3.middleware import simple_cache_middleware
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ENV_VARIABLES_INFO
+from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.typings import OracleModule
+from src.utils.build import get_build_info
 from src.web3py.extensions import (
     LidoContracts,
     TransactionUtils,
@@ -28,9 +29,11 @@ logger = logging.getLogger()
 
 
 def main(module_name: OracleModule):
+    build_info = get_build_info()
     logger.info({
         'msg': 'Oracle startup.',
         'variables': {
+            **build_info,
             'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
@@ -43,6 +46,7 @@ def main(module_name: OracleModule):
         "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
         "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
     })
+    BUILD_INFO.info(build_info)
 
     logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
     start_pulse_server()
