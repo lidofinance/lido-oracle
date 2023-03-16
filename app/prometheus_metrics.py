@@ -33,6 +33,7 @@ class MetricsExporterState:
 
         self.currentEpoch = Gauge(f'{prometheus_prefix}currentEpoch', 'Current epoch')
         self.currentBeaconBalance = Gauge(f'{prometheus_prefix}currentBeaconBalance', 'currentBeaconBalance')
+        self.currentWithdrawalVaultBalance = Gauge(f'{prometheus_prefix}currentWithdrawalVaultBalance', 'currentWithdrawalVaultBalance')
         self.currentBeaconValidators = Gauge(f'{prometheus_prefix}currentBeaconValidators', 'currentBeaconValidators')
         self.currentTimestamp = Gauge(f'{prometheus_prefix}currentTimestamp', 'currentTimestamp')
         self.currentBufferedBalance = Gauge(f'{prometheus_prefix}currentBufferedBalance', 'currentBufferedBalance')
@@ -87,6 +88,7 @@ class MetricsExporterState:
         self.currentEthV1BlockNumber.set(metrics.blockNumber)
         self.currentEpoch.set(metrics.epoch)
         self.currentBeaconBalance.set(metrics.beaconBalance)
+        self.currentWithdrawalVaultBalance.set(metrics.withdrawalVaultBalance)
         self.currentBeaconValidators.set(metrics.beaconValidators)
         self.currentTimestamp.set(metrics.timestamp)
         self.currentBufferedBalance.set(metrics.bufferedBalance)

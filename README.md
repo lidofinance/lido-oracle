@@ -43,7 +43,8 @@ export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.1.0
+export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.5.0
 ```
 
 Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
@@ -65,6 +66,7 @@ See **Other examples** below for transactable modes.
 * `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
 * `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
 * `ORACLE_FROM_BLOCK` - The earlist block to check for oracle events. Needed on mainnet first run to skip 5 minutes of scanning blockchain for events that are not there, recommended to be set to 11595281 on mainnet deployments
+* `CONSIDER_WITHDRAWALS_FROM_EPOCH` - The epoch from which withdrawals are considered.
 * `PROMETHEUS_PREFIX` - Prefix for all prometheus metrics. This is good practice having different prefixes for applications (recommended to use `lido_oracle_`) **Optional**. Default ''
 * `PROMETHEUS_METRICS_PORT` - Port for prometheus server. **Optional**. Default '8000'
 
@@ -87,7 +89,8 @@ export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=0
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.1.0
+export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.5.0
 ```
 
 ### Autonomous mode
@@ -104,7 +107,8 @@ export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
 export DAEMON=1
 export SLEEP=300
 export ORACLE_FROM_BLOCK=11595281
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.1.0
+export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
+docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.5.0
 ```
 
 ## Build yourself

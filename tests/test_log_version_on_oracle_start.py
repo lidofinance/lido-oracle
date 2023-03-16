@@ -17,6 +17,7 @@ sample_version = {
 
 def test_show_correct_metadata():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     start_at = time.time()
     env['VERSION'] = sample_version["version"]
     env['COMMIT_MESSAGE'] = sample_version["commit_message"]
@@ -55,6 +56,7 @@ def test_show_correct_metadata():
 
 def test_show_metadata_not_set():
     env = os.environ.copy()
+    env['CONSIDER_WITHDRAWALS_FROM_EPOCH'] = '32'
     start_at = time.time()
     with subprocess.Popen(
         ['python3', './app/oracle.py'],
