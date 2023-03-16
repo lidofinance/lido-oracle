@@ -97,12 +97,14 @@ class Accounting(BaseModule, ConsensusModule):
         return processing_state.extra_data_submitted
 
     def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
-        if ALLOW_NEGATIVE_REBASE_REPORTING:
-            return True
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
         frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
         if frame_cl_rebase < 0:
-            logger.info({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+            logger.warning({'msg': '!' * 50})
+            logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+            logger.warning({'msg': '!' * 50})
+            if ALLOW_NEGATIVE_REBASE_REPORTING:
+                return True
             return False
         return True
 

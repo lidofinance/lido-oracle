@@ -200,7 +200,7 @@ class ConsensusModule(ABC):
         report_hash = self._get_report_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         if not self.check_sanity(blockstamp):
-            logger.info({'msg': 'Sanity check is not passed. Report will not be sent.'})
+            logger.warning({'msg': 'Sanity check is not passed. Report will not be sent.'})
             return
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
