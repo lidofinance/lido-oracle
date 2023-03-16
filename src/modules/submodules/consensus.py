@@ -199,6 +199,9 @@ class ConsensusModule(ABC):
 
         report_hash = self._get_report_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        if not self.check_sanity(blockstamp):
+            logger.info({'msg': 'Sanity check is not passed. Report will not be sent.'})
+            return
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
@@ -352,3 +355,7 @@ class ConsensusModule(ABC):
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         """Returns true if contract is ready for report"""
+
+    @abstractmethod
+    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+        """Check if collected report data is valid."""

@@ -27,6 +27,6 @@ def test_get_cl_rebase_for_frame(
         el_reward=0,
     )
 
-    result = bunker._get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
+    result = bunker.get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
 
     assert result == expected_rebase

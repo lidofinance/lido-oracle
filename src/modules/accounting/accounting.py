@@ -16,6 +16,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -94,6 +95,16 @@ class Accounting(BaseModule, ConsensusModule):
     def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
         return processing_state.extra_data_submitted
+
+    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+        if ALLOW_NEGATIVE_REBASE_REPORTING:
+            return True
+        cl_rebase_report = self.simulate_cl_rebase(blockstamp)
+        frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
+        if frame_cl_rebase < 0:
+            logger.info({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+            return False
+        return True
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
@@ -207,7 +218,7 @@ class Accounting(BaseModule, ConsensusModule):
     def simulate_rebase_after_report(
         self,
         blockstamp: ReferenceBlockStamp,
-        el_rewards: Wei = 0,
+        el_rewards: Wei = Wei(0),
     ) -> LidoReportRebase:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
