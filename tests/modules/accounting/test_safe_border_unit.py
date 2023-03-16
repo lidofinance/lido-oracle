@@ -52,7 +52,7 @@ def subject(
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
     border = subject._get_default_requests_border_epoch()
 
-    assert border == past_blockstamp.ref_slot // (SLOTS_PER_EPOCH - subject.finalization_default_shift)
+    assert border == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - subject.finalization_default_shift
 
 
 def test_calc_validator_slashed_epoch_from_state(subject):

@@ -1,6 +1,7 @@
 import pytest
 
 from src.modules.submodules.consensus import FrameConfig
+from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.typings import EpochNumber, ReferenceBlockStamp
@@ -38,7 +39,7 @@ def simple_validators(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("blockstamp", "all_validators", "lido_validators", "frame_cl_rebase", "expected_result"),
+    ("blockstamp", "all_validators", "lido_validators", "report_cl_rebase", "expected_result"),
     [
         (
             # no one slashed
@@ -68,8 +69,8 @@ def simple_validators(
             False
         ),
         (
-            # penalty greater than rebase
-            simple_blockstamp(0),
+            # one day since last report, penalty greater than report rebase
+            simple_blockstamp(225 * 32),
             [
                 *simple_validators(0, 49),
                 *simple_validators(50, 99, slashed=True)
@@ -79,8 +80,19 @@ def simple_validators(
             True
         ),
         (
-            # penalty equal rebase
-            simple_blockstamp(0),
+            # three days since last report, penalty greater than frame rebase
+            simple_blockstamp(3 * 225 * 32),
+            [
+                *simple_validators(0, 49),
+                *simple_validators(50, 99, slashed=True)
+            ],
+            simple_validators(50, 99, slashed=True),
+            3 * 49 * 32 * 10 ** 9,
+            True
+        ),
+        (
+            # one day since last report,penalty equal report rebase
+            simple_blockstamp(225 * 32),
             [
                 *simple_validators(0, 49),
                 *simple_validators(50, 99, slashed=True)
@@ -90,8 +102,8 @@ def simple_validators(
             False
         ),
         (
-            # penalty less rebase
-            simple_blockstamp(0),
+            # one day since last report, penalty less report rebase
+            simple_blockstamp(225 * 32),
             [
                 *simple_validators(0, 49),
                 *simple_validators(50, 99, slashed=True)
@@ -106,9 +118,14 @@ def test_is_high_midterm_slashing_penalty(
     blockstamp,
     all_validators,
     lido_validators,
-    frame_cl_rebase,
+    report_cl_rebase,
     expected_result
 ):
+    chain_config = ChainConfig(
+        slots_per_epoch=32,
+        seconds_per_slot=12,
+        genesis_time=0,
+    )
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
         epochs_per_frame=EpochNumber(225),
@@ -116,7 +133,7 @@ def test_is_high_midterm_slashing_penalty(
     )
 
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-        blockstamp, frame_config, all_validators, lido_validators, frame_cl_rebase
+        blockstamp, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
     )
     assert result == expected_result
 
@@ -137,7 +154,7 @@ def test_is_high_midterm_slashing_penalty(
         (
             simple_validators(0, 0, slashed=True, exit_epoch="16380", withdrawable_epoch="16384")[0],
             EpochNumber(225),
-            list(range(8193))
+            list(range(226))
         ),
         # slashing epoch is not determined and ref epoch is not last epoch in first frame
         (
@@ -194,7 +211,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
         fast_lane_length_slots=0,
     )
 
-    result = MidtermSlashingPenalty.get_per_frame_lido_validators_with_future_midterm_epoch(
+    result = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
         EpochNumber(ref_epoch), frame_config, future_midterm_penalty_lido_slashed_validators,
     )
 
@@ -405,38 +422,35 @@ def test_get_bound_with_midterm_epoch_slashed_validators(
         )
     ]
 )
-def test_get_not_withdrawn_slashed_validators(lido_validators, ref_epoch, expected_len):
-    result = MidtermSlashingPenalty.get_not_withdrawn_slashed_validators(lido_validators, ref_epoch)
+def test_get_slashed_validators_with_impact_to_midterm_penalties(lido_validators, ref_epoch, expected_len):
+    result = MidtermSlashingPenalty.get_slashed_validators_with_impact_on_midterm_penalties(lido_validators, ref_epoch)
     assert len(result) == expected_len
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("slashed_validators", "ref_epoch", "expected_len"),
+    ("report_cl_rebase", "blockstamp", "last_report_ref_slot", "expected_result"),
     [
-        (
-            # no one slashed
-            {v.validator.pubkey: v for v in simple_validators(0, 9)},
-            EpochNumber(20000000),
-            0
-        ),
-        (
-            # slashed and withdrawable epoch greater than ref_epoch
-            {v.validator.pubkey: v for v in simple_validators(0, 9, slashed=True)},
-            EpochNumber(0),
-            10
-        ),
-        (
-            # slashed and withdrawable epoch less than ref_epoch
-            {v.validator.pubkey: v for v in simple_validators(0, 9, slashed=True)},
-            EpochNumber(20000000),
-            0
-        )
+        (5 * 32 * 10 ** 9, simple_blockstamp(225 * 32), 0, 5 * 32 * 10 ** 9),
+        (7 * 5 * 32 * 10 ** 9, simple_blockstamp(7 * 225 * 32), 0, 5 * 32 * 10 ** 9),
     ]
 )
-def test_get_future_midterm_penalty_slashed_validators(slashed_validators, ref_epoch, expected_len):
-    result = MidtermSlashingPenalty.get_future_midterm_penalty_slashed_validators(slashed_validators, ref_epoch)
-    assert len(result) == expected_len
+def test_get_frame_cl_rebase_from_report_cl_rebase(report_cl_rebase, blockstamp, last_report_ref_slot, expected_result):
+    chain_config = ChainConfig(
+        slots_per_epoch=32,
+        seconds_per_slot=12,
+        genesis_time=0,
+    )
+    frame_config = FrameConfig(
+        initial_epoch=EpochNumber(0),
+        epochs_per_frame=EpochNumber(225),
+        fast_lane_length_slots=0,
+    )
+    result = MidtermSlashingPenalty.get_frame_cl_rebase_from_report_cl_rebase(
+        frame_config, chain_config, report_cl_rebase, blockstamp, last_report_ref_slot
+    )
+
+    assert result == expected_result
 
 
 @pytest.mark.unit
@@ -462,5 +476,5 @@ def test_get_frame_by_epoch(epoch, expected_frame):
 
 @pytest.mark.unit
 def test_get_midterm_slashing_epoch():
-    result = MidtermSlashingPenalty.get_midterm_slashing_epoch(simple_validators(0, 0)[0])
+    result = MidtermSlashingPenalty.get_midterm_penalty_epoch(simple_validators(0, 0)[0])
     assert result == 4096

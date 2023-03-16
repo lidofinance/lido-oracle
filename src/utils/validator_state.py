@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
@@ -83,7 +85,7 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     return active_long_enough and not is_on_exit(validator)
 
 
-def calculate_total_active_effective_balance(validators: list[Validator], ref_epoch: EpochNumber) -> Gwei:
+def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
     """
     Return the combined effective balance of the active validators.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
