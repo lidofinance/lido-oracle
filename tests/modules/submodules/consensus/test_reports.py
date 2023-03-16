@@ -199,4 +199,10 @@ def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
     assert delay == 6
     assert "Calculate slots to sleep." in caplog.messages[-1]
-    # TODO: sleep_count < 0
+
+def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_report_account):
+    blockstamp = ReferenceBlockStampFactory.build()
+    consensus._get_consensus_contract_members = Mock(return_value=[['0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7', '0x1', '0x2'],[102335]])
+    delay = consensus._get_slot_delay_before_data_submit(blockstamp)
+    assert delay == 18
+    assert "Calculate slots to sleep." in caplog.messages[-1]
