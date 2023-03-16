@@ -6,7 +6,7 @@ from requests import HTTPError, Response
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
-from src.metrics.prometheus.basic import EL_REQUESTS_DURATION, EL_REQUESTS_COUNT
+from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,7 @@ def metrics_collector(
     """
     Works correctly with MultiProvider and vanilla Providers.
 
-    ETH_RPC_REQUESTS_DURATION - HISTOGRAM with requests time.
-    ETH_RPC_REQUESTS - Counter with requests count, response codes and request domain.
+    EL_REQUESTS_DURATION - HISTOGRAM with requests time, count, response codes and request domain.
     """
 
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -30,31 +29,31 @@ def metrics_collector(
         except:
             domain = 'unavailable'
 
-        try:
-            with EL_REQUESTS_DURATION.labels(name=method).time():
+        with EL_REQUESTS_DURATION.time() as t:
+            try:
                 response = make_request(method, params)
-        except HTTPError as ex:
-            failed: Response = ex.response
-            EL_REQUESTS_COUNT.labels(
-                method=method,
-                code=failed.status_code,
+            except HTTPError as ex:
+                failed: Response = ex.response
+                t.labels(
+                    method=method,
+                    code=failed.status_code,
+                    domain=domain,
+                )
+                raise
+
+            # https://www.jsonrpc.org/specification#error_object
+            # https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
+            error = response.get("error")
+            code: int = 0
+            if isinstance(error, dict):
+                code = error.get("code") or code
+
+            t.labels(
+                name=method,
+                code=code,
                 domain=domain,
-            ).inc()
-            raise
+            )
 
-        # https://www.jsonrpc.org/specification#error_object
-        # https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-        error = response.get("error")
-        code: int = 0
-        if isinstance(error, dict):
-            code = error.get("code") or code
-
-        EL_REQUESTS_COUNT.labels(
-            name=method,
-            code=code,
-            domain=domain,
-        ).inc()
-
-        return response
+            return response
 
     return middleware

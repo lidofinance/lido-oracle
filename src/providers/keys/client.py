@@ -2,8 +2,7 @@ from functools import lru_cache
 from time import sleep
 from typing import Optional, cast
 
-from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_REQUESTS_COUNT, \
-    KEYS_API_LATEST_BLOCKNUMBER
+from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
@@ -21,7 +20,6 @@ class KeysAPIClient(HTTPProvider):
     SLEEP_SECONDS = 12
 
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
-    PROMETHEUS_COUNTER = KEYS_API_REQUESTS_COUNT
 
     ALL_KEYS = 'v1/keys'
     ALL_OPERATORS = 'v1/operators'

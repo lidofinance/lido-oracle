@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Literal, Optional, Union
 
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import CL_REQUESTS_DURATION, CL_REQUESTS_COUNT
+from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.typings import (
     BlockDetailsResponse,
     BlockHeaderFullResponse,
@@ -28,7 +28,6 @@ class ConsensusClient(HTTPProvider):
     state_id
     State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
     """
-    PROMETHEUS_COUNTER = CL_REQUESTS_COUNT
     PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
     API_GET_BLOCK_ROOT = 'eth/v1/beacon/blocks/{}/root'

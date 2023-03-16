@@ -33,13 +33,6 @@ ACCOUNT_BALANCE = Gauge(
 TASKS_DURATION = Histogram(
     'tasks_duration',
     'Duration of oracle daemon tasks',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-TASKS_COUNT = Counter(
-    'tasks_count',
-    'Oracle daemon tasks count',
     ['name', 'status'],
     namespace=PROMETHEUS_PREFIX,
 )
@@ -47,13 +40,6 @@ TASKS_COUNT = Counter(
 EL_REQUESTS_DURATION = Histogram(
     'el_requests_duration',
     'Duration of requests to EL RPC',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-EL_REQUESTS_COUNT = Counter(
-    'el_requests_count',
-    'Total count of requests to EL RPC',
     ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
@@ -61,13 +47,6 @@ EL_REQUESTS_COUNT = Counter(
 CL_REQUESTS_DURATION = Histogram(
     'cl_requests_duration',
     'Duration of requests to CL API',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-CL_REQUESTS_COUNT = Counter(
-    'cl_requests_count',
-    'Total count of requests to CL API',
     ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
@@ -75,13 +54,6 @@ CL_REQUESTS_COUNT = Counter(
 KEYS_API_REQUESTS_DURATION = Histogram(
     'keys_api_requests_duration',
     'Duration of requests to Keys API',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-KEYS_API_REQUESTS_COUNT = Counter(
-    'keys_api_requests_count',
-    'Total count of requests to Keys API',
     ['name', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )

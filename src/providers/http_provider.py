@@ -4,7 +4,7 @@ from http import HTTPStatus
 from typing import Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
-from prometheus_client import Histogram, Counter
+from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
@@ -26,7 +26,6 @@ class HTTPProvider(ABC):
     REQUEST_TIMEOUT = 300
 
     PROMETHEUS_HISTOGRAM: Histogram
-    PROMETHEUS_COUNTER: Counter
 
     def __init__(self, host: str):
         self.host = host
@@ -47,32 +46,31 @@ class HTTPProvider(ABC):
         Returns (data, meta)
         """
         request_name = self._url_to_request_name_label(url)
-        with self.PROMETHEUS_HISTOGRAM.labels(name=request_name).time():
-            response = self.session.get(
-                urljoin(self.host, url),
-                params=params,
-                timeout=self.REQUEST_TIMEOUT,
-            )
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response = self.session.get(
+                    urljoin(self.host, url),
+                    params=params,
+                    timeout=self.REQUEST_TIMEOUT,
+                )
+                if response.status_code != HTTPStatus.OK:
+                    msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                    logger.debug({'msg': msg})
+                    raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
-        if response.status_code != HTTPStatus.OK:
-            msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
-            logger.debug({'msg': msg})
-            raise NotOkResponse(msg, status=response.status_code, text=response.text)
-
-        try:
-            json_response = response.json()
-            data = json_response['data']
-            del json_response['data']
-        except (KeyError, JSONDecodeError) as error:
-            msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
-            logger.debug({'msg': msg})
-            raise error from error
-        finally:
-            self.PROMETHEUS_COUNTER.labels(
-                name=request_name,
-                code=response.status_code,
-                domain=urlparse(self.host).netloc,
-            ).inc()
+                json_response = response.json()
+                data = json_response['data']
+                del json_response['data']
+            except (KeyError, JSONDecodeError) as error:
+                msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                logger.debug({'msg': msg})
+                raise error from error
+            finally:
+                t.labels(
+                    name=request_name,
+                    code=response.status_code,
+                    domain=urlparse(self.host).netloc,
+                )
 
         return data, json_response
 
