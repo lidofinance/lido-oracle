@@ -11,13 +11,21 @@ class BeaconSpecResponse(FromResponse):
     DEPOSIT_CHAIN_ID: int
     SLOTS_PER_EPOCH: int
     SECONDS_PER_SLOT: int
-    MIN_GENESIS_TIME: int
 
     def __post_init__(self):
         self.DEPOSIT_CHAIN_ID = int(self.DEPOSIT_CHAIN_ID)
         self.SLOTS_PER_EPOCH = int(self.SLOTS_PER_EPOCH)
         self.SECONDS_PER_SLOT = int(self.SECONDS_PER_SLOT)
-        self.MIN_GENESIS_TIME = int(self.MIN_GENESIS_TIME)
+
+
+@dataclass
+class GenesisResponse(FromResponse):
+    genesis_time: int
+    genesis_validators_root: str
+    genesis_fork_version: str
+
+    def __post_init__(self):
+        self.genesis_time = int(self.genesis_time)
 
 
 @dataclass

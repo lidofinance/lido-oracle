@@ -47,12 +47,13 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        if any((config.genesis_time != cc_config.MIN_GENESIS_TIME,
+        genesis_time = self.w3.cc.get_genesis().genesis_time
+        if any((config.genesis_time != genesis_time,
                 config.seconds_per_slot != cc_config.SECONDS_PER_SLOT,
                 config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH)):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
                              f'Contract config: {config}\n'
-                             f'Beacon chain config: {cc_config}')
+                             f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
