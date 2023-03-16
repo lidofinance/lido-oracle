@@ -5,8 +5,7 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
-from src.metrics.prometheus.basic import ENV_VARIABLE_METRIC
-from src.metrics.prometheus.business import SLOT_NUMBER_INFO
+from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -40,7 +39,6 @@ class BaseModule(ABC):
 
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
-        ENV_VARIABLE_METRIC.labels('MAX_CYCLE_LIFETIME_IN_SECONDS').set(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
         while True:
             logger.info({'msg': 'Startup new cycle.'})
             self._cycle_handler()
@@ -63,7 +61,7 @@ class BaseModule(ABC):
         block_details = self.w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
-        SLOT_NUMBER_INFO.labels('finalized').set(bs.slot_number)
+        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> bool:

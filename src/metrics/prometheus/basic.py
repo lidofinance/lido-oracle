@@ -1,6 +1,6 @@
 from enum import Enum
 
-from prometheus_client import Gauge, Histogram, Counter
+from prometheus_client import Gauge, Histogram, Counter, Info
 
 from src.variables import PROMETHEUS_PREFIX
 
@@ -10,25 +10,18 @@ class Status(Enum):
     FAILURE = 'failure'
 
 
-BUILD_INFO = Gauge(
-    'build_info',
+BUILD_INFO = Info(
+    'build',
     'Build info',
-    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ENV_VARIABLE_METRIC = Gauge(
-    'env_variable',
+ENV_VARIABLES_INFO = Info(
+    'env_variables',
     'Env variables for the app',
-    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-DRY_RUN = Gauge(
-    "oracle_dry_run",
-    "Oracle dry run",
-    namespace=PROMETHEUS_PREFIX,
-)
 
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
