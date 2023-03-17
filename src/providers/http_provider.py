@@ -54,21 +54,20 @@ class HTTPProvider(ABC):
         Returns (data, meta)
         """
         with self.PROMETHEUS_HISTOGRAM.time() as t:
+            response = self.session.get(
+                self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
+                params=query_params,
+                timeout=self.REQUEST_TIMEOUT,
+            )
+
             try:
-                response = self.session.get(
-                    self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
-                    params=query_params,
-                    timeout=self.REQUEST_TIMEOUT,
-                )
                 if response.status_code != HTTPStatus.OK:
                     msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
                     logger.debug({'msg': msg})
                     raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
                 json_response = response.json()
-                data = json_response['data']
-                del json_response['data']
-            except (KeyError, JSONDecodeError) as error:
+            except JSONDecodeError as error:
                 msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
                 logger.debug({'msg': msg})
                 raise error from error
