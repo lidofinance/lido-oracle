@@ -49,6 +49,7 @@ markers = [
     "possible_integration: tests with using providers, but can be run using mocks",
     "e2e: complex tests with using providers and real Ethereum network",
 ]
+addopts = "-s --pdbcls pudb.debugger:Debugger"
 
 [tool.coverage.run]
 branch = true

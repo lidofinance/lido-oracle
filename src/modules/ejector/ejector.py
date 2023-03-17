@@ -16,7 +16,7 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.typings import Validator
 from src.services.exit_order import ValidatorToExitIterator
 from src.services.prediction import RewardsPredictionService
@@ -63,13 +63,17 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
         self.validators_state_service = LidoValidatorStateService(w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        if self._is_paused():  # no way to send report if is on pause at the moment
+            logger.info({'msg': 'Ejector is paused. Skip report.'})
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
-            return True
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
-        return False
+        return ModuleExecuteDelay.NEXT_SLOT
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -134,6 +138,9 @@ class Ejector(BaseModule, ConsensusModule):
             validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator[1])
 
         return validators_to_eject
+
+    def _is_paused(self) -> bool:
+        return self.report_contract.functions.isPaused().call()
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
@@ -267,3 +274,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
+
+    def check_sanity(self, blockstamp: BlockStamp) -> bool:
+        """At this point we can't check anything, so just return True."""
+        return True

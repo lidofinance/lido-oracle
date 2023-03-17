@@ -3,6 +3,8 @@ from collections import defaultdict
 from functools import lru_cache
 from time import sleep
 
+from web3.types import Wei
+
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import (
@@ -14,11 +16,12 @@ from src.modules.accounting.typings import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -37,15 +40,15 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if not report_blockstamp:
-            return True
+        if report_blockstamp:
+            self.process_report(report_blockstamp)
+            self.process_extra_data(report_blockstamp)
+            return ModuleExecuteDelay.NEXT_SLOT
 
-        self.process_report(report_blockstamp)
-        self.process_extra_data(report_blockstamp)
-        return False
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
@@ -98,6 +101,17 @@ class Accounting(BaseModule, ConsensusModule):
     def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
         return processing_state.extra_data_submitted
+
+    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+        cl_rebase_report = self.simulate_cl_rebase(blockstamp)
+        frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
+        if frame_cl_rebase >= 0:
+            return True
+
+        logger.warning({'msg': '!' * 50})
+        logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+        logger.warning({'msg': '!' * 50})
+        return ALLOW_NEGATIVE_REBASE_REPORTING
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
@@ -196,15 +210,22 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
-        simulation = self.get_rebase_after_report(blockstamp)
+        simulation = self.simulate_full_rebase(blockstamp)
         shares_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
         logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
         return shares_rate
 
-    def get_rebase_after_report(
+    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+        return self.simulate_rebase_after_report(blockstamp)
+
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+        el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
+        return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
+
+    def simulate_rebase_after_report(
         self,
         blockstamp: ReferenceBlockStamp,
-        ignore_execution_rewards: bool = False,
+        el_rewards: Wei = Wei(0),
     ) -> LidoReportRebase:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
@@ -224,7 +245,7 @@ class Accounting(BaseModule, ConsensusModule):
             Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
             # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            0 if ignore_execution_rewards else self.w3.lido_contracts.get_el_vault_balance(blockstamp),  # _elRewardsVaultBalance
+            el_rewards,  # _elRewardsVaultBalance
             self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
             # Decision about withdrawals processing
             [],  # _lastFinalizableRequestId
@@ -274,7 +295,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> bool:
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
-        cl_rebase_report = self.get_rebase_after_report(blockstamp, ignore_execution_rewards=True)
+        cl_rebase_report = self.simulate_cl_rebase(blockstamp)
 
         bunker_mode = self.bunker_service.is_bunker_mode(
             blockstamp,

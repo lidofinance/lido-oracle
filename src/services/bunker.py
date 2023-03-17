@@ -41,7 +41,7 @@ class BunkerService:
 
         logger.info({"msg": "Checking bunker mode"})
 
-        current_report_cl_rebase = self._get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
+        current_report_cl_rebase = self.get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)
         if current_report_cl_rebase < 0:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
@@ -62,7 +62,7 @@ class BunkerService:
 
         return False
 
-    def _get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: LidoReportRebase) -> Gwei:
+    def get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: LidoReportRebase) -> Gwei:
         """
         Get CL rebase from Accounting contract
         """
