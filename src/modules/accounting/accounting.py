@@ -9,7 +9,7 @@ from src.modules.accounting.typings import ReportData, AccountingProcessingState
     SharesRequestedToBurn
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
@@ -32,15 +32,15 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if not report_blockstamp:
-            return True
+        if report_blockstamp:
+            self.process_report(report_blockstamp)
+            self.process_extra_data(report_blockstamp)
+            return ModuleExecuteDelay.NEXT_SLOT
 
-        self.process_report(report_blockstamp)
-        self.process_extra_data(report_blockstamp)
-        return False
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
