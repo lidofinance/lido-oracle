@@ -42,7 +42,7 @@ class HTTPProvider(ABC):
         self.session.mount("http://", adapter)
 
     def _get(
-        self, endpoint: str, path_param: Sequence[Union[str, int]] = None, query_params: Optional[dict] = None
+        self, endpoint: str, path_param: Optional[Sequence[Union[str, int]]] = None, query_params: Optional[dict] = None
     ) -> Tuple[dict | list, dict]:
         """
         Returns (data, meta)

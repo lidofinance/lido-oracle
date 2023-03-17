@@ -114,7 +114,8 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
 
     def _get(self, endpoint: str, path_param: Sequence[Union[str, int]] = (), query_params: Optional[dict] = None) -> dict | list:
         for response in self.responses:
-            if response.get('url') == endpoint.format(*path_param) and json.dumps(response["params"]) == json.dumps(query_params):
+            url = endpoint.format(*path_param) if path_param else endpoint
+            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(query_params):
                 return response["response"]
         raise NoMockException('There is no mock for response')
 
@@ -129,11 +130,12 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
 
     def _get(self, endpoint: str, path_param: Sequence[Union[str, int]] = (), query_params: Optional[dict] = None) -> dict | list:
+        url = endpoint.format(*path_param) if path_param else endpoint
         try:
-            response = self.from_file._get(endpoint.format(*path_param), query_params)  # pylint: disable=protected-access
+            response = self.from_file._get(url, query_params)  # pylint: disable=protected-access
         except NoMockException:
-            response = super()._get(endpoint.format(*path_param), query_params)
-        self.responses.append({"url": endpoint.format(*path_param), "params": query_params, "response": response})
+            response = super()._get(url, query_params)
+        self.responses.append({"url": url, "params": query_params, "response": response})
         return response
 
     @contextmanager
