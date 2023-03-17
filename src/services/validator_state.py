@@ -98,7 +98,7 @@ class LidoValidatorStateService:
         exiting_keys_stuck_border_in_slots = self.get_validator_delinquent_timeout_in_slot(blockstamp)
 
         events = get_events_in_past(
-            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=blockstamp,
             for_slots=exiting_keys_stuck_border_in_slots,
             seconds_per_slot=chain_config.seconds_per_slot,
@@ -229,7 +229,7 @@ class LidoValidatorStateService:
         exiting_keys_delayed_border_in_slots = self.get_validator_delayed_timeout_in_slot(blockstamp)
 
         events = get_events_in_past(
-            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=blockstamp,
             for_slots=exiting_keys_delayed_border_in_slots,
             seconds_per_slot=chain_config.seconds_per_slot,
