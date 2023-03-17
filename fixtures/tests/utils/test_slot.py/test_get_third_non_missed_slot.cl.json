@@ -423,7 +423,7 @@
     ]
   },
   {
-    "url": "/eth/v1/beacon/headers/139459",
+    "url": "eth/v1/beacon/headers/139459",
     "params": null,
     "response": [
       {
@@ -446,7 +446,7 @@
     ]
   },
   {
-    "url": "/eth/v1/beacon/headers/0x30d060fdb77628a9837536cb58c3c42366957349ffe5fa1e0cf15210681a99cd",
+    "url": "eth/v1/beacon/headers/0x30d060fdb77628a9837536cb58c3c42366957349ffe5fa1e0cf15210681a99cd",
     "params": null,
     "response": [
       {
@@ -1126,7 +1126,6 @@
         "signature": "0xb33d9f7e1a462fa292231adfeba0ef64dcd553a19410d5be76c176be891f6d5aa82153dccf10c5605ef80b5d4586950a13d5076e062e0aa6292e6683867389f03a8c705d8a1e03b4ff512834545b38e0436283873334bfd93fcf6155c9db4a25"
       },
       {
-        "version": "capella",
         "execution_optimistic": false
       }
     ]

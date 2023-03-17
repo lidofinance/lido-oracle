@@ -4,7 +4,7 @@ from typing import Optional, cast
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS, KEYS_API_REQUESTS_DURATION
 from src.providers.http_provider import HTTPProvider
-from src.providers.keys.typings import LidoKey
+from src.providers.keys.typings import LidoKey, KeysApiStatus
 from src.typings import BlockStamp
 from src.utils.dataclass import list_of_dataclasses
 
@@ -23,6 +23,7 @@ class KeysAPIClient(HTTPProvider):
 
     ALL_KEYS = 'v1/keys'
     ALL_OPERATORS = 'v1/operators'
+    STATUS = 'v1/status'
 
     def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: Optional[dict] = None) -> dict | list:
         """
@@ -43,3 +44,8 @@ class KeysAPIClient(HTTPProvider):
     def get_all_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
         return cast(list[dict], self._get_with_blockstamp(self.ALL_KEYS, blockstamp))
+
+    def get_status(self) -> KeysApiStatus:
+        """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
+        data, _ = self._get(self.STATUS)
+        return KeysApiStatus.from_response(**cast(dict, data))

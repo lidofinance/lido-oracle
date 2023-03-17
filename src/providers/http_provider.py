@@ -42,13 +42,19 @@ class HTTPProvider(ABC):
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
+    @staticmethod
+    def _urljoin(host, url):
+        if not host.endswith('/'):
+            host += '/'
+        return urljoin(host, url)
+
     def _get(self, url: str, params: Optional[dict] = None) -> Tuple[dict | list, dict]:
         """
         Returns (data, meta)
         """
         with self.PROMETHEUS_HISTOGRAM.time():
             response = self.session.get(
-                urljoin(self.host, url),
+                self._urljoin(self.host, url),
                 params=params,
                 timeout=self.REQUEST_TIMEOUT,
             )
@@ -60,9 +66,7 @@ class HTTPProvider(ABC):
 
         try:
             json_response = response.json()
-            data = json_response['data']
-            del json_response['data']
-        except (KeyError, JSONDecodeError) as error:
+        except JSONDecodeError as error:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
             logger.debug({'msg': msg})
             raise error from error
@@ -73,4 +77,11 @@ class HTTPProvider(ABC):
                 domain=urlparse(self.host).netloc,
             ).inc()
 
-        return data, json_response
+        if 'data' in json_response:
+            data = json_response['data']
+            del json_response['data']
+            meta = json_response
+        else:
+            data = json_response
+            meta = {}
+        return data, meta
