@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.oracle_module import BaseModule, RetVal
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.typings import BlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -12,7 +12,7 @@ class SimpleOracle(BaseModule):
 
     def execute_module(self, blockstamp):
         self.call_count += 1
-        return RetVal.WAIT_NEXT_FINALIZED_EPOCH
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
 @pytest.fixture(autouse=True)

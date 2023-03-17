@@ -8,7 +8,7 @@ from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule, RetVal
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
@@ -31,15 +31,15 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> RetVal:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if report_blockstamp:
             self.process_report(report_blockstamp)
             self.process_extra_data(report_blockstamp)
-            return RetVal.WAIT_NEXT_SLOT
+            return ModuleExecuteDelay.NEXT_SLOT
 
-        return RetVal.WAIT_NEXT_FINALIZED_EPOCH
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()

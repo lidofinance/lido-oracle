@@ -1,4 +1,4 @@
-from typing import Iterable, Iterator, cast
+from typing import Iterable, cast
 from unittest.mock import Mock
 
 import pytest
@@ -7,7 +7,7 @@ from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector, EjectorProcessingState
 from src.modules.ejector.ejector import logger as ejector_logger
-from src.modules.submodules.oracle_module import RetVal
+from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.typings import ChainConfig
 from src.typings import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.contracts import LidoContracts
@@ -50,7 +50,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector._is_paused = Mock(return_value=False)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is RetVal.WAIT_NEXT_FINALIZED_EPOCH
+        is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ), "execute_module should wait for the next finalized epoch"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
 
@@ -59,7 +59,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector._is_paused = Mock(return_value=False)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is RetVal.WAIT_NEXT_SLOT
+        is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
     ejector.process_report.assert_called_once_with(blockstamp)
@@ -73,7 +73,7 @@ def test_ejector_execute_module_on_pause(
     ejector._is_paused = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is RetVal.WAIT_NEXT_FINALIZED_EPOCH
+        is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ), "execute_module should wait for the next finalized epoch"
 
 

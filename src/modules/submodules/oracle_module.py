@@ -21,11 +21,11 @@ from src.typings import SlotNumber, BlockStamp, BlockRoot
 logger = logging.getLogger(__name__)
 
 
-class RetVal(Enum):
+class ModuleExecuteDelay(Enum):
     """Signals from execute_module method"""
 
-    WAIT_NEXT_SLOT = 0
-    WAIT_NEXT_FINALIZED_EPOCH = 1
+    NEXT_SLOT = 0
+    NEXT_FINALIZED_EPOCH = 1
 
 
 class BaseModule(ABC):
@@ -57,7 +57,7 @@ class BaseModule(ABC):
         if blockstamp.slot_number > self._slot_threshold:
             result = self.run_cycle(blockstamp)
 
-            if result is RetVal.WAIT_NEXT_FINALIZED_EPOCH:
+            if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
@@ -70,7 +70,7 @@ class BaseModule(ABC):
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
         return bs
 
-    def run_cycle(self, blockstamp: BlockStamp) -> RetVal:
+    def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
@@ -94,10 +94,10 @@ class BaseModule(ABC):
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
 
-        return RetVal.WAIT_NEXT_SLOT
+        return ModuleExecuteDelay.NEXT_SLOT
 
     @abstractmethod
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> RetVal:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         """
         Implement module business logic here.
         Return
