@@ -14,10 +14,6 @@ logger = logging.getLogger()
 
 
 class LidoContracts(Module):
-    contracts_attrs = ('lido_locator', 'lido', 'accounting_oracle',
-                       'staking_router', 'validators_exit_bus_oracle',
-                       'withdrawal_queue_nft', 'oracle_report_sanity_checker',
-                       'oracle_daemon_config', 'burner')
     lido_locator: Contract
     lido: Contract
     accounting_oracle: Contract
@@ -30,15 +26,19 @@ class LidoContracts(Module):
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
+        self._load_contracts()
 
     def __setattr__(self, key, value):
-        if key in self.contracts_attrs:
-            current_value = getattr(self, key, None)
-            if current_value is not None and value != current_value:
+        current_value = getattr(self, key, None)
+        if isinstance(current_value, Contract) and isinstance(value, Contract):
+            if value.address != current_value.address:
                 logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
         super().__setattr__(key, value)
 
     def reload_contracts(self):
+        self._load_contracts()
+
+    def _load_contracts(self):
         # Contract that stores all lido contract addresses
         self.lido_locator = self.w3.eth.contract(
             address=variables.LIDO_LOCATOR_ADDRESS,
