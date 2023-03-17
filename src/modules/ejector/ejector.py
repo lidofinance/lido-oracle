@@ -265,3 +265,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
+
+    def check_sanity(self, blockstamp: BlockStamp) -> bool:
+        """At this point we can't check anything, so just return True."""
+        return True
