@@ -102,7 +102,7 @@ class Accounting(BaseModule, ConsensusModule):
         processing_state = self._get_processing_state(blockstamp)
         return processing_state.extra_data_submitted
 
-    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
         frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
         if frame_cl_rebase >= 0:

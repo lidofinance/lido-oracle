@@ -21,7 +21,7 @@ class SimpleConsensusModule(ConsensusModule):
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return True
 
-    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         return True
 
 

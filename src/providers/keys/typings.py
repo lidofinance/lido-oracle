@@ -12,3 +12,9 @@ class LidoKey(FromResponse):
     operatorIndex: int
     used: bool
     moduleAddress: ChecksumAddress
+
+
+@dataclass
+class KeysApiStatus(FromResponse):
+    appVersion: str
+    chainId: int

@@ -115,15 +115,15 @@ class TestAccountingSanityCheck:
         accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
         with monkeypatch.context() as ctx:
             ctx.setattr(accounting, 'ALLOW_NEGATIVE_REBASE_REPORTING', True)
-            assert accounting_module.check_sanity(bs)
+            assert accounting_module.is_reporting_allowed(bs)
         assert "CL rebase is negative" in caplog.text
 
     def test_no_negative_rebase(self, accounting_module, bs):
         accounting_module.bunker_service._get_total_supply = Mock(return_value=90)
         accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=100))
-        assert accounting_module.check_sanity(bs)
+        assert accounting_module.is_reporting_allowed(bs)
 
     def test_negative_rebase(self, accounting_module, bs):
         accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
         accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
-        assert accounting_module.check_sanity(bs) is False
+        assert accounting_module.is_reporting_allowed(bs) is False

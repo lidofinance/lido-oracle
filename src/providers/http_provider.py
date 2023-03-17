@@ -41,6 +41,12 @@ class HTTPProvider(ABC):
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
+    @staticmethod
+    def _urljoin(host, url):
+        if not host.endswith('/'):
+            host += '/'
+        return urljoin(host, url)
+
     def _get(
         self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None
     ) -> Tuple[dict | list, dict]:
@@ -50,7 +56,7 @@ class HTTPProvider(ABC):
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
+                    self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
                     params=query_params,
                     timeout=self.REQUEST_TIMEOUT,
                 )
@@ -73,4 +79,11 @@ class HTTPProvider(ABC):
                     domain=urlparse(self.host).netloc,
                 )
 
-        return data, json_response
+        if 'data' in json_response:
+            data = json_response['data']
+            del json_response['data']
+            meta = json_response
+        else:
+            data = json_response
+            meta = {}
+        return data, meta
