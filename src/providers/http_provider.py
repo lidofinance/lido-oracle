@@ -1,5 +1,5 @@
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from http import HTTPStatus
 from typing import Optional, Tuple
 from urllib.parse import urljoin, urlparse
@@ -41,16 +41,17 @@ class HTTPProvider(ABC):
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
-    def _get(self, url: str, params: Optional[dict] = None) -> Tuple[dict | list, dict]:
+    def _get(
+        self, endpoint: str, path_param=None, query_params: Optional[dict] = None
+    ) -> Tuple[dict | list, dict]:
         """
         Returns (data, meta)
         """
-        request_name = self._url_to_request_name_label(url)
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    urljoin(self.host, url),
-                    params=params,
+                    urljoin(self.host, endpoint.format(path_param)),
+                    params=query_params,
                     timeout=self.REQUEST_TIMEOUT,
                 )
                 if response.status_code != HTTPStatus.OK:
@@ -67,13 +68,9 @@ class HTTPProvider(ABC):
                 raise error from error
             finally:
                 t.labels(
-                    name=request_name,
+                    endpoint=endpoint,
                     code=response.status_code,
                     domain=urlparse(self.host).netloc,
                 )
 
         return data, json_response
-
-    @abstractmethod
-    def _url_to_request_name_label(self, url: str) -> str:
-        """Remove all params from url and replace them with {param}"""

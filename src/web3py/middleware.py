@@ -44,7 +44,7 @@ def metrics_collector(
             except HTTPError as ex:
                 failed: Response = ex.response
                 t.labels(
-                    name=endpoint_name,
+                    endpoint=endpoint_name,
                     call_method=call_method,
                     call_to=call_to,
                     code=failed.status_code,
@@ -60,7 +60,7 @@ def metrics_collector(
                 code = error.get("code") or code
 
             t.labels(
-                name=endpoint_name,
+                endpoint=endpoint_name,
                 call_method=call_method,
                 call_to=call_to,
                 code=code,

@@ -41,7 +41,7 @@ class ConsensusClient(HTTPProvider):
 
         No cache because this method is using to get finalized and head block, and they could not be cached by args.
         """
-        data, _ = self._get(self.API_GET_BLOCK_ROOT.format(state_id))
+        data, _ = self._get(self.API_GET_BLOCK_ROOT, state_id)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockRoot")
         return BlockRootResponse.from_response(**data)
@@ -51,7 +51,7 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
         """
-        data, meta_data = self._get(self.API_GET_BLOCK_HEADER.format(state_id))
+        data, meta_data = self._get(self.API_GET_BLOCK_HEADER, state_id)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
@@ -60,7 +60,7 @@ class ConsensusClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
-        data, _ = self._get(self.API_GET_BLOCK_DETAILS.format(state_id))
+        data, _ = self._get(self.API_GET_BLOCK_DETAILS, state_id)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
@@ -74,7 +74,7 @@ class ConsensusClient(HTTPProvider):
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
-            data, _ = self._get(self.API_GET_VALIDATORS.format(blockstamp.state_root), params={'id': pub_keys})
+            data, _ = self._get(self.API_GET_VALIDATORS, blockstamp.state_root, query_params={'id': pub_keys})
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getStateValidators")
             return data
@@ -82,14 +82,8 @@ class ConsensusClient(HTTPProvider):
             # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
             # Trying to get validators by slot number
             if 'State not found: state not found in the last' in error.text:
-                data, _ = self._get(self.API_GET_VALIDATORS.format(blockstamp.slot_number), params={'id': pub_keys})
+                data, _ = self._get(self.API_GET_VALIDATORS, blockstamp.slot_number, query_params={'id': pub_keys})
                 if not isinstance(data, list):
                     raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
                 return data
             raise error from error
-
-    def _url_to_request_name_label(self, url: str) -> str:
-        return 'eth/' + '/'.join(
-            ['{param}' if ('0x' in part or part.isdigit()) else part
-             for part in url.split('eth/')[1].split('?')[0].split('/')]
-        )

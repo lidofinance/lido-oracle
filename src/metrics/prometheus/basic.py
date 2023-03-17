@@ -40,21 +40,21 @@ FUNCTIONS_DURATION = Histogram(
 EL_REQUESTS_DURATION = Histogram(
     'el_requests_duration',
     'Duration of requests to EL RPC',
-    ['name', 'call_method', 'call_to', 'code', 'domain'],
+    ['endpoint', 'call_method', 'call_to', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
 CL_REQUESTS_DURATION = Histogram(
     'cl_requests_duration',
     'Duration of requests to CL API',
-    ['name', 'code', 'domain'],
+    ['endpoint', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
 KEYS_API_REQUESTS_DURATION = Histogram(
     'keys_api_requests_duration',
     'Duration of requests to Keys API',
-    ['name', 'code', 'domain'],
+    ['endpoint', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
