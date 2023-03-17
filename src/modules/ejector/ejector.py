@@ -17,7 +17,7 @@ from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.typings import Validator
-from src.services.exit_order import ValidatorToExitIterator
+from src.services.exit_order import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
@@ -116,10 +116,10 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
-        validators_iterator = ValidatorToExitIterator(
-            w3=self.w3,
+        validators_iterator = ExitOrderIterator(
+            web3=self.w3,
             blockstamp=blockstamp,
-            c_conf=chain_config,
+            chain_config=chain_config
         )
 
         for validator in validators_iterator:

@@ -27,6 +27,11 @@ def is_on_exit(validator: Validator) -> bool:
     return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
 
 
+def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
+    """Validator age in epochs from activation to ref_epoch"""
+    return max(ref_epoch - int(validator.validator.activation_epoch), 0)
+
+
 def is_partially_withdrawable_validator(validator: Validator) -> bool:
     """
     Check if `validator` is partially withdrawable
