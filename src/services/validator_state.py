@@ -186,7 +186,7 @@ class LidoValidatorStateService:
         """
         lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_indexes = self.get_operators_with_last_exited_validator_indexes(blockstamp)
-        recent_indexes = self.get_recently_requests_to_exit_indexes(
+        recent_indexes = self.get_recently_requests_to_exit_indexes_by_operators(
             blockstamp, chain_config, lido_validators_by_operator.keys()
         )
 
@@ -225,7 +225,7 @@ class LidoValidatorStateService:
 
         return validators_recently_requested_to_exit
 
-    def get_recently_requests_to_exit_indexes(
+    def get_recently_requests_to_exit_indexes_by_operators(
         self,
         blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,

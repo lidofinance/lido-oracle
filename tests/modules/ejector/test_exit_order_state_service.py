@@ -121,7 +121,7 @@ def mock_get_recently_requests_to_exit_indexes(exit_order_state):
 
         return responses[blockstamp.slot_number]
 
-    exit_order_state.get_recently_requests_to_exit_indexes = Mock(side_effect=_get_recently_requests_to_exit_indexes)
+    exit_order_state.get_recently_requests_to_exit_indexes_by_operators = Mock(side_effect=_get_recently_requests_to_exit_indexes)
 
 
 @pytest.fixture
