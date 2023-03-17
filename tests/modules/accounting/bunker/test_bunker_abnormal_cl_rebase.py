@@ -1,7 +1,7 @@
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.typings import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.typings import BunkerConfig
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
@@ -15,13 +15,11 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=balance,
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
                 effective_balance=effective_balance,
                 slashed=False,
-                activation_eligibility_epoch='',
                 activation_epoch='0',
                 exit_epoch=FAR_FUTURE_EPOCH,
                 withdrawable_epoch=FAR_FUTURE_EPOCH,

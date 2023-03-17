@@ -131,21 +131,17 @@ def test_get_exitable_lido_validators(validator_exit):
         return LidoValidator(
             lido_id=LidoKey(
                 key=f'0x{index}',
-                depositSignature='',
                 operatorIndex=operator,
-                used=True,
                 moduleAddress=module_address
             ),
             **asdict(Validator(
                 index=index,
                 balance='0',
-                status='active',
                 validator=ValidatorState(
                     pubkey=f'0x{index}',
                     withdrawal_credentials='',
                     effective_balance='0',
                     slashed=False,
-                    activation_eligibility_epoch='0',
                     activation_epoch=str(activation_epoch),
                     exit_epoch=str(exit_epoch),
                     withdrawable_epoch=''

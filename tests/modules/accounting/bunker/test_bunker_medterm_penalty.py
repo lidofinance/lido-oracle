@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.typings import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.typings import EpochNumber, ReferenceBlockStamp
 
@@ -21,13 +21,11 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=str(32 * 10 ** 9),
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
                 effective_balance=str(32 * 10 ** 9),
                 slashed=slashed,
-                activation_eligibility_epoch='',
                 activation_epoch='0',
                 exit_epoch=exit_epoch,
                 withdrawable_epoch=withdrawable_epoch,

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
 from src.typings import BlockRoot, StateRoot
@@ -15,16 +14,13 @@ class BlockRootResponse(FromResponse):
 @dataclass
 class BlockHeaderMessage(FromResponse):
     slot: str
-    proposer_index: str
     parent_root: BlockRoot
     state_root: StateRoot
-    body_root: str
 
 
 @dataclass
 class BlockHeader(Nested, FromResponse):
     message: BlockHeaderMessage
-    signature: str
 
 
 @dataclass
@@ -38,33 +34,28 @@ class BlockHeaderResponseData(Nested, FromResponse):
 @dataclass
 class BlockHeaderFullResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
-    execution_optimistic: bool
     data: BlockHeaderResponseData
     finalized: Optional[bool] = None
 
 
 @dataclass
-class BlockMessage(FromResponse):
+class ExecutionPayload(FromResponse):
+    block_number: str
+    block_hash: str
+    timestamp: str
+
+
+@dataclass
+class BlockMessageBody(Nested, FromResponse):
+    execution_payload: ExecutionPayload
+
+
+@dataclass
+class BlockMessage(Nested, FromResponse):
     slot: str
-    proposer_index: str
     parent_root: str
     state_root: StateRoot
-    body: dict
-
-
-class ValidatorStatus(Enum):
-    PENDING_INITIALIZED = 'pending_initialized'
-    PENDING_QUEUED = 'pending_queued'
-
-    ACTIVE_ONGOING = 'active_ongoing'
-    ACTIVE_EXITING = 'active_exiting'
-    ACTIVE_SLASHED = 'active_slashed'
-
-    EXITED_UNSLASHED = 'exited_unslashed'
-    EXITED_SLASHED = 'exited_slashed'
-
-    WITHDRAWAL_POSSIBLE = 'withdrawal_possible'
-    WITHDRAWAL_DONE = 'withdrawal_done'
+    body: BlockMessageBody
 
 
 @dataclass
@@ -74,7 +65,6 @@ class ValidatorState(FromResponse):
     withdrawal_credentials: str
     effective_balance: str
     slashed: bool
-    activation_eligibility_epoch: str
     activation_epoch: str
     exit_epoch: str
     withdrawable_epoch: str
@@ -84,7 +74,6 @@ class ValidatorState(FromResponse):
 class Validator(Nested, FromResponse):
     index: str
     balance: str
-    status: ValidatorStatus
     validator: ValidatorState
 
 
@@ -92,4 +81,3 @@ class Validator(Nested, FromResponse):
 class BlockDetailsResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
     message: BlockMessage
-    signature: str

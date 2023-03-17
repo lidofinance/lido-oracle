@@ -140,9 +140,9 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
     return ReferenceBlockStamp(
         slot_number=SlotNumber(int(slot_details.message.slot)),
         state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
-        block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
+        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
+        block_hash=slot_details.message.body.execution_payload.block_hash,
+        block_timestamp=Timestamp(int(slot_details.message.body.execution_payload.timestamp)),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
     )

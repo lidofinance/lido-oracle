@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.typings import Validator, ValidatorState
 from src.services.bunker import BunkerService
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
@@ -29,13 +29,11 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
     return Validator(
         index=str(index),
         balance=str(balance),
-        status=ValidatorStatus.ACTIVE_ONGOING,
         validator=ValidatorState(
             pubkey=pubkey,
             withdrawal_credentials='',
             effective_balance=str(32 * 10 ** 9),
             slashed=slashed,
-            activation_eligibility_epoch='',
             activation_epoch='0',
             exit_epoch='100500',
             withdrawable_epoch=withdrawable_epoch,

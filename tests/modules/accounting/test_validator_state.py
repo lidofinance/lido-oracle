@@ -36,21 +36,17 @@ class MockValidatorsProvider(LidoValidatorsProvider):
             return LidoValidator(
                 lido_id=LidoKey(
                     key=pubkey,
-                    depositSignature="",
                     operatorIndex=-1,
-                    used=True,
                     moduleAddress="",
                 ),
                 **asdict(Validator(
                     index=str(index),
                     balance="0",
-                    status="",
                     validator=ValidatorState(
                         pubkey=pubkey,
                         withdrawal_credentials="0x1",
                         effective_balance="0",
                         slashed=False,
-                        activation_eligibility_epoch="0",
                         activation_epoch=str(activation_epoch),
                         exit_epoch=str(exit_epoch),
                         withdrawable_epoch="0",

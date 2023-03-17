@@ -259,7 +259,6 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
         pubkey=None,
         withdrawal_credentials=None,
         effective_balance=None,
-        activation_eligibility_epoch=None,
         activation_epoch=None,
         slashed=slashed,
         exit_epoch=exit_epoch,
@@ -268,4 +267,4 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
 
 
 def create_validator(validator: ValidatorState) -> Validator:
-    return Validator(validator=validator, status=None, index=None, balance=None)
+    return Validator(validator=validator, index=None, balance=None)
