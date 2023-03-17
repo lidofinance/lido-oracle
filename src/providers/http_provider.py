@@ -73,7 +73,7 @@ class HTTPProvider(ABC):
             else:
                 data = json_response
                 meta = {}
-        except (KeyError, JSONDecodeError) as error:
+        except JSONDecodeError as error:
             msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
             logger.debug({'msg': msg})
             raise error from error
