@@ -18,7 +18,7 @@ from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.typings import Validator
-from src.services.exit_order import ValidatorToExitIterator
+from src.services.exit_order import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
@@ -64,12 +64,12 @@ class Ejector(BaseModule, ConsensusModule):
         self.validators_state_service = LidoValidatorStateService(w3)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        if self._is_paused():  # no way to send report if is on pause at the moment
-            logger.info({'msg': 'Ejector is paused. Skip report.'})
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+        if self._is_paused(report_blockstamp):
+            logger.info({'msg': 'Ejector is paused. Skip report.'})
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -118,10 +118,10 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
-        validators_iterator = ValidatorToExitIterator(
-            w3=self.w3,
+        validators_iterator = ExitOrderIterator(
+            web3=self.w3,
             blockstamp=blockstamp,
-            c_conf=chain_config,
+            chain_config=chain_config
         )
 
         for validator in validators_iterator:
@@ -139,8 +139,8 @@ class Ejector(BaseModule, ConsensusModule):
 
         return validators_to_eject
 
-    def _is_paused(self) -> bool:
-        return self.report_contract.functions.isPaused().call()
+    def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
+        return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
