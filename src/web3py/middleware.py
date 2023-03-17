@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 from typing import Any, Callable
 from urllib.parse import urlparse
 
@@ -21,6 +23,13 @@ def metrics_collector(
     EL_REQUESTS_DURATION - HISTOGRAM with requests time, count, response codes and request domain.
     """
 
+    contracts = []
+
+    abi_dir = './assets/'
+    for filename in os.listdir(abi_dir):
+        with open(os.path.join(abi_dir, filename), 'r') as f:
+            contracts.append(w3.eth.contract(abi=json.load(f)))
+
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         try:
             # Works only with HTTP and Websocket Provider
@@ -30,12 +39,16 @@ def metrics_collector(
 
         call_method = ''
         call_to = ''
-        if hasattr(w3, 'lido_contracts'):
-            if method == 'eth_call':
-                args = params[0]
-                call_to = args['to']
-                if contract := w3.lido_contracts.contracts_dict.get(call_to):
-                    call_method = contract.get_function_by_selector(args['data']).fn_name or args['data']
+        if method == 'eth_call':
+            args = params[0]
+            call_to = args['to']
+            for contract in contracts:
+                try:
+                    call_method = contract.get_function_by_selector(args['data']).fn_name
+                except ValueError:
+                    pass
+                if call_method:
+                    break
         if method == 'eth_getBalance':
             call_to = params[0]
 
