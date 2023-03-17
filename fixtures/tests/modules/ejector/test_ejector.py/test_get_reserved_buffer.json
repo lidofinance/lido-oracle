@@ -1,0 +1,17 @@
+[
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0xEC9ac956D7C7fE5a94919fD23BAc4a42f950A403",
+        "data": "0x47b714e0"
+      },
+      "0x4372578a683ba1c85c259a42492efbe0de9a28b1ac050b5e61065499ab80b0ca"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x000000000000000000000000000000000000000000000001ae361fc1451c0000"
+    }
+  }
+]
