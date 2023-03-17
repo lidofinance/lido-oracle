@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 from hexbytes import HexBytes
 from src import variables
-from src.modules.accounting.typings import Account
+from src.modules.accounting.typings import Account, ReportData
 from src.modules.submodules.typings import ChainConfig, FrameConfig, ZERO_HASH
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -35,7 +35,7 @@ def test_process_report_main(consensus, tx_utils, caplog):
     member_info = MemberInfoFactory.build(is_report_member=True, current_frame_consensus_report=ZERO_HASH)
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
-    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_data = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15).as_tuple()
     consensus.build_report = Mock(return_value=report_data)
 
     consensus.process_report(blockstamp)
@@ -47,10 +47,10 @@ def test_process_report_main(consensus, tx_utils, caplog):
 
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
-    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
-    report_hash = consensus._get_report_hash(report_data)
+    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_hash = consensus._get_report_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == b'\x10\xb7_&\xde\r\\\xbc\xc6a\xb5\xa1\x83u\xf6\x14\xf6:\xf9\r6:\x8cQ\xf6\xb2^\xffG\xee\xf5\xc1'
+    assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
 
 
 # ------ Process report hash -----------
@@ -152,7 +152,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
         genesis_time=0,
     ))
     blockstamp = ReferenceBlockStampFactory.build()
-    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_data = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
     consensus.is_main_data_submitted = Mock(return_value=False)
@@ -160,7 +160,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
-    assert "Send report data. Contract version: [1]" in caplog.messages[-2]
+    assert "Send report data. Contract version: [1]" in caplog.text
 
 
 def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
@@ -180,12 +180,12 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 10000 slots before sending data." in caplog.text
-    assert "Main data was submitted." in caplog.messages[-1]
+    assert "Main data was submitted." in caplog.text
 
 
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
-    report_data = (1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, 12, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    report_data = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
     main_data_submitted_base = [False, False]
@@ -193,7 +193,7 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     consensus._get_slot_delay_before_data_submit = Mock(return_value=0)
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Send report data. Contract version: [1]" in caplog.messages[-2]
+    assert "Send report data. Contract version: [1]" in caplog.text
 
 
 # ----- Test sleep calculations

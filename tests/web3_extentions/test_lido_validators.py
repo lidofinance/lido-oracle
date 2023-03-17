@@ -1,24 +1,27 @@
+from unittest.mock import Mock
+
 import pytest
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.no_registry import ValidatorFactory, LidoKeyFactory
 
-
-blockstamp = ReferenceBlockStampFactory.build(
-    state_root='0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e'
-)
+blockstamp = ReferenceBlockStampFactory.build()
 
 
 @pytest.mark.unit
 def test_get_lido_validators(web3, lido_validators):
-    validators_in_cc = web3.cc.get_validators(blockstamp)
+    validators = ValidatorFactory.batch(30)
+    lido_keys = LidoKeyFactory.generate_for_validators(validators[:10])
+    lido_keys.extend(LidoKeyFactory.batch(5))
 
-    lido_keys = web3.kac.get_all_lido_keys(blockstamp)
+    web3.cc.get_validators = Mock(return_value=validators)
+    web3.kac.get_all_lido_keys = Mock(return_value=lido_keys)
 
     lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
 
-    assert len(lido_validators) == 5
+    assert len(lido_validators) == 10
     assert len(lido_keys) != len(lido_validators)
-    assert len(validators_in_cc) != len(lido_validators)
+    assert len(validators) != len(lido_validators)
 
     for v in lido_validators:
         assert v.lido_id.key == v.validator.pubkey
@@ -31,8 +34,8 @@ def test_get_node_operators(web3, lido_validators, contracts):
     assert len(node_operators) == 2
 
     registry_map = {
-        0: '0x8a1E2986E52b441058325c315f83C9D4129bDF72',
-        1: '0x8a1E2986E52b441058325c315f83C9D4129bDF72',
+        0: '0xB099EC462e42Ac2570fB298B42083D7A499045D8',
+        1: '0xB099EC462e42Ac2570fB298B42083D7A499045D8',
     }
 
     for no in node_operators:
@@ -44,5 +47,5 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
     no_validators = web3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
     assert len(no_validators.keys()) == 2
-    assert len(no_validators[(1, 0)]) == 5
-    assert len(no_validators[(1, 1)]) == 0
+    assert len(no_validators[(1, 0)]) == 10
+    assert len(no_validators[(1, 1)]) == 7

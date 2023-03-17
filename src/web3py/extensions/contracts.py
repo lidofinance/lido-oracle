@@ -48,7 +48,7 @@ class LidoContracts(Module):
 
         self.withdrawal_queue_nft = self.w3.eth.contract(
             address=self.lido_locator.functions.withdrawalQueue().call(),
-            abi=self.load_abi('WithdrawalRequestNFT'),
+            abi=self.load_abi('WithdrawalQueueERC721'),
             decode_tuples=True,
         )
 
@@ -64,6 +64,12 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
+        self.burner = self.w3.eth.contract(
+            address=self.lido_locator.functions.burner().call(),
+            abi=self.load_abi('Burner'),
+            decode_tuples=True,
+        )
+
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):
         with open(f'{abi_path}{abi_name}.json') as f:
@@ -71,6 +77,9 @@ class LidoContracts(Module):
 
     @lru_cache(maxsize=1)
     def get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
+        return self.get_withdrawal_balance_no_cache(blockstamp)
+
+    def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
             self.lido_locator.functions.withdrawalVault().call(
                 block_identifier=blockstamp.block_hash

@@ -109,14 +109,12 @@ def keys_api_client(request, responses_path, web3):
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
-    old_locator = src.variables.LIDO_LOCATOR_ADDRESS
-    src.variables.LIDO_LOCATOR_ADDRESS = "0x12cd349E19Ab2ADBE478Fc538A66C059Cf40CFeC"
-    with provider.use_mock(Path('common/contracts.v1.json')):
+    src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
+    with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment
         web3.attach_modules({
             'lido_contracts': LidoContracts,
         })
-    src.variables.LIDO_LOCATOR_ADDRESS = old_locator
 
 
 # ---- Transaction Utils

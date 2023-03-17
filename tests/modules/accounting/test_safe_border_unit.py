@@ -6,7 +6,7 @@ from src.services.safe_border import SafeBorder
 from src.web3py.extensions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from tests.conftest import get_blockstamp_by_state
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2 ** 8
@@ -31,6 +31,11 @@ def frame_config():
 
 
 @pytest.fixture()
+def past_blockstamp():
+    yield ReferenceBlockStampFactory.build()
+
+
+@pytest.fixture()
 def subject(
     chain_config,
     frame_config,
@@ -43,15 +48,11 @@ def subject(
 ):
     return SafeBorder(web3, past_blockstamp, chain_config, frame_config)
 
-@pytest.fixture()
-def past_blockstamp(web3, consensus_client):
-    return get_blockstamp_by_state(web3, 'finalized')
-
 
 def test_get_new_requests_border_epoch(subject, past_blockstamp):
-    assert subject._get_default_requests_border_epoch() == past_blockstamp.ref_slot // (
-            SLOTS_PER_EPOCH - subject.finalization_default_shift
-    )
+    border = subject._get_default_requests_border_epoch()
+
+    assert border == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - subject.finalization_default_shift
 
 
 def test_calc_validator_slashed_epoch_from_state(subject):
@@ -194,8 +195,12 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject
             non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
     )
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(subject, past_blockstamp,
-                                                                                                lido_validators):
+
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(
+    subject,
+    past_blockstamp,
+    lido_validators,
+):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(

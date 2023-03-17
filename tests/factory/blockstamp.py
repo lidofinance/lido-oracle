@@ -8,21 +8,21 @@ from src.typings import BlockStamp, StateRoot, SlotNumber, BlockHash, ReferenceB
 class BlockStampFactory(Web3Factory):
     __model__ = BlockStamp
 
-    state_root: StateRoot = StateRoot(HexStr('0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e'))
-    slot_number: SlotNumber = SlotNumber(113500)
-    block_hash: BlockHash = BlockHash(HexStr('0x4372578a683ba1c85c259a42492efbe0de9a28b1ac050b5e61065499ab80b0ca'))
-    block_number: BlockNumber = BlockNumber(108006)
-    block_timestamp: Timestamp = Timestamp(0)
+    state_root: StateRoot = StateRoot(HexStr('0xc4298fa1a4df250710d3e13d16fae7e4cc3ad52809745d86e1f1772abe04702b'))
+    slot_number: SlotNumber = SlotNumber(294271)
+    block_hash: BlockHash = BlockHash(HexStr('0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b'))
+    block_number: BlockNumber = BlockNumber(281479)
+    block_timestamp: Timestamp = Timestamp(1678794852)
 
 
 class ReferenceBlockStampFactory(Web3Factory):
     __model__ = ReferenceBlockStamp
 
-    state_root: StateRoot = StateRoot(HexStr('0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e'))
-    slot_number: SlotNumber = SlotNumber(113500)
-    block_hash: BlockHash = BlockHash(HexStr('0x4372578a683ba1c85c259a42492efbe0de9a28b1ac050b5e61065499ab80b0ca'))
-    block_number: BlockNumber = BlockNumber(108006)
-    block_timestamp: Timestamp = Timestamp(0)
+    state_root: StateRoot = StateRoot(HexStr('0xc4298fa1a4df250710d3e13d16fae7e4cc3ad52809745d86e1f1772abe04702b'))
+    slot_number: SlotNumber = SlotNumber(294271)
+    block_hash: BlockHash = BlockHash(HexStr('0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b'))
+    block_number: BlockNumber = BlockNumber(281479)
+    block_timestamp: Timestamp = Timestamp(1678794852)
 
-    ref_slot: SlotNumber = SlotNumber(113500)
-    ref_epoch: EpochNumber = EpochNumber(113500//32)
+    ref_slot: SlotNumber = SlotNumber(294271)
+    ref_epoch: EpochNumber = EpochNumber(9195)

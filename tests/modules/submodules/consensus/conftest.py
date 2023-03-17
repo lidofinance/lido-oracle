@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.submodules.consensus import ConsensusModule
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockNumber, EpochNumber
+from src.typings import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):
@@ -19,6 +19,9 @@ class SimpleConsensusModule(ConsensusModule):
         return True
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
+        return True
+
+    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
         return True
 
 

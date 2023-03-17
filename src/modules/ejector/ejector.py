@@ -208,6 +208,11 @@ class Ejector(BaseModule, ConsensusModule):
 
     @staticmethod
     def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):
+        """
+        Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+
+        Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+        """
         return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
     @lru_cache(maxsize=1)
@@ -267,3 +272,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
+
+    def check_sanity(self, blockstamp: BlockStamp) -> bool:
+        """At this point we can't check anything, so just return True."""
+        return True

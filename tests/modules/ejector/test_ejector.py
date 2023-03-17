@@ -176,7 +176,7 @@ class TestGetValidatorsToEject:
 @pytest.mark.usefixtures("contracts")
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
-    assert result == 2181000000000000000, "Unexpected unfinalized stETH"
+    assert result == 8362187000000000000, "Unexpected unfinalized stETH"
 
 
 @pytest.mark.unit
@@ -311,7 +311,7 @@ def test_get_sweep_delay_in_epochs(
 @pytest.mark.usefixtures("contracts")
 def test_get_reserved_buffer(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector._get_reserved_buffer(blockstamp)
-    assert result == 31 * 10**18, "Unexpected reserved buffer"
+    assert result == 2991010000000000000010, "Unexpected reserved buffer"
 
 
 @pytest.mark.usefixtures("contracts")
