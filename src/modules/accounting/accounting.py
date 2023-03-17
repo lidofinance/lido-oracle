@@ -99,14 +99,13 @@ class Accounting(BaseModule, ConsensusModule):
     def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
         frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
-        if frame_cl_rebase < 0:
-            logger.warning({'msg': '!' * 50})
-            logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
-            logger.warning({'msg': '!' * 50})
-            if ALLOW_NEGATIVE_REBASE_REPORTING:
-                return True
-            return False
-        return True
+        if frame_cl_rebase >= 0:
+            return True
+
+        logger.warning({'msg': '!' * 50})
+        logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+        logger.warning({'msg': '!' * 50})
+        return ALLOW_NEGATIVE_REBASE_REPORTING
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
@@ -205,7 +204,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
-        simulation = self.simulate_el_rebase(blockstamp)
+        simulation = self.simulate_full_rebase(blockstamp)
         shares_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
         logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
         return shares_rate
@@ -213,7 +212,7 @@ class Accounting(BaseModule, ConsensusModule):
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
         return self.simulate_rebase_after_report(blockstamp)
 
-    def simulate_el_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 

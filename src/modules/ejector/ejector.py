@@ -267,4 +267,5 @@ class Ejector(BaseModule, ConsensusModule):
         return not self.is_main_data_submitted(blockstamp)
 
     def check_sanity(self, blockstamp: BlockStamp) -> bool:
+        """At this point we can't check anything, so just return True."""
         return True

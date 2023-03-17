@@ -65,7 +65,7 @@ def test_get_finalization_shares_rate(accounting_module, post_total_pooled_ether
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
     )
-    accounting_module.simulate_el_rebase = Mock(return_value=lido_rebase)
+    accounting_module.simulate_full_rebase = Mock(return_value=lido_rebase)
 
     bs = ReferenceBlockStampFactory.build()
     share_rate = accounting_module._get_finalization_shares_rate(bs)

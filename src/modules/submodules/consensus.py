@@ -199,6 +199,8 @@ class ConsensusModule(ABC):
 
         report_hash = self._get_report_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        # We need to check whether report has unexpected data before sending.
+        # otherwise we have to check it manually.
         if not self.check_sanity(blockstamp):
             logger.warning({'msg': 'Sanity check is not passed. Report will not be sent.'})
             return
@@ -358,4 +360,4 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
-        """Check if collected report data is valid."""
+        """Check if collected build output is unexpected and need to be checked manually."""
