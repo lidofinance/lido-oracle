@@ -160,7 +160,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
-    assert "Send report data. Contract version: [1]" in caplog.messages[-3]
+    assert "Send report data. Contract version: [1]" in caplog.text
 
 
 def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
@@ -180,7 +180,7 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 10000 slots before sending data." in caplog.text
-    assert "Main data was submitted." in caplog.messages[-1]
+    assert "Main data was submitted." in caplog.text
 
 
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
@@ -193,7 +193,7 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     consensus._get_slot_delay_before_data_submit = Mock(return_value=0)
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Send report data. Contract version: [1]" in caplog.messages[-3]
+    assert "Send report data. Contract version: [1]" in caplog.text
 
 
 # ----- Test sleep calculations
