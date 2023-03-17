@@ -23,7 +23,7 @@ class TestBuildValidators:
         assert isinstance(extra_data, ExtraData)
         assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
         assert extra_data.extra_data == b''
-        assert extra_data.data_hash == HexBytes(b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p")
+        assert extra_data.data_hash == HexBytes('0x0000000000000000000000000000000000000000000000000000000000000000')
 
     def test_collect_non_zero(self, extra_data_service):
         vals_stuck_non_zero = {

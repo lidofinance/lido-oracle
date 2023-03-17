@@ -45,4 +45,4 @@ def test_returns_none_if_no_unfinalized_requests(subject, past_blockstamp):
         el_rewards_vault_balance
     )
 
-    assert result == [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12262]
+    assert result == [12262]

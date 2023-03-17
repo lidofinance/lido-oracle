@@ -35,9 +35,9 @@ class ReportData:
             self.cl_balance_gwei,
             self.staking_module_id_with_exited_validators,
             self.count_exited_validators_by_staking_module,
-            self.shares_requested_to_burn,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
+            self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.finalization_share_rate,
             self.is_bunker,
@@ -103,6 +103,7 @@ class BatchState:
         )
 
 
+@dataclass
 class SharesRequestedToBurn:
     cover_shares: int
     non_cover_shares: int

@@ -24,7 +24,7 @@ def test_hash_calculations(consensus):
     rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
     report_hash = consensus._get_report_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xd3e5057187b661362378c0e32284bde3c9b0cb54e904ee5c1204b04e64f1c328')
+    assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
 
 
 # ------ Process report hash -----------
