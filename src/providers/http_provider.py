@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Optional, Tuple, Union, Sequence
+from typing import Optional, Tuple, Sequence
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
@@ -42,7 +42,7 @@ class HTTPProvider(ABC):
         self.session.mount("http://", adapter)
 
     def _get(
-        self, endpoint: str, path_param: Optional[Sequence[Union[str, int]]] = None, query_params: Optional[dict] = None
+        self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None
     ) -> Tuple[dict | list, dict]:
         """
         Returns (data, meta)
@@ -50,7 +50,7 @@ class HTTPProvider(ABC):
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    urljoin(self.host, endpoint.format(*path_param) if path_param else endpoint),
+                    urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
                     params=query_params,
                     timeout=self.REQUEST_TIMEOUT,
                 )
