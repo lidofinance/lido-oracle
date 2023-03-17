@@ -1,7 +1,7 @@
 import logging
 
-from src.constants import GWEI_TO_WEI, TOTAL_BASIS_POINTS
-from src.metrics.prometheus.task import task
+from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.validators import ALL_VALIDATORS, LIDO_VALIDATORS, ALL_SLASHED_VALIDATORS, \
     LIDO_SLASHED_VALIDATORS
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
@@ -25,7 +25,7 @@ class BunkerService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-    @task("check-bunker-mode")
+    @duration_meter()
     def is_bunker_mode(
         self,
         blockstamp: ReferenceBlockStamp,

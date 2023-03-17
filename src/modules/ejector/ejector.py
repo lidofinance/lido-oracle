@@ -12,12 +12,12 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
     EJECTOR_MAX_EXIT_EPOCH
 )
-from src.metrics.prometheus.task import task
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -77,7 +77,7 @@ class Ejector(BaseModule, ConsensusModule):
         return False
 
     @lru_cache(maxsize=1)
-    @task("ejector-build-report")
+    @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         validators = self.get_validators_to_eject(blockstamp)
         logger.info({'msg': f'Calculate validators to eject. Count: {len(validators)}', 'value': validators})

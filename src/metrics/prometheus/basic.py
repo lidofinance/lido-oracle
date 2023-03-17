@@ -1,6 +1,6 @@
 from enum import Enum
 
-from prometheus_client import Gauge, Histogram, Counter
+from prometheus_client import Gauge, Histogram, Counter, Info
 
 from src.variables import PROMETHEUS_PREFIX
 
@@ -10,25 +10,18 @@ class Status(Enum):
     FAILURE = 'failure'
 
 
-BUILD_INFO = Gauge(
-    'build_info',
+BUILD_INFO = Info(
+    'build',
     'Build info',
-    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-ENV_VARIABLE_METRIC = Gauge(
-    'env_variable',
+ENV_VARIABLES_INFO = Info(
+    'env_variables',
     'Env variables for the app',
-    ['name'],
     namespace=PROMETHEUS_PREFIX,
 )
 
-DRY_RUN = Gauge(
-    "oracle_dry_run",
-    "Oracle dry run",
-    namespace=PROMETHEUS_PREFIX,
-)
 
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
@@ -37,16 +30,9 @@ ACCOUNT_BALANCE = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-TASKS_DURATION = Histogram(
-    'tasks_duration',
+FUNCTIONS_DURATION = Histogram(
+    'functions_duration',
     'Duration of oracle daemon tasks',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-TASKS_COUNT = Counter(
-    'tasks_count',
-    'Oracle daemon tasks count',
     ['name', 'status'],
     namespace=PROMETHEUS_PREFIX,
 )
@@ -54,42 +40,21 @@ TASKS_COUNT = Counter(
 EL_REQUESTS_DURATION = Histogram(
     'el_requests_duration',
     'Duration of requests to EL RPC',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-EL_REQUESTS_COUNT = Counter(
-    'el_requests_count',
-    'Total count of requests to EL RPC',
-    ['name', 'code', 'domain'],
+    ['endpoint', 'call_method', 'call_to', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
 CL_REQUESTS_DURATION = Histogram(
     'cl_requests_duration',
     'Duration of requests to CL API',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-CL_REQUESTS_COUNT = Counter(
-    'cl_requests_count',
-    'Total count of requests to CL API',
-    ['name', 'code', 'domain'],
+    ['endpoint', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 
 KEYS_API_REQUESTS_DURATION = Histogram(
     'keys_api_requests_duration',
     'Duration of requests to Keys API',
-    ['name'],
-    namespace=PROMETHEUS_PREFIX,
-)
-
-KEYS_API_REQUESTS_COUNT = Counter(
-    'keys_api_requests_count',
-    'Total count of requests to Keys API',
-    ['name', 'code', 'domain'],
+    ['endpoint', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 

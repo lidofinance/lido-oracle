@@ -1,6 +1,7 @@
 import json
 from functools import lru_cache
 
+from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.module import Module
 from web3.types import Wei
@@ -8,6 +9,7 @@ from web3.types import Wei
 from src import variables
 from src.metrics.prometheus.business import FRAME_LAST_REPORT_REF_SLOT
 from src.typings import BlockStamp, SlotNumber
+from src.web3py.contract_tweak import Contract
 
 
 class LidoContracts(Module):
@@ -70,6 +72,13 @@ class LidoContracts(Module):
             abi=self.load_abi('Burner'),
             decode_tuples=True,
         )
+
+    @property
+    def contracts_dict(self) -> dict[ChecksumAddress, Contract]:
+        return {
+            contract.address: contract
+            for contract in filter(lambda attr: isinstance(attr, Contract), self.__dict__.values())
+        }
 
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):
