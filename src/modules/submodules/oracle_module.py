@@ -6,6 +6,7 @@ from enum import Enum
 
 from timeout_decorator import timeout
 
+from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -58,6 +59,7 @@ class BaseModule(ABC):
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
+                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
@@ -68,6 +70,7 @@ class BaseModule(ABC):
         block_details = self.w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
+        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:

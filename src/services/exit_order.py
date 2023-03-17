@@ -2,6 +2,7 @@ from typing import Iterator
 
 from eth_typing import ChecksumAddress
 
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.typings import ChainConfig
 from src.services.exit_order_state import ExitOrderStateService, NodeOperatorPredictableState
 from src.typings import ReferenceBlockStamp
@@ -39,6 +40,7 @@ class ExitOrderIterator:
         self.blockstamp = blockstamp
         self.chain_config = chain_config
 
+    @duration_meter()
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Prepare queue state for the iteration:.
@@ -67,6 +69,7 @@ class ExitOrderIterator:
         }
         return self
 
+    @duration_meter()
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
         if self.left_queue_count >= self.max_validators_to_exit:
             raise StopIteration

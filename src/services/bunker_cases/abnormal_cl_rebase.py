@@ -231,7 +231,7 @@ class AbnormalClRebase:
 
     def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
         """Get ETHDistributed events between blocks"""
-        return self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(
+        return self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(  # type: ignore[attr-defined]
             fromBlock=from_block,
             toBlock=to_block,
         )
