@@ -28,7 +28,10 @@ def metrics_collector(
     abi_dir = './assets/'
     for filename in os.listdir(abi_dir):
         with open(os.path.join(abi_dir, filename), 'r') as f:
-            contracts.append(w3.eth.contract(abi=json.load(f)))
+            try:
+                contracts.append(w3.eth.contract(abi=json.load(f)))
+            except json.JSONDecodeError:
+                pass
 
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         try:
