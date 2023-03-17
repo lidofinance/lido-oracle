@@ -30,8 +30,8 @@ ACCOUNT_BALANCE = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-TASKS_DURATION = Histogram(
-    'tasks_duration',
+FUNCTIONS_DURATION = Histogram(
+    'functions_duration',
     'Duration of oracle daemon tasks',
     ['name', 'status'],
     namespace=PROMETHEUS_PREFIX,
@@ -40,7 +40,7 @@ TASKS_DURATION = Histogram(
 EL_REQUESTS_DURATION = Histogram(
     'el_requests_duration',
     'Duration of requests to EL RPC',
-    ['name', 'code', 'domain'],
+    ['name', 'call_method', 'call_to', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
 )
 

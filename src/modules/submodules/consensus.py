@@ -96,7 +96,7 @@ class ConsensusModule(ABC):
         current_frame = self.get_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
-        last_member_report_ref_slot = None
+        last_member_report_ref_slot = 0
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
