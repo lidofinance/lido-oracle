@@ -132,9 +132,9 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def _get(self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None) -> dict | list:
         url = endpoint.format(*path_params) if path_params else endpoint
         try:
-            response = self.from_file._get(url, query_params)  # pylint: disable=protected-access
+            response = self.from_file._get(url, query_params=query_params)  # pylint: disable=protected-access
         except NoMockException:
-            response = super()._get(url, query_params)
+            response = super()._get(url, query_params=query_params)
         self.responses.append({"url": url, "params": query_params, "response": response})
         return response
 
