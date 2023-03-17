@@ -70,7 +70,6 @@ def metrics_collector(
                 raise
 
             # https://www.jsonrpc.org/specification#error_object
-            # https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
             error = response.get("error")
             code: int = 0
             if isinstance(error, dict):
