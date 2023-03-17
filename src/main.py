@@ -74,12 +74,12 @@ def main(module_name: OracleModule):
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         accounting = Accounting(web3)
-        accounting.check_sanity()
+        accounting.check_contract_configs()
         accounting.run_as_daemon()
     elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
         ejector = Ejector(web3)
-        ejector.check_sanity()
+        ejector.check_contract_configs()
         ejector.run_as_daemon()
 
 

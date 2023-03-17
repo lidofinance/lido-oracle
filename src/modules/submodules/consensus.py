@@ -40,7 +40,7 @@ class ConsensusModule(ABC):
         if self.CONTRACT_VERSION is None or self.CONSENSUS_VERSION is None:
             raise NotImplementedError('CONTRACT_VERSION and CONSENSUS_VERSION should be set.')
 
-    def check_sanity(self):
+    def check_contract_configs(self):
         root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)
@@ -221,8 +221,8 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         # We need to check whether report has unexpected data before sending.
         # otherwise we have to check it manually.
-        if not self.check_sanity(blockstamp):
-            logger.warning({'msg': 'Sanity check is not passed. Report will not be sent.'})
+        if not self.is_reporting_allowed(blockstamp):
+            logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
             return
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
@@ -377,5 +377,5 @@ class ConsensusModule(ABC):
         """Returns true if contract is ready for report"""
 
     @abstractmethod
-    def check_sanity(self, blockstamp: ReferenceBlockStamp) -> bool:
+    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         """Check if collected build output is unexpected and need to be checked manually."""
