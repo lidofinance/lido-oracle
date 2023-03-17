@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -96,7 +96,7 @@ class ConsensusModule(ABC):
         current_frame = self.get_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
-        last_member_report_ref_slot = 0
+        last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:

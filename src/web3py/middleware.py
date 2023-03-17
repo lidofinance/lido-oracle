@@ -6,7 +6,7 @@ from requests import HTTPError, Response
 from web3.types import RPCEndpoint, RPCResponse
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
-from src.web3py.typings import Web3
+from web3 import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +30,12 @@ def metrics_collector(
 
         call_method = ''
         call_to = ''
-        if endpoint_name == 'eth_call':
-            args = params[0]
-            call_to = args['to']
-            if contract := w3.lido_contracts.contracts_dict.get(call_to, None):
-                call_method = contract.get_function_by_selector(args['data']).fn_name
+        if hasattr(w3, 'lido_contracts'):
+            if endpoint_name == 'eth_call':
+                args = params[0]
+                call_to = args['to']
+                if contract := w3.lido_contracts.contracts_dict.get(call_to, ''):
+                    call_method = contract.get_function_by_selector(args['data']).fn_name
         if endpoint_name == 'eth_getBalance':
             call_to = params[0]
 
