@@ -125,7 +125,7 @@ class TestGetValidatorsToEject:
 
         with monkeypatch.context() as m:
             m.setattr(
-                ejector_module.ValidatorToExitIterator,
+                ejector_module.ExitOrderIterator,
                 "__iter__",
                 Mock(return_value=iter([])),
             )
@@ -164,7 +164,7 @@ class TestGetValidatorsToEject:
 
         with monkeypatch.context() as m:
             m.setattr(
-                ejector_module.ValidatorToExitIterator,
+                ejector_module.ExitOrderIterator,
                 "__iter__",
                 Mock(return_value=iter(validators)),
             )
