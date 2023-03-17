@@ -21,7 +21,7 @@ def metrics_collector(
     EL_REQUESTS_DURATION - HISTOGRAM with requests time, count, response codes and request domain.
     """
 
-    def middleware(endpoint_name: RPCEndpoint, params: Any) -> RPCResponse:
+    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         try:
             # Works only with HTTP and Websocket Provider
             domain = urlparse(getattr(w3.provider, "endpoint_uri")).netloc
@@ -31,21 +31,21 @@ def metrics_collector(
         call_method = ''
         call_to = ''
         if hasattr(w3, 'lido_contracts'):
-            if endpoint_name == 'eth_call':
+            if method == 'eth_call':
                 args = params[0]
                 call_to = args['to']
-                if contract := w3.lido_contracts.contracts_dict.get(call_to, ''):
-                    call_method = contract.get_function_by_selector(args['data']).fn_name
-        if endpoint_name == 'eth_getBalance':
+                if contract := w3.lido_contracts.contracts_dict.get(call_to):
+                    call_method = contract.get_function_by_selector(args['data']).fn_name or args['data']
+        if method == 'eth_getBalance':
             call_to = params[0]
 
         with EL_REQUESTS_DURATION.time() as t:
             try:
-                response = make_request(endpoint_name, params)
+                response = make_request(method, params)
             except HTTPError as ex:
                 failed: Response = ex.response
                 t.labels(
-                    endpoint=endpoint_name,
+                    endpoint=method,
                     call_method=call_method,
                     call_to=call_to,
                     code=failed.status_code,
@@ -61,7 +61,7 @@ def metrics_collector(
                 code = error.get("code") or code
 
             t.labels(
-                endpoint=endpoint_name,
+                endpoint=method,
                 call_method=call_method,
                 call_to=call_to,
                 code=code,
