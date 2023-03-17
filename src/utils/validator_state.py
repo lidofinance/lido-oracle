@@ -8,7 +8,6 @@ from src.constants import (
 )
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei
-from src.web3py.extensions.lido_validators import LidoValidator
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
@@ -26,14 +25,6 @@ def is_exited_validator(validator: Validator, epoch: EpochNumber) -> bool:
 def is_on_exit(validator: Validator) -> bool:
     """Validator exited or is going to exit"""
     return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
-
-
-def is_exitable(validator: LidoValidator, last_requested_to_exit_index: int) -> bool:
-    """Returns True if validator is exitable: not on exit and not requested to exit"""
-    requested_to_exit = int(validator.index) <= last_requested_to_exit_index
-    on_exit = is_on_exit(validator)
-    exitable = not on_exit and not requested_to_exit
-    return exitable
 
 
 def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:

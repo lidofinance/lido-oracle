@@ -6,7 +6,7 @@ from src.constants import TOTAL_BASIS_POINTS
 from src.modules.submodules.typings import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import ReferenceBlockStamp
-from src.utils.validator_state import is_on_exit, get_validator_age, is_exitable
+from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
 from src.web3py.typings import Web3
 
@@ -39,7 +39,7 @@ class ExitOrderStateService(LidoValidatorStateService):
         for module_operator, validators in self._operator_validators.items():
             last_requested_to_exit_index = self._operator_last_requested_to_exit_indexes[module_operator]
             for validator in validators:
-                if is_exitable(validator, last_requested_to_exit_index):
+                if self.is_exitable(validator, last_requested_to_exit_index):
                     exitable_lido_validators.append(validator)
 
         return exitable_lido_validators
@@ -49,7 +49,7 @@ class ExitOrderStateService(LidoValidatorStateService):
     ) -> dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]:
         """Prepare node operators stats for sorting their validators in exit order"""
 
-        recently_requested_to_exit_indexes_per_operator = self.get_recently_requests_to_exit_indexes(
+        recently_requested_to_exit_indexes_per_operator = self.get_recently_requests_to_exit_indexes_by_operators(
             blockstamp, chain_config, self._operator_validators.keys()
         )
 
@@ -124,7 +124,7 @@ class ExitOrderStateService(LidoValidatorStateService):
         predictable_validators_total_age = 0
         predictable_validators_count = 0
         for validator in operator_validators:
-            if is_exitable(validator, last_requested_to_exit_index):
+            if ExitOrderStateService.is_exitable(validator, last_requested_to_exit_index):
                 predictable_validators_total_age += get_validator_age(validator, blockstamp.ref_epoch)
                 predictable_validators_count += 1
 
@@ -148,3 +148,11 @@ class ExitOrderStateService(LidoValidatorStateService):
                 delayed_validators_count += 1
 
         return delayed_validators_count
+
+    @staticmethod
+    def is_exitable(validator: LidoValidator, last_requested_to_exit_index: int) -> bool:
+        """Returns True if validator is exitable: not on exit and not requested to exit"""
+        requested_to_exit = int(validator.index) <= last_requested_to_exit_index
+        on_exit = is_on_exit(validator)
+        exitable = not on_exit and not requested_to_exit
+        return exitable
