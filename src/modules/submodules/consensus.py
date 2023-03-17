@@ -10,9 +10,15 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
-from src.modules.submodules.exceptions import IncompatibleContractVersion, IsNotMemberException
-from src.modules.submodules.typings import ZERO_HASH, ChainConfig, CurrentFrame, FrameConfig, MemberInfo
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.metrics.prometheus.business import (
+    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
+    FRAME_CURRENT_REF_SLOT,
+    FRAME_DEADLINE_SLOT,
+    ORACLE_SLOT_NUMBER, ORACLE_MEMBER_INFO
+)
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
+from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
@@ -110,6 +116,7 @@ class ConsensusModule(ABC):
         current_frame = self.get_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
+        last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
@@ -125,7 +132,7 @@ class ConsensusModule(ABC):
                 # Whether the oracle committee member is allowed to submit a report at the moment of the call.
                 _,  # can_report
                 # The last reference slot for which the member submitted a report.
-                _,  # last_member_report_ref_slot
+                last_member_report_ref_slot,
                 # The hash reported by the member for the current frame, if any.
                 current_frame_member_report,
             ) = consensus_contract.functions.getConsensusStateForMember(
@@ -152,6 +159,7 @@ class ConsensusModule(ABC):
             is_report_member=is_member,
             is_submit_member=is_submit_member,
             is_fast_lane=is_fast_lane,
+            last_report_ref_slot=last_member_report_ref_slot,
             fast_lane_length_slot=frame_config.fast_lane_length_slots,
             current_frame_consensus_report=current_frame_consensus_report,
             current_frame_ref_slot=current_frame.ref_slot,
@@ -297,6 +305,21 @@ class ConsensusModule(ABC):
 
         member_info = self.get_member_info(latest_blockstamp)
         logger.debug({'msg': 'Get current member info.', 'value': member_info})
+
+        # Set member info metrics
+        ORACLE_MEMBER_INFO.info(
+            {
+                'is_report_member': str(member_info.is_report_member),
+                'is_submit_member': str(member_info.is_submit_member),
+                'is_fast_lane': str(member_info.is_fast_lane),
+            }
+        )
+        ORACLE_MEMBER_LAST_REPORT_REF_SLOT.set(member_info.last_report_ref_slot or 0)
+
+        # Set frame metrics
+        FRAME_CURRENT_REF_SLOT.set(member_info.current_frame_ref_slot)
+        FRAME_DEADLINE_SLOT.set(member_info.deadline_slot)
+
         return latest_blockstamp, member_info
 
     def _get_report_hash(self, report_data: tuple):
@@ -334,6 +357,7 @@ class ConsensusModule(ABC):
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
+        ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         return bs
 
     @lru_cache(maxsize=1)

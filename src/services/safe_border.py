@@ -4,6 +4,7 @@ from typing import Any, Optional, Sequence
 from eth_typing import HexStr
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
 from src.utils.abi import named_tuple_to_dataclass
@@ -38,6 +39,7 @@ class SafeBorder:
 
         self._retrieve_constants()
 
+    @duration_meter()
     def get_safe_border_epoch(
         self,
         is_bunker: bool,
@@ -84,6 +86,7 @@ class SafeBorder:
 
         return self._get_default_requests_border_epoch()
 
+    @duration_meter()
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> Optional[EpochNumber]:
         validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)

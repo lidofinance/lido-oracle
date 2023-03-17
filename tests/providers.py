@@ -2,7 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from web3 import Web3
 from web3.module import Module
@@ -112,9 +112,10 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
         Module.__init__(self, w3)
         FromFile.__init__(self, mock_path)
 
-    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
+    def _get(self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None) -> dict | list:
         for response in self.responses:
-            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(params):
+            url = endpoint.format(*path_params) if path_params else endpoint
+            if response.get('url') == url and json.dumps(response["params"]) == json.dumps(query_params):
                 return response["response"]
         raise NoMockException('There is no mock for response')
 
@@ -128,12 +129,13 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
         self.responses = []
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
 
-    def _get(self, url: str, params: Optional[dict] = None) -> dict | list:
+    def _get(self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None) -> dict | list:
+        url = endpoint.format(*path_params) if path_params else endpoint
         try:
-            response = self.from_file._get(url, params)  # pylint: disable=protected-access
+            response = self.from_file._get(url, query_params=query_params)  # pylint: disable=protected-access
         except NoMockException:
-            response = super()._get(url, params)
-        self.responses.append({"url": url, "params": params, "response": response})
+            response = super()._get(url, query_params=query_params)
+        self.responses.append({"url": url, "params": query_params, "response": response})
         return response
 
     @contextmanager

@@ -7,8 +7,13 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import ReportData, AccountingProcessingState, LidoReportRebase, \
-    SharesRequestedToBurn
+from src.modules.accounting.typings import (
+    ReportData,
+    AccountingProcessingState,
+    LidoReportRebase,
+    SharesRequestedToBurn,
+)
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -75,6 +80,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     # Consensus module: main build report method
     @lru_cache(maxsize=1)
+    @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         report_data = self._calculate_report(blockstamp)
         logger.info({'msg': 'Calculate report for accounting module.', 'value': report_data})

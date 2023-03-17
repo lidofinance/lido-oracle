@@ -1,6 +1,7 @@
 import logging
 
-from src.constants import GWEI_TO_WEI, TOTAL_BASIS_POINTS
+from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 
@@ -21,6 +22,7 @@ class BunkerService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
+    @duration_meter()
     def is_bunker_mode(
         self,
         blockstamp: ReferenceBlockStamp,
