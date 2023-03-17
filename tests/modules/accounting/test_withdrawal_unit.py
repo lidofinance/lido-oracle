@@ -71,6 +71,7 @@ def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
         batches_length=2
     )
     subject._fetch_finalization_batches = Mock(side_effect=[state_initial, state_final])
+    subject._fetch_max_batches_length = Mock(return_value=36)
 
     result = subject._calculate_finalization_batches(
         1,

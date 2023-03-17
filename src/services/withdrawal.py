@@ -68,7 +68,7 @@ class Withdrawal:
         state = BatchState(
             remaining_eth_budget=available_eth,
             finished=False,
-            batches=[0] * 36,
+            batches=[0] * self._fetch_max_batches_length(),
             batches_length=0
         )
 
@@ -103,6 +103,11 @@ class Withdrawal:
 
     def _fetch_is_paused(self) -> bool:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.isPaused().call(
+            block_identifier=self.blockstamp.block_hash
+        )
+
+    def _fetch_max_batches_length(self) -> int:
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.MAX_BATCHES_LENGTH().call(
             block_identifier=self.blockstamp.block_hash
         )
 
