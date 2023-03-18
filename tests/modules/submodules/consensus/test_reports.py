@@ -48,7 +48,7 @@ def test_process_report_main(consensus, tx_utils, caplog):
 # ----- Hash calculations ----------
 def test_hash_calculations(consensus):
     rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
-    report_hash = consensus._get_report_hash(rd.as_tuple())
+    report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
     assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
 
@@ -217,7 +217,7 @@ def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account
     consensus._get_consensus_contract_members = Mock(return_value=([variables.ACCOUNT.address], None))
     delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
     assert delay == 6
-    assert "Calculate slots to sleep." in caplog.messages[-1]
+    assert "Calculate slots delay." in caplog.messages[-1]
 
 
 def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_report_account, mock_configs):
@@ -226,4 +226,4 @@ def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_
         return_value=[[variables.ACCOUNT.address, '0x1', '0x2'], None])
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
     assert delay == 18
-    assert "Calculate slots to sleep." in caplog.messages[-1]
+    assert "Calculate slots delay." in caplog.messages[-1]

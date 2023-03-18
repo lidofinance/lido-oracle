@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 class ModuleExecuteDelay(Enum):
     """Signals from execute_module method"""
-
     NEXT_SLOT = 0
     NEXT_FINALIZED_EPOCH = 1
 
@@ -104,7 +103,7 @@ class BaseModule(ABC):
         """
         Implement module business logic here.
         Return
-            True - to sleep until new finalized epoch
-            False - to sleep for a slot
+            ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
+            ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
         raise NotImplementedError('Module should implement this method.')

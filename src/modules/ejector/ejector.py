@@ -41,9 +41,9 @@ class Ejector(BaseModule, ConsensusModule):
     Flow:
     1. Calculate withdrawals amount to cover with ETH.
     2. Calculate ETH rewards prediction per epoch.
-    3. Calculate withdraw epoch for next validator
+    3. Calculate withdrawn epoch for next validator
     Loop:
-        a. Calculate predicted rewards we get until we reach withdraw epoch
+        a. Calculate predicted rewards we get until we reach withdrawn epoch
         b. Check if validators to eject + predicted rewards + current balance is enough to finalize withdrawal requests
             - If True - eject all validators in list. End.
         c. Get next validator to eject.
@@ -78,8 +78,11 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        validators = self.get_validators_to_eject(blockstamp)
-        logger.info({'msg': f'Calculate validators to eject. Count: {len(validators)}', 'value': validators})
+        validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = self.get_validators_to_eject(blockstamp)
+        logger.info({
+            'msg': f'Calculate validators to eject. Count: {len(validators)}',
+            'value': [val[1].index for val in validators]},
+        )
 
         data, data_format = encode_data(validators)
 
@@ -106,7 +109,7 @@ class Ejector(BaseModule, ConsensusModule):
         epochs_to_sweep = self._get_sweep_delay_in_epochs(blockstamp)
         logger.info({'msg': 'Calculate epochs to sweep.', 'value': epochs_to_sweep})
 
-        total_available_balance = self._get_total_balance(blockstamp)
+        total_available_balance = self._get_total_el_balance(blockstamp)
         logger.info({'msg': 'Calculate available balance.', 'value': total_available_balance})
 
         validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exited_validators(blockstamp, chain_config)
@@ -124,18 +127,25 @@ class Ejector(BaseModule, ConsensusModule):
             chain_config=chain_config
         )
 
-        for validator in validators_iterator:
+        for validator_container in validators_iterator:
             withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
             future_rewards = (withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch) * rewards_speed_per_epoch
 
-            future_withdrawals = self._get_withdrawable_lido_validators(blockstamp, withdrawal_epoch)
+            future_withdrawals = self._get_withdrawable_lido_validators_balance(blockstamp, withdrawal_epoch)
 
-            expected_balance = future_withdrawals + future_rewards + total_available_balance + validator_to_eject_balance_sum + going_to_withdraw_balance
+            expected_balance = (
+                future_withdrawals +  # Validators that have withdrawal_epoch
+                future_rewards +  # Rewards we get until last validator in validators_to_eject will be withdrawn
+                total_available_balance +  # Current EL balance (el vault, wc vault, buffered eth)
+                validator_to_eject_balance_sum +  # Validators that we expected to be ejected (requested to exit, not delayed)
+                going_to_withdraw_balance  # validators_to_eject balance
+            )
             if expected_balance >= to_withdraw_amount:
                 return validators_to_eject
 
-            validators_to_eject.append(validator)
-            validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator[1])
+            validators_to_eject.append(validator_container)
+            (_, validator) = validator_container
+            validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator)
 
         return validators_to_eject
 
@@ -143,7 +153,7 @@ class Ejector(BaseModule, ConsensusModule):
         return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
+    def _get_withdrawable_lido_validators_balance(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
 
         def get_total_withdrawable_balance(balance: Wei, validator: Validator) -> Wei:
@@ -165,14 +175,22 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
         return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
 
-    def _get_total_balance(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(
+    def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
+        total_el_balance = Wei(
             self.w3.lido_contracts.get_el_vault_balance(blockstamp) +
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp) +
-            self._get_reserved_buffer(blockstamp)
+            self._get_buffer_ether(blockstamp)
         )
+        logger.info({'msg': 'Calculate total el balance.', 'value': total_el_balance})
+        return total_el_balance
 
-    def _get_reserved_buffer(self, blockstamp: BlockStamp) -> Wei:
+    def _get_buffer_ether(self, blockstamp: BlockStamp) -> Wei:
+        """
+        The reserved buffered ether is min(current_buffered_ether, unfinalized_withdrawal_requests_amount)
+        We can skip calculating reserved buffer for ejector, because in case if
+        (unfinalized_withdrawal_requests_amount <= current_buffered_ether)
+        We won't eject validators at all, because we have enough eth to fulfill all requests.
+        """
         return Wei(
             self.w3.lido_contracts.lido.functions.getBufferedEther().call(
                 block_identifier=blockstamp.block_hash
@@ -180,11 +198,11 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
     def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
-        steth_to_finalize = self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
+        unfinalized_steth = self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
             block_identifier=blockstamp.block_hash,
         )
-        logger.info({'msg': 'Wei to finalize.', 'value': steth_to_finalize})
-        return steth_to_finalize
+        logger.info({'msg': 'Wei to finalize.', 'value': unfinalized_steth})
+        return unfinalized_steth
 
     def _get_predicted_withdrawable_epoch(
         self,
@@ -203,10 +221,10 @@ class Ejector(BaseModule, ConsensusModule):
 
         churn_limit = self._get_churn_limit(blockstamp)
 
-        free_slots_in_current_epoch = churn_limit - latest_to_exit_validators_count
-        need_to_exit_all_epochs = (validators_to_eject_count - free_slots_in_current_epoch) // churn_limit + 1
+        remain_exits_capacity_for_epoch = churn_limit - latest_to_exit_validators_count
+        epochs_required_to_exit_validators = (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
 
-        return EpochNumber(max_exit_epoch_number + need_to_exit_all_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+        return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
     @staticmethod
     def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):

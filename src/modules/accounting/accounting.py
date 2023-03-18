@@ -62,6 +62,10 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
         sleep(seconds_to_sleep)
 
+        if self.is_extra_data_submitted(latest_blockstamp):
+            logger.info({'msg': 'Extra data was submitted.'})
+            return
+
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
