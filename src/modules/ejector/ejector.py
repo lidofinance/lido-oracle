@@ -187,9 +187,9 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_buffer_ether(self, blockstamp: BlockStamp) -> Wei:
         """
         The reserved buffered ether is min(current_buffered_ether, unfinalized_withdrawal_requests_amount)
-        We can skip calculating reserved buffer for ejector, because if case if
-        (unfinalized_withdrawal_requests_amount < current_buffered_ether)
-        We wont eject validators at all, because we have enough eth to fulfill all requests.
+        We can skip calculating reserved buffer for ejector, because in case if
+        (unfinalized_withdrawal_requests_amount <= current_buffered_ether)
+        We won't eject validators at all, because we have enough eth to fulfill all requests.
         """
         return Wei(
             self.w3.lido_contracts.lido.functions.getBufferedEther().call(

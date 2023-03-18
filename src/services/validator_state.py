@@ -180,7 +180,7 @@ class LidoValidatorStateService:
         chain_config: ChainConfig,
     ) -> list[LidoValidator]:
         """
-        Returns list of validators recently requested to exit (deadline slot in future).
+        Returns list of validators recently requested to exit (exit deadline slot in future).
 
         The deadline slot after witch validators are delayed:
         validator_delayed_deadline_slot = max(
@@ -208,7 +208,7 @@ class LidoValidatorStateService:
                 delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
                 return is_validator_eligible_to_exit(validator, EpochNumber(blockstamp.ref_epoch - delayed_timeout_in_epoch))
 
-            def is_validator_delayed(validator: LidoValidator) -> bool:
+            def is_validator_recently_requested_but_not_exited(validator: LidoValidator) -> bool:
                 if not validator_requested_to_exit(validator):
                     return False
 
@@ -224,7 +224,7 @@ class LidoValidatorStateService:
                 return False
 
             validators_recently_requested_to_exit.extend(
-                list(filter(is_validator_delayed, validators))
+                list(filter(is_validator_recently_requested_but_not_exited, validators))
             )
 
         return validators_recently_requested_to_exit
