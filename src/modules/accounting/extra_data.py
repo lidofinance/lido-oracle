@@ -4,6 +4,7 @@ from enum import Enum
 
 from hexbytes import HexBytes
 
+from src.modules.submodules.typings import ZERO_HASH
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
 
@@ -14,8 +15,7 @@ class ItemType(Enum):
 
 
 class FormatList(Enum):
-    EXTRA_DATA_FORMAT_LIST_EMPTY = 1
-    # TODO old contracts have 0, new contracts have 1, don't forget to change it
+    EXTRA_DATA_FORMAT_LIST_EMPTY = 0
     EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 1
 
 
@@ -58,9 +58,6 @@ class ExtraDataService:
         NODE_OPERATOR_IDS = 8
         STUCK_OR_EXITED_VALS_COUNT = 16
 
-    def __init__(self, w3: Web3):
-        self.w3 = w3
-
     def collect(
         self,
         stuck_validators: dict[NodeOperatorGlobalIndex, int],
@@ -78,10 +75,16 @@ class ExtraDataService:
         extra_data = self.build_extra_data(stuck_payloads, exited_payloads)
         extra_data_bytes = self.to_bytes(extra_data)
 
-        data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY if extra_data else FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+        if extra_data:
+            data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
+            data_hash = Web3.keccak(extra_data_bytes)
+        else:
+            data_format = FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+            data_hash = HexBytes(ZERO_HASH)
+
         return ExtraData(
             extra_data=extra_data_bytes,
-            data_hash=self.w3.keccak(extra_data_bytes),
+            data_hash=data_hash,
             format=data_format.value,
             items_count=len(extra_data),
         )

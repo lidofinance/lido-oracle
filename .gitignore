@@ -104,6 +104,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.direnv
 env/
 venv/
 ENV/
@@ -130,3 +131,7 @@ dmypy.json
 
 # IDE
 .idea/
+
+# vim
+*.swp
+.direnv

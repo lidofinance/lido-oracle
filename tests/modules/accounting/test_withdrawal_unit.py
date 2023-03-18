@@ -1,9 +1,11 @@
 import pytest
 
 from unittest.mock import Mock
-from src.typings import BlockStamp
 from src.services.withdrawal import Withdrawal
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from tests.conftest import get_blockstamp_by_state
+from src.constants import SHARE_RATE_PRECISION_E27
+from src.modules.accounting.typings import BatchState
 
 
 @pytest.fixture()
@@ -17,39 +19,64 @@ def frame_config():
 
 
 @pytest.fixture()
-def past_blockstamp():
-    yield BlockStamp(
-        ref_slot=4947936,
-        ref_epoch=154623,
-        block_root='0xfc3a63409fe5c53c3bb06a96fc4caa89011452835f767e64bf59f2b6864037cc',
-        state_root='0x7fcd917cbe34f306989c40bd64b8e2057a39dfbfda82025549f3a44e6b2295fc',
-        slot_number=4947936,
-        block_number=8457825,
-        block_hash='0x0d61eeb26e4cbb076e557ddb8de092a05e2cba7d251ad4a87b0826cf5926f87b',
-        block_timestamp=0
-    )
+def past_blockstamp(web3, consensus_client):
+    return get_blockstamp_by_state(web3, 'finalized')
+
 
 @pytest.fixture()
-def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
+def subject(
+    web3,
+    past_blockstamp,
+    chain_config,
+    frame_config,
+    contracts,
+    keys_api_client,
+    consensus_client
+):
+    # web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = Mock(return_value=0)
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
-@pytest.mark.skip
-def test_returns_zero_if_no_unfinalized_requests(subject):
+@pytest.mark.unit
+def test_returns_empty_batch_if_there_is_no_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=False)
-    subject._get_available_eth = Mock(return_value=0)
+    result = subject.get_finalization_batches(True, 100, 0, 0)
 
-    result = subject.get_next_last_finalizable_id(True, 100, 0, 0)
-
-    assert result == 0
+    assert result == []
 
 
-@pytest.mark.skip
-def test_returns_last_finalizable_id(subject):
+@pytest.mark.unit
+def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=True)
     subject._get_available_eth = Mock(return_value=100)
 
     subject.safe_border_service.get_safe_border_epoch = Mock(return_value=0)
-    subject._fetch_last_finalizable_request_id = Mock(return_value=1)
+    subject._calculate_finalization_batches = Mock(return_value=[1, 2, 3])
 
-    assert subject.get_next_last_finalizable_id(True, 100, 0, 0) == 1
+    assert subject.get_finalization_batches(True, 100, 0, 0) == [1, 2, 3]
+
+
+@pytest.mark.unit
+def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
+    state_initial = BatchState(
+        remaining_eth_budget=100,
+        finished=False,
+        batches=[1] + [0] * 35,
+        batches_length=1
+    )
+    state_final = BatchState(
+        remaining_eth_budget=100,
+        finished=True,
+        batches=[2] + [0] * 35,
+        batches_length=2
+    )
+    subject._fetch_finalization_batches = Mock(side_effect=[state_initial, state_final])
+    subject._fetch_max_batches_length = Mock(return_value=36)
+
+    result = subject._calculate_finalization_batches(
+        1,
+        SHARE_RATE_PRECISION_E27,
+        past_blockstamp.block_timestamp
+    )
+
+    assert result == [2]

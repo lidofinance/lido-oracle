@@ -5,20 +5,24 @@ from time import sleep
 from typing import Optional
 
 from eth_abi import encode
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from web3.contract import AsyncContract, Contract
 
+from src import variables
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.metrics.prometheus.business import (
+    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
+    FRAME_CURRENT_REF_SLOT,
+    FRAME_DEADLINE_SLOT,
+    ORACLE_SLOT_NUMBER, ORACLE_MEMBER_INFO
+)
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import get_first_non_missed_slot
+from src.utils.slot import get_reference_blockstamp
 from src.web3py.typings import Web3
-from web3.contract import Contract
-
-from src import variables
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +46,37 @@ class ConsensusModule(ABC):
         if self.CONTRACT_VERSION is None or self.CONSENSUS_VERSION is None:
             raise NotImplementedError('CONTRACT_VERSION and CONSENSUS_VERSION should be set.')
 
+    def check_contract_configs(self):
+        root = self.w3.cc.get_block_root('head').root
+        block_details = self.w3.cc.get_block_details(root)
+        bs = build_blockstamp(block_details)
+
+        config = self.get_chain_config(bs)
+        cc_config = self.w3.cc.get_config_spec()
+        genesis_time = self.w3.cc.get_genesis().genesis_time
+        if any((config.genesis_time != int(genesis_time),
+                config.seconds_per_slot != int(cc_config.SECONDS_PER_SLOT),
+                config.slots_per_epoch != int(cc_config.SLOTS_PER_EPOCH))):
+            raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
+                             f'Contract config: {config}\n'
+                             f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
+
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
-    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract:
+    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract | AsyncContract:
         return self.w3.eth.contract(
             address=self._get_consensus_contract_address(blockstamp),
             abi=self.w3.lido_contracts.load_abi('HashConsensus'),
             decode_tuples=True,
         )
 
-    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> Address:
+    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> ChecksumAddress:
         return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
+
+    def _get_consensus_contract_members(self, blockstamp: BlockStamp):
+        consensus_contract = self._get_consensus_contract(blockstamp)
+        members, last_reported_ref_slots = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
+        return members, last_reported_ref_slots
 
     @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
@@ -92,6 +116,7 @@ class ConsensusModule(ABC):
         current_frame = self.get_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
+        last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
@@ -107,7 +132,7 @@ class ConsensusModule(ABC):
                 # Whether the oracle committee member is allowed to submit a report at the moment of the call.
                 _,  # can_report
                 # The last reference slot for which the member submitted a report.
-                _,  # last_member_report_ref_slot
+                last_member_report_ref_slot,
                 # The hash reported by the member for the current frame, if any.
                 current_frame_member_report,
             ) = consensus_contract.functions.getConsensusStateForMember(
@@ -134,6 +159,7 @@ class ConsensusModule(ABC):
             is_report_member=is_member,
             is_submit_member=is_submit_member,
             is_fast_lane=is_fast_lane,
+            last_report_ref_slot=last_member_report_ref_slot,
             fast_lane_length_slot=frame_config.fast_lane_length_slots,
             current_frame_consensus_report=current_frame_consensus_report,
             current_frame_ref_slot=current_frame.ref_slot,
@@ -173,7 +199,7 @@ class ConsensusModule(ABC):
             return None
 
         chain_config = self.get_chain_config(last_finalized_blockstamp)
-        bs = get_first_non_missed_slot(
+        bs = get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
             ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
@@ -199,8 +225,13 @@ class ConsensusModule(ABC):
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 
-        report_hash = self._get_report_hash(report_data)
+        report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        # We need to check whether report has unexpected data before sending.
+        # otherwise we have to check it manually.
+        if not self.is_reporting_allowed(blockstamp):
+            logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
+            return
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
@@ -208,7 +239,7 @@ class ConsensusModule(ABC):
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # Check if current slot is higher than member slot + slots_delay
+        # Check if current slot is newer than (member slot + slots_delay)
         if not member_info.is_fast_lane:
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
@@ -229,14 +260,8 @@ class ConsensusModule(ABC):
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # If the quorum is ready to report data, the member should have opportunity to send report
-        if (
-            # If there is no quorum
-            member_info.current_frame_consensus_report == ZERO_HASH
-            # And member did not send the report
-            and HexBytes(member_info.current_frame_member_report) != report_hash
-        ):
-            logger.info({'msg': 'Quorum is not ready and member did not send the report hash.'})
+        if member_info.current_frame_consensus_report == ZERO_HASH:
+            logger.info({'msg': 'Quorum is not ready.'})
             return
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
@@ -280,25 +305,39 @@ class ConsensusModule(ABC):
 
         member_info = self.get_member_info(latest_blockstamp)
         logger.debug({'msg': 'Get current member info.', 'value': member_info})
+
+        # Set member info metrics
+        ORACLE_MEMBER_INFO.info(
+            {
+                'is_report_member': str(member_info.is_report_member),
+                'is_submit_member': str(member_info.is_submit_member),
+                'is_fast_lane': str(member_info.is_fast_lane),
+            }
+        )
+        ORACLE_MEMBER_LAST_REPORT_REF_SLOT.set(member_info.last_report_ref_slot or 0)
+
+        # Set frame metrics
+        FRAME_CURRENT_REF_SLOT.set(member_info.current_frame_ref_slot)
+        FRAME_DEADLINE_SLOT.set(member_info.deadline_slot)
+
         return latest_blockstamp, member_info
 
-    def _get_report_hash(self, report_data: tuple):
+    def _encode_data_hash(self, report_data: tuple):
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
-        report_function_abi = next(filter(lambda x: 'name' in x and x['name'] == report_function_name, self.report_contract.abi))
+        report_function_abi = next(x for x in self.report_contract.abi if x.get('name') == report_function_name)
 
         # First input is ReportData structure
-        report_data_abi = report_function_abi['inputs'][0]['components']
+        report_data_abi = report_function_abi['inputs'][0]['components']  # type: ignore
 
         # Transform abi to string
-        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))
+        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))  # type: ignore
 
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
         report_hash = self.w3.keccak(encoded)
-        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         return report_hash
 
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
@@ -315,20 +354,20 @@ class ConsensusModule(ABC):
 
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
-        bs = build_blockstamp(self.w3.cc, root)
+        block_details = self.w3.cc.get_block_details(root)
+        bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
+        ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         return bs
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
         """Returns in slots time to sleep before data report."""
         member = self.get_member_info(blockstamp)
-        if member.is_submit_member:
+        if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
-        consensus_contract = self._get_consensus_contract(blockstamp)
-
-        members, _ = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
+        members, _ = self._get_consensus_contract_members(blockstamp)
 
         mem_position = members.index(variables.ACCOUNT.address)
 
@@ -345,7 +384,7 @@ class ConsensusModule(ABC):
         # 1 - is default delay for non submit members.
         total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
 
-        logger.info({'msg': 'Calculate slots to sleep.', 'value': total_delay})
+        logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay
 
     @abstractmethod
@@ -360,3 +399,7 @@ class ConsensusModule(ABC):
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         """Returns true if contract is ready for report"""
+
+    @abstractmethod
+    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
+        """Check if collected build output is unexpected and need to be checked manually."""

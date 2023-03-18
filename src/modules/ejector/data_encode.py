@@ -1,8 +1,7 @@
 from eth_typing import HexStr
 
 from src.utils.types import hex_str_to_bytes
-from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
-
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 
 DATA_FORMAT_LIST = 1
 
@@ -13,9 +12,9 @@ VALIDATOR_PUB_KEY_LENGTH = 48
 
 
 def encode_data(validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]]):
-    #     /// MSB <------------------------------------------------------- LSB
-    #     /// |  3 bytes   |  5 bytes   |     8 bytes      |    48 bytes     |
-    #     /// |  moduleId  |  nodeOpId  |  validatorIndex  | validatorPubkey |
+    #  MSB <------------------------------------------------------- LSB
+    #  |  3 bytes   |  5 bytes   |     8 bytes      |    48 bytes     |
+    #  |  moduleId  |  nodeOpId  |  validatorIndex  | validatorPubkey |
 
     result = b''
 

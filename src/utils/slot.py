@@ -2,10 +2,10 @@ import logging
 from http import HTTPStatus
 
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.typings import BlockHeaderFullResponse
+from src.providers.consensus.typings import BlockHeaderFullResponse, BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
 from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp
-from src.utils.blockstamp import build_reference_blockstamp
+from src.utils.blockstamp import build_reference_blockstamp, build_blockstamp
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,13 @@ class SlotNotFinalized(Exception):
 
 def get_first_non_missed_slot(
     cc: ConsensusClient,
-    ref_slot: SlotNumber,
+    slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
-    ref_epoch: EpochNumber,
-) -> ReferenceBlockStamp:
+) -> BlockDetailsResponse:
     """
-    Get past closest non-missed slot to ref_slot or ref_slot (if not missed) and generates reference blockstamp for it.
+    Get past closest non-missed slot and returns its details.
 
-    Raise NoSlotsAvailable if all slots are missed in range [ref_slot, last_finalized_slot_number]
+    Raise NoSlotsAvailable if all slots are missed in range [slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
     """
     #  [ ] - slot
@@ -64,14 +63,14 @@ def get_first_non_missed_slot(
     #  Exception case can be when all slots are missed in range [ref_slot, last_finalized_slot_number] it will mean that
     #  block response of CL node contradicts itself, because few moments ago we got existed `last_finalized_slot_number`
 
-    if ref_slot > last_finalized_slot_number:
+    if slot > last_finalized_slot_number:
         raise ValueError('ref_slot should be less or equal to the last finalized slot_number.')
 
-    logger.info({'msg': f'Get Blockstamp for ref slot: {ref_slot}.'})
+    logger.info({'msg': f'Get Blockstamp for ref slot: {slot}.'})
 
     ref_slot_is_missed = False
     existed_header = None
-    for i in range(ref_slot, last_finalized_slot_number + 1):
+    for i in range(slot, last_finalized_slot_number + 1):
         try:
             existed_header = cc.get_block_header(SlotNumber(i))
         except NotOkResponse as error:
@@ -92,19 +91,40 @@ def get_first_non_missed_slot(
     if ref_slot_is_missed:
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
-        not_missed_header_parent_root = existed_header.data.header.message.parent_root
+        non_missed_header_parent_root = existed_header.data.header.message.parent_root
 
-        existed_header = cc.get_block_header(not_missed_header_parent_root)
+        existed_header = cc.get_block_header(non_missed_header_parent_root)
         _check_block_header(existed_header)
 
-        if int(existed_header.data.header.message.slot) >= ref_slot:
+        if int(existed_header.data.header.message.slot) >= slot:
             raise InconsistentData(
-                'Parent root of next to ref slot existed header dot match to expected slot.'
-                'Probably problem with consensus node.'
+                "Parent root next to the ref slot's existing header doesn't match the expected slot. "
+                'Probably problem with the consensus node.'
             )
 
-    # Ref slot is not missed. Just get its details by root
-    return build_reference_blockstamp(cc, existed_header.data.root, ref_slot, ref_epoch)
+    slot_details = cc.get_block_details(existed_header.data.root)
+    return slot_details
+
+
+def get_blockstamp(
+    cc: ConsensusClient,
+    slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+):
+    """Get first non-missed slot header and generates blockstamp for it"""
+    existed_slot = get_first_non_missed_slot(cc, slot, last_finalized_slot_number)
+    return build_blockstamp(existed_slot)
+
+
+def get_reference_blockstamp(
+    cc: ConsensusClient,
+    ref_slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+    ref_epoch: EpochNumber,
+) -> ReferenceBlockStamp:
+    """Get first non-missed slot header and generates reference blockstamp for it"""
+    existed_slot = get_first_non_missed_slot(cc, ref_slot, last_finalized_slot_number)
+    return build_reference_blockstamp(existed_slot, ref_slot, ref_epoch)
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):

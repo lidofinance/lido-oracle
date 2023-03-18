@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
@@ -23,6 +25,11 @@ def is_exited_validator(validator: Validator, epoch: EpochNumber) -> bool:
 def is_on_exit(validator: Validator) -> bool:
     """Validator exited or is going to exit"""
     return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
+
+
+def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
+    """Validator age in epochs from activation to ref_epoch"""
+    return max(ref_epoch - int(validator.validator.activation_epoch), 0)
 
 
 def is_partially_withdrawable_validator(validator: Validator) -> bool:
@@ -67,3 +74,17 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     """
     active_long_enough = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
+
+
+def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
+    """
+    Return the combined effective balance of the active validators.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
+    """
+    total_effective_balance = 0
+
+    for v in validators:
+        if is_active_validator(v, ref_epoch):
+            total_effective_balance += int(v.validator.effective_balance)
+
+    return Gwei(total_effective_balance)

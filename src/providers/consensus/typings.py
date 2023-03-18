@@ -3,32 +3,46 @@ from enum import Enum
 from typing import Optional
 
 from src.typings import BlockRoot, StateRoot
-from src.utils.dataclass import Nested
+from src.utils.dataclass import Nested, FromResponse
 
 
 @dataclass
-class BlockRootResponse:
+class BeaconSpecResponse(FromResponse):
+    DEPOSIT_CHAIN_ID: str
+    SLOTS_PER_EPOCH: str
+    SECONDS_PER_SLOT: str
+
+
+@dataclass
+class GenesisResponse(FromResponse):
+    genesis_time: str
+    genesis_validators_root: str
+    genesis_fork_version: str
+
+
+@dataclass
+class BlockRootResponse(FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
     root: BlockRoot
 
 
 @dataclass
-class BlockHeaderMessage:
+class BlockHeaderMessage(FromResponse):
     slot: str
     proposer_index: str
-    parent_root: str
+    parent_root: BlockRoot
     state_root: StateRoot
     body_root: str
 
 
 @dataclass
-class BlockHeader(Nested):
+class BlockHeader(Nested, FromResponse):
     message: BlockHeaderMessage
     signature: str
 
 
 @dataclass
-class BlockHeaderResponseData(Nested):
+class BlockHeaderResponseData(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
     root: BlockRoot
     canonical: bool
@@ -36,7 +50,7 @@ class BlockHeaderResponseData(Nested):
 
 
 @dataclass
-class BlockHeaderFullResponse(Nested):
+class BlockHeaderFullResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
     execution_optimistic: bool
     data: BlockHeaderResponseData
@@ -44,7 +58,7 @@ class BlockHeaderFullResponse(Nested):
 
 
 @dataclass
-class BlockMessage:
+class BlockMessage(FromResponse):
     slot: str
     proposer_index: str
     parent_root: str
@@ -68,7 +82,7 @@ class ValidatorStatus(Enum):
 
 
 @dataclass
-class ValidatorState:
+class ValidatorState(FromResponse):
     # All uint variables presents in str
     pubkey: str
     withdrawal_credentials: str
@@ -81,7 +95,7 @@ class ValidatorState:
 
 
 @dataclass
-class Validator(Nested):
+class Validator(Nested, FromResponse):
     index: str
     balance: str
     status: ValidatorStatus
@@ -89,7 +103,7 @@ class Validator(Nested):
 
 
 @dataclass
-class BlockDetailsResponse(Nested):
+class BlockDetailsResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
     message: BlockMessage
     signature: str

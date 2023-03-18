@@ -1,9 +1,9 @@
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from functools import lru_cache
-from typing import Tuple, TYPE_CHECKING, NewType
+from typing import TYPE_CHECKING, NewType, Tuple
 
-from eth_typing import Address
+from eth_typing import ChecksumAddress
 from web3.module import Module
 
 from src.providers.consensus.typings import Validator
@@ -29,7 +29,7 @@ class StakingModule:
     # unique id of the staking module
     id: StakingModuleId
     # address of staking module
-    staking_module_address: Address
+    staking_module_address: ChecksumAddress
     # part of the fee taken from staking rewards that goes to the staking module
     staking_module_fee: int
     # part of the fee taken from staking rewards that goes to the treasury
@@ -62,6 +62,33 @@ class NodeOperator(Nested):
     total_deposited_validators: int
     depositable_validators_count: int
     staking_module: StakingModule
+
+    @classmethod
+    def from_response(cls, data, staking_module):
+        _id, is_active, (
+            is_target_limit_active,
+            target_validators_count,
+            stuck_validators_count,
+            refunded_validators_count,
+            stuck_penalty_end_timestamp,
+            total_exited_validators,
+            total_deposited_validators,
+            depositable_validators_count,
+        ) = data
+
+        return cls(
+            _id,
+            is_active,
+            is_target_limit_active,
+            target_validators_count,
+            stuck_validators_count,
+            refunded_validators_count,
+            stuck_penalty_end_timestamp,
+            total_exited_validators,
+            total_deposited_validators,
+            depositable_validators_count,
+            staking_module,
+        )
 
 
 @dataclass
@@ -104,7 +131,9 @@ class LidoValidatorsProvider(Module):
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict
-        no_validators = {(operator.staking_module.id, operator.id): [] for operator in no_operators}
+        no_validators: ValidatorsByNodeOperator = {
+            (operator.staking_module.id, operator.id): [] for operator in no_operators
+        }
 
         staking_module_address = {
             operator.staking_module.staking_module_address: operator.staking_module.id
@@ -114,7 +143,7 @@ class LidoValidatorsProvider(Module):
         for validator in merged_validators:
             global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
-                validator.lido_id.operatorIndex,
+                NodeOperatorId(validator.lido_id.operatorIndex),
             )
 
             if global_no_id in no_validators:
@@ -129,47 +158,17 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
-        operators = []
+        result = []
 
         for module in self.get_staking_modules(blockstamp):
-            # Replace with getAllNodeOperatorDigests after update
-            module_operators = self.w3.lido_contracts.staking_router.functions.getAllNodeOperatorReports(
+            operators = self.w3.lido_contracts.staking_router.functions.getAllNodeOperatorDigests(
                 module.id
             ).call(block_identifier=blockstamp.block_hash)
-            for operator in module_operators:
-                # _id, is_active, summary = operator
-                # operator = NodeOperator(_id, is_active, *summary, stakingModule=module)
-                (
-                    _id,
-                    isActive,
-                    isTargetLimitActive,
-                    targetValidatorsCount,
-                    stuckValidatorsCount,
-                    refundedValidatorsCount,
-                    stuckPenaltyEndTimestamp,
-                    (
-                        totalExited,
-                        totalDeposited,
-                        depositable,
-                    )
-                ) = operator
 
-                operator = NodeOperator(
-                    id=_id,
-                    is_active=isActive,
-                    is_target_limit_active=isTargetLimitActive,
-                    target_validators_count=targetValidatorsCount,
-                    stuck_validators_count=stuckValidatorsCount,
-                    refunded_validators_count=refundedValidatorsCount,
-                    stuck_penalty_end_timestamp=stuckPenaltyEndTimestamp,
-                    total_exited_validators=totalExited,
-                    total_deposited_validators=totalDeposited,
-                    depositable_validators_count=depositable,
-                    staking_module=module,
-                )
-                operators.append(operator)
+            for operator in operators:
+                result.append(NodeOperator.from_response(operator, module))
 
-        return operators
+        return result
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(StakingModule)

@@ -24,7 +24,7 @@ def get_events_in_past(
     #   block_number = 13
     #
     # ref_slot_shift = 22 - 18
-    # for_slots_without_missed_blocks = 10 - 8
+    # for_slots_without_missed_blocks = 10 - 4
     #
     #                  [--------------- Event search block period -------------]
     #                                                  (---- Needed events --------------------]

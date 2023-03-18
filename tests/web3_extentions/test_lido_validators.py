@@ -1,48 +1,41 @@
+from unittest.mock import Mock
+
 import pytest
-from eth_typing import HexStr
 
-from src.typings import BlockRoot, StateRoot, SlotNumber, BlockHash, BlockNumber, EpochNumber, ReferenceBlockStamp
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.no_registry import ValidatorFactory, LidoKeyFactory
 
-
-@pytest.fixture
-def blockstamp():
-    return ReferenceBlockStamp(
-        block_root=BlockRoot(HexStr('0x8cae2ea12fb6b488225277929e8905b533e3b09491b15d9948949ced9119c6da')),
-        state_root=StateRoot(HexStr('0x623801c28526c1923f14e1bb5258e40a194059c42e280ee61c7189bf2fdbe05e')),
-        slot_number=SlotNumber(113500),
-        block_hash=BlockHash(HexStr('0x4372578a683ba1c85c259a42492efbe0de9a28b1ac050b5e61065499ab80b0ca')),
-        block_number=BlockNumber(108006),
-        block_timestamp=0,
-        ref_slot=SlotNumber(113500),
-        ref_epoch=EpochNumber(113500//12)
-    )
+blockstamp = ReferenceBlockStampFactory.build()
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, lido_validators, blockstamp):
-    validators_in_cc = web3.cc.get_validators(blockstamp)
+def test_get_lido_validators(web3, lido_validators):
+    validators = ValidatorFactory.batch(30)
+    lido_keys = LidoKeyFactory.generate_for_validators(validators[:10])
+    lido_keys.extend(LidoKeyFactory.batch(5))
 
-    lido_keys = web3.kac.get_all_lido_keys(blockstamp)
+    web3.cc.get_validators = Mock(return_value=validators)
+    web3.kac.get_all_lido_keys = Mock(return_value=lido_keys)
 
     lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
 
-    assert len(lido_validators) == 5
+    assert len(lido_validators) == 10
     assert len(lido_keys) != len(lido_validators)
-    assert len(validators_in_cc) != len(lido_validators)
+    assert len(validators) != len(lido_validators)
 
     for v in lido_validators:
         assert v.lido_id.key == v.validator.pubkey
 
 
 @pytest.mark.unit
-def test_get_node_operators(web3, lido_validators, contracts, blockstamp):
+def test_get_node_operators(web3, lido_validators, contracts):
     node_operators = web3.lido_validators.get_lido_node_operators(blockstamp)
 
     assert len(node_operators) == 2
 
     registry_map = {
-        0: '0x8a1E2986E52b441058325c315f83C9D4129bDF72',
-        1: '0x8a1E2986E52b441058325c315f83C9D4129bDF72',
+        0: '0xB099EC462e42Ac2570fB298B42083D7A499045D8',
+        1: '0xB099EC462e42Ac2570fB298B42083D7A499045D8',
     }
 
     for no in node_operators:
@@ -50,9 +43,9 @@ def test_get_node_operators(web3, lido_validators, contracts, blockstamp):
 
 
 @pytest.mark.unit
-def test_get_lido_validators_by_node_operator(web3, lido_validators, blockstamp, contracts):
+def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
     no_validators = web3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
     assert len(no_validators.keys()) == 2
-    assert len(no_validators[(1, 0)]) == 5
-    assert len(no_validators[(1, 1)]) == 0
+    assert len(no_validators[(1, 0)]) == 10
+    assert len(no_validators[(1, 1)]) == 7

@@ -9,23 +9,20 @@ from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.typings import BlockStamp
 from src.web3py.extensions.lido_validators import (
     NodeOperator, StakingModule, LidoValidatorsProvider, LidoValidator,
     ValidatorsByNodeOperator, StakingModuleId, NodeOperatorId,
 )
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+
 
 TESTING_REF_EPOCH = 100
 
-blockstamp = ReferenceBlockStamp(
-    ref_slot=9000,
+
+blockstamp = ReferenceBlockStampFactory.build(
+    ref_slot=9024,
     ref_epoch=TESTING_REF_EPOCH,
-    block_root=None,
-    state_root=None,
-    slot_number='',
-    block_hash='',
-    block_number=0,
-    block_timestamp=0,
 )
 
 
@@ -35,7 +32,7 @@ class MockValidatorsProvider(LidoValidatorsProvider):
         raise NotImplementedError
 
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        def validator(index: int, exit_epoch: int, pubkey: HexStr):
+        def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
             return LidoValidator(
                 lido_id=LidoKey(
                     key=pubkey,
@@ -54,7 +51,7 @@ class MockValidatorsProvider(LidoValidatorsProvider):
                         effective_balance="0",
                         slashed=False,
                         activation_eligibility_epoch="0",
-                        activation_epoch="0",
+                        activation_epoch=str(activation_epoch),
                         exit_epoch=str(exit_epoch),
                         withdrawable_epoch="0",
                     ),
@@ -69,8 +66,11 @@ class MockValidatorsProvider(LidoValidatorsProvider):
                 validator(index=4, exit_epoch=TESTING_REF_EPOCH, pubkey='0x4'),
             ],
             (StakingModuleId(1), NodeOperatorId(1)): [
-                validator(index=5, exit_epoch=20, pubkey='0x5'),
-                validator(index=6, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x6'),
+                validator(index=5, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x5', activation_epoch=290),  # Stuck but newest
+                validator(index=6, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x6', activation_epoch=282),  # Stuck in the same epoch
+                validator(index=7, exit_epoch=20, pubkey='0x7'),
+                validator(index=8, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x8'),
+
             ],
         }
 
@@ -105,7 +105,7 @@ def lido_validators(web3):
 @pytest.fixture
 def validator_state(web3, contracts, consensus_client, lido_validators):
     service = LidoValidatorStateService(web3)
-    requested_indexes = [3, 6]
+    requested_indexes = [3, 8]
     service._get_last_requested_validator_indices = Mock(return_value=requested_indexes)
     return service
 
@@ -116,7 +116,7 @@ def chain_config():
 
 
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x6"})
+    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x8"})
     validator_state.get_validator_delinquent_timeout_in_slot = Mock(return_value=0)
     stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
     assert stuck_validators == {(1, 0): 1}
@@ -126,7 +126,7 @@ def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
 def test_get_operators_with_last_exited_validator_indexes(web3, validator_state):
     indexes = validator_state.get_operators_with_last_exited_validator_indexes(blockstamp)
     assert indexes == {(1, 0): 3,
-                       (1, 1): 6}
+                       (1, 1): 8}
 
 
 @pytest.mark.unit
