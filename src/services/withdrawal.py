@@ -31,7 +31,7 @@ class Withdrawal:
         withdrawal_vault_balance: Wei,
         el_rewards_vault_balance: Wei
     ) -> list[int]:
-        if self._fetch_is_paused():
+        if self._is_requests_finalization_paused():
             return []
 
         if not self._has_unfinalized_requests():
@@ -101,7 +101,7 @@ class Withdrawal:
             block_identifier=self.blockstamp.block_hash
         ))
 
-    def _fetch_is_paused(self) -> bool:
+    def _is_requests_finalization_paused(self) -> bool:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.isPaused().call(
             block_identifier=self.blockstamp.block_hash
         )

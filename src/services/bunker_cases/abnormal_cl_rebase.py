@@ -247,7 +247,10 @@ class AbnormalClRebase:
         )
 
     @staticmethod
-    def calculate_validators_count_diff_in_gwei(prev_validators: Sequence[Validator], ref_validators: Sequence[Validator]):
+    def calculate_validators_count_diff_in_gwei(
+        prev_validators: Sequence[Validator],
+        ref_validators: Sequence[Validator],
+    ) -> Gwei:
         """
         Handle 32 ETH balances of freshly baked validators, who was activated between epochs
         Lido validators are counted by public keys that the protocol deposited with 32 ETH,
@@ -258,7 +261,7 @@ class AbnormalClRebase:
         validators_diff = len(ref_validators) - len(prev_validators)
         if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return validators_diff * MAX_EFFECTIVE_BALANCE
+        return Gwei(validators_diff * MAX_EFFECTIVE_BALANCE)
 
     @staticmethod
     def get_mean_effective_balance_sum(
@@ -293,8 +296,8 @@ class AbnormalClRebase:
     @staticmethod
     def calculate_normal_cl_rebase(
         bunker_config: BunkerConfig,
-        mean_all_effective_balance_sum: int,
-        mean_lido_effective_balance_sum: int,
+        mean_all_effective_balance_sum: Gwei,
+        mean_lido_effective_balance_sum: Gwei,
         epochs_passed: int,
     ) -> Gwei:
         """
