@@ -118,7 +118,7 @@ class TestGetValidatorsToEject:
 
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
-        ejector._get_total_balance = Mock(return_value=50)
+        ejector._get_total_el_balance = Mock(return_value=50)
         ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
             return_value=[]
         )
@@ -147,12 +147,12 @@ class TestGetValidatorsToEject:
         )
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
-        ejector._get_total_balance = Mock(return_value=100)
+        ejector._get_total_el_balance = Mock(return_value=100)
         ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
             return_value=[]
         )
 
-        ejector._get_withdrawable_lido_validators = Mock(return_value=0)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
         ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
 
@@ -241,10 +241,10 @@ def test_get_withdrawable_lido_validators(
             Mock(side_effect=lambda v, _: int(v.balance) > 32),
         )
 
-        result = ejector._get_withdrawable_lido_validators(ref_blockstamp, 42)
+        result = ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
         assert result == 42 * 10**9, "Unexpected withdrawable amount"
 
-        ejector._get_withdrawable_lido_validators(ref_blockstamp, 42)
+        ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
         ejector.w3.lido_validators.get_lido_validators.assert_called_once()
 
 
@@ -310,7 +310,7 @@ def test_get_sweep_delay_in_epochs(
 @pytest.mark.unit
 @pytest.mark.usefixtures("contracts")
 def test_get_reserved_buffer(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector._get_reserved_buffer(blockstamp)
+    result = ejector._get_buffer_ether(blockstamp)
     assert result == 2991010000000000000010, "Unexpected reserved buffer"
 
 
@@ -318,14 +318,14 @@ def test_get_reserved_buffer(ejector: Ejector, blockstamp: BlockStamp) -> None:
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=3)
     ejector.w3.lido_contracts.get_el_vault_balance = Mock(return_value=17)
-    ejector._get_reserved_buffer = Mock(return_value=1)
+    ejector._get_buffer_ether = Mock(return_value=1)
 
-    result = ejector._get_total_balance(blockstamp)
+    result = ejector._get_total_el_balance(blockstamp)
     assert result == 21, "Unexpected total balance"
 
     ejector.w3.lido_contracts.get_withdrawal_balance.assert_called_once_with(blockstamp)
     ejector.w3.lido_contracts.get_el_vault_balance.assert_called_once_with(blockstamp)
-    ejector._get_reserved_buffer.assert_called_once_with(blockstamp)
+    ejector._get_buffer_ether.assert_called_once_with(blockstamp)
 
 
 class TestChurnLimit:

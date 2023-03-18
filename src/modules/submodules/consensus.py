@@ -225,7 +225,7 @@ class ConsensusModule(ABC):
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 
-        report_hash = self._get_report_hash(report_data)
+        report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
         # We need to check whether report has unexpected data before sending.
         # otherwise we have to check it manually.
@@ -239,7 +239,7 @@ class ConsensusModule(ABC):
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # Check if current slot is higher than member slot + slots_delay
+        # Check if current slot is newer than (member slot + slots_delay)
         if not member_info.is_fast_lane:
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
@@ -322,7 +322,7 @@ class ConsensusModule(ABC):
 
         return latest_blockstamp, member_info
 
-    def _get_report_hash(self, report_data: tuple):
+    def _encode_data_hash(self, report_data: tuple):
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
@@ -384,7 +384,7 @@ class ConsensusModule(ABC):
         # 1 - is default delay for non submit members.
         total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
 
-        logger.info({'msg': 'Calculate slots to sleep.', 'value': total_delay})
+        logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay
 
     @abstractmethod

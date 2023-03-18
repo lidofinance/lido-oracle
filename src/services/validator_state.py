@@ -50,13 +50,13 @@ class LidoValidatorStateService:
     def get_lido_newly_stuck_validators(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
-        recently_asked_to_exit_pubkeys = self.get_last_requested_to_exit_pubkeys(blockstamp, chain_config)
+        recently_requested_to_exit_pubkeys = self.get_last_requested_to_exit_pubkeys(blockstamp, chain_config)
 
         result = {}
 
         for global_no_index, validators in lido_validators_by_no.items():
             def sum_stuck_validators(total: int, validator: LidoValidator) -> int:
-                # If validator index is higher than ejected index - we didn't asked this validator to exit
+                # If validator index is higher than ejected index - we didn't request this validator to exit
                 if int(validator.index) > ejected_index[global_no_index]:
                     return total
 
@@ -65,7 +65,7 @@ class LidoValidatorStateService:
                     return total
 
                 # If validator's pub key in recent events, node operator has still time to eject these validators
-                if validator.lido_id.key in recently_asked_to_exit_pubkeys:
+                if validator.lido_id.key in recently_requested_to_exit_pubkeys:
                     return total
 
                 validator_available_to_exit_epoch = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD
@@ -175,14 +175,18 @@ class LidoValidatorStateService:
         ).call(block_identifier=blockstamp.block_hash)
 
     def get_recently_requested_but_not_exited_validators(
-        self, blockstamp: ReferenceBlockStamp,
+        self,
+        blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
     ) -> list[LidoValidator]:
         """
-        Validators requested to exit, but didn't send exit message.
-        In case:
-        - Activation epoch is not old enough to initiate exit
-        - Node operator had not enough time to send exit message (VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS)
+        Returns list of validators recently requested to exit (deadline slot in future).
+
+        The deadline slot after witch validators are delayed:
+        validator_delayed_deadline_slot = max(
+            (activation_epoch + SHARD_COMMITTEE_PERIOD),  # For validators that were not able to exit cause of restrictions of the chain
+            epoch_when_validator_was_requested_to_exit,
+        ) * slots_per_epoch + VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS
         """
         lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         ejected_indexes = self.get_operators_with_last_exited_validator_indexes(blockstamp)
@@ -194,24 +198,24 @@ class LidoValidatorStateService:
 
         for global_no_index, validators in lido_validators_by_operator.items():
 
-            def validator_asked_to_exit(validator: LidoValidator) -> bool:
+            def validator_requested_to_exit(validator: LidoValidator) -> bool:
                 return int(validator.index) <= ejected_indexes[global_no_index]
 
-            def validator_recently_asked_to_exit(validator: LidoValidator) -> bool:
+            def validator_recently_requested_to_exit(validator: LidoValidator) -> bool:
                 return int(validator.index) in recent_indexes[global_no_index]
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
                 delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
                 return is_validator_eligible_to_exit(validator, EpochNumber(blockstamp.ref_epoch - delayed_timeout_in_epoch))
 
-            def non_exited_validators(validator: LidoValidator) -> bool:
-                if not validator_asked_to_exit(validator):
+            def is_validator_delayed(validator: LidoValidator) -> bool:
+                if not validator_requested_to_exit(validator):
                     return False
 
                 if is_on_exit(validator):
                     return False
 
-                if validator_recently_asked_to_exit(validator):
+                if validator_recently_requested_to_exit(validator):
                     return True
 
                 if not validator_eligible_to_exit(validator):
@@ -220,7 +224,7 @@ class LidoValidatorStateService:
                 return False
 
             validators_recently_requested_to_exit.extend(
-                list(filter(non_exited_validators, validators))
+                list(filter(is_validator_delayed, validators))
             )
 
         return validators_recently_requested_to_exit
