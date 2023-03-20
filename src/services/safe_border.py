@@ -155,14 +155,14 @@ class SafeBorder:
         start_frame = self.get_frame_by_epoch(start_epoch)
         end_frame = self.get_frame_by_epoch(end_epoch)
 
-        validators_set = set(validators)
+        slashed_pubkeys = set(v.validator.pubkey for v in validators)
 
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
         while start_frame < end_frame:
             mid_frame = FrameNumber((end_frame + start_frame) // 2)
 
-            if self._slashings_in_frame(mid_frame, validators_set):
+            if self._slashings_in_frame(mid_frame, slashed_pubkeys):
                 end_frame = mid_frame
             else:
                 start_frame = FrameNumber(mid_frame + 1)
@@ -171,20 +171,18 @@ class SafeBorder:
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, validators: set[Validator]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
-        last_slot_in_frame_blockstamp = get_blockstamp(
-            self.w3.cc,
-            last_slot_in_frame,
-            self.blockstamp.ref_slot,
-        )
+        last_slot_in_frame_blockstamp = self._get_blockstamp(last_slot_in_frame)
 
         lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
-        slashed_validators = filter_slashed_validators(list(filter(lambda x: x in validators, lido_validators)))
+        slashed_validators = filter_slashed_validators(
+            list(filter(lambda x: x.validator.pubkey in slashed_pubkeys, lido_validators))
+        )
 
         return len(slashed_validators) > 0
 
@@ -222,6 +220,34 @@ class SafeBorder:
 
         return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
 
+    def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
+        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
+
+    def _retrieve_constants(self):
+        limits_list = self._fetch_oracle_report_limits_list()
+        self.finalization_default_shift = math.ceil(
+            limits_list.request_timestamp_margin / (
+                self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+        )
+
+        self.finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
+
+    def _fetch_oracle_report_limits_list(self):
+        return named_tuple_to_dataclass(
+            self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
+                block_identifier=self.blockstamp.block_hash
+            ),
+            OracleReportLimits
+        )
+
+    def _fetch_finalization_max_negative_rebase_epoch_shift(self):
+        return self.w3.to_int(
+            primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
+                'FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT',
+            ).call(block_identifier=self.blockstamp.block_hash)
+        )
+
+
     def _get_bunker_start_timestamp(self) -> int:
         # If bunker mode is off returns max(uint256)
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
@@ -235,22 +261,7 @@ class SafeBorder:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
             block_identifier=self.blockstamp.block_hash)
 
-    def _retrieve_constants(self):
-        limits_list = named_tuple_to_dataclass(
-            self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
-                block_identifier=self.blockstamp.block_hash
-            ),
-            OracleReportLimits
-        )
-        self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
-        )
 
-        self.finalization_max_negative_rebase_shift = self.w3.to_int(
-            primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT',
-            ).call(block_identifier=self.blockstamp.block_hash)
-        )
 
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
