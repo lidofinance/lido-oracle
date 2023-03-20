@@ -107,6 +107,14 @@ class LidoValidatorsProvider(Module):
         lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
 
+        no_operators = self.get_lido_node_operators(blockstamp)
+        # Make sure that keys fetched from Keys API >= total amount of NO fetched from Staking Router
+        if len(lido_keys) < len(no_operators):
+            logger.warning({
+                'msg': f'Number of fetched keys from Keys API is less than number of NodeOperators '
+                       f'fetched from staking router on block number: {blockstamp.block_number}',
+            })
+
         return self.merge_validators_with_keys(lido_keys, validators)
 
     @staticmethod
