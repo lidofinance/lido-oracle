@@ -3,8 +3,12 @@ import pytest
 from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.typings import EpochNumber
-from src.utils.validator_state import calculate_total_active_effective_balance, is_on_exit, get_validator_age, \
+from src.utils.validator_state import (
+    calculate_total_active_effective_balance,
+    is_on_exit,
+    get_validator_age,
     calculate_active_effective_balance_sum
+)
 
 
 @pytest.mark.unit
