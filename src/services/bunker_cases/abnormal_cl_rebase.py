@@ -86,7 +86,7 @@ class AbnormalClRebase:
 
         normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
             self.b_conf,
-            max(EFFECTIVE_BALANCE_INCREMENT, mean_all_effective_balance),  # to avoid division by zero
+            max(Gwei(EFFECTIVE_BALANCE_INCREMENT), mean_all_effective_balance),  # to avoid division by zero
             mean_lido_effective_balance,
             epochs_passed_since_last_report
         )

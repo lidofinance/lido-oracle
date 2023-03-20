@@ -4,7 +4,8 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     SHARD_COMMITTEE_PERIOD,
-    FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
+    EFFECTIVE_BALANCE_INCREMENT,
 )
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei
