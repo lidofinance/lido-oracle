@@ -6,7 +6,7 @@ from typing import Sequence
 
 from web3.types import EventData
 
-from src.constants import MAX_EFFECTIVE_BALANCE
+from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
@@ -85,7 +85,10 @@ class AbnormalClRebase:
         )
 
         normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
-            self.b_conf, mean_all_effective_balance, mean_lido_effective_balance, epochs_passed_since_last_report
+            self.b_conf,
+            max(EFFECTIVE_BALANCE_INCREMENT, mean_all_effective_balance),  # to avoid division by zero
+            mean_lido_effective_balance,
+            epochs_passed_since_last_report
         )
 
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
