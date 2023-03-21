@@ -4,13 +4,17 @@ from itertools import count
 from faker import Faker
 from pydantic_factories import Use
 
-from src.providers.consensus.typings import Validator
+from src.providers.consensus.typings import Validator, ValidatorState
 from src.providers.keys.typings import LidoKey
 from tests.factory.web3_factory import Web3Factory
 from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
 
 faker = Faker()
+
+
+class ValidatorStateFactory(Web3Factory):
+    __model__ = ValidatorState
 
 
 class ValidatorFactory(Web3Factory):
