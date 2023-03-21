@@ -50,13 +50,14 @@ docker build -t lidofinance/oracle .
 
 ## Env variables
 
-| Name                   | Description                              | Required | Example value           |
-|------------------------|------------------------------------------|----------|-------------------------|
-| `EXECUTION_CLIENT_URI` | URI of the Execution Layer client        | True     | `http://localhost:8545` |
-| `CONSENSUS_CLIENT_URI` | URI of the Consensus Layer client        | True     | `http://localhost:5052` |
-| `KEYS_API_URI`         | URI of the Keys API                      | True     | `http://localhost:8080` |
-| `LIDO_LOCATOR_ADDRESS` | Address of the Lido contract             | True     | `0x1...`                |
-| `MEMBER_PRIV_KEY`      | Private key of the Oracle member account | False    | `0x1...`                |
+| Name                              | Description                                                        | Required | Example value           |
+|-----------------------------------|--------------------------------------------------------------------|----------|-------------------------|
+| `EXECUTION_CLIENT_URI`            | URI of the Execution Layer client                                  | True     | `http://localhost:8545` |
+| `CONSENSUS_CLIENT_URI`            | URI of the Consensus Layer client                                  | True     | `http://localhost:5052` |
+| `KEYS_API_URI`                    | URI of the Keys API                                                | True     | `http://localhost:8080` |
+| `LIDO_LOCATOR_ADDRESS`            | Address of the Lido contract                                       | True     | `0x1...`                |
+| `ALLOW_NEGATIVE_REBASE_REPORTING` | If 'False', a report with negative cl rebase would not be reported | False    | `True`                  |
+| `MEMBER_PRIV_KEY`                 | Private key of the Oracle member account                           | False    | `0x1...`                |
 
 ## Monitoring
 TBD

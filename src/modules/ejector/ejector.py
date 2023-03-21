@@ -12,12 +12,13 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.typings import Validator
-from src.services.exit_order import ValidatorToExitIterator
+from src.services.exit_order import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
@@ -62,15 +63,20 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
         self.validators_state_service = LidoValidatorStateService(w3)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
-            return True
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+        if self._is_paused(report_blockstamp):
+            logger.info({'msg': 'Ejector is paused. Skip report.'})
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
-        return False
+        return ModuleExecuteDelay.NEXT_SLOT
 
     @lru_cache(maxsize=1)
+    @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         validators = self.get_validators_to_eject(blockstamp)
         logger.info({'msg': f'Calculate validators to eject. Count: {len(validators)}', 'value': validators})
@@ -112,10 +118,10 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
-        validators_iterator = ValidatorToExitIterator(
-            w3=self.w3,
+        validators_iterator = ExitOrderIterator(
+            web3=self.w3,
             blockstamp=blockstamp,
-            c_conf=chain_config,
+            chain_config=chain_config
         )
 
         for validator in validators_iterator:
@@ -132,6 +138,9 @@ class Ejector(BaseModule, ConsensusModule):
             validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator[1])
 
         return validators_to_eject
+
+    def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
+        return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
@@ -201,6 +210,11 @@ class Ejector(BaseModule, ConsensusModule):
 
     @staticmethod
     def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):
+        """
+        Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+
+        Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+        """
         return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
     @lru_cache(maxsize=1)
@@ -260,3 +274,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
+
+    def is_reporting_allowed(self, blockstamp: BlockStamp) -> bool:
+        """At this point we can't check anything, so just return True."""
+        return True

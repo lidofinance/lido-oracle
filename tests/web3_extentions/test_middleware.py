@@ -2,7 +2,7 @@ import pytest
 from requests import HTTPError
 from web3 import Web3, HTTPProvider
 
-from src.metrics.prometheus.basic import ETH1_RPC_REQUESTS
+from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
 from src.web3py.middleware import metrics_collector
 
@@ -22,11 +22,11 @@ def web3(provider):
 @pytest.fixture(autouse=True)
 def clear_metrics():
     yield
-    ETH1_RPC_REQUESTS.clear()
+    EL_REQUESTS_DURATION.clear()
 
 
 def _get_requests_labels():
-    samples = ETH1_RPC_REQUESTS.collect()[0].samples
+    samples = EL_REQUESTS_DURATION.collect()[0].samples
     assert samples
     labels = samples[0].labels
     # We do not check domain because it is different for each provider
@@ -37,7 +37,13 @@ def _get_requests_labels():
 def test_success(provider, web3):
     web3.eth.get_block_number()
     labels = _get_requests_labels()
-    assert labels == {'method': 'eth_blockNumber', 'code': '0'}
+    assert labels == {
+        'call_method': '',
+        'call_to': '',
+        'code': '0',
+        'endpoint': 'eth_blockNumber',
+        'le': '0.005',
+    }
 
 
 def test_fail_with_status_code(provider, web3):
@@ -45,11 +51,23 @@ def test_fail_with_status_code(provider, web3):
     with pytest.raises(HTTPError):
         web3.eth.get_block_number()
     labels = _get_requests_labels()
-    assert labels == {'method': 'eth_blockNumber', 'code': '404'}
+    assert labels == {
+        'call_method': '',
+        'call_to': '',
+        'code': '404',
+        'endpoint': 'eth_blockNumber',
+        'le': '0.005',
+    }
 
 
 def test_fail_with_body_error(provider, web3):
     with pytest.raises(ValueError):
         web3.eth.coinbase
     labels = _get_requests_labels()
-    assert labels == {'method': 'eth_coinbase', 'code': '-32000'}
+    assert labels == {
+        'call_method': '',
+        'call_to': '',
+        'code': '-32000',
+        'endpoint': 'eth_coinbase',
+        'le': '0.005'
+    }

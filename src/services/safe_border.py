@@ -1,8 +1,10 @@
+import math
 from typing import Any, Optional, Sequence
 
 from eth_typing import HexStr
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
 from src.utils.abi import named_tuple_to_dataclass
@@ -37,6 +39,7 @@ class SafeBorder:
 
         self._retrieve_constants()
 
+    @duration_meter()
     def get_safe_border_epoch(
         self,
         is_bunker: bool,
@@ -53,7 +56,7 @@ class SafeBorder:
         )
 
     def _get_default_requests_border_epoch(self) -> EpochNumber:
-        return EpochNumber(self.get_epoch_by_slot(self.blockstamp.ref_slot) - self.finalization_default_shift)
+        return EpochNumber(self.blockstamp.ref_epoch - self.finalization_default_shift)
 
     def _get_negative_rebase_border_epoch(self) -> EpochNumber:
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
@@ -83,6 +86,7 @@ class SafeBorder:
 
         return self._get_default_requests_border_epoch()
 
+    @duration_meter()
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> Optional[EpochNumber]:
         validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
@@ -238,10 +242,8 @@ class SafeBorder:
             ),
             OracleReportLimits
         )
-        self.finalization_default_shift = (
-            limits_list.request_timestamp_margin // (
-                self.chain_config.seconds_per_slot * self.chain_config.slots_per_epoch
-            )
+        self.finalization_default_shift = math.ceil(
+            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
         )
 
         self.finalization_max_negative_rebase_shift = self.w3.to_int(

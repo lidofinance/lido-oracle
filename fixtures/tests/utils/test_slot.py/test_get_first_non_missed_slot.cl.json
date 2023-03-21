@@ -427,7 +427,7 @@
     ]
   },
   {
-    "url": "/eth/v1/beacon/headers/194815",
+    "url": "eth/v1/beacon/headers/194815",
     "params": null,
     "response": [
       {
@@ -445,8 +445,7 @@
         }
       },
       {
-        "execution_optimistic": false,
-        "finalized": true
+        "execution_optimistic": false
       }
     ]
   },

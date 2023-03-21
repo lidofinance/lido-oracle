@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.modules.accounting import accounting
 from src.modules.accounting.accounting import Accounting
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -64,7 +65,7 @@ def test_get_finalization_shares_rate(accounting_module, post_total_pooled_ether
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
     )
-    accounting_module.get_rebase_after_report = Mock(return_value=lido_rebase)
+    accounting_module.simulate_full_rebase = Mock(return_value=lido_rebase)
 
     bs = ReferenceBlockStampFactory.build()
     share_rate = accounting_module._get_finalization_shares_rate(bs)
@@ -101,3 +102,28 @@ def test_get_slots_elapsed_from_last_report(accounting_module, contracts):
     slots_elapsed = accounting_module._get_slots_elapsed_from_last_report(bs)
 
     assert slots_elapsed == 100 - 70
+
+
+class TestAccountingSanityCheck:
+
+    @pytest.fixture
+    def bs(self):
+        yield ReferenceBlockStampFactory.build()
+
+    def test_env_toggle(self, accounting_module, monkeypatch, bs, caplog):
+        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
+        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+        with monkeypatch.context() as ctx:
+            ctx.setattr(accounting, 'ALLOW_NEGATIVE_REBASE_REPORTING', True)
+            assert accounting_module.is_reporting_allowed(bs)
+        assert "CL rebase is negative" in caplog.text
+
+    def test_no_negative_rebase(self, accounting_module, bs):
+        accounting_module.bunker_service._get_total_supply = Mock(return_value=90)
+        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=100))
+        assert accounting_module.is_reporting_allowed(bs)
+
+    def test_negative_rebase(self, accounting_module, bs):
+        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
+        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+        assert accounting_module.is_reporting_allowed(bs) is False

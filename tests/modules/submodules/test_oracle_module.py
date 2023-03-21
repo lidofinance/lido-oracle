@@ -2,8 +2,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.typings import BlockStamp
+from src.web3py.extensions import LidoContracts
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -12,7 +13,7 @@ class SimpleOracle(BaseModule):
 
     def execute_module(self, blockstamp):
         self.call_count += 1
-        return True
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
 @pytest.fixture(autouse=True)
@@ -40,12 +41,18 @@ def test_receive_last_finalized_slot(oracle):
 
 
 @pytest.mark.unit
-def test_cycle_handler_run_once_per_slot(oracle):
-    SimpleOracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
+def test_cycle_handler_run_once_per_slot(oracle, contracts, web3):
+    web3.lido_contracts.reload_contracts = Mock()
+    oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     oracle._cycle_handler()
     assert oracle.call_count == 1
+    assert web3.lido_contracts.reload_contracts.call_count == 1
+
     oracle._cycle_handler()
     assert oracle.call_count == 1
-    SimpleOracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
+    assert web3.lido_contracts.reload_contracts.call_count == 1
+
+    oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
     oracle._cycle_handler()
     assert oracle.call_count == 2
+    assert web3.lido_contracts.reload_contracts.call_count == 2

@@ -7,6 +7,20 @@ from src.utils.dataclass import Nested, FromResponse
 
 
 @dataclass
+class BeaconSpecResponse(FromResponse):
+    DEPOSIT_CHAIN_ID: str
+    SLOTS_PER_EPOCH: str
+    SECONDS_PER_SLOT: str
+
+
+@dataclass
+class GenesisResponse(FromResponse):
+    genesis_time: str
+    genesis_validators_root: str
+    genesis_fork_version: str
+
+
+@dataclass
 class BlockRootResponse(FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
     root: BlockRoot

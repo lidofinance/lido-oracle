@@ -2,9 +2,11 @@ import logging
 import time
 from abc import abstractmethod, ABC
 from dataclasses import asdict
+from enum import Enum
 
 from timeout_decorator import timeout
 
+from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -18,6 +20,13 @@ from src.typings import SlotNumber, BlockStamp, BlockRoot
 
 
 logger = logging.getLogger(__name__)
+
+
+class ModuleExecuteDelay(Enum):
+    """Signals from execute_module method"""
+
+    NEXT_SLOT = 0
+    NEXT_FINALIZED_EPOCH = 1
 
 
 class BaseModule(ABC):
@@ -47,9 +56,10 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:
-            sleep_for_this_finalized_epoch = self.run_cycle(blockstamp)
+            result = self.run_cycle(blockstamp)
 
-            if sleep_for_this_finalized_epoch:
+            if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
+                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
@@ -60,9 +70,10 @@ class BaseModule(ABC):
         block_details = self.w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
+        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
         return bs
 
-    def run_cycle(self, blockstamp: BlockStamp) -> bool:
+    def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
@@ -86,10 +97,10 @@ class BaseModule(ABC):
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
 
-        return False
+        return ModuleExecuteDelay.NEXT_SLOT
 
     @abstractmethod
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         """
         Implement module business logic here.
         Return
