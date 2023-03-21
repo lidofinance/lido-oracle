@@ -108,10 +108,15 @@ class LidoValidatorsProvider(Module):
         validators = self.w3.cc.get_validators(blockstamp)
 
         no_operators = self.get_lido_node_operators(blockstamp)
+
+        total_deposited_validators = 0
+        for deposited_validators in no_operators:
+            total_deposited_validators += deposited_validators.total_deposited_validators
+
         # Make sure that keys fetched from Keys API >= total amount of NO fetched from Staking Router
-        if len(lido_keys) < len(no_operators):
+        if len(lido_keys) < total_deposited_validators:
             logger.warning({
-                'msg': f'Number of fetched keys from Keys API is less than number of NodeOperators '
+                'msg': f'Number of fetched keys from Keys API is less than number of total deposited validators '
                        f'fetched from staking router on block number: {blockstamp.block_number}',
             })
 
