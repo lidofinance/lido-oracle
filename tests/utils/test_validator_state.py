@@ -116,15 +116,15 @@ def get_validators():
 
 
 @pytest.mark.unit
-def test_is_validator_eligible_to_exit():
-    actual = calculate_total_active_effective_balance(get_validators(), EpochNumber(170256))
+def test_calculate_active_effective_balance_sum():
+    actual = calculate_active_effective_balance_sum(get_validators(), EpochNumber(170256))
     assert actual == Gwei(3000000000)
 
-    actual = calculate_total_active_effective_balance(simple_validators(0, 9, effective_balance=0), EpochNumber(170256))
+    actual = calculate_active_effective_balance_sum(simple_validators(0, 9, effective_balance=0), EpochNumber(170256))
     assert actual == EFFECTIVE_BALANCE_INCREMENT
 
     vals = get_validators()
     vals[0].validator.exit_epoch = 170000  # non active validator
 
-    actual = calculate_total_active_effective_balance(vals, EpochNumber(170256))
+    actual = calculate_active_effective_balance_sum(vals, EpochNumber(170256))
     assert actual == Gwei(2000000000)
