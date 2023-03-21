@@ -96,6 +96,10 @@ class LidoValidator(Validator):
     lido_id: LidoKey
 
 
+class CountOfKeysDiffersException(Exception):
+    pass
+
+
 ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 
 
@@ -109,16 +113,19 @@ class LidoValidatorsProvider(Module):
 
         no_operators = self.get_lido_node_operators(blockstamp)
 
+        # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
+        total_used_keys = 0
+        for key in lido_keys:
+            if key.used:
+                total_used_keys += 1
+
         total_deposited_validators = 0
         for deposited_validators in no_operators:
             total_deposited_validators += deposited_validators.total_deposited_validators
 
-        # Make sure that keys fetched from Keys API >= total amount of NO fetched from Staking Router
-        if len(lido_keys) < total_deposited_validators:
-            logger.warning({
-                'msg': f'Number of fetched keys from Keys API is less than number of total deposited validators '
-                       f'fetched from staking router on block number: {blockstamp.block_number}',
-            })
+        if total_used_keys < total_deposited_validators:
+            raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({total_used_keys}) '
+                                              f'than amount of deposited validators ({total_deposited_validators}) returned from Staking Router')
 
         return self.merge_validators_with_keys(lido_keys, validators)
 

@@ -9,10 +9,10 @@ blockstamp = ReferenceBlockStampFactory.build()
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, lido_validators):
+def test_get_lido_validators(web3, lido_validators, contracts):
     validators = ValidatorFactory.batch(30)
     lido_keys = LidoKeyFactory.generate_for_validators(validators[:10])
-    lido_keys.extend(LidoKeyFactory.batch(5))
+    lido_keys.extend(LidoKeyFactory.batch(10))
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_all_lido_keys = Mock(return_value=lido_keys)
