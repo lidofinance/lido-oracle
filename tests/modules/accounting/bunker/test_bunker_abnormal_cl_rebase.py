@@ -51,7 +51,7 @@ def test_is_abnormal_cl_rebase(
     mock_get_all_lido_keys,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-        mock_get_blockstamp,
+    mock_get_blockstamp,
     frame_cl_rebase,
     nearest_epoch_distance,
     far_epoch_distance,
@@ -76,6 +76,7 @@ def test_is_abnormal_cl_rebase(
     [
         (simple_ref_blockstamp(40), 378585831),
         (simple_ref_blockstamp(20), 126195277),
+        (simple_ref_blockstamp(123), 1008338960),
     ]
 )
 def test_calculate_lido_normal_cl_rebase(
@@ -84,7 +85,7 @@ def test_calculate_lido_normal_cl_rebase(
     mock_get_accounting_last_processing_ref_slot,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-        mock_get_blockstamp,
+    mock_get_blockstamp,
     blockstamp,
     expected_rebase
 ):

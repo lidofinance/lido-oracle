@@ -6,7 +6,7 @@ from typing import Sequence
 
 from web3.types import EventData
 
-from src.constants import MAX_EFFECTIVE_BALANCE
+from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
@@ -85,7 +85,10 @@ class AbnormalClRebase:
         )
 
         normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
-            self.b_conf, mean_all_effective_balance, mean_lido_effective_balance, epochs_passed_since_last_report
+            self.b_conf,
+            mean_all_effective_balance,
+            mean_lido_effective_balance,
+            epochs_passed_since_last_report
         )
 
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
@@ -315,6 +318,8 @@ class AbnormalClRebase:
         To formalize “high enough” difference we’re suggesting `normalized_cl_reward_per_epoch` constant
         represent ethereum specification and equals to `BASE_REWARD_FACTOR` constant
         """
+        # It should be at least 1 ETH to avoid division by zero
+        mean_all_effective_balance_sum = max(Gwei(EFFECTIVE_BALANCE_INCREMENT), mean_all_effective_balance_sum)
         normal_cl_rebase = int(
             (bunker_config.normalized_cl_reward_per_epoch * mean_lido_effective_balance_sum * epochs_passed)
             / math.sqrt(mean_all_effective_balance_sum) * (1 - bunker_config.normalized_cl_reward_mistake_rate)

@@ -5,6 +5,7 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     SHARD_COMMITTEE_PERIOD,
     FAR_FUTURE_EPOCH,
+    EFFECTIVE_BALANCE_INCREMENT,
 )
 from src.providers.consensus.typings import Validator
 from src.typings import EpochNumber, Gwei
@@ -76,15 +77,24 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     return active_long_enough and not is_on_exit(validator)
 
 
-def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
+def calculate_total_active_effective_balance(all_validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
     """
     Return the combined effective balance of the active validators.
+    Note: returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
     """
-    total_effective_balance = 0
+    total_effective_balance = calculate_active_effective_balance_sum(all_validators, ref_epoch)
+    return Gwei(max(EFFECTIVE_BALANCE_INCREMENT, total_effective_balance))
 
-    for v in validators:
-        if is_active_validator(v, ref_epoch):
-            total_effective_balance += int(v.validator.effective_balance)
 
-    return Gwei(total_effective_balance)
+def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
+    """
+    Return the combined effective balance of the active validators from the given list
+    """
+    effective_balance_sum = 0
+
+    for validator in validators:
+        if is_active_validator(validator, ref_epoch):
+            effective_balance_sum += int(validator.validator.effective_balance)
+
+    return Gwei(effective_balance_sum)
