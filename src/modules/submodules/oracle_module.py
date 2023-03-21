@@ -11,6 +11,7 @@ from src.modules.submodules.exceptions import IsNotMemberException, Incompatible
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.utils.blockstamp import build_blockstamp
+from src.utils.cache import clear_object_lru_cache
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
 from src.web3py.typings import Web3
 from web3_multi_provider import NoActiveProviderError
@@ -55,10 +56,11 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:
+            if self.w3.lido_contracts.has_contract_address_changed():
+                clear_object_lru_cache(self)
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})

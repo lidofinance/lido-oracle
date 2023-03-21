@@ -36,8 +36,11 @@ class LidoContracts(Module):
                 logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
         super().__setattr__(key, value)
 
-    def reload_contracts(self):
+    def has_contract_address_changed(self) -> bool:
+        addresses = [contract.address for contract in self.__dict__.values() if isinstance(contract, Contract)]
         self._load_contracts()
+        new_addresses = [contract.address for contract in self.__dict__.values() if isinstance(contract, Contract)]
+        return addresses != new_addresses
 
     def _load_contracts(self):
         # Contract that stores all lido contract addresses
