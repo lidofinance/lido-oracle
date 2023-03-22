@@ -53,26 +53,27 @@ class HTTPProvider(ABC):
         """
         Returns (data, meta)
         """
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
+                    self._urljoin(self.host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=HTTP_REQUEST_TIMEOUT,
                 )
             except Timeout as error:
-                logger.debug({'msg': 'Timeout error.'})
+                logger.debug({'msg': f'Timeout error from {complete_endpoint}.'})
                 raise TimeoutError from error
 
             try:
                 if response.status_code != HTTPStatus.OK:
-                    msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                    msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
                     logger.debug({'msg': msg})
                     raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
                 json_response = response.json()
             except JSONDecodeError as error:
-                msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
                 logger.debug({'msg': msg})
                 raise error from error
             finally:
