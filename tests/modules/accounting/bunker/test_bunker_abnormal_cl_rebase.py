@@ -48,7 +48,7 @@ def test_is_abnormal_cl_rebase(
     blockstamp,
     abnormal_case,
     mock_get_accounting_last_processing_ref_slot,
-    mock_get_all_lido_keys,
+    mock_get_used_lido_keys,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
         mock_get_blockstamp,
@@ -80,7 +80,7 @@ def test_is_abnormal_cl_rebase(
 )
 def test_calculate_lido_normal_cl_rebase(
     abnormal_case,
-    mock_get_all_lido_keys,
+    mock_get_used_lido_keys,
     mock_get_accounting_last_processing_ref_slot,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
@@ -90,7 +90,7 @@ def test_calculate_lido_normal_cl_rebase(
 ):
     abnormal_case.all_validators = abnormal_case.w3.cc.get_validators(blockstamp)
     abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
-    abnormal_case.lido_keys = abnormal_case.w3.kac.get_all_lido_keys(blockstamp)
+    abnormal_case.lido_keys = abnormal_case.w3.kac.get_used_lido_keys(blockstamp)
 
     result = abnormal_case._calculate_lido_normal_cl_rebase(blockstamp)
 

@@ -16,7 +16,7 @@ def test_get_lido_validators(web3, lido_validators, contracts):
     lido_keys.extend(LidoKeyFactory.batch(10))
 
     web3.cc.get_validators = Mock(return_value=validators)
-    web3.kac.get_all_lido_keys = Mock(return_value=lido_keys)
+    web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
 
     lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
 
@@ -34,11 +34,10 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validat
     lido_keys = []
 
     web3.cc.get_validators = Mock(return_value=validators)
-    web3.kac.get_all_lido_keys = Mock(return_value=lido_keys)
+    web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
 
     with pytest.raises(CountOfKeysDiffersException):
-        web3.lido_validators.get_lido_validators(blockstamp)
-
+       web3.lido_validators.get_lido_validators(blockstamp)
 
 @pytest.mark.unit
 def test_get_node_operators(web3, lido_validators, contracts):
