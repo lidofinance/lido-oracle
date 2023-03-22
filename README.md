@@ -34,11 +34,17 @@ docker build -t lidofinance/oracle .
 \
 \
       To run Oracle in `production mode` set `MEMBER_PRIV_KEY` environment variable in `.env` file:
-      ```bash
+      ```
       MEMBER_PRIV_KEY={value}
       ```
       Where `{value}` is a private key of the Oracle member account.
-2. Run the container using the following command:
+2. Check that your environment is ready to run the oracle using the following command:
+      ```bash
+      docker run --env-file .env --rm lidofinance/oracle:{tag} readiness
+      ```
+      If everything is ok, you will see that all required checks are passed.
+   Now you are able to run the oracle.
+3. Run the container using the following command:
       ```bash
       docker run --env-file .env lidofinance/oracle:{tag} {type}
       ```
