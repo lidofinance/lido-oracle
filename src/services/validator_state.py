@@ -6,8 +6,11 @@ from typing import Sequence, Iterable
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
-from src.metrics.prometheus.accounting import ACCOUNTING_STUCK_VALIDATORS, ACCOUNTING_EXITED_VALIDATORS, \
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_STUCK_VALIDATORS,
+    ACCOUNTING_EXITED_VALIDATORS,
     ACCOUNTING_DELAYED_VALIDATORS
+)
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
@@ -201,15 +204,14 @@ class LidoValidatorStateService:
         )
 
         validators_recently_requested_to_exit = []
-        delayed_validators_count = 0
 
-        for global_no_index, validators in lido_validators_by_operator.items():
+        for global_index, validators in lido_validators_by_operator.items():
 
             def validator_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) <= ejected_indexes[global_no_index]
+                return int(validator.index) <= ejected_indexes[global_index]
 
             def validator_recently_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) in recent_indexes[global_no_index]
+                return int(validator.index) in recent_indexes[global_index]
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
                 delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
@@ -243,9 +245,9 @@ class LidoValidatorStateService:
             validators_recently_requested_to_exit.extend(
                 list(filter(is_validator_recently_requested_but_not_exited, validators))
             )
-            delayed_validators_count += len(list(filter(is_validator_delayed, validators)))
+            delayed_validators = list(filter(is_validator_delayed, validators))
 
-        ACCOUNTING_DELAYED_VALIDATORS.set(delayed_validators_count)
+            ACCOUNTING_DELAYED_VALIDATORS.labels(global_index).set(delayed_validators)
 
         return validators_recently_requested_to_exit
 
