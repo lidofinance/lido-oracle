@@ -46,6 +46,14 @@ def test_returns_empty_batch_if_there_is_no_requests(subject: Withdrawal):
 
 
 @pytest.mark.unit
+def test_returns_empty_batch_if_paused(subject: Withdrawal):
+    subject._is_requests_finalization_paused = Mock(return_value=True)
+    result = subject.get_finalization_batches(True, 100, 0, 0)
+
+    assert result == []
+
+
+@pytest.mark.unit
 def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=True)
     subject._get_available_eth = Mock(return_value=100)

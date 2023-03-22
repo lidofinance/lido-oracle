@@ -105,6 +105,7 @@ def test_calculate_lido_normal_cl_rebase(
         (simple_ref_blockstamp(40), 10, 20, False),
         (simple_ref_blockstamp(20), 10, 20, True),
         (simple_ref_blockstamp(20), 10, 10, True),
+        (simple_ref_blockstamp(33), 2, 33, True),
         (
                 simple_ref_blockstamp(20),
                 20,
@@ -123,7 +124,7 @@ def test_is_negative_specific_cl_rebase(
     abnormal_case,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
-        mock_get_blockstamp,
+    mock_get_blockstamp,
     blockstamp,
     nearest_epoch_distance,
     far_epoch_distance,

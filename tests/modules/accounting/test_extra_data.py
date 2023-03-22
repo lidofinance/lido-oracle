@@ -49,6 +49,20 @@ class TestBuildValidators:
         assert payload[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
         assert payload[0].vals_counts == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
 
+    def test_collect_stuck_vals_in_cap(self, extra_data_service):
+        vals_stuck_non_zero = {
+            node_operator(1, 0): 1,
+            node_operator(1, 1): 1,
+        }
+        vals_exited_non_zero = {
+            node_operator(1, 0): 2,
+        }
+        extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 2, 2)
+        assert isinstance(extra_data, ExtraData)
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
+        assert extra_data.extra_data == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+        assert extra_data.data_hash == HexBytes(b'\xc7\x98\xd9\xa9\xe1A\xfe\x19\xc6"\xa0\xa0\xa3\x89N\xe3r\xfc\xff\xe6L\x08+K\x9doa\xabF\xc3\x0cs')
+
     def test_order(self, extra_data_service, monkeypatch):
         vals_order = {
             node_operator(2, 0): 1,
@@ -66,6 +80,8 @@ class TestBuildValidators:
 
         assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x03'
         assert payloads[1].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
+
+
 
     def test_max_items_count(self, extra_data_service):
         """
