@@ -11,6 +11,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
+from src.modules.readiness.ReadinessModule import ReadinessModule
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -92,6 +93,10 @@ def main(module_name: OracleModule):
         ejector = Ejector(web3)
         ejector.check_contract_configs()
         ejector.run_as_daemon()
+    elif module_name == OracleModule.READINESS:
+        logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
+        readiness = ReadinessModule(web3)
+        sys.exit(readiness.execute_module())
 
 
 def check_required_variables():
