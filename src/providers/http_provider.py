@@ -9,6 +9,8 @@ from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
+from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,9 +33,9 @@ class HTTPProvider(ABC):
         self.host = host
 
         retry_strategy = Retry(
-            total=5,
+            total=HTTP_REQUEST_RETRY_COUNT,
             status_forcelist=[418, 429, 500, 502, 503, 504],
-            backoff_factor=5,
+            backoff_factor=HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS,
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
