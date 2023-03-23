@@ -1,8 +1,12 @@
 import logging
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
-from src.metrics.prometheus.validators import ALL_VALIDATORS, LIDO_VALIDATORS, ALL_SLASHED_VALIDATORS, \
-    LIDO_SLASHED_VALIDATORS
+from src.metrics.prometheus.validators import (
+    ALL_VALIDATORS,
+    LIDO_VALIDATORS,
+    ALL_SLASHED_VALIDATORS,
+    LIDO_SLASHED_VALIDATORS,
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty

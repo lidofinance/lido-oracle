@@ -235,8 +235,8 @@ class LidoValidatorStateService:
             def is_validator_delayed(validator: LidoValidator) -> bool:
                 if (
                     validator_requested_to_exit(validator) and
-                        not is_on_exit(validator) and
-                        not validator_recently_requested_to_exit(validator)
+                    not is_on_exit(validator) and
+                    not validator_recently_requested_to_exit(validator)
                 ):
                     return True
 
