@@ -63,6 +63,9 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
         self.validators_state_service = LidoValidatorStateService(w3)
 
+    def contracts_refresh(self):
+        self.report_contract = self.w3.lido_contracts.validators_exit_bus_oracle
+
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
