@@ -24,6 +24,8 @@ class ValidatorFactory(Web3Factory):
 class LidoKeyFactory(Web3Factory):
     __model__ = LidoKey
 
+    used: bool = True
+
     @classmethod
     def generate_for_validators(cls, validators: list[Validator], **kwargs):
         return cls.butch_with('key', [v.validator.pubkey for v in validators], **kwargs)
