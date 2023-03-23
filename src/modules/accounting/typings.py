@@ -77,8 +77,8 @@ class OracleReportLimits:
 class LidoReportRebase:
     post_total_pooled_ether: int
     post_total_shares: int
-    withdrawals: int
-    el_reward: int
+    withdrawals: Wei
+    el_reward: Wei
 
 
 @dataclass

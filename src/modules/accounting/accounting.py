@@ -132,6 +132,7 @@ class Accounting(BaseModule, ConsensusModule):
         staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
             consensus_version=self.CONSENSUS_VERSION,
@@ -143,8 +144,8 @@ class Accounting(BaseModule, ConsensusModule):
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
             shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
-            withdrawal_finalization_batches=self._get_withdrawal_batches(blockstamp),
-            finalization_share_rate=self._get_finalization_shares_rate(blockstamp),
+            withdrawal_finalization_batches=finalization_batches,
+            finalization_share_rate=finalization_share_rate,
             is_bunker=self._is_bunker(blockstamp),
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
@@ -193,31 +194,27 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
         return count, total_balance
 
-    def _get_withdrawal_batches(self, blockstamp: ReferenceBlockStamp) -> list[int]:
+    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[int, list[int]]:
+        simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
-
         is_bunker = self._is_bunker(blockstamp)
-        withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
-        el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
-        finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
+
+        share_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+
+        logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
-        withdrawal_batches = withdrawal_service.get_finalization_batches(
+        batches = withdrawal_service.get_finalization_batches(
             is_bunker,
-            finalization_share_rate,
-            withdrawal_vault_balance,
-            el_rewards_vault_balance,
+            share_rate,
+            simulation.withdrawals,
+            simulation.el_reward,
         )
-        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': withdrawal_batches})
-        return withdrawal_batches
 
-    @lru_cache(maxsize=1)
-    def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
-        simulation = self.simulate_full_rebase(blockstamp)
-        shares_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
-        logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
-        return shares_rate
+        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
+
+        return share_rate, batches
 
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
         return self.simulate_rebase_after_report(blockstamp)
