@@ -41,7 +41,7 @@ class AbnormalClRebase:
     ) -> bool:
         self.all_validators = all_validators
         self.lido_validators = lido_validators
-        self.lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
+        self.lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
 
         logger.info({"msg": "Checking abnormal CL rebase"})
 

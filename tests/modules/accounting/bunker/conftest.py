@@ -54,16 +54,16 @@ def mock_get_accounting_last_processing_ref_slot(abnormal_case):
 
 
 @pytest.fixture
-def mock_get_all_lido_keys(abnormal_case):
+def mock_get_used_lido_keys(abnormal_case):
 
-    def _get_all_lido_keys(blockstamp: ReferenceBlockStamp):
+    def _get_used_lido_keys(blockstamp: ReferenceBlockStamp):
         return [
             simple_key('0x03'),
             simple_key('0x04'),
             simple_key('0x05'),
         ]
 
-    abnormal_case.w3.kac.get_all_lido_keys = Mock(side_effect=_get_all_lido_keys)
+    abnormal_case.w3.kac.get_used_lido_keys = Mock(side_effect=_get_used_lido_keys)
 
 
 @pytest.fixture
