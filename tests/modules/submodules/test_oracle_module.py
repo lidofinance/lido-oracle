@@ -15,6 +15,9 @@ class SimpleOracle(BaseModule):
         self.call_count += 1
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+    def contracts_refresh(self):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def set_default_sleep(monkeypatch):
