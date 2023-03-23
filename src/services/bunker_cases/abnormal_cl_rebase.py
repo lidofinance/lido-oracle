@@ -1,7 +1,6 @@
 import logging
 import math
 
-from statistics import mean
 from typing import Sequence
 
 from web3.types import EventData
@@ -46,16 +45,17 @@ class AbnormalClRebase:
         logger.info({"msg": "Checking abnormal CL rebase"})
 
         normal_report_cl_rebase = self._calculate_lido_normal_cl_rebase(blockstamp)
+        diff_current_with_normal = 1 - current_report_cl_rebase / normal_report_cl_rebase
 
-        if normal_report_cl_rebase > current_report_cl_rebase:
+        if diff_current_with_normal > self.b_conf.normalized_cl_reward_mistake_rate:
             logger.info({"msg": "CL rebase in frame is abnormal"})
 
-            no_need_specific_cl_rebase_check = (
+            no_need_intraframe_sampled_cl_rebase_check = (
                 self.b_conf.rebase_check_nearest_epoch_distance == 0 and
                 self.b_conf.rebase_check_distant_epoch_distance == 0
             )
-            if no_need_specific_cl_rebase_check:
-                logger.info({"msg": "Specific CL rebase calculation are disabled. Cl rebase is abnormal"})
+            if no_need_intraframe_sampled_cl_rebase_check:
+                logger.info({"msg": "Intraframe sampled CL rebase calculation are disabled. Cl rebase is abnormal"})
                 return True
 
             if self._is_negative_specific_cl_rebase(blockstamp):
@@ -77,17 +77,17 @@ class AbnormalClRebase:
             self.lido_keys, last_report_all_validators
         )
 
-        mean_all_effective_balance = AbnormalClRebase.get_mean_effective_balance_sum(
+        mean_sum_of_all_effective_balance = AbnormalClRebase.get_mean_sum_of_effective_balance(
             last_report_blockstamp, blockstamp, last_report_all_validators, self.all_validators
         )
-        mean_lido_effective_balance = AbnormalClRebase.get_mean_effective_balance_sum(
+        mean_sum_of_lido_effective_balance = AbnormalClRebase.get_mean_sum_of_effective_balance(
             last_report_blockstamp, blockstamp, last_report_lido_validators, self.lido_validators
         )
 
         normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
             self.b_conf,
-            mean_all_effective_balance,
-            mean_lido_effective_balance,
+            mean_sum_of_all_effective_balance,
+            mean_sum_of_lido_effective_balance,
             epochs_passed_since_last_report
         )
 
@@ -156,8 +156,17 @@ class AbnormalClRebase:
         To account for all changes in validators' balances, we must account
         withdrawn events from WithdrawalVault contract.
         Check for these events is enough to account for all withdrawals since the protocol assumes that
-        the vault can only be withdrawn at the time of the Oracle report
+        the vault can only be withdrawn at the time of the Oracle report between reference slots.
         """
+        if prev_blockstamp.block_number == ref_blockstamp.block_number:
+            # Can't calculate rebase between the same block
+            return Gwei(0)
+
+        if prev_blockstamp.block_number > ref_blockstamp.block_number:
+            raise ValueError(
+                f"Previous block number {prev_blockstamp.block_number} is greater than reference block number {ref_blockstamp.block_number}"
+            )
+
         prev_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
@@ -171,14 +180,15 @@ class AbnormalClRebase:
             prev_blockstamp, prev_lido_validators
         )
 
-        # Raw CL rebase are calculated as difference between reference and previous Lido validators' balances
+        # Raw CL rebase is calculated as difference between reference and previous Lido validators' balances
+        # Without accounting withdrawals from WithdrawalVault
         raw_cl_rebase = ref_lido_balance_with_vault - prev_lido_balance_with_vault
 
-        # We should account validators who have been activated between blocks
-        # And withdrawals from WithdrawalVault
+        # We should account validators who have been appeared between blocks
         validators_count_diff_in_gwei = AbnormalClRebase.calculate_validators_count_diff_in_gwei(
             prev_lido_validators, self.lido_validators
         )
+        # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
         # Finally, we can calculate corrected CL rebase
@@ -209,6 +219,11 @@ class AbnormalClRebase:
         Lookup for ETHDistributed event and expect no one or only one event,
         from which we'll get withdrawalsWithdrawn value
         """
+        if prev_blockstamp.block_number >= ref_blockstamp.block_number:
+            raise ValueError(
+                f"Previous block number {prev_blockstamp.block_number} is greater or equal than reference block number {ref_blockstamp.block_number}"
+            )
+
         logger.info(
             {"msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"}
         )
@@ -255,7 +270,7 @@ class AbnormalClRebase:
         ref_validators: Sequence[Validator],
     ) -> Gwei:
         """
-        Handle 32 ETH balances of freshly baked validators, who was activated between epochs
+        Handle 32 ETH balances of freshly baked validators, who was appeared between epochs
         Lido validators are counted by public keys that the protocol deposited with 32 ETH,
         so we can safely count the differences in the number of validators when they occur by deposit size.
         Any predeposits to Lido keys will not be counted until the key is deposited through the protocol
@@ -267,7 +282,7 @@ class AbnormalClRebase:
         return Gwei(validators_diff * MAX_EFFECTIVE_BALANCE)
 
     @staticmethod
-    def get_mean_effective_balance_sum(
+    def get_mean_sum_of_effective_balance(
         last_report_blockstamp: ReferenceBlockStamp,
         ref_blockstamp: ReferenceBlockStamp,
         last_report_validators: Sequence[Validator],
@@ -282,7 +297,7 @@ class AbnormalClRebase:
         ref_effective_balance_sum = calculate_active_effective_balance_sum(
             ref_validators, ref_blockstamp.ref_epoch
         )
-        return Gwei(int(mean((ref_effective_balance_sum, last_report_effective_balance_sum))))
+        return Gwei((ref_effective_balance_sum + last_report_effective_balance_sum) // 2)
 
     @staticmethod
     def validate_slot_distance(distant_slot: SlotNumber, nearest_slot: SlotNumber, ref_slot: SlotNumber):
@@ -299,8 +314,8 @@ class AbnormalClRebase:
     @staticmethod
     def calculate_normal_cl_rebase(
         bunker_config: BunkerConfig,
-        mean_all_effective_balance_sum: Gwei,
-        mean_lido_effective_balance_sum: Gwei,
+        mean_sum_of_all_effective_balance: Gwei,
+        mean_sum_of_lido_effective_balance: Gwei,
         epochs_passed: int,
     ) -> Gwei:
         """
@@ -314,14 +329,14 @@ class AbnormalClRebase:
           active validators between current oracle report epoch and last one - Randomness within measurement algorithm
          * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
         If the difference between observed real CL rewards and its theoretical value (normal_cl_rebase) couldn't be explained by
-        those 4 factors that means there is an additional factor leading to lower rewards - incidents within Protocol.
+        those 4 factors that means there is an additional factor leading to lower rewards - incidents within Lido or BeaconChain.
         To formalize “high enough” difference we’re suggesting `normalized_cl_reward_per_epoch` constant
         represent ethereum specification and equals to `BASE_REWARD_FACTOR` constant
         """
         # It should be at least 1 ETH to avoid division by zero
-        mean_all_effective_balance_sum = max(Gwei(EFFECTIVE_BALANCE_INCREMENT), mean_all_effective_balance_sum)
+        mean_sum_of_all_effective_balance = max(Gwei(EFFECTIVE_BALANCE_INCREMENT), mean_sum_of_all_effective_balance)
         normal_cl_rebase = int(
-            (bunker_config.normalized_cl_reward_per_epoch * mean_lido_effective_balance_sum * epochs_passed)
-            / math.sqrt(mean_all_effective_balance_sum) * (1 - bunker_config.normalized_cl_reward_mistake_rate)
+            (bunker_config.normalized_cl_reward_per_epoch * mean_sum_of_lido_effective_balance * epochs_passed)
+            / math.sqrt(mean_sum_of_all_effective_balance)
         )
         return Gwei(normal_cl_rebase)
