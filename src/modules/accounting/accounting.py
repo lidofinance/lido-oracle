@@ -236,13 +236,13 @@ class Accounting(BaseModule, ConsensusModule):
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        timestamp = self.get_ref_slot_timestamp(blockstamp)
-
         chain_conf = self.get_chain_config(blockstamp)
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
-            # Oracle timings
-            timestamp,  # _reportTimestamp
+            # We use block timestamp, instead of slot timestamp,
+            # because missed slot will break simulation contract logics
+            # Details: https://github.com/lidofinance/lido-oracle/issues/291
+            blockstamp.block_timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
             validators_count,  # _clValidators
@@ -276,10 +276,6 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         return shares_data.cover_shares + shares_data.non_cover_shares
-
-    def get_ref_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
-        chain_conf = self.get_chain_config(blockstamp)
-        return chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
         """If no report was finalized return slots elapsed from initial epoch from contract"""

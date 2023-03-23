@@ -10,6 +10,7 @@ from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_object_lru_cache
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
@@ -97,6 +98,8 @@ class BaseModule(ABC):
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
+        except CountOfKeysDiffersException as error:
+            logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
 
         return ModuleExecuteDelay.NEXT_SLOT
 
