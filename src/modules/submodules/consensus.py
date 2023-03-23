@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER
+from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
@@ -54,8 +54,9 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
-        if any((config.genesis_time != int(genesis_time),
+        genesis_time = int(self.w3.cc.get_genesis().genesis_time)
+        GENESIS_TIME.set(genesis_time)
+        if any((config.genesis_time != genesis_time,
                 config.seconds_per_slot != int(cc_config.SECONDS_PER_SLOT),
                 config.slots_per_epoch != int(cc_config.SLOTS_PER_EPOCH))):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
