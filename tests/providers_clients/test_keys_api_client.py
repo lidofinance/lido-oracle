@@ -17,7 +17,7 @@ def keys_api_client():
 empty_blockstamp = ReferenceBlockStampFactory.build(block_number=0)
 
 
-def test_get_all_lido_keys(keys_api_client):
-    lido_keys = keys_api_client.get_all_lido_keys(empty_blockstamp)
+def test_get_used_lido_keys(keys_api_client):
+    lido_keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
     assert lido_keys
 
