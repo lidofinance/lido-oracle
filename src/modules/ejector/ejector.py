@@ -64,7 +64,7 @@ class Ejector(BaseModule, ConsensusModule):
         self.prediction_service = RewardsPredictionService(w3)
         self.validators_state_service = LidoValidatorStateService(w3)
 
-    def contracts_refresh(self):
+    def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.validators_exit_bus_oracle
 
     def clear_cache(self):

@@ -41,7 +41,7 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
-    def contracts_refresh(self):
+    def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle
 
     def clear_cache(self):

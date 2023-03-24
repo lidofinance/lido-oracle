@@ -15,7 +15,7 @@ class SimpleOracle(BaseModule):
         self.call_count += 1
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-    def contracts_refresh(self):
+    def refresh_contracts(self):
         pass
 
     def clear_cache(self):

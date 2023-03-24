@@ -58,7 +58,7 @@ class BaseModule(ABC):
         if blockstamp.slot_number > self._slot_threshold:
             if self.w3.lido_contracts.has_contract_address_changed():
                 self.clear_cache()
-                self.contracts_refresh()
+                self.refresh_contracts()
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
@@ -114,7 +114,7 @@ class BaseModule(ABC):
         raise NotImplementedError('Module should implement this method.')
 
     @abstractmethod
-    def contracts_refresh(self):
+    def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
         raise NotImplementedError('Module should implement this method.')
 
