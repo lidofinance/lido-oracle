@@ -30,13 +30,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 logger = logging.getLogger()
 
 
-def main(module_name: OracleModule):
+def main(module: OracleModule):
     build_info = get_build_info()
     logger.info({
         'msg': 'Oracle startup.',
         'variables': {
             **build_info,
-            'module': module_name,
+            'module': module,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
@@ -69,12 +69,15 @@ def main(module_name: OracleModule):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     web3.attach_modules({
-        'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
     })
+    if variables.LIDO_LOCATOR_ADDRESS:
+        web3.attach_modules({
+            'lido_contracts': LidoContracts,
+        })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     web3.middleware_onion.add(metrics_collector)
@@ -83,23 +86,23 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Sanity checks.'})
     check_providers_chain_ids(web3)
 
-    if module_name == OracleModule.ACCOUNTING:
+    if module == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         accounting = Accounting(web3)
         accounting.check_contract_configs()
         accounting.run_as_daemon()
-    elif module_name == OracleModule.EJECTOR:
+    elif module == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
         ejector = Ejector(web3)
         ejector.check_contract_configs()
         ejector.run_as_daemon()
-    elif module_name == OracleModule.READINESS:
+    elif module == OracleModule.READINESS:
         logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
         readiness = ReadinessModule(web3)
         sys.exit(readiness.execute_module())
 
 
-def check_required_variables():
+def check_required_variables(module_name: OracleModule):
     errors = []
     if '' in variables.EXECUTION_CLIENT_URI:
         errors.append('EXECUTION_CLIENT_URI')
@@ -107,7 +110,7 @@ def check_required_variables():
         errors.append('CONSENSUS_CLIENT_URI')
     if variables.KEYS_API_URI == '':
         errors.append('KEYS_API_URI')
-    if variables.LIDO_LOCATOR_ADDRESS in (None, ''):
+    if variables.LIDO_LOCATOR_ADDRESS in (None, '') and module_name != OracleModule.READINESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
     if errors:
         raise ValueError("The following variables are required: " + ", ".join(errors))
@@ -127,11 +130,12 @@ def check_providers_chain_ids(web3: Web3):
 
 
 if __name__ == '__main__':
-    last_arg = sys.argv[-1]
-    if last_arg not in iter(OracleModule):
-        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {last_arg}.'
+    module_name = sys.argv[-1]
+    if module_name not in iter(OracleModule):
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
+    module = OracleModule(module_name)
 
-    check_required_variables()
-    main(OracleModule(last_arg))
+    check_required_variables(module)
+    main(module)
