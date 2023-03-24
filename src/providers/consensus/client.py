@@ -39,7 +39,13 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
 
-    def get_config_spec(self):
+    @property
+    def spec(self):
+        """Consensus Layer spec"""
+        return self._get_config_spec()
+
+    @lru_cache(maxsize=1)
+    def _get_config_spec(self):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec
         """

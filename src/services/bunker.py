@@ -47,7 +47,14 @@ class BunkerService:
             return True
 
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
+            self.w3.cc.spec,
+            blockstamp,
+            frame_config,
+            chain_config,
+            all_validators,
+            lido_validators,
+            current_report_cl_rebase,
+            last_report_ref_slot
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
