@@ -1,6 +1,11 @@
 from src.modules.submodules.typings import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
+from src.providers.consensus.typings import BeaconSpecResponse
 from tests.factory.web3_factory import Web3Factory
+
+
+class ConsensusLayerSpecFactory(Web3Factory):
+    __model__ = BeaconSpecResponse
 
 
 class ChainConfigFactory(Web3Factory):

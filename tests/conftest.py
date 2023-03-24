@@ -6,12 +6,14 @@ from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
+from src.providers.consensus.typings import BeaconSpecResponse
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
+from tests.factory.configs import ConsensusLayerSpecFactory
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
@@ -131,6 +133,24 @@ def lido_validators(web3, consensus_client, keys_api_client):
     web3.attach_modules({
         'lido_validators': LidoValidatorsProvider,
     })
+
+
+# ---- Consensus layer spec ----
+@pytest.fixture()
+def spec() -> BeaconSpecResponse:
+    return ConsensusLayerSpecFactory.build(
+        MIN_VALIDATOR_WITHDRAWABILITY_DELAY=str(2**8),
+        SHARD_COMMITTEE_PERIOD="256",
+        MAX_SEED_LOOKAHEAD="4",
+        EPOCHS_PER_SLASHINGS_VECTOR=str(2 ** 13),
+        PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX="3",
+        EFFECTIVE_BALANCE_INCREMENT=str(2 ** 0 * 10 ** 9),
+        MAX_EFFECTIVE_BALANCE=str(32 * 10 ** 9),
+        MAX_WITHDRAWALS_PER_PAYLOAD=str(2 ** 4),
+        ETH1_ADDRESS_WITHDRAWAL_PREFIX="0x01",
+        MIN_PER_EPOCH_CHURN_LIMIT=str(2 ** 2),
+        CHURN_LIMIT_QUOTIENT=str(2 ** 16),
+    )
 
 
 def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
