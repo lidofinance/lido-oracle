@@ -32,7 +32,7 @@ def is_partially_withdrawable_validator(spec: BeaconSpecResponse, validator: Val
     Check if `validator` is partially withdrawable
     https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
     """
-    has_max_effective_balance = int(validator.validator.effective_balance) == spec.MAX_EFFECTIVE_BALANCE
+    has_max_effective_balance = int(validator.validator.effective_balance) == int(spec.MAX_EFFECTIVE_BALANCE)
     has_excess_balance = int(validator.balance) > int(spec.MAX_EFFECTIVE_BALANCE)
     return (
         has_eth1_withdrawal_credential(spec, validator)
