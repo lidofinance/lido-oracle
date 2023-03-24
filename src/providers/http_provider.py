@@ -12,6 +12,10 @@ from urllib3 import Retry
 logger = logging.getLogger(__name__)
 
 
+class NoActiveProviderError(Exception):
+    """Base exception if all providers are offline"""
+
+
 class NotOkResponse(Exception):
     status: int
     text: str
@@ -27,11 +31,11 @@ class HTTPProvider(ABC):
 
     PROMETHEUS_HISTOGRAM: Histogram
 
-    def __init__(self, host: str):
-        self.host = host
+    def __init__(self, hosts: list[str]):
+        self.hosts = hosts
 
         retry_strategy = Retry(
-            total=5,
+            total=1,
             status_forcelist=[418, 429, 500, 502, 503, 504],
             backoff_factor=5,
         )
@@ -51,14 +55,53 @@ class HTTPProvider(ABC):
         self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None
     ) -> Tuple[dict | list, dict]:
         """
-        Returns (data, meta)
+        Get request with fallbacks
+        Returns (data, meta) or raises exception
+        """
+        error = None
+        for host in self.hosts:
+            try:
+                return self._simple_get(host, endpoint, path_params, query_params)
+            except Exception as e:  # pylint: disable=W0703
+                logger.warning(
+                    {
+                        "msg": "Host not responding.",
+                        "error": str(e),
+                        "provider": urlparse(host).netloc,
+                    }
+                )
+                error = e
+        msg = f"No active host available for {self.__class__.__name__}"
+        logger.error({"msg": msg})
+        raise NoActiveProviderError(msg) from error
+
+    def _simple_get(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Optional[Sequence[str | int]] = None,
+        query_params: Optional[dict] = None
+    ) -> Tuple[dict | list, dict]:
+        """
+        Simple get request without fallbacks
+        Returns (data, meta) or raises exception
         """
         with self.PROMETHEUS_HISTOGRAM.time() as t:
-            response = self.session.get(
-                self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
-                params=query_params,
-                timeout=self.REQUEST_TIMEOUT,
-            )
+            try:
+                response = self.session.get(
+                    self._urljoin(host, endpoint.format(*path_params) if path_params else endpoint),
+                    params=query_params,
+                    timeout=self.REQUEST_TIMEOUT,
+                )
+            except Exception as error:  # pylint: disable=W0703
+                msg = f'Error while requesting {endpoint=} to {urlparse(host).netloc=}'
+                logger.debug({'msg': msg})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
+                raise error from error
 
             try:
                 if response.status_code != HTTPStatus.OK:
@@ -75,7 +118,7 @@ class HTTPProvider(ABC):
                 t.labels(
                     endpoint=endpoint,
                     code=response.status_code,
-                    domain=urlparse(self.host).netloc,
+                    domain=urlparse(host).netloc,
                 )
 
         if 'data' in json_response:
