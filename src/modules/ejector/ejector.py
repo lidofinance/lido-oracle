@@ -23,6 +23,7 @@ from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import clear_object_lru_cache
 from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
@@ -65,6 +66,11 @@ class Ejector(BaseModule, ConsensusModule):
 
     def contracts_refresh(self):
         self.report_contract = self.w3.lido_contracts.validators_exit_bus_oracle
+
+    def clear_cache(self):
+        clear_object_lru_cache(self)
+        clear_object_lru_cache(self.prediction_service)
+        clear_object_lru_cache(self.validators_state_service)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)

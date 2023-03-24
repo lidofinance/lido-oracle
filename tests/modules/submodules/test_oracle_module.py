@@ -18,6 +18,9 @@ class SimpleOracle(BaseModule):
     def contracts_refresh(self):
         pass
 
+    def clear_cache(self):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def set_default_sleep(monkeypatch):
