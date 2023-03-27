@@ -50,14 +50,22 @@ docker build -t lidofinance/oracle .
 
 ## Env variables
 
-| Name                              | Description                                                        | Required | Example value           |
-|-----------------------------------|--------------------------------------------------------------------|----------|-------------------------|
-| `EXECUTION_CLIENT_URI`            | URI of the Execution Layer client                                  | True     | `http://localhost:8545` |
-| `CONSENSUS_CLIENT_URI`            | URI of the Consensus Layer client                                  | True     | `http://localhost:5052` |
-| `KEYS_API_URI`                    | URI of the Keys API                                                | True     | `http://localhost:8080` |
-| `LIDO_LOCATOR_ADDRESS`            | Address of the Lido contract                                       | True     | `0x1...`                |
-| `ALLOW_NEGATIVE_REBASE_REPORTING` | If 'False', a report with negative cl rebase would not be reported | False    | `True`                  |
-| `MEMBER_PRIV_KEY`                 | Private key of the Oracle member account                           | False    | `0x1...`                |
+| Name                                         | Description                                                                                                                                                              | Required | Example value           |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------|
+| `EXECUTION_CLIENT_URI`                       | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
+| `CONSENSUS_CLIENT_URI`                       | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
+| `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
+| `LIDO_LOCATOR_ADDRESS`                       | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
+| `ALLOW_NEGATIVE_REBASE_REPORTING`            | If 'False', a report with negative cl rebase would not be reported                                                                                                       | False    | `True`                  |
+| `MEMBER_PRIV_KEY`                            | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`       | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
+| `ALLOW_NEGATIVE_REBASE_REPORTING`            | Allow the Oracle to do report if negative rebase occurred                                                                                                                | False    | `True`                  |
+| `TX_GAS_MULTIPLIER`                          | Used to modify gas parameter that used in transaction. (gas = estimated_gas * TX_GAS_MULTIPLIER)                                                                         | False    | `1.75`                  |
+| `CYCLE_SLEEP_IN_SECONDS`                     | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                 | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
+| `HTTP_REQUEST_RETRY_COUNT`                   | Total number of retries to fetch data from endpoint                                                                                                                      | False    | `5`                     |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS` | The delay http provider sleeps if API is stuck                                                                                                                           | False    | `12`                    |
+| `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
 
 ## Monitoring
 TBD
