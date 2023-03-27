@@ -172,11 +172,6 @@ class AbnormalClRebase:
             # Can't calculate rebase between the same block
             return Gwei(0)
 
-        if prev_blockstamp.block_number > ref_blockstamp.block_number:
-            raise ValueError(
-                f"Previous block number {prev_blockstamp.block_number} is greater than reference block number {ref_blockstamp.block_number}"
-            )
-
         prev_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
@@ -229,10 +224,6 @@ class AbnormalClRebase:
         Lookup for ETHDistributed event and expect no one or only one event,
         from which we'll get withdrawalsWithdrawn value
         """
-        if prev_blockstamp.block_number >= ref_blockstamp.block_number:
-            raise ValueError(
-                f"Previous block number {prev_blockstamp.block_number} is greater or equal than reference block number {ref_blockstamp.block_number}"
-            )
 
         logger.info(
             {"msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"}
