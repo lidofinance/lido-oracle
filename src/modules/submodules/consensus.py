@@ -34,10 +34,6 @@ class ConsensusModule(ABC):
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
 
-    # Default delay for default Oracle members. Member with submit data role should submit data first.
-    # If contract is reportable each member in order will submit data with difference with this amount of slots
-    SUBMIT_DATA_DELAY_IN_SLOTS = 6
-
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -397,7 +393,7 @@ class ConsensusModule(ABC):
             sleep_count += len(members)
 
         # 1 - is default delay for non submit members.
-        total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
+        total_delay = (1 + sleep_count) * variables.SUBMIT_DATA_DELAY_IN_SLOTS
 
         logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay

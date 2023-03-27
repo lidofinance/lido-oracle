@@ -323,4 +323,4 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_reporting_allowed(self, blockstamp: BlockStamp) -> bool:
         """At this point we can't check anything, so just return True."""
-        return True
+        return True  # pragma: no cover

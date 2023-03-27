@@ -9,6 +9,8 @@ from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
+from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,17 +25,15 @@ class NotOkResponse(Exception):
 
 
 class HTTPProvider(ABC):
-    REQUEST_TIMEOUT = 300
-
     PROMETHEUS_HISTOGRAM: Histogram
 
     def __init__(self, host: str):
         self.host = host
 
         retry_strategy = Retry(
-            total=5,
+            total=HTTP_REQUEST_RETRY_COUNT,
             status_forcelist=[418, 429, 500, 502, 503, 504],
-            backoff_factor=5,
+            backoff_factor=HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS,
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -58,7 +58,7 @@ class HTTPProvider(ABC):
                 response = self.session.get(
                     self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
                     params=query_params,
-                    timeout=self.REQUEST_TIMEOUT,
+                    timeout=HTTP_REQUEST_TIMEOUT,
                 )
             except Timeout as error:
                 msg = "Timeout error."

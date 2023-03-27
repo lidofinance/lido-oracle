@@ -1,12 +1,13 @@
-import pytest
-from unittest.mock import MagicMock, ANY
+from unittest.mock import MagicMock
 
+import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.services.prediction import RewardsPredictionService
+import src.services.prediction as prediction_module
 from src.modules.submodules.typings import ChainConfig
-from src.typings import SlotNumber, BlockNumber, ReferenceBlockStamp
+from src.services.prediction import RewardsPredictionService
+from src.typings import BlockNumber, SlotNumber
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -228,47 +229,6 @@ def token_rebased_logs(tr_hashes):
     ]
 
 
-def test_group_by_tx_hash():
-    events_1 = [
-        {'transactionHash': HexBytes('0x123'), 'args': {'name': 'first'}},
-        {'transactionHash': HexBytes('0x456'), 'args': {'name': 'second'}},
-    ]
-
-    events_2 = [
-        {'transactionHash': HexBytes('0x456'), 'args': {'value': 2}},
-        {'transactionHash': HexBytes('0x123'), 'args': {'value': 1}},
-    ]
-
-    result = RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)
-
-    assert len(result) == 2
-
-    for event_data in result:
-        if event_data['name'] == 'first':
-            assert event_data['value'] == 1
-        elif event_data['name'] == 'second':
-            assert event_data['value'] == 2
-        else:
-            # No other events should be here
-            assert False
-
-
-@pytest.mark.unit
-def get_rewards_per_slot(web3, contracts, eth_distributed_logs):
-    web3.lido_contracts = MagicMock()
-    web3.lido_contracts.events.ETHDistributed.get_logs.return_value = eth_distributed_logs
-
-    p = RewardsPredictionService(web3)
-    got = p.get_ETHDistributed_events(ANY, ANY, 1675441508)
-
-    expected = {
-        eth_distributed_logs[11]['transactionHash']: eth_distributed_logs[11]['args'],
-        eth_distributed_logs[12]['transactionHash']: eth_distributed_logs[12]['args']
-    }
-
-    assert got == expected
-
-
 @pytest.mark.unit
 def test_get_rewards_no_matching_events(web3, contracts):
     bp = ReferenceBlockStampFactory.build(
@@ -297,3 +257,178 @@ def test_get_rewards_no_matching_events(web3, contracts):
     rewards = p.get_rewards_per_epoch(bp, cc)
 
     assert rewards == Wei(0)
+
+
+@pytest.mark.unit
+def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch):
+    bp = ReferenceBlockStampFactory.build(
+        block_number=BlockNumber(14),
+        block_timestamp=1675441520,
+        ref_slot=SlotNumber(100000),
+        slot_number=14,
+        block_hash=None,
+    )
+
+    cc = ChainConfig(
+        slots_per_epoch=32,
+        seconds_per_slot=12,
+        genesis_time=0,
+    )
+
+    SOME_EVENTS = object()
+    with monkeypatch.context() as m:
+        m.setattr(
+            RewardsPredictionService,
+            "_get_prediction_duration_in_slots",
+            MagicMock(return_value=12),
+        )
+        m.setattr(
+            prediction_module,
+            "get_events_in_past",
+            MagicMock(return_value=SOME_EVENTS),
+        )
+
+        m.setattr(
+            RewardsPredictionService,
+            "_group_events_by_transaction_hash",
+            MagicMock(
+                return_value=[
+                    {
+                        "postCLBalance": Wei(24),
+                        "withdrawalsWithdrawn": Wei(0),
+                        "preCLBalance": Wei(0),
+                        "executionLayerRewardsWithdrawn": Wei(0),
+                        "timeElapsed": 12,
+                    },
+                    {
+                        "postCLBalance": Wei(0),
+                        "withdrawalsWithdrawn": Wei(0),
+                        "preCLBalance": Wei(0),
+                        "executionLayerRewardsWithdrawn": Wei(12),
+                        "timeElapsed": 12,
+                    },
+                ]
+            ),
+        )
+
+        p = RewardsPredictionService(web3)
+        rewards = p.get_rewards_per_epoch(bp, cc)
+        assert rewards == Wei(576)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "events_1, events_2",
+    [
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 3}},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+                {"transactionHash": HexBytes("0x567"), "args": {"value": 3}},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+                {"transactionHash": HexBytes("0x567"), "args": {"value": 3}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 3}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x123"), "args": {"value": 1}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x345"), "args": {"value": 2}},
+                {"transactionHash": HexBytes("0x567"), "args": {"value": 1}},
+            ],
+        ),
+    ],
+)
+def test_group_events_incosistent(events_1, events_2):
+    with pytest.raises(ValueError, match="Events are inconsistent"):
+        RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "events_1, events_2, expected",
+    [
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"a": 1}},
+                {"transactionHash": HexBytes("0x123"), "args": {"a": 2}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x123"), "args": {"a": 3}},
+                {"transactionHash": HexBytes("0x456"), "args": {"a": 4}},
+            ],
+            [
+                {"a": 4},
+                {"a": 3},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"a": 1}},
+                {"transactionHash": HexBytes("0x123"), "args": {"a": 2}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x123"), "args": {"b": 3}},
+                {"transactionHash": HexBytes("0x456"), "args": {"b": 4}},
+            ],
+            [
+                {"a": 1, "b": 4},
+                {"a": 2, "b": 3},
+            ],
+        ),
+        (
+            [
+                {"transactionHash": HexBytes("0x456"), "args": {"a": 1}},
+                {"transactionHash": HexBytes("0x123"), "args": {"a": 2}},
+            ],
+            [
+                {"transactionHash": HexBytes("0x123"), "args": {}},
+                {"transactionHash": HexBytes("0x456"), "args": {"b": 4}},
+            ],
+            [
+                {"a": 1, "b": 4},
+                {"a": 2},
+            ],
+        ),
+    ]
+)
+def test_group_events(events_1, events_2, expected):
+    actual = RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)
+    assert actual == expected, "Unexpected merged events array"
