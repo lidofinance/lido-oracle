@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 import src.providers.keys.client as keys_api_client_module
+from src import variables
 from src.providers.keys.client import KeysAPIClient, KeysOutdatedException
 from src.variables import KEYS_API_URI
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -31,7 +32,7 @@ def test_get_status(keys_api_client):
 
 @pytest.mark.unit
 def test_get_with_blockstamp_retries_exhausted(keys_api_client, monkeypatch):
-    keys_api_client.SLEEP_SECONDS = 1
+    variables.HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS = 1
     keys_api_client._get = Mock(
         return_value=(
             None,
@@ -52,5 +53,5 @@ def test_get_with_blockstamp_retries_exhausted(keys_api_client, monkeypatch):
             m.setattr(keys_api_client_module, "sleep", sleep_mock)
             keys_api_client.get_used_lido_keys(empty_blockstamp)
 
-    assert sleep_mock.call_count == keys_api_client.RETRY_COUNT - 1
-    sleep_mock.assert_called_with(keys_api_client.SLEEP_SECONDS)
+    assert sleep_mock.call_count == variables.HTTP_REQUEST_RETRY_COUNT - 1
+    sleep_mock.assert_called_with(variables.HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS)
