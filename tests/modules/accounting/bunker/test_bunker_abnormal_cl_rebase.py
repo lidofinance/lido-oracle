@@ -35,13 +35,13 @@ def simple_validators(
 @pytest.mark.parametrize(
     ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal"),
     [
-        (simple_ref_blockstamp(40), 378585832, 0, 0, False),    # > normal cl rebase
-        (simple_ref_blockstamp(40), 378585831, 0, 0, False),    # == normal cl rebase and no check specific rebase
-        (simple_ref_blockstamp(40), 378585830, 10, 20, False),  # < normal cl rebase but specific rebase is positive
-        (simple_ref_blockstamp(40), 378585830, 10, 10, False),  # < normal cl rebase but specific rebase is positive
-        (simple_ref_blockstamp(40), 378585830, 0, 0, True),     # < normal cl rebase and no check specific rebase
-        (simple_ref_blockstamp(20), 126195276, 10, 20, True),   # < normal cl rebase and specific rebase is negative
-        (simple_ref_blockstamp(20), 126195276, 10, 10, True),   # < normal cl rebase and specific rebase is negative
+        (simple_ref_blockstamp(40), 378585832, 0, 0, False),    # < mistake rate
+        (simple_ref_blockstamp(40), 378585831.6, 0, 0, False),    # == mistake rate and no check specific rebase
+        (simple_ref_blockstamp(40), 378585830, 10, 20, False),  # > mistake rate but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 10, 10, False),  # > mistake rate but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 0, 0, True),     # > mistake rate and no check specific rebase
+        (simple_ref_blockstamp(20), 126195276, 10, 20, True),   # > mistake rate and specific rebase is negative
+        (simple_ref_blockstamp(20), 126195276, 10, 10, True),   # > mistake rate and specific rebase is negative
     ],
 )
 def test_is_abnormal_cl_rebase(
@@ -74,9 +74,9 @@ def test_is_abnormal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_rebase"),
     [
-        (simple_ref_blockstamp(40), 378585831),
-        (simple_ref_blockstamp(20), 126195277),
-        (simple_ref_blockstamp(123), 1008338960),
+        (simple_ref_blockstamp(40), 420650924),
+        (simple_ref_blockstamp(20), 140216974),
+        (simple_ref_blockstamp(123), 1120376622),
     ]
 )
 def test_calculate_lido_normal_cl_rebase(
@@ -317,7 +317,7 @@ def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_
 )
 def test_get_mean_effective_balance_sum(curr_validators, last_report_validators, expected_result):
 
-    result = AbnormalClRebase.get_mean_effective_balance_sum(
+    result = AbnormalClRebase.get_mean_sum_of_effective_balance(
         simple_ref_blockstamp(0),
         simple_ref_blockstamp(0),
         curr_validators,
@@ -378,9 +378,9 @@ def test_calculate_real_balance(validators, expected_balance):
     ("epoch_passed", "mean_lido", "mean_total", "expected"),
     [
         (0, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 0),
-        (1, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 2181276464),
-        (225, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 490787204556),
-        (450, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 981574409112)
+        (1, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 2423640516),
+        (225, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 545319116173),
+        (450, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 1090638232347)
     ]
 )
 def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected):
