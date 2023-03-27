@@ -18,7 +18,6 @@ class KeysAPIClient(HTTPProvider):
 
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
 
-    ALL_KEYS = 'v1/keys'
     USED_KEYS = 'v1/keys?used=true'
     STATUS = 'v1/status'
 
@@ -41,7 +40,7 @@ class KeysAPIClient(HTTPProvider):
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey.from_response)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
-        """Docs: https://keys-api.lido.fi/api/static/index.html#/sr-module-keys/SRModulesKeysController_getGroupedByModuleKeys"""
+        """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         return cast(list[dict], self._get_with_blockstamp(self.USED_KEYS, blockstamp))
 
     def get_status(self) -> KeysApiStatus:
