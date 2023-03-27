@@ -13,6 +13,12 @@ from src.modules.accounting.typings import (
     LidoReportRebase,
     SharesRequestedToBurn,
 )
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_CL_BALANCE_GWEI,
+    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
@@ -159,6 +165,11 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
+        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
         return report_data
 

@@ -6,7 +6,7 @@ from enum import Enum
 
 from timeout_decorator import timeout
 
-from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -73,6 +73,7 @@ class BaseModule(ABC):
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
         ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:

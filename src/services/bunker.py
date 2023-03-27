@@ -1,6 +1,12 @@
 import logging
 
 from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
+from src.metrics.prometheus.validators import (
+    ALL_VALIDATORS,
+    LIDO_VALIDATORS,
+    ALL_SLASHED_VALIDATORS,
+    LIDO_SLASHED_VALIDATORS,
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
@@ -8,6 +14,7 @@ from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPe
 from src.modules.accounting.typings import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.typings import BunkerConfig
+from src.services.safe_border import filter_slashed_validators
 from src.typings import BlockStamp, ReferenceBlockStamp, Gwei
 from src.web3py.typings import Web3
 
@@ -33,6 +40,12 @@ class BunkerService:
         bunker_config = self._get_config(blockstamp)
         all_validators = self.w3.cc.get_validators(blockstamp)
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
+
+        # Set metrics
+        ALL_VALIDATORS.set(len(all_validators))
+        LIDO_VALIDATORS.set(len(lido_validators))
+        ALL_SLASHED_VALIDATORS.set(len(filter_slashed_validators(all_validators)))
+        LIDO_SLASHED_VALIDATORS.set(len(filter_slashed_validators(lido_validators)))
 
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
         if not last_report_ref_slot:

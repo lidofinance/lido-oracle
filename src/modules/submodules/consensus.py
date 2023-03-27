@@ -10,12 +10,13 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
+from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
-    ORACLE_SLOT_NUMBER, ORACLE_MEMBER_INFO
+    ORACLE_MEMBER_INFO
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
@@ -53,8 +54,9 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
-        if any((config.genesis_time != int(genesis_time),
+        genesis_time = int(self.w3.cc.get_genesis().genesis_time)
+        GENESIS_TIME.set(genesis_time)
+        if any((config.genesis_time != genesis_time,
                 config.seconds_per_slot != int(cc_config.SECONDS_PER_SLOT),
                 config.slots_per_epoch != int(cc_config.SLOTS_PER_EPOCH))):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
@@ -362,6 +364,7 @@ class ConsensusModule(ABC):
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
         return bs
 
     @lru_cache(maxsize=1)
