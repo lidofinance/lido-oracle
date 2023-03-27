@@ -38,6 +38,16 @@ class AbnormalClRebase:
         lido_validators: list[LidoValidator],
         current_report_cl_rebase: Gwei
     ) -> bool:
+        """
+        First of all, we should calculate the normal CL rebase for this report
+        If diff between current CL rebase and normal CL rebase more than `normalized_cl_reward_mistake_rate`,
+        then we should check the intraframe sampled CL rebase: we consider two points (nearest and distant slots)
+        in frame and calculate CL rebase for each of them and if one of them is negative, then it is abnormal CL rebase.
+
+        `normalized_cl_reward_mistake_rate`, `rebase_check_nearest_epoch_distance` and `rebase_check_distant_epoch_distance`
+        are configurable parameters, which can change behavior of this check.
+        Like, don't check intraframe sampled CL rebase and look only on normal CL rebase
+        """
         self.all_validators = all_validators
         self.lido_validators = lido_validators
         self.lido_keys = self.w3.kac.get_all_lido_keys(blockstamp)
