@@ -21,6 +21,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import clear_object_lru_cache
 from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
@@ -39,6 +40,14 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
+
+    def refresh_contracts(self):
+        self.report_contract = self.w3.lido_contracts.accounting_oracle
+
+    def clear_cache(self):
+        clear_object_lru_cache(self)
+        clear_object_lru_cache(self.lido_validator_state_service)
+        clear_object_lru_cache(self.bunker_service)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)

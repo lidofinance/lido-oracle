@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Sequence
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -35,7 +35,7 @@ class HTTPProvider(ABC):
         self.hosts = hosts
 
         retry_strategy = Retry(
-            total=1,
+            total=5,
             status_forcelist=[418, 429, 500, 502, 503, 504],
             backoff_factor=5,
         )
@@ -93,15 +93,15 @@ class HTTPProvider(ABC):
                     params=query_params,
                     timeout=self.REQUEST_TIMEOUT,
                 )
-            except Exception as error:  # pylint: disable=W0703
-                msg = f'Error while requesting {endpoint=} to {urlparse(host).netloc=}'
+            except Timeout as error:
+                msg = "Timeout error."
                 logger.debug({'msg': msg})
                 t.labels(
                     endpoint=endpoint,
                     code=0,
                     domain=urlparse(host).netloc,
                 )
-                raise error from error
+                raise TimeoutError from error
 
             try:
                 if response.status_code != HTTPStatus.OK:

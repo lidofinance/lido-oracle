@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
@@ -110,6 +111,7 @@ def keys_api_client(request, responses_path, web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
+    LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment
         web3.attach_modules({

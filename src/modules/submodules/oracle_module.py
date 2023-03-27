@@ -56,10 +56,12 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:
+            if self.w3.lido_contracts.has_contract_address_changed():
+                self.clear_cache()
+                self.refresh_contracts()
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
@@ -109,4 +111,14 @@ class BaseModule(ABC):
             ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
             ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
+        raise NotImplementedError('Module should implement this method.')
+
+    @abstractmethod
+    def refresh_contracts(self):
+        """This method called if contracts addresses were changed"""
+        raise NotImplementedError('Module should implement this method.')
+
+    @abstractmethod
+    def clear_cache(self):
+        """Clear cache for module and all submodules"""
         raise NotImplementedError('Module should implement this method.')
