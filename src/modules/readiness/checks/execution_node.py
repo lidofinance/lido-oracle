@@ -40,13 +40,13 @@ def check_balance_availability(web3, blockstamp, deposit_contract):
 
 def check_events_range_availability(web3, blockstamp, deposit_contract):
     """Check that execution-client able to get event logs on the provided range"""
-    head_block = web3.eth.get_block('head')
-    deposit_contract.events.DepositEvent.get_logs(fromBlock=blockstamp.block_number, toBlock=head_block.block_number)
+    latest_block = web3.eth.get_block('latest')
+    deposit_contract.events.DepositEvent.get_logs(fromBlock=blockstamp.block_number, toBlock=latest_block.number)
 
 
 def check_events_week_range_availability(web3, deposit_contract):
-    head_block = web3.eth.get_block('head')
+    latest_block = web3.eth.get_block('latest')
     deposit_contract.events.DepositEvent.get_logs(
-        fromBlock=head_block.block_number - 8 * 225 * 32,  # 8 days
-        toBlock=head_block.block_number,
+        fromBlock=latest_block.number - 8 * 225 * 32,  # 8 days
+        toBlock=latest_block.number,
     )
