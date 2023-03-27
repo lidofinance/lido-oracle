@@ -13,6 +13,12 @@ from src.modules.accounting.typings import (
     LidoReportRebase,
     SharesRequestedToBurn,
 )
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_CL_BALANCE_GWEI,
+    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
@@ -21,6 +27,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import clear_object_lru_cache
 from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
@@ -39,6 +46,14 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
+
+    def refresh_contracts(self):
+        self.report_contract = self.w3.lido_contracts.accounting_oracle
+
+    def clear_cache(self):
+        clear_object_lru_cache(self)
+        clear_object_lru_cache(self.lido_validator_state_service)
+        clear_object_lru_cache(self.bunker_service)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -151,6 +166,11 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
+        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
+
         return report_data
 
     def _get_newly_exited_validators_by_modules(
@@ -236,13 +256,13 @@ class Accounting(BaseModule, ConsensusModule):
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        timestamp = self.get_ref_slot_timestamp(blockstamp)
-
         chain_conf = self.get_chain_config(blockstamp)
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
-            # Oracle timings
-            timestamp,  # _reportTimestamp
+            # We use block timestamp, instead of slot timestamp,
+            # because missed slot will break simulation contract logics
+            # Details: https://github.com/lidofinance/lido-oracle/issues/291
+            blockstamp.block_timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
             validators_count,  # _clValidators
@@ -276,10 +296,6 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         return shares_data.cover_shares + shares_data.non_cover_shares
-
-    def get_ref_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
-        chain_conf = self.get_chain_config(blockstamp)
-        return chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
         """If no report was finalized return slots elapsed from initial epoch from contract"""

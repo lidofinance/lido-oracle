@@ -17,6 +17,15 @@ if MEMBER_PRIV_KEY:
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000)
 ALLOW_NEGATIVE_REBASE_REPORTING = os.getenv('ALLOW_NEGATIVE_REBASE_REPORTING', 'False').lower() == 'true'
+TX_GAS_MULTIPLIER = float(os.getenv('TX_GAS_MULTIPLIER', 1.25))
+
+# Default delay for default Oracle members. Member with submit data role should submit data first.
+# If contract is reportable each member in order will submit data with difference with this amount of slots
+SUBMIT_DATA_DELAY_IN_SLOTS = int(os.getenv('SUBMIT_DATA_DELAY_IN_SLOTS', 6))
+CYCLE_SLEEP_IN_SECONDS = int(os.getenv('CYCLE_SLEEP_IN_SECONDS', 12))
+HTTP_REQUEST_RETRY_COUNT = int(os.getenv('HTTP_REQUEST_RETRY_COUNT', 5))
+HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS = int(os.getenv('HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS', 5))
+HTTP_REQUEST_TIMEOUT = int(os.getenv('HTTP_REQUEST_TIMEOUT', 58 * 60))
 
 # - Metrics -
 PROMETHEUS_PORT = int(os.getenv('PROMETHEUS_PORT', 9000))
@@ -25,3 +34,26 @@ PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 HEALTHCHECK_SERVER_PORT = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
 MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
+
+
+def check_all_required_variables():
+    errors = check_uri_required_variables()
+    if LIDO_LOCATOR_ADDRESS in (None, ''):
+        errors.append('LIDO_LOCATOR_ADDRESS')
+    return errors
+
+
+def check_uri_required_variables():
+    errors = []
+    if '' in EXECUTION_CLIENT_URI:
+        errors.append('EXECUTION_CLIENT_URI')
+    if CONSENSUS_CLIENT_URI == '':
+        errors.append('CONSENSUS_CLIENT_URI')
+    if KEYS_API_URI == '':
+        errors.append('KEYS_API_URI')
+    return errors
+
+
+def raise_from_errors(errors):
+    if errors:
+        raise ValueError("The following variables are required: " + ", ".join(errors))

@@ -7,14 +7,13 @@ from web3.exceptions import ContractLogicError
 from web3.module import Module
 from web3.types import TxReceipt, Wei
 
+from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
 
 logger = logging.getLogger(__name__)
 
 
 class TransactionUtils(Module):
-    GAS_MULTIPLIER = 1.15
-
     def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
@@ -59,7 +58,7 @@ class TransactionUtils(Module):
         tx = transaction.build_transaction(
             {
                 "from": account.address,
-                "gas": int(transaction.estimate_gas({'from': account.address}) * self.GAS_MULTIPLIER),
+                "gas": int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER),
                 "maxFeePerGas": Wei(
                     pending_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
                 ),
