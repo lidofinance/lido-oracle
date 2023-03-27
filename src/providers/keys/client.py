@@ -38,7 +38,8 @@ class KeysAPIClient(HTTPProvider):
             if i != self.RETRY_COUNT - 1:
                 sleep(self.SLEEP_SECONDS)
 
-        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.SLEEP_SECONDS * self.RETRY_COUNT} seconds.')
+        msg = f'Keys API Service stuck, no updates for {self.SLEEP_SECONDS * self.RETRY_COUNT} seconds.'
+        raise KeysOutdatedException(msg)
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey.from_response)

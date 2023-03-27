@@ -104,7 +104,7 @@ class ConsensusClient(HTTPProvider):
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 return self._get_validators_with_prysm(blockstamp, pub_keys)
 
-            raise error from error
+            raise error
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found: state not found in the last'
 

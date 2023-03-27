@@ -165,6 +165,9 @@ class ConsensusModule(ABC):
         return mi
 
     def _is_submit_member(self, blockstamp: BlockStamp) -> bool:
+        if not variables.ACCOUNT:
+            return True
+
         submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
             block_identifier=blockstamp.block_hash,
         )

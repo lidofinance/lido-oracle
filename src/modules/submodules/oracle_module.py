@@ -83,10 +83,10 @@ class BaseModule(ABC):
             return self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
-            raise exception from exception
+            raise exception
         except IncompatibleContractVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
-            raise exception from exception
+            raise exception
         except TimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
         except NoActiveProviderError as exception:

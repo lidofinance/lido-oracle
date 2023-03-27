@@ -63,7 +63,7 @@ class HTTPProvider(ABC):
             except Timeout as error:
                 msg = "Timeout error."
                 logger.debug({'msg': msg})
-                raise TimeoutError from error
+                raise TimeoutError(msg) from error
 
             try:
                 if response.status_code != HTTPStatus.OK:
@@ -75,7 +75,7 @@ class HTTPProvider(ABC):
             except JSONDecodeError as error:
                 msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
                 logger.debug({'msg': msg})
-                raise error from error
+                raise error
             finally:
                 t.labels(
                     endpoint=endpoint,
