@@ -69,15 +69,12 @@ def main(module: OracleModule):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     web3.attach_modules({
+        'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
     })
-    if variables.LIDO_LOCATOR_ADDRESS:
-        web3.attach_modules({
-            'lido_contracts': LidoContracts,
-        })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     web3.middleware_onion.add(metrics_collector)
@@ -96,24 +93,26 @@ def main(module: OracleModule):
         ejector = Ejector(web3)
         ejector.check_contract_configs()
         ejector.run_as_daemon()
-    elif module == OracleModule.READINESS:
-        logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
-        readiness = ReadinessModule(web3)
-        sys.exit(readiness.execute_module())
 
 
-def check_required_variables(module_name: OracleModule):
-    errors = []
-    if '' in variables.EXECUTION_CLIENT_URI:
-        errors.append('EXECUTION_CLIENT_URI')
-    if variables.CONSENSUS_CLIENT_URI == '':
-        errors.append('CONSENSUS_CLIENT_URI')
-    if variables.KEYS_API_URI == '':
-        errors.append('KEYS_API_URI')
-    if variables.LIDO_LOCATOR_ADDRESS in (None, '') and module_name != OracleModule.READINESS:
-        errors.append('LIDO_LOCATOR_ADDRESS')
-    if errors:
-        raise ValueError("The following variables are required: " + ", ".join(errors))
+def readiness_check():
+    logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
+    web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
+    tweak_w3_contracts(web3)
+    cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
+    kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
+
+    web3.attach_modules({
+        'lido_validators': LidoValidatorsProvider,
+        'transaction': TransactionUtils,
+        'cc': lambda: cc,  # type: ignore[dict-item]
+        'kac': lambda: kac,  # type: ignore[dict-item]
+    })
+
+    check_providers_chain_ids(web3)
+
+    readiness = ReadinessModule(web3)
+    return readiness.execute_module()
 
 
 def check_providers_chain_ids(web3: Web3):
@@ -136,6 +135,12 @@ if __name__ == '__main__':
         logger.error({'msg': msg})
         raise ValueError(msg)
     module = OracleModule(module_name)
+    if module == OracleModule.READINESS:
+        errors = variables.check_uri_required_variables()
+        variables.raise_from_errors(errors)
 
-    check_required_variables(module)
+        sys.exit(readiness_check())
+
+    errors = variables.check_all_required_variables()
+    variables.raise_from_errors(errors)
     main(module)
