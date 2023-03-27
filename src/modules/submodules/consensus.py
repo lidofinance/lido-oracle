@@ -141,15 +141,7 @@ class ConsensusModule(ABC):
                 variables.ACCOUNT.address,
             ).call(block_identifier=blockstamp.block_hash)
 
-            submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
-                block_identifier=blockstamp.block_hash,
-            )
-            is_submit_member = self.report_contract.functions.hasRole(
-                submit_role,
-                variables.ACCOUNT.address,
-            ).call(
-                block_identifier=blockstamp.block_hash,
-            )
+            is_submit_member = self._is_submit_member(blockstamp)
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -171,6 +163,19 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
+
+    def _is_submit_member(self, blockstamp: BlockStamp):
+        submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        is_submit_member = self.report_contract.functions.hasRole(
+            submit_role,
+            variables.ACCOUNT.address,
+        ).call(
+            block_identifier=blockstamp.block_hash,
+        )
+
+        return is_submit_member
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[ReferenceBlockStamp]:

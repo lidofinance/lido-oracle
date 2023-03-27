@@ -61,7 +61,7 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
-        No cache because this method is using to get finalized and head block, and they could not be cached by args.
+        There is no cache because this method is used to get finalized and head blocks.
         """
         data, _ = self._get(self.API_GET_BLOCK_ROOT, (state_id,))
         if not isinstance(data, dict):
@@ -101,11 +101,17 @@ class ConsensusClient(HTTPProvider):
                 raise ValueError("Expected list response from getStateValidators")
             return data
         except NotOkResponse as error:
-            # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
-            # Trying to get validators by slot number
-            if 'State not found: state not found in the last' in error.text:
-                data, _ = self._get(self.API_GET_VALIDATORS, (blockstamp.slot_number,), query_params={'id': pub_keys})
-                if not isinstance(data, list):
-                    raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
-                return data
+            if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
+                return self._get_validators_with_prysm(blockstamp, pub_keys)
+
             raise error from error
+
+    PRYSM_STATE_NOT_FOUND_ERROR = 'State not found: state not found in the last'
+
+    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+        # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
+        # Trying to get validators by slot number
+        data, _ = self._get(self.API_GET_VALIDATORS, (blockstamp.slot_number,), query_params={'id': pub_keys})
+        if not isinstance(data, list):
+            raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
+        return data
