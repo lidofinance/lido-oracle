@@ -23,7 +23,7 @@ deposit_event_abi = {'anonymous': False, 'inputs': [
 def deposit_contract(web3):
     cc_config = web3.cc.get_config_spec()
     return web3.eth.contract(
-        address=cc_config.DEPOSIT_CONTRACT_ADDRESS,
+        address=web3.to_checksum_address(cc_config.DEPOSIT_CONTRACT_ADDRESS),
         abi=[get_deposit_count_abi, deposit_event_abi],
     )
 
@@ -38,6 +38,15 @@ def check_balance_availability(web3, blockstamp, deposit_contract):
     web3.eth.get_balance(deposit_contract.address, block_identifier=blockstamp.block_hash)
 
 
-def check_events_range_availability(blockstamp, deposit_contract):
+def check_events_range_availability(web3, blockstamp, deposit_contract):
     """Check that execution-client able to get event logs on the provided range"""
-    deposit_contract.events.DepositEvent.get_logs(fromBlock=blockstamp.block_number, toBlock='finalized')
+    head_block = web3.eth.get_block('head')
+    deposit_contract.events.DepositEvent.get_logs(fromBlock=blockstamp.block_number, toBlock=head_block.block_number)
+
+
+def check_events_week_range_availability(web3, deposit_contract):
+    head_block = web3.eth.get_block('head')
+    deposit_contract.events.DepositEvent.get_logs(
+        fromBlock=head_block.block_number - 8 * 225 * 32,  # 8 days
+        toBlock=head_block.block_number,
+    )
