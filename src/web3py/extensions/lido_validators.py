@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from src.web3py.typings import Web3
+    from src.web3py.typings import Web3  # pragma: no cover
 
 
 StakingModuleId = NewType('StakingModuleId', int)

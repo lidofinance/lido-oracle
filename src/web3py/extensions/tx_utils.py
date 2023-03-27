@@ -53,14 +53,15 @@ class TransactionUtils(Module):
             logger.info({"msg": "No account provided. Dry mode."})
             return None
 
-        pending_block = self.w3.eth.get_block("pending")
+        # get pending block doesn't work on erigon node in specific cases
+        latest_block = self.w3.eth.get_block("latest")
 
         tx = transaction.build_transaction(
             {
                 "from": account.address,
                 "gas": int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER),
                 "maxFeePerGas": Wei(
-                    pending_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+                    latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
                 ),
                 "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
                 "nonce": self.w3.eth.get_transaction_count(account.address),

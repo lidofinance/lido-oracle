@@ -294,7 +294,8 @@ class Ejector(BaseModule, ConsensusModule):
         ), validators)))
 
         chain_config = self.get_chain_config(blockstamp)
-        return int(total_withdrawable_validators * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch)
+        full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
+        return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     @lru_cache(maxsize=1)
     def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -322,4 +323,4 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_reporting_allowed(self, blockstamp: BlockStamp) -> bool:
         """At this point we can't check anything, so just return True."""
-        return True
+        return True  # pragma: no cover

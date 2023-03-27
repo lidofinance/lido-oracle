@@ -83,10 +83,10 @@ class BaseModule(ABC):
             return self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
-            raise exception from exception
+            raise exception
         except IncompatibleContractVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
-            raise exception from exception
+            raise exception
         except TimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
         except NoActiveProviderError as exception:
@@ -112,14 +112,14 @@ class BaseModule(ABC):
             ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
             ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def clear_cache(self):
         """Clear cache for module and all submodules"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover

@@ -247,7 +247,7 @@ class LidoValidatorStateService:
             )
             delayed_validators_count = len(list(filter(is_validator_delayed, validators)))
 
-            ACCOUNTING_DELAYED_VALIDATORS.labels(global_index).set(delayed_validators_count)
+            ACCOUNTING_DELAYED_VALIDATORS.labels(*global_index).set(delayed_validators_count)
 
         return validators_recently_requested_to_exit
 
