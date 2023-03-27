@@ -39,17 +39,13 @@ class BunkerService:
         chain_config: ChainConfig,
         simulated_cl_rebase: LidoReportRebase,
     ) -> bool:
-        """
-        Triggers in 'OR' relation:
-          - if any of the checks is True, then bunker mode is ON
-          - if all checks are False, then bunker mode is OFF
-        If it is the very first run, we don't check bunker mode
-        """
+        """If any of cases is True, then bunker mode is ON"""
         bunker_config = self._get_config(blockstamp)
         all_validators = self.w3.cc.get_validators(blockstamp)
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+        # If it is the very first run, we don't check bunker mode
         if not last_report_ref_slot:
             logger.info({"msg": "No one report yet. Bunker status will not be checked"})
             return False
