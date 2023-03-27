@@ -112,14 +112,14 @@ class BaseModule(ABC):
             ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
             ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def clear_cache(self):
         """Clear cache for module and all submodules"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
