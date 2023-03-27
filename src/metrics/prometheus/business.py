@@ -15,13 +15,6 @@ ORACLE_MEMBER_LAST_REPORT_REF_SLOT = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-ORACLE_SLOT_NUMBER = Gauge(
-    "slot_number",
-    "Oracle head slot number",
-    ["state"],  # "head" or "finalized"
-    namespace=PROMETHEUS_PREFIX,
-)
-
 FRAME_CURRENT_REF_SLOT = Gauge(
     "frame_current_ref_slot",
     "Oracle frame current ref slot",
@@ -34,8 +27,14 @@ FRAME_DEADLINE_SLOT = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-FRAME_LAST_REPORT_REF_SLOT = Gauge(
-    "frame_last_report_ref_slot",
-    "Oracle frame last report ref slot",
+FRAME_PREV_REPORT_REF_SLOT = Gauge(
+    "frame_prev_report_ref_slot",
+    "Oracle frame previous report ref slot",
+    namespace=PROMETHEUS_PREFIX,
+)
+
+CONTRACT_ON_PAUSE = Gauge(
+    "contract_on_pause",
+    "Contract on pause",
     namespace=PROMETHEUS_PREFIX,
 )

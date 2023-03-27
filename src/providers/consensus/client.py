@@ -58,7 +58,7 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """
-        data, _ = self._get('eth/v1/beacon/genesis')
+        data, _ = self._get(self.API_GET_GENESIS)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getGenesis")
         return GenesisResponse.from_response(**data)

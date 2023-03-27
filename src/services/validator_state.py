@@ -6,6 +6,11 @@ from typing import Sequence, Iterable
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_STUCK_VALIDATORS,
+    ACCOUNTING_EXITED_VALIDATORS,
+    ACCOUNTING_DELAYED_VALIDATORS
+)
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
@@ -90,9 +95,11 @@ class LidoValidatorStateService:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
         for operator in node_operators:
+            global_index = (operator.staking_module.id, operator.id)
+            ACCOUNTING_STUCK_VALIDATORS.labels(*global_index).set(result[global_index])
             # If amount of exited validators weren't changed skip report for operator
-            if result[(operator.staking_module.id, operator.id)] == operator.stuck_validators_count:
-                del result[(operator.staking_module.id, operator.id)]
+            if result[global_index] == operator.stuck_validators_count:
+                del result[global_index]
 
         return result
 
@@ -140,9 +147,11 @@ class LidoValidatorStateService:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
 
         for operator in node_operators:
+            global_index = (operator.staking_module.id, operator.id)
+            ACCOUNTING_EXITED_VALIDATORS.labels(*global_index).set(lido_validators[global_index])
             # If amount of exited validators weren't changed skip report for operator
-            if lido_validators[(operator.staking_module.id, operator.id)] == operator.total_exited_validators:
-                del lido_validators[(operator.staking_module.id, operator.id)]
+            if lido_validators[global_index] == operator.total_exited_validators:
+                del lido_validators[global_index]
 
         logger.info({'msg': 'Fetch new lido exited validators by node operator.', 'value': lido_validators})
         return lido_validators
@@ -198,13 +207,13 @@ class LidoValidatorStateService:
 
         validators_recently_requested_to_exit = []
 
-        for global_no_index, validators in lido_validators_by_operator.items():
+        for global_index, validators in lido_validators_by_operator.items():
 
             def validator_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) <= ejected_indexes[global_no_index]
+                return int(validator.index) <= ejected_indexes[global_index]
 
             def validator_recently_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) in recent_indexes[global_no_index]
+                return int(validator.index) in recent_indexes[global_index]
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
                 delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
@@ -225,9 +234,22 @@ class LidoValidatorStateService:
 
                 return False
 
+            def is_validator_delayed(validator: LidoValidator) -> bool:
+                if (
+                    validator_requested_to_exit(validator) and
+                    not is_on_exit(validator) and
+                    not validator_recently_requested_to_exit(validator)
+                ):
+                    return True
+
+                return False
+
             validators_recently_requested_to_exit.extend(
                 list(filter(is_validator_recently_requested_but_not_exited, validators))
             )
+            delayed_validators_count = len(list(filter(is_validator_delayed, validators)))
+
+            ACCOUNTING_DELAYED_VALIDATORS.labels(global_index).set(delayed_validators_count)
 
         return validators_recently_requested_to_exit
 

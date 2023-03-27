@@ -15,6 +15,12 @@ class SimpleOracle(BaseModule):
         self.call_count += 1
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+    def refresh_contracts(self):
+        pass
+
+    def clear_cache(self):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def set_default_sleep(monkeypatch):
@@ -42,17 +48,17 @@ def test_receive_last_finalized_slot(oracle):
 
 @pytest.mark.unit
 def test_cycle_handler_run_once_per_slot(oracle, contracts, web3):
-    web3.lido_contracts.reload_contracts = Mock()
+    web3.lido_contracts.has_contract_address_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     oracle._cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.reload_contracts.call_count == 1
+    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
 
     oracle._cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.reload_contracts.call_count == 1
+    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
 
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
     oracle._cycle_handler()
     assert oracle.call_count == 2
-    assert web3.lido_contracts.reload_contracts.call_count == 2
+    assert web3.lido_contracts.has_contract_address_changed.call_count == 2

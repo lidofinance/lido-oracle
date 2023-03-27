@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Sequence
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -54,11 +54,16 @@ class HTTPProvider(ABC):
         Returns (data, meta)
         """
         with self.PROMETHEUS_HISTOGRAM.time() as t:
-            response = self.session.get(
-                self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
-                params=query_params,
-                timeout=self.REQUEST_TIMEOUT,
-            )
+            try:
+                response = self.session.get(
+                    self._urljoin(self.host, endpoint.format(*path_params) if path_params else endpoint),
+                    params=query_params,
+                    timeout=self.REQUEST_TIMEOUT,
+                )
+            except Timeout as error:
+                msg = "Timeout error."
+                logger.debug({'msg': msg})
+                raise TimeoutError from error
 
             try:
                 if response.status_code != HTTPStatus.OK:
