@@ -11,6 +11,7 @@ from src.providers.keys.client import KeysOutdatedException
 from src.typings import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.web3py.extensions import LidoContracts
+from src import variables
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -31,7 +32,7 @@ class SimpleOracle(BaseModule):
 @pytest.fixture(autouse=True)
 def set_default_sleep(monkeypatch):
     with monkeypatch.context():
-        monkeypatch.setattr(BaseModule, "DEFAULT_SLEEP", 1)
+        monkeypatch.setattr(variables, "CYCLE_SLEEP_IN_SECONDS", 1)
         yield
 
 

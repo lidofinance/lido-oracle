@@ -7,6 +7,7 @@ from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey, KeysApiStatus
 from src.typings import BlockStamp
 from src.utils.dataclass import list_of_dataclasses
+from src import variables
 
 
 class KeysOutdatedException(Exception):
@@ -14,10 +15,6 @@ class KeysOutdatedException(Exception):
 
 
 class KeysAPIClient(HTTPProvider):
-
-    RETRY_COUNT = 5
-    REQUEST_TIMEOUT = 10
-    SLEEP_SECONDS = 12
 
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
 
@@ -29,17 +26,17 @@ class KeysAPIClient(HTTPProvider):
         """
         Returns response if blockstamp < blockNumber from response
         """
-        for i in range(self.RETRY_COUNT):
+        for i in range(variables.HTTP_REQUEST_RETRY_COUNT):
             data, meta = self._get(url, query_params=params)
             blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
             if blocknumber_meta >= blockstamp.block_number:
                 return data
 
-            if i != self.RETRY_COUNT - 1:
-                sleep(self.SLEEP_SECONDS)
+            if i != variables.HTTP_REQUEST_RETRY_COUNT - 1:
+                sleep(variables.HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS)
 
-        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.SLEEP_SECONDS * self.RETRY_COUNT} seconds.')
+        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {variables.HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS * variables.HTTP_REQUEST_RETRY_COUNT} seconds.')
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey.from_response)

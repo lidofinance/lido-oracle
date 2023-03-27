@@ -38,7 +38,7 @@ class BaseModule(ABC):
     - Raise exceptions that could not be proceeded automatically.
     - Check Module didn't stick inside cycle forever.
     """
-    DEFAULT_SLEEP = 12
+
     # This is reference mark for long sleep. Sleep until new finalized slot found.
     _slot_threshold = SlotNumber(0)
 
@@ -64,8 +64,8 @@ class BaseModule(ABC):
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
                 self._slot_threshold = blockstamp.slot_number
 
-        logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
-        time.sleep(self.DEFAULT_SLEEP)
+        logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
+        time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
