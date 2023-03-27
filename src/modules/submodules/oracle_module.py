@@ -6,10 +6,11 @@ from enum import Enum
 
 from timeout_decorator import timeout
 
-from src.metrics.prometheus.business import ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
 from src.web3py.typings import Web3
@@ -55,10 +56,12 @@ class BaseModule(ABC):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:
+            if self.w3.lido_contracts.has_contract_address_changed():
+                self.clear_cache()
+                self.refresh_contracts()
             result = self.run_cycle(blockstamp)
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-                self.w3.lido_contracts.reload_contracts()
                 self._slot_threshold = blockstamp.slot_number
 
         logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
@@ -70,6 +73,7 @@ class BaseModule(ABC):
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
         ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
@@ -95,6 +99,8 @@ class BaseModule(ABC):
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
+        except CountOfKeysDiffersException as error:
+            logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
 
         return ModuleExecuteDelay.NEXT_SLOT
 
@@ -106,4 +112,14 @@ class BaseModule(ABC):
             ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
             ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
+        raise NotImplementedError('Module should implement this method.')
+
+    @abstractmethod
+    def refresh_contracts(self):
+        """This method called if contracts addresses were changed"""
+        raise NotImplementedError('Module should implement this method.')
+
+    @abstractmethod
+    def clear_cache(self):
+        """Clear cache for module and all submodules"""
         raise NotImplementedError('Module should implement this method.')

@@ -1,5 +1,6 @@
 from web3.types import Wei
 
+from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.utils.abi import named_tuple_to_dataclass
 from src.web3py.typings import Web3
@@ -31,7 +32,9 @@ class Withdrawal:
         withdrawal_vault_balance: Wei,
         el_rewards_vault_balance: Wei
     ) -> list[int]:
-        if self._is_requests_finalization_paused():
+        on_pause = self._is_requests_finalization_paused()
+        CONTRACT_ON_PAUSE.set(on_pause)
+        if on_pause:
             return []
 
         if not self._has_unfinalized_requests():
