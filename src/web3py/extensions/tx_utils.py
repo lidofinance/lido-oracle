@@ -5,7 +5,7 @@ from eth_account.signers.local import LocalAccount
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.module import Module
-from web3.types import TxReceipt, Wei
+from web3.types import TxReceipt, Wei, TxParams
 
 from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
@@ -21,13 +21,26 @@ class TransactionUtils(Module):
 
         ACCOUNT_BALANCE.labels(str(account.address)).set(self.w3.eth.get_balance(account.address))
 
-        if self.check_transaction(transaction, account.address):
-            return self.sign_and_send_transaction(transaction, account)
+        # get pending block doesn't work on erigon node in specific cases
+        latest_block = self.w3.eth.get_block("latest")
+
+        params = {
+            "from": account.address,
+            "gas": int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER),
+            "maxFeePerGas": Wei(
+                latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+            ),
+            "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
+            "nonce": self.w3.eth.get_transaction_count(account.address),
+        }
+
+        if self.check_transaction(transaction, params):
+            return self.sign_and_send_transaction(transaction, params, account)
 
         return None
 
     @staticmethod
-    def check_transaction(transaction, from_address: str) -> bool:
+    def check_transaction(transaction, params: Optional[TxParams]) -> bool:
         """
         Returns:
         True - transaction succeed.
@@ -36,7 +49,7 @@ class TransactionUtils(Module):
         logger.info({"msg": "Check transaction. Make static call.", "value": transaction.args})
 
         try:
-            result = transaction.call({"from": from_address})
+            result = transaction.call(params)
         except ContractLogicError as error:
             logger.warning({"msg": "Transaction reverted.", "error": str(error)})
             return False
@@ -47,27 +60,14 @@ class TransactionUtils(Module):
     def sign_and_send_transaction(
         self,
         transaction: ContractFunction,
+        params: Optional[TxParams],
         account: Optional[LocalAccount] = None,
     ) -> Optional[TxReceipt]:
         if not account:
             logger.info({"msg": "No account provided. Dry mode."})
             return None
 
-        # get pending block doesn't work on erigon node in specific cases
-        latest_block = self.w3.eth.get_block("latest")
-
-        tx = transaction.build_transaction(
-            {
-                "from": account.address,
-                "gas": int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER),
-                "maxFeePerGas": Wei(
-                    latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
-                ),
-                "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
-                "nonce": self.w3.eth.get_transaction_count(account.address),
-            }
-        )
-
+        tx = transaction.build_transaction(params)
         signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
 
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
