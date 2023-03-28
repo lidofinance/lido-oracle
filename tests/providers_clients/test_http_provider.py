@@ -18,7 +18,7 @@ def test_urljoin():
 
 def test_all_fallbacks_ok():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'])
-    provider._simple_get = lambda host, endpoint, path_params, query_params: (host, endpoint)
+    provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params: (host, endpoint)
     assert provider._get('test') == ('http://localhost:1', 'test')
 
 
@@ -35,5 +35,5 @@ def test_first_fallback_bad():
         return host, endpoint
 
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'])
-    provider._simple_get = _simple_get
+    provider._get_without_fallbacks = _simple_get
     assert provider._get('test') == ('http://localhost:2', 'test')

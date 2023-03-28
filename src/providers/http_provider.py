@@ -8,14 +8,11 @@ from prometheus_client import Histogram
 from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from web3_multi_provider import NoActiveProviderError
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
-
-
-class NoActiveProviderError(Exception):
-    """Base exception if all providers are offline"""
 
 
 class NotOkResponse(Exception):
@@ -61,7 +58,7 @@ class HTTPProvider(ABC):
         error = None
         for host in self.hosts:
             try:
-                return self._simple_get(host, endpoint, path_params, query_params)
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params)
             except Exception as e:  # pylint: disable=W0703
                 logger.warning(
                     {
@@ -75,7 +72,7 @@ class HTTPProvider(ABC):
         logger.error({"msg": msg})
         raise NoActiveProviderError(msg) from error
 
-    def _simple_get(
+    def _get_without_fallbacks(
         self,
         host: str,
         endpoint: str,
