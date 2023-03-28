@@ -1,4 +1,3 @@
-from pydantic.class_validators import validator
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -151,13 +150,13 @@ def test_is_fully_withdrawable_validator(spec, withdrawable_epoch, balance, epoc
     (32 * 10**9, 0, '0x', False),
     (0, 0, '0x01ba', False),
 ])
-def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_credentials, expected):
+def test_is_partially_withdrawable(spec, effective_balance, add_balance, withdrawal_credentials, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = withdrawal_credentials
     validator.validator.effective_balance = effective_balance
     validator.balance = effective_balance + add_balance
 
-    actual = is_partially_withdrawable_validator(validator)
+    actual = is_partially_withdrawable_validator(spec, validator)
     assert actual == expected
 
 
@@ -194,14 +193,14 @@ class TestCalculateTotalEffectiveBalance:
         return validators
 
     @pytest.mark.unit
-    def test_no_validators(self):
-        actual = calculate_total_active_effective_balance([], EpochNumber(170256))
+    def test_no_validators(self, spec):
+        actual = calculate_total_active_effective_balance(spec, [], EpochNumber(170256))
         assert actual == Gwei(1 * 10**9)
 
     @pytest.mark.unit
-    def test_all_active(self, validators: list[Validator]):
+    def test_all_active(self, spec, validators: list[Validator]):
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(3000000000)
 
@@ -210,7 +209,7 @@ class TestCalculateTotalEffectiveBalance:
         actual = calculate_total_active_effective_balance(
             spec, simple_validators(0, 9, effective_balance="0"), EpochNumber(170256)
         )
-        assert actual == spec.EFFECTIVE_BALANCE_INCREMENT
+        assert actual == int(spec.EFFECTIVE_BALANCE_INCREMENT)
 
     @pytest.mark.unit
     def test_skip_exiting(self, spec, validators: list[Validator]):
