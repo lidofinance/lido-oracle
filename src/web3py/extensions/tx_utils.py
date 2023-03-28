@@ -5,7 +5,7 @@ from eth_account.signers.local import LocalAccount
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.module import Module
-from web3.types import TxReceipt, Wei, TxParams
+from web3.types import TxReceipt, Wei, TxParams, BlockData
 
 from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
@@ -22,11 +22,14 @@ class TransactionUtils(Module):
         ACCOUNT_BALANCE.labels(str(account.address)).set(self.w3.eth.get_balance(account.address))
 
         # get pending block doesn't work on erigon node in specific cases
-        latest_block = self.w3.eth.get_block("latest")
+        latest_block: BlockData = self.w3.eth.get_block("latest")
 
-        params = {
+        params: Optional[TxParams] = {
             "from": account.address,
-            "gas": int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER),
+            "gas": min(
+                latest_block["gasLimit"],
+                int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER)
+            ),
             "maxFeePerGas": Wei(
                 latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
             ),
