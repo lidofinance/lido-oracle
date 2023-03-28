@@ -11,7 +11,7 @@ from web3.contract import AsyncContract, Contract
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -22,6 +22,7 @@ from src.modules.submodules.exceptions import IsNotMemberException, Incompatible
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
+from src.utils.web3converter import Web3Converter
 from src.utils.slot import get_reference_blockstamp
 from src.web3py.typings import Web3
 
@@ -205,10 +206,14 @@ class ConsensusModule(ABC):
             return None
 
         chain_config = self.get_chain_config(last_finalized_blockstamp)
+        frame_config = self.get_frame_config(last_finalized_blockstamp)
+
+        converter = Web3Converter(chain_config, frame_config)
+
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=EpochNumber(member_info.current_frame_ref_slot // chain_config.slots_per_epoch),
+            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
@@ -385,7 +390,9 @@ class ConsensusModule(ABC):
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
 
-        current_frame_number = int(blockstamp.slot_number / chain_config.slots_per_epoch / frame_config.epochs_per_frame)
+        converter = Web3Converter(chain_config, frame_config)
+
+        current_frame_number = converter.get_frame_by_slot(blockstamp.slot_number)
         current_position = current_frame_number % len(members)
 
         sleep_count = mem_position - current_position
