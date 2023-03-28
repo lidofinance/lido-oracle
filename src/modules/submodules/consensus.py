@@ -11,7 +11,7 @@ from web3.contract import AsyncContract, Contract
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
