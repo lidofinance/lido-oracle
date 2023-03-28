@@ -1,8 +1,9 @@
 from dataclasses import dataclass, is_dataclass
+from typing import Any
 
 import pytest
 
-from src.utils.dataclass import list_of_dataclasses, Nested, FromResponse
+from src.utils.dataclass import DecodeToDataclassException, list_of_dataclasses, Nested, FromResponse
 
 pytestmark = pytest.mark.unit
 
@@ -62,6 +63,44 @@ def test_dataclasses_utils():
 
         for wheel in car.wheels_immutable:
             assert is_dataclass(wheel)
+
+
+def test_list_of_dataclasses_with_wrong_type():
+    @list_of_dataclasses(Car)
+    def get_cars_with_already_as_cars() -> list[Car]:
+        return [
+            Car(**{
+                'wheel_count': 4,
+                'wheels': [{'size': 2}, {'size': 4}],
+                'wheels_immutable': ({'size': 2}, {'size': 4}),
+                'state': {'condition': 'good'},
+            })
+        ]
+
+    with pytest.raises(DecodeToDataclassException):
+        get_cars_with_already_as_cars()
+
+
+def test_list_of_dataclasses_with_mixed_types():
+    @list_of_dataclasses(Car)
+    def get_cars_inconsistent() -> list[Any]:
+        return [
+            {
+                'wheel_count': 2,
+                'wheels': [{'size': 1}],
+                'wheels_immutable': ({'size': 1},),
+                'state': {'condition': 'bad'},
+            },
+            Car(**{
+                'wheel_count': 4,
+                'wheels': [{'size': 2}, {'size': 4}],
+                'wheels_immutable': ({'size': 2}, {'size': 4}),
+                'state': {'condition': 'good'},
+            })
+        ]
+
+    with pytest.raises(TypeError):
+        get_cars_inconsistent()
 
 
 def test_dataclasses_utils_fail_on_unexpected_key():

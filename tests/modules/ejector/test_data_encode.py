@@ -220,6 +220,10 @@ def _max_num_fits_bytes(num_bytes: int) -> int:
     """
     >>> _max_num_fits_bytes(1)
     255
+    >>> _max_num_fits_bytes(-255)
+    Traceback (most recent call last):
+    ...
+    ValueError: _max_num_fits_bytes: num_bytes must be positive
     """
     if num_bytes < 0:
         raise ValueError("_max_num_fits_bytes: num_bytes must be positive")
