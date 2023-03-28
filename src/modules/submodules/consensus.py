@@ -10,12 +10,13 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
-    ORACLE_SLOT_NUMBER, ORACLE_MEMBER_INFO
+    ORACLE_MEMBER_INFO
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
@@ -34,10 +35,6 @@ class ConsensusModule(ABC):
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
 
-    # Default delay for default Oracle members. Member with submit data role should submit data first.
-    # If contract is reportable each member in order will submit data with difference with this amount of slots
-    SUBMIT_DATA_DELAY_IN_SLOTS = 6
-
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -54,8 +51,9 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
-        if any((config.genesis_time != int(genesis_time),
+        genesis_time = int(self.w3.cc.get_genesis().genesis_time)
+        GENESIS_TIME.set(genesis_time)
+        if any((config.genesis_time != genesis_time,
                 config.seconds_per_slot != int(cc_config.SECONDS_PER_SLOT),
                 config.slots_per_epoch != int(cc_config.SLOTS_PER_EPOCH))):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
@@ -140,15 +138,7 @@ class ConsensusModule(ABC):
                 variables.ACCOUNT.address,
             ).call(block_identifier=blockstamp.block_hash)
 
-            submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
-                block_identifier=blockstamp.block_hash,
-            )
-            is_submit_member = self.report_contract.functions.hasRole(
-                submit_role,
-                variables.ACCOUNT.address,
-            ).call(
-                block_identifier=blockstamp.block_hash,
-            )
+            is_submit_member = self._is_submit_member(blockstamp)
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -170,6 +160,22 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
+
+    def _is_submit_member(self, blockstamp: BlockStamp) -> bool:
+        if not variables.ACCOUNT:
+            return True
+
+        submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        is_submit_member = self.report_contract.functions.hasRole(
+            submit_role,
+            variables.ACCOUNT.address,
+        ).call(
+            block_identifier=blockstamp.block_hash,
+        )
+
+        return is_submit_member
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[ReferenceBlockStamp]:
@@ -367,6 +373,7 @@ class ConsensusModule(ABC):
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
         return bs
 
     @lru_cache(maxsize=1)
@@ -393,7 +400,7 @@ class ConsensusModule(ABC):
             sleep_count += len(members)
 
         # 1 - is default delay for non submit members.
-        total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
+        total_delay = (1 + sleep_count) * variables.SUBMIT_DATA_DELAY_IN_SLOTS
 
         logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay

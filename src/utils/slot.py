@@ -76,7 +76,7 @@ def get_first_non_missed_slot(
         except NotOkResponse as error:
             if error.status != HTTPStatus.NOT_FOUND:
                 # Not expected status - raise exception
-                raise error from error
+                raise error
 
             ref_slot_is_missed = True
 
