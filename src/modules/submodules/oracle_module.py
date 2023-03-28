@@ -38,7 +38,7 @@ class BaseModule(ABC):
     - Raise exceptions that could not be proceeded automatically.
     - Check Module didn't stick inside cycle forever.
     """
-    DEFAULT_SLEEP = 12
+
     # This is reference mark for long sleep. Sleep until new finalized slot found.
     _slot_threshold = SlotNumber(0)
 
@@ -64,8 +64,8 @@ class BaseModule(ABC):
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
                 self._slot_threshold = blockstamp.slot_number
 
-        logger.info({'msg': f'Cycle end. Sleep for {self.DEFAULT_SLEEP} seconds.'})
-        time.sleep(self.DEFAULT_SLEEP)
+        logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
+        time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
@@ -83,10 +83,10 @@ class BaseModule(ABC):
             return self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
-            raise exception from exception
+            raise exception
         except IncompatibleContractVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
-            raise exception from exception
+            raise exception
         except TimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
         except NoActiveProviderError as exception:
@@ -112,14 +112,14 @@ class BaseModule(ABC):
             ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
             ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
         """
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
 
     @abstractmethod
     def clear_cache(self):
         """Clear cache for module and all submodules"""
-        raise NotImplementedError('Module should implement this method.')
+        raise NotImplementedError('Module should implement this method.')  # pragma: no cover

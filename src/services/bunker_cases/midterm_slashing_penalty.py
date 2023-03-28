@@ -24,6 +24,14 @@ class MidtermSlashingPenalty:
         current_report_cl_rebase: Gwei,
         last_report_ref_slot: SlotNumber
     ) -> bool:
+        """
+        Check if there is a high midterm slashing penalty in the future frames.
+
+        If current report CL rebase contains more than one frame, we should calculate the CL rebase for only one frame
+        and compare max midterm penalty with calculated for onel frame CL rebase
+        because we assume that reports in the future can be "per-frame" as normal reports.
+        So we need to understand can we avoid negative CL rebase because of slashings in the future or not
+        """
         logger.info({"msg": "Detecting high midterm slashing penalty"})
         all_slashed_validators = MidtermSlashingPenalty.get_slashed_validators_with_impact_on_midterm_penalties(
             all_validators, blockstamp.ref_epoch
@@ -60,6 +68,24 @@ class MidtermSlashingPenalty:
             return True
 
         return False
+
+    @staticmethod
+    def get_slashed_validators_with_impact_on_midterm_penalties(
+        validators: list[Validator],
+        ref_epoch: EpochNumber
+    ) -> list[Validator | LidoValidator]:
+        """
+        Get slashed validators which have impact on midterm penalties
+        We can detect such slashings by this condition:
+        `ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR > possible_slashed_epoch > ref_epoch`
+        But if we look at:
+        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slash_validator
+        it can be simplified to the condition above for our purposes
+        """
+        def is_have_impact(v: Validator) -> bool:
+            return v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch
+
+        return list(filter(is_have_impact, validators))
 
     @staticmethod
     def get_possible_slashed_epochs(
@@ -166,7 +192,7 @@ class MidtermSlashingPenalty:
         Calculate midterm penalty for particular validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings
         """
-        # We don't know which balance was at slashing epoch, so we make an optimistic assumption that it was 32 ETH
+        # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
         slashings = Gwei(bound_slashed_validators_count * int(spec.MAX_EFFECTIVE_BALANCE))
         adjusted_total_slashing_balance = min(
             slashings * int(spec.PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX), total_balance
@@ -195,24 +221,6 @@ class MidtermSlashingPenalty:
             return any(min_bound_epoch <= epoch <= midterm_penalty_epoch for epoch in possible_slashing_epochs)
 
         return list(filter(is_bound, slashed_validators))
-
-    @staticmethod
-    def get_slashed_validators_with_impact_on_midterm_penalties(
-        validators: list[Validator],
-        ref_epoch: EpochNumber
-    ) -> list[Validator | LidoValidator]:
-        """
-        Get slashed validators which have impact on midterm penalties
-        We can detect such slashings by this condition:
-        `ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR > possible_slashed_epoch > ref_epoch`
-        But if we look at:
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slash_validator
-        it can be simplified to the condition above for our purposes
-        """
-        def is_have_impact(v: Validator) -> bool:
-            return v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch
-
-        return list(filter(is_have_impact, validators))
 
     @staticmethod
     def get_frame_cl_rebase_from_report_cl_rebase(

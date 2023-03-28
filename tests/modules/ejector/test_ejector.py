@@ -68,7 +68,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 def test_ejector_execute_module_on_pause(
     ejector: Ejector, blockstamp: BlockStamp
 ) -> None:
-    ejector.get_blockstamp_for_report = Mock(return_value=None)
+    ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector._is_paused = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)

@@ -34,10 +34,6 @@ class ConsensusModule(ABC):
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
 
-    # Default delay for default Oracle members. Member with submit data role should submit data first.
-    # If contract is reportable each member in order will submit data with difference with this amount of slots
-    SUBMIT_DATA_DELAY_IN_SLOTS = 6
-
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -140,15 +136,7 @@ class ConsensusModule(ABC):
                 variables.ACCOUNT.address,
             ).call(block_identifier=blockstamp.block_hash)
 
-            submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
-                block_identifier=blockstamp.block_hash,
-            )
-            is_submit_member = self.report_contract.functions.hasRole(
-                submit_role,
-                variables.ACCOUNT.address,
-            ).call(
-                block_identifier=blockstamp.block_hash,
-            )
+            is_submit_member = self._is_submit_member(blockstamp)
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -170,6 +158,22 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
+
+    def _is_submit_member(self, blockstamp: BlockStamp) -> bool:
+        if not variables.ACCOUNT:
+            return True
+
+        submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
+            block_identifier=blockstamp.block_hash,
+        )
+        is_submit_member = self.report_contract.functions.hasRole(
+            submit_role,
+            variables.ACCOUNT.address,
+        ).call(
+            block_identifier=blockstamp.block_hash,
+        )
+
+        return is_submit_member
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[ReferenceBlockStamp]:
@@ -388,7 +392,7 @@ class ConsensusModule(ABC):
             sleep_count += len(members)
 
         # 1 - is default delay for non submit members.
-        total_delay = (1 + sleep_count) * self.SUBMIT_DATA_DELAY_IN_SLOTS
+        total_delay = (1 + sleep_count) * variables.SUBMIT_DATA_DELAY_IN_SLOTS
 
         logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay
