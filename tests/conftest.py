@@ -88,7 +88,7 @@ def consensus_client(request, responses_path, web3, spec):
         client = request.getfixturevalue("update_responses_cl_client")
     else:
         client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
-    client._get_config_spec = lambda: spec
+    client._get_config_spec = lambda: spec  # pylint: disable=protected-access
     web3.attach_modules({"cc": lambda: client})
 
 
