@@ -7,6 +7,7 @@ from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABI
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
+from src.utils.web3converter import Web3Converter
 from src.utils.abi import named_tuple_to_dataclass
 from src.typings import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import Validator
@@ -18,18 +19,21 @@ class WrongExitPeriod(Exception):
     pass
 
 
-class SafeBorder:
+class SafeBorder(Web3Converter):
     chain_config: ChainConfig
     frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
+    converter: Web3Converter
 
     def __init__(
         self,
         w3: Web3,
         blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
-        frame_config: FrameConfig,
+        frame_config: FrameConfig
     ) -> None:
+        super().__init__(chain_config, frame_config)
+
         self.w3 = w3
         self.lido_contracts = w3.lido_contracts
 
@@ -37,7 +41,10 @@ class SafeBorder:
         self.chain_config = chain_config
         self.frame_config = frame_config
 
+        self.converter = Web3Converter(chain_config, frame_config)
+
         self._retrieve_constants()
+
 
     @duration_meter()
     def get_safe_border_epoch(
@@ -247,39 +254,21 @@ class SafeBorder:
             ).call(block_identifier=self.blockstamp.block_hash)
         )
 
-
     def _get_bunker_start_timestamp(self) -> int:
         # If bunker mode is off returns max(uint256)
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
-            block_identifier=self.blockstamp.block_hash)
+            block_identifier=self.blockstamp.block_hash
+        )
 
     def _get_last_finalized_request_id(self) -> int:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
-            block_identifier=self.blockstamp.block_hash)
+            block_identifier=self.blockstamp.block_hash
+        )
 
     def _get_withdrawal_request_status(self, request_id: int) -> Any:
         return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
-            block_identifier=self.blockstamp.block_hash)
-
-
-
-    def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
-        return SlotNumber(epoch * self.chain_config.slots_per_epoch)
-
-    def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(self.get_frame_first_slot(FrameNumber(frame + 1)) - 1)
-
-    def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
-
-    def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
-        return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
-
-    def get_epoch_by_timestamp(self, timestamp: int) -> EpochNumber:
-        return EpochNumber(self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch)
-
-    def get_slot_by_timestamp(self, timestamp: int) -> SlotNumber:
-        return SlotNumber((timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot)
+            block_identifier=self.blockstamp.block_hash
+        )
 
     def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
         rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))
@@ -288,11 +277,6 @@ class SafeBorder:
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
 
-    def get_frame_by_slot(self, slot: SlotNumber) -> FrameNumber:
-        return self.get_frame_by_epoch(self.get_epoch_by_slot(slot))
-
-    def get_frame_by_epoch(self, epoch: EpochNumber) -> FrameNumber:
-        return FrameNumber((epoch - self.frame_config.initial_epoch) // self.frame_config.epochs_per_frame)
 
 
 def filter_slashed_validators(validators: Sequence[Validator]) -> list[Validator]:

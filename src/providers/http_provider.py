@@ -8,6 +8,7 @@ from prometheus_client import Histogram
 from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from web3_multi_provider import NoActiveProviderError
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
 
@@ -27,8 +28,8 @@ class NotOkResponse(Exception):
 class HTTPProvider(ABC):
     PROMETHEUS_HISTOGRAM: Histogram
 
-    def __init__(self, host: str):
-        self.host = host
+    def __init__(self, hosts: list[str]):
+        self.hosts = hosts
 
         retry_strategy = Retry(
             total=HTTP_REQUEST_RETRY_COUNT,
@@ -51,19 +52,53 @@ class HTTPProvider(ABC):
         self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None
     ) -> Tuple[dict | list, dict]:
         """
-        Returns (data, meta)
+        Get request with fallbacks
+        Returns (data, meta) or raises exception
+        """
+        error = None
+        for host in self.hosts:
+            try:
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params)
+            except Exception as e:  # pylint: disable=W0703
+                logger.warning(
+                    {
+                        "msg": "Host not responding.",
+                        "error": str(e),
+                        "provider": urlparse(host).netloc,
+                    }
+                )
+                error = e
+        msg = f"No active host available for {self.__class__.__name__}"
+        logger.error({"msg": msg})
+        raise NoActiveProviderError(msg) from error
+
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Optional[Sequence[str | int]] = None,
+        query_params: Optional[dict] = None
+    ) -> Tuple[dict | list, dict]:
+        """
+        Simple get request without fallbacks
+        Returns (data, meta) or raises exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    self._urljoin(self.host, complete_endpoint if path_params else endpoint),
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=HTTP_REQUEST_TIMEOUT,
                 )
             except Timeout as error:
                 msg = f'Timeout error from {complete_endpoint}.'
                 logger.debug({'msg': msg})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
                 raise TimeoutError(msg) from error
 
             try:
@@ -81,7 +116,7 @@ class HTTPProvider(ABC):
                 t.labels(
                     endpoint=endpoint,
                     code=response.status_code,
-                    domain=urlparse(self.host).netloc,
+                    domain=urlparse(host).netloc,
                 )
 
         if 'data' in json_response:

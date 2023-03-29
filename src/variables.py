@@ -4,8 +4,8 @@ from eth_account import Account
 
 # - Providers-
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
-CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '')
-KEYS_API_URI = os.getenv('KEYS_API_URI', '')
+CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
+KEYS_API_URI = os.getenv('KEYS_API_URI', '').split(',')
 
 # - Account -
 ACCOUNT = None
@@ -47,9 +47,9 @@ def check_uri_required_variables():
     errors = []
     if '' in EXECUTION_CLIENT_URI:
         errors.append('EXECUTION_CLIENT_URI')
-    if CONSENSUS_CLIENT_URI == '':
+    if '' in CONSENSUS_CLIENT_URI:
         errors.append('CONSENSUS_CLIENT_URI')
-    if KEYS_API_URI == '':
+    if '' in KEYS_API_URI:
         errors.append('KEYS_API_URI')
     return errors
 
