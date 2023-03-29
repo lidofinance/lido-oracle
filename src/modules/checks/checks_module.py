@@ -6,12 +6,12 @@ class Web3Plugin:
         self.web3 = web3
 
 
-class ReadinessModule:
+class ChecksModule:
     def __init__(self, web3):
         self.web3 = web3
 
     def execute_module(self):
         return pytest.main([
-            'src/modules/readiness/checks',
-            '-c', 'src/modules/readiness/pytest.ini',
+            'src/modules/checks/suites',
+            '-c', 'src/modules/checks/pytest.ini',
         ], plugins=[Web3Plugin(self.web3)])

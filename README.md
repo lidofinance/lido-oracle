@@ -28,10 +28,10 @@ docker build -t lidofinance/oracle .
 
 ## Checks before running
 1. Use [.env.example](.env.example) file content to create your own `.env` file. 
-    Set required URI values. It will be enough to run the oracle in *readiness mode*.
+    Set required URI values. It will be enough to run the oracle in *check mode*.
 2. Check that your environment is ready to run the oracle using the following command:
       ```bash
-      docker run --env-file .env --rm lidofinance/oracle:{tag} readiness
+      docker run --env-file .env --rm lidofinance/oracle:{tag} check
       ```
       If everything is ok, you will see that all required checks are passed 
       and your environment is ready to run the oracle.
@@ -46,12 +46,6 @@ docker build -t lidofinance/oracle .
     Where `{value}` is a private key of the Oracle member account.
 2. Run the container using the following command:
       ```bash
-      docker run --env-file .env --rm lidofinance/oracle:{tag} readiness
-      ```
-      If everything is ok, you will see that all required checks are passed.
-   Now you are able to run the oracle.
-3. Run the container using the following command:
-      ```bash
       docker run --env-file .env lidofinance/oracle:{tag} {type}
       ```
       Where
@@ -60,7 +54,7 @@ docker build -t lidofinance/oracle .
       - `accounting`
       - `ejector`
      And additional type from the [previous checks](#checks-before-running):
-      - `readiness` - checks that the environment is ready to run the oracle
+      - `check` - checks that the environment is ready to run the oracle
 
 > **Note**: of course, you can pass env variables without using `.env` file.
 > For example, you can run the container using the following command:
@@ -128,7 +122,7 @@ poetry run python -m src.main {module}
 Where `{module}` is one of:
 - `accounting`
 - `ejector`
-- `readiness`
+- `check`
 
 ## Tests
 

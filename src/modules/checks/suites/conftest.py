@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.readiness.ReadinessModule import Web3Plugin
+from src.modules.checks.checks_module import Web3Plugin
 from src.typings import EpochNumber, SlotNumber, BlockRoot
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp

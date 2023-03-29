@@ -11,7 +11,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
-from src.modules.readiness.ReadinessModule import ReadinessModule
+from src.modules.checks.checks_module import ChecksModule
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -93,13 +93,9 @@ def main(module: OracleModule):
         ejector = Ejector(web3)
         ejector.check_contract_configs()
         ejector.run_as_daemon()
-    elif module_name == OracleModule.READINESS:
-        logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
-        readiness = ReadinessModule(web3)
-        sys.exit(readiness.execute_module())
 
 
-def readiness_check():
+def check():
     logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
     web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
     tweak_w3_contracts(web3)
@@ -112,11 +108,12 @@ def readiness_check():
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
     })
+    if variables.LIDO_LOCATOR_ADDRESS:
+        web3.attach_modules({'lido_contracts': LidoContracts})
 
     check_providers_chain_ids(web3)
 
-    readiness = ReadinessModule(web3)
-    return readiness.execute_module()
+    return ChecksModule(web3).execute_module()
 
 
 def check_providers_chain_ids(web3: Web3):
@@ -139,11 +136,11 @@ if __name__ == '__main__':
         logger.error({'msg': msg})
         raise ValueError(msg)
     module = OracleModule(module_name)
-    if module == OracleModule.READINESS:
+    if module == OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
 
-        sys.exit(readiness_check())
+        sys.exit(check())
 
     errors = variables.check_all_required_variables()
     variables.raise_from_errors(errors)
