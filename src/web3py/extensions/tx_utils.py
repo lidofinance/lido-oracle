@@ -21,21 +21,7 @@ class TransactionUtils(Module):
 
         ACCOUNT_BALANCE.labels(str(account.address)).set(self.w3.eth.get_balance(account.address))
 
-        # get pending block doesn't work on erigon node in specific cases
-        latest_block: BlockData = self.w3.eth.get_block("latest")
-
-        params: Optional[TxParams] = {
-            "from": account.address,
-            "gas": min(
-                latest_block["gasLimit"],
-                int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER)
-            ),
-            "maxFeePerGas": Wei(
-                latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
-            ),
-            "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
-            "nonce": self.w3.eth.get_transaction_count(account.address),
-        }
+        params = self.get_transaction_params(transaction, account)
 
         if self.check_transaction(transaction, params):
             return self.sign_and_send_transaction(transaction, params, account)
@@ -59,6 +45,29 @@ class TransactionUtils(Module):
 
         logger.info({"msg": "Transaction executed successfully.", "value": result})
         return True
+
+    def get_transaction_params(self, transaction: ContractFunction, account: Optional[LocalAccount] = None):
+        if not account:
+            logger.info({"msg": "No account provided. Dry mode."})
+            return None
+
+        # get pending block doesn't work on erigon node in specific cases
+        latest_block: BlockData = self.w3.eth.get_block("latest")
+
+        params: Optional[TxParams] = {
+            "from": account.address,
+            "gas": min(
+                latest_block["gasLimit"],
+                int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER)
+            ),
+            "maxFeePerGas": Wei(
+                latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+            ),
+            "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
+            "nonce": self.w3.eth.get_transaction_count(account.address),
+        }
+
+        return params
 
     def sign_and_send_transaction(
         self,
