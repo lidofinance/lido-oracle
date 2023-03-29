@@ -83,15 +83,16 @@ class HTTPProvider(ABC):
         Simple get request without fallbacks
         Returns (data, meta) or raises exception
         """
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
-                    self._urljoin(host, endpoint.format(*path_params) if path_params else endpoint),
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=HTTP_REQUEST_TIMEOUT,
                 )
             except Timeout as error:
-                msg = "Timeout error."
+                msg = f'Timeout error from {complete_endpoint}.'
                 logger.debug({'msg': msg})
                 t.labels(
                     endpoint=endpoint,
@@ -102,13 +103,13 @@ class HTTPProvider(ABC):
 
             try:
                 if response.status_code != HTTPStatus.OK:
-                    msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                    msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
                     logger.debug({'msg': msg})
                     raise NotOkResponse(msg, status=response.status_code, text=response.text)
 
                 json_response = response.json()
             except JSONDecodeError as error:
-                msg = f'Response [{response.status_code}] with text: "{str(response.text)}" returned.'
+                msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
                 logger.debug({'msg': msg})
                 raise error
             finally:
