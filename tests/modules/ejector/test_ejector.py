@@ -183,7 +183,7 @@ def test_compute_activation_exit_epoch(
     spec,
     ejector: Ejector,
 ) -> None:
-    spec.MAX_SEED_LOOKAHEAD = "17"
+    spec.MAX_SEED_LOOKAHEAD = 17
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
     result = ejector.compute_activation_exit_epoch(spec, ref_blockstamp)
     assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
@@ -360,8 +360,8 @@ class TestChurnLimit:
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
-        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = "4"
-        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = "1"
+        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = 4
+        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = 1
         result = ejector._get_churn_limit(ref_blockstamp)
         assert result == 4, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
@@ -374,8 +374,8 @@ class TestChurnLimit:
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
-        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = "0"
-        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = "2"
+        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = 0
+        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = 2
         result = ejector._get_churn_limit(ref_blockstamp)
         assert result == 49, "Unexpected churn limit"
         ejector._get_churn_limit(ref_blockstamp)
