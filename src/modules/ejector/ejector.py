@@ -174,7 +174,16 @@ class Ejector(BaseModule, ConsensusModule):
                            f'Future rewards from skimming and EL rewards: {future_rewards=}. '
                            f'Currently available balance: {total_available_balance=}. '
                            f'Validators expecting to start exit balance: {validator_to_eject_balance_sum=}. '
-                           f'Validators going to eject balance: {validator_to_eject_balance_sum=}. '
+                           f'Validators going to eject balance: {going_to_withdraw_balance=}. ',
+                    'value': {
+                        'withdrawal_epoch': withdrawal_epoch,
+                        'ref_epoch': blockstamp.ref_epoch,
+                        'future_withdrawals': future_withdrawals,
+                        'future_rewards': future_rewards,
+                        'total_available_balance': total_available_balance,
+                        'validator_to_eject_balance_sum': validator_to_eject_balance_sum,
+                        'going_to_withdraw_balance': going_to_withdraw_balance,
+                    }
                 })
 
                 return validators_to_eject
