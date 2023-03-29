@@ -98,9 +98,9 @@ def check_required_variables():
     errors = []
     if '' in variables.EXECUTION_CLIENT_URI:
         errors.append('EXECUTION_CLIENT_URI')
-    if variables.CONSENSUS_CLIENT_URI == '':
+    if '' in variables.CONSENSUS_CLIENT_URI:
         errors.append('CONSENSUS_CLIENT_URI')
-    if variables.KEYS_API_URI == '':
+    if '' in variables.KEYS_API_URI:
         errors.append('KEYS_API_URI')
     if variables.LIDO_LOCATOR_ADDRESS in (None, ''):
         errors.append('LIDO_LOCATOR_ADDRESS')
