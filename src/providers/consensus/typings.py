@@ -11,6 +11,7 @@ class BeaconSpecResponse(FromResponseCastedTypes):
     DEPOSIT_CHAIN_ID: int
     SLOTS_PER_EPOCH: int
     SECONDS_PER_SLOT: int
+    DEPOSIT_CONTRACT_ADDRESS: str
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: int
     SHARD_COMMITTEE_PERIOD: int

@@ -4,8 +4,8 @@ from eth_account import Account
 
 # - Providers-
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
-CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '')
-KEYS_API_URI = os.getenv('KEYS_API_URI', '')
+CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
+KEYS_API_URI = os.getenv('KEYS_API_URI', '').split(',')
 
 # - Account -
 ACCOUNT = None
@@ -34,3 +34,26 @@ PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 HEALTHCHECK_SERVER_PORT = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
 MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
+
+
+def check_all_required_variables():
+    errors = check_uri_required_variables()
+    if LIDO_LOCATOR_ADDRESS in (None, ''):
+        errors.append('LIDO_LOCATOR_ADDRESS')
+    return errors
+
+
+def check_uri_required_variables():
+    errors = []
+    if '' in EXECUTION_CLIENT_URI:
+        errors.append('EXECUTION_CLIENT_URI')
+    if '' in CONSENSUS_CLIENT_URI:
+        errors.append('CONSENSUS_CLIENT_URI')
+    if '' in KEYS_API_URI:
+        errors.append('KEYS_API_URI')
+    return errors
+
+
+def raise_from_errors(errors):
+    if errors:
+        raise ValueError("The following variables are required: " + ", ".join(errors))
