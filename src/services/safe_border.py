@@ -124,14 +124,14 @@ class SafeBorder:
 
         exited_period = withdrawable_epoch - exit_epoch
 
-        if exited_period < int(self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY):
+        if exited_period < self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
             raise WrongExitPeriod("exit_epoch and withdrawable_epoch are too close")
 
-        is_slashed_epoch_undetectable = exited_period == int(self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+        is_slashed_epoch_undetectable = exited_period == self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         if is_slashed_epoch_undetectable:
             return None
 
-        return EpochNumber(withdrawable_epoch - int(self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR))
+        return EpochNumber(withdrawable_epoch - self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR)
 
     def _find_earliest_slashed_epoch_rounded_to_frame(self, validators: list[Validator]) -> EpochNumber:
         """
@@ -142,7 +142,7 @@ class SafeBorder:
 
         earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
         max_possible_earliest_slashed_epoch = EpochNumber(
-            withdrawable_epoch - int(self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR)
+            withdrawable_epoch - self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR
         )
 
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch

@@ -52,8 +52,8 @@ class ConsensusModule(ABC):
         genesis_time = int(self.w3.cc.get_genesis().genesis_time)
         GENESIS_TIME.set(genesis_time)
         if any((config.genesis_time != genesis_time,
-                config.seconds_per_slot != int(self.w3.cc.spec.SECONDS_PER_SLOT),
-                config.slots_per_epoch != int(self.w3.cc.spec.SLOTS_PER_EPOCH))):
+                config.seconds_per_slot != self.w3.cc.spec.SECONDS_PER_SLOT,
+                config.slots_per_epoch != self.w3.cc.spec.SLOTS_PER_EPOCH)):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
                              f'Contract config: {config}\n'
                              f'Beacon chain config: {genesis_time=}, {self.w3.cc.spec.SECONDS_PER_SLOT=}, {self.w3.cc.spec.SLOTS_PER_EPOCH=}')

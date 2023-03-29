@@ -142,17 +142,17 @@ def lido_validators(web3, consensus_client, keys_api_client):
 @pytest.fixture()
 def spec() -> BeaconSpecResponse:
     return ConsensusLayerSpecFactory.build(
-        MIN_VALIDATOR_WITHDRAWABILITY_DELAY=str(2**8),
-        SHARD_COMMITTEE_PERIOD="256",
-        MAX_SEED_LOOKAHEAD="4",
-        EPOCHS_PER_SLASHINGS_VECTOR=str(2 ** 13),
-        PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX="3",
-        EFFECTIVE_BALANCE_INCREMENT=str(2 ** 0 * 10 ** 9),
-        MAX_EFFECTIVE_BALANCE=str(32 * 10 ** 9),
-        MAX_WITHDRAWALS_PER_PAYLOAD=str(2 ** 4),
+        MIN_VALIDATOR_WITHDRAWABILITY_DELAY=2**8,
+        SHARD_COMMITTEE_PERIOD=256,
+        MAX_SEED_LOOKAHEAD=4,
+        EPOCHS_PER_SLASHINGS_VECTOR=2 ** 13,
+        PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX=3,
+        EFFECTIVE_BALANCE_INCREMENT=2 ** 0 * 10 ** 9,
+        MAX_EFFECTIVE_BALANCE=32 * 10 ** 9,
+        MAX_WITHDRAWALS_PER_PAYLOAD=2 ** 4,
         ETH1_ADDRESS_WITHDRAWAL_PREFIX="0x01",
-        MIN_PER_EPOCH_CHURN_LIMIT=str(2 ** 2),
-        CHURN_LIMIT_QUOTIENT=str(2 ** 16),
+        MIN_PER_EPOCH_CHURN_LIMIT=2 ** 2,
+        CHURN_LIMIT_QUOTIENT=2 ** 16,
     )
 
 

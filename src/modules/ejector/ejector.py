@@ -192,7 +192,7 @@ class Ejector(BaseModule, ConsensusModule):
         return result
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
-        return self.w3.to_wei(min(int(validator.balance), int(self.w3.cc.spec.MAX_EFFECTIVE_BALANCE)), 'gwei')
+        return self.w3.to_wei(min(int(validator.balance), self.w3.cc.spec.MAX_EFFECTIVE_BALANCE), 'gwei')
 
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
         total_el_balance = Wei(
@@ -250,7 +250,7 @@ class Ejector(BaseModule, ConsensusModule):
         return EpochNumber(
             max_exit_epoch_number +
             epochs_required_to_exit_validators +
-            int(self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+            self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         )
 
     @staticmethod
@@ -260,7 +260,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
         """
-        return EpochNumber(blockstamp.ref_epoch + 1 + int(spec.MAX_SEED_LOOKAHEAD))
+        return EpochNumber(blockstamp.ref_epoch + 1 + spec.MAX_SEED_LOOKAHEAD)
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: BlockStamp) -> tuple[EpochNumber, int]:
@@ -295,7 +295,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         chain_config = self.get_chain_config(blockstamp)
         full_sweep_in_epochs = (
-            total_withdrawable_validators / int(self.w3.cc.spec.MAX_WITHDRAWALS_PER_PAYLOAD) / chain_config.slots_per_epoch
+            total_withdrawable_validators / self.w3.cc.spec.MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
         )
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
@@ -307,8 +307,8 @@ class Ejector(BaseModule, ConsensusModule):
             0,
         )
         return max(
-            int(self.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT),
-            total_active_validators // int(self.w3.cc.spec.CHURN_LIMIT_QUOTIENT)
+            self.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT,
+            total_active_validators // self.w3.cc.spec.CHURN_LIMIT_QUOTIENT
         )
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:

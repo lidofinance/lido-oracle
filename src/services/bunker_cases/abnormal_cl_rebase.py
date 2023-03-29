@@ -281,7 +281,7 @@ class AbnormalClRebase:
         validators_diff = len(ref_validators) - len(prev_validators)
         if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * int(spec.MAX_EFFECTIVE_BALANCE))
+        return Gwei(validators_diff * spec.MAX_EFFECTIVE_BALANCE)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
@@ -338,7 +338,7 @@ class AbnormalClRebase:
         """
         # It should be at least 1 ETH to avoid division by zero
         mean_sum_of_all_effective_balance = max(
-            Gwei(int(spec.EFFECTIVE_BALANCE_INCREMENT)), mean_sum_of_all_effective_balance
+            Gwei(spec.EFFECTIVE_BALANCE_INCREMENT), mean_sum_of_all_effective_balance
         )
         normal_cl_rebase = int(
             (bunker_config.normalized_cl_reward_per_epoch * mean_sum_of_lido_effective_balance * epochs_passed)

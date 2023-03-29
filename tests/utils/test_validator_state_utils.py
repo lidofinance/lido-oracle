@@ -209,7 +209,7 @@ class TestCalculateTotalEffectiveBalance:
         actual = calculate_total_active_effective_balance(
             spec, simple_validators(0, 9, effective_balance="0"), EpochNumber(170256)
         )
-        assert actual == int(spec.EFFECTIVE_BALANCE_INCREMENT)
+        assert actual == spec.EFFECTIVE_BALANCE_INCREMENT
 
     @pytest.mark.unit
     def test_skip_exiting(self, spec, validators: list[Validator]):

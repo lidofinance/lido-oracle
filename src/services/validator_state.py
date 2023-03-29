@@ -74,7 +74,7 @@ class LidoValidatorStateService:
                     return total
 
                 validator_available_to_exit_epoch = (
-                    int(validator.validator.activation_epoch) + int(self.w3.cc.spec.SHARD_COMMITTEE_PERIOD)
+                    int(validator.validator.activation_epoch) + self.w3.cc.spec.SHARD_COMMITTEE_PERIOD
                 )
                 delinquent_timeout_in_slots = self.get_validator_delinquent_timeout_in_slot(blockstamp)
 

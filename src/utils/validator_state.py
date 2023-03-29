@@ -32,8 +32,8 @@ def is_partially_withdrawable_validator(spec: BeaconSpecResponse, validator: Val
     Check if `validator` is partially withdrawable
     https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
     """
-    has_max_effective_balance = int(validator.validator.effective_balance) == int(spec.MAX_EFFECTIVE_BALANCE)
-    has_excess_balance = int(validator.balance) > int(spec.MAX_EFFECTIVE_BALANCE)
+    has_max_effective_balance = int(validator.validator.effective_balance) == spec.MAX_EFFECTIVE_BALANCE
+    has_excess_balance = int(validator.balance) > spec.MAX_EFFECTIVE_BALANCE
     return (
         has_eth1_withdrawal_credential(spec, validator)
         and has_max_effective_balance
@@ -67,7 +67,7 @@ def is_validator_eligible_to_exit(spec: BeaconSpecResponse, validator: Validator
     Verify the validator has been active long enough.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#voluntary-exits
     """
-    active_long_enough = int(validator.validator.activation_epoch) + int(spec.SHARD_COMMITTEE_PERIOD) <= epoch
+    active_long_enough = int(validator.validator.activation_epoch) + spec.SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
 
 
@@ -78,7 +78,7 @@ def calculate_total_active_effective_balance(spec: BeaconSpecResponse, all_valid
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
     """
     total_effective_balance = calculate_active_effective_balance_sum(all_validators, ref_epoch)
-    return Gwei(max(int(spec.EFFECTIVE_BALANCE_INCREMENT), total_effective_balance))
+    return Gwei(max(spec.EFFECTIVE_BALANCE_INCREMENT, total_effective_balance))
 
 
 def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:

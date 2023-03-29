@@ -257,9 +257,9 @@ def test_get_predicted_withdrawable_balance(consensus_client, spec, ejector: Eje
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 42 * 10**9, "Expected validator's balance in gwei"
 
-    validator = LidoValidatorFactory.build(balance=str(int(spec.MAX_EFFECTIVE_BALANCE) + 1))
+    validator = LidoValidatorFactory.build(balance=str(spec.MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == int(spec.MAX_EFFECTIVE_BALANCE) * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
+    assert result == spec.MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
 
 
 @pytest.mark.unit
@@ -348,7 +348,7 @@ class TestChurnLimit:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
         assert (
-            result == int(spec.MIN_PER_EPOCH_CHURN_LIMIT)
+            result == spec.MIN_PER_EPOCH_CHURN_LIMIT
         ), "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 

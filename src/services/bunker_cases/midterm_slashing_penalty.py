@@ -104,15 +104,15 @@ class MidtermSlashingPenalty:
         """
         v = validator.validator
 
-        if int(v.withdrawable_epoch) - int(v.exit_epoch) > int(spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY):
-            determined_slashed_epoch = EpochNumber(int(v.withdrawable_epoch) - int(spec.EPOCHS_PER_SLASHINGS_VECTOR))
+        if int(v.withdrawable_epoch) - int(v.exit_epoch) > spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
+            determined_slashed_epoch = EpochNumber(int(v.withdrawable_epoch) - spec.EPOCHS_PER_SLASHINGS_VECTOR)
             return [determined_slashed_epoch]
 
-        earliest_possible_slashed_epoch = max(0, ref_epoch - int(spec.EPOCHS_PER_SLASHINGS_VECTOR))
+        earliest_possible_slashed_epoch = max(0, ref_epoch - spec.EPOCHS_PER_SLASHINGS_VECTOR)
         # We get here `min` because exit queue can be greater than `EPOCHS_PER_SLASHINGS_VECTOR`
         # So possible slashed epoch can not be greater than `ref_epoch`
         latest_possible_epoch = min(
-            ref_epoch, EpochNumber(int(v.withdrawable_epoch) - int(spec.EPOCHS_PER_SLASHINGS_VECTOR))
+            ref_epoch, EpochNumber(int(v.withdrawable_epoch) - spec.EPOCHS_PER_SLASHINGS_VECTOR)
         )
         return [EpochNumber(epoch) for epoch in range(earliest_possible_slashed_epoch, latest_possible_epoch + 1)]
 
@@ -193,13 +193,13 @@ class MidtermSlashingPenalty:
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings
         """
         # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
-        slashings = Gwei(bound_slashed_validators_count * int(spec.MAX_EFFECTIVE_BALANCE))
+        slashings = Gwei(bound_slashed_validators_count * spec.MAX_EFFECTIVE_BALANCE)
         adjusted_total_slashing_balance = min(
-            slashings * int(spec.PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX), total_balance
+            slashings * spec.PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
         )
         effective_balance = int(validator.validator.effective_balance)
-        penalty_numerator = effective_balance // int(spec.EFFECTIVE_BALANCE_INCREMENT) * adjusted_total_slashing_balance
-        penalty = penalty_numerator // total_balance * int(spec.EFFECTIVE_BALANCE_INCREMENT)
+        penalty_numerator = effective_balance // spec.EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
+        penalty = penalty_numerator // total_balance * spec.EFFECTIVE_BALANCE_INCREMENT
 
         return Gwei(penalty)
 
@@ -214,7 +214,7 @@ class MidtermSlashingPenalty:
         Get bounded slashed validators for particular epoch
         All slashings that happened in the nearest EPOCHS_PER_SLASHINGS_VECTOR ago considered as bounded
         """
-        min_bound_epoch = max(0, midterm_penalty_epoch - int(spec.EPOCHS_PER_SLASHINGS_VECTOR))
+        min_bound_epoch = max(0, midterm_penalty_epoch - spec.EPOCHS_PER_SLASHINGS_VECTOR)
 
         def is_bound(v: Validator) -> bool:
             possible_slashing_epochs = MidtermSlashingPenalty.get_possible_slashed_epochs(spec, v, ref_epoch)
@@ -248,4 +248,4 @@ class MidtermSlashingPenalty:
     @staticmethod
     def get_midterm_penalty_epoch(spec: BeaconSpecResponse, validator: Validator) -> EpochNumber:
         """https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings"""
-        return EpochNumber(int(validator.validator.withdrawable_epoch) - int(spec.EPOCHS_PER_SLASHINGS_VECTOR) // 2)
+        return EpochNumber(int(validator.validator.withdrawable_epoch) - spec.EPOCHS_PER_SLASHINGS_VECTOR // 2)
