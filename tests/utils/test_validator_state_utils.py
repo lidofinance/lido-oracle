@@ -1,7 +1,6 @@
-from pydantic.class_validators import validator
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.typings import EpochNumber, Gwei
 from src.utils.validator_state import (
@@ -118,11 +117,11 @@ def test_is_on_exit(exit_epoch, expected):
     ('0x00ba', False),
     ('00ba', False),
 ])
-def test_has_eth1_withdrawal_credential(withdrawal_credentials, expected):
+def test_has_eth1_withdrawal_credential(spec, withdrawal_credentials, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = withdrawal_credentials
 
-    actual = has_eth1_withdrawal_credential(validator)
+    actual = has_eth1_withdrawal_credential(spec, validator)
     assert actual == expected
 
 
@@ -133,13 +132,13 @@ def test_has_eth1_withdrawal_credential(withdrawal_credentials, expected):
     (176723, 32 * (10 ** 10), 176722, False),
     (176722, 0, 176722, False),
 ])
-def test_is_fully_withdrawable_validator(withdrawable_epoch, balance, epoch, expected):
+def test_is_fully_withdrawable_validator(spec, withdrawable_epoch, balance, epoch, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawable_epoch = withdrawable_epoch
     validator.validator.withdrawal_credentials = '0x01ba'
     validator.balance = balance
 
-    actual = is_fully_withdrawable_validator(validator, EpochNumber(epoch))
+    actual = is_fully_withdrawable_validator(spec, validator, EpochNumber(epoch))
     assert actual == expected
 
 
@@ -151,13 +150,13 @@ def test_is_fully_withdrawable_validator(withdrawable_epoch, balance, epoch, exp
     (32 * 10**9, 0, '0x', False),
     (0, 0, '0x01ba', False),
 ])
-def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_credentials, expected):
+def test_is_partially_withdrawable(spec, effective_balance, add_balance, withdrawal_credentials, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = withdrawal_credentials
     validator.validator.effective_balance = effective_balance
     validator.balance = effective_balance + add_balance
 
-    actual = is_partially_withdrawable_validator(validator)
+    actual = is_partially_withdrawable_validator(spec, validator)
     assert actual == expected
 
 
@@ -167,12 +166,12 @@ def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_cr
     (170000, 170200, 170256, False),
     (170000, 2 ** 64 - 1, 170255, False),
 ])
-def test_is_validator_eligible_to_exit(activation_epoch, exit_epoch, epoch, expected):
+def test_is_validator_eligible_to_exit(spec, activation_epoch, exit_epoch, epoch, expected):
     validator = ValidatorFactory.build()
     validator.validator.activation_epoch = activation_epoch
     validator.validator.exit_epoch = exit_epoch
 
-    actual = is_validator_eligible_to_exit(validator, EpochNumber(epoch))
+    actual = is_validator_eligible_to_exit(spec, validator, EpochNumber(epoch))
     assert actual == expected
 
 
@@ -194,66 +193,66 @@ class TestCalculateTotalEffectiveBalance:
         return validators
 
     @pytest.mark.unit
-    def test_no_validators(self):
-        actual = calculate_total_active_effective_balance([], EpochNumber(170256))
+    def test_no_validators(self, spec):
+        actual = calculate_total_active_effective_balance(spec, [], EpochNumber(170256))
         assert actual == Gwei(1 * 10**9)
 
     @pytest.mark.unit
-    def test_all_active(self, validators: list[Validator]):
+    def test_all_active(self, spec, validators: list[Validator]):
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(3000000000)
 
     @pytest.mark.unit
-    def test_no_balance_validators(self):
+    def test_no_balance_validators(self, spec):
         actual = calculate_total_active_effective_balance(
-            simple_validators(0, 9, effective_balance="0"), EpochNumber(170256)
+            spec, simple_validators(0, 9, effective_balance="0"), EpochNumber(170256)
         )
-        assert actual == EFFECTIVE_BALANCE_INCREMENT
+        assert actual == spec.EFFECTIVE_BALANCE_INCREMENT
 
     @pytest.mark.unit
-    def test_skip_exiting(self, validators: list[Validator]):
+    def test_skip_exiting(self, spec, validators: list[Validator]):
         validators[0].validator.exit_epoch = "170256"
 
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(2000000000)
 
     @pytest.mark.unit
-    def test_skip_exited(self, validators: list[Validator]):
+    def test_skip_exited(self, spec, validators: list[Validator]):
         validators[0].validator.exit_epoch = "170000"
 
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(2000000000)
 
     @pytest.mark.unit
-    def test_skip_exited_slashed(self, validators: list[Validator]):
+    def test_skip_exited_slashed(self, spec, validators: list[Validator]):
         validators[0].validator.exit_epoch = "170256"
         validators[0].validator.slashed = True
 
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(2000000000)
 
     @pytest.mark.unit
-    def test_include_slashed(self, validators: list[Validator]):
+    def test_include_slashed(self, spec, validators: list[Validator]):
         validators[0].validator.slashed = True
 
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(3000000000)
 
     @pytest.mark.unit
-    def test_skip_ongoing(self, validators: list[Validator]):
+    def test_skip_ongoing(self, spec, validators: list[Validator]):
         validators[0].validator.activation_epoch = "170257"
 
         actual = calculate_total_active_effective_balance(
-            validators, EpochNumber(170256)
+            spec, validators, EpochNumber(170256)
         )
         assert actual == Gwei(2000000000)

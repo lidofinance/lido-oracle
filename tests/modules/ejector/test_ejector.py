@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector, EjectorProcessingState
 from src.modules.ejector.ejector import logger as ejector_logger
@@ -181,14 +180,13 @@ def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None
 
 @pytest.mark.unit
 def test_compute_activation_exit_epoch(
+    spec,
     ejector: Ejector,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with monkeypatch.context() as m:
-        m.setattr(ejector_module, "MAX_SEED_LOOKAHEAD", 17)
-        ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-        result = ejector.compute_activation_exit_epoch(ref_blockstamp)
-        assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
+    spec.MAX_SEED_LOOKAHEAD = 17
+    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
+    result = ejector.compute_activation_exit_epoch(spec, ref_blockstamp)
+    assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
 
 
 @pytest.mark.unit
@@ -210,7 +208,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 @pytest.mark.unit
-def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
+def test_get_predicted_withdrawable_epoch(consensus_client, ejector: Ejector) -> None:
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
@@ -221,6 +219,7 @@ def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
 @pytest.mark.unit
 @pytest.mark.usefixtures("consensus_client", "lido_validators")
 def test_get_withdrawable_lido_validators(
+    spec,
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
@@ -238,7 +237,7 @@ def test_get_withdrawable_lido_validators(
         m.setattr(
             ejector_module,
             "is_fully_withdrawable_validator",
-            Mock(side_effect=lambda v, _: int(v.balance) > 32),
+            Mock(side_effect=lambda _, v, __: int(v.balance) > 32),
         )
 
         result = ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
@@ -249,7 +248,7 @@ def test_get_withdrawable_lido_validators(
 
 
 @pytest.mark.unit
-def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
+def test_get_predicted_withdrawable_balance(consensus_client, spec, ejector: Ejector) -> None:
     validator = LidoValidatorFactory.build(balance="0")
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 0, "Expected zero"
@@ -258,9 +257,9 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 42 * 10**9, "Expected validator's balance in gwei"
 
-    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
+    validator = LidoValidatorFactory.build(balance=str(spec.MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
+    assert result == spec.MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
 
 
 @pytest.mark.unit
@@ -344,12 +343,12 @@ class TestChurnLimit:
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_no_validators(
-        self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+        self, spec, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
     ) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
         assert (
-            result == ejector_module.MIN_PER_EPOCH_CHURN_LIMIT
+            result == spec.MIN_PER_EPOCH_CHURN_LIMIT
         ), "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
@@ -359,15 +358,13 @@ class TestChurnLimit:
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        with monkeypatch.context() as m:
-            ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
-            m.setattr(ejector_module, "MIN_PER_EPOCH_CHURN_LIMIT", 4)
-            m.setattr(ejector_module, "CHURN_LIMIT_QUOTIENT", 1)
-            result = ejector._get_churn_limit(ref_blockstamp)
-            assert result == 4, "Unexpected churn limit"
-            ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
+        ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
+        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = 4
+        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = 1
+        result = ejector._get_churn_limit(ref_blockstamp)
+        assert result == 4, "Unexpected churn limit"
+        ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
@@ -375,16 +372,14 @@ class TestChurnLimit:
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        with monkeypatch.context() as m:
-            ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
-            m.setattr(ejector_module, "MIN_PER_EPOCH_CHURN_LIMIT", 0)
-            m.setattr(ejector_module, "CHURN_LIMIT_QUOTIENT", 2)
-            result = ejector._get_churn_limit(ref_blockstamp)
-            assert result == 49, "Unexpected churn limit"
-            ejector._get_churn_limit(ref_blockstamp)
-            ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
+        ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
+        ejector.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT = 0
+        ejector.w3.cc.spec.CHURN_LIMIT_QUOTIENT = 2
+        result = ejector._get_churn_limit(ref_blockstamp)
+        assert result == 49, "Unexpected churn limit"
+        ejector._get_churn_limit(ref_blockstamp)
+        ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
 
 @pytest.mark.unit

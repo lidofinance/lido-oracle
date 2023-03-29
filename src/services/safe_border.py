@@ -3,7 +3,6 @@ from typing import Any, Optional, Sequence
 
 from eth_typing import HexStr
 
-from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
@@ -132,14 +131,14 @@ class SafeBorder(Web3Converter):
 
         exited_period = withdrawable_epoch - exit_epoch
 
-        if exited_period < MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
+        if exited_period < self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
             raise WrongExitPeriod("exit_epoch and withdrawable_epoch are too close")
 
-        is_slashed_epoch_undetectable = exited_period == MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+        is_slashed_epoch_undetectable = exited_period == self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         if is_slashed_epoch_undetectable:
             return None
 
-        return EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+        return EpochNumber(withdrawable_epoch - self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR)
 
     def _find_earliest_slashed_epoch_rounded_to_frame(self, validators: list[Validator]) -> EpochNumber:
         """
@@ -149,7 +148,9 @@ class SafeBorder(Web3Converter):
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
 
         earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
-        max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+        max_possible_earliest_slashed_epoch = EpochNumber(
+            withdrawable_epoch - self.w3.cc.spec.EPOCHS_PER_SLASHINGS_VECTOR
+        )
 
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
