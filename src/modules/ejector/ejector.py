@@ -142,6 +142,7 @@ class Ejector(BaseModule, ConsensusModule):
             self._get_predicted_withdrawable_balance,
             validators_going_to_exit,
         ))
+        logger.info({'msg': 'Calculate going to exit validators balance.', 'value': going_to_withdraw_balance})
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
@@ -166,6 +167,16 @@ class Ejector(BaseModule, ConsensusModule):
                 going_to_withdraw_balance  # validators_to_eject balance
             )
             if expected_balance >= to_withdraw_amount:
+                logger.info({
+                    'msg': f'Expected withdrawal epoch: {withdrawal_epoch=}, '
+                           f'will be reached in {withdrawal_epoch - blockstamp.ref_epoch} epochs. '
+                           f'Validators with withdrawal_epoch before expected: {future_withdrawals=}. '
+                           f'Future rewards from skimming and EL rewards: {future_rewards=}. '
+                           f'Currently available balance: {total_available_balance=}. '
+                           f'Validators expecting to start exit balance: {validator_to_eject_balance_sum=}. '
+                           f'Validators going to eject balance: {validator_to_eject_balance_sum=}. '
+                })
+
                 return validators_to_eject
 
             validators_to_eject.append(validator_container)
