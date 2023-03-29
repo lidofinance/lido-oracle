@@ -55,6 +55,8 @@ class HTTPProvider(ABC):
         Get request with fallbacks
         Returns (data, meta) or raises exception
         """
+        return self._get_without_fallbacks(self.hosts[0], endpoint, path_params, query_params)
+
         error = None
         for host in self.hosts:
             try:
