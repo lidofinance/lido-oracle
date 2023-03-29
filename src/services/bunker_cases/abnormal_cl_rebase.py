@@ -5,8 +5,9 @@ from typing import Sequence
 
 from web3.types import EventData
 
+from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator, BeaconSpecResponse
+from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.services.bunker_cases.typings import BunkerConfig
 from src.typings import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
@@ -94,7 +95,6 @@ class AbnormalClRebase:
         )
 
         normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
-            self.w3.cc.spec,
             self.b_conf,
             mean_sum_of_all_effective_balance,
             mean_sum_of_lido_effective_balance,
@@ -191,7 +191,7 @@ class AbnormalClRebase:
 
         # We should account validators who have been appeared between blocks
         validators_count_diff_in_gwei = AbnormalClRebase.calculate_validators_count_diff_in_gwei(
-            self.w3.cc.spec, prev_lido_validators, self.lido_validators
+            prev_lido_validators, self.lido_validators
         )
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
@@ -267,7 +267,6 @@ class AbnormalClRebase:
 
     @staticmethod
     def calculate_validators_count_diff_in_gwei(
-        spec: BeaconSpecResponse,
         prev_validators: Sequence[Validator],
         ref_validators: Sequence[Validator],
     ) -> Gwei:
@@ -281,7 +280,7 @@ class AbnormalClRebase:
         validators_diff = len(ref_validators) - len(prev_validators)
         if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * spec.MAX_EFFECTIVE_BALANCE)
+        return Gwei(validators_diff * MAX_EFFECTIVE_BALANCE)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
@@ -315,7 +314,6 @@ class AbnormalClRebase:
 
     @staticmethod
     def calculate_normal_cl_rebase(
-        spec: BeaconSpecResponse,
         bunker_config: BunkerConfig,
         mean_sum_of_all_effective_balance: Gwei,
         mean_sum_of_lido_effective_balance: Gwei,
@@ -337,9 +335,7 @@ class AbnormalClRebase:
         represent ethereum specification and equals to `BASE_REWARD_FACTOR` constant
         """
         # It should be at least 1 ETH to avoid division by zero
-        mean_sum_of_all_effective_balance = max(
-            Gwei(spec.EFFECTIVE_BALANCE_INCREMENT), mean_sum_of_all_effective_balance
-        )
+        mean_sum_of_all_effective_balance = max(Gwei(EFFECTIVE_BALANCE_INCREMENT), mean_sum_of_all_effective_balance)
         normal_cl_rebase = int(
             (bunker_config.normalized_cl_reward_per_epoch * mean_sum_of_lido_effective_balance * epochs_passed)
             / math.sqrt(mean_sum_of_all_effective_balance)

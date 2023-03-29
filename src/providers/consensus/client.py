@@ -39,13 +39,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
 
-    @property
-    def spec(self) -> BeaconSpecResponse:
-        """Consensus Layer spec"""
-        return self._get_config_spec()
-
-    @lru_cache(maxsize=1)
-    def _get_config_spec(self) -> BeaconSpecResponse:
+    def get_config_spec(self):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec
         """
@@ -54,7 +48,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getSpec")
         return BeaconSpecResponse.from_response(**data)
 
-    def get_genesis(self) -> GenesisResponse:
+    def get_genesis(self):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """

@@ -5,7 +5,7 @@ from typing import Sequence, Iterable
 
 from eth_typing import HexStr
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_STUCK_VALIDATORS,
     ACCOUNTING_EXITED_VALIDATORS,
@@ -73,9 +73,7 @@ class LidoValidatorStateService:
                 if validator.lido_id.key in recently_requested_to_exit_pubkeys:
                     return total
 
-                validator_available_to_exit_epoch = (
-                    int(validator.validator.activation_epoch) + self.w3.cc.spec.SHARD_COMMITTEE_PERIOD
-                )
+                validator_available_to_exit_epoch = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD
                 delinquent_timeout_in_slots = self.get_validator_delinquent_timeout_in_slot(blockstamp)
 
                 last_slot_to_exit = validator_available_to_exit_epoch * chain_config.slots_per_epoch + delinquent_timeout_in_slots
@@ -217,7 +215,7 @@ class LidoValidatorStateService:
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
                 delayed_timeout_in_epoch = self.get_validator_delayed_timeout_in_slot(blockstamp) // chain_config.slots_per_epoch
-                return is_validator_eligible_to_exit(self.w3.cc.spec, validator, EpochNumber(blockstamp.ref_epoch - delayed_timeout_in_epoch))
+                return is_validator_eligible_to_exit(validator, EpochNumber(blockstamp.ref_epoch - delayed_timeout_in_epoch))
 
             def is_validator_recently_requested_but_not_exited(validator: LidoValidator) -> bool:
                 if not validator_requested_to_exit(validator):

@@ -3,7 +3,15 @@ from functools import lru_cache, reduce
 
 from web3.types import Wei
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import (
+    CHURN_LIMIT_QUOTIENT,
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE,
+    MAX_SEED_LOOKAHEAD,
+    MAX_WITHDRAWALS_PER_PAYLOAD,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+)
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE, FRAME_PREV_REPORT_REF_SLOT
 from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
@@ -15,7 +23,7 @@ from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.providers.consensus.typings import Validator, BeaconSpecResponse
+from src.providers.consensus.typings import Validator
 from src.services.exit_order import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
@@ -109,9 +117,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         return report_data.as_tuple()
 
-    def get_validators_to_eject(
-        self, blockstamp: ReferenceBlockStamp
-    ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+    def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
 
@@ -176,7 +182,7 @@ class Ejector(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
 
         def get_total_withdrawable_balance(balance: Wei, validator: Validator) -> Wei:
-            if is_fully_withdrawable_validator(self.w3.cc.spec, validator, on_epoch):
+            if is_fully_withdrawable_validator(validator, on_epoch):
                 balance = Wei(
                     balance + self._get_predicted_withdrawable_balance(validator)
                 )
@@ -192,7 +198,7 @@ class Ejector(BaseModule, ConsensusModule):
         return result
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
-        return self.w3.to_wei(min(int(validator.balance), self.w3.cc.spec.MAX_EFFECTIVE_BALANCE), 'gwei')
+        return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
 
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
         total_el_balance = Wei(
@@ -235,7 +241,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         max_exit_epoch_number = max(
             max_exit_epoch_number,
-            self.compute_activation_exit_epoch(self.w3.cc.spec, blockstamp),
+            self.compute_activation_exit_epoch(blockstamp),
         )
 
         EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
@@ -243,24 +249,18 @@ class Ejector(BaseModule, ConsensusModule):
         churn_limit = self._get_churn_limit(blockstamp)
 
         remain_exits_capacity_for_epoch = churn_limit - latest_to_exit_validators_count
-        epochs_required_to_exit_validators = (
-            (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
-        )
+        epochs_required_to_exit_validators = (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
 
-        return EpochNumber(
-            max_exit_epoch_number +
-            epochs_required_to_exit_validators +
-            self.w3.cc.spec.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-        )
+        return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
     @staticmethod
-    def compute_activation_exit_epoch(spec: BeaconSpecResponse, blockstamp: ReferenceBlockStamp) -> EpochNumber:
+    def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):
         """
         Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
 
         Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
         """
-        return EpochNumber(blockstamp.ref_epoch + 1 + spec.MAX_SEED_LOOKAHEAD)
+        return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: BlockStamp) -> tuple[EpochNumber, int]:
@@ -289,14 +289,12 @@ class Ejector(BaseModule, ConsensusModule):
         validators = self.w3.cc.get_validators(blockstamp)
 
         total_withdrawable_validators = len(list(filter(lambda validator: (
-            is_partially_withdrawable_validator(self.w3.cc.spec, validator) or
-            is_fully_withdrawable_validator(self.w3.cc.spec, validator, blockstamp.ref_epoch)
+            is_partially_withdrawable_validator(validator) or
+            is_fully_withdrawable_validator(validator, blockstamp.ref_epoch)
         ), validators)))
 
         chain_config = self.get_chain_config(blockstamp)
-        full_sweep_in_epochs = (
-            total_withdrawable_validators / self.w3.cc.spec.MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
-        )
+        full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     @lru_cache(maxsize=1)
@@ -306,10 +304,7 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.cc.get_validators(blockstamp),
             0,
         )
-        return max(
-            self.w3.cc.spec.MIN_PER_EPOCH_CHURN_LIMIT,
-            total_active_validators // self.w3.cc.spec.CHURN_LIMIT_QUOTIENT
-        )
+        return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
         ps = named_tuple_to_dataclass(

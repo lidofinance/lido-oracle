@@ -36,9 +36,7 @@ class Nested:
             return field_type.from_response
         return field_type
 
-
 T = TypeVar('T')
-
 
 @dataclass
 class FromResponse:
@@ -50,34 +48,6 @@ class FromResponse:
     def from_response(cls, **kwargs) -> Self:
         class_field_names = [field.name for field in fields(cls)]
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
-
-
-def _cast_type(value, type_):
-    if isinstance(value, type_):
-        return value
-
-    if type_ == bool:
-        return bool(value)
-
-    if type_ == int:
-        return int(value)
-
-    if type_ == str:
-        return str(value)
-
-    raise DecodeToDataclassException(f'Cannot cast {value} to {type_}')
-
-
-@dataclass
-class FromResponseCastedTypes:
-    """
-    Class for extending dataclass with custom from_response method, ignored extra fields.
-    Casts all fields to their types
-    """
-
-    @classmethod
-    def from_response(cls, **kwargs) -> Self:
-        return cls(**{k: _cast_type(v, cls.__annotations__[k]) for k, v in kwargs.items() if k in cls.__annotations__})
 
 
 def list_of_dataclasses(
