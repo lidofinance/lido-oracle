@@ -1,6 +1,7 @@
-from src.modules.submodules.typings import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
 from src.providers.consensus.typings import BeaconSpecResponse
+from src.modules.submodules.typings import ChainConfig, FrameConfig
+from src.services.bunker_cases.typings import BunkerConfig
 from tests.factory.web3_factory import Web3Factory
 
 
@@ -35,3 +36,7 @@ class OracleReportLimitsFactory(Web3Factory):
     max_node_operators_per_extra_data_item_count = 0
     request_timestamp_margin = 0
     max_positive_token_rebase = 0
+
+
+class BunkerConfigFactory(Web3Factory):
+    __model__ = BunkerConfig
