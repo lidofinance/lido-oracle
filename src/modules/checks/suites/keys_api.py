@@ -1,3 +1,5 @@
+"""Keys api"""
+
 
 def check_keys_api_provide_keys(web3, blockstamp):
     """Check that keys-api able to provide keys"""

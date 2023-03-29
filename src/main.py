@@ -97,23 +97,8 @@ def main(module: OracleModule):
 
 def check():
     logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
-    web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
-    tweak_w3_contracts(web3)
-    cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
-    kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
-    web3.attach_modules({
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-    })
-    if variables.LIDO_LOCATOR_ADDRESS:
-        web3.attach_modules({'lido_contracts': LidoContracts})
-
-    check_providers_chain_ids(web3)
-
-    return ChecksModule(web3).execute_module()
+    return ChecksModule().execute_module()
 
 
 def check_providers_chain_ids(web3: Web3):

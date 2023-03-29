@@ -1,5 +1,7 @@
+"""Common checks"""
 import pytest
 
+from src.main import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 
@@ -19,6 +21,11 @@ def accounting(web3):
 @pytest.fixture()
 def ejector(web3):
     return Ejector(web3)
+
+
+def check_providers_chain_ids(web3):
+    """Make sure all providers are on the same chain"""
+    chain_ids_check(web3)
 
 
 def check_accounting_contract_configs(accounting):

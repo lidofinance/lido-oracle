@@ -1,3 +1,4 @@
+"""Consensus node"""
 from src.web3py.typings import Web3
 
 
