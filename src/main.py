@@ -103,7 +103,7 @@ def check():
 
 def check_providers_chain_ids(web3: Web3):
     execution_chain_id = web3.eth.chain_id
-    consensus_chain_id = web3.cc.spec.DEPOSIT_CHAIN_ID
+    consensus_chain_id = int(web3.cc.get_config_spec().DEPOSIT_CHAIN_ID)
     chain_ids = [Web3.to_int(hexstr=provider.make_request("eth_chainId", []).get('result'))
                  for provider in cast(MultiProvider, web3.provider)._providers]  # type: ignore[attr-defined] # pylint: disable=protected-access
     keys_api_chain_id = web3.kac.get_status().chainId

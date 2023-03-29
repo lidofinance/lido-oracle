@@ -288,13 +288,13 @@ def test_get_withdrawn_from_vault_between(
         )
     ]
 )
-def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result, spec):
+def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result):
 
     if isinstance(expected_result, str):
         with pytest.raises(ValueError, match=expected_result):
-            AbnormalClRebase.calculate_validators_count_diff_in_gwei(spec, prev_validators, curr_validators)
+            AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
     else:
-        result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(spec, prev_validators, curr_validators)
+        result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
         assert result == expected_result
 
 
@@ -383,7 +383,7 @@ def test_calculate_real_balance(validators, expected_balance):
         (450, 32 * 152261 * 10 ** 9, 32 * 517310 * 10 ** 9, 1090638232347)
     ]
 )
-def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected, spec):
+def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expected):
     bunker_config = BunkerConfig(
         normalized_cl_reward_per_epoch=64,
         normalized_cl_reward_mistake_rate=0.1,
@@ -392,6 +392,6 @@ def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expecte
     )
 
     normal_cl_rebase = AbnormalClRebase.calculate_normal_cl_rebase(
-        spec, bunker_config,  mean_total, mean_lido, epoch_passed,
+        bunker_config,  mean_total, mean_lido, epoch_passed,
     )
     assert normal_cl_rebase == expected

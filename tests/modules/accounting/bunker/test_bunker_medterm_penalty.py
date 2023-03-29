@@ -115,7 +115,6 @@ def simple_validators(
     ]
 )
 def test_is_high_midterm_slashing_penalty(
-    spec,
     blockstamp,
     all_validators,
     lido_validators,
@@ -134,7 +133,7 @@ def test_is_high_midterm_slashing_penalty(
     )
 
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-        spec, blockstamp, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
+        blockstamp, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
     )
     assert result == expected_result
 
@@ -165,9 +164,9 @@ def test_is_high_midterm_slashing_penalty(
         ),
     ]
 )
-def test_get_possible_slashed_epochs(spec, validator, ref_epoch, expected_result):
+def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
 
-    result = MidtermSlashingPenalty.get_possible_slashed_epochs(spec, validator, ref_epoch)
+    result = MidtermSlashingPenalty.get_possible_slashed_epochs(validator, ref_epoch)
 
     assert result == expected_result
 
@@ -204,7 +203,7 @@ def test_get_possible_slashed_epochs(spec, validator, ref_epoch, expected_result
     ]
 )
 def test_get_per_frame_lido_validators_with_future_midterm_epoch(
-    spec, ref_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
+    ref_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
 ):
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
@@ -213,7 +212,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
     )
 
     result = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-        spec, EpochNumber(ref_epoch), frame_config, future_midterm_penalty_lido_slashed_validators,
+        EpochNumber(ref_epoch), frame_config, future_midterm_penalty_lido_slashed_validators,
     )
 
     assert result == expected_result
@@ -279,11 +278,11 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
     ]
 )
 def test_get_future_midterm_penalty_sum_in_frames(
-    spec, ref_epoch, per_frame_validators, all_slashed_validators, active_validators_count, expected_result
+    ref_epoch, per_frame_validators, all_slashed_validators, active_validators_count, expected_result
 ):
 
     result = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-        spec, EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10 ** 9, per_frame_validators
+        EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10 ** 9, per_frame_validators
     )
 
     assert result == expected_result
@@ -335,11 +334,11 @@ def test_get_future_midterm_penalty_sum_in_frames(
     ]
 )
 def test_predict_midterm_penalty_in_frame(
-    spec, ref_epoch, all_slashed_validators, total_balance, validators_in_frame, expected_result
+    ref_epoch, all_slashed_validators, total_balance, validators_in_frame, expected_result
 ):
 
     result = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
-        spec, EpochNumber(ref_epoch), all_slashed_validators, total_balance, validators_in_frame
+        EpochNumber(ref_epoch), all_slashed_validators, total_balance, validators_in_frame
     )
 
     assert result == expected_result
@@ -358,10 +357,10 @@ def test_predict_midterm_penalty_in_frame(
         (50000, 500000, 9000000000),
     ]
 )
-def test_get_midterm_penalty(spec, bounded_slashings_count, active_validators_count, expected_penalty):
+def test_get_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
 
     result = MidtermSlashingPenalty.get_validator_midterm_penalty(
-        spec, simple_validators(0,0)[0], bounded_slashings_count, active_validators_count * 32 * 10 ** 9
+        simple_validators(0,0)[0], bounded_slashings_count, active_validators_count * 32 * 10 ** 9
     )
 
     assert result == expected_penalty
@@ -389,11 +388,11 @@ def test_get_midterm_penalty(spec, bounded_slashings_count, active_validators_co
     ]
 )
 def test_get_bound_with_midterm_epoch_slashed_validators(
-    spec, ref_epoch, slashed_validators, midterm_penalty_epoch, expected_bounded
+    ref_epoch, slashed_validators, midterm_penalty_epoch, expected_bounded
 ):
 
     result = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-        spec, EpochNumber(ref_epoch), slashed_validators, EpochNumber(midterm_penalty_epoch)
+        EpochNumber(ref_epoch), slashed_validators, EpochNumber(midterm_penalty_epoch)
     )
 
     assert result == expected_bounded
@@ -476,6 +475,6 @@ def test_get_frame_by_epoch(epoch, expected_frame):
 
 
 @pytest.mark.unit
-def test_get_midterm_slashing_epoch(spec):
-    result = MidtermSlashingPenalty.get_midterm_penalty_epoch(spec, simple_validators(0, 0)[0])
+def test_get_midterm_slashing_epoch():
+    result = MidtermSlashingPenalty.get_midterm_penalty_epoch(simple_validators(0, 0)[0])
     assert result == 4096

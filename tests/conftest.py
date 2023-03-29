@@ -7,14 +7,12 @@ from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
-from src.providers.consensus.typings import BeaconSpecResponse
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
-from tests.factory.configs import ConsensusLayerSpecFactory
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
@@ -83,12 +81,11 @@ def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensus
 
 
 @pytest.fixture()
-def consensus_client(request, responses_path, web3, spec):
+def consensus_client(request, responses_path, web3):
     if request.config.getoption("--update-responses"):
         client = request.getfixturevalue("update_responses_cl_client")
     else:
         client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
-    client._get_config_spec = lambda: spec  # pylint: disable=protected-access
     web3.attach_modules({"cc": lambda: client})
 
 
@@ -136,24 +133,6 @@ def lido_validators(web3, consensus_client, keys_api_client):
     web3.attach_modules({
         'lido_validators': LidoValidatorsProvider,
     })
-
-
-# ---- Consensus layer spec ----
-@pytest.fixture()
-def spec() -> BeaconSpecResponse:
-    return ConsensusLayerSpecFactory.build(
-        MIN_VALIDATOR_WITHDRAWABILITY_DELAY=2**8,
-        SHARD_COMMITTEE_PERIOD=256,
-        MAX_SEED_LOOKAHEAD=4,
-        EPOCHS_PER_SLASHINGS_VECTOR=2 ** 13,
-        PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX=3,
-        EFFECTIVE_BALANCE_INCREMENT=2 ** 0 * 10 ** 9,
-        MAX_EFFECTIVE_BALANCE=32 * 10 ** 9,
-        MAX_WITHDRAWALS_PER_PAYLOAD=2 ** 4,
-        ETH1_ADDRESS_WITHDRAWAL_PREFIX="0x01",
-        MIN_PER_EPOCH_CHURN_LIMIT=2 ** 2,
-        CHURN_LIMIT_QUOTIENT=2 ** 16,
-    )
 
 
 def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
