@@ -1,8 +1,8 @@
 import pytest
 from _pytest._io import TerminalWriter
 from web3_multi_provider import MultiProvider
-from xdist import is_xdist_controller
-from xdist.dsession import TerminalDistReporter, DSession
+from xdist import is_xdist_controller  # type: ignore[import]
+from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
 from src.typings import EpochNumber, SlotNumber, BlockRoot
@@ -14,6 +14,8 @@ from src.web3py.extensions import (
     LidoContracts,
 )
 from src.web3py.typings import Web3
+
+TITLE_PROPERTY_NAME = "test_title"
 
 
 @pytest.fixture()
@@ -76,15 +78,8 @@ def pytest_collection_modifyitems(items):
 
 
 class CustomTerminal(TerminalDistReporter):
-
     def ensure_show_status(self):
         pass
-
-    def pytest_xdist_newgateway(self, gateway):
-        self.setstatus(gateway.spec, "C")
-
-    def pytest_testnodeready(self, node):
-        self.setstatus(node.gateway.spec, "ok")
 
 
 @pytest.hookimpl(trylast=True)
@@ -103,38 +98,46 @@ def pytest_configure(config):
 
 
 def pytest_report_teststatus(report, config):
+    if report.when == "setup":
+        if report.skipped:
+            reason = report.longrepr[-1]
+            return "skipped", reason, "Skipped"
     if report.when == "call":
         if report.passed:
             return "passed", "✅ Checked", "✅ Checked"
         if report.failed:
             return "failed", "❌ Failed", "❌ Failed"
-        if report.skipped:
-            return "skipped", "Skipped", "Skipped"
     return None
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report) -> None:
+    title = [prop for name, prop in report.user_properties if name == TITLE_PROPERTY_NAME][0]
+    if report.when == 'setup' and not report.passed:
+        print(title, end="")
     if report.when == 'call':
-        print(report.user_properties[0], end="")
+        print(title, end="")
     if report.when == 'teardown':
         print()
 
 
-def pytest_runtest_call(item):
+def pytest_runtest_setup(item: pytest.Item):
     tw: TerminalWriter = item.config.pluginmanager.get_plugin("terminalreporter")._tw  # pylint: disable=protected-access
 
-    module_doc = item.parent.obj.__doc__
-    if not module_doc:
-        module_doc = f"Placeholder doc for {item.parent.obj.__name__}"
+    obj = getattr(item, "obj", None)
+    parent = getattr(item.parent, "obj", None)
 
-    check_doc = item.obj.__doc__
-    if not check_doc:
-        check_doc = f"Placeholder doc for {item.obj.__name__}"
+    module_doc = parent.__doc__
+    if not module_doc or not obj:
+        module_doc = f"Placeholder doc for parent of {item.nodeid}"
+
+    check_doc = obj.__doc__
+    if not check_doc or not parent:
+        check_doc = f"Placeholder doc for {item.nodeid}"
 
     check_params = f"[{item.callspec.id}]" if hasattr(item, "callspec") else ""
 
     check_params_colorized = tw.markup(check_params, cyan=True)
     module_doc_colorized = tw.markup(f"[{module_doc}]", blue=True)
     message = f"{module_doc_colorized}{check_params_colorized} {check_doc}"
-    item.user_properties.append(f">> {message}... ")
+    item.user_properties.append((TITLE_PROPERTY_NAME, f">> {message}... "))
