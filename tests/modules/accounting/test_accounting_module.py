@@ -119,19 +119,16 @@ class TestAccountingSanityCheck:
         yield ReferenceBlockStampFactory.build()
 
     def test_env_toggle(self, accounting_module, monkeypatch, bs, caplog):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+        accounting_module._is_bunker = Mock(return_value=True)
         with monkeypatch.context() as ctx:
-            ctx.setattr(accounting, 'ALLOW_NEGATIVE_REBASE_REPORTING', True)
+            ctx.setattr(accounting, 'ALLOW_REPORTING_WHILE_BUNKER', True)
             assert accounting_module.is_reporting_allowed(bs)
-        assert "CL rebase is negative" in caplog.text
+        assert "Bunker mode is active" in caplog.text
 
-    def test_no_negative_rebase(self, accounting_module, bs):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=90)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=100))
+    def test_no_bunker_mode(self, accounting_module, bs):
+        accounting_module._is_bunker = Mock(return_value=False)
         assert accounting_module.is_reporting_allowed(bs)
 
-    def test_negative_rebase(self, accounting_module, bs):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+    def test_bunker_mode_active(self, accounting_module, bs):
+        accounting_module._is_bunker = Mock(return_value=True)
         assert accounting_module.is_reporting_allowed(bs) is False
