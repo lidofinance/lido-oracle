@@ -75,7 +75,6 @@ class RewardsPredictionService:
             f"Events are inconsistent: {len(event_type_1)=}, {len(event_type_2)=}, {len(result_event_data)=}"
         )
 
-
     def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
         return Web3.to_int(
             self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
