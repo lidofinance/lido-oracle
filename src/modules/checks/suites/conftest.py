@@ -15,6 +15,7 @@ from src.web3py.extensions import (
 )
 from src.web3py.typings import Web3
 
+
 TITLE_PROPERTY_NAME = "test_title"
 
 

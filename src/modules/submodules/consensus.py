@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 class ConsensusModule(ABC):
+    """
+    Module that works with Hash Consensus Contract.
+
+    Do next things:
+    - Calculate report blockstamp if contract is reportable
+    - Calculates and sends report hash
+    - Decides in what order Oracles should report
+
+    report_contract should contain getConsensusContract method.
+    """
     report_contract: Contract
 
     CONTRACT_VERSION: int
