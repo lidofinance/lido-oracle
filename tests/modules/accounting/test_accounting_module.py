@@ -121,7 +121,7 @@ class TestAccountingSanityCheck:
     def test_env_toggle(self, accounting_module, monkeypatch, bs, caplog):
         accounting_module._is_bunker = Mock(return_value=True)
         with monkeypatch.context() as ctx:
-            ctx.setattr(accounting, 'ALLOW_REPORTING_WHILE_BUNKER', True)
+            ctx.setattr(accounting, 'ALLOW_REPORTING_IN_BUNKER_MODE', True)
             assert accounting_module.is_reporting_allowed(bs)
         assert "Bunker mode is active" in caplog.text
 
