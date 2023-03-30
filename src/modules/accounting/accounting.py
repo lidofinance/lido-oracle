@@ -28,7 +28,7 @@ from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import clear_object_lru_cache
-from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
+from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -122,15 +122,13 @@ class Accounting(BaseModule, ConsensusModule):
         return processing_state.extra_data_submitted
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        cl_rebase_report = self.simulate_cl_rebase(blockstamp)
-        frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
-        if frame_cl_rebase >= 0:
+        if not self._is_bunker(blockstamp):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+        logger.warning({'msg': 'Bunker mode is active'})
         logger.warning({'msg': '!' * 50})
-        return ALLOW_NEGATIVE_REBASE_REPORTING
+        return ALLOW_REPORTING_IN_BUNKER_MODE
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
