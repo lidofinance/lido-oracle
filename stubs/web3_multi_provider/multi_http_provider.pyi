@@ -30,3 +30,11 @@ class MultiHTTPProvider(MultiProvider):
         request_kwargs: Optional[Any] = ...,
         session: Optional[Any] = ...,
     ) -> None: ...
+
+class FallbackProvider(MultiProvider):
+    def __init__(
+        self,
+        endpoint_urls: List[Union[URI, str]],
+        request_kwargs: Optional[Any] = ...,
+        session: Optional[Any] = ...,
+    ) -> None: ...

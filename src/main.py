@@ -2,7 +2,7 @@ import sys
 from typing import cast
 
 from prometheus_client import start_http_server
-from web3_multi_provider import MultiProvider  # type: ignore[import]
+from web3_multi_provider import FallbackProvider
 from web3.middleware import simple_cache_middleware
 
 from src import variables
@@ -57,7 +57,7 @@ def main(module: OracleModule):
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(MultiProvider(variables.EXECUTION_CLIENT_URI))
+    web3 = Web3(FallbackProvider(variables.EXECUTION_CLIENT_URI))
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
@@ -106,7 +106,7 @@ def check_providers_chain_ids(web3: Web3):
     consensus_chain_id = int(web3.cc.get_config_spec().DEPOSIT_CHAIN_ID)
     chain_ids = [
         Web3.to_int(hexstr=provider.make_request("eth_chainId", []).get('result'))
-        for provider in cast(MultiProvider, web3.provider)._providers  # type: ignore[attr-defined] # pylint: disable=protected-access
+        for provider in cast(FallbackProvider, web3.provider)._providers  # type: ignore[attr-defined] # pylint: disable=protected-access
     ]
     keys_api_chain_id = web3.kac.get_status().chainId
     if any(execution_chain_id != chain_id for chain_id in [*chain_ids, consensus_chain_id, keys_api_chain_id]):
