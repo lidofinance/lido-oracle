@@ -2784,14 +2784,14 @@ tester = ["eth-tester[py-evm] (==v0.8.0-b.3)", "py-geth (>=3.10.0)"]
 
 [[package]]
 name = "web3-multi-provider"
-version = "0.5.0"
+version = "0.6.0"
 description = "Web3py provider that makes it easy to switch between different blockchain nodes to make sure application will be be online if main blockchain node will be unavailable."
 category = "main"
 optional = false
 python-versions = ">=3.7.10,<4"
 files = [
-    {file = "web3_multi_provider-0.5.0-py3-none-any.whl", hash = "sha256:58cbb61edae55c2e36d53c40455dfa6002805021be967dd38652925abddb1c68"},
-    {file = "web3_multi_provider-0.5.0.tar.gz", hash = "sha256:fab888c2043f4ebe385c1f8b804fbc6e04c92f35fce66f873470b1b06d3b2e1a"},
+    {file = "web3_multi_provider-0.6.0-py3-none-any.whl", hash = "sha256:edf787d77d9503928ae5e51146b1fb511e6a00b479d86b4fbdb4eaabf057e59d"},
+    {file = "web3_multi_provider-0.6.0.tar.gz", hash = "sha256:16cc0c826eec8690e5dda41ded51f1ea9d1117409c76cca8af0342a7874474fc"},
 ]
 
 [package.dependencies]
@@ -3154,4 +3154,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "955c0c64ca71fa8a421ca6ea3d05da962ccdf99400867cce0f93fe6d8b85c303"
+content-hash = "f86ecbc3229db1ffcb8ba9e7d4935b49000c5544dd31eac4ffc3f8a792f011c1"

@@ -10,7 +10,6 @@ from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.typings import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.web3py.extensions import LidoContracts
 from src import variables
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 

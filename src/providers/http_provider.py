@@ -29,6 +29,9 @@ class NotOkResponse(Exception):
 
 
 class HTTPProvider(ABC):
+    """
+    Base HTTP Provider with metrics and retry strategy integrated inside.
+    """
     PROMETHEUS_HISTOGRAM: Histogram
 
     def __init__(self, hosts: list[str]):
