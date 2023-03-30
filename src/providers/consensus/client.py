@@ -40,9 +40,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
 
     def get_config_spec(self):
-        """
-        Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec
-        """
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
         data, _ = self._get(self.API_GET_SPEC)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getSpec")
@@ -70,9 +68,7 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
-        """
-        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
-        """
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
         data, meta_data = self._get(self.API_GET_BLOCK_HEADER, (state_id,))
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")

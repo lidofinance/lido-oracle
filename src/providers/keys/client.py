@@ -15,7 +15,15 @@ class KeysOutdatedException(Exception):
 
 
 class KeysAPIClient(HTTPProvider):
+    """
+    Lido Keys are stored in different modules in on-chain and off-chain format.
+    Keys API service fetches all lido keys and provide them in convenient format.
+    Keys could not be deleted, so the amount of them always increasing.
+    One thing to check before use data from Keys API service is that latest fetched block in meta field is greater
+    than the block we are fetching on.
 
+    Keys API specification can be found here https://keys-api.lido.fi/api/static/index.html
+    """
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
 
     USED_KEYS = 'v1/keys?used=true'
