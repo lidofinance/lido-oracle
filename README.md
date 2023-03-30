@@ -106,10 +106,84 @@ TBD
 TBD
 
 ### Alerts
-TBD
+
+A few basic alerts, which can be configured in the [Prometheus Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/).
+
+```yaml
+groups:
+  - name: oracle-alerts
+    rules:
+      - alert: AccountBalance
+        expr: lido_oracle_account_balance / 10^18 < 3
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dangerously low account balance"
+          description: 'Account balance is less than 3 ETH. Address: {.labels.address}: {.value} ETH'
+			
+      - alert: OutdatedData
+        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outdated Consensus Layer HEAD slot"
+          description: "Processed by Oracle HEAD slot {.value} too old"
+```
 
 ### Metrics
-TBD
+
+> **Note**: all metrics are prefixed with `lido_oracle_` by default.
+
+The oracle exposes the following basic metrics:
+
+| Metric name                 | Description                                                     | Labels                                                                                             |
+|-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| build_info                  | Build info                                                      | version, branch, commit                                                                            |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| genesis_time                | Fetched genesis time from node                                  |                                                                                                    |
+| account_balance             | Fetched account balance from EL                                 | address                                                                                            |
+| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                      |
+| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                      |
+| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                       |
+| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                       |
+| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                             |
+| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                             |
+| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                    |
+| transaction_count           | Total count of transactions. Success or failure                 | status                                                                                             |
+| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                   |
+| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                    |
+| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                    |
+| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                    |
+| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                    |
+| contract_on_pause           | Contract on pause                                               |                                                                                                    |
+
+
+
+Special metrics for accounting oracle:
+
+| Metric name                             | Description                                         | Labels           |
+|-----------------------------------------|-----------------------------------------------------|------------------|
+| accounting_is_bunker                    | Is bunker mode enabled                              |                  |
+| accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
+| accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
+| accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
+| accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
+| accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
+| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
+
+
+
+Special metrics for ejector oracle:
+
+| Metric name                       | Description                                 | Labels |
+|-----------------------------------|---------------------------------------------|--------|
+| ejector_withdrawal_wei_amount     | To withdraw amount                          |        |
+| ejector_max_exit_epoch            | Max exit epoch between all validators in CL |        |
+| ejector_validators_count_to_eject | Validators count to eject                   |        |
+
+
 
 # Development
 
