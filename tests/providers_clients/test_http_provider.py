@@ -1,7 +1,9 @@
 # pylint: disable=protected-access
+from unittest.mock import Mock
+
 import pytest
 
-from src.providers.http_provider import HTTPProvider, NoActiveProviderError
+from src.providers.http_provider import HTTPProvider
 
 
 def test_urljoin():
@@ -24,7 +26,7 @@ def test_all_fallbacks_ok():
 
 def test_all_fallbacks_bad():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'])
-    with pytest.raises(NoActiveProviderError):
+    with pytest.raises(Exception):
         provider._get('test')
 
 
@@ -37,3 +39,20 @@ def test_first_fallback_bad():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'])
     provider._get_without_fallbacks = _simple_get
     assert provider._get('test') == ('http://localhost:2', 'test')
+
+
+def test_force_raise():
+
+    class CustomError(Exception):
+        pass
+
+    def _simple_get(host, endpoint, *_):
+        if host == 'http://localhost:1':
+            raise Exception('Bad host')  # pylint: disable=broad-exception-raised
+        return host, endpoint
+
+    provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'])
+    provider._get_without_fallbacks = Mock(side_effect=_simple_get)
+    with pytest.raises(CustomError):
+        provider._get('test', force_raise=lambda errors: CustomError)
+    provider._get_without_fallbacks.assert_called_once_with('http://localhost:1', 'test', None, None)
