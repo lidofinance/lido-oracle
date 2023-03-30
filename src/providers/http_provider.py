@@ -64,24 +64,31 @@ class HTTPProvider(ABC):
         """
         Get request with fallbacks
         Returns (data, meta) or raises exception
+
+        force_raise - function that returns an Exception if it should be thrown immediately.
+        Sometimes NotOk response from first provider is the response that we are expecting.
         """
         errors: list[Exception] = []
+
         for host in self.hosts:
             try:
                 return self._get_without_fallbacks(host, endpoint, path_params, query_params)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
+
+                # Check if exception should be raised immediately
                 if to_force_raise := force_raise(errors):
                     raise to_force_raise from e
+
                 logger.warning(
                     {
-                        "msg": f"Host [{urlparse(host).netloc}] responded with error",
-                        "error": str(e),
-                        "provider": urlparse(host).netloc,
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
+                        'error': str(e),
+                        'provider': urlparse(host).netloc,
                     }
                 )
-        if len(self.hosts) > 1:
-            logger.warning({"msg": f"All hosts for {self.__class__.__name__} responded with error"})
+
+        # Raise error from last provider.
         raise errors[-1]
 
     def _get_without_fallbacks(
@@ -96,6 +103,7 @@ class HTTPProvider(ABC):
         Returns (data, meta) or raises exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self.session.get(
@@ -113,16 +121,16 @@ class HTTPProvider(ABC):
                 )
                 raise TimeoutError(msg) from error
 
-            try:
-                if response.status_code != HTTPStatus.OK:
-                    msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
-                    logger.debug({'msg': msg})
-                    raise NotOkResponse(msg, status=response.status_code, text=response.text)
+            response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
 
+            if response.status_code != HTTPStatus.OK:
+                logger.debug({'msg': response_fail_msg})
+                raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
+
+            try:
                 json_response = response.json()
             except JSONDecodeError as error:
-                msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
-                logger.debug({'msg': msg})
+                logger.debug({'msg': response_fail_msg})
                 raise error
             finally:
                 t.labels(
@@ -138,4 +146,5 @@ class HTTPProvider(ABC):
         else:
             data = json_response
             meta = {}
+
         return data, meta

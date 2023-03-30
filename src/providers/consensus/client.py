@@ -65,7 +65,9 @@ class ConsensusClient(HTTPProvider):
         There is no cache because this method is used to get finalized and head blocks.
         """
         data, _ = self._get(
-            self.API_GET_BLOCK_ROOT, path_params=(state_id,), force_raise=self.__raise_last_missed_slot_error
+            self.API_GET_BLOCK_ROOT,
+            path_params=(state_id,),
+            force_raise=self.__raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockRoot")
@@ -79,7 +81,7 @@ class ConsensusClient(HTTPProvider):
         data, meta_data = self._get(
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error
+            force_raise=self.__raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
@@ -92,7 +94,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error
+            force_raise=self.__raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockV2")
@@ -126,8 +128,9 @@ class ConsensusClient(HTTPProvider):
 
     def __raise_on_prysm_error(self, errors: list[Exception]) -> Exception | None:
         """
-        Return error to raise it before fallback usage in Prysm case when state root is not found.
-        We will try to get validators by slot number from the same host.
+        Prysm can't return validators by state root if it is enough old, but it can return them via slot number.
+
+        raise error immediately if this is prysm specific exception
         """
         last_error = errors[-1]
         if isinstance(last_error, NotOkResponse) and self.PRYSM_STATE_NOT_FOUND_ERROR in last_error.text:
@@ -147,14 +150,13 @@ class ConsensusClient(HTTPProvider):
         return data
 
     def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
-        """Use the very first missed slot error if other hosts respond with another error"""
-        if len(errors) > 1:
-            for i, error in enumerate(errors):
+        """
+        Prioritize NotOkResponse before other exceptions (ConnectionError, TimeoutError).
+        If status is 404 slot is missed and this should be handled correctly.
+        """
+        if len(errors) == len(self.hosts):
+            for error in errors:
                 if isinstance(error, NotOkResponse) and error.status == HTTPStatus.NOT_FOUND:
-                    not_found_error = error
-                    for j in range(i + 1, len(errors)):
-                        next_error = errors[j]
-                        if not isinstance(next_error, NotOkResponse) or next_error.status != HTTPStatus.NOT_FOUND:
-                            # if one of error is 404 and other after it is not 404 - return 404 error to raise it later
-                            return not_found_error
+                    return error
+
         return None
