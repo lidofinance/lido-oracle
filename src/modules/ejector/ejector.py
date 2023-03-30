@@ -174,11 +174,8 @@ class Ejector(BaseModule, ConsensusModule):
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self._is_paused(blockstamp)
         CONTRACT_ON_PAUSE.set(on_pause)
-        if on_pause:
-            logger.info({'msg': 'Ejector is paused. Skip report.'})
-            return False
-        return True
-
+        logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
+        return not on_pause
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
