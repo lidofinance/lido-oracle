@@ -1,18 +1,21 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Optional, Tuple, Sequence
+from typing import Optional, Tuple, Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError, Timeout
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
-from web3_multi_provider import NoActiveProviderError
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
+
+class NoHostsProvided(Exception):
+    pass
 
 
 class NotOkResponse(Exception):
@@ -29,6 +32,9 @@ class HTTPProvider(ABC):
     PROMETHEUS_HISTOGRAM: Histogram
 
     def __init__(self, hosts: list[str]):
+        if not hosts:
+            raise NoHostsProvided(f"No hosts provided for {self.__class__.__name__}")
+
         self.hosts = hosts
 
         retry_strategy = Retry(
@@ -49,28 +55,34 @@ class HTTPProvider(ABC):
         return urljoin(host, url)
 
     def _get(
-        self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None
+        self,
+        endpoint: str,
+        path_params: Optional[Sequence[str | int]] = None,
+        query_params: Optional[dict] = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
     ) -> Tuple[dict | list, dict]:
         """
         Get request with fallbacks
         Returns (data, meta) or raises exception
         """
-        error = None
+        errors: list[Exception] = []
         for host in self.hosts:
             try:
                 return self._get_without_fallbacks(host, endpoint, path_params, query_params)
             except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
                 logger.warning(
                     {
-                        "msg": "Host not responding.",
+                        "msg": f"Host [{urlparse(host).netloc}] responded with error",
                         "error": str(e),
                         "provider": urlparse(host).netloc,
                     }
                 )
-                error = e
-        msg = f"No active host available for {self.__class__.__name__}"
-        logger.error({"msg": msg})
-        raise NoActiveProviderError(msg) from error
+        if len(self.hosts) > 1:
+            logger.warning({"msg": f"All hosts for {self.__class__.__name__} responded with error"})
+        raise errors[-1]
 
     def _get_without_fallbacks(
         self,

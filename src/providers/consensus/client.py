@@ -1,4 +1,5 @@
 from functools import lru_cache
+from http import HTTPStatus
 from typing import Literal, Optional, Union
 
 from src.metrics.logging import logging
@@ -63,7 +64,9 @@ class ConsensusClient(HTTPProvider):
 
         There is no cache because this method is used to get finalized and head blocks.
         """
-        data, _ = self._get(self.API_GET_BLOCK_ROOT, (state_id,))
+        data, _ = self._get(
+            self.API_GET_BLOCK_ROOT, path_params=(state_id,), force_raise=self.__raise_last_missed_slot_error
+        )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockRoot")
         return BlockRootResponse.from_response(**data)
@@ -73,7 +76,11 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
         """
-        data, meta_data = self._get(self.API_GET_BLOCK_HEADER, (state_id,))
+        data, meta_data = self._get(
+            self.API_GET_BLOCK_HEADER,
+            path_params=(state_id,),
+            force_raise=self.__raise_last_missed_slot_error
+        )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
@@ -82,7 +89,11 @@ class ConsensusClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
-        data, _ = self._get(self.API_GET_BLOCK_DETAILS, (state_id,))
+        data, _ = self._get(
+            self.API_GET_BLOCK_DETAILS,
+            path_params=(state_id,),
+            force_raise=self.__raise_last_missed_slot_error
+        )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
@@ -96,7 +107,12 @@ class ConsensusClient(HTTPProvider):
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
-            data, _ = self._get(self.API_GET_VALIDATORS, (blockstamp.state_root,), query_params={'id': pub_keys})
+            data, _ = self._get(
+                self.API_GET_VALIDATORS,
+                path_params=(blockstamp.state_root,),
+                query_params={'id': pub_keys},
+                force_raise=self.__raise_on_prysm_error
+            )
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getStateValidators")
             return data
@@ -108,10 +124,37 @@ class ConsensusClient(HTTPProvider):
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found: state not found in the last'
 
+    def __raise_on_prysm_error(self, errors: list[Exception]) -> Exception | None:
+        """
+        Return error to raise it before fallback usage in Prysm case when state root is not found.
+        We will try to get validators by slot number from the same host.
+        """
+        last_error = errors[-1]
+        if isinstance(last_error, NotOkResponse) and self.PRYSM_STATE_NOT_FOUND_ERROR in last_error.text:
+            return last_error
+        return None
+
     def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get validators by slot number
-        data, _ = self._get(self.API_GET_VALIDATORS, (blockstamp.slot_number,), query_params={'id': pub_keys})
+        data, _ = self._get(
+            self.API_GET_VALIDATORS,
+            path_params=(blockstamp.slot_number,),
+            query_params={'id': pub_keys}
+        )
         if not isinstance(data, list):
             raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
         return data
+
+    def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
+        """Use the very first missed slot error if other hosts respond with another error"""
+        if len(errors) > 1:
+            for i, error in enumerate(errors):
+                if isinstance(error, NotOkResponse) and error.status == HTTPStatus.NOT_FOUND:
+                    not_found_error = error
+                    for j in range(i + 1, len(errors)):
+                        next_error = errors[j]
+                        if not isinstance(next_error, NotOkResponse) or next_error.status != HTTPStatus.NOT_FOUND:
+                            # if one of error is 404 and other after it is not 404 - return 404 error to raise it later
+                            return not_found_error
+        return None
