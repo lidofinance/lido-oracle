@@ -11,6 +11,13 @@ from src.modules.accounting.typings import BatchState
 
 
 class Withdrawal:
+    """
+    Each oracle report finalizes a certain number of withdrawal requests. To determine how many requests will be
+    finalized, there are two factors to take into account:
+
+    1. Safe border epoch for the current reference slot.
+    2. The amount of available ETH is determined from the Withdrawal Vault, EL Vault, and buffered ETH.
+    """
     def __init__(
         self,
         w3: Web3,
@@ -68,6 +75,9 @@ class Withdrawal:
     def _calculate_finalization_batches(
         self, share_rate: int, available_eth: int, until_timestamp: int
     ) -> list[int]:
+        """
+
+        """
         state = BatchState(
             remaining_eth_budget=available_eth,
             finished=False,
