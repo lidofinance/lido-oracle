@@ -83,12 +83,6 @@ class Ejector(BaseModule, ConsensusModule):
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        on_pause = self._is_paused(report_blockstamp)
-        CONTRACT_ON_PAUSE.set(on_pause)
-        if on_pause:
-            logger.info({'msg': 'Ejector is paused. Skip report.'})
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
 
@@ -176,6 +170,15 @@ class Ejector(BaseModule, ConsensusModule):
 
     def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
         return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
+
+    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
+        on_pause = self._is_paused(blockstamp)
+        CONTRACT_ON_PAUSE.set(on_pause)
+        if on_pause:
+            logger.info({'msg': 'Ejector is paused. Skip report.'})
+            return False
+        return True
+
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, blockstamp: BlockStamp, on_epoch: EpochNumber) -> Wei:
@@ -320,7 +323,3 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
-
-    def is_reporting_allowed(self, blockstamp: BlockStamp) -> bool:
-        """At this point we can't check anything, so just return True."""
-        return True  # pragma: no cover
