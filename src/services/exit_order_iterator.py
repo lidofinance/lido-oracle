@@ -31,12 +31,10 @@ class ExitOrderIterator:
        | Validator whose operator with the lowest number of delayed validators
        | Validator whose operator with the highest number of targeted validators to exit
        | Validator whose operator with the highest stake weight
-       | Validator whose operator with the highest number of predictable to exit validators
+       | Validator whose operator with the highest number of predictable validators
        | Validator with the lowest index
        V
 
-    Then, first validator from given order is popped from the list and returned.
-    After each iteration, the list is re-sorted, because operator stats can change after each popped validator.
     """
     left_queue_count: int
     max_validators_to_exit: int
@@ -55,8 +53,8 @@ class ExitOrderIterator:
     @duration_meter()
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
-        Prepare queue state for the iteration: determine exitable Lido validators
-        and collect operators stats to sort them by exit order predicates.
+        Prepare state of queue for the iteration: form a queue with Lido exitable validators
+        and collect operators stats that will be used to sort validators queue
         """
         eois = ExitOrderIteratorStateService(self.w3, self.blockstamp)
 
@@ -84,7 +82,7 @@ class ExitOrderIterator:
     @duration_meter()
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
         """
-        Pop validator from the queue, decrease particular operator stats and return validator from order
+        Sort the queue, pop validator from the queue, decrease particular operator stats and return validator from order
         """
         if self.left_queue_count >= self.max_validators_to_exit:
             raise StopIteration
@@ -142,8 +140,8 @@ class ExitOrderIterator:
     @staticmethod
     def _operator_targeted_validators_to_exit(operator_state: NodeOperatorPredictableState) -> int:
         """
-        If operator has limit, but its validators count is less than limit, then we consider this predicate as 0
-        Because 'targeted limit' shouldn't be used in positive way to sorting not reached to limit operators
+        If target limit is higher than predictable operator's validators -
+        it should not have any influence on sorting order
         """
         if operator_state.targeted_validators_limit_is_enabled:
             return max(0, operator_state.predictable_validators_count - operator_state.targeted_validators_limit_count)
@@ -157,7 +155,7 @@ class ExitOrderIterator:
     ) -> int:
         """
         We prefer to exit validators which operators with high stake weight first.
-        Operators who have stake weight less than `operator_network_penetration_threshold` will be the same for us
+        Operators who have stake weight less than `operator_network_penetration_threshold` will have the same weight
         """
         stake_volume = operator_state.predictable_validators_count / total_predictable_validators_count
         if stake_volume > operator_network_penetration_threshold:

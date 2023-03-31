@@ -21,7 +21,7 @@ class NodeOperatorPredictableState:
 
 
 class ExitOrderIteratorStateService(LidoValidatorStateService):
-    """Service to prepare state for exit order iterator"""
+    """Service prepares lido operator statistic, which used to form validators queue in right order"""
 
     def __init__(self, web3: Web3, blockstamp: ReferenceBlockStamp):
         super().__init__(web3)
