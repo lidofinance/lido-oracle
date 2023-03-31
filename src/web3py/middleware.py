@@ -67,7 +67,7 @@ def metrics_collector(
                     code=failed.status_code,
                     domain=domain,
                 )
-                raise
+                raise ex
 
             # https://www.jsonrpc.org/specification#error_object
             error = response.get("error")

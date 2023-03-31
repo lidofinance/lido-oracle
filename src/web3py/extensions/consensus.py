@@ -5,8 +5,8 @@ from src.providers.consensus.client import ConsensusClient
 
 
 class ConsensusClientModule(ConsensusClient, Module):
-    def __init__(self, host: str, w3: Web3):
+    def __init__(self, hosts: list[str], w3: Web3):
         self.w3 = w3
 
-        super(ConsensusClient, self).__init__(host)
+        super(ConsensusClient, self).__init__(hosts)
         super(Module, self).__init__()

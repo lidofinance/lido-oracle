@@ -9,6 +9,7 @@ from web3.types import Timestamp
 class OracleModule(StrEnum):
     ACCOUNTING = 'accounting'
     EJECTOR = 'ejector'
+    CHECK = 'check'
 
 
 EpochNumber = NewType('EpochNumber', int)

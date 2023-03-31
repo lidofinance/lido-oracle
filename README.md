@@ -26,18 +26,24 @@ You can build it locally using the following command:
 docker build -t lidofinance/oracle .
 ```
 
-## Run
-1. Use `.env.example` file content to create your own `.env` file.  
-      There are two options to run Oracle:
-   - `dry mode` (by default)
-   - `production mode` 
-\
-\
-      To run Oracle in `production mode` set `MEMBER_PRIV_KEY` environment variable in `.env` file:
+## Checks before running
+1. Use [.env.example](.env.example) file content to create your own `.env` file. 
+    Set required URI values. It will be enough to run the oracle in *check mode*.
+2. Check that your environment is ready to run the oracle using the following command:
       ```bash
-      MEMBER_PRIV_KEY={value}
+      docker run --env-file .env --rm lidofinance/oracle:{tag} check
       ```
-      Where `{value}` is a private key of the Oracle member account.
+      If everything is ok, you will see that all required checks are passed 
+      and your environment is ready to run the oracle.
+
+## Run the oracle
+1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
+    Therefore, you are able to check that oracle works correctly before running it in production mode.
+    To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` environment variable:
+    ```
+    MEMBER_PRIV_KEY={value}
+    ```
+    Where `{value}` is a private key of the Oracle member account.
 2. Run the container using the following command:
       ```bash
       docker run --env-file .env lidofinance/oracle:{tag} {type}
@@ -47,17 +53,32 @@ docker build -t lidofinance/oracle .
    - `{type}` is a type of the Oracle. There are two types of oracles:
       - `accounting`
       - `ejector`
+     And additional type from the [previous checks](#checks-before-running):
+      - `check` - checks that the environment is ready to run the oracle
+
+> **Note**: of course, you can pass env variables without using `.env` file.
+> For example, you can run the container using the following command:
+> ```bash
+> docker run --env EXECUTION_CLIENT_URI={value} --env CONSENSUS_CLIENT_URI={value} --env KEYS_API_URI={value} --env LIDO_LOCATOR_ADDRESS={value} lidofinance/oracle:{tag} {type}
+> ```
 
 ## Env variables
 
-| Name                              | Description                                                        | Required | Example value           |
-|-----------------------------------|--------------------------------------------------------------------|----------|-------------------------|
-| `EXECUTION_CLIENT_URI`            | URI of the Execution Layer client                                  | True     | `http://localhost:8545` |
-| `CONSENSUS_CLIENT_URI`            | URI of the Consensus Layer client                                  | True     | `http://localhost:5052` |
-| `KEYS_API_URI`                    | URI of the Keys API                                                | True     | `http://localhost:8080` |
-| `LIDO_LOCATOR_ADDRESS`            | Address of the Lido contract                                       | True     | `0x1...`                |
-| `ALLOW_NEGATIVE_REBASE_REPORTING` | If 'False', a report with negative cl rebase would not be reported | False    | `True`                  |
-| `MEMBER_PRIV_KEY`                 | Private key of the Oracle member account                           | False    | `0x1...`                |
+| Name                                         | Description                                                                                                                                                              | Required | Example value           |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------|
+| `EXECUTION_CLIENT_URI`                       | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
+| `CONSENSUS_CLIENT_URI`                       | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
+| `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
+| `LIDO_LOCATOR_ADDRESS`                       | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
+| `MEMBER_PRIV_KEY`                            | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`       | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
+| `ALLOW_REPORTING_IN_BUNKER_MODE`             | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
+| `TX_GAS_ADDITION`                            | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `1.75`                  |
+| `CYCLE_SLEEP_IN_SECONDS`                     | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                 | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
+| `HTTP_REQUEST_RETRY_COUNT`                   | Total number of retries to fetch data from endpoint                                                                                                                      | False    | `5`                     |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS` | The delay http provider sleeps if API is stuck                                                                                                                           | False    | `12`                    |
+| `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
 
 ## Monitoring
 TBD
@@ -100,6 +121,7 @@ poetry run python -m src.main {module}
 Where `{module}` is one of:
 - `accounting`
 - `ejector`
+- `check`
 
 ## Tests
 

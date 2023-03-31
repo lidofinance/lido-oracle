@@ -1,9 +1,10 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from src.modules.accounting import accounting
 from src.modules.accounting.accounting import Accounting
+from src.services.withdrawal import Withdrawal
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
@@ -50,7 +51,6 @@ def test_get_consensus_lido_state(accounting_module, lido_validators):
     assert count == 10
     assert balance == sum((int(val.balance) for val in validators))
 
-
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("post_total_pooled_ether", "post_total_shares", "expected_share_rate"),
@@ -60,23 +60,31 @@ def test_get_consensus_lido_state(accounting_module, lido_validators):
         (18 * 10 ** 18, 14 * 10 ** 18, 1285714285714285714285714285),
     ]
 )
-def test_get_finalization_shares_rate(accounting_module, post_total_pooled_ether, post_total_shares, expected_share_rate):
+def test_get_finalization_data(accounting_module, post_total_pooled_ether, post_total_shares, expected_share_rate):
     lido_rebase = LidoReportRebaseFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
     )
+    accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
+    accounting_module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1)
+    )
     accounting_module.simulate_full_rebase = Mock(return_value=lido_rebase)
+    accounting_module._is_bunker = Mock(return_value=False)
 
     bs = ReferenceBlockStampFactory.build()
-    share_rate = accounting_module._get_finalization_shares_rate(bs)
 
+    with patch.object(Withdrawal, '__init__', return_value=None), \
+         patch.object(Withdrawal, 'get_finalization_batches', return_value=[]):
+        share_rate, batches = accounting_module._get_finalization_data(bs)
+
+    assert batches == []
     assert share_rate == expected_share_rate
 
     if post_total_pooled_ether > post_total_shares:
         assert share_rate > 10 ** 27
     else:
         assert share_rate <= 10 ** 27
-
 
 @pytest.mark.unit
 def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
@@ -111,19 +119,16 @@ class TestAccountingSanityCheck:
         yield ReferenceBlockStampFactory.build()
 
     def test_env_toggle(self, accounting_module, monkeypatch, bs, caplog):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+        accounting_module._is_bunker = Mock(return_value=True)
         with monkeypatch.context() as ctx:
-            ctx.setattr(accounting, 'ALLOW_NEGATIVE_REBASE_REPORTING', True)
+            ctx.setattr(accounting, 'ALLOW_REPORTING_IN_BUNKER_MODE', True)
             assert accounting_module.is_reporting_allowed(bs)
-        assert "CL rebase is negative" in caplog.text
+        assert "Bunker mode is active" in caplog.text
 
-    def test_no_negative_rebase(self, accounting_module, bs):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=90)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=100))
+    def test_no_bunker_mode(self, accounting_module, bs):
+        accounting_module._is_bunker = Mock(return_value=False)
         assert accounting_module.is_reporting_allowed(bs)
 
-    def test_negative_rebase(self, accounting_module, bs):
-        accounting_module.bunker_service._get_total_supply = Mock(return_value=100)
-        accounting_module.simulate_cl_rebase = Mock(return_value=LidoReportRebaseFactory.build(post_total_pooled_ether=90))
+    def test_bunker_mode_active(self, accounting_module, bs):
+        accounting_module._is_bunker = Mock(return_value=True)
         assert accounting_module.is_reporting_allowed(bs) is False

@@ -47,7 +47,6 @@ def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
 @pytest.mark.unit
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=None)
-    ejector._is_paused = Mock(return_value=False)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
         is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
@@ -56,7 +55,6 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
-    ejector._is_paused = Mock(return_value=False)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
         is ModuleExecuteDelay.NEXT_SLOT
@@ -69,12 +67,13 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 def test_ejector_execute_module_on_pause(
     ejector: Ejector, blockstamp: BlockStamp
 ) -> None:
-    ejector.get_blockstamp_for_report = Mock(return_value=None)
+    ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
+    ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector._is_paused = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    ), "execute_module should wait for the next finalized epoch"
+        is ModuleExecuteDelay.NEXT_SLOT
+    ), "execute_module should wait for the next slot"
 
 
 @pytest.mark.unit

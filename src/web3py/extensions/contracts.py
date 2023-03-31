@@ -1,14 +1,16 @@
 import json
 import logging
 from functools import lru_cache
+from time import sleep
 
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput
 from web3.module import Module
 from web3.types import Wei
 
 from src import variables
-from src.metrics.prometheus.business import FRAME_LAST_REPORT_REF_SLOT
+from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.typings import BlockStamp, SlotNumber
 
 logger = logging.getLogger()
@@ -36,8 +38,27 @@ class LidoContracts(Module):
                 logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
         super().__setattr__(key, value)
 
-    def reload_contracts(self):
+    def has_contract_address_changed(self) -> bool:
+        addresses = [contract.address for contract in self.__dict__.values() if isinstance(contract, Contract)]
         self._load_contracts()
+        new_addresses = [contract.address for contract in self.__dict__.values() if isinstance(contract, Contract)]
+        return addresses != new_addresses
+
+    def _check_contracts(self):
+        """This is startup check that checks that contract are deployed and has valid implementation"""
+        try:
+            self.accounting_oracle.functions.getContractVersion().call()
+            self.validators_exit_bus_oracle.functions.getContractVersion().call()
+        except BadFunctionCallOutput:
+            logger.info({
+                'msg': 'getContractVersion method from accounting_oracle and validators_exit_bus_oracle '
+                       'doesn\'t return any data. Probably addresses from Lido Locator refer to the wrong '
+                       'implementation or contracts don\'t exist. Sleep for 1 minute.'
+            })
+            sleep(60)
+            self._load_contracts()
+        else:
+            return
 
     def _load_contracts(self):
         # Contract that stores all lido contract addresses
@@ -95,11 +116,14 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
+        self._check_contracts()
+
     @staticmethod
     def load_abi(abi_name: str, abi_path: str = './assets/'):
         with open(f'{abi_path}{abi_name}.json') as f:
             return json.load(f)
 
+    # --- Contract methods ---
     @lru_cache(maxsize=1)
     def get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
         return self.get_withdrawal_balance_no_cache(blockstamp)
@@ -124,5 +148,14 @@ class LidoContracts(Module):
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
         result = self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
-        FRAME_LAST_REPORT_REF_SLOT.set(result)
+        logger.info({'msg': f'Accounting last processing ref slot {result}'})
+        FRAME_PREV_REPORT_REF_SLOT.set(result)
+        return result
+
+    def get_ejector_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
+        result = self.validators_exit_bus_oracle.functions.getLastProcessingRefSlot().call(
+            block_identifier=blockstamp.block_hash
+        )
+        logger.info({'msg': f'Ejector last processing ref slot {result}'})
+        FRAME_PREV_REPORT_REF_SLOT.set(result)
         return result

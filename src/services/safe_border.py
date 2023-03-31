@@ -7,6 +7,7 @@ from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABI
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.typings import OracleReportLimits
+from src.utils.web3converter import Web3Converter
 from src.utils.abi import named_tuple_to_dataclass
 from src.typings import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import Validator
@@ -18,24 +19,44 @@ class WrongExitPeriod(Exception):
     pass
 
 
-class SafeBorder:
+class SafeBorder(Web3Converter):
+    """
+    Safe border service calculates the range in which withdrawal requests can't be finalized.
+
+    In Turbo mode, there is only one border that does not allow to finalize requests created close to the reference
+    slot to which the oracle report is performed.
+
+    In Bunker mode there are more safe borders. The protocol takes into account the impact of negative factors
+    that occurred in a certain period and finalizes requests on which the negative effects have already been socialized.
+
+    There are 3 types of the border:
+    1. Default border
+    2. Negative rebase border
+    3. Associated slashing border
+    """
+
     chain_config: ChainConfig
     frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
+    converter: Web3Converter
 
     def __init__(
         self,
         w3: Web3,
         blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
-        frame_config: FrameConfig,
+        frame_config: FrameConfig
     ) -> None:
+        super().__init__(chain_config, frame_config)
+
         self.w3 = w3
         self.lido_contracts = w3.lido_contracts
 
         self.blockstamp = blockstamp
         self.chain_config = chain_config
         self.frame_config = frame_config
+
+        self.converter = Web3Converter(chain_config, frame_config)
 
         self._retrieve_constants()
 
@@ -56,9 +77,17 @@ class SafeBorder:
         )
 
     def _get_default_requests_border_epoch(self) -> EpochNumber:
+        """
+        The default border is a few epochs before report reference epoch.
+        """
         return EpochNumber(self.blockstamp.ref_epoch - self.finalization_default_shift)
 
     def _get_negative_rebase_border_epoch(self) -> EpochNumber:
+        """
+        Bunker mode can be enabled by a negative rebase in case of mass validator penalties.
+        In this case the border is considered the reference slot of the previous successful oracle report before the
+        moment the Bunker mode was activated - default border
+        """
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
 
         latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
@@ -79,6 +108,14 @@ class SafeBorder:
         return EpochNumber(self.frame_config.initial_epoch)
 
     def _get_associated_slashings_border_epoch(self) -> EpochNumber:
+        """
+        The border represents the latest epoch before associated slashings started.
+
+        It is calculated as the earliest slashed_epoch among all incompleted slashings at
+        the point of reference_epoch rounded to the start of the previous oracle report frame - default border.
+
+        See detailed research here: https://hackmd.io/@lido/r1Qkkiv3j
+        """
         earliest_slashed_epoch = self._get_earliest_slashed_epoch_among_incomplete_slashings()
 
         if earliest_slashed_epoch:
@@ -155,14 +192,14 @@ class SafeBorder:
         start_frame = self.get_frame_by_epoch(start_epoch)
         end_frame = self.get_frame_by_epoch(end_epoch)
 
-        validators_set = set(validators)
+        slashed_pubkeys = set(v.validator.pubkey for v in validators)
 
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
         while start_frame < end_frame:
             mid_frame = FrameNumber((end_frame + start_frame) // 2)
 
-            if self._slashings_in_frame(mid_frame, validators_set):
+            if self._slashings_in_frame(mid_frame, slashed_pubkeys):
                 end_frame = mid_frame
             else:
                 start_frame = FrameNumber(mid_frame + 1)
@@ -171,20 +208,18 @@ class SafeBorder:
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, validators: set[Validator]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
-        last_slot_in_frame_blockstamp = get_blockstamp(
-            self.w3.cc,
-            last_slot_in_frame,
-            self.blockstamp.ref_slot,
-        )
+        last_slot_in_frame_blockstamp = self._get_blockstamp(last_slot_in_frame)
 
         lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
-        slashed_validators = filter_slashed_validators(list(filter(lambda x: x in validators, lido_validators)))
+        slashed_validators = filter_slashed_validators(
+            list(filter(lambda x: x.validator.pubkey in slashed_pubkeys, lido_validators))
+        )
 
         return len(slashed_validators) > 0
 
@@ -222,66 +257,56 @@ class SafeBorder:
 
         return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
 
-    def _get_bunker_start_timestamp(self) -> int:
-        # If bunker mode is off returns max(uint256)
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
-            block_identifier=self.blockstamp.block_hash)
-
-    def _get_last_finalized_request_id(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
-            block_identifier=self.blockstamp.block_hash)
-
-    def _get_withdrawal_request_status(self, request_id: int) -> Any:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
-            block_identifier=self.blockstamp.block_hash)
+    def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
+        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
 
     def _retrieve_constants(self):
-        limits_list = named_tuple_to_dataclass(
+        limits_list = self._fetch_oracle_report_limits_list()
+        self.finalization_default_shift = math.ceil(
+            limits_list.request_timestamp_margin / (
+                    self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+        )
+
+        self.finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
+
+    def _fetch_oracle_report_limits_list(self):
+        return named_tuple_to_dataclass(
             self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
                 block_identifier=self.blockstamp.block_hash
             ),
             OracleReportLimits
         )
-        self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
-        )
 
-        self.finalization_max_negative_rebase_shift = self.w3.to_int(
+    def _fetch_finalization_max_negative_rebase_epoch_shift(self):
+        return self.w3.to_int(
             primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
                 'FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT',
             ).call(block_identifier=self.blockstamp.block_hash)
         )
 
-    def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
-        return SlotNumber(epoch * self.chain_config.slots_per_epoch)
+    def _get_bunker_start_timestamp(self) -> int:
+        # If bunker mode is off returns max(uint256)
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
+            block_identifier=self.blockstamp.block_hash
+        )
 
-    def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(self.get_frame_first_slot(FrameNumber(frame + 1)) - 1)
+    def _get_last_finalized_request_id(self) -> int:
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
+            block_identifier=self.blockstamp.block_hash
+        )
 
-    def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
-
-    def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
-        return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
-
-    def get_epoch_by_timestamp(self, timestamp: int) -> EpochNumber:
-        return EpochNumber(self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch)
-
-    def get_slot_by_timestamp(self, timestamp: int) -> SlotNumber:
-        return SlotNumber((timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot)
+    def _get_withdrawal_request_status(self, request_id: int) -> Any:
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
+            block_identifier=self.blockstamp.block_hash
+        )
 
     def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
         rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))
         return self.get_epoch_first_slot(rounded_epoch)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
-        return EpochNumber(self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
-
-    def get_frame_by_slot(self, slot: SlotNumber) -> FrameNumber:
-        return self.get_frame_by_epoch(self.get_epoch_by_slot(slot))
-
-    def get_frame_by_epoch(self, epoch: EpochNumber) -> FrameNumber:
-        return FrameNumber((epoch - self.frame_config.initial_epoch) // self.frame_config.epochs_per_frame)
+        return EpochNumber(
+            self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
 
 
 def filter_slashed_validators(validators: Sequence[Validator]) -> list[Validator]:

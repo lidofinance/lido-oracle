@@ -13,6 +13,12 @@ from src.modules.accounting.typings import (
     LidoReportRebase,
     SharesRequestedToBurn,
 )
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_CL_BALANCE_GWEI,
+    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
@@ -21,7 +27,8 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
-from src.variables import ALLOW_NEGATIVE_REBASE_REPORTING
+from src.utils.cache import clear_object_lru_cache
+from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -30,6 +37,16 @@ logger = logging.getLogger(__name__)
 
 
 class Accounting(BaseModule, ConsensusModule):
+    """
+    Accounting module updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
+
+    Report goes in tree phases:
+        - Send report hash
+        - Send report data (extra data hash inside)
+            Contains information about lido states, last withdrawal request to finalize and exited validators count by module.
+        - Send extra data
+            Contains stuck and exited validators count by each node operator.
+    """
     CONSENSUS_VERSION = 1
     CONTRACT_VERSION = 1
 
@@ -40,11 +57,20 @@ class Accounting(BaseModule, ConsensusModule):
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
 
+    def refresh_contracts(self):
+        self.report_contract = self.w3.lido_contracts.accounting_oracle
+
+    def clear_cache(self):
+        clear_object_lru_cache(self)
+        clear_object_lru_cache(self.lido_validator_state_service)
+        clear_object_lru_cache(self.bunker_service)
+
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if report_blockstamp:
             self.process_report(report_blockstamp)
+            # Third phase of report. Specific for accounting.
             self.process_extra_data(report_blockstamp)
             return ModuleExecuteDelay.NEXT_SLOT
 
@@ -69,10 +95,6 @@ class Accounting(BaseModule, ConsensusModule):
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
-        if not variables.ACCOUNT:
-            logger.info({'msg': 'Dry mode. No account provided to submit extra data.'})
-            return
-
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
         if extra_data.extra_data:
@@ -82,7 +104,6 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
-    # Consensus module: main build report method
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
@@ -90,32 +111,30 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate report for accounting module.', 'value': report_data})
         return report_data.as_tuple()
 
-    # # Consensus module: if contract got report data
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
+        # Consensus module: if contract got report data (second phase)
         processing_state = self._get_processing_state(blockstamp)
         logger.info({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
-
-    # Consensus module: if contract could accept any sort of report
-    def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        is_reportable = not self.is_main_data_submitted(blockstamp) or not self.is_extra_data_submitted(blockstamp)
-        logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
-        return is_reportable
 
     def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
         processing_state = self._get_processing_state(blockstamp)
         return processing_state.extra_data_submitted
 
+    def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
+        # Consensus module: if contract can accept the report (in any phase)
+        is_reportable = not self.is_main_data_submitted(blockstamp) or not self.is_extra_data_submitted(blockstamp)
+        logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
+        return is_reportable
+
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        cl_rebase_report = self.simulate_cl_rebase(blockstamp)
-        frame_cl_rebase = self.bunker_service.get_cl_rebase_for_current_report(blockstamp, cl_rebase_report)
-        if frame_cl_rebase >= 0:
+        if not self._is_bunker(blockstamp):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': 'CL rebase is negative.', 'value': frame_cl_rebase})
+        logger.warning({'msg': 'Bunker mode is active'})
         logger.warning({'msg': '!' * 50})
-        return ALLOW_NEGATIVE_REBASE_REPORTING
+        return ALLOW_REPORTING_IN_BUNKER_MODE
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
@@ -126,12 +145,14 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch processing state.', 'value': ps})
         return ps
 
+    # ---------------------------------------- Build report ----------------------------------------
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
         staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
         extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
             consensus_version=self.CONSENSUS_VERSION,
@@ -143,13 +164,18 @@ class Accounting(BaseModule, ConsensusModule):
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
             shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
-            withdrawal_finalization_batches=self._get_withdrawal_batches(blockstamp),
-            finalization_share_rate=self._get_finalization_shares_rate(blockstamp),
+            withdrawal_finalization_batches=finalization_batches,
+            finalization_share_rate=finalization_share_rate,
             is_bunker=self._is_bunker(blockstamp),
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
+        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
         return report_data
 
@@ -193,34 +219,34 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
         return count, total_balance
 
-    def _get_withdrawal_batches(self, blockstamp: ReferenceBlockStamp) -> list[int]:
+    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[int, list[int]]:
+        simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
-
         is_bunker = self._is_bunker(blockstamp)
-        withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
-        el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
-        finalization_share_rate = self._get_finalization_shares_rate(blockstamp)
+
+        share_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+        logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
-        withdrawal_batches = withdrawal_service.get_finalization_batches(
+        batches = withdrawal_service.get_finalization_batches(
             is_bunker,
-            finalization_share_rate,
-            withdrawal_vault_balance,
-            el_rewards_vault_balance,
+            share_rate,
+            simulation.withdrawals,
+            simulation.el_reward,
         )
-        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': withdrawal_batches})
-        return withdrawal_batches
+
+        logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
+
+        return share_rate, batches
 
     @lru_cache(maxsize=1)
-    def _get_finalization_shares_rate(self, blockstamp: ReferenceBlockStamp) -> int:
-        simulation = self.simulate_full_rebase(blockstamp)
-        shares_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
-        logger.info({'msg': 'Calculate shares rate.', 'value': shares_rate})
-        return shares_rate
-
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
-        return self.simulate_rebase_after_report(blockstamp)
+        """
+        Simulate rebase excluding any execution rewards.
+        This used to check worst scenarios in bunker service.
+        """
+        return self.simulate_rebase_after_report(blockstamp, Wei(0))
 
     def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
@@ -229,20 +255,20 @@ class Accounting(BaseModule, ConsensusModule):
     def simulate_rebase_after_report(
         self,
         blockstamp: ReferenceBlockStamp,
-        el_rewards: Wei = Wei(0),
+        el_rewards: Wei,
     ) -> LidoReportRebase:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
-        timestamp = self.get_ref_slot_timestamp(blockstamp)
-
         chain_conf = self.get_chain_config(blockstamp)
 
         simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
-            # Oracle timings
-            timestamp,  # _reportTimestamp
+            # We use block timestamp, instead of slot timestamp,
+            # because missed slot will break simulation contract logics
+            # Details: https://github.com/lidofinance/lido-oracle/issues/291
+            blockstamp.block_timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
             validators_count,  # _clValidators
@@ -267,6 +293,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return LidoReportRebase(*result)
 
+    @lru_cache(maxsize=1)
     def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
         shares_data = named_tuple_to_dataclass(
             self.w3.lido_contracts.burner.functions.getSharesRequestedToBurn().call(
@@ -277,12 +304,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return shares_data.cover_shares + shares_data.non_cover_shares
 
-    def get_ref_slot_timestamp(self, blockstamp: ReferenceBlockStamp):
-        chain_conf = self.get_chain_config(blockstamp)
-        return chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot
-
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
-        """If no report was finalized return slots elapsed from initial epoch from contract"""
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 

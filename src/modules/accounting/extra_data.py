@@ -43,13 +43,18 @@ class ExtraData:
 
 
 class ExtraDataService:
-    # Extra data is an array of items, each item being encoded as follows:
-    # |  3 bytes  | 2 bytes  |   X bytes   |
-    # | itemIndex | itemType | itemPayload |
-    #
-    # itemPayload format:
-    #  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-    #  | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+    """
+    Service that encodes extra data into bytes in correct order.
+
+    Extra data is an array of items, each item being encoded as follows:
+    |  3 bytes  | 2 bytes  |   X bytes   |
+    | itemIndex | itemType | itemPayload |
+
+    itemPayload format:
+    | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
+    | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+    """
+
     class Lengths:
         ITEM_INDEX = 3
         ITEM_TYPE = 2

@@ -36,7 +36,9 @@ class Nested:
             return field_type.from_response
         return field_type
 
+
 T = TypeVar('T')
+
 
 @dataclass
 class FromResponse:

@@ -2,7 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, Callable
 
 from web3 import Web3
 from web3.module import Module
@@ -108,11 +108,17 @@ class UpdateResponsesProvider(MultiProvider, UpdateResponses):
 class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     def __init__(self, mock_path: Path, w3: Web3):
         self.w3 = w3
-        HTTPProvider.__init__(self, host="")
+        HTTPProvider.__init__(self, hosts=[""])
         Module.__init__(self, w3)
         FromFile.__init__(self, mock_path)
 
-    def _get(self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None) -> dict | list:
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Optional[Sequence[str | int]] = None,
+        query_params: Optional[dict] = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+    ) -> dict | list:
         for response in self.responses:
             url = endpoint.format(*path_params) if path_params else endpoint
             if response.get('url') == url and json.dumps(response["params"]) == json.dumps(query_params):
@@ -124,12 +130,18 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def __init__(self, mock_path: Path, host: str, w3: Web3):
         self.w3 = w3
 
-        super().__init__(host)
+        super().__init__([host])
         super(Module, self).__init__()
         self.responses = []
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
 
-    def _get(self, endpoint: str, path_params: Optional[Sequence[str | int]] = None, query_params: Optional[dict] = None) -> dict | list:
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Optional[Sequence[str | int]] = None,
+        query_params: Optional[dict] = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+    ) -> dict | list:
         url = endpoint.format(*path_params) if path_params else endpoint
         try:
             response = self.from_file._get(url, query_params=query_params)  # pylint: disable=protected-access

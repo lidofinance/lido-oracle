@@ -25,7 +25,7 @@ def simple_key(pubkey: str) -> LidoKey:
     return key
 
 
-def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='') -> Validator:
+def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='', exit_epoch='100500') -> Validator:
     return Validator(
         index=str(index),
         balance=str(balance),
@@ -37,7 +37,7 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
             slashed=slashed,
             activation_eligibility_epoch='',
             activation_epoch='0',
-            exit_epoch='100500',
+            exit_epoch=exit_epoch,
             withdrawable_epoch=withdrawable_epoch,
         )
     )
@@ -54,16 +54,16 @@ def mock_get_accounting_last_processing_ref_slot(abnormal_case):
 
 
 @pytest.fixture
-def mock_get_all_lido_keys(abnormal_case):
+def mock_get_used_lido_keys(abnormal_case):
 
-    def _get_all_lido_keys(blockstamp: ReferenceBlockStamp):
+    def _get_used_lido_keys(blockstamp: ReferenceBlockStamp):
         return [
             simple_key('0x03'),
             simple_key('0x04'),
             simple_key('0x05'),
         ]
 
-    abnormal_case.w3.kac.get_all_lido_keys = Mock(side_effect=_get_all_lido_keys)
+    abnormal_case.w3.kac.get_used_lido_keys = Mock(side_effect=_get_used_lido_keys)
 
 
 @pytest.fixture
@@ -75,6 +75,7 @@ def mock_get_blockstamp(monkeypatch):
             10: simple_blockstamp(10),
             20: simple_blockstamp(20),
             30: simple_blockstamp(30),
+            31: simple_blockstamp(31),
             444424: simple_blockstamp(444420),
             444434: simple_blockstamp(444431),
             444444: simple_blockstamp(444444),
@@ -87,6 +88,7 @@ def mock_get_blockstamp(monkeypatch):
             10: simple_ref_blockstamp(10),
             20: simple_ref_blockstamp(20),
             30: simple_ref_blockstamp(30),
+            33: simple_ref_blockstamp(33),
             444424: simple_ref_blockstamp(444420),
             444434: simple_ref_blockstamp(444431),
             444444: simple_ref_blockstamp(444444),
@@ -112,6 +114,8 @@ def mock_get_eth_distributed_events(abnormal_case):
             (21, 30): [{'args': {'withdrawalsWithdrawn': 7 * 10 ** 18}}, {'args': {'withdrawalsWithdrawn': 5 * 10 ** 18}}],
             (21, 40): [{'args': {'withdrawalsWithdrawn': 12 * 10 ** 18}}],
             (31, 40): [],
+            (32, 33): [],
+            (1, 33): [],
         }
         return events[(from_block, to_block)]
 
@@ -140,6 +144,8 @@ def mock_get_withdrawal_vault_balance(abnormal_case, contracts):
             10: 14 * 10 ** 18,
             20: 14 * 10 ** 18,
             30: 2 * 10 ** 18,
+            31: 2 * 10 ** 18,
+            33: 2 * 10 ** 18,
             40: 2 * 10 ** 18,
         }
         return balance[blockstamp.block_number]
@@ -183,6 +189,22 @@ def mock_get_validators(web3):
                 simple_validator(3, '0x03', 32 * 10 ** 9),
                 simple_validator(4, '0x04', 32 * 10 ** 9),
             ],
+            31: [
+                simple_validator(0, '0x00', 32 * 10 ** 9),
+                simple_validator(1, '0x01', 32 * 10 ** 9),
+                simple_validator(2, '0x02', 32 * 10 ** 9),
+                simple_validator(3, '0x03', 32 * 10 ** 9),
+                simple_validator(4, '0x04', 32 * 10 ** 9),
+                simple_validator(5, '0x05', 32 * 10 ** 9),
+            ],
+            33: [
+                simple_validator(0, '0x00', 32 * 10 ** 9),
+                simple_validator(1, '0x01', 32 * 10 ** 9),
+                simple_validator(2, '0x02', 32 * 10 ** 9),
+                simple_validator(3, '0x03', 32 * 10 ** 9),
+                simple_validator(4, '0x04', 32 * 10 ** 9),
+                simple_validator(5, '0x05', 32 * 10 ** 9),
+            ],
             40: [
                 simple_validator(0, '0x00', 32 * 10 ** 9),
                 simple_validator(1, '0x01', 32 * 10 ** 9),
@@ -199,7 +221,15 @@ def mock_get_validators(web3):
                 simple_validator(4, '0x04', 32 * 10 ** 9, slashed=True, withdrawable_epoch='10001'),
                 simple_validator(5, '0x05', 32 * 10 ** 9, slashed=True, withdrawable_epoch='10001'),
                 *[simple_validator(i, f'0x0{i}', 32 * 10 ** 9) for i in range(6, 200)],
-            ]
+            ],
+            123: [
+                simple_validator(0, '0x00', 32 * 10 ** 9, exit_epoch='1'),
+                simple_validator(1, '0x01', 32 * 10 ** 9, exit_epoch='1'),
+                simple_validator(2, '0x02', 32 * 10 ** 9, exit_epoch='1'),
+                simple_validator(3, '0x03', 32 * 10 ** 9, exit_epoch='1'),
+                simple_validator(4, '0x04', 32 * 10 ** 9, exit_epoch='1'),
+                simple_validator(5, '0x05', 32 * 10 ** 9, exit_epoch='1'),
+            ],
         }
         return validators[state.slot_number]
 
