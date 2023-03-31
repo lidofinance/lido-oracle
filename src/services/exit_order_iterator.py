@@ -110,7 +110,7 @@ class ExitOrderIterator:
         self.lido_node_operator_stats[global_index].predictable_validators_total_age -= get_validator_age(
             validator, self.blockstamp.ref_epoch
         )
-        logger.info(
+        logger.debug(
             {
                 'msg': f'Operator [{global_index}] stats before and after eject validator [{validator.index}]',
                 'before': before,
