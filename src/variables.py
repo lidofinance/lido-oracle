@@ -17,7 +17,11 @@ if MEMBER_PRIV_KEY:
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000)
 ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
-TX_GAS_MULTIPLIER = float(os.getenv('TX_GAS_MULTIPLIER', 1.25))
+# We add some gas to the transaction to be sure that we have enough gas to execute corner cases
+# eg when we tried to submit a few reports in a single block
+# In this case the second report will force report finalization and will consume more gas
+TX_GAS_ADDITION = int(os.getenv('TX_GAS_ADDITION', 100_000))
+
 
 # Default delay for default Oracle members. Member with submit data role should submit data first.
 # If contract is reportable each member in order will submit data with difference with this amount of slots

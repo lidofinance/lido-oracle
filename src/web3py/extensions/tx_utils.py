@@ -58,7 +58,7 @@ class TransactionUtils(Module):
             "from": account.address,
             "gas": min(
                 latest_block["gasLimit"],
-                int(transaction.estimate_gas({'from': account.address}) * variables.TX_GAS_MULTIPLIER)
+                int(transaction.estimate_gas({'from': account.address}) + variables.TX_GAS_ADDITION)
             ),
             "maxFeePerGas": Wei(
                 latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
