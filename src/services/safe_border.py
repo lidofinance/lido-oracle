@@ -21,15 +21,18 @@ class WrongExitPeriod(Exception):
 
 class SafeBorder(Web3Converter):
     """
-    The protocol can be in two states: Turbo and Bunker modes. Turbo mode is a usual state when requests are
-    finalized as fast as possible, while Bunker mode assumes a more prudent requests finalization and is activated
-    if it’s necessary to mitigate undesirable factors.
+    Safe border service calculates the range in which withdrawal requests can't be finalized.
 
     In Turbo mode, there is only one border that does not allow to finalize requests created close to the reference
     slot to which the oracle report is performed.
 
     In Bunker mode there are more safe borders. The protocol takes into account the impact of negative factors
     that occurred in a certain period and finalizes requests on which the negative effects have already been socialized.
+
+    There are 3 types of the border:
+    1. Default border
+    2. Negative rebase border
+    3. Associated slashing border
     """
 
     chain_config: ChainConfig
@@ -38,11 +41,11 @@ class SafeBorder(Web3Converter):
     converter: Web3Converter
 
     def __init__(
-            self,
-            w3: Web3,
-            blockstamp: ReferenceBlockStamp,
-            chain_config: ChainConfig,
-            frame_config: FrameConfig
+        self,
+        w3: Web3,
+        blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+        frame_config: FrameConfig
     ) -> None:
         super().__init__(chain_config, frame_config)
 
@@ -59,8 +62,8 @@ class SafeBorder(Web3Converter):
 
     @duration_meter()
     def get_safe_border_epoch(
-            self,
-            is_bunker: bool,
+        self,
+        is_bunker: bool,
     ) -> EpochNumber:
         if not is_bunker:
             return self._get_default_requests_border_epoch()
@@ -75,15 +78,15 @@ class SafeBorder(Web3Converter):
 
     def _get_default_requests_border_epoch(self) -> EpochNumber:
         """
-        The default border is a constant interval the near the reference epoch in which no requests can be finalized.
+        The default border is a few epochs before report reference epoch.
         """
         return EpochNumber(self.blockstamp.ref_epoch - self.finalization_default_shift)
 
     def _get_negative_rebase_border_epoch(self) -> EpochNumber:
         """
         Bunker mode can be enabled by a negative rebase in case of mass validator penalties.
-        In this case the border is considered the reference slot of the previous oracle report from the moment the
-        Bunker mode was activated - default border
+        In this case the border is considered the reference slot of the previous successful oracle report before the
+        moment the Bunker mode was activated - default border
         """
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
 
@@ -109,7 +112,7 @@ class SafeBorder(Web3Converter):
         The border represents the latest epoch before associated slashings started.
 
         It is calculated as the earliest slashed_epoch among all incompleted slashings at
-        the point of reference_epoch rounded to the start of the closest oracle report frame - default border.
+        the point of reference_epoch rounded to the start of the previous oracle report frame - default border.
 
         See detailed research here: https://hackmd.io/@lido/r1Qkkiv3j
         """
