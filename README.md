@@ -121,7 +121,6 @@ groups:
         annotations:
           summary: "Dangerously low account balance"
           description: 'Account balance is less than 3 ETH. Address: {.labels.address}: {.value} ETH'
-			
       - alert: OutdatedData
         expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
         for: 1h
