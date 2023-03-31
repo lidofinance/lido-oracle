@@ -124,7 +124,7 @@ class ConsensusClient(HTTPProvider):
 
     def __raise_on_prysm_error(self, errors: list[Exception]) -> Exception | None:
         """
-        Prysm can't return validators by state root if it is enough old, but it can return them via slot number.
+        Prysm can't return validators by state root if it is old enough, but it can return them via slot number.
 
         raise error immediately if this is prysm specific exception
         """
