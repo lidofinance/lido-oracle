@@ -11,6 +11,12 @@ from src.modules.accounting.typings import BatchState
 
 
 class Withdrawal:
+    """
+    Service calculates which withdrawal requests should be finalized using next factors:
+
+    1. Safe border epoch for the current reference slot.
+    2. The amount of available ETH is determined from the Withdrawal Vault, EL Vault, and buffered ETH.
+    """
     def __init__(
         self,
         w3: Web3,
