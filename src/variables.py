@@ -17,7 +17,7 @@ if MEMBER_PRIV_KEY:
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000)
 ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
-TX_GAS_MULTIPLIER = float(os.getenv('TX_GAS_MULTIPLIER', 1.25))
+TX_GAS_MULTIPLIER = float(os.getenv('TX_GAS_MULTIPLIER', 1.60))
 
 # Default delay for default Oracle members. Member with submit data role should submit data first.
 # If contract is reportable each member in order will submit data with difference with this amount of slots
