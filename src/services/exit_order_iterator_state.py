@@ -20,7 +20,8 @@ class NodeOperatorPredictableState:
     delayed_validators_count: int
 
 
-class ExitOrderStateService(LidoValidatorStateService):
+class ExitOrderIteratorStateService(LidoValidatorStateService):
+    """Service to prepare state for exit order iterator"""
 
     def __init__(self, web3: Web3, blockstamp: ReferenceBlockStamp):
         super().__init__(web3)
@@ -36,8 +37,8 @@ class ExitOrderStateService(LidoValidatorStateService):
 
         exitable_lido_validators = []
 
-        for module_operator, validators in self._operator_validators.items():
-            last_requested_to_exit_index = self._operator_last_requested_to_exit_indexes[module_operator]
+        for global_index, validators in self._operator_validators.items():
+            last_requested_to_exit_index = self._operator_last_requested_to_exit_indexes[global_index]
             for validator in validators:
                 if self.is_exitable(validator, last_requested_to_exit_index):
                     exitable_lido_validators.append(validator)
@@ -124,7 +125,7 @@ class ExitOrderStateService(LidoValidatorStateService):
         predictable_validators_total_age = 0
         predictable_validators_count = 0
         for validator in operator_validators:
-            if ExitOrderStateService.is_exitable(validator, last_requested_to_exit_index):
+            if ExitOrderIteratorStateService.is_exitable(validator, last_requested_to_exit_index):
                 predictable_validators_total_age += get_validator_age(validator, blockstamp.ref_epoch)
                 predictable_validators_count += 1
 

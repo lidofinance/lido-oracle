@@ -2,8 +2,8 @@ import pytest
 
 from src.providers.consensus.typings import ValidatorState
 from src.providers.keys.typings import LidoKey
-from src.services.exit_order import ExitOrderIterator
-from src.services.exit_order_state import NodeOperatorPredictableState
+from src.services.exit_order_iterator import ExitOrderIterator
+from src.services.exit_order_iterator_state import NodeOperatorPredictableState
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -110,16 +110,18 @@ def test_decrease_node_operator_stats():
         (StakingModuleId(5), NodeOperatorId(1)): NodeOperatorPredictableState(100500, 2, False, 0, 2),
     }
 
-    validator_exit._decrease_node_operator_stats(exitable_validators[0])
+    module_operator = validator_exit._decrease_node_operator_stats(exitable_validators[0])
     expected_after_decrease_first = NodeOperatorPredictableState(0, 5999, True, 2, 0)
+    assert module_operator == (StakingModuleId(1), NodeOperatorId(2))
     assert validator_exit.total_predictable_validators_count == 499999
     assert (
             validator_exit.lido_node_operator_stats[
                 (StakingModuleId(1), NodeOperatorId(2))] == expected_after_decrease_first
     )
 
-    validator_exit._decrease_node_operator_stats(exitable_validators[1])
+    module_operator = validator_exit._decrease_node_operator_stats(exitable_validators[1])
     expected_after_decrease_second = NodeOperatorPredictableState(100500, 1, False, 0, 2)
+    assert module_operator == (StakingModuleId(4), NodeOperatorId(2))
     assert validator_exit.total_predictable_validators_count == 499998
     assert (
             validator_exit.lido_node_operator_stats[

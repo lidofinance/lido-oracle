@@ -4,8 +4,8 @@ import pytest
 
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator, ValidatorStatus
-from src.services.exit_order import NodeOperatorPredictableState
-from src.services.exit_order_state import ExitOrderStateService
+from src.services.exit_order_iterator import NodeOperatorPredictableState
+from src.services.exit_order_iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -129,9 +129,9 @@ def exit_order_state(
     web3,
     lido_validators,
     past_blockstamp,
-) -> ExitOrderStateService:
+) -> ExitOrderIteratorStateService:
     """Returns minimal initialized ValidatorsExit service instance"""
-    service = object.__new__(ExitOrderStateService)
+    service = object.__new__(ExitOrderIteratorStateService)
     service.w3 = web3
     service.blockstamp = past_blockstamp
     return service
@@ -325,7 +325,7 @@ def test_get_total_predictable_validators_count(
 def test_count_operator_validators_stats(
     blockstamp, operator_validators, last_requested_to_exit_index, expected_result
 ):
-    result = ExitOrderStateService.count_operator_validators_stats(
+    result = ExitOrderIteratorStateService.count_operator_validators_stats(
         blockstamp,
         operator_validators,
         last_requested_to_exit_index,
@@ -352,7 +352,7 @@ def test_count_operator_delayed_validators(
     last_requested_to_exit_index,
     expected_result,
 ):
-    result = ExitOrderStateService.count_operator_delayed_validators(
+    result = ExitOrderIteratorStateService.count_operator_delayed_validators(
         operator_validators,
         recently_operator_requested_to_exit_index,
         last_requested_to_exit_index,
