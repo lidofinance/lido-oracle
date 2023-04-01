@@ -5,8 +5,9 @@ from typing import Optional, Tuple, Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError, Timeout
+from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
@@ -114,15 +115,20 @@ class HTTPProvider(ABC):
                     params=query_params,
                     timeout=HTTP_REQUEST_TIMEOUT,
                 )
-            except Timeout as error:
-                msg = f'Timeout error from {complete_endpoint}.'
-                logger.debug({'msg': msg})
+            except RequestsConnectionError as error:
+                logger.debug({'msg': str(error)})
                 t.labels(
                     endpoint=endpoint,
                     code=0,
                     domain=urlparse(host).netloc,
                 )
-                raise TimeoutError(msg) from error
+                raise error
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
 
             response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
 
@@ -135,12 +141,6 @@ class HTTPProvider(ABC):
             except JSONDecodeError as error:
                 logger.debug({'msg': response_fail_msg})
                 raise error
-            finally:
-                t.labels(
-                    endpoint=endpoint,
-                    code=response.status_code,
-                    domain=urlparse(host).netloc,
-                )
 
         if 'data' in json_response:
             data = json_response['data']

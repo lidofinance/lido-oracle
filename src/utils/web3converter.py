@@ -24,7 +24,9 @@ class Web3Converter:
         return SlotNumber(self.get_frame_first_slot(FrameNumber(frame + 1)) - 1)
 
     def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
-        return SlotNumber(frame * self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch)
+        return SlotNumber(
+            (self.frame_config.initial_epoch + frame * self.frame_config.epochs_per_frame) * self.chain_config.slots_per_epoch
+        )
 
     def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
         return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)

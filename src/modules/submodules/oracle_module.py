@@ -4,7 +4,8 @@ from abc import abstractmethod, ABC
 from dataclasses import asdict
 from enum import Enum
 
-from timeout_decorator import timeout
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
@@ -87,12 +88,12 @@ class BaseModule(ABC):
         except IncompatibleContractVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise exception
-        except TimeoutError as exception:
+        except DecoratorTimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
         except NoActiveProviderError as exception:
             logger.error({'msg': 'No active node available.', 'error': str(exception)})
-        except ConnectionError as error:
-            logger.error({'msg': error.args, 'error': str(error)})
+        except RequestsConnectionError as error:
+            logger.error({'msg': 'Connection error.', 'error': str(error)})
         except NotOkResponse as error:
             logger.error({'msg': 'Received non-ok response.', 'error': str(error)})
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
