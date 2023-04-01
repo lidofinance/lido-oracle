@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlparse
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
@@ -115,7 +115,7 @@ class HTTPProvider(ABC):
                     params=query_params,
                     timeout=HTTP_REQUEST_TIMEOUT,
                 )
-            except ConnectionError as error:
+            except RequestsConnectionError as error:
                 logger.debug({'msg': str(error)})
                 t.labels(
                     endpoint=endpoint,
@@ -123,12 +123,12 @@ class HTTPProvider(ABC):
                     domain=urlparse(host).netloc,
                 )
                 raise error
-            else:
-                t.labels(
-                    endpoint=endpoint,
-                    code=response.status_code,
-                    domain=urlparse(host).netloc,
-                )
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
 
             response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
 

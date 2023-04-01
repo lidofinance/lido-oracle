@@ -2,6 +2,9 @@ from unittest.mock import Mock
 from typing import Type
 
 import pytest
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from timeout_decorator import TimeoutError as DecoratorTimeoutError
+
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
@@ -92,9 +95,9 @@ def test_run_as_daemon(oracle):
 @pytest.mark.parametrize(
     "ex",
     [
-        TimeoutError,
+        DecoratorTimeoutError,
         NoActiveProviderError,
-        ConnectionError,
+        RequestsConnectionError,
         NotOkResponse,
         NoSlotsAvailable,
         SlotNotFinalized,
