@@ -54,7 +54,7 @@ def get_first_non_missed_slot(
     #    2nd tick - 20 slot is missed. Check next slot.
     #    3rd tick - 21 slot is missed. Check next slot.
     #    4th tick - 22 slot is missed. Check next slot.
-    #    5th tick - 23 slot is existed!
+    #    5th tick - 23 slot exists!
     #               Get `parent_root` of 23 slot and get its parent slot by this root
     #               In our case it is 18 slot because it's first non-missed slot before 23 slot.
     #
