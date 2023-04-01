@@ -13,7 +13,7 @@ Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collect
 
 * Constructs the transaction containing the `epochId`, `beaconBalance`, and `beaconValidators`.
 
-* If the daemon has `MEMBER_PRIV_KEY` in its environment (i.e. isn't running in dry-run mode), it signs and sends the transaction to the oracle contract (asking for user confirmation if running interactively).
+* If the daemon has `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` in its environment (i.e. isn't running in dry-run mode), it signs and sends the transaction to the oracle contract (asking for user confirmation if running interactively).
 
 * If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
 
@@ -38,6 +38,8 @@ The oracle receives its configuration via Environment variables. You need to pro
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
 export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
+# Or use MEMBER_PRIV_KEY_FILE as a path to file contained $ORACLE_PRIVATE_KEY_0X_PREFIXED
+# export MEMBER_PRIV_KEY_FILE=/app/priv_key
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
@@ -61,6 +63,7 @@ See **Other examples** below for transactable modes.
 * `STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT` - indent from `latest` block number to be used in computation of new state for stable swap. **Optional**. Default: `15`
 * `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
 * `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
+* `MEMBER_PRIV_KEY_FILE` - A path to a file with hex-encoded private key of Oracle Quorum Member address. **Optional**. If you specify both `MEMBER_PRIV_KEY` and `MEMBER_PRIV_KEY_FILE`, `MEMBER_PRIV_KEY_FILE` takes precedence over `MEMBER_PRIV_KEY`.
 * `FORCE_DO_NOT_USE_IN_PRODUCTION` - **Do not use in production!** The oracle makes the sanity checks on the collected data before reporting. Running in `DAEMON` mode, if data look suspicious, it skips sending TX. In enforced mode it gets reported even if it looks suspicious.
    It's unsafe and used for smoke testing purposes, NEVER use it in production!  **Optional**. Default: `0`
 * `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
@@ -84,6 +87,8 @@ This mode is intended for controlled start and allows to double-check the report
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
 export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
+# Or use MEMBER_PRIV_KEY_FILE as a path to file contained $ORACLE_PRIVATE_KEY_0X_PREFIXED
+# export MEMBER_PRIV_KEY_FILE=/app/priv_key
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
@@ -101,6 +106,8 @@ Runs in the background with 1-hour pauses between consecutive iterations. To be 
 export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
 export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
 export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
+# Or use MEMBER_PRIV_KEY_FILE as a path to file contained $ORACLE_PRIVATE_KEY_0X_PREFIXED
+# export MEMBER_PRIV_KEY_FILE=/app/priv_key
 export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
 export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
 export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022

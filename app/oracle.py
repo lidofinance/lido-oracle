@@ -93,9 +93,14 @@ pool_abi_path = os.path.join(ARTIFACTS_DIR, POOL_ARTIFACT_FILE)
 registry_abi_path = os.path.join(ARTIFACTS_DIR, REGISTRY_ARTIFACT_FILE)
 steth_curve_pool_abi_path = os.path.join(ARTIFACTS_DIR, STETH_CURVE_POOL_FILE)
 steth_price_oracle_abi_path = os.path.join(ARTIFACTS_DIR, STETH_PRICE_ORACLE_FILE)
-member_privkey = os.getenv('MEMBER_PRIV_KEY')
 SLEEP = int(os.getenv('SLEEP', DEFAULT_SLEEP))
 COUNTDOWN_SLEEP = int(os.getenv('COUNTDOWN_SLEEP', DEFAULT_COUNTDOWN_SLEEP))
+
+member_privkey = os.getenv("MEMBER_PRIV_KEY")
+member_privkey_file = os.getenv("MEMBER_PRIV_KEY_FILE")
+if member_privkey_file is not None:
+    with open(member_privkey_file) as f:
+        member_privkey = f.read().rstrip()
 
 run_as_daemon = int(os.getenv('DAEMON', 0))
 force = int(os.getenv('FORCE_DO_NOT_USE_IN_PRODUCTION', 0))
