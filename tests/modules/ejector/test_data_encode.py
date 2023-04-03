@@ -1,7 +1,6 @@
 import random
 import string
 from typing import Callable, Iterable
-from unittest.mock import Mock
 
 import pytest
 
@@ -11,6 +10,7 @@ from src.modules.ejector.data_encode import (
     VALIDATOR_INDEX_LENGTH,
     VALIDATOR_PUB_KEY_LENGTH,
     encode_data,
+    sort_validators_to_eject,
 )
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
@@ -18,6 +18,7 @@ from src.web3py.extensions.lido_validators import (
     StakingModuleId,
 )
 from tests.factory.no_registry import LidoValidatorFactory
+
 
 RECORD_LENGTH = sum(
     [
@@ -240,3 +241,45 @@ def _slice_bytes(data: bytes, *segs: int) -> Iterable[bytes]:
         yield data[offset : offset + seg]
         offset += seg
     assert offset == len(data), "Unexpected length of data"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("validators_to_eject", [
+    [*zip([(0, 1)]*10, LidoValidatorFactory.batch(10))],
+    [
+        [(1, 0), LidoValidatorFactory.build(index=13)],
+        [(0, 1), LidoValidatorFactory.build(index=12)],
+        [(1, 0), LidoValidatorFactory.build(index=11)],
+        [(1, 0), LidoValidatorFactory.build(index=10)],
+        [(1, 0), LidoValidatorFactory.build(index=1)],
+        [(1, 0), LidoValidatorFactory.build(index=2)],
+        [(0, 1), LidoValidatorFactory.build(index=3)],
+        [(1, 0), LidoValidatorFactory.build(index=4)],
+        [(1, 0), LidoValidatorFactory.build(index=5)],
+        [(2, 1), LidoValidatorFactory.build(index=6)],
+        [(2, 0), LidoValidatorFactory.build(index=7)],
+        [(0, 0), LidoValidatorFactory.build(index=8)],
+        [(0, 1), LidoValidatorFactory.build(index=9)],
+    ]
+])
+def test_validators_sorting_for_ejector_report(validators_to_eject):
+    validators = sort_validators_to_eject(validators_to_eject)
+
+    last_module_id = -1
+    last_no_id = -1
+    last_validator_index = -1
+    for global_index, validator in validators:
+
+        assert global_index[0] >= last_module_id
+        if global_index[0] > last_module_id:
+            last_module_id = global_index[0]
+            last_no_id = -1
+            last_validator_index = -1
+
+        assert global_index[1] >= last_no_id
+        if global_index[1] > last_no_id:
+            last_no_id = global_index[1]
+            last_validator_index = -1
+
+        assert int(validator.index) > last_validator_index
+        last_validator_index = int(validator.index)
