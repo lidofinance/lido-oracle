@@ -29,7 +29,7 @@ class TransactionUtils(Module):
         return None
 
     @staticmethod
-    def _check_transaction(transaction, params: Optional[TxParams]) -> bool:
+    def _check_transaction(transaction, params: TxParams) -> bool:
         """
         Returns:
         True - transaction succeed.
@@ -46,11 +46,11 @@ class TransactionUtils(Module):
         logger.info({"msg": "Transaction executed successfully.", "value": result})
         return True
 
-    def _get_transaction_params(self, transaction: ContractFunction, account: Optional[LocalAccount] = None):
+    def _get_transaction_params(self, transaction: ContractFunction, account: LocalAccount):
         # get pending block doesn't work on erigon node in specific cases
         latest_block: BlockData = self.w3.eth.get_block("latest")
 
-        params: Optional[TxParams] = {
+        params: TxParams = {
             "from": account.address,
             "maxFeePerGas": Wei(
                 latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
@@ -64,7 +64,8 @@ class TransactionUtils(Module):
 
         return params
 
-    def _estimate_gas(self, transaction: ContractFunction, account: LocalAccount) -> Optional[int]:
+    @staticmethod
+    def _estimate_gas(transaction: ContractFunction, account: LocalAccount) -> Optional[int]:
         """If transaction throws exception return None"""
         try:
             gas = transaction.estimate_gas({'from': account.address})
@@ -81,7 +82,7 @@ class TransactionUtils(Module):
         self,
         transaction: ContractFunction,
         params: Optional[TxParams],
-        account: Optional[LocalAccount] = None,
+        account: LocalAccount,
     ) -> Optional[TxReceipt]:
         tx = transaction.build_transaction(params)
         signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
