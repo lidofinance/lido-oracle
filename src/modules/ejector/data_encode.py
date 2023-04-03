@@ -48,8 +48,4 @@ def sort_validators_to_eject(
 
     validators = sorted(validators_to_eject, key=_nog_validator_key)
 
-    validators.sort(
-        key=lambda validator: (validator[0][0], validator[0][1], int(validator[1].index)),
-    )
-
     return validators
