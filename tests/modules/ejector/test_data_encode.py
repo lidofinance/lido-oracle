@@ -53,9 +53,9 @@ def validator_factory(pubkey_factory: Callable[[], str]) -> Callable:
 @pytest.mark.unit
 def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
     data = [
-        ((StakingModuleId(42), NodeOperatorId(3)), validator_factory(0)),
-        ((StakingModuleId(8), NodeOperatorId(17)), validator_factory(1)),
         ((StakingModuleId(0), NodeOperatorId(0)), validator_factory(2)),
+        ((StakingModuleId(8), NodeOperatorId(17)), validator_factory(1)),
+        ((StakingModuleId(42), NodeOperatorId(3)), validator_factory(0)),
         (
             (
                 StakingModuleId(_max_num_fits_bytes(MODULE_ID_LENGTH)),
