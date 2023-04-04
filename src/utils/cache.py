@@ -1,6 +1,7 @@
 import functools
+from weakref import WeakKeyDictionary
 
-global_cache = {}
+global_cache = WeakKeyDictionary()
 
 
 def global_lru_cache(*args, **kwargs):
