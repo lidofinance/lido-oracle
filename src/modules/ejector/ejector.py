@@ -24,7 +24,7 @@ from src.modules.ejector.typings import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.typings import Validator
-from src.services.exit_order import ExitOrderIterator
+from src.services.exit_order_iterator import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
