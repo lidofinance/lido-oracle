@@ -65,6 +65,7 @@ def test_get_validator_age(validator_activation_epoch, ref_epoch, expected_resul
     validator.validator.activation_epoch = validator_activation_epoch
     assert get_validator_age(validator, ref_epoch) == expected_result
 
+
 @pytest.mark.unit
 @pytest.mark.parametrize("activation_epoch, epoch, exit_epoch, expected", [
     (176720, 176720, 176722, True),

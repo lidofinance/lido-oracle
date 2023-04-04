@@ -132,7 +132,7 @@ class Web3Factory(ModelFactory[Any]):
         )
 
     @classmethod
-    def butch_with(cls, field_name: str, field_values: list[Any], **kwargs: Any) -> T:
+    def batch_with(cls, field_name: str, field_values: list[Any], **kwargs: Any) -> T:
         result = []
 
         for value in field_values:
