@@ -3,9 +3,11 @@ import pytest
 from src.providers.consensus.typings import ValidatorState
 from src.providers.keys.typings import LidoKey
 from src.services.exit_order_iterator import ExitOrderIterator
-from src.services.exit_order_iterator_state import NodeOperatorPredictableState
+from src.services.exit_order_iterator_state import NodeOperatorPredictableState, ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.configs import ChainConfigFactory
+from tests.factory.no_registry import LidoValidatorFactory
 
 
 @pytest.mark.unit
@@ -35,7 +37,7 @@ def test_predicates():
     ]
 
     validators_exit = object.__new__(ExitOrderIterator)
-    validators_exit.operator_network_penetration_threshold = 0.1
+    validators_exit.operator_network_penetration_threshold = 0.01
     validators_exit.staking_module_id = {
         '0x0': StakingModuleId(0),
         '0x1': StakingModuleId(1),
@@ -127,3 +129,77 @@ def test_decrease_node_operator_stats():
             validator_exit.lido_node_operator_stats[
                 (StakingModuleId(4), NodeOperatorId(2))] == expected_after_decrease_second
     )
+
+
+@pytest.fixture
+def mock_exit_order_iterator_state_service(monkeypatch):
+    class MockedExitOrderIteratorStateService(ExitOrderIteratorStateService):
+        pass
+
+    inner_ = lambda _: None
+    inner_.max_validator_exit_requests_per_report = 100
+    MockedExitOrderIteratorStateService.get_oracle_report_limits = lambda *_: inner_
+    MockedExitOrderIteratorStateService.get_operator_network_penetration_threshold = lambda *_: 0.05
+    MockedExitOrderIteratorStateService.get_operators_with_last_exited_validator_indexes = lambda *_: {}
+    MockedExitOrderIteratorStateService.get_exitable_lido_validators = lambda *_: []
+    MockedExitOrderIteratorStateService.prepare_lido_node_operator_stats = lambda *_: {}
+    MockedExitOrderIteratorStateService.get_total_predictable_validators_count = lambda *_: 0
+
+    monkeypatch.setattr(
+        'src.services.exit_order_iterator.ExitOrderIteratorStateService', MockedExitOrderIteratorStateService
+    )
+
+
+@pytest.mark.unit
+def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
+    iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
+    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
+
+    iterator.__iter__()
+
+    assert iterator.exitable_lido_validators == []
+    assert iterator.left_queue_count == 0
+    assert iterator.lido_node_operator_stats == {}
+    assert iterator.max_validators_to_exit == 100
+    assert iterator.operator_network_penetration_threshold == 0.05
+    assert iterator.staking_module_id == {}
+    assert iterator.total_predictable_validators_count == 0
+
+
+@pytest.mark.unit
+def test_exit_order_iterator_next(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
+    iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
+    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
+
+    iterator.__iter__()
+
+    iterator.left_queue_count = 101
+
+    with pytest.raises(StopIteration):
+        # left_queue_count > max_validators_to_exit
+        iterator.__next__()
+
+    iterator.left_queue_count = 0
+
+    with pytest.raises(StopIteration):
+        # no exitable validators
+        iterator.__next__()
+
+    validator = LidoValidatorFactory.build(index=0)
+    validator.validator.activation_epoch = 0
+    iterator.exitable_lido_validators = [validator]
+    iterator.lido_node_operator_stats = {
+        (0, 1): NodeOperatorPredictableState(1000, 7000, True, 10, 0),
+    }
+    iterator.total_predictable_validators_count = 100
+    ExitOrderIterator.operator_index_by_validator = lambda *_: (0, 1)
+
+    popped = iterator.__next__()
+
+    assert popped == ((0, 1), validator)
+    assert iterator.lido_node_operator_stats[(0, 1)] == NodeOperatorPredictableState(predictable_validators_total_age=-8195, predictable_validators_count=6999,
+                                     targeted_validators_limit_is_enabled=True, targeted_validators_limit_count=10,
+                                     delayed_validators_count=0)
+    assert iterator.total_predictable_validators_count == 99
