@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from functools import lru_cache
 from time import sleep
 
 from web3.types import Wei
@@ -27,7 +26,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
-from src.utils.cache import clear_object_lru_cache
+from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
@@ -59,11 +58,6 @@ class Accounting(BaseModule, ConsensusModule):
 
     def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle
-
-    def clear_cache(self):
-        clear_object_lru_cache(self)
-        clear_object_lru_cache(self.lido_validator_state_service)
-        clear_object_lru_cache(self.bunker_service)
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)

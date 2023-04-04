@@ -11,6 +11,7 @@ from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
+from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
@@ -58,7 +59,7 @@ class BaseModule(ABC):
 
         if blockstamp.slot_number > self._slot_threshold:
             if self.w3.lido_contracts.has_contract_address_changed():
-                self.clear_cache()
+                clear_global_cache()
                 self.refresh_contracts()
             result = self.run_cycle(blockstamp)
 
@@ -118,9 +119,4 @@ class BaseModule(ABC):
     @abstractmethod
     def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
-        raise NotImplementedError('Module should implement this method.')  # pragma: no cover
-
-    @abstractmethod
-    def clear_cache(self):
-        """Clear cache for module and all submodules"""
         raise NotImplementedError('Module should implement this method.')  # pragma: no cover
