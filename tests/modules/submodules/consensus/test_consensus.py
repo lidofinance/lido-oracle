@@ -17,6 +17,7 @@ def set_no_account(monkeypatch):
         monkeypatch.setattr(variables, "ACCOUNT", None)
         yield
 
+
 @pytest.fixture()
 def set_submit_account(monkeypatch):
     with monkeypatch.context():
@@ -35,6 +36,7 @@ def set_not_member_account(monkeypatch):
             _private_key='0x0',
         ))
         yield
+
 
 @pytest.fixture()
 def set_report_account(monkeypatch):
