@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class RewardsPredictionService:
+    """
+    Based on events predicts amount of eth that protocol will earn per epoch.
+
+    **Note** Withdraw amount шт Oracle report is limited, so prediction shows not actual Lido rewards, but medium
+    amount of ETH that were withdrawn in Oracle reports.
+    """
     def __init__(self, w3: Web3):
         self.w3 = w3
 

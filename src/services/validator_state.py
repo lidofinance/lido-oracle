@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class LidoValidatorStateService:
+    """Helper that calculates/aggregates Lido validator's states."""
     def __init__(self, w3: Web3):
         self.w3 = w3
         self.extra_data_service = ExtraDataService()
