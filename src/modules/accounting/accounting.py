@@ -78,7 +78,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
-        if self.is_extra_data_submitted(latest_blockstamp):
+        if not self.is_extra_data_submittable(latest_blockstamp):
             logger.info({'msg': 'Extra data was submitted.'})
             return
 
@@ -88,7 +88,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
         sleep(seconds_to_sleep)
 
-        if self.is_extra_data_submitted(latest_blockstamp):
+        if not self.is_extra_data_submittable(latest_blockstamp):
             logger.info({'msg': 'Extra data was submitted.'})
             return
 
@@ -117,13 +117,14 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
-    def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
+    def is_extra_data_submittable(self, blockstamp: BlockStamp) -> bool:
+        """Check if Oracle can submit extra data. Can only be submitted after second phase."""
         processing_state = self._get_processing_state(blockstamp)
-        return processing_state.extra_data_submitted
+        return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract can accept the report (in any phase)
-        is_reportable = not self.is_main_data_submitted(blockstamp) or not self.is_extra_data_submitted(blockstamp)
+        is_reportable = not self.is_main_data_submitted(blockstamp) or self.is_extra_data_submittable(blockstamp)
         logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
         return is_reportable
 
