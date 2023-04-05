@@ -269,15 +269,15 @@ class LidoValidatorStateService:
         logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
-        module_operator: dict[NodeOperatorGlobalIndex, set[int]] = {
+        global_indexes: dict[NodeOperatorGlobalIndex, set[int]] = {
             operator: set() for operator in operator_global_indexes
         }
 
         for event in events:
             operator_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
-            module_operator[operator_global_index].add(event['args']['validatorIndex'])
+            global_indexes[operator_global_index].add(event['args']['validatorIndex'])
 
-        return module_operator
+        return global_indexes
 
     @lru_cache(maxsize=1)
     def get_validator_delayed_timeout_in_slot(self, blockstamp: ReferenceBlockStamp) -> int:

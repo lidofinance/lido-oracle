@@ -4,8 +4,8 @@ import pytest
 
 from src.modules.submodules.typings import ChainConfig
 from src.providers.consensus.typings import ValidatorState, Validator, ValidatorStatus
-from src.services.exit_order import NodeOperatorPredictableState
-from src.services.exit_order_state import ExitOrderStateService
+from src.services.exit_order_iterator import NodeOperatorPredictableState
+from src.services.exit_order_iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -125,13 +125,36 @@ def mock_get_recently_requests_to_exit_indexes(exit_order_state):
 
 
 @pytest.fixture
+def mock_get_oracle_daemon_config_get(exit_order_state, contracts):
+
+    def _get_oracle_daemon_config_get(key):
+
+        def _inner_call(block_identifier):
+
+            responses = {
+                'NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP': 1000,
+            }
+
+            return responses[key]
+
+        func = lambda _: None
+        func.call = _inner_call
+
+        return func
+
+    exit_order_state.w3.lido_contracts.oracle_daemon_config.functions.get = Mock(
+        side_effect=_get_oracle_daemon_config_get
+    )
+
+
+@pytest.fixture
 def exit_order_state(
     web3,
     lido_validators,
     past_blockstamp,
-) -> ExitOrderStateService:
+) -> ExitOrderIteratorStateService:
     """Returns minimal initialized ValidatorsExit service instance"""
-    service = object.__new__(ExitOrderStateService)
+    service = object.__new__(ExitOrderIteratorStateService)
     service.w3 = web3
     service.blockstamp = past_blockstamp
     return service
@@ -325,7 +348,7 @@ def test_get_total_predictable_validators_count(
 def test_count_operator_validators_stats(
     blockstamp, operator_validators, last_requested_to_exit_index, expected_result
 ):
-    result = ExitOrderStateService.count_operator_validators_stats(
+    result = ExitOrderIteratorStateService.count_operator_validators_stats(
         blockstamp,
         operator_validators,
         last_requested_to_exit_index,
@@ -352,9 +375,28 @@ def test_count_operator_delayed_validators(
     last_requested_to_exit_index,
     expected_result,
 ):
-    result = ExitOrderStateService.count_operator_delayed_validators(
+    result = ExitOrderIteratorStateService.count_operator_delayed_validators(
         operator_validators,
         recently_operator_requested_to_exit_index,
         last_requested_to_exit_index,
     )
     assert result == expected_result
+
+
+@pytest.mark.unit
+def test_get_operator_network_penetration_threshold(exit_order_state, mock_get_oracle_daemon_config_get, past_blockstamp):
+    assert exit_order_state.get_operator_network_penetration_threshold(past_blockstamp) == 0.1
+
+
+@pytest.mark.unit
+def test_exit_order_iterator_state_service_init(
+    web3,
+    past_blockstamp,
+    lido_validators,
+    contracts
+):
+    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
+    ExitOrderIteratorStateService.get_operators_with_last_exited_validator_indexes = lambda _, __: {}
+    exit_order_iterator_state_service = ExitOrderIteratorStateService(web3, past_blockstamp)
+    assert exit_order_iterator_state_service is not None
