@@ -38,6 +38,7 @@ types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 # }}}
 hypothesis = "^6.68.2"
+black = "^23.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -54,6 +55,10 @@ addopts = "-s --pdbcls pudb.debugger:Debugger"
 
 [tool.coverage.run]
 branch = true
+
+[tool.pylint.format]
+max-line-length = "120"
+
 
 [tool.pylint."messages control"]
 disable = [
@@ -75,9 +80,6 @@ disable = [
     "line-too-long",
     "too-many-instance-attributes",
     "too-many-arguments",
-    "unused-argument",
-    "wrong-import-order",
-    "ungrouped-imports",
     "too-many-locals",
     "unspecified-encoding",
     "bare-except",
@@ -95,3 +97,7 @@ mypy_path = "stubs"
 [[tool.mypy.overrides]]
 module = "src.web3py.contract_tweak"
 ignore_errors = true  # skipped because of extensive copy-paste from the upstream
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true

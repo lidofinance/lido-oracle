@@ -132,13 +132,16 @@ poetry run pytest .
 ```
 
 ## Code quality
-Used both pylint and mypy for code quality checks.
+Used the following tools:
+- [black](https://github.com/psf/black)
+- [pylint](https://github.com/pylint-dev/pylint/)
+- [mypy](https://github.com/python/mypy/)
 See the [configuration](pyproject.toml) for details for each linter.
 
+Make sure that your code is formatted correctly and passes all checks:
 ```bash
-pylint src
-```
-```bash
+black src tests
+pylint src tests
 mypy src
 ```
 
