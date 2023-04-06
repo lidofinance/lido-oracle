@@ -71,19 +71,15 @@ class Accounting(BaseModule, ConsensusModule):
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
-        latest_blockstamp = self._get_latest_blockstamp()
-        if self.is_extra_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Extra data was submitted.'})
-            return
-
         chain_config = self.get_chain_config(blockstamp)
         slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
         seconds_to_sleep = slots_to_sleep * chain_config.seconds_per_slot
         logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
         sleep(seconds_to_sleep)
 
-        if self.is_extra_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Extra data was submitted.'})
+        latest_blockstamp = self._get_latest_blockstamp()
+        if not self.can_submit_extra_data(latest_blockstamp):
+            logger.info({'msg': 'Extra data can not be submitted.'})
             return
 
         self._submit_extra_data(blockstamp)
@@ -111,13 +107,14 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
-    def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
+    def can_submit_extra_data(self, blockstamp: BlockStamp) -> bool:
+        """Check if Oracle can submit extra data. Can only be submitted after second phase."""
         processing_state = self._get_processing_state(blockstamp)
-        return processing_state.extra_data_submitted
+        return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract can accept the report (in any phase)
-        is_reportable = not self.is_main_data_submitted(blockstamp) or not self.is_extra_data_submitted(blockstamp)
+        is_reportable = not self.is_main_data_submitted(blockstamp) or self.can_submit_extra_data(blockstamp)
         logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
         return is_reportable
 
@@ -126,7 +123,7 @@ class Accounting(BaseModule, ConsensusModule):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': 'Bunker mode is active'})
+        logger.warning({'msg': f'Bunker mode is active. {ALLOW_REPORTING_IN_BUNKER_MODE=}'})
         logger.warning({'msg': '!' * 50})
         return ALLOW_REPORTING_IN_BUNKER_MODE
 
