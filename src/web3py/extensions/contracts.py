@@ -1,6 +1,5 @@
 import json
 import logging
-from functools import lru_cache
 from time import sleep
 
 from web3 import Web3
@@ -12,6 +11,7 @@ from web3.types import Wei
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.typings import BlockStamp, SlotNumber
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger()
 

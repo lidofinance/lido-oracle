@@ -26,9 +26,7 @@ class TestIsBunkerMode:
         bunker: BunkerService,
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
-        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
-            return_value=None
-        )
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=None)
         bunker.get_cl_rebase_for_current_report = Mock()
         result = bunker.is_bunker_mode(
             ref_blockstamp,
@@ -52,9 +50,7 @@ class TestIsBunkerMode:
         ref_blockstamp: ReferenceBlockStamp,
         is_high_midterm_slashing_penalty: Mock,
     ) -> None:
-        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
-            return_value=ref_blockstamp
-        )
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
         bunker.get_cl_rebase_for_current_report = Mock(return_value=-1)
 
         result = bunker.is_bunker_mode(
@@ -82,9 +78,7 @@ class TestIsBunkerMode:
         is_high_midterm_slashing_penalty: Mock,
         is_abnormal_cl_rebase: Mock,
     ) -> None:
-        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
-            return_value=ref_blockstamp
-        )
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = True
         result = bunker.is_bunker_mode(
@@ -110,9 +104,7 @@ class TestIsBunkerMode:
         is_high_midterm_slashing_penalty: Mock,
         is_abnormal_cl_rebase: Mock,
     ) -> None:
-        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
-            return_value=ref_blockstamp
-        )
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = False
         is_abnormal_cl_rebase.return_value = True
@@ -140,9 +132,7 @@ class TestIsBunkerMode:
         is_high_midterm_slashing_penalty: Mock,
         is_abnormal_cl_rebase: Mock,
     ) -> None:
-        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(
-            return_value=ref_blockstamp
-        )
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = False
         is_abnormal_cl_rebase.return_value = False
@@ -170,9 +160,7 @@ class TestIsBunkerMode:
     def mock_validators(self, bunker: BunkerService) -> Sequence[LidoValidator]:
         validators = LidoValidatorFactory.batch(5)
         bunker.w3.cc.get_validators = Mock(return_value=validators)
-        bunker.w3.lido_validators.get_lido_validators = Mock(
-            return_value=validators[:2]
-        )
+        bunker.w3.lido_validators.get_lido_validators = Mock(return_value=validators[:2])
         return validators
 
     @pytest.fixture
@@ -180,9 +168,7 @@ class TestIsBunkerMode:
         bunker._get_total_supply = Mock(return_value=15 * 10**18)
 
     @pytest.fixture
-    def is_high_midterm_slashing_penalty(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> Iterable[Mock]:
+    def is_high_midterm_slashing_penalty(self, monkeypatch: pytest.MonkeyPatch) -> Iterable[Mock]:
         mock = Mock()
         with monkeypatch.context() as m:
             m.setattr(

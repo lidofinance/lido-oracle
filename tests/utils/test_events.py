@@ -8,27 +8,12 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 class ContractEvent:
     def get_logs(self, fromBlock, toBlock):
         events = [
-            {
-                'blockNumber': 10,
-                'args': {'timestamp': 10*10}
-            },
-            {
-                'blockNumber': 15,
-                'args': {'timestamp': 15 * 10}
-            },
+            {'blockNumber': 10, 'args': {'timestamp': 10 * 10}},
+            {'blockNumber': 15, 'args': {'timestamp': 15 * 10}},
             # 5 missed blocks
-            {
-                'blockNumber': 20,
-                'args': {'timestamp': 25 * 10}
-            },
-            {
-                'blockNumber': 25,
-                'args': {'timestamp': 30 * 10}
-            },
-            {
-                'blockNumber': 30,
-                'args': {'timestamp': 35 * 10}
-            },
+            {'blockNumber': 20, 'args': {'timestamp': 25 * 10}},
+            {'blockNumber': 25, 'args': {'timestamp': 30 * 10}},
+            {'blockNumber': 30, 'args': {'timestamp': 35 * 10}},
         ]
 
         return list(filter(lambda e: fromBlock < e['blockNumber'] < toBlock, events))

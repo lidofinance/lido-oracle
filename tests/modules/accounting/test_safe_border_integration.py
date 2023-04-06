@@ -23,17 +23,23 @@ def finalization_max_negative_rebase_epoch_shift():
 
 @pytest.fixture()
 def subject(
-        past_blockstamp,
-        web3,
-        contracts,
-        keys_api_client,
-        consensus_client,
-        lido_validators,
-        finalization_max_negative_rebase_epoch_shift
+    past_blockstamp,
+    web3,
+    contracts,
+    keys_api_client,
+    consensus_client,
+    lido_validators,
+    finalization_max_negative_rebase_epoch_shift,
 ):
-
-    with patch.object(SafeBorder, '_fetch_oracle_report_limits_list', return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32)), \
-         patch.object(SafeBorder, '_fetch_finalization_max_negative_rebase_epoch_shift', return_value=finalization_max_negative_rebase_epoch_shift):
+    with patch.object(
+        SafeBorder,
+        '_fetch_oracle_report_limits_list',
+        return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32),
+    ), patch.object(
+        SafeBorder,
+        '_fetch_finalization_max_negative_rebase_epoch_shift',
+        return_value=finalization_max_negative_rebase_epoch_shift,
+    ):
         safe_border = SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
     return safe_border
@@ -43,28 +49,26 @@ def subject(
 def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = False
 
-    assert subject.get_safe_border_epoch(is_bunker_mode) == past_blockstamp.ref_epoch - subject.finalization_default_shift
+    assert (
+        subject.get_safe_border_epoch(is_bunker_mode) == past_blockstamp.ref_epoch - subject.finalization_default_shift
+    )
 
 
 @pytest.mark.integration
 def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = True
 
-    subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(
-        return_value=past_blockstamp.ref_epoch
-    )
-    subject._get_earliest_slashed_epoch_among_incomplete_slashings = MagicMock(
-        return_value=None
-    )
+    subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(return_value=past_blockstamp.ref_epoch)
+    subject._get_earliest_slashed_epoch_among_incomplete_slashings = MagicMock(return_value=None)
 
-    assert subject.get_safe_border_epoch(is_bunker_mode) == past_blockstamp.ref_epoch - subject.finalization_default_shift
+    assert (
+        subject.get_safe_border_epoch(is_bunker_mode) == past_blockstamp.ref_epoch - subject.finalization_default_shift
+    )
 
 
 @pytest.mark.integration
 def test_bunker_mode_associated_slashing_predicted(
-    subject: SafeBorder,
-    past_blockstamp: ReferenceBlockStamp,
-    finalization_max_negative_rebase_epoch_shift: int
+    subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
     is_bunker_mode = True
     withdrawable_epoch = past_blockstamp.ref_epoch + 128
@@ -74,25 +78,24 @@ def test_bunker_mode_associated_slashing_predicted(
         return_value=past_blockstamp.ref_epoch - finalization_max_negative_rebase_epoch_shift - 1
     )
     subject.w3.lido_validators.get_lido_validators = MagicMock(
-        return_value=[LidoValidatorFactory.build(
-            validator=ValidatorStateFactory.build(
-                slashed=True,
-                withdrawable_epoch=withdrawable_epoch,
-                exit_epoch=exit_epoch
+        return_value=[
+            LidoValidatorFactory.build(
+                validator=ValidatorStateFactory.build(
+                    slashed=True, withdrawable_epoch=withdrawable_epoch, exit_epoch=exit_epoch
+                )
             )
-        )]
+        ]
     )
 
     assert subject.get_safe_border_epoch(is_bunker_mode) == (
-           subject.round_epoch_by_frame(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR) - subject.finalization_default_shift
+        subject.round_epoch_by_frame(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+        - subject.finalization_default_shift
     )
 
 
 @pytest.mark.integration
 def test_bunker_mode_associated_slashing_unpredicted(
-    subject: SafeBorder,
-    past_blockstamp: ReferenceBlockStamp,
-    finalization_max_negative_rebase_epoch_shift: int
+    subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
     is_bunker_mode = True
     withdrawable_epoch = past_blockstamp.ref_epoch + 128
@@ -113,12 +116,12 @@ def test_bunker_mode_associated_slashing_unpredicted(
                     slashed=True,
                     withdrawable_epoch=withdrawable_epoch,
                     exit_epoch=exit_epoch,
-                    activation_epoch=activation_epoch
+                    activation_epoch=activation_epoch,
                 )
             )
         ]
     )
 
     assert subject.get_safe_border_epoch(is_bunker_mode) == (
-       subject.round_epoch_by_frame(activation_epoch) - subject.finalization_default_shift
+        subject.round_epoch_by_frame(activation_epoch) - subject.finalization_default_shift
     )

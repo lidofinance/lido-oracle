@@ -20,6 +20,7 @@ from typing_extensions import is_typeddict, get_args
 
 class Web3Factory(ModelFactory[Any]):
     """Tweak the ModelFactory to add our web3 types."""
+
     __auto_register__ = True
     __model__ = BaseModel
 

@@ -13,11 +13,21 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 @pytest.fixture()
 def tr_hashes():
-    return ['7f8fcaef4faa91a78c14c3eac86542', '07839b77ec9b93c95747b8de05ba03', '9f8018bbabd97cd3f0d27007a8d11a',
-            '3472fd40eb87b8dd1069da56daaa17', '7c3a071c009b8eb39d07fb27c51fa1', '2335edcb12bf3e7a530f81d1bb46d7',
-            '6b02f3dcfc5ea65e7ade78c38d3a59', '2d558d71920bc6b8344acfcdd5b587', '2f7d722b4584d3a053258f5c985fd2',
-            '749390e4da86fae90b2bea60af3459', '184d9f0810ea02e20eef711f39a6eb', '3f319d0cef2d4150ff3c63d87262a6',
-            '4e23a53dc4e940317f3f54be2a5662']
+    return [
+        '7f8fcaef4faa91a78c14c3eac86542',
+        '07839b77ec9b93c95747b8de05ba03',
+        '9f8018bbabd97cd3f0d27007a8d11a',
+        '3472fd40eb87b8dd1069da56daaa17',
+        '7c3a071c009b8eb39d07fb27c51fa1',
+        '2335edcb12bf3e7a530f81d1bb46d7',
+        '6b02f3dcfc5ea65e7ade78c38d3a59',
+        '2d558d71920bc6b8344acfcdd5b587',
+        '2f7d722b4584d3a053258f5c985fd2',
+        '749390e4da86fae90b2bea60af3459',
+        '184d9f0810ea02e20eef711f39a6eb',
+        '3f319d0cef2d4150ff3c63d87262a6',
+        '4e23a53dc4e940317f3f54be2a5662',
+    ]
 
 
 @pytest.fixture()
@@ -29,7 +39,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441364,
                 'withdrawalsWithdrawn': Wei(500000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(500000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[1],
@@ -37,7 +47,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441376,
                 'withdrawalsWithdrawn': Wei(5000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(400000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[2],
@@ -45,7 +55,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441388,
                 'withdrawalsWithdrawn': Wei(7000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(700000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[3],
@@ -53,16 +63,15 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441400,
                 'withdrawalsWithdrawn': Wei(9000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(900000000000000000),
-            }
+            },
         },
         {
-
             'transactionHash': tr_hashes[4],
             'args': {
                 'reportTimestamp': 1675441424,
                 'withdrawalsWithdrawn': Wei(1000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(100000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[5],
@@ -70,7 +79,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441436,
                 'withdrawalsWithdrawn': Wei(11000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1100000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[6],
@@ -78,7 +87,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441448,
                 'withdrawalsWithdrawn': Wei(14000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1400000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[7],
@@ -86,7 +95,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441460,
                 'withdrawalsWithdrawn': Wei(15000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1500000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[8],
@@ -94,7 +103,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441472,
                 'withdrawalsWithdrawn': Wei(17000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(1700000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[9],
@@ -102,7 +111,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441484,
                 'withdrawalsWithdrawn': Wei(21000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(21000000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[10],
@@ -110,7 +119,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441496,
                 'withdrawalsWithdrawn': Wei(32000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(32000000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[11],
@@ -118,7 +127,7 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441508,
                 'withdrawalsWithdrawn': Wei(64000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(64000000000000000000),
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[12],
@@ -126,8 +135,8 @@ def eth_distributed_logs(tr_hashes):
                 'reportTimestamp': 1675441520,
                 'withdrawalsWithdrawn': Wei(132000000000000000000),
                 'executionLayerRewardsWithdrawn': Wei(132000000000000000000),
-            }
-        }
+            },
+        },
     ]
 
 
@@ -139,93 +148,92 @@ def token_rebased_logs(tr_hashes):
             'args': {
                 'reportTimestamp': 1675441364,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[1],
             'args': {
                 'reportTimestamp': 1675441376,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[2],
             'args': {
                 'reportTimestamp': 1675441388,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[3],
             'args': {
                 'reportTimestamp': 1675441400,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
-
             'transactionHash': tr_hashes[4],
             'args': {
                 'reportTimestamp': 1675441424,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[5],
             'args': {
                 'reportTimestamp': 1675441436,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[6],
             'args': {
                 'reportTimestamp': 1675441448,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[7],
             'args': {
                 'reportTimestamp': 1675441460,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[8],
             'args': {
                 'reportTimestamp': 1675441472,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[9],
             'args': {
                 'reportTimestamp': 1675441484,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[10],
             'args': {
                 'reportTimestamp': 1675441496,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[11],
             'args': {
                 'reportTimestamp': 1675441508,
                 'timeElapsed': 12,
-            }
+            },
         },
         {
             'transactionHash': tr_hashes[12],
             'args': {
                 'reportTimestamp': 1675441520,
                 'timeElapsed': 12,
-            }
-        }
+            },
+        },
     ]
 
 
@@ -427,7 +435,7 @@ def test_group_events_incosistent(events_1, events_2):
                 {"a": 2},
             ],
         ),
-    ]
+    ],
 )
 def test_group_events(events_1, events_2, expected):
     actual = RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)

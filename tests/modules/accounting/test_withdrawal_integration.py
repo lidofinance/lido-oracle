@@ -22,15 +22,7 @@ def past_blockstamp(web3, consensus_client):
 
 
 @pytest.fixture()
-def subject(
-        web3,
-        past_blockstamp,
-        chain_config,
-        frame_config,
-        contracts,
-        keys_api_client,
-        consensus_client
-):
+def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
@@ -38,18 +30,17 @@ def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)
 
-    expected_min_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
-        block_identifier=past_blockstamp.block_hash
+    expected_min_withdrawal_id = (
+        subject.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
+            block_identifier=past_blockstamp.block_hash
+        )
     )
     expected_max_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.functions.getLastRequestId().call(
         block_identifier=past_blockstamp.block_hash
     )
 
     results = subject.get_finalization_batches(
-        False,
-        SHARE_RATE_PRECISION_E27,
-        withdrawal_vault_balance,
-        el_rewards_vault_balance
+        False, SHARE_RATE_PRECISION_E27, withdrawal_vault_balance, el_rewards_vault_balance
     )
 
     for result in results:

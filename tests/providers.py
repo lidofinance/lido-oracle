@@ -20,8 +20,7 @@ BASE_FIXTURES_PATH = Path().absolute() / 'fixtures'
 class NoMockException(Exception):
     def __init__(self, *args: object) -> None:
         args = list(args)
-        args[0] += '\nPlease re-run tests with --update-responses flags. ' \
-                   '\nSee tests/README.md for details.'
+        args[0] += '\nPlease re-run tests with --update-responses flags. ' '\nSee tests/README.md for details.'
         super().__init__(*args)
 
 
@@ -85,7 +84,6 @@ class ResponseFromFile(JSONBaseProvider, FromFile):
 
 
 class UpdateResponsesProvider(MultiProvider, UpdateResponses):
-
     def __init__(self, mock_path: Path, host):
         MultiProvider.__init__(self, host)
         UpdateResponses.__init__(self)

@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from functools import lru_cache, reduce
+from functools import reduce
 from typing import Sequence, Iterable
 
 from eth_typing import HexStr
@@ -19,6 +19,7 @@ from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
+from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class LidoValidatorStateService:
+    """Helper that calculates/aggregates Lido validator's states."""
     def __init__(self, w3: Web3):
         self.w3 = w3
         self.extra_data_service = ExtraDataService()

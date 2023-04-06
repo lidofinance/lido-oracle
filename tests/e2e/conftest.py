@@ -15,12 +15,16 @@ def pytest_collection_modifyitems(items: list[Item]):
     if any(not item.get_closest_marker("e2e") for item in items):
         for item in items:
             if item.get_closest_marker("e2e"):
-                item.add_marker(pytest.mark.skip(reason="e2e tests are take a lot of time "
-                                                        "and skipped if any other tests are selected"))
+                item.add_marker(
+                    pytest.mark.skip(
+                        reason="e2e tests are take a lot of time " "and skipped if any other tests are selected"
+                    )
+                )
 
 
 def worker_process(queue, module_name, execution_client_uri):
     import src.variables
+
     src.variables.EXECUTION_CLIENT_URI = [execution_client_uri]
     qh = QueueHandler(queue)
     root = logging.getLogger()
