@@ -196,7 +196,7 @@ class ConsensusModule(ABC):
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
-        if self._check_contract_versions(latest_blockstamp):
+        if not self._check_contract_versions(latest_blockstamp):
             logger.info({
                 'msg': 'Oracle\'s version is higher than contract and/or consensus version. '
                        'Skipping report. Waiting for Contracts to be updated.',

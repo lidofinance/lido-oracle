@@ -116,8 +116,6 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 
 
 # ------ Get block for report tests ----------
-
-
 @pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
