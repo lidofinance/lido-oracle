@@ -90,7 +90,6 @@ def test_get_finalization_data(accounting_module, post_total_pooled_ether, post_
         assert share_rate <= 10**27
 
 
-
 @pytest.mark.unit
 def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
     accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
