@@ -49,13 +49,17 @@ class TransactionUtils(Module):
     def _get_transaction_params(self, transaction: ContractFunction, account: LocalAccount):
         # get pending block doesn't work on erigon node in specific cases
         latest_block: BlockData = self.w3.eth.get_block("latest")
+        max_priority_fee = max(
+            self.w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
+            variables.MIN_PRIORITY_FEE
+        )
 
         params: TxParams = {
             "from": account.address,
             "maxFeePerGas": Wei(
-                latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+                latest_block["baseFeePerGas"] * 2 + max_priority_fee
             ),
-            "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
+            "maxPriorityFeePerGas": max_priority_fee,
             "nonce": self.w3.eth.get_transaction_count(account.address),
         }
 

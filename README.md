@@ -79,6 +79,8 @@ docker build -t lidofinance/oracle .
 | `HTTP_REQUEST_RETRY_COUNT`                   | Total number of retries to fetch data from endpoint                                                                                                                      | False    | `5`                     |
 | `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS` | The delay http provider sleeps if API is stuck                                                                                                                           | False    | `12`                    |
 | `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
+| `PRIORITY_FEE_PERCENTILE`                    | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                     |
+| `MIN_PRIORITY_FEE`                           | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
 
 ## Monitoring
 TBD
