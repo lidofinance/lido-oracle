@@ -196,7 +196,12 @@ class ConsensusModule(ABC):
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
-        self._check_contract_versions(latest_blockstamp)
+        if self._check_contract_versions(latest_blockstamp):
+            logger.info({
+                'msg': 'Oracle\'s version is higher than contract and/or consensus version. '
+                       'Skipping report. Waiting for Contracts to be updated.',
+            })
+            return None
 
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
@@ -229,16 +234,18 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
         return bs
 
-    def _check_contract_versions(self, blockstamp: BlockStamp):
+    def _check_contract_versions(self, blockstamp: BlockStamp) -> bool:
         contract_version = self.report_contract.functions.getContractVersion().call(block_identifier=blockstamp.block_hash)
         consensus_version = self.report_contract.functions.getConsensusVersion().call(block_identifier=blockstamp.block_hash)
 
-        if contract_version != self.CONTRACT_VERSION or consensus_version != self.CONSENSUS_VERSION:
+        if contract_version > self.CONTRACT_VERSION or consensus_version > self.CONSENSUS_VERSION:
             raise IncompatibleContractVersion(
                 f'Incompatible Oracle version. '
                 f'Expected contract version {contract_version} got {self.CONTRACT_VERSION}. '
                 f'Expected consensus version {consensus_version} got {self.CONSENSUS_VERSION}.'
             )
+
+        return contract_version == self.CONTRACT_VERSION and consensus_version == self.CONSENSUS_VERSION
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
