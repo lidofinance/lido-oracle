@@ -1,4 +1,3 @@
-from functools import lru_cache
 from http import HTTPStatus
 from typing import Literal, Optional, Union
 
@@ -16,6 +15,7 @@ from src.providers.consensus.typings import (
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.typings import BlockRoot, BlockStamp, SlotNumber
 from src.utils.dataclass import list_of_dataclasses
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 

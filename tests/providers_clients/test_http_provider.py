@@ -42,7 +42,6 @@ def test_first_fallback_bad():
 
 
 def test_force_raise():
-
     class CustomError(Exception):
         pass
 

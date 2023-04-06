@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from functools import lru_cache
 from time import sleep
 
 from web3.types import Wei
@@ -27,7 +26,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
-from src.utils.cache import clear_object_lru_cache
+from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
@@ -60,11 +59,6 @@ class Accounting(BaseModule, ConsensusModule):
     def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle
 
-    def clear_cache(self):
-        clear_object_lru_cache(self)
-        clear_object_lru_cache(self.lido_validator_state_service)
-        clear_object_lru_cache(self.bunker_service)
-
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
@@ -77,19 +71,15 @@ class Accounting(BaseModule, ConsensusModule):
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
-        latest_blockstamp = self._get_latest_blockstamp()
-        if self.is_extra_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Extra data was submitted.'})
-            return
-
         chain_config = self.get_chain_config(blockstamp)
         slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
         seconds_to_sleep = slots_to_sleep * chain_config.seconds_per_slot
         logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
         sleep(seconds_to_sleep)
 
-        if self.is_extra_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Extra data was submitted.'})
+        latest_blockstamp = self._get_latest_blockstamp()
+        if not self.can_submit_extra_data(latest_blockstamp):
+            logger.info({'msg': 'Extra data can not be submitted.'})
             return
 
         self._submit_extra_data(blockstamp)
@@ -114,16 +104,17 @@ class Accounting(BaseModule, ConsensusModule):
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract got report data (second phase)
         processing_state = self._get_processing_state(blockstamp)
-        logger.info({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
+        logger.debug({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
-    def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
+    def can_submit_extra_data(self, blockstamp: BlockStamp) -> bool:
+        """Check if Oracle can submit extra data. Can only be submitted after second phase."""
         processing_state = self._get_processing_state(blockstamp)
-        return processing_state.extra_data_submitted
+        return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract can accept the report (in any phase)
-        is_reportable = not self.is_main_data_submitted(blockstamp) or not self.is_extra_data_submitted(blockstamp)
+        is_reportable = not self.is_main_data_submitted(blockstamp) or self.can_submit_extra_data(blockstamp)
         logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
         return is_reportable
 
@@ -132,7 +123,7 @@ class Accounting(BaseModule, ConsensusModule):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': 'Bunker mode is active'})
+        logger.warning({'msg': f'Bunker mode is active. {ALLOW_REPORTING_IN_BUNKER_MODE=}'})
         logger.warning({'msg': '!' * 50})
         return ALLOW_REPORTING_IN_BUNKER_MODE
 

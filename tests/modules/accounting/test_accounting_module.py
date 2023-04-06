@@ -57,10 +57,10 @@ def test_get_consensus_lido_state(accounting_module, lido_validators):
 @pytest.mark.parametrize(
     ("post_total_pooled_ether", "post_total_shares", "expected_share_rate"),
     [
-        (15 * 10 ** 18, 15 * 10 ** 18, 1 * 10 ** 27),
-        (12 * 10 ** 18, 15 * 10 ** 18, 8 * 10 ** 26),
-        (18 * 10 ** 18, 14 * 10 ** 18, 1285714285714285714285714285),
-    ]
+        (15 * 10**18, 15 * 10**18, 1 * 10**27),
+        (12 * 10**18, 15 * 10**18, 8 * 10**26),
+        (18 * 10**18, 14 * 10**18, 1285714285714285714285714285),
+    ],
 )
 def test_get_finalization_data(accounting_module, post_total_pooled_ether, post_total_shares, expected_share_rate):
     lido_rebase = LidoReportRebaseFactory.build(
@@ -76,23 +76,27 @@ def test_get_finalization_data(accounting_module, post_total_pooled_ether, post_
 
     bs = ReferenceBlockStampFactory.build()
 
-    with patch.object(Withdrawal, '__init__', return_value=None), \
-         patch.object(Withdrawal, 'get_finalization_batches', return_value=[]):
+    with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
+        Withdrawal, 'get_finalization_batches', return_value=[]
+    ):
         share_rate, batches = accounting_module._get_finalization_data(bs)
 
     assert batches == []
     assert share_rate == expected_share_rate
 
     if post_total_pooled_ether > post_total_shares:
-        assert share_rate > 10 ** 27
+        assert share_rate > 10**27
     else:
-        assert share_rate <= 10 ** 27
+        assert share_rate <= 10**27
+
 
 
 @pytest.mark.unit
 def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
     accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
-    accounting_module.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
+    accounting_module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1)
+    )
 
     accounting_module.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=None)
 
@@ -105,7 +109,9 @@ def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
 @pytest.mark.unit
 def test_get_slots_elapsed_from_last_report(accounting_module, contracts):
     accounting_module.get_chain_config = Mock(return_value=ChainConfigFactory.build())
-    accounting_module.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
+    accounting_module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1)
+    )
 
     accounting_module.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=70)
 
@@ -116,7 +122,6 @@ def test_get_slots_elapsed_from_last_report(accounting_module, contracts):
 
 
 class TestAccountingSanityCheck:
-
     @pytest.fixture
     def bs(self):
         yield ReferenceBlockStampFactory.build()
