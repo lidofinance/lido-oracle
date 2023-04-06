@@ -24,15 +24,7 @@ def past_blockstamp(web3, consensus_client):
 
 
 @pytest.fixture()
-def subject(
-    web3,
-    past_blockstamp,
-    chain_config,
-    frame_config,
-    contracts,
-    keys_api_client,
-    consensus_client
-):
+def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
     # web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = Mock(return_value=0)
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
@@ -66,25 +58,11 @@ def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
 
 @pytest.mark.unit
 def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
-    state_initial = BatchState(
-        remaining_eth_budget=100,
-        finished=False,
-        batches=[1] + [0] * 35,
-        batches_length=1
-    )
-    state_final = BatchState(
-        remaining_eth_budget=100,
-        finished=True,
-        batches=[2] + [0] * 35,
-        batches_length=2
-    )
+    state_initial = BatchState(remaining_eth_budget=100, finished=False, batches=[1] + [0] * 35, batches_length=1)
+    state_final = BatchState(remaining_eth_budget=100, finished=True, batches=[2] + [0] * 35, batches_length=2)
     subject._fetch_finalization_batches = Mock(side_effect=[state_initial, state_final])
     subject._fetch_max_batches_length = Mock(return_value=36)
 
-    result = subject._calculate_finalization_batches(
-        1,
-        SHARE_RATE_PRECISION_E27,
-        past_blockstamp.block_timestamp
-    )
+    result = subject._calculate_finalization_batches(1, SHARE_RATE_PRECISION_E27, past_blockstamp.block_timestamp)
 
     assert result == [2]
