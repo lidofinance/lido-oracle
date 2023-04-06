@@ -29,7 +29,7 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Update responses from web3 providers. "
-             "New responses will be added to the files, unused responses will be removed.",
+        "New responses will be added to the files, unused responses will be removed.",
     )
 
 
@@ -114,25 +114,31 @@ def contracts(web3, provider):
     LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment
-        web3.attach_modules({
-            'lido_contracts': LidoContracts,
-        })
+        web3.attach_modules(
+            {
+                'lido_contracts': LidoContracts,
+            }
+        )
 
 
 # ---- Transaction Utils
 @pytest.fixture()
 def tx_utils(web3):
-    web3.attach_modules({
-        'transaction': TransactionUtils,
-    })
+    web3.attach_modules(
+        {
+            'transaction': TransactionUtils,
+        }
+    )
 
 
 # ---- Lido validators ----
 @pytest.fixture()
 def lido_validators(web3, consensus_client, keys_api_client):
-    web3.attach_modules({
-        'lido_validators': LidoValidatorsProvider,
-    })
+    web3.attach_modules(
+        {
+            'lido_validators': LidoValidatorsProvider,
+        }
+    )
 
 
 def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
@@ -146,5 +152,5 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         block_hash=slot_details.message.body['execution_payload']['block_hash'],
         block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
-        ref_epoch=EpochNumber(int(int(slot_details.message.slot)/12)),
+        ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )

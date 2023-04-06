@@ -88,9 +88,7 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
 
         assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
         assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
-        assert int.from_bytes(chunks[2]) == int(
-            _val.index
-        ), "Validator's index mismatch"
+        assert int.from_bytes(chunks[2]) == int(_val.index), "Validator's index mismatch"
         assert chunks[3] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
 
 
@@ -121,9 +119,7 @@ def test_encode_data_overflow(validator_factory: Callable[..., LidoValidator]) -
                 (
                     (
                         StakingModuleId(0),
-                        NodeOperatorId(
-                            _max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH) + 1
-                        ),
+                        NodeOperatorId(_max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH) + 1),
                     ),
                     validator_factory(0),
                 )
@@ -138,9 +134,7 @@ def test_encode_data_overflow(validator_factory: Callable[..., LidoValidator]) -
                         StakingModuleId(0),
                         NodeOperatorId(0),
                     ),
-                    validator_factory(
-                        index=_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH) + 1
-                    ),
+                    validator_factory(index=_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH) + 1),
                 )
             ]
         )
@@ -244,24 +238,27 @@ def _slice_bytes(data: bytes, *segs: int) -> Iterable[bytes]:
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("validators_to_eject", [
-    [*zip([(0, 1)]*10, LidoValidatorFactory.batch(10))],
+@pytest.mark.parametrize(
+    "validators_to_eject",
     [
-        [(1, 0), LidoValidatorFactory.build(index=13)],
-        [(0, 1), LidoValidatorFactory.build(index=12)],
-        [(1, 0), LidoValidatorFactory.build(index=11)],
-        [(1, 0), LidoValidatorFactory.build(index=10)],
-        [(1, 0), LidoValidatorFactory.build(index=1)],
-        [(1, 0), LidoValidatorFactory.build(index=2)],
-        [(0, 1), LidoValidatorFactory.build(index=3)],
-        [(1, 0), LidoValidatorFactory.build(index=4)],
-        [(1, 0), LidoValidatorFactory.build(index=5)],
-        [(2, 1), LidoValidatorFactory.build(index=6)],
-        [(2, 0), LidoValidatorFactory.build(index=7)],
-        [(0, 0), LidoValidatorFactory.build(index=8)],
-        [(0, 1), LidoValidatorFactory.build(index=9)],
-    ]
-])
+        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10))],
+        [
+            [(1, 0), LidoValidatorFactory.build(index=13)],
+            [(0, 1), LidoValidatorFactory.build(index=12)],
+            [(1, 0), LidoValidatorFactory.build(index=11)],
+            [(1, 0), LidoValidatorFactory.build(index=10)],
+            [(1, 0), LidoValidatorFactory.build(index=1)],
+            [(1, 0), LidoValidatorFactory.build(index=2)],
+            [(0, 1), LidoValidatorFactory.build(index=3)],
+            [(1, 0), LidoValidatorFactory.build(index=4)],
+            [(1, 0), LidoValidatorFactory.build(index=5)],
+            [(2, 1), LidoValidatorFactory.build(index=6)],
+            [(2, 0), LidoValidatorFactory.build(index=7)],
+            [(0, 0), LidoValidatorFactory.build(index=8)],
+            [(0, 1), LidoValidatorFactory.build(index=9)],
+        ],
+    ],
+)
 def test_validators_sorting_for_ejector_report(validators_to_eject):
     validators = sort_validators_to_eject(validators_to_eject)
 
@@ -269,7 +266,6 @@ def test_validators_sorting_for_ejector_report(validators_to_eject):
     last_no_id = -1
     last_validator_index = -1
     for global_index, validator in validators:
-
         assert global_index[0] >= last_module_id
         if global_index[0] > last_module_id:
             last_module_id = global_index[0]
