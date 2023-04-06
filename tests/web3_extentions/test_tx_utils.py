@@ -67,3 +67,8 @@ def test_get_tx_params(web3, tx_utils, tx, account):
     assert 'maxFeePerGas' in params
     assert 'nonce' in params
     assert 'gas' not in params
+
+    web3.eth.fee_history = Mock(return_value={'reward': [[1*10**18]]})
+    params = web3.transaction._get_transaction_params(tx, account)
+
+    assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE

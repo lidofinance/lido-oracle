@@ -24,6 +24,7 @@ TX_GAS_ADDITION = int(os.getenv('TX_GAS_ADDITION', 100_000))
 
 # Transactions fee calculation variables
 MIN_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
+MAX_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 100_000_000_000))
 PRIORITY_FEE_PERCENTILE = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 # Default delay for default Oracle members. Member with submit data role should submit data first.

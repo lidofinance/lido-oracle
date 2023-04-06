@@ -81,6 +81,7 @@ docker build -t lidofinance/oracle .
 | `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
 | `PRIORITY_FEE_PERCENTILE`                    | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                     |
 | `MIN_PRIORITY_FEE`                           | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
+| `MAX_PRIORITY_FEE`                           | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
 
 ## Monitoring
 TBD
