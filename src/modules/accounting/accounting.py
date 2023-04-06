@@ -237,7 +237,7 @@ class Accounting(BaseModule, ConsensusModule):
         Simulate rebase excluding any execution rewards.
         This used to check worst scenarios in bunker service.
         """
-        return self.simulate_rebase_after_report(blockstamp, Wei(0))
+        return self.simulate_rebase_after_report(blockstamp, el_rewards=Wei(0))
 
     def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
