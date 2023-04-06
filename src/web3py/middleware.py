@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from requests import HTTPError, Response
 from web3.types import RPCEndpoint, RPCResponse
+from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from web3 import Web3
@@ -68,6 +69,15 @@ def metrics_collector(
                     domain=domain,
                 )
                 raise ex
+            except NoActiveProviderError:
+                t.labels(
+                    endpoint=method,
+                    call_method=call_method,
+                    call_to=call_to,
+                    code=None,
+                    domain=domain,
+                )
+                raise
 
             # https://www.jsonrpc.org/specification#error_object
             error = response.get("error")
