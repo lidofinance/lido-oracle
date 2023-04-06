@@ -232,7 +232,7 @@ def mock_configs(consensus):
 def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account, mock_configs):
     consensus._get_consensus_contract_members = Mock(return_value=([variables.ACCOUNT.address], None))
     delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
-    assert delay == 6
+    assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS
     assert "Calculate slots delay." in caplog.messages[-1]
 
 
@@ -240,5 +240,5 @@ def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_consensus_contract_members = Mock(return_value=[[variables.ACCOUNT.address, '0x1', '0x2'], None])
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
-    assert delay == 18
+    assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS * 3
     assert "Calculate slots delay." in caplog.messages[-1]
