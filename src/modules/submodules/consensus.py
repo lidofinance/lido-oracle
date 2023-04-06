@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from functools import lru_cache
 from time import sleep
 from typing import Optional
 
@@ -24,6 +23,7 @@ from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.utils.slot import get_reference_blockstamp
+from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)

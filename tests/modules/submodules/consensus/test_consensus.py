@@ -3,7 +3,9 @@ import pytest
 
 from src import variables
 from src.modules.submodules.consensus import (
-    MemberInfo, ZERO_HASH, IsNotMemberException,
+    MemberInfo,
+    ZERO_HASH,
+    IsNotMemberException,
 )
 from src.typings import BlockStamp
 from tests.conftest import get_blockstamp_by_state
@@ -21,30 +23,42 @@ def set_no_account(monkeypatch):
 @pytest.fixture()
 def set_submit_account(monkeypatch):
     with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
-            _private_key='0x0',
-        ))
+        monkeypatch.setattr(
+            variables,
+            "ACCOUNT",
+            Account(
+                address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
+                _private_key='0x0',
+            ),
+        )
         yield
 
 
 @pytest.fixture()
 def set_not_member_account(monkeypatch):
     with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
-            _private_key='0x0',
-        ))
+        monkeypatch.setattr(
+            variables,
+            "ACCOUNT",
+            Account(
+                address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
+                _private_key='0x0',
+            ),
+        )
         yield
 
 
 @pytest.fixture()
 def set_report_account(monkeypatch):
     with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", Account(
-            address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
-            _private_key='0x0',
-        ))
+        monkeypatch.setattr(
+            variables,
+            "ACCOUNT",
+            Account(
+                address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
+                _private_key='0x0',
+            ),
+        )
         yield
 
 
@@ -102,6 +116,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 
 
 # ------ Get block for report tests ----------
+
 
 @pytest.mark.unit
 @pytest.mark.possible_integration

@@ -36,13 +36,7 @@ def test_get_with_blockstamp_retries_exhausted(keys_api_client, monkeypatch):
     keys_api_client._get = Mock(
         return_value=(
             None,
-            {
-                "meta": {
-                    "elBlockSnapshot": {
-                        "blockNumber": empty_blockstamp.block_number - 1
-                    }
-                }
-            },
+            {"meta": {"elBlockSnapshot": {"blockNumber": empty_blockstamp.block_number - 1}}},
         )
     )
 

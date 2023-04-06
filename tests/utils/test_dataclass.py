@@ -47,7 +47,7 @@ def test_dataclasses_utils():
                 'wheels': [Wheel(size=2), Wheel(size=4)],
                 'wheels_immutable': (Wheel(size=2), Wheel(size=4)),
                 'state': State(condition='good'),
-            }
+            },
         ]
 
     all_cars = get_cars()
@@ -69,12 +69,14 @@ def test_list_of_dataclasses_with_wrong_type():
     @list_of_dataclasses(Car)
     def get_cars_with_already_as_cars() -> list[Car]:
         return [
-            Car(**{
-                'wheel_count': 4,
-                'wheels': [{'size': 2}, {'size': 4}],
-                'wheels_immutable': ({'size': 2}, {'size': 4}),
-                'state': {'condition': 'good'},
-            })
+            Car(
+                **{
+                    'wheel_count': 4,
+                    'wheels': [{'size': 2}, {'size': 4}],
+                    'wheels_immutable': ({'size': 2}, {'size': 4}),
+                    'state': {'condition': 'good'},
+                }
+            )
         ]
 
     with pytest.raises(DecodeToDataclassException):
@@ -91,12 +93,14 @@ def test_list_of_dataclasses_with_mixed_types():
                 'wheels_immutable': ({'size': 1},),
                 'state': {'condition': 'bad'},
             },
-            Car(**{
-                'wheel_count': 4,
-                'wheels': [{'size': 2}, {'size': 4}],
-                'wheels_immutable': ({'size': 2}, {'size': 4}),
-                'state': {'condition': 'good'},
-            })
+            Car(
+                **{
+                    'wheel_count': 4,
+                    'wheels': [{'size': 2}, {'size': 4}],
+                    'wheels_immutable': ({'size': 2}, {'size': 4}),
+                    'state': {'condition': 'good'},
+                }
+            ),
         ]
 
     with pytest.raises(TypeError):
@@ -136,7 +140,8 @@ class Hooman(Nested, FromResponse):
 
 
 def test_dataclass_nested_with_extra_fields():
-    hooman_response = dict(favourite_pet={"name": "Bob", "age": 5, "extra": "field"},
-                           pets=[{"name": "Bob", "age": 5, "extra": "field"}])
+    hooman_response = dict(
+        favourite_pet={"name": "Bob", "age": 5, "extra": "field"}, pets=[{"name": "Bob", "age": 5, "extra": "field"}]
+    )
     hooman = Hooman.from_response(**hooman_response)
     assert hooman == Hooman(favourite_pet=Pet(name="Bob", age=5), pets=[Pet(name="Bob", age=5)])

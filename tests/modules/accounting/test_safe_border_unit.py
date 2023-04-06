@@ -8,10 +8,10 @@ from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
-FAR_FUTURE_EPOCH = 2 ** 64 - 1
-MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2 ** 8
-EPOCHS_PER_SLASHINGS_VECTOR = 2 ** 13
-SLOTS_PER_EPOCH = 2 ** 5
+FAR_FUTURE_EPOCH = 2**64 - 1
+MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
+EPOCHS_PER_SLASHINGS_VECTOR = 2**13
+SLOTS_PER_EPOCH = 2**5
 SLOT_TIME = 12
 
 
@@ -37,14 +37,7 @@ def past_blockstamp():
 
 @pytest.fixture()
 def subject(
-    chain_config,
-    frame_config,
-    past_blockstamp,
-    web3,
-    contracts,
-    keys_api_client,
-    consensus_client,
-    lido_validators
+    chain_config, frame_config, past_blockstamp, web3, contracts, keys_api_client, consensus_client, lido_validators
 ):
     return SafeBorder(web3, past_blockstamp, chain_config, frame_config)
 
@@ -111,8 +104,10 @@ def test_get_associated_slashings_border_epoch(subject, past_blockstamp):
 
     test_epoch = ref_epoch - 100
     subject._get_earliest_slashed_epoch_among_incomplete_slashings = Mock(return_value=test_epoch)
-    assert subject._get_associated_slashings_border_epoch() == subject.round_epoch_by_frame(
-        test_epoch) - subject.finalization_default_shift
+    assert (
+        subject._get_associated_slashings_border_epoch()
+        == subject.round_epoch_by_frame(test_epoch) - subject.finalization_default_shift
+    )
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(subject, past_blockstamp):
@@ -122,52 +117,51 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(sub
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(subject, past_blockstamp):
-    subject.w3.lido_validators.get_lido_validators = Mock(return_value=[
-        create_validator_stub(100, 105),
-        create_validator_stub(102, 107),
-        create_validator_stub(103, 108),
-    ])
+    subject.w3.lido_validators.get_lido_validators = Mock(
+        return_value=[
+            create_validator_stub(100, 105),
+            create_validator_stub(102, 107),
+            create_validator_stub(103, 108),
+        ]
+    )
 
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(subject, past_blockstamp,
-                                                                                       lido_validators):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(
+    subject, past_blockstamp, lido_validators
+):
     withdrawable_epoch = past_blockstamp.ref_epoch - 10
-    validators = [
-        create_validator_stub(100, withdrawable_epoch, True)
-    ]
+    validators = [create_validator_stub(100, withdrawable_epoch, True)]
     subject.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(subject, past_blockstamp, lido_validators):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(
+    subject, past_blockstamp, lido_validators
+):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(
-            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-            non_withdrawable_epoch,
-            True
+            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, non_withdrawable_epoch, True
         )
     ]
     subject.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
     subject._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
-    
+
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(subject, past_blockstamp, lido_validators):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
+    subject, past_blockstamp, lido_validators
+):
     validators = [
         create_validator_stub(
-            past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-            past_blockstamp.ref_epoch - 1,
-            True
+            past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, past_blockstamp.ref_epoch - 1, True
         ),
         create_validator_stub(
-            past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-            past_blockstamp.ref_epoch - 2,
-            True
+            past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, past_blockstamp.ref_epoch - 2, True
         ),
     ]
     subject.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
@@ -179,20 +173,16 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(subject
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(
-            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 1,
-            non_withdrawable_epoch,
-            True
+            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 1, non_withdrawable_epoch, True
         ),
         create_validator_stub(
-            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 2,
-            non_withdrawable_epoch,
-            True
+            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 2, non_withdrawable_epoch, True
         ),
     ]
     subject.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
     assert subject._get_earliest_slashed_epoch_among_incomplete_slashings() == (
-            non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
+        non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
     )
 
 
@@ -204,14 +194,10 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(
-            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-            non_withdrawable_epoch + 1,
-            True
+            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, non_withdrawable_epoch + 1, True
         ),
         create_validator_stub(
-            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-            non_withdrawable_epoch,
-            True
+            non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, non_withdrawable_epoch, True
         ),
     ]
     subject.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
@@ -250,7 +236,8 @@ def test_get_last_finalized_withdrawal_request_slot_no_requests(subject):
 
     assert subject._get_last_finalized_withdrawal_request_slot() == 0
 
-def create_validator_stub(exit_epoch, withdrawable_epoch, slashed = False):
+
+def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):
     return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
 
 
@@ -263,7 +250,7 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
         activation_epoch=None,
         slashed=slashed,
         exit_epoch=exit_epoch,
-        withdrawable_epoch=withdrawable_epoch
+        withdrawable_epoch=withdrawable_epoch,
     )
 
 

@@ -48,38 +48,31 @@ def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=None)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ), "execute_module should wait for the next finalized epoch"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is ModuleExecuteDelay.NEXT_SLOT
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
     ejector.process_report.assert_called_once_with(blockstamp)
 
 
 @pytest.mark.unit
-def test_ejector_execute_module_on_pause(
-    ejector: Ejector, blockstamp: BlockStamp
-) -> None:
+def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector._is_paused = Mock(return_value=True)
     assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp)
-        is ModuleExecuteDelay.NEXT_SLOT
+        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
 
 
 @pytest.mark.unit
-def test_ejector_build_report(
-    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
-) -> None:
+def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
     result = ejector.build_report(ref_blockstamp)
     _, ref_slot, _, _, data = result
@@ -111,16 +104,12 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(
-            return_value=100
-        )
+        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=100)
 
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
         ejector._get_total_el_balance = Mock(return_value=50)
-        ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
-            return_value=[]
-        )
+        ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(return_value=[])
 
         with monkeypatch.context() as m:
             m.setattr(
@@ -141,15 +130,11 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(
-            return_value=200
-        )
+        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=200)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
         ejector._get_total_el_balance = Mock(return_value=100)
-        ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(
-            return_value=[]
-        )
+        ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(return_value=[])
 
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
@@ -193,18 +178,14 @@ def test_compute_activation_exit_epoch(
 @pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector._get_processing_state = Mock(return_value=Mock(data_submitted=True))
-    assert (
-        ejector.is_main_data_submitted(blockstamp) is True
-    ), "Unexpected is_main_data_submitted result"
+    assert ejector.is_main_data_submitted(blockstamp) is True, "Unexpected is_main_data_submitted result"
     ejector._get_processing_state.assert_called_once_with(blockstamp)
 
 
 @pytest.mark.unit
 def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.is_main_data_submitted = Mock(return_value=False)
-    assert (
-        ejector.is_contract_reportable(blockstamp) is True
-    ), "Unexpected is_contract_reportable result"
+    assert ejector.is_contract_reportable(blockstamp) is True, "Unexpected is_contract_reportable result"
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
 
 
@@ -342,14 +323,10 @@ class TestChurnLimit:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
-    def test_get_churn_limit_no_validators(
-        self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
-    ) -> None:
+    def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
-        assert (
-            result == ejector_module.MIN_PER_EPOCH_CHURN_LIMIT
-        ), "Unexpected churn limit"
+        assert result == ejector_module.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
@@ -389,9 +366,7 @@ class TestChurnLimit:
 @pytest.mark.unit
 def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector._get_processing_state(blockstamp)
-    assert isinstance(
-        result, EjectorProcessingState
-    ), "Unexpected processing state response"
+    assert isinstance(result, EjectorProcessingState), "Unexpected processing state response"
 
 
 @pytest.mark.unit

@@ -63,7 +63,8 @@ def test_predicates():
     }
 
     exitable_validators_random_sort.sort(
-        key=lambda validator: ExitOrderIterator._predicates(validators_exit, validator))
+        key=lambda validator: ExitOrderIterator._predicates(validators_exit, validator)
+    )
     exitable_validators_indexes = [v.index for v in exitable_validators_random_sort]
 
     expected_queue_sort_indexes = [47, 90, 50, 76, 81, 48, 49, 52, 10, 1121, 1122]
@@ -117,8 +118,8 @@ def test_decrease_node_operator_stats():
     assert module_operator == (StakingModuleId(1), NodeOperatorId(2))
     assert validator_exit.total_predictable_validators_count == 499999
     assert (
-            validator_exit.lido_node_operator_stats[
-                (StakingModuleId(1), NodeOperatorId(2))] == expected_after_decrease_first
+        validator_exit.lido_node_operator_stats[(StakingModuleId(1), NodeOperatorId(2))]
+        == expected_after_decrease_first
     )
 
     module_operator = validator_exit._decrease_node_operator_stats(exitable_validators[1])
@@ -126,8 +127,8 @@ def test_decrease_node_operator_stats():
     assert module_operator == (StakingModuleId(4), NodeOperatorId(2))
     assert validator_exit.total_predictable_validators_count == 499998
     assert (
-            validator_exit.lido_node_operator_stats[
-                (StakingModuleId(4), NodeOperatorId(2))] == expected_after_decrease_second
+        validator_exit.lido_node_operator_stats[(StakingModuleId(4), NodeOperatorId(2))]
+        == expected_after_decrease_second
     )
 
 
@@ -199,7 +200,11 @@ def test_exit_order_iterator_next(web3, lido_validators, contracts, mock_exit_or
     popped = iterator.__next__()
 
     assert popped == ((0, 1), validator)
-    assert iterator.lido_node_operator_stats[(0, 1)] == NodeOperatorPredictableState(predictable_validators_total_age=-8195, predictable_validators_count=6999,
-                                     targeted_validators_limit_is_enabled=True, targeted_validators_limit_count=10,
-                                     delayed_validators_count=0)
+    assert iterator.lido_node_operator_stats[(0, 1)] == NodeOperatorPredictableState(
+        predictable_validators_total_age=-8195,
+        predictable_validators_count=6999,
+        targeted_validators_limit_is_enabled=True,
+        targeted_validators_limit_count=10,
+        delayed_validators_count=0,
+    )
     assert iterator.total_predictable_validators_count == 99
