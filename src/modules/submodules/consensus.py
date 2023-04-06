@@ -245,7 +245,16 @@ class ConsensusModule(ABC):
                 f'Expected consensus version {consensus_version} got {self.CONSENSUS_VERSION}.'
             )
 
-        return contract_version == self.CONTRACT_VERSION and consensus_version == self.CONSENSUS_VERSION
+        compatibility = contract_version == self.CONTRACT_VERSION and consensus_version == self.CONSENSUS_VERSION
+
+        if not compatibility:
+            logger.warning({
+                'msg': f'Oracle\'s version higher than contract supports. '
+                       f'Expected contract version {contract_version} got {self.CONTRACT_VERSION}. '
+                       f'Expected consensus version {consensus_version} got {self.CONSENSUS_VERSION}.'
+            })
+
+        return compatibility
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
