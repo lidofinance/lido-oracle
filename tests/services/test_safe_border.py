@@ -11,12 +11,15 @@ from tests.factory.no_registry import ValidatorFactory
         (True, 1, 2, 7, 1),
         (True, 20, 5, 7, 5),
         (False, 20, 5, 7, 7),
-    ])
-def test_get_safe_border_epoch(is_bunker,
-                               negative_rebase_border_epoch,
-                               associated_slashings_border_epoch,
-                               default_requests_border_epoch, expected,
-                               ):
+    ],
+)
+def test_get_safe_border_epoch(
+    is_bunker,
+    negative_rebase_border_epoch,
+    associated_slashings_border_epoch,
+    default_requests_border_epoch,
+    expected,
+):
     SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock(return_value=negative_rebase_border_epoch)
     SafeBorder._get_associated_slashings_border_epoch = MagicMock(return_value=associated_slashings_border_epoch)
@@ -25,12 +28,7 @@ def test_get_safe_border_epoch(is_bunker,
     web3Mock = MagicMock
     web3Mock.lido_contracts = MagicMock
 
-    sb = SafeBorder(
-        w3=web3Mock,
-        blockstamp=MagicMock,
-        chain_config=MagicMock,
-        frame_config=MagicMock
-    )
+    sb = SafeBorder(w3=web3Mock, blockstamp=MagicMock, chain_config=MagicMock, frame_config=MagicMock)
 
     actual = sb.get_safe_border_epoch(is_bunker=is_bunker)
     assert actual == expected
@@ -42,9 +40,11 @@ def test_get_safe_border_epoch(is_bunker,
     [
         (None, 12, 12, 1251, 1),
         (None, 12, 0, 1251, 1251),
-    ])
-def test_get_bunker_start_or_last_successful_report_epoch(get_bunker_timestamp, slots_per_epoch,
-                                                          last_processing_ref_slot, initial_epoch, expected):
+    ],
+)
+def test_get_bunker_start_or_last_successful_report_epoch(
+    get_bunker_timestamp, slots_per_epoch, last_processing_ref_slot, initial_epoch, expected
+):
     SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock()
     SafeBorder._get_associated_slashings_border_epoch = MagicMock()
@@ -57,12 +57,7 @@ def test_get_bunker_start_or_last_successful_report_epoch(get_bunker_timestamp, 
     chain_config.slots_per_epoch = slots_per_epoch
     chain_config.initial_epoch = initial_epoch
 
-    sb = SafeBorder(
-        w3=web3Mock,
-        blockstamp=MagicMock,
-        chain_config=chain_config,
-        frame_config=MagicMock
-    )
+    sb = SafeBorder(w3=web3Mock, blockstamp=MagicMock, chain_config=chain_config, frame_config=MagicMock)
 
     actual = sb._get_bunker_start_or_last_successful_report_epoch()
 
@@ -113,29 +108,33 @@ def blockstamp():
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "slashings_in_frame, last_finalized_withdrawal_request_slot, expected", [
+    "slashings_in_frame, last_finalized_withdrawal_request_slot, expected",
+    [
         (True, 144, 90),
         (False, 144, 98),
-    ])
-def test_find_earliest_slashed_epoch_rounded_to_frame(validators, frame_config, chain_config, blockstamp,
-                                                      slashings_in_frame, last_finalized_withdrawal_request_slot,
-                                                      expected):
+    ],
+)
+def test_find_earliest_slashed_epoch_rounded_to_frame(
+    validators,
+    frame_config,
+    chain_config,
+    blockstamp,
+    slashings_in_frame,
+    last_finalized_withdrawal_request_slot,
+    expected,
+):
     SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock()
     SafeBorder._get_associated_slashings_border_epoch = MagicMock()
     SafeBorder._get_last_finalized_withdrawal_request_slot = MagicMock(
-        return_value=last_finalized_withdrawal_request_slot)
+        return_value=last_finalized_withdrawal_request_slot
+    )
     SafeBorder._slashings_in_frame = MagicMock(return_value=slashings_in_frame)
 
     web3Mock = MagicMock
     web3Mock.lido_contracts = MagicMock
 
-    sb = SafeBorder(
-        w3=web3Mock,
-        blockstamp=blockstamp,
-        chain_config=chain_config,
-        frame_config=frame_config
-    )
+    sb = SafeBorder(w3=web3Mock, blockstamp=blockstamp, chain_config=chain_config, frame_config=frame_config)
 
     actual = sb._find_earliest_slashed_epoch_rounded_to_frame(validators)
 

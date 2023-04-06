@@ -144,7 +144,7 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
     consensus.is_main_data_submitted = Mock(side_effect=[False, True])
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Main data was submitted." in caplog.messages[-1]
+    assert "Main data already submitted." in caplog.messages[-1]
     assert "Sleep for" not in caplog.text
 
 
@@ -189,7 +189,7 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 10000 slots before sending data." in caplog.text
-    assert "Main data was submitted." in caplog.text
+    assert "Main data already submitted." in caplog.text
 
 
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
