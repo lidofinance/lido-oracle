@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src import variables
 from src.modules.accounting import accounting
 from src.modules.accounting.accounting import Accounting
 from src.services.withdrawal import Withdrawal
@@ -51,6 +52,7 @@ def test_get_consensus_lido_state(accounting_module, lido_validators):
     assert count == 10
     assert balance == sum((int(val.balance) for val in validators))
 
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("post_total_pooled_ether", "post_total_shares", "expected_share_rate"),
@@ -85,6 +87,7 @@ def test_get_finalization_data(accounting_module, post_total_pooled_ether, post_
         assert share_rate > 10 ** 27
     else:
         assert share_rate <= 10 ** 27
+
 
 @pytest.mark.unit
 def test_get_slots_elapsed_from_initialize(accounting_module, contracts):
@@ -131,4 +134,4 @@ class TestAccountingSanityCheck:
 
     def test_bunker_mode_active(self, accounting_module, bs):
         accounting_module._is_bunker = Mock(return_value=True)
-        assert accounting_module.is_reporting_allowed(bs) is False
+        assert accounting_module.is_reporting_allowed(bs) is variables.ALLOW_REPORTING_IN_BUNKER_MODE

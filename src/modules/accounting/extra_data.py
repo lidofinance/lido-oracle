@@ -53,6 +53,9 @@ class ExtraDataService:
     itemPayload format:
     | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
     | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+
+    max_items_count - max itemIndex in extra data.
+    max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
     """
 
     class Lengths:
@@ -67,17 +70,14 @@ class ExtraDataService:
         self,
         stuck_validators: dict[NodeOperatorGlobalIndex, int],
         exited_validators: dict[NodeOperatorGlobalIndex, int],
-        max_items_in_payload_count: int,
         max_items_count: int,
+        max_no_in_payload_count: int,
     ) -> ExtraData:
-        stuck_payloads, rest_items = self.build_validators_payloads(stuck_validators, max_items_in_payload_count, max_items_count)
 
-        if rest_items:
-            exited_payloads, _ = self.build_validators_payloads(exited_validators, max_items_in_payload_count, rest_items)
-        else:
-            exited_payloads = []
+        stuck_payloads = self.build_validators_payloads(stuck_validators, max_no_in_payload_count)
+        exited_payloads = self.build_validators_payloads(exited_validators, max_no_in_payload_count)
 
-        extra_data = self.build_extra_data(stuck_payloads, exited_payloads)
+        extra_data = self.build_extra_data(stuck_payloads, exited_payloads, max_items_count)
         extra_data_bytes = self.to_bytes(extra_data)
 
         if extra_data:
@@ -97,12 +97,10 @@ class ExtraDataService:
     @staticmethod
     def build_validators_payloads(
         validators: dict[NodeOperatorGlobalIndex, int],
-        max_items_in_payload: int,
-        max_items_total: int,
-    ) -> tuple[list[ItemPayload], int]:
+        max_no_in_payload_count: int,
+    ) -> list[ItemPayload]:
         # sort by module id and node operator id
         operator_validators = sorted(validators.items(), key=lambda x: x[0])
-        payload_size_limit = min(max_items_in_payload, max_items_total)
 
         payloads = []
 
@@ -110,13 +108,9 @@ class ExtraDataService:
             operator_ids = []
             vals_count = []
 
-            for ((_, no_id), validators_count) in operators_by_module:
+            for ((_, no_id), validators_count) in list(operators_by_module)[:max_no_in_payload_count]:
                 operator_ids.append(no_id.to_bytes(ExtraDataService.Lengths.NODE_OPERATOR_IDS))
                 vals_count.append(validators_count.to_bytes(ExtraDataService.Lengths.STUCK_OR_EXITED_VALS_COUNT))
-                payload_size_limit -= 1
-
-                if not payload_size_limit:
-                    break
 
             payloads.append(
                 ItemPayload(
@@ -127,13 +121,10 @@ class ExtraDataService:
                 )
             )
 
-            if not payload_size_limit:
-                break
-
-        return payloads, payload_size_limit
+        return payloads
 
     @staticmethod
-    def build_extra_data(stuck_payloads: list[ItemPayload], exited_payloads: list[ItemPayload]):
+    def build_extra_data(stuck_payloads: list[ItemPayload], exited_payloads: list[ItemPayload], max_items_count: int):
         index = 0
         extra_data = []
 
@@ -147,7 +138,10 @@ class ExtraDataService:
                     item_type=item_type,
                     item_payload=payload
                 ))
+
                 index += 1
+                if index == max_items_count:
+                    return extra_data
 
         return extra_data
 
