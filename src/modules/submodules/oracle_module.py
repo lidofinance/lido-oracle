@@ -64,6 +64,11 @@ class BaseModule(ABC):
 
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
                 self._slot_threshold = blockstamp.slot_number
+        else:
+            logger.info({
+                'msg': 'Skipping the report. Wait for new finalized slot.',
+                'slot_threshold': self._slot_threshold,
+            })
 
         logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
         time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)

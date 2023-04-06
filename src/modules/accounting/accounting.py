@@ -114,7 +114,7 @@ class Accounting(BaseModule, ConsensusModule):
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract got report data (second phase)
         processing_state = self._get_processing_state(blockstamp)
-        logger.info({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
+        logger.debug({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
     def is_extra_data_submitted(self, blockstamp: BlockStamp) -> bool:
