@@ -22,6 +22,10 @@ ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'Fa
 # In this case the second report will force report finalization and will consume more gas
 TX_GAS_ADDITION = int(os.getenv('TX_GAS_ADDITION', 100_000))
 
+# Transactions fee calculation variables
+MIN_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
+MAX_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 100_000_000_000))
+PRIORITY_FEE_PERCENTILE = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 # Default delay for default Oracle members. Member with submit data role should submit data first.
 # If contract is reportable each member in order will submit data with difference with this amount of slots
