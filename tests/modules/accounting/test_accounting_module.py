@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src import variables
 from src.modules.accounting import accounting
 from src.modules.accounting.accounting import Accounting
 from src.services.withdrawal import Withdrawal
@@ -137,4 +138,4 @@ class TestAccountingSanityCheck:
 
     def test_bunker_mode_active(self, accounting_module, bs):
         accounting_module._is_bunker = Mock(return_value=True)
-        assert accounting_module.is_reporting_allowed(bs) is False
+        assert accounting_module.is_reporting_allowed(bs) is variables.ALLOW_REPORTING_IN_BUNKER_MODE

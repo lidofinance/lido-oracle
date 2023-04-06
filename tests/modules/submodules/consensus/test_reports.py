@@ -144,7 +144,7 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
     consensus.is_main_data_submitted = Mock(side_effect=[False, True])
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Main data was submitted." in caplog.messages[-1]
+    assert "Main data already submitted." in caplog.messages[-1]
     assert "Sleep for" not in caplog.text
 
 
@@ -189,7 +189,7 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 10000 slots before sending data." in caplog.text
-    assert "Main data was submitted." in caplog.text
+    assert "Main data already submitted." in caplog.text
 
 
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
@@ -232,7 +232,7 @@ def mock_configs(consensus):
 def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account, mock_configs):
     consensus._get_consensus_contract_members = Mock(return_value=([variables.ACCOUNT.address], None))
     delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
-    assert delay == 6
+    assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS
     assert "Calculate slots delay." in caplog.messages[-1]
 
 
@@ -240,5 +240,5 @@ def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_consensus_contract_members = Mock(return_value=[[variables.ACCOUNT.address, '0x1', '0x2'], None])
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
-    assert delay == 18
+    assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS * 3
     assert "Calculate slots delay." in caplog.messages[-1]

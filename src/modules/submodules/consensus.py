@@ -167,7 +167,7 @@ class ConsensusModule(ABC):
             current_frame_member_report=current_frame_member_report,
             deadline_slot=current_frame.report_processing_deadline_slot,
         )
-        logger.info({'msg': 'Fetch member info.', 'value': mi})
+        logger.debug({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
 
@@ -209,6 +209,7 @@ class ConsensusModule(ABC):
             return None
 
         member_info = self.get_member_info(latest_blockstamp)
+        logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if current slot is higher than member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
@@ -329,11 +330,11 @@ class ConsensusModule(ABC):
 
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
-                    logger.info({'msg': 'Main data was submitted.'})
+                    logger.info({'msg': 'Main data already submitted.'})
                     return
 
         if self.is_main_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Main data was submitted.'})
+            logger.info({'msg': 'Main data already submitted.'})
             return
 
         logger.info({'msg': f'Send report data. Contract version: [{self.CONTRACT_VERSION}]'})
