@@ -12,7 +12,7 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 @pytest.fixture()
 def keys_api_client():
-    return KeysAPIClient(KEYS_API_URI)
+    return KeysAPIClient(KEYS_API_URI, 5 * 60)
 
 
 empty_blockstamp = ReferenceBlockStampFactory.build(block_number=0)

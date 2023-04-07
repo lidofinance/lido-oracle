@@ -10,7 +10,7 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
-from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
+from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,14 @@ class HTTPProvider(ABC):
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
     PROMETHEUS_HISTOGRAM: Histogram
+    HTTP_REQUEST_TIMEOUT: int
 
-    def __init__(self, hosts: list[str]):
+    def __init__(self, hosts: list[str], http_request_timeout: int):
         if not hosts:
             raise NoHostsProvided(f"No hosts provided for {self.__class__.__name__}")
+        
+        if not http_request_timeout:
+            raise NoHostsProvided(f"No timeout provided for {self.__class__.__name__}")
 
         self.hosts = hosts
 
@@ -51,6 +55,8 @@ class HTTPProvider(ABC):
         self.session = Session()
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
+
+        self.HTTP_REQUEST_TIMEOUT = http_request_timeout
 
     @staticmethod
     def _urljoin(host, url):
@@ -113,7 +119,7 @@ class HTTPProvider(ABC):
                 response = self.session.get(
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
-                    timeout=HTTP_REQUEST_TIMEOUT,
+                    timeout=self.HTTP_REQUEST_TIMEOUT,
                 )
             except RequestsConnectionError as error:
                 logger.debug({'msg': str(error)})
