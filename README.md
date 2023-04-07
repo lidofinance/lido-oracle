@@ -3,69 +3,292 @@
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-Oracle daemon for Lido decentralized staking service. Collects and reports CL states to the Lido dApp contracts running on Ethereum EL side.
+Oracle daemon for Lido decentralized staking service: Collects and reports CL states to the Lido dApp contracts running on the Ethereum EL side.
 
-There are two types of oracles:
-  - **accounting:**
-      reports info about validators count, balances (validators, withdrawal vault, EL rewards vault), count of exited validators
-  - **ejector:**
-      reports info about next validators to be ejected (to initiate exit from CL)
+## How it works
+
+There are three modes in the oracle:
+
+- Accounting
+- Ejector
+- Check
+
+### Accounting mode
+
+Accounting mode updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
+
+**Flow**
+
+The oracle work is delineated by time periods called frames. In normal operation, oracles finalize a report in each frame.
+The default AccountingOracle frame length is 24 hours. The frame includes these stages:
+
+- **Waiting** - oracle starts as daemon and wakes up every 12 seconds (by default) in order to find the last finalized slot (ref slot).
+  If ref slot missed, Oracle tries to find previous non-missed slot.
+- **Data collection**: oracles monitor the state of both the execution and consensus layers and collect the data;
+- **Hash consensus**: oracles analyze the data, compile the report and submit its hash to the HashConsensus smart contract;
+- **Core update report**: once the quorum of hashes is reached, meaning more than half of the oracles submitted the same hash,
+  one of the oracles chosen in turn submits the actual report to the AccountingOracle contract, which triggers the core protocol
+  state update, including the token rebase, distribution of node operator rewards, finalization of withdrawal requests, and
+  deciding whether to go in the bunker mode.
+- **Extra data report**: an additional report carrying additional information. This part is required.
+  All rewards to modules are distributed in this Oracle’s phase. Can be submitted in chunks.
+
+### Ejector mode
+
+Ejector mode removes lido validators based on requests to take out stETH value.
+
+**Flow**
+
+- Finds out how much ETH is needed to cover withdrawals.
+- Predicts how much ETH will be rewarded in each time period.
+- Figures out when the next validator will be removed.
+- Changes lido validators into simpler code and share the update.
 
 # Usage
 
+## Requirements
+
+The oracle daemon requires a node with Execution and Consensus layers. We highly recommend using
+[geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container),
+[Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image) and
+[Erigon](https://github.com/ledgerwatch/erigon#getting-started).
+
+### Machine requirements
+
+- vCPUs - 8
+- Memory - 16 GB
+
+### Dependencies
+
+#### Execution Client Node
+
+To prepare the report, Oracle fetches up to 10 days old events. To perform this, Oracle needs [full](https://ethereum.org/en/developers/docs/nodes-and-clients/#full-node) execution node.
+
+| Client                                          | Tested | Notes                                                                                                                                                                           |
+| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Geth](https://geth.ethereum.org/)              |        |                                                                                                                                                                                 |
+| [Nethermind](https://nethermind.io/)            |        |                                                                                                                                                                                 |
+| [Besu](https://besu.hyperledger.org/en/stable/) |        | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
+| [Erigon](https://github.com/ledgerwatch/erigon) |        | Use <br> `--prune=htc` <br> `--prune.h.before=100000` <br> `--prune.t.before=100000` <br> `--prune.c.before=100000` <br> params                                                 |
+
+#### Consensus Client Node
+
+Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
+
+| Client                                            | Tested | Notes                                                                                                                                           |
+| ------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Lighthouse](https://lighthouse.sigmaprime.io/)   |        | Use `--reconstruct-historic-states` param                                                                                                       |
+| [Lodestar](https://nethermind.io/)                |        |                                                                                                                                                 |
+| [Nimbus](https://besu.hyperledger.org/en/stable/) |        |                                                                                                                                                 |
+| [Prysm](https://github.com/ledgerwatch/erigon)    |        | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
+| [Teku](https://docs.teku.consensys.net)           |        | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
+
+#### Keys API Service
+
+This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
+
+[Link to keys api docs.](ToDo)
+
 ## Setup
+
 Oracle daemon must be run using a docker container. Images is available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
 Pull the image using the following command:
+
 ```bash
 docker pull lidofinance/oracle:{tag}
 ```
+
 Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
 **OR**\
 You can build it locally using the following command:
+
 ```bash
 docker build -t lidofinance/oracle .
 ```
 
 ## Checks before running
-1. Use [.env.example](.env.example) file content to create your own `.env` file. 
-    Set required URI values. It will be enough to run the oracle in *check mode*.
+
+1. Use [.env.example](.env.example) file content to create your own `.env` file.
+   Set required values. It will be enough to run the oracle in _check mode_.
 2. Check that your environment is ready to run the oracle using the following command:
-      ```bash
-      docker run --env-file .env --rm lidofinance/oracle:{tag} check
-      ```
-      If everything is ok, you will see that all required checks are passed 
-      and your environment is ready to run the oracle.
+   ```bash
+   docker run --env-file .env --rm lidofinance/oracle:{tag} check
+   ```
+   If everything is ok, you will see that all required checks are passed
+   and your environment is ready to run the oracle.
 
 ## Run the oracle
-1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
-    Therefore, you are able to check that oracle works correctly before running it in production mode.
-    To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` environment variable:
-    ```
-    MEMBER_PRIV_KEY={value}
-    ```
-    Where `{value}` is a private key of the Oracle member account.
+
+1. By default, the oracle runs in dry mode. This means it will not send any
+   transactions to the Ethereum network. To check that the oracle works correctly
+   before running it in production mode, set the `MEMBER_PRIV_KEY` environment variable:
+   ```
+   MEMBER_PRIV_KEY={value}
+   ```
+   Replace `{value}` with the private key of the Oracle member account.
 2. Run the container using the following command:
-      ```bash
-      docker run --env-file .env lidofinance/oracle:{tag} {type}
-      ```
-      Where
-   - `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
-   - `{type}` is a type of the Oracle. There are two types of oracles:
-      - `accounting`
-      - `ejector`
-     And additional type from the [previous checks](#checks-before-running):
-      - `check` - checks that the environment is ready to run the oracle
+
+   ```bash
+   docker run --env-file .env lidofinance/oracle:{tag} {type}
+   ```
+
+   Replace `{tag}` with the image version and `{type}` with one of the two types of oracles: accounting or ejector.
+   Additionally, use the check type from the [previous checks](#checks-before-running)
+   to ensure the environment is ready to run the oracle.
 
 > **Note**: of course, you can pass env variables without using `.env` file.
 > For example, you can run the container using the following command:
+>
 > ```bash
 > docker run --env EXECUTION_CLIENT_URI={value} --env CONSENSUS_CLIENT_URI={value} --env KEYS_API_URI={value} --env LIDO_LOCATOR_ADDRESS={value} lidofinance/oracle:{tag} {type}
 > ```
 
+## Monitoring
+
+TBD
+
+### Dashboard
+
+TBD
+
+### Alerts
+
+A few basic alerts, which can be configured in the [Prometheus Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/).
+
+```yaml
+groups:
+  - name: oracle-alerts
+    rules:
+      - alert: AccountBalance
+        expr: lido_oracle_account_balance / 10^18 < 3
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dangerously low account balance"
+          description: "Account balance is less than 3 ETH. Address: {.labels.address}: {.value} ETH"
+      - alert: OutdatedData
+        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outdated Consensus Layer HEAD slot"
+          description: "Processed by Oracle HEAD slot {.value} too old"
+```
+
+### Metrics
+
+> **Note**: all metrics are prefixed with `lido_oracle_` by default.
+
+The oracle exposes the following basic metrics:
+
+| Metric name                 | Description                                                     | Labels                                                                                             |
+| --------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| build_info                  | Build info                                                      | version, branch, commit                                                                            |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| genesis_time                | Fetched genesis time from node                                  |                                                                                                    |
+| account_balance             | Fetched account balance from EL                                 | address                                                                                            |
+| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                      |
+| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                      |
+| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                       |
+| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                       |
+| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                             |
+| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                             |
+| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                    |
+| transaction_count           | Total count of transactions. Success or failure                 | status                                                                                             |
+| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                   |
+| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                    |
+| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                    |
+| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                    |
+| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                    |
+| contract_on_pause           | Contract on pause                                               |                                                                                                    |
+
+Special metrics for accounting oracle:
+
+| Metric name                             | Description                                         | Labels           |
+| --------------------------------------- | --------------------------------------------------- | ---------------- |
+| accounting_is_bunker                    | Is bunker mode enabled                              |                  |
+| accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
+| accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
+| accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
+| accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
+| accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
+| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
+
+Special metrics for ejector oracle:
+
+| Metric name                       | Description                                 | Labels |
+| --------------------------------- | ------------------------------------------- | ------ |
+| ejector_withdrawal_wei_amount     | To withdraw amount                          |        |
+| ejector_max_exit_epoch            | Max exit epoch between all validators in CL |        |
+| ejector_validators_count_to_eject | Validators count to eject                   |        |
+
+# Development
+
+Python version: 3.11
+
+## Setup
+
+1. [Setup poetry](https://python-poetry.org/docs/#installation)
+2. Install dependencies
+
+```bash
+poetry install
+```
+
+## Startup
+
+Required variables
+
+```bash
+export EXECUTION_CLIENT_URI=...
+export CONSENSUS_CLIENT_URI=...
+export KEYS_API_URI=...
+export LIDO_LOCATOR_ADDRESS=...
+```
+
+Run oracle module
+
+```bash
+poetry run python -m src.main {module}
+```
+
+Where `{module}` is one of:
+
+- `accounting`
+- `ejector`
+- `check`
+
+## Tests
+
+[Testing guide](./tests/README.md)
+
+```bash
+poetry run pytest .
+```
+
+## Code quality
+
+Used the following tools:
+
+- [black](https://github.com/psf/black)
+- [pylint](https://github.com/pylint-dev/pylint/)
+- [mypy](https://github.com/python/mypy/)
+  See the [configuration](pyproject.toml) for details for each linter.
+
+Make sure that your code is formatted correctly and passes all checks:
+
+```bash
+black src tests
+pylint src tests
+mypy src
+```
+
 ## Env variables
 
 | Name                                         | Description                                                                                                                                                              | Required | Example value           |
-|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------|
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ----------------------- |
 | `EXECUTION_CLIENT_URI`                       | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
 | `CONSENSUS_CLIENT_URI`                       | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
 | `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
@@ -83,71 +306,6 @@ docker build -t lidofinance/oracle .
 | `MIN_PRIORITY_FEE`                           | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
 | `MAX_PRIORITY_FEE`                           | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
 
-## Monitoring
-TBD
-
-### Dashboard
-TBD
-
-### Alerts
-TBD
-
-### Metrics
-TBD
-
-# Development
-
-Python version: 3.11
-
-## Setup
-
-1. [Setup poetry](https://python-poetry.org/docs/#installation)
-2. Install dependencies
-```bash
-poetry install
-```
-
-## Startup
-
-Required variables
-```bash
-export EXECUTION_CLIENT_URI=...
-export CONSENSUS_CLIENT_URI=...
-export KEYS_API_URI=...
-export LIDO_LOCATOR_ADDRESS=...
-```
-Run oracle module
-```bash
-poetry run python -m src.main {module}
-```
-
-Where `{module}` is one of:
-- `accounting`
-- `ejector`
-- `check`
-
-## Tests
-
-[Testing guide](./tests/README.md)
-
-```bash
-poetry run pytest .
-```
-
-## Code quality
-Used the following tools:
-- [black](https://github.com/psf/black)
-- [pylint](https://github.com/pylint-dev/pylint/)
-- [mypy](https://github.com/python/mypy/)
-See the [configuration](pyproject.toml) for details for each linter.
-
-Make sure that your code is formatted correctly and passes all checks:
-```bash
-black src tests
-pylint src tests
-mypy src
-```
-
 # License
 
 2023 Lido <info@lido.fi>
@@ -158,7 +316,7 @@ the Free Software Foundation, version 3 of the License, or any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public License](LICENSE)
@@ -174,4 +332,4 @@ To create new release:
 1. When action execution is finished, navigate to Repo => Pull requests
 1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
 1. After merge release action will be triggered automatically
-1. Navigate to Repo => Actions and see last actions logs for further details 
+1. Navigate to Repo => Actions and see last actions logs for further details
