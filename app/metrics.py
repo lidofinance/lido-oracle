@@ -7,7 +7,6 @@ import datetime
 
 from web3 import Web3
 
-from app.beacon import BeaconBlockNotFoundError
 from contracts import get_validators_keys
 from pool_metrics import PoolMetrics
 from prometheus_metrics import metrics_exporter_state
