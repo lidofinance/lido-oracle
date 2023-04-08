@@ -7,7 +7,7 @@ import datetime
 
 from web3 import Web3
 
-from beacon import BeaconBlockNotFoundError
+from app.beacon import BeaconBlockNotFoundError
 from contracts import get_validators_keys
 from pool_metrics import PoolMetrics
 from prometheus_metrics import metrics_exporter_state
@@ -67,21 +67,27 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     return partial_metrics
 
 
-def get_non_missed_block_number_by_slot(beacon, ref_slot: int) -> int:
-    for slot_num in range(ref_slot, ref_slot - 1, -1):
+class NoNonMissedSlotsFoundException(Exception):
+    pass
+
+
+def get_slot_for_report(beacon, ref_slot: int, epochs_per_frame: int, slots_per_epoch: int):
+    for slot_num in range(ref_slot, ref_slot - epochs_per_frame * slots_per_epoch + 1, -1):
         try:
-            return beacon.get_block_by_beacon_slot(ref_slot)
+            beacon.get_block_by_beacon_slot(slot_num)
         except BeaconBlockNotFoundError as error:
             logging.warning({'msg': f'Slot {slot_num} missed. Looking previous one...', 'error': str(error)})
-            pass
+        else:
+            return slot_num
+
+    raise NoNonMissedSlotsFoundException('No slots found for report. Probably problem with CL node.')
 
 
 def get_full_current_metrics(
     w3: Web3, pool, beacon, beacon_spec, partial_metrics, consider_withdrawals_from_epoch
 ) -> PoolMetrics:
     """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
-    slots_per_epoch = beacon_spec[1]
-    slot = partial_metrics.epoch * slots_per_epoch
+    slot = get_slot_for_report(beacon, partial_metrics.epoch * beacon_spec[1], beacon_spec[0], beacon_spec[1])
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
     validators_keys = get_validators_keys(w3)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
@@ -98,7 +104,7 @@ def get_full_current_metrics(
         f'{full_metrics.beaconBalance} wei or {full_metrics.beaconBalance / 1e18} ETH'
     )
 
-    block_number = get_non_missed_block_number_by_slot(beacon, slot)
+    block_number = beacon.get_block_by_beacon_slot(slot)
     withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
     full_metrics.withdrawalVaultBalance = w3.eth.get_balance(
         w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),

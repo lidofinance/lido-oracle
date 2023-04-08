@@ -76,7 +76,7 @@ class BeaconChainClient:
         response = session.get(urljoin(self.url, self.api_beacon_block.format(slot)), timeout=DEFAULT_TIMEOUT)
 
         if response.status_code == 404:
-            raise BeaconBlockNotFoundError(response.text)
+            raise BeaconBlockNotFoundError()
 
         try:
             return int(response.json()['data']['message']['body']['execution_payload']['block_number'])
