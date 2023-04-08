@@ -71,7 +71,7 @@ def get_full_current_metrics(
     w3: Web3, pool, beacon, beacon_spec, partial_metrics, consider_withdrawals_from_epoch
 ) -> PoolMetrics:
     """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
-    slot = beacon.get_slot_for_report(beacon, partial_metrics.epoch * beacon_spec[1], beacon_spec[0], beacon_spec[1])
+    slot = beacon.get_slot_for_report(partial_metrics.epoch * beacon_spec[1], beacon_spec[0], beacon_spec[1])
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
     validators_keys = get_validators_keys(w3)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
