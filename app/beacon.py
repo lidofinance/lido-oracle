@@ -89,7 +89,7 @@ class BeaconChainClient:
             raise error
 
     def get_slot_for_report(self, ref_slot: int, epochs_per_frame: int, slots_per_epoch: int):
-        for slot_num in range(ref_slot, ref_slot - epochs_per_frame * slots_per_epoch + 1, -1):
+        for slot_num in range(ref_slot, ref_slot - epochs_per_frame * slots_per_epoch, -1):
             try:
                 self.get_block_by_beacon_slot(slot_num)
             except BeaconBlockNotFoundError as error:
