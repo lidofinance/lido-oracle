@@ -9,6 +9,7 @@ on:
       - master
     paths-ignore:
       - ".github/**"
+      - "README.md"
 
 permissions:
   contents: read
