@@ -4,7 +4,6 @@ import json
 from requests import Session
 
 from app.beacon import BeaconChainClient
-from metrics import get_slot_for_report
 
 with open('tests/responses.json', 'r') as file:
     responses = json.load(file)
@@ -108,7 +107,7 @@ def test_missing_slot(lighthouse_requests):
     beacon = BeaconChainClient('localhost', 1)
     # Missed slot
 
-    slot = get_slot_for_report(beacon, 43, 225, 32)
+    slot = beacon.get_slot_for_report(43, 225, 32)
     assert slot == 42
 
     result = beacon.get_block_by_beacon_slot(slot)

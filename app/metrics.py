@@ -67,27 +67,11 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     return partial_metrics
 
 
-class NoNonMissedSlotsFoundException(Exception):
-    pass
-
-
-def get_slot_for_report(beacon, ref_slot: int, epochs_per_frame: int, slots_per_epoch: int):
-    for slot_num in range(ref_slot, ref_slot - epochs_per_frame * slots_per_epoch + 1, -1):
-        try:
-            beacon.get_block_by_beacon_slot(slot_num)
-        except BeaconBlockNotFoundError as error:
-            logging.warning({'msg': f'Slot {slot_num} missed. Looking previous one...', 'error': str(error)})
-        else:
-            return slot_num
-
-    raise NoNonMissedSlotsFoundException('No slots found for report. Probably problem with CL node.')
-
-
 def get_full_current_metrics(
     w3: Web3, pool, beacon, beacon_spec, partial_metrics, consider_withdrawals_from_epoch
 ) -> PoolMetrics:
     """The oracle fetches all the required states from ETH1 and ETH2 (validator balances)"""
-    slot = get_slot_for_report(beacon, partial_metrics.epoch * beacon_spec[1], beacon_spec[0], beacon_spec[1])
+    slot = beacon.get_slot_for_report(beacon, partial_metrics.epoch * beacon_spec[1], beacon_spec[0], beacon_spec[1])
     logging.info(f'Reportable state: epoch:{partial_metrics.epoch} slot:{slot}')
     validators_keys = get_validators_keys(w3)
     logging.info(f'Total validator keys in registry: {len(validators_keys)}')
