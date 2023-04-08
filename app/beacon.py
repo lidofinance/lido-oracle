@@ -58,6 +58,14 @@ def proxy_connect_timeout_exception(func):
     return inner
 
 
+class BeaconBlockNotFoundError(Exception):
+    pass
+
+
+class NoNonMissedSlotsFoundException(Exception):
+    pass
+
+
 class BeaconChainClient:
     api_beacon_block = 'eth/v2/beacon/blocks/{}'
     api_beacon_head_finality_checkpoints = 'eth/v1/beacon/states/head/finality_checkpoints'
@@ -70,11 +78,26 @@ class BeaconChainClient:
     @proxy_connect_timeout_exception
     def get_block_by_beacon_slot(self, slot):
         response = session.get(urljoin(self.url, self.api_beacon_block.format(slot)), timeout=DEFAULT_TIMEOUT)
+
+        if response.status_code == 404:
+            raise BeaconBlockNotFoundError()
+
         try:
             return int(response.json()['data']['message']['body']['execution_payload']['block_number'])
         except KeyError as error:
             logging.error(f'Response [{response.status_code}] with text: {str(response.text)} was returned.')
-            raise KeyError from error
+            raise error
+
+    def get_slot_for_report(self, ref_slot: int, epochs_per_frame: int, slots_per_epoch: int):
+        for slot_num in range(ref_slot, ref_slot - epochs_per_frame * slots_per_epoch, -1):
+            try:
+                self.get_block_by_beacon_slot(slot_num)
+            except BeaconBlockNotFoundError as error:
+                logging.warning({'msg': f'Slot {slot_num} missed. Looking previous one...', 'error': str(error)})
+            else:
+                return slot_num
+
+        raise NoNonMissedSlotsFoundException('No slots found for report. Probably problem with CL node.')
 
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):

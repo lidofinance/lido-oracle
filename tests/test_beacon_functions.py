@@ -21,9 +21,10 @@ key_list = [
 
 
 class MockResponse:
-    def __init__(self, json):
+    def __init__(self, json, status_code=200):
         self.json_text = json
         self.text = json
+        self.status_code = status_code
 
     def json(self):
         return json.loads(self.json_text)
@@ -54,6 +55,10 @@ def lighthouse_requests(monkeypatch):
         if 'eth/v1/beacon/headers/finalized' in uri:
             return MockResponse(head_finalized)
         if 'eth/v2/beacon/blocks/finalized' in uri:
+            return MockResponse(block_finalized)
+        if 'eth/v2/beacon/blocks/43' in uri:
+            return MockResponse({}, status_code=404)
+        if 'eth/v2/beacon/blocks/42' in uri:
             return MockResponse(block_finalized)
         if 'validators' in uri:
             return MockResponse(validators)
@@ -95,4 +100,15 @@ def test_balance(lighthouse_requests):
 def test_block(lighthouse_requests):
     beacon = BeaconChainClient('localhost', 1)
     result = beacon.get_block_by_beacon_slot('finalized')
+    assert result == 8590563
+
+
+def test_missing_slot(lighthouse_requests):
+    beacon = BeaconChainClient('localhost', 1)
+    # Missed slot
+
+    slot = beacon.get_slot_for_report(43, 225, 32)
+    assert slot == 42
+
+    result = beacon.get_block_by_beacon_slot(slot)
     assert result == 8590563
