@@ -58,6 +58,10 @@ def proxy_connect_timeout_exception(func):
     return inner
 
 
+class BeaconBlockNotFoundError(Exception):
+    pass
+
+
 class BeaconChainClient:
     api_beacon_block = '/eth/v2/beacon/blocks/{}'
     api_beacon_head_finality_checkpoints = 'eth/v1/beacon/states/head/finality_checkpoints'
@@ -70,11 +74,15 @@ class BeaconChainClient:
     @proxy_connect_timeout_exception
     def get_block_by_beacon_slot(self, slot):
         response = session.get(urljoin(self.url, self.api_beacon_block.format(slot)), timeout=DEFAULT_TIMEOUT)
+
+        if response.status_code == 404:
+            raise BeaconBlockNotFoundError(response.text)
+
         try:
             return int(response.json()['data']['message']['body']['execution_payload']['block_number'])
         except KeyError as error:
             logging.error(f'Response [{response.status_code}] with text: {str(response.text)} was returned.')
-            raise KeyError from error
+            raise error
 
     @proxy_connect_timeout_exception
     def get_finalized_epoch(self):

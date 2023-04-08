@@ -7,6 +7,7 @@ import datetime
 
 from web3 import Web3
 
+from beacon import BeaconBlockNotFoundError
 from contracts import get_validators_keys
 from pool_metrics import PoolMetrics
 from prometheus_metrics import metrics_exporter_state
@@ -66,6 +67,15 @@ def get_light_current_metrics(w3, beacon, pool, oracle, beacon_spec):
     return partial_metrics
 
 
+def get_non_missed_block_number_by_slot(beacon, ref_slot: int) -> int:
+    for slot_num in range(ref_slot, ref_slot - 1, -1):
+        try:
+            return beacon.get_block_by_beacon_slot(ref_slot)
+        except BeaconBlockNotFoundError as error:
+            logging.warning({'msg': f'Slot {slot_num} missed. Looking previous one...', 'error': str(error)})
+            pass
+
+
 def get_full_current_metrics(
     w3: Web3, pool, beacon, beacon_spec, partial_metrics, consider_withdrawals_from_epoch
 ) -> PoolMetrics:
@@ -89,7 +99,7 @@ def get_full_current_metrics(
     )
 
     if full_metrics.epoch >= int(consider_withdrawals_from_epoch):
-        block_number = beacon.get_block_by_beacon_slot(slot)
+        block_number = get_non_missed_block_number_by_slot(beacon, slot)
         withdrawal_credentials = w3.toHex(pool.functions.getWithdrawalCredentials().call(block_identifier=block_number))
         full_metrics.withdrawalVaultBalance = w3.eth.get_balance(
             w3.toChecksumAddress(withdrawal_credentials.replace('0x010000000000000000000000', '0x')),
