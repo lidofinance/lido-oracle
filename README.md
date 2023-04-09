@@ -1,26 +1,25 @@
 # <img src="https://docs.lido.fi/img/logo.svg" alt="Lido" width="46"/> Lido Oracle
 
-[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 
-Oracle daemon for Lido decentralized staking service: Collects and reports CL states to the Lido dApp contracts running on the Ethereum EL side.
+Oracle daemon for Lido decentralized staking service: Monitoring the state of the protocol across both layers and submitting regular update reports to the Lido smart contracts.
 
 ## How it works
 
-There are three modes in the oracle:
+There are three modules in the oracle:
 
 - Accounting
 - Ejector
-- Check
 
-### Accounting mode
+### Accounting module
 
-Accounting mode updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
+Accounting module updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
 
 **Flow**
 
-The oracle work is delineated by time periods called frames. In normal operation, oracles finalize a report in each frame.
-The default AccountingOracle frame length is 24 hours. The frame includes these stages:
+The oracle work is delineated by time periods called frames. Oracles finalize a report in each frame.
+The default Accounting Oracle frame length is 225 epochs, which is 24 hours. The frame includes these stages:
 
 - **Waiting** - oracle starts as daemon and wakes up every 12 seconds (by default) in order to find the last finalized slot (ref slot).
   If ref slot missed, Oracle tries to find previous non-missed slot.
@@ -33,9 +32,9 @@ The default AccountingOracle frame length is 24 hours. The frame includes these 
 - **Extra data report**: an additional report carrying additional information. This part is required.
   All rewards to modules are distributed in this Oracle’s phase. Can be submitted in chunks.
 
-### Ejector mode
+### Ejector module
 
-Ejector mode removes lido validators based on requests to take out stETH value.
+Ejector module ejects Lido validators when the protocol requires additional funds to process user withdrawals.
 
 **Flow**
 
@@ -65,7 +64,7 @@ The oracle daemon requires a node with Execution and Consensus layers. We highly
 To prepare the report, Oracle fetches up to 10 days old events. To perform this, Oracle needs [full](https://ethereum.org/en/developers/docs/nodes-and-clients/#full-node) execution node.
 
 | Client                                          | Tested | Notes                                                                                                                                                                           |
-| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------------------------------------------------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Geth](https://geth.ethereum.org/)              |        |                                                                                                                                                                                 |
 | [Nethermind](https://nethermind.io/)            |        |                                                                                                                                                                                 |
 | [Besu](https://besu.hyperledger.org/en/stable/) |        | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
@@ -76,7 +75,7 @@ To prepare the report, Oracle fetches up to 10 days old events. To perform this,
 Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
 
 | Client                                            | Tested | Notes                                                                                                                                           |
-| ------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+|---------------------------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Lighthouse](https://lighthouse.sigmaprime.io/)   |        | Use `--reconstruct-historic-states` param                                                                                                       |
 | [Lodestar](https://nethermind.io/)                |        |                                                                                                                                                 |
 | [Nimbus](https://besu.hyperledger.org/en/stable/) |        |                                                                                                                                                 |
@@ -85,13 +84,13 @@ Also, to calculate some metrics for bunker mode Oracle needs [archive](https://e
 
 #### Keys API Service
 
-This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
+This is a separate service that uses execution client to fetch all lido keys. It stores the latest state of lido keys in database.
 
-[Link to keys api docs.](ToDo)
+Keys API launch [guide](https://hackmd.io/D4ImUAAMQnKFVh5FX9et9Q?view).
 
 ## Setup
 
-Oracle daemon must be run using a docker container. Images is available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
+Oracle daemon could be run using a docker container. Images is available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
 Pull the image using the following command:
 
 ```bash
@@ -100,11 +99,13 @@ docker pull lidofinance/oracle:{tag}
 
 Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
 **OR**\
-You can build it locally using the following command:
+You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
 ```bash
 docker build -t lidofinance/oracle .
 ```
+
+Full variables list could be found [here](https://github.com/lidofinance/lido-oracle#env-variables).
 
 ## Checks before running
 
@@ -120,8 +121,7 @@ docker build -t lidofinance/oracle .
 ## Run the oracle
 
 1. By default, the oracle runs in dry mode. This means it will not send any
-   transactions to the Ethereum network. To check that the oracle works correctly
-   before running it in production mode, set the `MEMBER_PRIV_KEY` environment variable:
+   transactions to the Ethereum network. To run it in production mode, set the `MEMBER_PRIV_KEY` environment variable:
    ```
    MEMBER_PRIV_KEY={value}
    ```
@@ -133,8 +133,6 @@ docker build -t lidofinance/oracle .
    ```
 
    Replace `{tag}` with the image version and `{type}` with one of the two types of oracles: accounting or ejector.
-   Additionally, use the check type from the [previous checks](#checks-before-running)
-   to ensure the environment is ready to run the oracle.
 
 > **Note**: of course, you can pass env variables without using `.env` file.
 > For example, you can run the container using the following command:
@@ -143,13 +141,27 @@ docker build -t lidofinance/oracle .
 > docker run --env EXECUTION_CLIENT_URI={value} --env CONSENSUS_CLIENT_URI={value} --env KEYS_API_URI={value} --env LIDO_LOCATOR_ADDRESS={value} lidofinance/oracle:{tag} {type}
 > ```
 
-## Monitoring
+## Env variables
 
-TBD
+| Name                                         | Description                                                                                                                                                              | Required | Example value           |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------|
+| `EXECUTION_CLIENT_URI`                       | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
+| `CONSENSUS_CLIENT_URI`                       | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
+| `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
+| `LIDO_LOCATOR_ADDRESS`                       | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
+| `MEMBER_PRIV_KEY`                            | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`       | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
+| `ALLOW_REPORTING_IN_BUNKER_MODE`             | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
+| `TX_GAS_ADDITION`                            | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `1.75`                  |
+| `CYCLE_SLEEP_IN_SECONDS`                     | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                 | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
+| `HTTP_REQUEST_RETRY_COUNT`                   | Total number of retries to fetch data from endpoint                                                                                                                      | False    | `5`                     |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS` | The delay http provider sleeps if API is stuck                                                                                                                           | False    | `12`                    |
+| `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
+| `PRIORITY_FEE_PERCENTILE`                    | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                     |
+| `MIN_PRIORITY_FEE`                           | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
+| `MAX_PRIORITY_FEE`                           | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
 
-### Dashboard
-
-TBD
 
 ### Alerts
 
@@ -184,7 +196,7 @@ groups:
 The oracle exposes the following basic metrics:
 
 | Metric name                 | Description                                                     | Labels                                                                                             |
-| --------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+|-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | build_info                  | Build info                                                      | version, branch, commit                                                                            |
 | env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, MAX_CYCLE_LIFETIME_IN_SECONDS |
 | genesis_time                | Fetched genesis time from node                                  |                                                                                                    |
@@ -207,7 +219,7 @@ The oracle exposes the following basic metrics:
 Special metrics for accounting oracle:
 
 | Metric name                             | Description                                         | Labels           |
-| --------------------------------------- | --------------------------------------------------- | ---------------- |
+|-----------------------------------------|-----------------------------------------------------|------------------|
 | accounting_is_bunker                    | Is bunker mode enabled                              |                  |
 | accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
 | accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
@@ -219,7 +231,7 @@ Special metrics for accounting oracle:
 Special metrics for ejector oracle:
 
 | Metric name                       | Description                                 | Labels |
-| --------------------------------- | ------------------------------------------- | ------ |
+|-----------------------------------|---------------------------------------------|--------|
 | ejector_withdrawal_wei_amount     | To withdraw amount                          |        |
 | ejector_max_exit_epoch            | Max exit epoch between all validators in CL |        |
 | ejector_validators_count_to_eject | Validators count to eject                   |        |
@@ -280,31 +292,10 @@ Used the following tools:
 Make sure that your code is formatted correctly and passes all checks:
 
 ```bash
-black src tests
+black tests
 pylint src tests
 mypy src
 ```
-
-## Env variables
-
-| Name                                         | Description                                                                                                                                                              | Required | Example value           |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ----------------------- |
-| `EXECUTION_CLIENT_URI`                       | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
-| `CONSENSUS_CLIENT_URI`                       | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
-| `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
-| `LIDO_LOCATOR_ADDRESS`                       | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
-| `MEMBER_PRIV_KEY`                            | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
-| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`       | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
-| `ALLOW_REPORTING_IN_BUNKER_MODE`             | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
-| `TX_GAS_ADDITION`                            | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `1.75`                  |
-| `CYCLE_SLEEP_IN_SECONDS`                     | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
-| `SUBMIT_DATA_DELAY_IN_SLOTS`                 | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
-| `HTTP_REQUEST_RETRY_COUNT`                   | Total number of retries to fetch data from endpoint                                                                                                                      | False    | `5`                     |
-| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS` | The delay http provider sleeps if API is stuck                                                                                                                           | False    | `12`                    |
-| `HTTP_REQUEST_TIMEOUT`                       | Timeout for HTTP requests                                                                                                                                                | False    | `300`                   |
-| `PRIORITY_FEE_PERCENTILE`                    | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                     |
-| `MIN_PRIORITY_FEE`                           | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
-| `MAX_PRIORITY_FEE`                           | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
 
 # License
 
