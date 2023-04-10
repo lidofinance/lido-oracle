@@ -1,4 +1,3 @@
-from functools import lru_cache
 from time import sleep
 from typing import Optional, cast
 
@@ -7,6 +6,7 @@ from src.providers.http_provider import HTTPProvider
 from src.providers.keys.typings import LidoKey, KeysApiStatus
 from src.typings import BlockStamp
 from src.utils.dataclass import list_of_dataclasses
+from src.utils.cache import global_lru_cache as lru_cache
 from src import variables
 
 

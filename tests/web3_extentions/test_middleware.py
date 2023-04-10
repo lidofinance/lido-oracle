@@ -64,10 +64,4 @@ def test_fail_with_body_error(provider, web3):
     with pytest.raises(ValueError):
         web3.eth.coinbase
     labels = _get_requests_labels()
-    assert labels == {
-        'call_method': '',
-        'call_to': '',
-        'code': '-32000',
-        'endpoint': 'eth_coinbase',
-        'le': '0.005'
-    }
+    assert labels == {'call_method': '', 'call_to': '', 'code': '-32000', 'endpoint': 'eth_coinbase', 'le': '0.005'}

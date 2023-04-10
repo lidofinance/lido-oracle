@@ -7,7 +7,7 @@ from web3.exceptions import ContractLogicError
 from web3.module import Module
 from web3.types import TxReceipt, Wei, TxParams, BlockData
 
-from src import variables
+from src import variables, constants
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
 
 logger = logging.getLogger(__name__)
@@ -21,15 +21,15 @@ class TransactionUtils(Module):
 
         ACCOUNT_BALANCE.labels(str(account.address)).set(self.w3.eth.get_balance(account.address))
 
-        params = self.get_transaction_params(transaction, account)
+        params = self._get_transaction_params(transaction, account)
 
-        if self.check_transaction(transaction, params):
-            return self.sign_and_send_transaction(transaction, params, account)
+        if self._check_transaction(transaction, params):
+            return self._sign_and_send_transaction(transaction, params, account)
 
         return None
 
     @staticmethod
-    def check_transaction(transaction, params: Optional[TxParams]) -> bool:
+    def _check_transaction(transaction, params: TxParams) -> bool:
         """
         Returns:
         True - transaction succeed.
@@ -46,39 +46,53 @@ class TransactionUtils(Module):
         logger.info({"msg": "Transaction executed successfully.", "value": result})
         return True
 
-    def get_transaction_params(self, transaction: ContractFunction, account: Optional[LocalAccount] = None):
-        if not account:
-            logger.info({"msg": "No account provided. Dry mode."})
-            return None
-
+    def _get_transaction_params(self, transaction: ContractFunction, account: LocalAccount):
         # get pending block doesn't work on erigon node in specific cases
         latest_block: BlockData = self.w3.eth.get_block("latest")
+        max_priority_fee = Wei(
+            min(
+                variables.MAX_PRIORITY_FEE,
+                max(
+                    self.w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
+                    variables.MIN_PRIORITY_FEE,
+                )
+            )
+        )
 
-        params: Optional[TxParams] = {
+        params: TxParams = {
             "from": account.address,
-            "gas": min(
-                latest_block["gasLimit"],
-                int(transaction.estimate_gas({'from': account.address}) + variables.TX_GAS_ADDITION)
-            ),
             "maxFeePerGas": Wei(
-                latest_block["baseFeePerGas"] * 2 + self.w3.eth.max_priority_fee
+                latest_block["baseFeePerGas"] * 2 + max_priority_fee
             ),
-            "maxPriorityFeePerGas": self.w3.eth.max_priority_fee,
+            "maxPriorityFeePerGas": max_priority_fee,
             "nonce": self.w3.eth.get_transaction_count(account.address),
         }
 
+        if gas := self._estimate_gas(transaction, account):
+            params['gas'] = gas
+
         return params
 
-    def sign_and_send_transaction(
+    @staticmethod
+    def _estimate_gas(transaction: ContractFunction, account: LocalAccount) -> Optional[int]:
+        """If transaction throws exception return None"""
+        try:
+            gas = transaction.estimate_gas({'from': account.address})
+        except ContractLogicError as error:
+            logger.warning({'msg': 'Contract logic error', 'error': str(error)})
+            return None
+
+        return min(
+            constants.MAX_BLOCK_GAS_LIMIT,
+            gas + variables.TX_GAS_ADDITION,
+        )
+
+    def _sign_and_send_transaction(
         self,
         transaction: ContractFunction,
         params: Optional[TxParams],
-        account: Optional[LocalAccount] = None,
+        account: LocalAccount,
     ) -> Optional[TxReceipt]:
-        if not account:
-            logger.info({"msg": "No account provided. Dry mode."})
-            return None
-
         tx = transaction.build_transaction(params)
         signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
 

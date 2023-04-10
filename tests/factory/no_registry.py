@@ -28,7 +28,7 @@ class LidoKeyFactory(Web3Factory):
 
     @classmethod
     def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return cls.butch_with('key', [v.validator.pubkey for v in validators], **kwargs)
+        return cls.batch_with('key', [v.validator.pubkey for v in validators], **kwargs)
 
 
 class StakingModuleFactory(Web3Factory):
@@ -41,6 +41,7 @@ class StakingModuleFactory(Web3Factory):
 class LidoValidatorFactory(Web3Factory):
     __model__ = LidoValidator
 
+    index: str = Use(lambda x: str(next(x)), count(1))
     balance: str = Use(lambda x: str(x), random.randrange(1, 10**9))
 
 

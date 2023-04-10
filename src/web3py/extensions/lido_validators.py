@@ -1,6 +1,5 @@
 import logging
 from dataclasses import asdict, dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING, NewType, Tuple
 
 from eth_typing import ChecksumAddress
@@ -10,6 +9,7 @@ from src.providers.consensus.typings import Validator
 from src.providers.keys.typings import LidoKey
 from src.typings import BlockStamp
 from src.utils.dataclass import Nested, list_of_dataclasses
+from src.utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)

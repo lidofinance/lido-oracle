@@ -263,8 +263,7 @@ class SafeBorder(Web3Converter):
     def _retrieve_constants(self):
         limits_list = self._fetch_oracle_report_limits_list()
         self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (
-                    self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
         )
 
         self.finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
@@ -296,9 +295,9 @@ class SafeBorder(Web3Converter):
         )
 
     def _get_withdrawal_request_status(self, request_id: int) -> Any:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalRequestStatus(request_id).call(
+        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalStatus([request_id]).call(
             block_identifier=self.blockstamp.block_hash
-        )
+        )[0]
 
     def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
         rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))

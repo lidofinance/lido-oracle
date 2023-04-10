@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from functools import lru_cache, reduce
+from functools import reduce
 from typing import Sequence, Iterable
 
 from eth_typing import HexStr
@@ -19,6 +19,7 @@ from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
+from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class LidoValidatorStateService:
+    """Helper that calculates/aggregates Lido validator's states."""
     def __init__(self, w3: Web3):
         self.w3 = w3
         self.extra_data_service = ExtraDataService()
@@ -46,8 +48,8 @@ class LidoValidatorStateService:
         extra_data = self.extra_data_service.collect(
             stuck_validators=stuck_validators,
             exited_validators=exited_validators,
-            max_items_in_payload_count=orl.max_node_operators_per_extra_data_item_count,
             max_items_count=orl.max_accounting_extra_data_list_items_count,
+            max_no_in_payload_count=orl.max_node_operators_per_extra_data_item_count,
         )
         logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
         return extra_data
@@ -269,15 +271,15 @@ class LidoValidatorStateService:
         logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
-        module_operator: dict[NodeOperatorGlobalIndex, set[int]] = {
+        global_indexes: dict[NodeOperatorGlobalIndex, set[int]] = {
             operator: set() for operator in operator_global_indexes
         }
 
         for event in events:
             operator_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
-            module_operator[operator_global_index].add(event['args']['validatorIndex'])
+            global_indexes[operator_global_index].add(event['args']['validatorIndex'])
 
-        return module_operator
+        return global_indexes
 
     @lru_cache(maxsize=1)
     def get_validator_delayed_timeout_in_slot(self, blockstamp: ReferenceBlockStamp) -> int:
