@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changes
 - Oracle split in two separate modules: ejector and accounting
 
+## [2.6.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.6.1) - 2023-04-08
+### Fixed
+- Correctly handle missed slot.
+
 ## [2.4.0](https://github.com/lidofinance/lido-oracle/releases/tag/2.4.0) - 2022-10-04
 ### Changed
 - Client for Prysm node has been changed to the same as for the lighthouse node.
