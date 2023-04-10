@@ -7,61 +7,57 @@ Oracle daemon for Lido decentralized staking service: Monitoring the state of th
 
 ## How it works
 
-There are three modules in the oracle:
+There are two modules in the oracle:
 
 - Accounting
 - Ejector
 
 ### Accounting module
 
-Accounting module updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
+Accounting module updates the protocol TVL, distributes node-operator rewards, updates information about the number of exited and stuck validators and processes user withdrawal requests.
+Also Accounting module makes decision to turn on/off the bunker. 
 
 **Flow**
 
 The oracle work is delineated by time periods called frames. Oracles finalize a report in each frame.
-The default Accounting Oracle frame length is 225 epochs, which is 24 hours. The frame includes these stages:
+The default Accounting Oracle frame length on mainnet is 225 epochs, which is 24 hours (it could be changed by DAO). 
+The frame includes these stages:
 
 - **Waiting** - oracle starts as daemon and wakes up every 12 seconds (by default) in order to find the last finalized slot (ref slot).
   If ref slot missed, Oracle tries to find previous non-missed slot.
 - **Data collection**: oracles monitor the state of both the execution and consensus layers and collect the data;
 - **Hash consensus**: oracles analyze the data, compile the report and submit its hash to the HashConsensus smart contract;
-- **Core update report**: once the quorum of hashes is reached, meaning more than half of the oracles submitted the same hash,
+- **Core update report**: once the quorum of hashes is reached, meaning required number of Oracles submitted the same hash,
   one of the oracles chosen in turn submits the actual report to the AccountingOracle contract, which triggers the core protocol
-  state update, including the token rebase, distribution of node operator rewards, finalization of withdrawal requests, and
+  state update, including the token rebase, finalization of withdrawal requests, and
   deciding whether to go in the bunker mode.
 - **Extra data report**: an additional report carrying additional information. This part is required.
-  All rewards to modules are distributed in this Oracle’s phase. Can be submitted in chunks.
+  All node operators rewards are distributed in this phase.
 
 ### Ejector module
 
-Ejector module ejects Lido validators when the protocol requires additional funds to process user withdrawals.
+Ejector module requests Lido validators to eject via events in Execution Layer when the protocol requires additional funds to process user withdrawals.
 
 **Flow**
 
 - Finds out how much ETH is needed to cover withdrawals.
-- Predicts how much ETH will be rewarded in each time period.
-- Figures out when the next validator will be removed.
-- Changes lido validators into simpler code and share the update.
+- Predicts mean Lido income into Withdrawal and Execution Rewards Vaults.
+- Figures out when the next validator will be withdrawn.
+- Encode Lido validators to eject int bytes and send transaction.
 
 # Usage
 
-## Requirements
+## Machine requirements
 
-The oracle daemon requires a node with Execution and Consensus layers. We highly recommend using
-[geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container),
-[Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image) and
-[Erigon](https://github.com/ledgerwatch/erigon#getting-started).
+- vCPUs - 2
+- Memory - 8 GB
 
-### Machine requirements
+## Dependencies
 
-- vCPUs - 8
-- Memory - 16 GB
+### Execution Client Node
 
-### Dependencies
-
-#### Execution Client Node
-
-To prepare the report, Oracle fetches up to 10 days old events. To perform this, Oracle needs [full](https://ethereum.org/en/developers/docs/nodes-and-clients/#full-node) execution node.
+To prepare the report, Oracle fetches up to 10 days old events, makes historical requests for balance data and makes simulated reports on historical blocks. This requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) execution node.
+Oracle needs two weeks of archived data.
 
 | Client                                          | Tested | Notes                                                                                                                                                                           |
 |-------------------------------------------------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -70,7 +66,7 @@ To prepare the report, Oracle fetches up to 10 days old events. To perform this,
 | [Besu](https://besu.hyperledger.org/en/stable/) |        | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
 | [Erigon](https://github.com/ledgerwatch/erigon) |        | Use <br> `--prune=htc` <br> `--prune.h.before=100000` <br> `--prune.t.before=100000` <br> `--prune.c.before=100000` <br> params                                                 |
 
-#### Consensus Client Node
+### Consensus Client Node
 
 Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
 
@@ -82,11 +78,11 @@ Also, to calculate some metrics for bunker mode Oracle needs [archive](https://e
 | [Prysm](https://github.com/ledgerwatch/erigon)    |        | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
 | [Teku](https://docs.teku.consensys.net)           |        | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
 
-#### Keys API Service
+### Keys API Service
 
-This is a separate service that uses execution client to fetch all lido keys. It stores the latest state of lido keys in database.
+This is a separate service that uses execution client to fetch all Lido keys. It stores the latest state of Lido keys in database.
 
-Keys API launch [guide](https://hackmd.io/D4ImUAAMQnKFVh5FX9et9Q?view).
+[Keys API repository]().
 
 ## Setup
 
@@ -172,7 +168,7 @@ groups:
   - name: oracle-alerts
     rules:
       - alert: AccountBalance
-        expr: lido_oracle_account_balance / 10^18 < 3
+        expr: lido_oracle_account_balance / 10^18 < 1
         for: 10m
         labels:
           severity: critical
