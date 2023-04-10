@@ -13,6 +13,10 @@ MEMBER_PRIV_KEY = os.getenv('MEMBER_PRIV_KEY')
 
 MEMBER_PRIV_KEY_FILE = os.getenv('MEMBER_PRIV_KEY_FILE')
 if MEMBER_PRIV_KEY_FILE is not None:
+    if not os.path.exists(MEMBER_PRIV_KEY_FILE):
+        raise ValueError(f'File {MEMBER_PRIV_KEY_FILE} does not exist. '
+                         f'Fix MEMBER_PRIV_KEY_FILE variable or remove it.')
+
     with open(MEMBER_PRIV_KEY_FILE) as f:
         MEMBER_PRIV_KEY = f.read().rstrip()
 
