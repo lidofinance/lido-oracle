@@ -82,7 +82,7 @@ Also, to calculate some metrics for bunker mode Oracle needs [archive](https://e
 
 This is a separate service that uses execution client to fetch all Lido keys. It stores the latest state of Lido keys in database.
 
-[Keys API repository]().
+[Keys API repository](https://github.com/lidofinance/lido-keys-api).
 
 ## Setup
 
