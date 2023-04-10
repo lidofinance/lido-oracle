@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [3.0.0](link) - 2023-01-01
+## Lido v2 big upgrade. [Details!](https://blog.lido.fi/introducing-lido-v2/)
+
+### Added
+- Withdrawals support
+- Staking router support
+
+### Changes
+- Oracle split in two separate modules: ejector and accounting
+
 ## [2.6.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.6.1) - 2023-04-08
 ### Fixed
 - Correctly handle missed slot.
