@@ -10,6 +10,16 @@ KEYS_API_URI = os.getenv('KEYS_API_URI', '').split(',')
 # - Account -
 ACCOUNT = None
 MEMBER_PRIV_KEY = os.getenv('MEMBER_PRIV_KEY')
+
+MEMBER_PRIV_KEY_FILE = os.getenv('MEMBER_PRIV_KEY_FILE')
+if MEMBER_PRIV_KEY_FILE:
+    if not os.path.exists(MEMBER_PRIV_KEY_FILE):
+        raise ValueError(f'File {MEMBER_PRIV_KEY_FILE} does not exist. '
+                         f'Fix MEMBER_PRIV_KEY_FILE variable or remove it.')
+
+    with open(MEMBER_PRIV_KEY_FILE) as f:
+        MEMBER_PRIV_KEY = f.read().rstrip()
+
 if MEMBER_PRIV_KEY:
     ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)  # False-positive. pylint: disable=no-value-for-parameter
 

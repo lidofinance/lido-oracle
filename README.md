@@ -119,13 +119,16 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    and your environment is ready to run the oracle.
 
 ## Run the oracle
-
-1. By default, the oracle runs in dry mode. This means it will not send any
-   transactions to the Ethereum network. To run it in production mode, set the `MEMBER_PRIV_KEY` environment variable:
-   ```
-   MEMBER_PRIV_KEY={value}
-   ```
-   Replace `{value}` with the private key of the Oracle member account.
+1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
+    To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` environment variable:
+    ```
+    MEMBER_PRIV_KEY={value}
+    ```
+    Where `{value}` is a private key of the Oracle member account or:
+    ```
+    MEMBER_PRIV_KEY_FILE={path}
+    ```
+    Where `{path}` is a path to the private key of the Oracle member account.
 2. Run the container using the following command:
 
    ```bash
@@ -150,6 +153,7 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
 | `KEYS_API_URI`                               | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
 | `LIDO_LOCATOR_ADDRESS`                       | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
 | `MEMBER_PRIV_KEY`                            | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
+| `MEMBER_PRIV_KEY_FILE`                       | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`      |
 | `FINALIZATION_BATCH_MAX_REQUEST_COUNT`       | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
 | `ALLOW_REPORTING_IN_BUNKER_MODE`             | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
 | `TX_GAS_ADDITION`                            | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `1.75`                  |
