@@ -71,10 +71,15 @@ class Accounting(BaseModule, ConsensusModule):
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
+        latest_blockstamp = self._get_latest_blockstamp()
+        if not self.can_submit_extra_data(latest_blockstamp):
+            logger.info({'msg': 'Extra data can not be submitted.'})
+            return
+
         chain_config = self.get_chain_config(blockstamp)
         slots_to_sleep = self._get_slot_delay_before_data_submit(blockstamp)
         seconds_to_sleep = slots_to_sleep * chain_config.seconds_per_slot
-        logger.info({'msg': f'Sleep for {seconds_to_sleep} before sending extra data.'})
+        logger.info({'msg': f'Sleep for {seconds_to_sleep} seconds before sending extra data.'})
         sleep(seconds_to_sleep)
 
         latest_blockstamp = self._get_latest_blockstamp()
