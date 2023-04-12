@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Optional, Tuple, Sequence, Callable
+from typing import Optional, Tuple, Sequence, Callable, List
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
@@ -11,6 +11,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
 from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS, HTTP_REQUEST_TIMEOUT
+from src.web3py.extensions.consistency import ProviderConsistencyModule
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class NotOkResponse(Exception):
         super().__init__(*args)
 
 
-class HTTPProvider(ABC):
+class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
@@ -151,3 +152,9 @@ class HTTPProvider(ABC):
             meta = {}
 
         return data, meta
+
+    def get_all_hosts(self) -> List[Tuple[str, str]]:
+        return list(map(lambda host: (host, host), self.hosts))
+
+    def get_chain_id(self, host) -> int:
+        raise NotImplementedError("_chain_id should be implemented")

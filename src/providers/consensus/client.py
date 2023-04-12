@@ -156,3 +156,9 @@ class ConsensusClient(HTTPProvider):
                     return error
 
         return None
+
+    def get_chain_id(self, host: str) -> int:
+        data, _ = self._get_without_fallbacks(host, self.API_GET_SPEC)
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getSpec")
+        return int(BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID)

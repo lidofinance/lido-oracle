@@ -55,3 +55,7 @@ class KeysAPIClient(HTTPProvider):
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
         data, _ = self._get(self.STATUS)
         return KeysApiStatus.from_response(**cast(dict, data))
+
+    def get_chain_id(self, host: str) -> int:
+        data, _ = self._get_without_fallbacks(host, self.STATUS)
+        return KeysApiStatus.from_response(**cast(dict, data)).chainId
