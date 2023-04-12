@@ -42,6 +42,9 @@ class TransactionUtils(Module):
         except ContractLogicError as error:
             logger.warning({"msg": "Transaction reverted.", "error": str(error)})
             return False
+        except ValueError as error:
+            logger.error({"msg": "Not enough funds.", "error": str(error)})
+            return False
 
         logger.info({"msg": "Transaction executed successfully.", "value": result})
         return True
@@ -79,7 +82,10 @@ class TransactionUtils(Module):
         try:
             gas = transaction.estimate_gas({'from': account.address})
         except ContractLogicError as error:
-            logger.warning({'msg': 'Contract logic error', 'error': str(error)})
+            logger.warning({'msg': 'Contract logic error.', 'error': str(error)})
+            return None
+        except ValueError as error:
+            logger.warning({'msg': 'Execution reverted.', 'error': str(error)})
             return None
 
         return min(

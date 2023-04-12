@@ -109,7 +109,7 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    Set required values. It will be enough to run the oracle in _check mode_.
 2. Check that your environment is ready to run the oracle using the following command:
    ```bash
-   docker run --env-file .env --rm lidofinance/oracle:{tag} check
+   docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
    ```
    If everything is ok, you will see that all required checks are passed
    and your environment is ready to run the oracle.
@@ -178,7 +178,7 @@ groups:
           severity: critical
         annotations:
           summary: "Dangerously low account balance"
-          description: "Account balance is less than 3 ETH. Address: {.labels.address}: {.value} ETH"
+          description: "Account balance is less than 1 ETH. Address: {.labels.address}: {.value} ETH"
       - alert: OutdatedData
         expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
         for: 1h
