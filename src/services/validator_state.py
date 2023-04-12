@@ -8,15 +8,14 @@ from eth_typing import HexStr
 from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_STUCK_VALIDATORS,
-    ACCOUNTING_EXITED_VALIDATORS,
-    ACCOUNTING_DELAYED_VALIDATORS
+    ACCOUNTING_EXITED_VALIDATORS, ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig
 from src.typings import BlockStamp, ReferenceBlockStamp, EpochNumber
 from src.utils.abi import named_tuple_to_dataclass
-from src.utils.events import get_events_in_past
+from src.utils import events
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
 from src.utils.cache import global_lru_cache as lru_cache
@@ -106,16 +105,16 @@ class LidoValidatorStateService:
     def get_last_requested_to_exit_pubkeys(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> set[HexStr]:
         exiting_keys_stuck_border_in_slots = self.get_validator_delinquent_timeout_in_slot(blockstamp)
 
-        events = get_events_in_past(
+        items = events.get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=blockstamp,
             for_slots=exiting_keys_stuck_border_in_slots,
             seconds_per_slot=chain_config.seconds_per_slot,
         )
 
-        logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
+        logger.info({'msg': f'Fetch exit events. Got {len(items)} events.'})
 
-        return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in events)
+        return set(bytes_to_hex_str(event['args']['validatorPubkey']) for event in items)
 
     @lru_cache(maxsize=1)
     def get_validator_delinquent_timeout_in_slot(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -210,9 +209,11 @@ class LidoValidatorStateService:
         for global_index, validators in lido_validators_by_operator.items():
 
             def validator_requested_to_exit(validator: LidoValidator) -> bool:
+                # when ejected_indexes doesn't contain global_index then it raises error.
                 return int(validator.index) <= ejected_indexes[global_index]
 
             def validator_recently_requested_to_exit(validator: LidoValidator) -> bool:
+                # when recent_indexes doesn't contain global_index then it raises error too
                 return int(validator.index) in recent_indexes[global_index]
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
@@ -261,21 +262,21 @@ class LidoValidatorStateService:
     ) -> dict[NodeOperatorGlobalIndex, set[int]]:
         exiting_keys_delayed_border_in_slots = self.get_validator_delayed_timeout_in_slot(blockstamp)
 
-        events = get_events_in_past(
+        items = events.get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=blockstamp,
             for_slots=exiting_keys_delayed_border_in_slots,
             seconds_per_slot=chain_config.seconds_per_slot,
         )
 
-        logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
+        logger.info({'msg': f'Fetch exit events. Got {len(items)} events.'})
 
         # Initialize dict with empty sets for operators which validators were not contained in any event
         global_indexes: dict[NodeOperatorGlobalIndex, set[int]] = {
             operator: set() for operator in operator_global_indexes
         }
 
-        for event in events:
+        for event in items:
             operator_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
             global_indexes[operator_global_index].add(event['args']['validatorIndex'])
 
