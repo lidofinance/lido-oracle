@@ -231,7 +231,8 @@ class TestAccountingProcessExtraData:
 
         accounting.process_extra_data(ref_bs)
 
-        accounting.can_submit_extra_data.assert_called_once_with(bs)
+        assert accounting.can_submit_extra_data.call_count == 2
+        assert accounting.can_submit_extra_data.call_args[0][0] is bs
         submit_extra_data_mock.assert_called_once_with(ref_bs)
 
 
