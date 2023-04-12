@@ -10,8 +10,6 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
-from src.variables import HTTP_REQUEST_RETRY_COUNT, HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,19 +34,25 @@ class HTTPProvider(ABC):
     PROMETHEUS_HISTOGRAM: Histogram
     HTTP_REQUEST_TIMEOUT: int
 
-    def __init__(self, hosts: list[str], http_request_timeout: int):
+    def __init__(
+        self,
+        hosts: list[str],
+        http_request_timeout: int,
+        http_request_retry_count: int,
+        http_request_sleep_in_seconds: int
+    ):
         if not hosts:
             raise NoHostsProvided(f"No hosts provided for {self.__class__.__name__}")
-        
+
         if not http_request_timeout:
             raise NoHostsProvided(f"No timeout provided for {self.__class__.__name__}")
 
         self.hosts = hosts
 
         retry_strategy = Retry(
-            total=HTTP_REQUEST_RETRY_COUNT,
+            total=http_request_retry_count,
             status_forcelist=[418, 429, 500, 502, 503, 504],
-            backoff_factor=HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS,
+            backoff_factor=http_request_sleep_in_seconds,
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -57,6 +61,8 @@ class HTTPProvider(ABC):
         self.session.mount("http://", adapter)
 
         self.HTTP_REQUEST_TIMEOUT = http_request_timeout
+        self.HTTP_REQUEST_RETRY_COUNT = http_request_retry_count
+        self.HTTP_REQUEST_SLEEP_IN_SECONDS = http_request_sleep_in_seconds
 
     @staticmethod
     def _urljoin(host, url):

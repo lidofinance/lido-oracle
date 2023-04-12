@@ -9,7 +9,7 @@ from src.variables import CONSENSUS_CLIENT_URI
 
 @pytest.fixture
 def consensus_client():
-    return ConsensusClient(CONSENSUS_CLIENT_URI, 5 * 60)
+    return ConsensusClient(CONSENSUS_CLIENT_URI, 5 * 60, 5, 5)
 
 
 @pytest.mark.integration
