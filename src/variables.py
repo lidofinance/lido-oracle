@@ -25,7 +25,7 @@ if MEMBER_PRIV_KEY:
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
-FINALIZATION_BATCH_MAX_REQUEST_COUNT = os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000)
+FINALIZATION_BATCH_MAX_REQUEST_COUNT = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block
