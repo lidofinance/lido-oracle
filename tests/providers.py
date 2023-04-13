@@ -106,7 +106,13 @@ class UpdateResponsesProvider(MultiProvider, UpdateResponses):
 class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     def __init__(self, mock_path: Path, w3: Web3):
         self.w3 = w3
-        HTTPProvider.__init__(self, hosts=[""])
+        HTTPProvider.__init__(
+            self,
+            hosts=[""],
+            request_timeout=5 * 60,
+            retry_total=5,
+            retry_backoff_factor=5,
+        )
         Module.__init__(self, w3)
         FromFile.__init__(self, mock_path)
 
@@ -128,7 +134,12 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def __init__(self, mock_path: Path, host: str, w3: Web3):
         self.w3 = w3
 
-        super().__init__([host])
+        super().__init__(
+            [host],
+            request_timeout=5 * 60,
+            retry_total=5,
+            retry_backoff_factor=5,
+        )
         super(Module, self).__init__()
         self.responses = []
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
