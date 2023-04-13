@@ -1,6 +1,5 @@
-from typing import Any, Tuple, List, Optional
+from typing import Any, Optional
 from abc import abstractmethod, ABC
-from requests.exceptions import ConnectionError as RequestsConnectionError
 
 
 class InconsistentProviders(Exception):
@@ -20,7 +19,7 @@ class ProviderConsistencyModule(ABC):
     def get_all_providers(self) -> [any]:
     def _get_chain_id_with_provider(self, int) -> int:
     """
-    def check_providers_consistency(self) -> int:
+    def check_providers_consistency(self) -> Optional[int]:
         chain_id = None
 
         for provider_index in range(len(self.get_all_providers())):
