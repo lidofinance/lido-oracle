@@ -2,7 +2,6 @@ import sys
 from typing import cast
 
 from prometheus_client import start_http_server
-from web3_multi_provider import FallbackProvider
 from web3.middleware import simple_cache_middleware
 
 from src import variables
@@ -20,6 +19,7 @@ from src.web3py.extensions import (
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoValidatorsProvider,
+    FallbackProviderModule
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.typings import Web3
@@ -57,7 +57,7 @@ def main(module: OracleModule):
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(FallbackProvider(variables.EXECUTION_CLIENT_URI))
+    web3 = Web3(FallbackProviderModule(variables.EXECUTION_CLIENT_URI))
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
@@ -67,6 +67,8 @@ def main(module: OracleModule):
 
     logger.info({'msg': 'Initialize keys api client.'})
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
+
+    check_providers_chain_ids(web3, cc, kac)
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,
@@ -81,7 +83,6 @@ def main(module: OracleModule):
     web3.middleware_onion.add(simple_cache_middleware)
 
     logger.info({'msg': 'Sanity checks.'})
-    check_providers_chain_ids(web3)
 
     if module == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
@@ -101,19 +102,18 @@ def check():
     return ChecksModule().execute_module()
 
 
-def check_providers_chain_ids(web3: Web3):
-    execution_chain_id = web3.eth.chain_id
-    consensus_chain_id = int(web3.cc.get_config_spec().DEPOSIT_CHAIN_ID)
-    chain_ids = [
-        Web3.to_int(hexstr=provider.make_request("eth_chainId", []).get('result'))
-        for provider in cast(FallbackProvider, web3.provider)._providers  # type: ignore[attr-defined] # pylint: disable=protected-access
-    ]
-    keys_api_chain_id = web3.kac.get_status().chainId
-    if any(execution_chain_id != chain_id for chain_id in [*chain_ids, consensus_chain_id, keys_api_chain_id]):
-        raise ValueError('Different chain ids detected:\n'
-                         f'Execution chain ids: {", ".join(map(str, chain_ids))}\n'
-                         f'Consensus chain id: {consensus_chain_id}\n'
-                         f'Keys API chain id: {keys_api_chain_id}\n')
+def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
+    keys_api_chain_id = kac.check_providers_consistency()
+    consensus_chain_id = cc.check_providers_consistency()
+    execution_chain_id = cast(FallbackProviderModule, web3.provider).check_providers_consistency()
+
+    if execution_chain_id == consensus_chain_id == keys_api_chain_id:
+        return
+
+    raise ValueError('Different chain ids detected:\n'
+                     f'Execution chain id: {execution_chain_id}\n'
+                     f'Consensus chain id: {consensus_chain_id}\n'
+                     f'Keys API chain id: {keys_api_chain_id}\n')
 
 
 if __name__ == '__main__':

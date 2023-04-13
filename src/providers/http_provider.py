@@ -10,6 +10,9 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
+from src.web3py.extensions.consistency import ProviderConsistencyModule
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +30,7 @@ class NotOkResponse(Exception):
         super().__init__(*args)
 
 
-class HTTPProvider(ABC):
+class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
@@ -159,3 +162,9 @@ class HTTPProvider(ABC):
             meta = {}
 
         return data, meta
+
+    def get_all_providers(self) -> list[str]:
+        return self.hosts
+
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
+        raise NotImplementedError("_chain_id should be implemented")

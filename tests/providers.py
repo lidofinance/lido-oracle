@@ -129,6 +129,12 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
                 return response["response"]
         raise NoMockException('There is no mock for response')
 
+    def get_all_hosts(self) -> list:
+        return []
+
+    def get_chain_id(self, host) -> int:
+        return 0
+
 
 class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def __init__(self, mock_path: Path, host: str, w3: Web3):

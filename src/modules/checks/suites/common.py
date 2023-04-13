@@ -24,7 +24,7 @@ def ejector(web3, skip_locator):
 
 def check_providers_chain_ids(web3):
     """Make sure all providers are on the same chain"""
-    chain_ids_check(web3)
+    chain_ids_check(web3, web3.cc, web3.kac)
 
 
 def check_accounting_contract_configs(accounting):
