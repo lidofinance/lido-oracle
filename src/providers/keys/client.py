@@ -32,17 +32,17 @@ class KeysAPIClient(HTTPProvider):
         """
         Returns response if blockstamp < blockNumber from response
         """
-        for i in range(self.HTTP_REQUEST_RETRY_COUNT):
+        for i in range(self.retry_count):
             data, meta = self._get(url, query_params=params)
             blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
             if blocknumber_meta >= blockstamp.block_number:
                 return data
 
-            if i != self.HTTP_REQUEST_RETRY_COUNT - 1:
-                sleep(self.HTTP_REQUEST_SLEEP_IN_SECONDS)
+            if i != self.retry_count - 1:
+                sleep(self.backoff_factor)
 
-        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.HTTP_REQUEST_SLEEP_IN_SECONDS * self.HTTP_REQUEST_RETRY_COUNT} seconds.')
+        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(LidoKey.from_response)

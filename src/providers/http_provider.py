@@ -32,37 +32,33 @@ class HTTPProvider(ABC):
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
     PROMETHEUS_HISTOGRAM: Histogram
-    HTTP_REQUEST_TIMEOUT: int
+    request_timeout: int
 
     def __init__(
         self,
         hosts: list[str],
-        http_request_timeout: int,
-        http_request_retry_count: int,
-        http_request_sleep_in_seconds: int
+        request_timeout: int,
+        retry_total: int,
+        retry_backoff_factor: int,
     ):
         if not hosts:
             raise NoHostsProvided(f"No hosts provided for {self.__class__.__name__}")
 
-        if not http_request_timeout:
-            raise NoHostsProvided(f"No timeout provided for {self.__class__.__name__}")
-
         self.hosts = hosts
+        self.request_timeout = request_timeout
+        self.retry_count = retry_total
+        self.backoff_factor = retry_backoff_factor
 
         retry_strategy = Retry(
-            total=http_request_retry_count,
+            total=self.retry_count,
             status_forcelist=[418, 429, 500, 502, 503, 504],
-            backoff_factor=http_request_sleep_in_seconds,
+            backoff_factor=self.backoff_factor,
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session = Session()
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
-
-        self.HTTP_REQUEST_TIMEOUT = http_request_timeout
-        self.HTTP_REQUEST_RETRY_COUNT = http_request_retry_count
-        self.HTTP_REQUEST_SLEEP_IN_SECONDS = http_request_sleep_in_seconds
 
     @staticmethod
     def _urljoin(host, url):
@@ -125,7 +121,7 @@ class HTTPProvider(ABC):
                 response = self.session.get(
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
-                    timeout=self.HTTP_REQUEST_TIMEOUT,
+                    timeout=self.request_timeout,
                 )
             except RequestsConnectionError as error:
                 logger.debug({'msg': str(error)})

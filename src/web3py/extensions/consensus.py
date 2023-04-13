@@ -5,7 +5,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.variables import (
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
     HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
-    HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS
+    HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
 )
 
 
@@ -17,6 +17,6 @@ class ConsensusClientModule(ConsensusClient, Module):
             hosts,
             HTTP_REQUEST_TIMEOUT_CONSENSUS,
             HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
-            HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS
+            HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
         )
         super(Module, self).__init__()
