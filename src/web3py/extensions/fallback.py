@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 from web3_multi_provider import FallbackProvider
 from src.web3py.extensions.consistency import ProviderConsistencyModule
