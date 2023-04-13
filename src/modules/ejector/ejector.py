@@ -7,7 +7,6 @@ from src.constants import (
     CHURN_LIMIT_QUOTIENT,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
-    MAX_SEED_LOOKAHEAD,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
@@ -30,10 +29,11 @@ from src.services.validator_state import LidoValidatorStateService
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.epoch import compute_activation_exit_epoch
 from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
-    is_partially_withdrawable_validator,
+    is_partially_withdrawable_validator, get_predicted_withdrawable_balance,
 )
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.typings import Web3
@@ -128,7 +128,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exited_validators(blockstamp, chain_config)
         going_to_withdraw_balance = sum(map(
-            self._get_predicted_withdrawable_balance,
+            get_predicted_withdrawable_balance,
             validators_going_to_exit,
         ))
         logger.info({'msg': 'Calculate going to exit validators balance.', 'value': going_to_withdraw_balance})
@@ -177,7 +177,7 @@ class Ejector(BaseModule, ConsensusModule):
 
             validators_to_eject.append(validator_container)
             (_, validator) = validator_container
-            validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(validator)
+            validator_to_eject_balance_sum += get_predicted_withdrawable_balance(validator)
 
         return validators_to_eject
 
@@ -197,7 +197,7 @@ class Ejector(BaseModule, ConsensusModule):
         def get_total_withdrawable_balance(balance: Wei, validator: Validator) -> Wei:
             if is_fully_withdrawable_validator(validator, on_epoch):
                 balance = Wei(
-                    balance + self._get_predicted_withdrawable_balance(validator)
+                    balance + get_predicted_withdrawable_balance(validator)
                 )
 
             return balance
@@ -252,7 +252,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         max_exit_epoch_number = max(
             max_exit_epoch_number,
-            self.compute_activation_exit_epoch(blockstamp),
+            compute_activation_exit_epoch(blockstamp),
         )
 
         EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
@@ -263,15 +263,6 @@ class Ejector(BaseModule, ConsensusModule):
         epochs_required_to_exit_validators = (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
-
-    @staticmethod
-    def compute_activation_exit_epoch(blockstamp: ReferenceBlockStamp):
-        """
-        Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
-
-        Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-        """
-        return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: BlockStamp) -> tuple[EpochNumber, int]:

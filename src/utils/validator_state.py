@@ -1,5 +1,8 @@
 from typing import Sequence
 
+from web3 import Web3
+from web3.types import Wei
+
 from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
@@ -98,3 +101,6 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
             effective_balance_sum += int(validator.validator.effective_balance)
 
     return Gwei(effective_balance_sum)
+
+def get_predicted_withdrawable_balance(validator: Validator) -> Wei:
+    return Web3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')

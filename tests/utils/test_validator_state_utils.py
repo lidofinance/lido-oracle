@@ -1,7 +1,6 @@
-from pydantic.class_validators import validator
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE
 from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
 from src.typings import EpochNumber, Gwei
 from src.utils.validator_state import (
@@ -15,8 +14,9 @@ from src.utils.validator_state import (
     has_eth1_withdrawal_credential,
     is_exited_validator,
     is_active_validator,
+    get_predicted_withdrawable_balance,
 )
-from tests.factory.no_registry import ValidatorFactory
+from tests.factory.no_registry import ValidatorFactory, LidoValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
 
 
@@ -289,3 +289,18 @@ class TestCalculateTotalEffectiveBalance:
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == Gwei(2000000000)
+
+
+@pytest.mark.unit
+def test_get_predicted_withdrawable_balance() -> None:
+    validator = LidoValidatorFactory.build(balance="0")
+    result = get_predicted_withdrawable_balance(validator)
+    assert result == 0, "Expected zero"
+
+    validator = LidoValidatorFactory.build(balance="42")
+    result = get_predicted_withdrawable_balance(validator)
+    assert result == 42 * 10**9, "Expected validator's balance in gwei"
+
+    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
+    result = get_predicted_withdrawable_balance(validator)
+    assert result == MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"

@@ -138,12 +138,11 @@ class TestGetValidatorsToEject:
 
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
-        ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
 
         validators = [
-            ((StakingModuleId(0), NodeOperatorId(1)), LidoValidatorFactory.build()),
-            ((StakingModuleId(0), NodeOperatorId(3)), LidoValidatorFactory.build()),
-            ((StakingModuleId(0), NodeOperatorId(5)), LidoValidatorFactory.build()),
+            ((StakingModuleId(0), NodeOperatorId(1)), LidoValidatorFactory.build(balance=50)),
+            ((StakingModuleId(0), NodeOperatorId(3)), LidoValidatorFactory.build(balance=50)),
+            ((StakingModuleId(0), NodeOperatorId(5)), LidoValidatorFactory.build(balance=50)),
         ]
 
         with monkeypatch.context() as m:
@@ -161,18 +160,6 @@ class TestGetValidatorsToEject:
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
     assert result == 8362187000000000000, "Unexpected unfinalized stETH"
-
-
-@pytest.mark.unit
-def test_compute_activation_exit_epoch(
-    ejector: Ejector,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with monkeypatch.context() as m:
-        m.setattr(ejector_module, "MAX_SEED_LOOKAHEAD", 17)
-        ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-        result = ejector.compute_activation_exit_epoch(ref_blockstamp)
-        assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
 
 
 @pytest.mark.unit
@@ -226,21 +213,6 @@ def test_get_withdrawable_lido_validators(
 
         ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
         ejector.w3.lido_validators.get_lido_validators.assert_called_once()
-
-
-@pytest.mark.unit
-def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
-    validator = LidoValidatorFactory.build(balance="0")
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == 0, "Expected zero"
-
-    validator = LidoValidatorFactory.build(balance="42")
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == 42 * 10**9, "Expected validator's balance in gwei"
-
-    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
 
 
 @pytest.mark.unit
