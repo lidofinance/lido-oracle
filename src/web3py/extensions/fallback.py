@@ -6,9 +6,8 @@ from web3 import Web3
 
 
 class FallbackProviderModule(ProviderConsistencyModule, FallbackProvider):
+    def get_all_providers(self) -> list[Any]:
+        return self._providers
 
-    def get_all_hosts(self) -> List[Tuple[Any, str]]:
-        return list(map(lambda provider: (provider, provider.endpoint_uri), self._providers))
-
-    def get_chain_id(self, host) -> int:
-        return Web3.to_int(hexstr=host.make_request("eth_chainId", []).get('result'))
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
+        return Web3.to_int(hexstr=self._providers[provider_index].make_request("eth_chainId", []).get('result'))

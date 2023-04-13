@@ -56,6 +56,6 @@ class KeysAPIClient(HTTPProvider):
         data, _ = self._get(self.STATUS)
         return KeysApiStatus.from_response(**cast(dict, data))
 
-    def get_chain_id(self, host: str) -> int:
-        data, _ = self._get_without_fallbacks(host, self.STATUS)
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
+        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS)
         return KeysApiStatus.from_response(**cast(dict, data)).chainId

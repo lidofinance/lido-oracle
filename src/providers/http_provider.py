@@ -153,8 +153,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         return data, meta
 
-    def get_all_hosts(self) -> List[Tuple[str, str]]:
-        return list(map(lambda host: (host, host), self.hosts))
+    def get_all_providers(self) -> list[str]:
+        return self.hosts
 
-    def get_chain_id(self, host) -> int:
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
         raise NotImplementedError("_chain_id should be implemented")
