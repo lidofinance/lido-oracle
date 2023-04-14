@@ -20,7 +20,6 @@ def test_get_safe_border_epoch(
     default_requests_border_epoch,
     expected,
 ):
-    SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock(return_value=negative_rebase_border_epoch)
     SafeBorder._get_associated_slashings_border_epoch = MagicMock(return_value=associated_slashings_border_epoch)
     SafeBorder._get_default_requests_border_epoch = MagicMock(return_value=default_requests_border_epoch)
@@ -45,7 +44,6 @@ def test_get_safe_border_epoch(
 def test_get_bunker_start_or_last_successful_report_epoch(
     get_bunker_timestamp, slots_per_epoch, last_processing_ref_slot, initial_epoch, expected
 ):
-    SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock()
     SafeBorder._get_associated_slashings_border_epoch = MagicMock()
     SafeBorder._get_default_requests_border_epoch = MagicMock()
@@ -123,7 +121,6 @@ def test_find_earliest_slashed_epoch_rounded_to_frame(
     last_finalized_withdrawal_request_slot,
     expected,
 ):
-    SafeBorder._retrieve_constants = MagicMock
     SafeBorder._get_negative_rebase_border_epoch = MagicMock()
     SafeBorder._get_associated_slashings_border_epoch = MagicMock()
     SafeBorder._get_last_finalized_withdrawal_request_slot = MagicMock(

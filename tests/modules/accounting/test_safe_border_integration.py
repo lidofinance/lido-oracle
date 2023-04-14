@@ -40,9 +40,7 @@ def subject(
         '_fetch_finalization_max_negative_rebase_epoch_shift',
         return_value=finalization_max_negative_rebase_epoch_shift,
     ):
-        safe_border = SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
-
-    return safe_border
+        yield SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
 
 @pytest.mark.integration

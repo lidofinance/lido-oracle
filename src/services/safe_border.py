@@ -58,7 +58,28 @@ class SafeBorder(Web3Converter):
 
         self.converter = Web3Converter(chain_config, frame_config)
 
-        self._retrieve_constants()
+        self._finalization_default_shift: Optional[int] = None
+        self._finalization_max_negative_rebase_shift: Optional[int] = None
+
+    @property
+    def finalization_default_shift(self) -> int:
+        """
+        The default border is a few epochs before report reference epoch.
+        """
+        if self._finalization_default_shift is None:
+            limits_list = self._fetch_oracle_report_limits_list()
+            self._finalization_default_shift = math.ceil(
+                limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+            )
+        return self._finalization_default_shift
+
+
+    @property
+    def finalization_max_negative_rebase_shift(self) -> int:
+        if self._finalization_max_negative_rebase_shift is None:
+            self._finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
+        return self._finalization_max_negative_rebase_shift
+
 
     @duration_meter()
     def get_safe_border_epoch(
@@ -90,11 +111,10 @@ class SafeBorder(Web3Converter):
         """
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
 
-        latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
-        earliest_allowable_epoch = self.get_epoch_by_slot(
-            self.blockstamp.ref_slot) - self.finalization_max_negative_rebase_shift
+        bunker_start_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
+        max_allowed_border_epoch_for_negative_rebase = self.blockstamp.ref_epoch - self.finalization_max_negative_rebase_shift
 
-        return EpochNumber(max(earliest_allowable_epoch, latest_allowable_epoch))
+        return EpochNumber(max(bunker_start_epoch, max_allowed_border_epoch_for_negative_rebase))
 
     def _get_bunker_start_or_last_successful_report_epoch(self) -> EpochNumber:
         bunker_start_timestamp = self._get_bunker_mode_start_timestamp()
@@ -111,7 +131,7 @@ class SafeBorder(Web3Converter):
         """
         The border represents the latest epoch before associated slashings started.
 
-        It is calculated as the earliest slashed_epoch among all incompleted slashings at
+        It is calculated as the earliest slashed_epoch among all uncompleted slashings at
         the point of reference_epoch rounded to the start of the previous oracle report frame - default border.
 
         See detailed research here: https://hackmd.io/@lido/r1Qkkiv3j
@@ -127,23 +147,23 @@ class SafeBorder(Web3Converter):
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> Optional[EpochNumber]:
         validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
-
-        # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
-        # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
-        # at `get_eligible_validator_indices` method.
         validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed,
                                                                                  self.blockstamp.ref_epoch)
+        # Above we filter not by exit_epoch but by withdrawable_epoch because exited validators can still be slashed.
+        # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
+        # at `get_eligible_validator_indices` method.
 
         if not validators_slashed_non_withdrawable:
             return None
 
-        validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(
+        # Validators with the earliest exit epoch were slashed first.
+        validators_with_earliest_exit_epoch = filter_validators_with_earliest_exit_epoch(
             validators_slashed_non_withdrawable)
 
         earliest_predicted_epoch = None
 
         for validator in validators_with_earliest_exit_epoch:
-            predicted_epoch = self._predict_earliest_slashed_epoch(validator)
+            predicted_epoch = self._predict_exact_earliest_slashed_epoch(validator)
 
             if not predicted_epoch:
                 return self._find_earliest_slashed_epoch_rounded_to_frame(validators_with_earliest_exit_epoch)
@@ -156,14 +176,15 @@ class SafeBorder(Web3Converter):
     # The exit period for a specific validator may be equal to the MIN_VALIDATOR_WITHDRAWAL_DELAY.
     # This means that there are so many validators in the queue that the exit epoch moves with the withdrawable epoch,
     # and we cannot detect when slashing has started.
-    def _predict_earliest_slashed_epoch(self, validator: Validator) -> Optional[EpochNumber]:
+    def _predict_exact_earliest_slashed_epoch(self, validator: Validator) -> Optional[EpochNumber]:
         exit_epoch = int(validator.validator.exit_epoch)
         withdrawable_epoch = int(validator.validator.withdrawable_epoch)
 
         exited_period = withdrawable_epoch - exit_epoch
 
         if exited_period < MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-            raise WrongExitPeriod("exit_epoch and withdrawable_epoch are too close")
+            raise WrongExitPeriod(f"Unexpected blockchain behaviour for validator with index {validator.index}. "
+                                  f"{exit_epoch=} and {withdrawable_epoch=} are too close")
 
         is_slashed_epoch_undetectable = exited_period == MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         if is_slashed_epoch_undetectable:
@@ -223,12 +244,6 @@ class SafeBorder(Web3Converter):
 
         return len(slashed_validators) > 0
 
-    def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
-        sorted_validators = sorted(validators, key=lambda validator: (int(validator.validator.exit_epoch)))
-        return filter_validators_by_exit_epoch(
-            sorted_validators, EpochNumber(int(sorted_validators[0].validator.exit_epoch))
-        )
-
     def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
         if len(validators) == 0:
             return EpochNumber(0)
@@ -260,13 +275,6 @@ class SafeBorder(Web3Converter):
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
         return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
 
-    def _retrieve_constants(self):
-        limits_list = self._fetch_oracle_report_limits_list()
-        self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
-        )
-
-        self.finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
 
     def _fetch_oracle_report_limits_list(self):
         return named_tuple_to_dataclass(
@@ -319,6 +327,12 @@ def filter_non_withdrawable_validators(slashed_validators: Sequence[Validator], 
 
 def filter_validators_by_exit_epoch(validators: Sequence[Validator], exit_epoch: EpochNumber) -> list[Validator]:
     return [v for v in validators if int(v.validator.exit_epoch) == exit_epoch]
+
+def filter_validators_with_earliest_exit_epoch(validators: Sequence[Validator]) -> list[Validator]:
+    earliest_exit_epoch = min(validators, key=lambda validator: int(validator.validator.exit_epoch)).validator.exit_epoch
+    return filter_validators_by_exit_epoch(
+        validators, EpochNumber(int(earliest_exit_epoch))
+    )
 
 
 def get_validators_pubkeys(validators: Sequence[Validator]) -> list[HexStr]:

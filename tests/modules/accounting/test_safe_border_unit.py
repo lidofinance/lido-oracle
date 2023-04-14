@@ -2,7 +2,7 @@ import pytest
 from dataclasses import dataclass
 
 from unittest.mock import Mock
-from src.services.safe_border import SafeBorder
+from src.services.safe_border import SafeBorder, filter_validators_with_earliest_exit_epoch
 from src.web3py.extensions.lido_validators import Validator
 from src.providers.consensus.typings import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -53,7 +53,7 @@ def test_calc_validator_slashed_epoch_from_state(subject):
     withdrawable_epoch = exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY + 1
     validator = create_validator_stub(exit_epoch, withdrawable_epoch)
 
-    assert subject._predict_earliest_slashed_epoch(validator) == withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
+    assert subject._predict_exact_earliest_slashed_epoch(validator) == withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
 def test_calc_validator_slashed_epoch_from_state_undetectable(subject):
@@ -61,7 +61,7 @@ def test_calc_validator_slashed_epoch_from_state_undetectable(subject):
     withdrawable_epoch = exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
     validator = create_validator_stub(exit_epoch, withdrawable_epoch)
 
-    assert subject._predict_earliest_slashed_epoch(validator) is None
+    assert subject._predict_exact_earliest_slashed_epoch(validator) is None
 
 
 def test_filter_validators_with_earliest_exit_epoch(subject):
@@ -71,7 +71,7 @@ def test_filter_validators_with_earliest_exit_epoch(subject):
         create_validator_stub(103, 108),
     ]
 
-    assert subject._filter_validators_with_earliest_exit_epoch(validators) == [validators[0]]
+    assert filter_validators_with_earliest_exit_epoch(validators) == [validators[0]]
 
 
 def test_get_negative_rebase_border_epoch(subject, past_blockstamp):
