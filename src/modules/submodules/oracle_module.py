@@ -108,6 +108,8 @@ class BaseModule(ABC):
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except CountOfKeysDiffersException as error:
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
+        except ValueError as error:
+            logger.error({'msg': 'Unexpected error.', 'error': str(error)})
 
         return ModuleExecuteDelay.NEXT_SLOT
 
