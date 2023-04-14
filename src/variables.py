@@ -26,7 +26,7 @@ if MEMBER_PRIV_KEY:
 # - App specific -
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
-ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
+
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block
 # In this case the second report will force report finalization and will consume more gas
@@ -39,9 +39,18 @@ PRIORITY_FEE_PERCENTILE = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 # Default delay for default Oracle members. Member with submit data role should submit data first.
 # If contract is reportable each member in order will submit data with difference with this amount of slots
-SUBMIT_DATA_DELAY_IN_SLOTS = int(os.getenv('SUBMIT_DATA_DELAY_IN_SLOTS', 6))
-CYCLE_SLEEP_IN_SECONDS = int(os.getenv('CYCLE_SLEEP_IN_SECONDS', 12))
+DAEMON = os.getenv('DAEMON', 'True').lower() == 'true'
+if DAEMON:
+    SUBMIT_DATA_DELAY_IN_SLOTS = int(os.getenv('SUBMIT_DATA_DELAY_IN_SLOTS', 6))
+    CYCLE_SLEEP_IN_SECONDS = int(os.getenv('CYCLE_SLEEP_IN_SECONDS', 12))
+    ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
+else:
+    # Remove all sleep in manual mode
+    ALLOW_REPORTING_IN_BUNKER_MODE = True
+    SUBMIT_DATA_DELAY_IN_SLOTS = 0
+    CYCLE_SLEEP_IN_SECONDS = 0
 
+# HTTP variables
 HTTP_REQUEST_TIMEOUT_CONSENSUS = int(os.getenv('HTTP_REQUEST_TIMEOUT_CONSENSUS', 5 * 60))
 HTTP_REQUEST_RETRY_COUNT_CONSENSUS = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_CONSENSUS', 5))
 HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS = int(
