@@ -9,7 +9,7 @@ from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_STUCK_VALIDATORS,
     ACCOUNTING_EXITED_VALIDATORS,
-    ACCOUNTING_DELAYED_VALIDATORS
+    ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
 from src.modules.accounting.typings import OracleReportLimits
