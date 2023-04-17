@@ -1,5 +1,5 @@
 import math
-from typing import Any, Optional, Sequence
+from typing import Any, Iterable, Optional
 
 from eth_typing import HexStr
 
@@ -218,7 +218,7 @@ class SafeBorder(Web3Converter):
 
         lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
         slashed_validators = filter_slashed_validators(
-            list(filter(lambda x: x.validator.pubkey in slashed_pubkeys, lido_validators))
+            v for v in lido_validators if v.validator.pubkey in slashed_pubkeys
         )
 
         return len(slashed_validators) > 0
@@ -308,22 +308,22 @@ class SafeBorder(Web3Converter):
             self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
 
 
-def filter_slashed_validators(validators: Sequence[Validator]) -> list[Validator]:
+def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator]:
     return [v for v in validators if v.validator.slashed]
 
 
-def filter_non_withdrawable_validators(slashed_validators: Sequence[Validator], epoch: EpochNumber) -> list[Validator]:
+def filter_non_withdrawable_validators(slashed_validators: Iterable[Validator], epoch: EpochNumber) -> list[Validator]:
     # This filter works only with slashed_validators
     return [v for v in slashed_validators if int(v.validator.withdrawable_epoch) > epoch]
 
 
-def filter_validators_by_exit_epoch(validators: Sequence[Validator], exit_epoch: EpochNumber) -> list[Validator]:
+def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch: EpochNumber) -> list[Validator]:
     return [v for v in validators if int(v.validator.exit_epoch) == exit_epoch]
 
 
-def get_validators_pubkeys(validators: Sequence[Validator]) -> list[HexStr]:
+def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
     return [HexStr(v.validator.pubkey) for v in validators]
 
 
-def get_validators_withdrawable_epochs(validators: Sequence[Validator]) -> list[int]:
+def get_validators_withdrawable_epochs(validators: Iterable[Validator]) -> list[int]:
     return [int(v.validator.withdrawable_epoch) for v in validators]
