@@ -144,7 +144,8 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
 
 Oracle could be executed once in "manual" mode. To do this setup `DAEMON` variable to 'False'.
 
-**Note**: Use `-it` option to run manual mode in Docker container in interactive mode.
+**Note**: Use `-it` option to run manual mode in Docker container in interactive mode.  
+Example `docker run -ti --env-file .env --rm lidofinance/oracle:{tag} {type}`
 
 In this mode Oracle will build report as usual (if contracts are reportable) and before submitting transactions
 Oracle will ask for manual input to send transaction.
