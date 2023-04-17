@@ -30,13 +30,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 logger = logging.getLogger()
 
 
-def main(module: OracleModule):
+def main(module_name: OracleModule):
     build_info = get_build_info()
     logger.info({
         'msg': 'Oracle startup.',
         'variables': {
             **build_info,
-            'module': module,
+            'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
@@ -84,16 +84,21 @@ def main(module: OracleModule):
 
     logger.info({'msg': 'Sanity checks.'})
 
-    if module == OracleModule.ACCOUNTING:
+    if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
-        accounting = Accounting(web3)
-        accounting.check_contract_configs()
-        accounting.run_as_daemon()
-    elif module == OracleModule.EJECTOR:
+        instance = Accounting(web3)
+    elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
-        ejector = Ejector(web3)
-        ejector.check_contract_configs()
-        ejector.run_as_daemon()
+        instance = Ejector(web3)  # type: ignore[assignment]
+    else:
+        raise ValueError(f'Unexpected arg: {module_name=}.')
+
+    instance.check_contract_configs()
+
+    if variables.DAEMON:
+        instance.run_as_daemon()
+    else:
+        instance.cycle_handler()
 
 
 def check():
@@ -117,12 +122,13 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
 
 
 if __name__ == '__main__':
-    module_name = sys.argv[-1]
-    if module_name not in iter(OracleModule):
-        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name}.'
+    module_name_arg = sys.argv[-1]
+    if module_name_arg not in iter(OracleModule):
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name_arg}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
-    module = OracleModule(module_name)
+
+    module = OracleModule(module_name_arg)
     if module == OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)

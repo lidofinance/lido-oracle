@@ -8,7 +8,8 @@ from web3.module import Module
 from web3.types import TxReceipt, Wei, TxParams, BlockData
 
 from src import variables, constants
-from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status, ACCOUNT_BALANCE
+from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
+from src.utils.input import prompt
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,26 @@ class TransactionUtils(Module):
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
             return None
 
-        ACCOUNT_BALANCE.labels(str(account.address)).set(self.w3.eth.get_balance(account.address))
-
         params = self._get_transaction_params(transaction, account)
 
         if self._check_transaction(transaction, params):
+            if not variables.DAEMON:
+                return self._manual_tx_processing(transaction, params, account)
+
             return self._sign_and_send_transaction(transaction, params, account)
 
         return None
+
+    def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount):
+        logger.warning({'msg': 'Send transaction in manual mode.'})
+        msg = (
+            '\n'
+            'Going to send transaction to blockchain: \n'
+            f'Tx args:\n{transaction.args}\n'
+            f'Tx params:\n{params}\n'
+        )
+        if prompt(f'{msg}Should we send this TX? [y/n]: '):
+            self._sign_and_send_transaction(transaction, params, account)
 
     @staticmethod
     def _check_transaction(transaction, params: TxParams) -> bool:
@@ -39,11 +52,8 @@ class TransactionUtils(Module):
 
         try:
             result = transaction.call(params)
-        except ContractLogicError as error:
-            logger.warning({"msg": "Transaction reverted.", "error": str(error)})
-            return False
-        except ValueError as error:
-            logger.error({"msg": "Not enough funds.", "error": str(error)})
+        except (ValueError, ContractLogicError) as error:
+            logger.error({"msg": "Transaction reverted.", "error": str(error)})
             return False
 
         logger.info({"msg": "Transaction executed successfully.", "value": result})
@@ -82,10 +92,10 @@ class TransactionUtils(Module):
         try:
             gas = transaction.estimate_gas({'from': account.address})
         except ContractLogicError as error:
-            logger.warning({'msg': 'Contract logic error.', 'error': str(error)})
+            logger.warning({'msg': 'Can not estimate gas. Contract logic error.', 'error': str(error)})
             return None
         except ValueError as error:
-            logger.warning({'msg': 'Execution reverted.', 'error': str(error)})
+            logger.warning({'msg': 'Can not estimate gas. Execution reverted.', 'error': str(error)})
             return None
 
         return min(
