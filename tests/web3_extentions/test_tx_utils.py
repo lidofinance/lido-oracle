@@ -91,11 +91,12 @@ def test_manual_tx_processing_decline(web3, tx_utils, tx, account):
     web3.transaction._sign_and_send_transaction.assert_not_called()
 
 
-def test_daemon_check_and_send_transaction(web3, tx_utils, tx, account):
+def test_daemon_check_and_send_transaction(web3, tx_utils, tx, account, monkeypatch):
     input.get_input = Mock(return_value='n')
-    variables.DAEMON = False
-    web3.transaction._sign_and_send_transaction = Mock()
-    web3.transaction._get_transaction_params = Mock(return_value={})
-    web3.transaction._check_transaction = Mock(return_value=True)
-    web3.transaction.check_and_send_transaction(tx, account)
-    web3.transaction._sign_and_send_transaction.assert_not_called()
+    with monkeypatch.context():
+        monkeypatch.setattr(variables, "DAEMON", False)
+        web3.transaction._sign_and_send_transaction = Mock()
+        web3.transaction._get_transaction_params = Mock(return_value={})
+        web3.transaction._check_transaction = Mock(return_value=True)
+        web3.transaction.check_and_send_transaction(tx, account)
+        web3.transaction._sign_and_send_transaction.assert_not_called()

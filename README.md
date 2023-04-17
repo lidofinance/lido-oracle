@@ -142,9 +142,14 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
 
 ## Manual mode
 
-Oracle could be executed once in "manual" mode. To do this setup `DAEMON` variable to 'True'.
+Oracle could be executed once in "manual" mode. To do this setup `DAEMON` variable to 'False'.
+
+**Note**: Use `-it` option to run manual mode in Docker container in interactive mode.
+
+In this mode Oracle will build report as usual (if contracts are reportable) and before submitting transactions
+Oracle will ask for manual input to send transaction.
+
 In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is True. 
-Also, Oracle will ask for manual input before it sends any transaction to blockchain.
 
 ## Env variables
 

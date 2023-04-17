@@ -35,8 +35,8 @@ class TransactionUtils(Module):
         msg = (
             '\n'
             'Going to send transaction to blockchain: \n'
-            f'Tx args: {transaction.args}. \n'
-            f'Tx params: {params}. \n'
+            f'Tx args:\n{transaction.args}\n'
+            f'Tx params:\n{params}\n'
         )
         if prompt(f'{msg}Should we send this TX? [y/n]: '):
             self._sign_and_send_transaction(transaction, params, account)
@@ -52,11 +52,8 @@ class TransactionUtils(Module):
 
         try:
             result = transaction.call(params)
-        except ContractLogicError as error:
-            logger.warning({"msg": "Transaction reverted.", "error": str(error)})
-            return False
-        except ValueError as error:
-            logger.error({"msg": "Not enough funds.", "error": str(error)})
+        except (ValueError, ContractLogicError) as error:
+            logger.error({"msg": "Transaction reverted.", "error": str(error)})
             return False
 
         logger.info({"msg": "Transaction executed successfully.", "value": result})
@@ -95,10 +92,10 @@ class TransactionUtils(Module):
         try:
             gas = transaction.estimate_gas({'from': account.address})
         except ContractLogicError as error:
-            logger.warning({'msg': 'Contract logic error.', 'error': str(error)})
+            logger.warning({'msg': 'Can not estimate gas. Contract logic error.', 'error': str(error)})
             return None
         except ValueError as error:
-            logger.warning({'msg': 'Execution reverted.', 'error': str(error)})
+            logger.warning({'msg': 'Can not estimate gas. Execution reverted.', 'error': str(error)})
             return None
 
         return min(
