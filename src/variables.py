@@ -37,10 +37,10 @@ MIN_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
 MAX_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 100_000_000_000))
 PRIORITY_FEE_PERCENTILE = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
-# Default delay for default Oracle members. Member with submit data role should submit data first.
-# If contract is reportable each member in order will submit data with difference with this amount of slots
 DAEMON = os.getenv('DAEMON', 'True').lower() == 'true'
 if DAEMON:
+    # Default delay for default Oracle members. Member with submit data role should submit data first.
+    # If contract is reportable each member in order will submit data with difference with this amount of slots
     SUBMIT_DATA_DELAY_IN_SLOTS = int(os.getenv('SUBMIT_DATA_DELAY_IN_SLOTS', 6))
     CYCLE_SLEEP_IN_SECONDS = int(os.getenv('CYCLE_SLEEP_IN_SECONDS', 12))
     ALLOW_REPORTING_IN_BUNKER_MODE = os.getenv('ALLOW_REPORTING_IN_BUNKER_MODE', 'False').lower() == 'true'
