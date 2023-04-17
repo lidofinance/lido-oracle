@@ -51,10 +51,10 @@ class BaseModule(ABC):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
             logger.info({'msg': 'Startup new cycle.'})
-            self._cycle_handler()
+            self.cycle_handler()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
-    def _cycle_handler(self):
+    def cycle_handler(self):
         blockstamp = self._receive_last_finalized_slot()
 
         if blockstamp.slot_number > self._slot_threshold:

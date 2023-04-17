@@ -56,16 +56,16 @@ def test_receive_last_finalized_slot(oracle):
 def test_cycle_handler_run_once_per_slot(oracle, contracts, web3):
     web3.lido_contracts.has_contract_address_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
-    oracle._cycle_handler()
+    oracle.cycle_handler()
     assert oracle.call_count == 1
     assert web3.lido_contracts.has_contract_address_changed.call_count == 1
 
-    oracle._cycle_handler()
+    oracle.cycle_handler()
     assert oracle.call_count == 1
     assert web3.lido_contracts.has_contract_address_changed.call_count == 1
 
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
-    oracle._cycle_handler()
+    oracle.cycle_handler()
     assert oracle.call_count == 2
     assert web3.lido_contracts.has_contract_address_changed.call_count == 2
 
@@ -80,12 +80,12 @@ def test_run_as_daemon(oracle):
         if times == 3:
             raise Exception("Cycle failed")
 
-    oracle._cycle_handler = Mock(side_effect=_throw_on_third_call)
+    oracle.cycle_handler = Mock(side_effect=_throw_on_third_call)
 
     with pytest.raises(Exception, match="Cycle failed"):
         oracle.run_as_daemon()
 
-    assert oracle._cycle_handler.call_count == 3
+    assert oracle.cycle_handler.call_count == 3
 
 
 @pytest.mark.unit

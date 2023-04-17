@@ -9,7 +9,7 @@ from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME
+from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
@@ -401,6 +401,12 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
+
+        if variables.ACCOUNT:
+            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
+                self.w3.eth.get_balance(variables.ACCOUNT.address)
+            )
+
         return bs
 
     @lru_cache(maxsize=1)
