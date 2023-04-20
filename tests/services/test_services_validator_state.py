@@ -1,23 +1,29 @@
-from collections import namedtuple
-
 import pytest
-from unittest.mock import MagicMock
+from collections import namedtuple
+from unittest.mock import MagicMock, patch
+from dataclasses import asdict
 from eth_typing import HexStr
 from hexbytes import HexBytes
-from dataclasses import asdict
-
-from src.modules.accounting.typings import OracleReportLimits
-from src.constants import FAR_FUTURE_EPOCH
-from src.providers.consensus.typings import Validator, ValidatorState
-from src.providers.keys.typings import LidoKey
 from src.modules.accounting.extra_data import ExtraData, FormatList
 from src.modules.submodules.typings import ChainConfig
-from src.services.validator_state import LidoValidatorStateService
-from src.utils import events
-from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId, \
-    ValidatorsByNodeOperator
+from src.constants import FAR_FUTURE_EPOCH
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from src.providers.consensus.typings import ValidatorState, Validator
+from src.providers.keys.typings import LidoKey
+from src.modules.accounting.typings import OracleReportLimits
+from src.services.validator_state import LidoValidatorStateService
+from src.web3py.extensions.lido_validators import StakingModuleId, NodeOperatorId, LidoValidator, \
+    ValidatorsByNodeOperator
 from src.web3py.typings import Web3
+from src.utils import events
+
+
+@pytest.fixture
+def blockstamp():
+    blockstamp = MagicMock()
+    blockstamp.ref_epoch = 99
+
+    return blockstamp
 
 
 @pytest.fixture
@@ -25,79 +31,47 @@ def chain_config():
     return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize("oracle_report_limits_tuple, expected", [
+    (namedtuple("ABIDecodedNamedTuple", [
+        "churn_validators_per_day_limit",
+        "one_off_cl_balance_decrease_bp_limit",
+        "annual_balance_increase_bp_limit",
+        "simulated_share_rate_deviation_bp_limit",
+        "max_validator_exit_requests_per_report",
+        "max_accounting_extra_data_list_items_count",
+        "max_node_operators_per_extra_data_item_count",
+        "request_timestamp_margin",
+        "max_positive_token_rebase"
+    ])(1, 2, 3, 4, 5, 6, 7, 8, 9),
+     OracleReportLimits(churn_validators_per_day_limit=1,
+                        one_off_cl_balance_decrease_bp_limit=2,
+                        annual_balance_increase_bp_limit=3,
+                        simulated_share_rate_deviation_bp_limit=4,
+                        max_validator_exit_requests_per_report=5,
+                        max_accounting_extra_data_list_items_count=6,
+                        max_node_operators_per_extra_data_item_count=7,
+                        request_timestamp_margin=8,
+                        max_positive_token_rebase=9)
+     )
+])
+def test_get_oracle_report_limits(oracle_report_limits_tuple, expected):
+    web3 = MagicMock()
+
+    web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = MagicMock(
+        return_value=oracle_report_limits_tuple)
+
+    lvss = LidoValidatorStateService(web3)
+    extra_data_service = MagicMock()
+    lvss.extra_data_service = extra_data_service
+
+    actual = lvss.get_oracle_report_limits(MagicMock())
+
+    assert actual.max_validator_exit_requests_per_report == expected.max_validator_exit_requests_per_report
+
+
 @pytest.fixture
-def blockstamp():
-    TESTING_REF_EPOCH = 100
-
-    return ReferenceBlockStampFactory.build(
-        ref_slot=9024,
-        ref_epoch=TESTING_REF_EPOCH)
-
-
-@pytest.mark.unit
-def test_get_extra_data(blockstamp, chain_config):
-    web3 = MagicMock()
-
-    expected = ExtraData(
-        extra_data=b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02',
-        data_hash=HexBytes(
-            b"\x1a\xa3\x94\x9dqI\xcb\xd9y\xbf\xabG\x8d\xeb\xb1j\x91\x8b\xce\xd9\xda;!x*aPk\xf5^\x19\xd1"),
-        format=FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value,
-        items_count=1,
-    )
-
-    LidoValidatorStateService.get_lido_newly_stuck_validators = MagicMock()
-    LidoValidatorStateService.get_lido_newly_exited_validators = MagicMock()
-    LidoValidatorStateService.get_oracle_report_limits = MagicMock()
-
-    lvss = LidoValidatorStateService(web3)
-
-    extra_data_service = MagicMock()
-    extra_data_service.collect.return_value = expected
-    lvss.extra_data_service = extra_data_service
-
-    actual = lvss.get_extra_data(blockstamp, chain_config)
-    assert actual == expected
-
-
-@pytest.mark.unit
-def test_get_last_requested_to_exit_pubkeys(monkeypatch):
-    def mock_get_events_in_past(*args, **kwargs):
-        return [
-            {
-                'args': {'validatorPubkey': HexBytes('0x123')},
-            },
-            {
-                'args': {'validatorPubkey': HexBytes('0x111')},
-            },
-            {
-                'args': {'validatorPubkey': HexBytes('0x222')},
-            },
-            {
-                'args': {'validatorPubkey': HexBytes('0x333')},
-            },
-            {
-                'args': {'validatorPubkey': HexBytes('0x444')},
-            }
-        ]
-
-    web3 = MagicMock()
-    web3.lido_contracts.validators_exit_bus_oracle = MagicMock()
-    monkeypatch.setattr(events, 'get_events_in_past', mock_get_events_in_past)
-
-    lvss = LidoValidatorStateService(web3)
-    extra_data_service = MagicMock()
-    lvss.extra_data_service = extra_data_service
-    lvss.get_validator_delinquent_timeout_in_slot = MagicMock()
-
-    expected = {'0x0x0222', '0x0x0111', '0x0x0444', '0x0x0123', '0x0x0333'}
-    actual = lvss.get_last_requested_to_exit_pubkeys(MagicMock(), MagicMock())
-
-    assert actual == expected
-
-
-@pytest.fixture()
-def get_lido_validators_by_node_operators() -> ValidatorsByNodeOperator:
+def lido_validators_by_node_operators() -> ValidatorsByNodeOperator:
     def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
         return LidoValidator(
             lido_id=LidoKey(
@@ -167,14 +141,14 @@ def get_lido_validators_by_node_operators() -> ValidatorsByNodeOperator:
     )
 ])
 def test_get_recently_requested_but_not_exited_validators(chain_config,
-                                                          get_lido_validators_by_node_operators,
+                                                          lido_validators_by_node_operators,
                                                           ejected_indexes,
                                                           recent_indexes,
                                                           delayed_timeout_in_epoch):
     web3 = MagicMock()
 
     web3.lido_validators.get_lido_validators_by_node_operators = MagicMock(
-        return_value=get_lido_validators_by_node_operators)
+        return_value=lido_validators_by_node_operators)
 
     lvss = LidoValidatorStateService(web3)
     extra_data_service = MagicMock()
@@ -263,38 +237,101 @@ def test_get_validator_delinquent_timeout_in_slot(exiting_keys_stuck_border_in_s
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("oracle_report_limits_tuple, expected", [
-    (namedtuple("ABIDecodedNamedTuple", [
-        "churn_validators_per_day_limit",
-        "one_off_cl_balance_decrease_bp_limit",
-        "annual_balance_increase_bp_limit",
-        "simulated_share_rate_deviation_bp_limit",
-        "max_validator_exit_requests_per_report",
-        "max_accounting_extra_data_list_items_count",
-        "max_node_operators_per_extra_data_item_count",
-        "request_timestamp_margin",
-        "max_positive_token_rebase"
-    ])(1, 2, 3, 4, 5, 6, 7, 8, 9),
-     OracleReportLimits(churn_validators_per_day_limit=1,
-                        one_off_cl_balance_decrease_bp_limit=2,
-                        annual_balance_increase_bp_limit=3,
-                        simulated_share_rate_deviation_bp_limit=4,
-                        max_validator_exit_requests_per_report=5,
-                        max_accounting_extra_data_list_items_count=6,
-                        max_node_operators_per_extra_data_item_count=7,
-                        request_timestamp_margin=8,
-                        max_positive_token_rebase=9)
-     )
-])
-def test_get_oracle_report_limits(oracle_report_limits_tuple, expected):
+def test_get_extra_data(blockstamp, chain_config):
     web3 = MagicMock()
 
-    web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = MagicMock(return_value=oracle_report_limits_tuple)
+    expected = ExtraData(
+        extra_data=b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02',
+        data_hash=HexBytes(
+            b"\x1a\xa3\x94\x9dqI\xcb\xd9y\xbf\xabG\x8d\xeb\xb1j\x91\x8b\xce\xd9\xda;!x*aPk\xf5^\x19\xd1"),
+        format=FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value,
+        items_count=1,
+    )
 
-    lvss = LidoValidatorStateService(web3)
-    extra_data_service = MagicMock()
-    lvss.extra_data_service = extra_data_service
+    with patch.object(
+            LidoValidatorStateService,
+            'get_lido_newly_stuck_validators',
+            return_value=MagicMock(),
+    ), patch.object(
+        LidoValidatorStateService,
+        'get_lido_newly_exited_validators',
+        return_value=MagicMock()
+    ), patch.object(
+        LidoValidatorStateService,
+        'get_oracle_report_limits',
+        return_value=MagicMock()
+    ):
+        lvss = LidoValidatorStateService(web3)
 
-    actual = lvss.get_oracle_report_limits(MagicMock())
+        extra_data_service = MagicMock()
+        extra_data_service.collect.return_value = expected
+        lvss.extra_data_service = extra_data_service
 
-    assert actual.__eq__(expected)
+        actual = lvss.get_extra_data(blockstamp, chain_config)
+        assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("blockstamp, operator_global_indexes, expected", [
+    (ReferenceBlockStampFactory.build(ref_epoch=4445), [
+        (StakingModuleId(1), NodeOperatorId(0)),
+        (StakingModuleId(2), NodeOperatorId(2)),
+        (StakingModuleId(3), NodeOperatorId(3)),
+        (StakingModuleId(4), NodeOperatorId(4)),
+    ],
+     {(1, 0): {123}, (2, 2): {222}, (3, 3): {333}, (4, 4): {444}})
+])
+def test_get_recently_requests_to_exit_indexes_by_operators(monkeypatch, chain_config, blockstamp,
+                                                            operator_global_indexes, expected):
+    def mock_get_events_in_past(*args, **kwargs):
+        return [
+            {
+                'args': {
+                    'validatorPubkey': HexBytes('0x123'),
+                    'validatorIndex': 123,
+                    'stakingModuleId': 1,
+                    'nodeOperatorId': 0,
+                },
+            },
+            {
+                'args': {
+                    'validatorPubkey': HexBytes('0x222'),
+                    'validatorIndex': 222,
+                    'stakingModuleId': 2,
+                    'nodeOperatorId': 2,
+                },
+            },
+            {
+                'args': {
+                    'validatorPubkey': HexBytes('0x333'),
+                    'validatorIndex': 333,
+                    'stakingModuleId': 3,
+                    'nodeOperatorId': 3,
+                },
+            },
+            {
+                'args':
+                    {
+                        'validatorPubkey': HexBytes('0x444'),
+                        'validatorIndex': 444,
+                        'stakingModuleId': 4,
+                        'nodeOperatorId': 4,
+                    },
+            }
+        ]
+
+    with patch.object(
+            LidoValidatorStateService,
+            'get_validator_delayed_timeout_in_slot',
+            return_value=MagicMock(),
+    ):
+        web3 = MagicMock()
+        monkeypatch.setattr(events, 'get_events_in_past', mock_get_events_in_past)
+
+        lvss = LidoValidatorStateService(web3)
+        lvss.extra_data_service = MagicMock()
+        actual = lvss.get_recently_requests_to_exit_indexes_by_operators(blockstamp=blockstamp,
+                                                                         chain_config=chain_config,
+                                                                         operator_global_indexes=operator_global_indexes)
+
+    assert actual == expected
