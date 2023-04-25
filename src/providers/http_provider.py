@@ -10,7 +10,7 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
-from src.web3py.extensions.consistency import ProviderConsistencyModule
+from src.providers.consistency import ProviderConsistencyModule
 
 
 logger = logging.getLogger(__name__)

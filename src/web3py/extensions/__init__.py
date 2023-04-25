@@ -4,4 +4,3 @@ from src.web3py.extensions.consensus import ConsensusClientModule
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import LidoValidatorsProvider
 from src.web3py.extensions.fallback import FallbackProviderModule
-from src.web3py.extensions.consistency import ProviderConsistencyModule
