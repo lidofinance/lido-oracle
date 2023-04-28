@@ -1,7 +1,7 @@
 from typing import Any
 
 from web3_multi_provider import FallbackProvider
-from src.web3py.extensions.consistency import ProviderConsistencyModule
+from src.providers.consistency import ProviderConsistencyModule
 from web3 import Web3
 
 
