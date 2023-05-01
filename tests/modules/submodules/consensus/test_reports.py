@@ -73,7 +73,11 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
 def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
-    member_info = MemberInfoFactory.build(is_fast_lane=False, current_frame_ref_slot=blockstamp.slot_number - 1)
+    member_info = MemberInfoFactory.build(
+        is_fast_lane=False,
+        current_frame_ref_slot=blockstamp.slot_number - 1,
+        is_report_member=True,
+    )
     consensus.get_member_info = Mock(return_value=member_info)
 
     consensus._process_report_hash(blockstamp, HexBytes(int.to_bytes(1, 32)))
@@ -102,7 +106,7 @@ def test_do_not_report_same_hash(consensus, caplog, mock_latest_data):
     consensus.get_member_info = Mock(return_value=member_info)
 
     consensus._process_report_hash(blockstamp, HexBytes(int.to_bytes(1, 32)))
-    assert "Provided hash already submitted" in caplog.messages[-1]
+    assert "Account already submitted provided hash." in caplog.messages[-1]
 
 
 # -------- Process report data ---------
@@ -140,6 +144,7 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
+    consensus._get_slot_delay_before_data_submit = Mock(return_value=0)
 
     consensus.is_main_data_submitted = Mock(side_effect=[False, True])
 
