@@ -7,7 +7,6 @@ from urllib.parse import urljoin, urlparse
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ConnectionError as RequestsConnectionError
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
@@ -126,8 +125,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     params=query_params,
                     timeout=self.request_timeout,
                 )
-            except RequestsConnectionError as error:
-                logger.debug({'msg': str(error)})
+            except Exception as error:
+                logger.error({'msg': str(error)})
                 t.labels(
                     endpoint=endpoint,
                     code=0,

@@ -270,6 +270,7 @@ class ConsensusModule(ABC):
         if not self.is_reporting_allowed(blockstamp):
             logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
             return
+
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
@@ -277,22 +278,27 @@ class ConsensusModule(ABC):
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
-        # Check if current slot is newer than (member slot + slots_delay)
-        if not member_info.is_fast_lane:
-            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
-                logger.info({'msg': f'Member is not in fast lane, so report will be postponed for [{member_info.fast_lane_length_slot}] slots.'})
-                return None
-
         if not member_info.is_report_member:
             logger.info({'msg': 'Account can`t submit report hash.'})
             return None
 
-        if HexBytes(member_info.current_frame_member_report) != report_hash:
-            logger.info({'msg': f'Send report hash. Consensus version: [{self.CONSENSUS_VERSION}]'})
-            self._send_report_hash(blockstamp, report_hash, self.CONSENSUS_VERSION)
-        else:
-            logger.info({'msg': 'Provided hash already submitted.'})
+        if HexBytes(member_info.current_frame_member_report) == report_hash:
+            logger.info({'msg': 'Account already submitted provided hash.'})
+            return None
 
+        if not member_info.is_fast_lane:
+            # Check if current slot is newer than (member slot + slots_delay)
+            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
+                logger.info({'msg': f'Member is not in fast lane, so report will be postponed '
+                                    f'for [{member_info.fast_lane_length_slot}] slots.'})
+                return None
+
+            if HexBytes(member_info.current_frame_consensus_report) == report_hash:
+                logger.info({'msg': 'Consensus reached with provided hash.'})
+                return None
+
+        logger.info({'msg': f'Send report hash. Consensus version: [{self.CONSENSUS_VERSION}]'})
+        self._send_report_hash(blockstamp, report_hash, self.CONSENSUS_VERSION)
         return None
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
