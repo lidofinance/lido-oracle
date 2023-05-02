@@ -57,7 +57,10 @@ def main(module_name: OracleModule):
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(FallbackProviderModule(variables.EXECUTION_CLIENT_URI))
+    web3 = Web3(FallbackProviderModule(
+        variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
+    ))
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
