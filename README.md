@@ -140,6 +140,18 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
 > docker run --env EXECUTION_CLIENT_URI={value} --env CONSENSUS_CLIENT_URI={value} --env KEYS_API_URI={value} --env LIDO_LOCATOR_ADDRESS={value} lidofinance/oracle:{tag} {type}
 > ```
 
+## Manual mode
+
+Oracle could be executed once in "manual" mode. To do this setup `DAEMON` variable to 'False'.
+
+**Note**: Use `-it` option to run manual mode in Docker container in interactive mode.  
+Example `docker run -ti --env-file .env --rm lidofinance/oracle:{tag} {type}`
+
+In this mode Oracle will build report as usual (if contracts are reportable) and before submitting transactions
+Oracle will ask for manual input to send transaction.
+
+In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is True. 
+
 ## Env variables
 
 | Name                                                   | Description                                                                                                                                                              | Required | Example value           |
@@ -152,9 +164,11 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
 | `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`      |
 | `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
 | `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
+| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                  |
 | `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                |
 | `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
 | `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
+| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                   |
 | `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                   |
 | `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False    | `5`                     |
 | `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False    | `12`                    |

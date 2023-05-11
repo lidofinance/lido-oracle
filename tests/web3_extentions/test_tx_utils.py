@@ -6,9 +6,12 @@ from web3.exceptions import ContractLogicError
 from src import variables
 from src.constants import MAX_BLOCK_GAS_LIMIT
 from src.modules.accounting.typings import Account
+from src.utils import input
 
 
 class Transaction:
+    args = {}
+
     def estimate_gas(self, params: dict) -> int:
         return 0
 
@@ -72,3 +75,28 @@ def test_get_tx_params(web3, tx_utils, tx, account):
     params = web3.transaction._get_transaction_params(tx, account)
 
     assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
+
+
+def test_manual_tx_processing(web3, tx_utils, tx, account):
+    input.get_input = Mock(return_value='y')
+    web3.transaction._sign_and_send_transaction = Mock()
+    web3.transaction._manual_tx_processing(tx, {}, account)
+    web3.transaction._sign_and_send_transaction.assert_called_once()
+
+
+def test_manual_tx_processing_decline(web3, tx_utils, tx, account):
+    input.get_input = Mock(return_value='n')
+    web3.transaction._sign_and_send_transaction = Mock()
+    web3.transaction._manual_tx_processing(tx, {}, account)
+    web3.transaction._sign_and_send_transaction.assert_not_called()
+
+
+def test_daemon_check_and_send_transaction(web3, tx_utils, tx, account, monkeypatch):
+    input.get_input = Mock(return_value='n')
+    with monkeypatch.context():
+        monkeypatch.setattr(variables, "DAEMON", False)
+        web3.transaction._sign_and_send_transaction = Mock()
+        web3.transaction._get_transaction_params = Mock(return_value={})
+        web3.transaction._check_transaction = Mock(return_value=True)
+        web3.transaction.check_and_send_transaction(tx, account)
+        web3.transaction._sign_and_send_transaction.assert_not_called()
