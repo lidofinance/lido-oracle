@@ -74,7 +74,7 @@ class RewardsPredictionService:
         result_event_data = []
 
         for event_2 in event_type_2:
-            tx_hash = event_2['transactionHash'],
+            tx_hash = event_2['transactionHash']
 
             event_1 = event_type_1_dict.pop(event_2['transactionHash'], None)
 
@@ -87,7 +87,7 @@ class RewardsPredictionService:
             })
 
         if event_type_1_dict:
-            raise ValueError(f'Events are inconsistent: unexpected events_type_1 amount.')
+            raise ValueError('Events are inconsistent: unexpected events_type_1 amount.')
 
         return result_event_data
 
