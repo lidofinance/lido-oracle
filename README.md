@@ -49,8 +49,14 @@ Ejector module requests Lido validators to eject via events in Execution Layer w
 
 ## Machine requirements
 
+Only Oracle:
+
 - vCPUs - 2
 - Memory - 8 GB
+
+Oracle + KAPI:
+- vCPU - 4
+- Memory - 16 GB
 
 ## Dependencies
 
@@ -61,8 +67,8 @@ Oracle needs two weeks of archived data.
 
 | Client                                          | Tested | Notes                                                                                                                                                                           |
 |-------------------------------------------------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Geth](https://geth.ethereum.org/)              |        |                                                                                                                                                                                 |
-| [Nethermind](https://nethermind.io/)            |        |                                                                                                                                                                                 |
+| [Geth](https://geth.ethereum.org/)              |        | `--gcmode=archive` <br> `--syncmode=snap` <br><br>OR<br><br>`--gcmode=archive`<br>`--syncmode=full`                                                                             |
+| [Nethermind](https://nethermind.io/)            |        | Not tested yet                                                                                                                                                                  |
 | [Besu](https://besu.hyperledger.org/en/stable/) |        | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
 | [Erigon](https://github.com/ledgerwatch/erigon) |        | Use <br> `--prune=htc` <br> `--prune.h.before=100000` <br> `--prune.t.before=100000` <br> `--prune.c.before=100000` <br> params                                                 |
 
@@ -73,16 +79,16 @@ Also, to calculate some metrics for bunker mode Oracle needs [archive](https://e
 | Client                                            | Tested | Notes                                                                                                                                           |
 |---------------------------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Lighthouse](https://lighthouse.sigmaprime.io/)   |        | Use `--reconstruct-historic-states` param                                                                                                       |
-| [Lodestar](https://nethermind.io/)                |        |                                                                                                                                                 |
-| [Nimbus](https://besu.hyperledger.org/en/stable/) |        |                                                                                                                                                 |
+| [Lodestar](https://nethermind.io/)                |        | Not tested yet                                                                                                                                  |
+| [Nimbus](https://besu.hyperledger.org/en/stable/) |        | Not tested yet                                                                                                                                  |
 | [Prysm](https://github.com/ledgerwatch/erigon)    |        | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
 | [Teku](https://docs.teku.consensys.net)           |        | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
 
 ### Keys API Service
 
-This is a separate service that uses execution client to fetch all Lido keys. It stores the latest state of Lido keys in database.
+This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
 
-[Keys API repository](https://github.com/lidofinance/lido-keys-api).
+[Lido Keys API repository.](https://github.com/lidofinance/lido-keys-api)
 
 ## Setup
 
@@ -179,6 +185,13 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
 | `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
 
+### Mainnet variables
+> LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb  
+> ALLOW_REPORTING_IN_BUNKER_MODE=False
+
+### Goerli variables
+> LIDO_LOCATOR_ADDRESS=0x1eDf09b5023DC86737b59dE68a8130De878984f5  
+> ALLOW_REPORTING_IN_BUNKER_MODE=True
 
 ### Alerts
 
