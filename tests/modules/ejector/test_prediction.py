@@ -403,8 +403,8 @@ def test_group_events_incosistent(events_1, events_2):
                 {"transactionHash": HexBytes("0x456"), "args": {"a": 4}},
             ],
             [
-                {"a": 4},
                 {"a": 3},
+                {"a": 4},
             ],
         ),
         (
@@ -417,8 +417,8 @@ def test_group_events_incosistent(events_1, events_2):
                 {"transactionHash": HexBytes("0x456"), "args": {"b": 4}},
             ],
             [
-                {"a": 1, "b": 4},
                 {"a": 2, "b": 3},
+                {"a": 1, "b": 4},
             ],
         ),
         (
@@ -431,8 +431,8 @@ def test_group_events_incosistent(events_1, events_2):
                 {"transactionHash": HexBytes("0x456"), "args": {"b": 4}},
             ],
             [
-                {"a": 1, "b": 4},
                 {"a": 2},
+                {"a": 1, "b": 4},
             ],
         ),
     ],

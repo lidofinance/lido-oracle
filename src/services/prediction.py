@@ -63,23 +63,33 @@ class RewardsPredictionService:
 
     @staticmethod
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
+        event_type_1_dict = {}
+
+        for event in event_type_1:
+            event_type_1_dict[event['transactionHash']] = event
+
+        if len(event_type_1_dict.keys()) != len(event_type_1):
+            raise ValueError('Events are inconsistent: some events from event_type_1 has same transactionHash.')
+
         result_event_data = []
 
-        for event_1 in event_type_1:
-            for event_2 in event_type_2:
-                if event_2['transactionHash'] == event_1['transactionHash']:
-                    result_event_data.append({
-                        **event_1['args'],
-                        **event_2['args'],
-                    })
-                    break
+        for event_2 in event_type_2:
+            tx_hash = event_2['transactionHash'],
 
-        if len(event_type_1) == len(event_type_2) == len(result_event_data):
-            return result_event_data
+            event_1 = event_type_1_dict.pop(event_2['transactionHash'], None)
 
-        raise ValueError(
-            f"Events are inconsistent: {len(event_type_1)=}, {len(event_type_2)=}, {len(result_event_data)=}"
-        )
+            if not event_1:
+                raise ValueError(f'Events are inconsistent: no events from type 1 with {tx_hash=}.')
+
+            result_event_data.append({
+                **event_1['args'],
+                **event_2['args'],
+            })
+
+        if event_type_1_dict:
+            raise ValueError(f'Events are inconsistent: unexpected events_type_1 amount.')
+
+        return result_event_data
 
     def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
         return Web3.to_int(
