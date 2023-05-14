@@ -193,7 +193,7 @@ class LidoValidatorStateService:
         """
         Returns list of validators recently requested to exit (exit deadline slot in future).
 
-        The deadline slot after witch validators are delayed:
+        The deadline slot after which validators are delayed:
         validator_delayed_deadline_slot = max(
             (activation_epoch + SHARD_COMMITTEE_PERIOD),  # For validators that were not able to exit cause of restrictions of the chain
             epoch_when_validator_was_requested_to_exit,
