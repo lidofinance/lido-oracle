@@ -250,10 +250,11 @@ class Ejector(BaseModule, ConsensusModule):
         """
         max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
 
-        max_exit_epoch_number = max(
-            max_exit_epoch_number,
-            self.compute_activation_exit_epoch(blockstamp),
-        )
+        activation_exit_epoch = self.compute_activation_exit_epoch(blockstamp)
+
+        if activation_exit_epoch > max_exit_epoch_number:
+            max_exit_epoch_number = activation_exit_epoch
+            latest_to_exit_validators_count = 0
 
         EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
 

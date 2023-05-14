@@ -195,7 +195,10 @@ def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
     ejector._get_churn_limit = Mock(return_value=2)
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
     result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, 2)
-    assert result == 3824, "Unexpected predicted withdrawable epoch"
+    assert result == 3808, "Unexpected predicted withdrawable epoch"
+
+    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, 4)
+    assert result == 3809, "Unexpected predicted withdrawable epoch"
 
 
 @pytest.mark.unit
