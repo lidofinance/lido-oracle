@@ -243,7 +243,7 @@ def test_get_rewards_no_matching_events(web3, contracts):
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
         ref_slot=SlotNumber(100000),
-        slot_number=14,
+        slot_number=SlotNumber(100000),
         block_hash=None,
     )
 
@@ -262,9 +262,9 @@ def test_get_rewards_no_matching_events(web3, contracts):
     ]
 
     p = RewardsPredictionService(web3)
-    rewards = p.get_rewards_per_epoch(bp, cc)
 
-    assert rewards == Wei(0)
+    with pytest.raises(ValueError):
+        p.get_rewards_per_epoch(bp, cc)
 
 
 @pytest.mark.unit
