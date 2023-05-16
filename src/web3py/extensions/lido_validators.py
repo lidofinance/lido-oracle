@@ -115,8 +115,8 @@ class LidoValidatorsProvider(Module):
 
         # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
         total_deposited_validators = 0
-        for deposited_validators in no_operators:
-            total_deposited_validators += deposited_validators.total_deposited_validators
+        for node_operator in no_operators:
+            total_deposited_validators += node_operator.total_deposited_validators
 
         if len(lido_keys) < total_deposited_validators:
             raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({len(lido_keys)}) '
