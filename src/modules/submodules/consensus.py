@@ -321,11 +321,6 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Main data already submitted.'})
             return
 
-        # Fast lane offchain implementation for report data
-        # If the member was added in the current frame,
-        # the result of _get_slot_delay_before_data_submit may be inconsistent for different latest blocks, but it's ok.
-        # We can't use ref blockstamp here because new oracle member will fail is_member check,
-        # because it wasn't in quorum on ref_slot
         slots_to_sleep = self._get_slot_delay_before_data_submit(latest_blockstamp)
         if slots_to_sleep:
             chain_configs = self.get_chain_config(blockstamp)
