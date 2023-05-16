@@ -82,10 +82,11 @@ class MidtermSlashingPenalty:
         """
         Get slashed validators which have impact on midterm penalties
         We can detect such slashings by this condition:
-        `ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR > possible_slashed_epoch > ref_epoch`
+        `ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < possible_slashed_epoch <= ref_epoch`
         But if we look at:
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slash_validator
-        it can be simplified to the condition above for our purposes
+        it can be simplified to the condition above for our purposes,
+        because `possible_slashed_epoch` calculation is not trivial and isn't necessary for this step
         """
         def is_have_impact(v: Validator) -> bool:
             return v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch
