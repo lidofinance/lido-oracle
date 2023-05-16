@@ -78,7 +78,7 @@ class MidtermSlashingPenalty:
     def get_slashed_validators_with_impact_on_midterm_penalties(
         validators: list[Validator],
         ref_epoch: EpochNumber
-    ) -> list[Validator | LidoValidator]:
+    ) -> list[Validator]:
         """
         Get slashed validators which have impact on midterm penalties
         We can detect such slashings by this condition:
