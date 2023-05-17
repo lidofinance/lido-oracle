@@ -81,12 +81,20 @@ class MidtermSlashingPenalty:
     ) -> list[Validator | LidoValidator]:
         """
         Get slashed validators which have impact on midterm penalties
-        We can detect such slashings by this condition:
-        `ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < possible_slashed_epoch <= ref_epoch`
-        But if we look at:
+
+        The original condition by which we filter validators is as follows:
+        ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < latest_possible_slashed_epoch <= ref_epoch
+
+        But could be simplified to: ref_epoch < withdrawable_epoch
+
+        1) ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < latest_possible_slashed_epoch
+           since slashed epoch couldn't be in the future
+
+        2) latest_possible_slashed_epoch = withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
+        ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
+        ref_epoch < withdrawable_epoch
+
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slash_validator
-        it can be simplified to the condition above for our purposes,
-        because `possible_slashed_epoch` calculation is not trivial and isn't necessary for this step
         """
         def is_have_impact(v: Validator) -> bool:
             return v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch
