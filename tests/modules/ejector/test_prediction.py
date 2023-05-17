@@ -254,17 +254,14 @@ def test_get_rewards_no_matching_events(web3, contracts):
     )
 
     web3.lido_contracts.lido.events = MagicMock()
-    web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = [
-        {'transactionHash': HexBytes('0x123'), 'args': {'name': 'first', 'reportTimestamp': 1675441508}},
-    ]
-    web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = [
-        {'transactionHash': HexBytes('0x456'), 'args': {'value': 2, 'reportTimestamp': 1675441508}},
-    ]
+    web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = []
+    web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = []
 
     p = RewardsPredictionService(web3)
 
-    with pytest.raises(ValueError):
-        p.get_rewards_per_epoch(bp, cc)
+    rewards = p.get_rewards_per_epoch(bp, cc)
+
+    assert rewards == Wei(0)
 
 
 @pytest.mark.unit
