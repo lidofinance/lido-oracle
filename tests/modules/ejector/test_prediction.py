@@ -243,7 +243,7 @@ def test_get_rewards_no_matching_events(web3, contracts):
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
         ref_slot=SlotNumber(100000),
-        slot_number=14,
+        slot_number=SlotNumber(100000),
         block_hash=None,
     )
 
@@ -254,14 +254,11 @@ def test_get_rewards_no_matching_events(web3, contracts):
     )
 
     web3.lido_contracts.lido.events = MagicMock()
-    web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = [
-        {'transactionHash': HexBytes('0x123'), 'args': {'name': 'first', 'reportTimestamp': 1675441508}},
-    ]
-    web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = [
-        {'transactionHash': HexBytes('0x456'), 'args': {'value': 2, 'reportTimestamp': 1675441508}},
-    ]
+    web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = []
+    web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = []
 
     p = RewardsPredictionService(web3)
+
     rewards = p.get_rewards_per_epoch(bp, cc)
 
     assert rewards == Wei(0)
