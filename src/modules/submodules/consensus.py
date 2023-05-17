@@ -48,10 +48,10 @@ class ConsensusModule(ABC):
     def __init__(self, w3: Web3):
         self.w3 = w3
 
-        if self.report_contract is None:
+        if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-        if self.CONTRACT_VERSION is None or self.CONSENSUS_VERSION is None:
+        if getattr(self, "CONTRACT_VERSION", None) is None or getattr(self, "CONSENSUS_VERSION", None) is None:
             raise NotImplementedError('CONTRACT_VERSION and CONSENSUS_VERSION should be set.')
 
     def check_contract_configs(self):

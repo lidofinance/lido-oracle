@@ -2,9 +2,15 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, LidoValidatorsProvider
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import ValidatorFactory, LidoKeyFactory
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from tests.factory.no_registry import (
+    LidoKeyFactory,
+    LidoValidatorFactory,
+    NodeOperatorFactory,
+    StakingModuleFactory,
+    ValidatorFactory,
+)
 
 blockstamp = ReferenceBlockStampFactory.build()
 
@@ -62,3 +68,22 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
     assert len(no_validators.keys()) == 2
     assert len(no_validators[(1, 0)]) == 10
     assert len(no_validators[(1, 1)]) == 7
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures('lido_validators', 'contracts')
+def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
+    validator = LidoValidatorFactory.build()
+    web3.lido_validators.get_lido_validators = Mock(return_value=[validator])
+    web3.lido_validators.get_lido_node_operators = Mock(
+        return_value=[
+            NodeOperatorFactory.build(
+                staking_module=StakingModuleFactory.build(
+                    staking_module_address=validator.lido_id.moduleAddress,
+                ),
+            ),
+        ]
+    )
+
+    web3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+    assert "not exist in staking router" in caplog.text
