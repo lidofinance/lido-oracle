@@ -75,6 +75,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
+
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -270,7 +271,7 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
 
-        Spec: https://github.com/LeastAuthority/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+        Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
         """
         return blockstamp.ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 

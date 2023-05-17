@@ -33,7 +33,7 @@ class MidtermSlashingPenalty:
         Check if there is a high midterm slashing penalty in the future frames.
 
         If current report CL rebase contains more than one frame, we should calculate the CL rebase for only one frame
-        and compare max midterm penalty with calculated for onel frame CL rebase
+        and compare max midterm penalty with calculated for one frame CL rebase
         because we assume that reports in the future can be "per-frame" as normal reports.
         So we need to understand can we avoid negative CL rebase because of slashings in the future or not
         """

@@ -44,4 +44,4 @@ class ProviderConsistencyModule(ABC):
     @abstractmethod
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
         """Does a health check call and returns chain_id for current host"""
-        raise NotImplementedError("get_chain_id should be implemented")
+        raise NotImplementedError("_get_chain_id_with_provider should be implemented")

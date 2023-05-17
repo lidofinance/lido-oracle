@@ -62,13 +62,13 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if report_blockstamp:
-            self.process_report(report_blockstamp)
-            # Third phase of report. Specific for accounting.
-            self.process_extra_data(report_blockstamp)
-            return ModuleExecuteDelay.NEXT_SLOT
+        if not report_blockstamp:
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+        self.process_report(report_blockstamp)
+        # Third phase of report. Specific for accounting.
+        self.process_extra_data(report_blockstamp)
+        return ModuleExecuteDelay.NEXT_SLOT
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
         latest_blockstamp = self._get_latest_blockstamp()
@@ -155,7 +155,7 @@ class Accounting(BaseModule, ConsensusModule):
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
-            staking_module_id_with_exited_validators=staking_module_ids_list,
+            staking_module_ids_with_exited_validators=staking_module_ids_list,
             count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),

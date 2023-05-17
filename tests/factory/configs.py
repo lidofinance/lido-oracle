@@ -1,5 +1,7 @@
+from typing import overload
 from src.modules.accounting.typings import OracleReportLimits
 from src.modules.submodules.typings import ChainConfig, FrameConfig
+from src.providers.consensus.typings import BeaconSpecResponse
 from src.services.bunker_cases.typings import BunkerConfig
 from tests.factory.web3_factory import Web3Factory
 
@@ -35,3 +37,10 @@ class OracleReportLimitsFactory(Web3Factory):
 
 class BunkerConfigFactory(Web3Factory):
     __model__ = BunkerConfig
+
+
+class BeaconSpecResponseFactory(Web3Factory):
+    __model__ = BeaconSpecResponse
+
+    SECONDS_PER_SLOT = 12
+    SLOTS_PER_EPOCH = 32
