@@ -11,6 +11,10 @@ from src.web3py.typings import Web3
 logger = logging.getLogger(__name__)
 
 
+class InconsistentEvents(Exception):
+    pass
+
+
 class RewardsPredictionService:
     """
     Based on events predicts amount of eth that protocol will earn per epoch.
@@ -45,7 +49,15 @@ class RewardsPredictionService:
             'reportTimestamp',
         )
 
-        events = self._group_events_by_transaction_hash(token_rebase_events, eth_distributed_events)
+        try:
+            events = self._group_events_by_transaction_hash(token_rebase_events, eth_distributed_events)
+        except InconsistentEvents as error:
+            msg = (
+                f'ETHDistributed and TokenRebased events from {self.w3.lido_contracts.lido.address} are inconsistent.'
+                f'In each tx with ETHDistributed event should be one TokenRebased event.'
+            )
+            logger.error({'msg': msg, 'error': str(error)})
+            raise InconsistentEvents(msg) from error
 
         if not events:
             return Wei(0)
@@ -61,6 +73,13 @@ class RewardsPredictionService:
             Wei(0),
         )
 
+    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
+        return Web3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
+                block_identifier=blockstamp.block_hash,
+            )
+        )
+
     @staticmethod
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
         event_type_1_dict = {}
@@ -69,7 +88,7 @@ class RewardsPredictionService:
             event_type_1_dict[event['transactionHash']] = event
 
         if len(event_type_1_dict.keys()) != len(event_type_1):
-            raise ValueError('Events are inconsistent: some events from event_type_1 has same transactionHash.')
+            raise InconsistentEvents('Events are inconsistent: some events from event_type_1 has same transactionHash.')
 
         result_event_data = []
 
@@ -79,7 +98,7 @@ class RewardsPredictionService:
             event_1 = event_type_1_dict.pop(event_2['transactionHash'], None)
 
             if not event_1:
-                raise ValueError(f'Events are inconsistent: no events from type 1 with {tx_hash=}.')
+                raise InconsistentEvents(f'Events are inconsistent: no events from type 1 with {tx_hash=}.')
 
             result_event_data.append({
                 **event_1['args'],
@@ -87,13 +106,7 @@ class RewardsPredictionService:
             })
 
         if event_type_1_dict:
-            raise ValueError('Events are inconsistent: unexpected events_type_1 amount.')
+            raise InconsistentEvents('Events are inconsistent: unexpected events_type_1 amount.')
 
         return result_event_data
 
-    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
-        return Web3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash,
-            )
-        )
