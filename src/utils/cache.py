@@ -13,12 +13,12 @@ def global_lru_cache(*args, **kwargs):
             global_cache[func] = cached_func
             return result
 
-        def clear_cache():
+        def cache_clear():
             cached_func.cache_clear()
             if func in global_cache:
                 del global_cache[func]
 
-        wrapper.clear_cache = clear_cache
+        wrapper.cache_clear = cache_clear
         wrapper.cache_info = cached_func.cache_info
         return wrapper
 
