@@ -1,242 +1,335 @@
-# Lido-Oracle daemon
+# <img src="https://docs.lido.fi/img/logo.svg" alt="Lido" width="46"/> Lido Oracle
 
-[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 
-Oracle daemon for [Lido](https://lido.fi) decentralized staking service. Collects and reports Beacon Chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side.
+Oracle daemon for Lido decentralized staking service: Monitoring the state of the protocol across both layers and submitting regular update reports to the Lido smart contracts.
 
 ## How it works
 
-* Upon the start daemon determines the reportable epoch and retrieves the list of validator keys to watch for.
+There are two modules in the oracle:
 
-* Then it Gets the Lido-controlled validators from the reportable beacon state and summarizes their balances.
+- Accounting
+- Ejector
 
-* Constructs the transaction containing the `epochId`, `beaconBalance`, and `beaconValidators`.
+### Accounting module
 
-* If the daemon has `MEMBER_PRIV_KEY` in its environment (i.e. isn't running in dry-run mode), it signs and sends the transaction to the oracle contract (asking for user confirmation if running interactively).
+Accounting module updates the protocol TVL, distributes node-operator rewards, updates information about the number of exited and stuck validators and processes user withdrawal requests.
+Also Accounting module makes decision to turn on/off the bunker. 
 
-* If the oracle runs in the daemon mode (with `DAEMON=1` env ) it waits `SLEEP` seconds and restarts the loop.
+**Flow**
+
+The oracle work is delineated by time periods called frames. Oracles finalize a report in each frame.
+The default Accounting Oracle frame length on mainnet is 225 epochs, which is 24 hours (it could be changed by DAO). 
+The frame includes these stages:
+
+- **Waiting** - oracle starts as daemon and wakes up every 12 seconds (by default) in order to find the last finalized slot (ref slot).
+  If ref slot missed, Oracle tries to find previous non-missed slot.
+- **Data collection**: oracles monitor the state of both the execution and consensus layers and collect the data;
+- **Hash consensus**: oracles analyze the data, compile the report and submit its hash to the HashConsensus smart contract;
+- **Core update report**: once the quorum of hashes is reached, meaning required number of Oracles submitted the same hash,
+  one of the oracles chosen in turn submits the actual report to the AccountingOracle contract, which triggers the core protocol
+  state update, including the token rebase, finalization of withdrawal requests, and
+  deciding whether to go in the bunker mode.
+- **Extra data report**: an additional report carrying additional information. This part is required.
+  All node operators rewards are distributed in this phase.
+
+### Ejector module
+
+Ejector module requests Lido validators to eject via events in Execution Layer when the protocol requires additional funds to process user withdrawals.
+
+**Flow**
+
+- Finds out how much ETH is needed to cover withdrawals.
+- Predicts mean Lido income into Withdrawal and Execution Rewards Vaults.
+- Figures out when the next validator will be withdrawn.
+- Encode Lido validators to eject int bytes and send transaction.
+
+# Usage
+
+## Machine requirements
+
+Only Oracle:
+
+- vCPUs - 2
+- Memory - 8 GB
+
+Oracle + KAPI:
+- vCPU - 4
+- Memory - 16 GB
+
+## Dependencies
+
+### Execution Client Node
+
+To prepare the report, Oracle fetches up to 10 days old events, makes historical requests for balance data and makes simulated reports on historical blocks. This requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) execution node.
+Oracle needs two weeks of archived data.
+
+| Client                                          | Tested | Notes                                                                                                                                                                           |
+|-------------------------------------------------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Geth](https://geth.ethereum.org/)              |        | `--gcmode=archive` <br> `--syncmode=snap` <br><br>OR<br><br>`--gcmode=archive`<br>`--syncmode=full`                                                                             |
+| [Nethermind](https://nethermind.io/)            |        | Not tested yet                                                                                                                                                                  |
+| [Besu](https://besu.hyperledger.org/en/stable/) |        | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
+| [Erigon](https://github.com/ledgerwatch/erigon) |        | Use <br> `--prune=htc` <br> `--prune.h.before=100000` <br> `--prune.t.before=100000` <br> `--prune.c.before=100000` <br> params                                                 |
+
+### Consensus Client Node
+
+Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
+
+| Client                                            | Tested | Notes                                                                                                                                           |
+|---------------------------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Lighthouse](https://lighthouse.sigmaprime.io/)   |        | Use `--reconstruct-historic-states` param                                                                                                       |
+| [Lodestar](https://nethermind.io/)                |        | Not tested yet                                                                                                                                  |
+| [Nimbus](https://besu.hyperledger.org/en/stable/) |        | Not tested yet                                                                                                                                  |
+| [Prysm](https://github.com/ledgerwatch/erigon)    |        | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
+| [Teku](https://docs.teku.consensys.net)           |        | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
+
+### Keys API Service
+
+This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
+
+[Lido Keys API repository.](https://github.com/lidofinance/lido-keys-api)
 
 ## Setup
 
-The oracle daemon requires fully-synced ETH1.0 and Beacon nodes. We highly recommend using
-[geth](https://geth.ethereum.org/docs/install-and-build/installing-geth#run-inside-docker-container) and
-[Lighthouse](https://lighthouse-book.sigmaprime.io/docker.html#using-the-docker-image).
+Oracle daemon could be run using a docker container. Images is available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
+Pull the image using the following command:
 
-Note: Prysm beacon client is also supported (use with `--grpc-max-msg-size=104857600` param).
-
-```sh
-docker run -d --name geth -v $HOME/.geth:/root -p 30303:30303 -p 8545:8545 ethereum/client-go --http --http.addr=0.0.0.0
-docker run -d --name lighthouse -v $HOME/.ligthouse:/root/.lighthouse  -p 9000:9000 -p 5052:5052 sigp/lighthouse lighthouse beacon --http --http-address 0.0.0.0
+```bash
+docker pull lidofinance/oracle:{tag}
 ```
 
-## Run
+Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
+**OR**\
+You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
-The oracle receives its configuration via Environment variables. You need to provide URIs of both nodes and the Lido contract address. The following snippet (adapted to your setup) will start the oracle in safe, read-only mode called **Dry-run**. It will run the single loop iteration, calculate the report and print it out instead of sending real TX.
-
-```sh
-export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
-export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
-export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
-export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
-export DAEMON=0
-export ORACLE_FROM_BLOCK=11595281
-export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.5.0
+```bash
+docker build -t lidofinance/oracle .
 ```
 
-Other pre-built oracle images can be found in the [Lido dockerhub](https://hub.docker.com/r/lidofinance/oracle/tags?page=1&ordering=last_updated).
+Full variables list could be found [here](https://github.com/lidofinance/lido-oracle#env-variables).
 
-See **Other examples** below for transactable modes.
+## Checks before running
 
-## Full list of configuration options
+1. Use [.env.example](.env.example) file content to create your own `.env` file.
+   Set required values. It will be enough to run the oracle in _check mode_.
+2. Check that your environment is ready to run the oracle using the following command:
+   ```bash
+   docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
+   ```
+   If everything is ok, you will see that all required checks are passed
+   and your environment is ready to run the oracle.
 
-* `WEB3_PROVIDER_URI` - HTTP or WS URL of web3 Ethereum node (tested with Geth). You can use multiply ETH1 endpoints separated with comma. (e.g. `http://example.com,wss://127.0.0.1:9000`)**Required**.
-* `BEACON_NODE` - HTTP endpoint of Beacon Node (Lighthouse recommended, also tested with Prysm). **Required**.
-* `POOL_CONTRACT` - Lido contract in EIP-55 (mixed-case) hex format. **Required**. Example: `0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84`
-* `STETH_CURVE_POOL_CONTRACT` - address of Curve ETH/stETH stable swap pool. If provided together with `STETH_PRICE_ORACLE_CONTRACT` stETH price oracle will be enabled.
-* `STETH_PRICE_ORACLE_CONTRACT` - address of Lido's stable swap state oracle. If provided together with `STETH_CURVE_POOL_CONTRACT` stETH price oracle will be enabled.
-* `STETH_PRICE_ORACLE_BLOCK_NUMBER_SHIFT` - indent from `latest` block number to be used in computation of new state for stable swap. **Optional**. Default: `15`
-* `DAEMON` - with `DAEMON=0` runs the single iteration then quits. `DAEMON=0` in combination with `MEMBER_PRIV_KEY` runs interactively and asks user for confirmation before sending each TX. With `DAEMON=1` runs autonomously (without confirmation) in an indefinite loop. **Optional**. Default: `0`
-* `MEMBER_PRIV_KEY` - Hex-encoded private key of Oracle Quorum Member address. **Optional**. If omitted, the oracle runs in read-only (dry-run) mode. WARNING: Keep `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
-* `FORCE_DO_NOT_USE_IN_PRODUCTION` - **Do not use in production!** The oracle makes the sanity checks on the collected data before reporting. Running in `DAEMON` mode, if data look suspicious, it skips sending TX. In enforced mode it gets reported even if it looks suspicious.
-   It's unsafe and used for smoke testing purposes, NEVER use it in production!  **Optional**. Default: `0`
-* `SLEEP` seconds - The interval between iterations in Daemon mode. Default value: 60 s. Effective with `DAEMON=1` only.
-* `GAS_LIMIT` - The pre-defined gasLimit for composed transaction. Defaulf value: 1 500 000. Effective in transactable mode (with given `MEMBER_PRIV_KEY`)
-* `ORACLE_FROM_BLOCK` - The earlist block to check for oracle events. Needed on mainnet first run to skip 5 minutes of scanning blockchain for events that are not there, recommended to be set to 11595281 on mainnet deployments
-* `CONSIDER_WITHDRAWALS_FROM_EPOCH` - The epoch from which withdrawals are considered.
-* `PROMETHEUS_PREFIX` - Prefix for all prometheus metrics. This is good practice having different prefixes for applications (recommended to use `lido_oracle_`) **Optional**. Default ''
-* `PROMETHEUS_METRICS_PORT` - Port for prometheus server. **Optional**. Default '8000'
+## Run the oracle
+1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
+    To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` environment variable:
+    ```
+    MEMBER_PRIV_KEY={value}
+    ```
+    Where `{value}` is a private key of the Oracle member account or:
+    ```
+    MEMBER_PRIV_KEY_FILE={path}
+    ```
+    Where `{path}` is a path to the private key of the Oracle member account.
+2. Run the container using the following command:
 
-## Other examples
+   ```bash
+   docker run --env-file .env lidofinance/oracle:{tag} {type}
+   ```
 
-* WARNING: The examples below are **transactable** and can potentially break the Lido. You must understand the protocol and what you are doing.
-* WARNING: Keep your `MEMBER_PRIV_KEY` safe. Since it keeps real Ether to pay gas, it should never be exposed outside.
-* WARNING: Never use the `MEMBER_PRIV_KEY` value given below. You will definitely lose all your Ethers if reuse that private key.
+   Replace `{tag}` with the image version and `{type}` with one of the two types of oracles: accounting or ejector.
 
-### Interactive supervised mode
+> **Note**: of course, you can pass env variables without using `.env` file.
+> For example, you can run the container using the following command:
+>
+> ```bash
+> docker run --env EXECUTION_CLIENT_URI={value} --env CONSENSUS_CLIENT_URI={value} --env KEYS_API_URI={value} --env LIDO_LOCATOR_ADDRESS={value} lidofinance/oracle:{tag} {type}
+> ```
 
-This mode is intended for controlled start and allows to double-check the report and its effects before its actual sending. Runs the single iteration and asks for confirmation via interactive `[y/n]` prompt before sending real TX to the network. You should be connected (attached) to the terminal to see this.
+## Manual mode
 
-```sh
-export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
-export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
-export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
-export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
-export DAEMON=0
-export ORACLE_FROM_BLOCK=11595281
-export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e ORACLE_FROM_BLOCK -it lidofinance/oracle:2.5.0
+Oracle could be executed once in "manual" mode. To do this setup `DAEMON` variable to 'False'.
+
+**Note**: Use `-it` option to run manual mode in Docker container in interactive mode.  
+Example `docker run -ti --env-file .env --rm lidofinance/oracle:{tag} {type}`
+
+In this mode Oracle will build report as usual (if contracts are reportable) and before submitting transactions
+Oracle will ask for manual input to send transaction.
+
+In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is True. 
+
+## Env variables
+
+| Name                                                   | Description                                                                                                                                                              | Required | Example value           |
+|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------|
+| `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545` |
+| `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052` |
+| `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080` |
+| `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                |
+| `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                |
+| `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`      |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                  |
+| `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                  |
+| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                  |
+| `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                |
+| `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
+| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                   |
+| `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                   |
+| `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False    | `5`                     |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False    | `12`                    |
+| `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False    | `120`                   |
+| `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False    | `300`                   |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False    | `300`                   |
+| `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                     |
+| `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`              |
+| `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`          |
+
+### Mainnet variables
+> LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb  
+> ALLOW_REPORTING_IN_BUNKER_MODE=False
+
+### Goerli variables
+> LIDO_LOCATOR_ADDRESS=0x1eDf09b5023DC86737b59dE68a8130De878984f5  
+> ALLOW_REPORTING_IN_BUNKER_MODE=True
+
+### Alerts
+
+A few basic alerts, which can be configured in the [Prometheus Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/).
+
+```yaml
+groups:
+  - name: oracle-alerts
+    rules:
+      - alert: AccountBalance
+        expr: lido_oracle_account_balance / 10^18 < 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dangerously low account balance"
+          description: "Account balance is less than 1 ETH. Address: {.labels.address}: {.value} ETH"
+      - alert: OutdatedData
+        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outdated Consensus Layer HEAD slot"
+          description: "Processed by Oracle HEAD slot {.value} too old"
 ```
 
-### Autonomous mode
+### Metrics
 
-Runs in the background with 1-hour pauses between consecutive iterations. To be used without human supervision (on later stages).
+> **Note**: all metrics are prefixed with `lido_oracle_` by default.
 
-```sh
-export WEB3_PROVIDER_URI=$ETH1_NODE_RPC_ADDRESS
-export BEACON_NODE=$BEACON_CHAIN_NODE_RPC_ADDRESS
-export MEMBER_PRIV_KEY=$ORACLE_PRIVATE_KEY_0X_PREFIXED
-export POOL_CONTRACT=0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-export STETH_PRICE_ORACLE_CONTRACT=0x3a6bd15abf19581e411621d669b6a2bbe741ffd6
-export STETH_CURVE_POOL_CONTRACT=0xDC24316b9AE028F1497c275EB9192a3Ea0f67022
-export DAEMON=1
-export SLEEP=300
-export ORACLE_FROM_BLOCK=11595281
-export CONSIDER_WITHDRAWALS_FROM_EPOCH=191900
-docker run -e WEB3_PROVIDER_URI -e BEACON_NODE -e POOL_CONTRACT -e DAEMON -e MEMBER_PRIV_KEY -e SLEEP -e ORACLE_FROM_BLOCK lidofinance/oracle:2.5.0
+The oracle exposes the following basic metrics:
+
+| Metric name                 | Description                                                     | Labels                                                                                             |
+|-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| build_info                  | Build info                                                      | version, branch, commit                                                                            |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| genesis_time                | Fetched genesis time from node                                  |                                                                                                    |
+| account_balance             | Fetched account balance from EL                                 | address                                                                                            |
+| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                      |
+| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                      |
+| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                       |
+| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                       |
+| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                             |
+| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                             |
+| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                    |
+| transaction_count           | Total count of transactions. Success or failure                 | status                                                                                             |
+| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                   |
+| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                    |
+| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                    |
+| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                    |
+| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                    |
+| contract_on_pause           | Contract on pause                                               |                                                                                                    |
+
+Special metrics for accounting oracle:
+
+| Metric name                             | Description                                         | Labels           |
+|-----------------------------------------|-----------------------------------------------------|------------------|
+| accounting_is_bunker                    | Is bunker mode enabled                              |                  |
+| accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
+| accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
+| accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
+| accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
+| accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
+| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
+
+Special metrics for ejector oracle:
+
+| Metric name                       | Description                                 | Labels |
+|-----------------------------------|---------------------------------------------|--------|
+| ejector_withdrawal_wei_amount     | To withdraw amount                          |        |
+| ejector_max_exit_epoch            | Max exit epoch between all validators in CL |        |
+| ejector_validators_count_to_eject | Validators count to eject                   |        |
+
+# Development
+
+Python version: 3.11
+
+## Setup
+
+1. [Setup poetry](https://python-poetry.org/docs/#installation)
+2. Install dependencies
+
+```bash
+poetry install
 ```
 
-## Build yourself
+## Startup
 
-Instead of downloading the image from dockerhub, you can build it yourself. This requires git and python3.8+.
+Required variables
 
-```sh
-./build.sh
+```bash
+export EXECUTION_CLIENT_URI=...
+export CONSENSUS_CLIENT_URI=...
+export KEYS_API_URI=...
+export LIDO_LOCATOR_ADDRESS=...
 ```
 
-To build and push with the given version tag to the dockerhub:
+Run oracle module
 
-```sh
-TAG=0.1.3 PUSH=1 ./build.sh
+```bash
+poetry run python -m src.main {module}
 ```
 
-## Prometheus metrics
+Where `{module}` is one of:
 
-Prometheus exporter is running on port 8000 and provides 5 logical groups of metrics.
+- `accounting`
+- `ejector`
+- `check`
 
-### 1. Current status
+## Tests
 
-Current Oracle daemon's state.
+[Testing guide](./tests/README.md)
 
-| name                                  | description                              | frequency                     | goal                                                                            |
-|---------------------------------------|------------------------------------------|-------------------------------|---------------------------------------------------------------------------------|
-| **reportableFrame** <br> *gauge*      | the report could be sent or is sending   |                               |                                                                                 |
-| **nowEthV1BlockNumber**  <br> *gauge* | ETH1 latest block number                 | every COUNTDOWN_SLEEP seconds | should be increasing constantly and be aligned with https://etherscan.io/blocks |
-| **daemonCountDown** <br> *gauge*      | time till the next oracle run in seconds | every COUNTDOWN_SLEEP seconds | should be decreasing down to 0                                                  |
-| **finalizedEpoch** <br> *gauge*       | last finalized Beacon Chain epoch        | every COUNTDOWN_SLEEP seconds | should go up at a rate of 1 per six munites                                     |
-
-
-### 2. Oracle process metrics
-
-Oracle process stats.
-
-| name                                               | description                                            | frequency           | goal                             |
-|----------------------------------------------------|--------------------------------------------------------|---------------------|----------------------------------|
-| **txSuccess**                     <br> *histogram* | number of successful transactions                      | every SLEEP seconds |                                  |
-| **txRevert**                      <br> *histogram* | number of failed transactions                          | every SLEEP seconds |                                  |
-| **process_virtual_memory_bytes**  <br> *gauge*     | Virtual memory size in bytes.                          | every call          | normal RAM consumption is ~200Mb |
-| **process_resident_memory_bytes** <br> *gauge*     | Resident memory size in bytes.                         | every call          | normal RAM consumption is ~200Mb |
-| **process_start_time_seconds**    <br> *gauge*     | Start time of the process since unix epoch in seconds. | every call          |                                  |
-| **process_cpu_seconds_total**     <br> *counter*   | Total user and system CPU time spent in seconds.       | every call          |                                  |
-| **process_open_fds**              <br> *gauge*     | Number of open file descriptors.                       | every call          |                                  |
-| **process_max_fds**               <br> *gauge*     | Maximum number of open file descriptors.               | every call          |                                  |
-
-### 3. Last oracle invocation frame state
-
-The previous and the current frame variables.
-
-| name                                           | description                                          | frequency                                                            | goal                                                                         |
-|------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------|
-| **deltaSeconds**                  <br> *gauge* | current.timestamp - previous.timestamp               | every SLEEP seconds                                                  | should be approximately equal to the delay between reports                   |
-| **appearedValidators**            <br> *gauge* | current.beaconValidators - previous.beaconValidators | every SLEEP seconds                                                  |                                                                              |
-| **currentEthV1BlockNumber**       <br> *gauge* | block number of the most current oracle stats check  | every SLEEP seconds                                                  | should be constantly updated and be aligned with https://etherscan.io/blocks |
-| **currentValidatorsKeysNumber**   <br> *gauge* | len(validators_keys)                                 | every time there is an unreported frame (1/day or potentially rarer) |                                                                              |
-| **currentEpoch**                  <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentTimestamp**              <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentBeaconValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentBeaconBalance**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentBufferedBalance**        <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentDepositedValidators**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentActiveValidatorBalance** <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentTotalPooledEther**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentTransientValidators**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **currentTransientBalance**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevEthV1BlockNumber**          <br> *gauge* | block number of the previous oracle stats check      | every SLEEP seconds                                                  | should be constantly updated and be aligned with https://etherscan.io/blocks |
-| **prevEpoch**                     <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevTimestamp**                 <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevBeaconValidators**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevBeaconBalance**             <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevBufferedBalance**           <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevDepositedValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevActiveValidatorBalance**    <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevTotalPooledEther**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevTransientValidators**       <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-| **prevTransientBalance**          <br> *gauge* |                                                      | every SLEEP seconds                                                  |                                                                              |
-
-### 4. stETH Oracle state
-
-Current stETH price in the pool and the price oracle.
-
-| name                                           | description | frequency  | goal |
-|------------------------------------------------|-------------|------------|------|
-| **stethOraclePrice**              <br> *gauge* |             | every call |      |
-| **stethPoolPrice**                <br> *gauge* |             | every call |      |
-
-### 5. Exceptions
-
-Exception counters.
-
-| name                                           | description                                              |
-|------------------------------------------------|----------------------------------------------------------|
-| **underpricedExceptionsCount**    <br> *gauge* | count of ValueError: replacement transaction underpriced |
-| **transactionTimeoutCount**       <br> *gauge* | count of web3.exceptions.TimeExhausted                   |
-| **beaconNodeTimeoutCount**        <br> *gauge* | count of beacon node connection timeouts                 |
-| **exceptionsCount**               <br> *gauge* | count of all other exceptions                            |
-
-### Alert examples
-
-Metrics provided allow for multiple useful alerts on oracle health and performance.
-We strongly recommend setting up at least two alerts as follows:
-- There were no Beacon oracle reports about the last finalized Beacon epoch for more than 30 minutes since that epoch has become finalized.
+```bash
+poetry run pytest .
 ```
-  - alert: reported_frame
-    expr: currentEpoch > prevEpoch 
-    for: 30m
-    labels:
-      severity: critical
-    annotations:
-      title: No report for current frame for 30 minutes
-```
-- Curve stETH pool live price (`stethPoolPrice` gauge) differs from the stETH oracle's price (`stethOraclePrice` gauge) by more than 5% for at least 10 minutes. 
-```
-  - alert: peg
-    expr: abs((stethPoolPrice - stethOraclePrice)/stethOraclePrice)  > 0.05
-    for: 10m
-    labels:
-      severity: critical
-    annotations:
-      title: Peg difference is greater than 5%
-      description: Peg difference is greater than 5% for more than 10 minutes.
+
+## Code quality
+
+Used the following tools:
+
+- [black](https://github.com/psf/black)
+- [pylint](https://github.com/pylint-dev/pylint/)
+- [mypy](https://github.com/python/mypy/)
+  See the [configuration](pyproject.toml) for details for each linter.
+
+Make sure that your code is formatted correctly and passes all checks:
+
+```bash
+black tests
+pylint src tests
+mypy src
 ```
 
 # License
 
-2020 Lido <info@lido.fi>
+2023 Lido <info@lido.fi>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -244,7 +337,7 @@ the Free Software Foundation, version 3 of the License, or any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public License](LICENSE)
@@ -260,4 +353,4 @@ To create new release:
 1. When action execution is finished, navigate to Repo => Pull requests
 1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
 1. After merge release action will be triggered automatically
-1. Navigate to Repo => Actions and see last actions logs for further details 
+1. Navigate to Repo => Actions and see last actions logs for further details

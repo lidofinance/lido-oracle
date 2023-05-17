@@ -1,25 +1,106 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "2.6.1"
+version = "3.0.0"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
-authors = ["Kirill Varlamov", "Smelov Vladimir", "Dmitry Suldin"]
+authors = [
+    "Raman Siamionau",
+    "Roman Kolpakov",
+    "Vladimir Gorkavenko",
+    "Sergey Khomutinin",
+    "Sergey Ivanenko",
+    "George Avsetsin",
+    "Kirill Varlamov",
+    "Smelov Vladimir",
+    "Dmitry Suldin",
+]
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.8,<4.0.0"
-cytoolz = "0.11.2"
-eth-rlp = "0.2.1"
-prometheus-client = "0.12.0"
-lido-sdk = "^2.5.3"
-web3-multi-provider = "^0.4.2"
+python = "^3.11"
+web3 = "6.0.0b10"
+prometheus-client = "^0.16.0"
+timeout-decorator = "^0.5.0"
+pytest = "^7.2.1"
+poetry = "^1.3.2"
+pytest-xdist = "^3.2.1"
+web3-multi-provider = "^0.6.0"
 
-[tool.poetry.dev-dependencies]
-pytest = "6.2.5"
-flake8 = "3.8.4"
-iniconfig = "1.1.1"
-regex = "2021.11.10"
-black = "^22.3.0"
+[tool.poetry.group.dev.dependencies]
+base58 = "^2.1.1"
+ipfshttpclient = "^0.7.0"
+pylint = "^2.16.2"
+mypy = "^1.0.1"
+pytest-cov = "^4.0.0"
+pydantic-factories = "^1.17.2"
+# {{{ stubs for mypy
+types-requests = "^2.28.11.15"
+types-setuptools = "^67.6.0.0"
+types-urllib3 = "^1.26.25.8"
+# }}}
+hypothesis = "^6.68.2"
+black = "^23.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+markers = [
+    "unit: tests with using mocks and don't make external requests",
+    "integration: tests with using providers",
+    "possible_integration: tests with using providers, but can be run using mocks",
+    "e2e: complex tests with using providers and real Ethereum network",
+]
+addopts = "-s --pdbcls pudb.debugger:Debugger"
+
+[tool.coverage.run]
+branch = true
+
+[tool.pylint.format]
+max-line-length = "120"
+
+
+[tool.pylint."messages control"]
+disable = [
+    # Disabled by default
+    "raw-checker-failed",
+    "bad-inline-option",
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    # Disabled by us
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "invalid-name",
+    "unused-argument",
+    "wrong-import-order",
+    "ungrouped-imports",
+    "line-too-long",
+    "too-many-instance-attributes",
+    "too-many-arguments",
+    "too-many-locals",
+    "unspecified-encoding",
+    "bare-except",
+    "fixme",
+    "cell-var-from-loop",
+    "invalid-envvar-default",
+    "global-statement",
+    "redefined-outer-name",
+]
+
+[tool.mypy]
+strict_equality = true
+mypy_path = "stubs"
+
+[[tool.mypy.overrides]]
+module = "src.web3py.contract_tweak"
+ignore_errors = true  # skipped because of extensive copy-paste from the upstream
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true

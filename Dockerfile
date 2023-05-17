@@ -1,80 +1,51 @@
-FROM python:3.9.14-slim-bullseye as base
-
-ENV LANG=C.UTF-8 \
-    DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+FROM python:3.11-slim as base
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     gcc=4:10.2.1-1 \
     libffi-dev=3.3-6 \
     g++=4:10.2.1-1 \
-    git=1:2.30.2-1 \
     curl=7.74.0-1.3+deb11u7 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    POETRY_NO_INTERACTION=1 \
+    VENV_PATH="/.venv"
+
+ENV PATH="$VENV_PATH/bin:$PATH"
 
 FROM base as builder
 
-ENV POETRY_VERSION=1.1.13 \
-    POETRY_HOME="/opt/poetry"
+ENV POETRY_VERSION=1.3.2
+RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="$POETRY_HOME/bin:$PATH"
-
+WORKDIR /
 COPY pyproject.toml poetry.lock ./
-RUN python -m venv --copies /venv
+RUN poetry install --only main --no-root
 
-RUN . /venv/bin/activate && poetry install --no-dev --no-root
 
 FROM base as production
 
-COPY --from=builder /venv /venv
+COPY --from=builder $VENV_PATH $VENV_PATH
+WORKDIR /app
+COPY . .
 
-RUN mkdir -p /var/www && chown www-data /var/www && \
-    chown -R www-data /app/ && chown -R www-data /venv
+RUN apt-get clean && find /var/lib/apt/lists/ -type f -delete && chown -R www-data /app/
 
-ENV PYTHONPATH="/venv/lib/python3.9/site-packages/"
-ENV PATH=$PATH:/venv/bin
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV PULSE_SERVER_PORT 8000
-ENV PROMETHEUS_PORT 8000
-
-# Set metadata
-ARG VERSION
-ARG COMMIT_DATETIME
-ARG BUILD_DATETIME
-ARG TAGS
-ARG BRANCH
-ARG COMMIT_MESSAGE
-ARG COMMIT_HASH
-LABEL VERSION="$VERSION"
-LABEL COMMIT_DATETIME="$COMMIT_DATETIME"
-LABEL BUILD_DATETIME="$BUILD_DATETIME"
-LABEL TAGS="$TAGS"
-LABEL BRANCH="$BRANCH"
-LABEL COMMIT_MESSAGE="$COMMIT_MESSAGE"
-LABEL COMMIT_HASH="$COMMIT_HASH"
-ENV VERSION=${VERSION}
-ENV COMMIT_DATETIME=${COMMIT_DATETIME}
-ENV BUILD_DATETIME=${BUILD_DATETIME}
-ENV TAGS=${TAGS}
-ENV BRANCH=${BRANCH}
-ENV COMMIT_MESSAGE=${COMMIT_MESSAGE}
-ENV COMMIT_HASH=${COMMIT_HASH}
+ENV PROMETHEUS_PORT 9000
+ENV HEALTHCHECK_SERVER_PORT 9010
 
 EXPOSE $PROMETHEUS_PORT
 USER www-data
 
-COPY --from=builder /usr/local/ /usr/local/
-COPY assets ./assets
-COPY app ./
-
 HEALTHCHECK --interval=10s --timeout=3s \
-    CMD curl -f http://localhost:$PULSE_SERVER_PORT/healthcheck || exit 1
+    CMD curl -f http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck || exit 1
 
-ENTRYPOINT ["python3", "-u", "oracle.py"]
+WORKDIR /app/
+
+ENTRYPOINT ["python3", "-m", "src.main"]
