@@ -14,7 +14,7 @@ class ReportData:
     ref_slot: SlotNumber
     validators_count: int
     cl_balance_gwei: Gwei
-    staking_module_id_with_exited_validators: list[StakingModuleId]
+    staking_module_ids_with_exited_validators: list[StakingModuleId]
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
@@ -33,7 +33,7 @@ class ReportData:
             self.ref_slot,
             self.validators_count,
             self.cl_balance_gwei,
-            self.staking_module_id_with_exited_validators,
+            self.staking_module_ids_with_exited_validators,
             self.count_exited_validators_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,

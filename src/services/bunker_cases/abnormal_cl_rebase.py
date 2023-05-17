@@ -274,7 +274,7 @@ class AbnormalClRebase:
         Handle 32 ETH balances of freshly baked validators, who was appeared between epochs
         Lido validators are counted by public keys that the protocol deposited with 32 ETH,
         so we can safely count the differences in the number of validators when they occur by deposit size.
-        Any predeposits to Lido keys will not be counted until the key is deposited through the protocol
+        Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
         and goes into `used` state
         """
         validators_diff = len(ref_validators) - len(prev_validators)
