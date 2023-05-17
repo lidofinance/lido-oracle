@@ -97,7 +97,7 @@ class LidoValidatorStateService:
         for operator in node_operators:
             global_index = (operator.staking_module.id, operator.id)
             ACCOUNTING_STUCK_VALIDATORS.labels(*global_index).set(result[global_index])
-            # If amount of exited validators weren't changed skip report for operator
+            # If amount of stuck validators weren't changed skip report for operator
             if result[global_index] == operator.stuck_validators_count:
                 del result[global_index]
 
