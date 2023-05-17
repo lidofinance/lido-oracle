@@ -73,13 +73,6 @@ class RewardsPredictionService:
             Wei(0),
         )
 
-    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
-        return Web3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash,
-            )
-        )
-
     @staticmethod
     def _group_events_by_transaction_hash(event_type_1: list[EventData], event_type_2: list[EventData]):
         event_type_1_dict = {}
@@ -110,3 +103,9 @@ class RewardsPredictionService:
 
         return result_event_data
 
+    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
+        return Web3.to_int(
+            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
+                block_identifier=blockstamp.block_hash,
+            )
+        )
