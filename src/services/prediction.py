@@ -11,7 +11,7 @@ from src.web3py.typings import Web3
 logger = logging.getLogger(__name__)
 
 
-class InconsistentEvents(Exception):
+class InconsistentEvents(ValueError):
     pass
 
 
