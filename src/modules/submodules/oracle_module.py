@@ -7,6 +7,7 @@ from enum import Enum
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 
+from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
@@ -50,6 +51,8 @@ class BaseModule(ABC):
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
+            pulse()
+
             logger.info({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
