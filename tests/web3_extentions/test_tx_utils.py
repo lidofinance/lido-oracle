@@ -108,14 +108,16 @@ def test_find_transaction_timeout(web3, tx_utils, tx, account, monkeypatch):
 
     assert not web3.transaction._handle_sent_transaction('0x000001')
 
-    web3.eth.wait_for_transaction_receipt = Mock(return_value={
-        'blockHash': b'',
-        'blockNumber': '',
-        'gasUsed': '',
-        'effectiveGasPrice': '',
-        'status': '',
-        'transactionHash': b'',
-        'transactionIndex': '',
-    })
+    web3.eth.wait_for_transaction_receipt = Mock(
+        return_value={
+            'blockHash': b'',
+            'blockNumber': '',
+            'gasUsed': '',
+            'effectiveGasPrice': '',
+            'status': '',
+            'transactionHash': b'',
+            'transactionIndex': '',
+        }
+    )
 
     assert web3.transaction._handle_sent_transaction('0x000001')
