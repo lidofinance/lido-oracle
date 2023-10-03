@@ -10,11 +10,14 @@ from web3.types import TxReceipt, Wei, TxParams, BlockData
 from src import variables, constants
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
+from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
 
 
 class TransactionUtils(Module):
+    w3: Web3
+
     def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
