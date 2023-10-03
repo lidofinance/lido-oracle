@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from eth_account.signers.local import LocalAccount
+from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.module import Module
@@ -10,7 +11,6 @@ from web3.types import TxReceipt, Wei, TxParams, BlockData
 from src import variables, constants
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
-from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
 
