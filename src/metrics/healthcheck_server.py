@@ -1,19 +1,25 @@
+import logging
 import threading
 from datetime import datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 import requests
+from requests.exceptions import ConnectionError
 
 from src import variables
 from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
 
 _last_pulse = datetime.now()
+logger = logging.getLogger(__name__)
 
 
 def pulse():
     """Ping to healthcheck server that application is ok"""
-    requests.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/', timeout=10)
+    try:
+        requests.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/', timeout=10)
+    except ConnectionError:
+        logger.warning({'Healthcheck server is not responding.'})
 
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
