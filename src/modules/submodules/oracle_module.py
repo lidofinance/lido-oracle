@@ -51,8 +51,6 @@ class BaseModule(ABC):
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
-            pulse()
-
             logger.info({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
@@ -90,7 +88,7 @@ class BaseModule(ABC):
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
-            return self.execute_module(blockstamp)
+            result = self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
@@ -113,6 +111,10 @@ class BaseModule(ABC):
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+        else:
+            # Do pulse only if no exceptions only
+            pulse()
+            return result
 
         return ModuleExecuteDelay.NEXT_SLOT
 
