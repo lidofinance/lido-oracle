@@ -188,7 +188,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self._is_paused(blockstamp)
-        CONTRACT_ON_PAUSE.set(on_pause)
+        CONTRACT_ON_PAUSE.labels('reporting').set(on_pause)
         logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
         return not on_pause
 

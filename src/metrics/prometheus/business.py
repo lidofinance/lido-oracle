@@ -37,5 +37,6 @@ FRAME_PREV_REPORT_REF_SLOT = Gauge(
 CONTRACT_ON_PAUSE = Gauge(
     "contract_on_pause",
     "Contract on pause",
+    ['type'],
     namespace=PROMETHEUS_PREFIX,
 )
