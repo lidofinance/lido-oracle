@@ -12,11 +12,11 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.metrics.prometheus.business import CONTRACT_ON_PAUSE, FRAME_PREV_REPORT_REF_SLOT
+from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
-    EJECTOR_MAX_EXIT_EPOCH
+    EJECTOR_MAX_WITHDRAWAL_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
@@ -173,6 +173,8 @@ class Ejector(BaseModule, ConsensusModule):
                     'going_to_withdraw_balance': going_to_withdraw_balance,
                 })
 
+                EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
+
                 return validators_to_eject
 
             validators_to_eject.append(validator_container)
@@ -255,8 +257,6 @@ class Ejector(BaseModule, ConsensusModule):
         if activation_exit_epoch > max_exit_epoch_number:
             max_exit_epoch_number = activation_exit_epoch
             latest_to_exit_validators_count = 0
-
-        EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
 
         churn_limit = self._get_churn_limit(blockstamp)
 
