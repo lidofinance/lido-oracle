@@ -1,7 +1,7 @@
 import functools
 from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
-from typing import Callable, Self, Sequence, TypeVar, Iterable
+from typing import Callable, Self, Sequence, TypeVar
 
 from src.utils.abi import named_tuple_to_dataclass
 
