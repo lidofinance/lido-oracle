@@ -30,6 +30,7 @@ FRAME_DEADLINE_SLOT = Gauge(
 FRAME_PREV_REPORT_REF_SLOT = Gauge(
     "frame_prev_report_ref_slot",
     "Oracle frame previous report ref slot",
+    ['type'],
     namespace=PROMETHEUS_PREFIX,
 )
 

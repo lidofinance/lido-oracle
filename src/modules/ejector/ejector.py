@@ -86,7 +86,6 @@ class Ejector(BaseModule, ConsensusModule):
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         last_report_ref_slot = self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
-        FRAME_PREV_REPORT_REF_SLOT.set(last_report_ref_slot)
         validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = self.get_validators_to_eject(blockstamp)
         logger.info({
             'msg': f'Calculate validators to eject. Count: {len(validators)}',
