@@ -1,13 +1,12 @@
-name: CI Dev Holesky
+name: CI Dev Goerli
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - develop
+      - goerli
     paths-ignore:
       - ".github/**"
-      - "README.md"
 
 permissions: {}
 
@@ -26,5 +25,5 @@ jobs:
           APP_ID: ${{ secrets.APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           TARGET_REPO: "lidofinance/infra-mainnet"
-          TARGET_WORKFLOW: "deploy_holesky_testnet_lido_oracle.yaml"
-          TARGET: "develop"
+          TARGET_WORKFLOW: "deploy_testnet_lido_oracle.yaml"
+          TARGET: "goerli"
