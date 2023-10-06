@@ -112,7 +112,7 @@ class BaseModule(ABC):
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         else:
-            # Do pulse only if no exceptions only
+            # if there are no exceptions, then pulse
             pulse()
             return result
 
