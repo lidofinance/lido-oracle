@@ -4,6 +4,7 @@ from typing import Union, cast
 
 import pytest
 from web3 import HTTPProvider
+from web3.types import Wei
 
 from src import variables
 from src.providers.consensus.client import LiteralState
@@ -327,3 +328,24 @@ def do_deposits(web3, deposits_count: int, staking_module_id: int):
     })
 
     assert res
+
+
+def fix_fork_get_balance(web3):
+    def _get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
+        return Wei(self.w3.eth.get_balance(
+            self.lido_locator.functions.withdrawalVault().call(
+                block_identifier=blockstamp.block_hash
+            ),
+            block_identifier=blockstamp.block_number,
+        ))
+
+    def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
+        return Wei(self.w3.eth.get_balance(
+            self.lido_locator.functions.elRewardsVault().call(
+                block_identifier=blockstamp.block_hash
+            ),
+            block_identifier=blockstamp.block_number,
+        ))
+
+    web3.lido_contracts.get_withdrawal_balance_no_cache = MethodType(_get_withdrawal_balance_no_cache, web3.lido_contracts)
+    web3.lido_contracts.get_el_vault_balance = MethodType(_get_el_vault_balance, web3.lido_contracts)

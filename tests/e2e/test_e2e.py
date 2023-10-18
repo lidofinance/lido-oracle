@@ -4,7 +4,7 @@ from web3 import Web3, HTTPProvider
 from src import variables
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
-from tests.e2e import do_deposits, NO_ADDRESS
+from tests.e2e import do_deposits, NO_ADDRESS, fix_fork_get_balance
 from tests.e2e.conftest import wait_for_message_appeared
 
 
@@ -20,6 +20,8 @@ def test_app(start_accounting, caplog):
 
 @pytest.mark.e2e
 def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, remove_sleep, caplog):
+    fix_fork_get_balance(accounting_web3)
+
     do_deposits(accounting_web3, 4, 2)
     a = Accounting(accounting_web3)
 
@@ -87,7 +89,10 @@ def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, 
     assert not a.is_contract_reportable(a._get_latest_blockstamp())
 
 
+@pytest.mark.e2e
 def test_ejector_two_modules(ejector_web3, setup_ejector_account, remove_sleep, caplog):
+    fix_fork_get_balance(ejector_web3)
+
     e = Ejector(ejector_web3)
 
     assert e.is_contract_reportable(e._get_latest_blockstamp())
