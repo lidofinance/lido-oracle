@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -8,9 +9,7 @@ from web3.types import Timestamp
 
 import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
-from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
-from src.web3py.typings import Web3
+from src.typings import BlockStamp, BlockNumber, EpochNumber, ReferenceBlockStamp
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 from tests.providers import (
@@ -21,6 +20,7 @@ from tests.providers import (
     UpdateResponsesConsensusClientModule,
     UpdateResponsesKeysAPIClientModule,
 )
+from tests.e2e import *
 
 
 def pytest_addoption(parser):
@@ -154,3 +154,8 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
+
+
+@pytest.fixture
+def remove_sleep():
+    time.sleep = lambda x: None

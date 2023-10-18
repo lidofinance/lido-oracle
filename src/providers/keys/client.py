@@ -1,4 +1,4 @@
-from time import sleep
+import time
 from typing import Optional, cast
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
@@ -40,7 +40,7 @@ class KeysAPIClient(HTTPProvider):
                 return data
 
             if i != self.retry_count - 1:
-                sleep(self.backoff_factor)
+                time.sleep(self.backoff_factor)
 
         raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
 

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from time import sleep
+import time
 from typing import Optional
 
 from eth_abi import encode
@@ -327,7 +327,7 @@ class ConsensusModule(ABC):
 
             logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
             for _ in range(slots_to_sleep):
-                sleep(chain_configs.seconds_per_slot)
+                time.sleep(chain_configs.seconds_per_slot)
 
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
