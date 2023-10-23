@@ -114,7 +114,7 @@ class Ejector(BaseModule, ConsensusModule):
                         'validator': v.validator.__dict__,
                     } for v in self.w3.cc.get_validators(blockstamp)])
                 )
-        except Exception as error:
+        except Exception as error:  # pylint: disable=W0703
             logger.error({'msg': 'Failed to save get_validators response.', 'error': str(error)})
         else:
             logger.info({'msg': 'Response get_validators from Consensus Cline wrote to file validators_response.json.'})
