@@ -49,6 +49,6 @@ def check_events_week_range_availability(web3, deposit_contract):
     """Check that execution-client able to get event logs a week ago"""
     latest_block = web3.eth.get_block('latest')
     deposit_contract.events.DepositEvent.get_logs(
-        fromBlock=latest_block.number - 8 * 225 * 32,  # 8 days
+        fromBlock=max(0, latest_block.number - 8 * 225 * 32),  # 8 days
         toBlock=latest_block.number,
     )
