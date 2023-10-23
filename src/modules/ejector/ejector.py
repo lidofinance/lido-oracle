@@ -1,3 +1,4 @@
+import json
 import logging
 from functools import reduce
 
@@ -104,6 +105,19 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
+
+        try:
+            with open('validators_response.json', 'w') as f:
+                f.write(
+                    json.dumps([{
+                        **v.__dict__,
+                        'validator': v.validator.__dict__,
+                    } for v in self.w3.cc.get_validators(blockstamp)])
+                )
+        except Exception as error:
+            logger.error({'msg': 'Failed to save get_validators response.', 'error': str(error)})
+        else:
+            logger.info({'msg': 'Response get_validators from Consensus Cline wrote to file validators_response.json.'})
 
         return report_data.as_tuple()
 
