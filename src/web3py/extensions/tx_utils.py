@@ -51,6 +51,9 @@ class TransactionUtils(Module):
         logger.info({"msg": "Check transaction. Make static call.", "value": transaction.args})
 
         try:
+            gas_amount = transaction.estimate_gas(params)
+            logger.warning({"msg": "gas estimated", 'value': gas_amount})
+
             result = transaction.call(params)
         except (ValueError, ContractLogicError) as error:
             logger.error({"msg": "Transaction reverted.", "error": str(error)})
