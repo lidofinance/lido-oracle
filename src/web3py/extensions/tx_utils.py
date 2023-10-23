@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from eth_account.signers.local import LocalAccount
+from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.module import Module
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class TransactionUtils(Module):
+    w3: Web3
+
     def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
