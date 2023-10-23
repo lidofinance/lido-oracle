@@ -27,7 +27,6 @@ from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -128,9 +127,9 @@ class Accounting(BaseModule, ConsensusModule):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': f'Bunker mode is active. {ALLOW_REPORTING_IN_BUNKER_MODE=}'})
+        logger.warning({'msg': f'Bunker mode is active. {variables.ALLOW_REPORTING_IN_BUNKER_MODE=}'})
         logger.warning({'msg': '!' * 50})
-        return ALLOW_REPORTING_IN_BUNKER_MODE
+        return variables.ALLOW_REPORTING_IN_BUNKER_MODE
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
