@@ -36,7 +36,14 @@ def simple_validators(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal", "lido_validators_exist"),
+    (
+        "blockstamp",
+        "frame_cl_rebase",
+        "nearest_epoch_distance",
+        "far_epoch_distance",
+        "expected_is_abnormal",
+        "lido_validators_exist",
+    ),
     [
         (simple_ref_blockstamp(40), 378585832, 0, 0, False, True),  # < mistake rate
         (simple_ref_blockstamp(40), 378585831.6, 0, 0, False, True),  # == mistake rate and no check specific rebase
