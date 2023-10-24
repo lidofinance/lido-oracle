@@ -34,15 +34,23 @@ def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, 
     sent_tx = list(filter(lambda msg: msg.msg['msg'] == 'Transaction is in blockchain.', caplog.records))
 
     sent_accounting_tx = accounting_web3.eth.get_transaction(sent_tx[1].msg['transactionHash'])
-    sent_accounting_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(sent_accounting_tx['input'])[1]
+    sent_accounting_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(
+        sent_accounting_tx['input']
+    )[1]
 
     accounting_tx = w3.eth.get_transaction('0xd418066cc84af20e9b4ca215ba855e6d00d0a7b7107a5d1a96442aef8e5d280f')
-    accounting_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(accounting_tx['input'])[1]
+    accounting_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(accounting_tx['input'])[
+        1
+    ]
 
     assert sent_accounting_report['data']['refSlot'] == accounting_report['data']['refSlot']
     assert sent_accounting_report['data']['numValidators'] == accounting_report['data']['numValidators'] + 3
     # Two validators has balances and one is withdrawn
-    assert accounting_report['data']['clBalanceGwei'] + 2 * 32 * 10**9 - 10**9 <= sent_accounting_report['data']['clBalanceGwei'] <= accounting_report['data']['clBalanceGwei'] + 2 * 32 * 10**9 + 10**9
+    assert (
+        accounting_report['data']['clBalanceGwei'] + 2 * 32 * 10**9 - 10**9
+        <= sent_accounting_report['data']['clBalanceGwei']
+        <= accounting_report['data']['clBalanceGwei'] + 2 * 32 * 10**9 + 10**9
+    )
     # Module #2 has 1 exited validator
     assert sent_accounting_report['data']['stakingModuleIdsWithNewlyExitedValidators'] == [2]
     assert sent_accounting_report['data']['numExitedValidatorsByStakingModule'] == [1]
@@ -51,12 +59,16 @@ def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, 
     assert accounting_web3.lido_contracts.lido.functions.balanceOf(NO_ADDRESS).call() != 0
 
     extra_data_tx = w3.eth.get_transaction('0xad1c66f659572395cbe5afe111514f86192fdecb4be4e166f48ad7ce886a7876')
-    extra_data_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(extra_data_tx['input'])[1]
+    extra_data_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(extra_data_tx['input'])[
+        1
+    ]
 
     assert not extra_data_report
 
     sent_extra_data_tx = accounting_web3.eth.get_transaction(sent_tx[2].msg['transactionHash'])
-    sent_extra_data_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(sent_extra_data_tx['input'])[1]
+    sent_extra_data_report = accounting_web3.lido_contracts.accounting_oracle.decode_function_input(
+        sent_extra_data_tx['input']
+    )[1]
 
     assert sent_extra_data_report['items']
 
@@ -99,7 +111,9 @@ def test_ejector_two_modules(ejector_web3, setup_ejector_account, remove_sleep, 
     e.cycle_handler()
 
     latest = e._get_latest_blockstamp()
-    events = ejector_web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(fromBlock=latest.block_number - 5)
+    events = ejector_web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
+        fromBlock=latest.block_number - 5
+    )
 
     assert events[0]['args']['stakingModuleId'] == 2
     assert events[0]['args']['nodeOperatorId'] == 0

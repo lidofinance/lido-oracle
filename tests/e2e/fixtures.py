@@ -12,8 +12,13 @@ from src.providers.consensus.typings import BlockDetailsResponse, BlockRootRespo
 from src.providers.keys.typings import LidoKey
 from src.typings import SlotNumber, BlockRoot, BlockStamp
 from src.utils.dataclass import list_of_dataclasses
-from src.web3py.extensions import ConsensusClientModule, KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, \
-    TransactionUtils
+from src.web3py.extensions import (
+    ConsensusClientModule,
+    KeysAPIClientModule,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
 from src.web3py.typings import Web3
 from tests.e2e.chronix import create_fork, delete_fork, add_simple_dvt_module, add_node_operator, add_node_operator_keys
 
@@ -27,7 +32,7 @@ REPORTABLE_BLOCK_ACCOUNTING = 18312776
 VALIDATOR_KEYS = [
     (
         '0xb07e07e4633330b730a7bbfd1d13b249d99c79df68e75f923364e9efe7f2d52b8608f9ea5551026982eecafb6d760c75',
-        '0x88584e441685b4b3e4b0b278c0831c08bc2f5537bd0066c176b6dc4bd233f7adb666d52ac3e9ea3c866df1480f263e260fa0a16d56b4b2cd4b123dfc69283fb902b0177a8c8ac192954c32a6f1d6cc2ab10cb0ae38affcc3123c3c812a0692d9'
+        '0x88584e441685b4b3e4b0b278c0831c08bc2f5537bd0066c176b6dc4bd233f7adb666d52ac3e9ea3c866df1480f263e260fa0a16d56b4b2cd4b123dfc69283fb902b0177a8c8ac192954c32a6f1d6cc2ab10cb0ae38affcc3123c3c812a0692d9',
     ),  # Active validator
     (
         '0xb71a8cdd06e326d8f5176a3b908b377a26687a5eeecfa1a2d5e391026db4ebdb827bf88fe7c5ad46e368c1800e6ba330',
@@ -143,25 +148,32 @@ def accounting_web3(accounting_ready_fork):
             else:
                 break
 
-        response.extend([{
-            'key': k[0],
-            'used': True,
-            'moduleAddress': accounting_ready_fork[1],
-            'operatorIndex': 0,
-            'depositSignature': k[1],
-        } for index, k in enumerate(VALIDATOR_KEYS)])
+        response.extend(
+            [
+                {
+                    'key': k[0],
+                    'used': True,
+                    'moduleAddress': accounting_ready_fork[1],
+                    'operatorIndex': 0,
+                    'depositSignature': k[1],
+                }
+                for index, k in enumerate(VALIDATOR_KEYS)
+            ]
+        )
         return response
 
     kac.get_used_lido_keys = MethodType(_get_used_lido_keys, kac)
 
-    web3.attach_modules({
-        'lido_contracts': LidoContracts,
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        # Mocks
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-    })
+    web3.attach_modules(
+        {
+            'lido_contracts': LidoContracts,
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            # Mocks
+            'cc': lambda: cc,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+        }
+    )
 
     def _fetch_indexes(self, module_id, node_operators_ids_in_module):
         class A:
@@ -173,7 +185,9 @@ def accounting_web3(accounting_ready_fork):
 
         return self._getLastRequestedValidatorIndices(module_id, node_operators_ids_in_module)
 
-    web3.lido_contracts.validators_exit_bus_oracle.functions._getLastRequestedValidatorIndices = web3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices
+    web3.lido_contracts.validators_exit_bus_oracle.functions._getLastRequestedValidatorIndices = (
+        web3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices
+    )
     web3.lido_contracts.validators_exit_bus_oracle.functions.getLastRequestedValidatorIndices = MethodType(
         _fetch_indexes,
         web3.lido_contracts.validators_exit_bus_oracle.functions,
@@ -204,50 +218,50 @@ def ejector_web3(ejector_ready_fork):
             else:
                 break
 
-        response.extend([{
-            'key': k[0],
-            'used': True,
-            'moduleAddress': ejector_ready_fork[1],
-            'operatorIndex': 0,
-            'depositSignature': k[1],
-        } for index, k in enumerate(VALIDATOR_KEYS)])
+        response.extend(
+            [
+                {
+                    'key': k[0],
+                    'used': True,
+                    'moduleAddress': ejector_ready_fork[1],
+                    'operatorIndex': 0,
+                    'depositSignature': k[1],
+                }
+                for index, k in enumerate(VALIDATOR_KEYS)
+            ]
+        )
         return response
 
     kac.get_used_lido_keys = MethodType(_get_used_lido_keys, kac)
 
-    web3.attach_modules({
-        'lido_contracts': LidoContracts,
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        # Mocks
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-    })
+    web3.attach_modules(
+        {
+            'lido_contracts': LidoContracts,
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            # Mocks
+            'cc': lambda: cc,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+        }
+    )
 
     do_deposits(web3, 4, 2)
 
-    web3.lido_contracts.lido.functions.approve(web3.lido_contracts.withdrawal_queue_nft.address, 50000*10**18).transact({'from': DEPOSIT_SECURITY_MODULE})
-    web3.lido_contracts.withdrawal_queue_nft.functions.requestWithdrawals([1000*10**18]*34, DEPOSIT_SECURITY_MODULE).transact({"from": DEPOSIT_SECURITY_MODULE})
+    web3.lido_contracts.lido.functions.approve(
+        web3.lido_contracts.withdrawal_queue_nft.address, 50000 * 10**18
+    ).transact({'from': DEPOSIT_SECURITY_MODULE})
+    web3.lido_contracts.withdrawal_queue_nft.functions.requestWithdrawals(
+        [1000 * 10**18] * 34, DEPOSIT_SECURITY_MODULE
+    ).transact({"from": DEPOSIT_SECURITY_MODULE})
 
-    web3.lido_contracts.staking_router.functions.updateTargetValidatorsLimits(
-        2,
-        0,
-        True,
-        0
-    ).transact({'from': ADMIN})
+    web3.lido_contracts.staking_router.functions.updateTargetValidatorsLimits(2, 0, True, 0).transact({'from': ADMIN})
 
-    web3.lido_contracts.staking_router.functions.updateTargetValidatorsLimits(
-        1,
-        1,
-        False,
-        0
-    ).transact({'from': ADMIN})
+    web3.lido_contracts.staking_router.functions.updateTargetValidatorsLimits(1, 1, False, 0).transact({'from': ADMIN})
 
     limits = web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call()
 
     web3.lido_contracts.oracle_report_sanity_checker.functions.grantRole(
-        '0x5bf88568a012dfc9fe67407ad6775052bddc4ac89902dea1f4373ef5d9f1e35b',
-        ADMIN
+        '0x5bf88568a012dfc9fe67407ad6775052bddc4ac89902dea1f4373ef5d9f1e35b', ADMIN
     ).transact({'from': ADMIN})
 
     web3.lido_contracts.oracle_report_sanity_checker.functions.setOracleReportLimits(
@@ -306,46 +320,47 @@ def setup_ejector_account(ejector_web3):
 
 def set_no_limits(accounting_web3, staking_module_address, node_operator_id, no_limit):
     with open('assets/NodeOperatorRegistry.json', 'r') as f:
-        staking_module = accounting_web3.eth.contract(
-            staking_module_address,
-            abi=json.loads(f.read())
-        )
+        staking_module = accounting_web3.eth.contract(staking_module_address, abi=json.loads(f.read()))
 
-    res = staking_module.functions.setNodeOperatorStakingLimit(node_operator_id, no_limit).transact({'from': ARAGON_VOTING})
+    res = staking_module.functions.setNodeOperatorStakingLimit(node_operator_id, no_limit).transact(
+        {'from': ARAGON_VOTING}
+    )
     assert res
 
 
 def do_deposits(web3, deposits_count: int, staking_module_id: int):
     web3.provider.make_request('hardhat_impersonateAccount', [DEPOSIT_SECURITY_MODULE])
     web3.provider.make_request('hardhat_setBalance', [DEPOSIT_SECURITY_MODULE, '0x100000000000000000000'])
-    web3.lido_contracts.lido.functions.submit(web3.eth.accounts[0]).transact({
-        "from": DEPOSIT_SECURITY_MODULE,
-        "to": web3.lido_contracts.lido.address,
-        "value": 50000 * 10 ** 18
-    })
-    res = web3.lido_contracts.lido.functions.deposit(deposits_count, staking_module_id, b'').transact({
-        'from': DEPOSIT_SECURITY_MODULE,
-    })
+    web3.lido_contracts.lido.functions.submit(web3.eth.accounts[0]).transact(
+        {"from": DEPOSIT_SECURITY_MODULE, "to": web3.lido_contracts.lido.address, "value": 50000 * 10**18}
+    )
+    res = web3.lido_contracts.lido.functions.deposit(deposits_count, staking_module_id, b'').transact(
+        {
+            'from': DEPOSIT_SECURITY_MODULE,
+        }
+    )
 
     assert res
 
 
 def fix_fork_get_balance(web3):
     def _get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
-            self.lido_locator.functions.withdrawalVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
-            block_identifier=blockstamp.block_number,
-        ))
+        return Wei(
+            self.w3.eth.get_balance(
+                self.lido_locator.functions.withdrawalVault().call(block_identifier=blockstamp.block_hash),
+                block_identifier=blockstamp.block_number,
+            )
+        )
 
     def _get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
-            self.lido_locator.functions.elRewardsVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
-            block_identifier=blockstamp.block_number,
-        ))
+        return Wei(
+            self.w3.eth.get_balance(
+                self.lido_locator.functions.elRewardsVault().call(block_identifier=blockstamp.block_hash),
+                block_identifier=blockstamp.block_number,
+            )
+        )
 
-    web3.lido_contracts.get_withdrawal_balance_no_cache = MethodType(_get_withdrawal_balance_no_cache, web3.lido_contracts)
+    web3.lido_contracts.get_withdrawal_balance_no_cache = MethodType(
+        _get_withdrawal_balance_no_cache, web3.lido_contracts
+    )
     web3.lido_contracts.get_el_vault_balance = MethodType(_get_el_vault_balance, web3.lido_contracts)

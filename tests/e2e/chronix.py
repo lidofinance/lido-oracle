@@ -21,11 +21,9 @@ def create_fork(block_num: int):
                 # Is valid only for mainnet fork
                 'url': variables.EXECUTION_CLIENT_URI[0],
                 'blockNumber': block_num,
-            }
+            },
         },
-        headers={
-            'Content-Type': 'application/json'
-        },
+        headers={'Content-Type': 'application/json'},
     )
     print(response.text)
     assert response.status_code == 200
@@ -45,27 +43,35 @@ def add_simple_dvt_module(port: int):
 
 
 def add_node_operator(port: int, name: str, staking_module_address: str, reward_address: str):
-    response = requests.post(CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/add-node-operator/', json={
-        'name': name,
-        # 'norAddress': r1.json()['data']['stakingRouterData']['stakingModules'][1]['stakingModuleAddress'],
-        'norAddress': staking_module_address,
-        'rewardAddress': reward_address,
-    })
+    response = requests.post(
+        CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/add-node-operator/',
+        json={
+            'name': name,
+            # 'norAddress': r1.json()['data']['stakingRouterData']['stakingModules'][1]['stakingModuleAddress'],
+            'norAddress': staking_module_address,
+            'rewardAddress': reward_address,
+        },
+    )
 
     assert response.status_code == 200
     return response.json()['data']
 
 
-def add_node_operator_keys(port: int, node_operator_id: int, staking_module_address: str, keys: list[str], signatures: list[str]):
+def add_node_operator_keys(
+    port: int, node_operator_id: int, staking_module_address: str, keys: list[str], signatures: list[str]
+):
     assert len(keys) == len(signatures)
 
-    response = requests.post(CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/add-node-operator-keys/', json={
-        'noId': node_operator_id,
-        'norAddress': staking_module_address,
-        'keysCount': len(keys),
-        'keys': '0x' + ''.join([k[2:] for k in keys]),
-        'signatures': '0x' + ''.join([s[2:] for s in signatures]),
-    })
+    response = requests.post(
+        CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/add-node-operator-keys/',
+        json={
+            'noId': node_operator_id,
+            'norAddress': staking_module_address,
+            'keysCount': len(keys),
+            'keys': '0x' + ''.join([k[2:] for k in keys]),
+            'signatures': '0x' + ''.join([s[2:] for s in signatures]),
+        },
+    )
 
     print(response.text)
     assert response.status_code == 200
