@@ -117,7 +117,7 @@ class Ejector(BaseModule, ConsensusModule):
         except Exception as error:  # pylint: disable=W0703
             logger.error({'msg': 'Failed to save get_validators response.', 'error': str(error)})
         else:
-            logger.info({'msg': 'Response get_validators from Consensus Cline wrote to file validators_response.json.'})
+            logger.info({'msg': 'Response get_validators from Consensus Client written to validators_response.json.'})
 
         return report_data.as_tuple()
 
