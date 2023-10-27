@@ -55,6 +55,11 @@ class AbnormalClRebase:
         logger.info({"msg": "Checking abnormal CL rebase"})
 
         normal_report_cl_rebase = self._calculate_lido_normal_cl_rebase(blockstamp)
+
+        # If there were no cl balance, no need to check changes
+        if normal_report_cl_rebase == 0:
+            return False
+
         diff_current_with_normal = 1 - current_report_cl_rebase / normal_report_cl_rebase
 
         if diff_current_with_normal > self.b_conf.normalized_cl_reward_mistake_rate:
