@@ -17,6 +17,8 @@ logger = logging.getLogger()
 
 
 class LidoContracts(Module):
+    w3: Web3
+
     lido_locator: Contract
     lido: Contract
     accounting_oracle: Contract
