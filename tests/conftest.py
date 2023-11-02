@@ -9,9 +9,11 @@ from web3.types import Timestamp
 
 import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, BlockNumber, EpochNumber, ReferenceBlockStamp
+from src.typings import BlockStamp, BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 
 from src.web3py.contract_tweak import tweak_w3_contracts
+from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
+from src.web3py.typings import Web3
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
@@ -20,7 +22,6 @@ from tests.providers import (
     UpdateResponsesConsensusClientModule,
     UpdateResponsesKeysAPIClientModule,
 )
-from tests.e2e import *
 
 
 def pytest_addoption(parser):

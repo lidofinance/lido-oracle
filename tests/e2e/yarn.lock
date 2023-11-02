@@ -19,7 +19,7 @@
     "@aragon/apps-vault" "^4.0.0"
     "@aragon/os" "4.2.0"
 
-"@aragon/apps-lido@github:lidofinance/aragon-apps#master":
+"@aragon/apps-lido@lidofinance/aragon-apps#master":
   version "1.0.0"
   resolved "https://codeload.github.com/lidofinance/aragon-apps/tar.gz/b09834d29c0db211ddd50f50905cbeff257fc8e0"
 

@@ -70,7 +70,7 @@ class Accounting(BaseModule, ConsensusModule):
         return ModuleExecuteDelay.NEXT_SLOT
 
     def process_extra_data(self, blockstamp: ReferenceBlockStamp):
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
         if not self.can_submit_extra_data(latest_blockstamp):
             logger.info({'msg': 'Extra data can not be submitted.'})
             return
@@ -81,7 +81,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': f'Sleep for {seconds_to_sleep} seconds before sending extra data.'})
         time.sleep(seconds_to_sleep)
 
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
         if not self.can_submit_extra_data(latest_blockstamp):
             logger.info({'msg': 'Extra data can not be submitted.'})
             return

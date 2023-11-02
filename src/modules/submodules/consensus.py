@@ -194,7 +194,7 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed reference slot blockstamp in case contract is reportable.
         """
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
 
         if not self._check_contract_versions(latest_blockstamp):
             logger.info({
@@ -343,7 +343,7 @@ class ConsensusModule(ABC):
         self._submit_report(report_data, self.CONTRACT_VERSION)
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
         logger.debug({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
 
         member_info = self.get_member_info(latest_blockstamp)
@@ -395,7 +395,7 @@ class ConsensusModule(ABC):
 
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
-    def _get_latest_blockstamp(self) -> BlockStamp:
+    def get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)

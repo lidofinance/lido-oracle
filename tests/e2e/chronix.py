@@ -1,9 +1,4 @@
-from urllib.parse import urlparse
-
-import pytest
 import requests
-from web3 import Web3
-from web3_multi_provider import FallbackProvider
 
 from src import variables
 
@@ -24,6 +19,7 @@ def create_fork(block_num: int):
             },
         },
         headers={'Content-Type': 'application/json'},
+        timeout=10,
     )
     print(response.text)
     assert response.status_code == 200
@@ -31,12 +27,12 @@ def create_fork(block_num: int):
 
 
 def delete_fork(port: int):
-    response = requests.delete(CHRONIX_URL + f'v1/env/hardhat/{port}/')
+    response = requests.delete(CHRONIX_URL + f'v1/env/hardhat/{port}/', timeout=10)
     assert response.status_code == 200
 
 
 def add_simple_dvt_module(port: int):
-    response = requests.post(CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/deploy/')
+    response = requests.post(CHRONIX_URL + 'v1/env/' + str(port) + '/simple-dvt/deploy/', timeout=10)
     assert response.status_code == 200
 
     return response.json()['data']
@@ -51,6 +47,7 @@ def add_node_operator(port: int, name: str, staking_module_address: str, reward_
             'norAddress': staking_module_address,
             'rewardAddress': reward_address,
         },
+        timeout=10,
     )
 
     assert response.status_code == 200
@@ -71,6 +68,7 @@ def add_node_operator_keys(
             'keys': '0x' + ''.join([k[2:] for k in keys]),
             'signatures': '0x' + ''.join([s[2:] for s in signatures]),
         },
+        timeout=10,
     )
 
     print(response.text)

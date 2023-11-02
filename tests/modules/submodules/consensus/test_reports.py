@@ -27,7 +27,7 @@ def set_report_account(monkeypatch):
 @pytest.fixture
 def mock_latest_data(consensus):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(current_frame_consensus_report=int.to_bytes(1, 32))
     consensus.get_member_info = Mock(return_value=member_info)
 
@@ -35,7 +35,7 @@ def mock_latest_data(consensus):
 # ----- Process report main ----------
 def test_process_report_main(consensus, tx_utils, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(is_report_member=True, current_frame_consensus_report=ZERO_HASH)
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
@@ -62,7 +62,7 @@ def test_hash_calculations(consensus):
 # ------ Process report hash -----------
 def test_report_hash(web3, consensus, tx_utils, set_report_account):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(is_report_member=True)
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
@@ -72,7 +72,7 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
 
 def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(
         is_fast_lane=False,
         current_frame_ref_slot=blockstamp.slot_number - 1,
@@ -86,7 +86,7 @@ def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
 
 def test_report_hash_member_is_not_report_member(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(
         is_report_member=False,
     )
@@ -98,7 +98,7 @@ def test_report_hash_member_is_not_report_member(consensus, caplog):
 
 def test_do_not_report_same_hash(consensus, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(
         is_report_member=True,
         current_frame_member_report=int.to_bytes(1, 32),
@@ -112,7 +112,7 @@ def test_do_not_report_same_hash(consensus, caplog, mock_latest_data):
 # -------- Process report data ---------
 def test_quorum_is_no_ready(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(current_frame_consensus_report=ZERO_HASH)
     consensus.get_member_info = Mock(return_value=member_info)
 

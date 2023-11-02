@@ -26,7 +26,7 @@ def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, 
     a = Accounting(accounting_web3)
 
     assert accounting_web3.lido_contracts.lido.functions.balanceOf(NO_ADDRESS).call() == 0
-    assert a.is_contract_reportable(a._get_latest_blockstamp())
+    assert a.is_contract_reportable(a.get_latest_blockstamp())
     a.cycle_handler()
 
     w3 = Web3(HTTPProvider(variables.EXECUTION_CLIENT_URI[0]))
@@ -98,7 +98,7 @@ def test_accounting_with_two_modules(accounting_web3, setup_accounting_account, 
     # NO active vals count
     assert sent_extra_data_report['items'][79] == 1
 
-    assert not a.is_contract_reportable(a._get_latest_blockstamp())
+    assert not a.is_contract_reportable(a.get_latest_blockstamp())
 
 
 @pytest.mark.e2e
@@ -107,10 +107,10 @@ def test_ejector_two_modules(ejector_web3, setup_ejector_account, remove_sleep, 
 
     e = Ejector(ejector_web3)
 
-    assert e.is_contract_reportable(e._get_latest_blockstamp())
+    assert e.is_contract_reportable(e.get_latest_blockstamp())
     e.cycle_handler()
 
-    latest = e._get_latest_blockstamp()
+    latest = e.get_latest_blockstamp()
     events = ejector_web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest.get_logs(
         fromBlock=latest.block_number - 5
     )

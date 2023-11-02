@@ -174,9 +174,8 @@ def test_get_slots_elapsed_from_last_report(accounting: Accounting):
 class TestAccountingReportingAllowed:
     def test_env_toggle(self, accounting: Accounting, monkeypatch: pytest.MonkeyPatch, ref_bs: ReferenceBlockStamp):
         accounting._is_bunker = Mock(return_value=True)
-        with monkeypatch.context() as ctx:
-            ctx.setattr(accounting_module, 'ALLOW_REPORTING_IN_BUNKER_MODE', True)
-            assert accounting.is_reporting_allowed(ref_bs)
+        variables.ALLOW_REPORTING_IN_BUNKER_MODE = True
+        assert accounting.is_reporting_allowed(ref_bs)
 
     def test_no_bunker_mode(self, accounting: Accounting, ref_bs):
         accounting._is_bunker = Mock(return_value=False)
@@ -209,7 +208,7 @@ class TestAccountingProcessExtraData:
         ref_bs: ReferenceBlockStamp,
         bs: BlockStamp,
     ):
-        accounting._get_latest_blockstamp = Mock(return_value=bs)
+        accounting.get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=False)
 
         accounting.process_extra_data(ref_bs)
@@ -226,7 +225,7 @@ class TestAccountingProcessExtraData:
         ref_bs: ReferenceBlockStamp,
         bs: BlockStamp,
     ):
-        accounting._get_latest_blockstamp = Mock(return_value=bs)
+        accounting.get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=True)
 
         accounting.process_extra_data(ref_bs)
