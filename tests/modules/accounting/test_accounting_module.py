@@ -202,7 +202,7 @@ class TestAccountingProcessExtraData:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
-    def test_no_sumbit_if_can_submit_is_false(
+    def test_no_submit_if_can_submit_is_false(
         self,
         accounting: Accounting,
         submit_extra_data_mock: Mock,
@@ -219,7 +219,7 @@ class TestAccountingProcessExtraData:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
-    def test_sumbit_if_can_submit_is_true(
+    def test_submit_if_can_submit_is_true(
         self,
         accounting: Accounting,
         submit_extra_data_mock: Mock,
@@ -299,7 +299,7 @@ class TestAccountingSubmitExtraData:
         (True, True, False),
     ],
 )
-def test_can_sumbit_extra_data(
+def test_can_submit_extra_data(
     accounting: Accounting,
     extra_data_submitted: bool,
     main_data_submitted: bool,
