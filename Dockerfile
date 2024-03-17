@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     gcc=4:12.2.0-3 \
     libffi-dev=3.4.4-1 \
     g++=4:12.2.0-3 \
-    curl=7.88.1-10+deb12u4 \
+    curl=7.88.1-10+deb12u5 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
