@@ -36,15 +36,23 @@ def simple_validators(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("blockstamp", "frame_cl_rebase", "nearest_epoch_distance", "far_epoch_distance", "expected_is_abnormal"),
+    (
+        "blockstamp",
+        "frame_cl_rebase",
+        "nearest_epoch_distance",
+        "far_epoch_distance",
+        "expected_is_abnormal",
+        "lido_validators_exist",
+    ),
     [
-        (simple_ref_blockstamp(40), 378585832, 0, 0, False),  # < mistake rate
-        (simple_ref_blockstamp(40), 378585831.6, 0, 0, False),  # == mistake rate and no check specific rebase
-        (simple_ref_blockstamp(40), 378585830, 10, 20, False),  # > mistake rate but specific rebase is positive
-        (simple_ref_blockstamp(40), 378585830, 10, 10, False),  # > mistake rate but specific rebase is positive
-        (simple_ref_blockstamp(40), 378585830, 0, 0, True),  # > mistake rate and no check specific rebase
-        (simple_ref_blockstamp(20), 126195276, 10, 20, True),  # > mistake rate and specific rebase is negative
-        (simple_ref_blockstamp(20), 126195276, 10, 10, True),  # > mistake rate and specific rebase is negative
+        (simple_ref_blockstamp(40), 378585832, 0, 0, False, True),  # < mistake rate
+        (simple_ref_blockstamp(40), 378585831.6, 0, 0, False, True),  # == mistake rate and no check specific rebase
+        (simple_ref_blockstamp(40), 378585830, 10, 20, False, True),  # > mistake rate but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 10, 10, False, True),  # > mistake rate but specific rebase is positive
+        (simple_ref_blockstamp(40), 378585830, 0, 0, True, True),  # > mistake rate and no check specific rebase
+        (simple_ref_blockstamp(20), 126195276, 10, 20, True, True),  # > mistake rate and specific rebase is negative
+        (simple_ref_blockstamp(20), 126195276, 10, 10, True, True),  # > mistake rate and specific rebase is negative
+        (simple_ref_blockstamp(20), 126195276, 10, 10, False, False),  # > mistake rate and specific rebase is negative
     ],
 )
 def test_is_abnormal_cl_rebase(
@@ -59,9 +67,14 @@ def test_is_abnormal_cl_rebase(
     nearest_epoch_distance,
     far_epoch_distance,
     expected_is_abnormal,
+    lido_validators_exist,
 ):
     all_validators = abnormal_case.w3.cc.get_validators(blockstamp)
-    lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
+
+    lido_validators = []
+    if lido_validators_exist:
+        lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
+
     abnormal_case.b_conf = BunkerConfig(
         normalized_cl_reward_per_epoch=64,
         normalized_cl_reward_mistake_rate=0.1,
