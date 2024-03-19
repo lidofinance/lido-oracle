@@ -381,7 +381,7 @@ def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch
         ),
     ],
 )
-def test_group_events_incosistent(events_1, events_2):
+def test_group_events_inconsistent(events_1, events_2):
     with pytest.raises(prediction_module.InconsistentEvents, match="Events are inconsistent"):
         RewardsPredictionService._group_events_by_transaction_hash(events_1, events_2)
 
