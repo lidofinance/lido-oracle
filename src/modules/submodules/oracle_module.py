@@ -7,6 +7,7 @@ from enum import Enum
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 
+from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
@@ -87,7 +88,7 @@ class BaseModule(ABC):
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
-            return self.execute_module(blockstamp)
+            result = self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
@@ -110,6 +111,10 @@ class BaseModule(ABC):
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+        else:
+            # if there are no exceptions, then pulse
+            pulse()
+            return result
 
         return ModuleExecuteDelay.NEXT_SLOT
 

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from time import sleep
+import time
 from typing import Optional
 
 from eth_abi import encode
@@ -194,7 +194,7 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed reference slot blockstamp in case contract is reportable.
         """
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
 
         if not self._check_contract_versions(latest_blockstamp):
             logger.info({
@@ -327,7 +327,7 @@ class ConsensusModule(ABC):
 
             logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
             for _ in range(slots_to_sleep):
-                sleep(chain_configs.seconds_per_slot)
+                time.sleep(chain_configs.seconds_per_slot)
 
                 latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
@@ -343,7 +343,7 @@ class ConsensusModule(ABC):
         self._submit_report(report_data, self.CONTRACT_VERSION)
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp = self.get_latest_blockstamp()
         logger.debug({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
 
         member_info = self.get_member_info(latest_blockstamp)
@@ -395,7 +395,7 @@ class ConsensusModule(ABC):
 
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
-    def _get_latest_blockstamp(self) -> BlockStamp:
+    def get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)

@@ -65,7 +65,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_BLOCK_ROOT,
             path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
+            force_raise=self._raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockRoot")
@@ -77,7 +77,7 @@ class ConsensusClient(HTTPProvider):
         data, meta_data = self._get(
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
+            force_raise=self._raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
@@ -90,7 +90,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
+            force_raise=self._raise_last_missed_slot_error,
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockV2")
@@ -145,7 +145,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
         return data
 
-    def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
+    def _raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
         """
         Prioritize NotOkResponse before other exceptions (ConnectionError, TimeoutError).
         If status is 404 slot is missed and this should be handled correctly.

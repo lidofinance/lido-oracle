@@ -1,6 +1,6 @@
 import json
 import logging
-from time import sleep
+import time
 
 from web3 import Web3
 from web3.contract import Contract
@@ -17,6 +17,8 @@ logger = logging.getLogger()
 
 
 class LidoContracts(Module):
+    w3: Web3
+
     lido_locator: Contract
     lido: Contract
     accounting_oracle: Contract
@@ -55,7 +57,7 @@ class LidoContracts(Module):
                        'doesn\'t return any data. Probably addresses from Lido Locator refer to the wrong '
                        'implementation or contracts don\'t exist. Sleep for 1 minute.'
             })
-            sleep(60)
+            time.sleep(60)
             self._load_contracts()
         else:
             return

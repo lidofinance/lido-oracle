@@ -13,6 +13,7 @@ from src.typings import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory
+from tests.modules.submodules.consensus.conftest import consensus
 
 
 @pytest.fixture()
@@ -66,7 +67,7 @@ def set_report_account(monkeypatch):
 
 @pytest.mark.unit
 def test_get_latest_blockstamp(consensus):
-    bs = consensus._get_latest_blockstamp()
+    bs = consensus.get_latest_blockstamp()
     assert isinstance(bs, BlockStamp)
 
 
@@ -124,7 +125,7 @@ def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
     bs = ReferenceBlockStampFactory.build()
     current_frame = consensus.get_current_frame(bs)
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
-    consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
+    consensus.get_latest_blockstamp = Mock(return_value=previous_blockstamp)
 
     consensus.get_blockstamp_for_report(previous_blockstamp)
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
@@ -145,7 +146,7 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog)
 @pytest.mark.unit
 def test_get_blockstamp_for_report_version_mismatch(consensus: ConsensusModule, caplog):
     bs = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=bs)
+    consensus.get_latest_blockstamp = Mock(return_value=bs)
     consensus._check_contract_versions = Mock(return_value=False)
 
     consensus.get_blockstamp_for_report(bs)
@@ -155,7 +156,7 @@ def test_get_blockstamp_for_report_version_mismatch(consensus: ConsensusModule, 
 @pytest.mark.unit
 def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: ConsensusModule, caplog):
     bs = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=bs)
+    consensus.get_latest_blockstamp = Mock(return_value=bs)
     consensus._check_contract_versions = Mock(return_value=True)
     consensus.is_contract_reportable = Mock(return_value=False)
 

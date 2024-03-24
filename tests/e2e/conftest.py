@@ -4,6 +4,8 @@ from logging.handlers import QueueHandler
 import pytest
 
 from pytest import Item
+
+from src import variables
 from src.main import main
 from multiprocessing import Process, Queue
 from src.variables import EXECUTION_CLIENT_URI
@@ -23,9 +25,7 @@ def pytest_collection_modifyitems(items: list[Item]):
 
 
 def worker_process(queue, module_name, execution_client_uri):
-    import src.variables
-
-    src.variables.EXECUTION_CLIENT_URI = [execution_client_uri]
+    variables.EXECUTION_CLIENT_URI = [execution_client_uri]
     qh = QueueHandler(queue)
     root = logging.getLogger()
     root.addHandler(qh)

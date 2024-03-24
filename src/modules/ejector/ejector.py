@@ -261,8 +261,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         churn_limit = self._get_churn_limit(blockstamp)
 
-        remain_exits_capacity_for_epoch = churn_limit - latest_to_exit_validators_count
-        epochs_required_to_exit_validators = (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
+        epochs_required_to_exit_validators = (validators_to_eject_count + latest_to_exit_validators_count) // churn_limit
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
@@ -296,6 +295,12 @@ class Ejector(BaseModule, ConsensusModule):
                 max_exit_epoch_number = val_exit_epoch
                 latest_to_exit_validators_count = 1
 
+        logger.info({
+            'msg': 'Calculate latest exit epoch',
+            'value': max_exit_epoch_number,
+            'latest_to_exit_validators_count': latest_to_exit_validators_count,
+        })
+
         return max_exit_epoch_number, latest_to_exit_validators_count
 
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -318,7 +323,11 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.cc.get_validators(blockstamp),
             0,
         )
-        return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
+        logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
+
+        churn_limit = max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
+        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
+        return churn_limit
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
         ps = named_tuple_to_dataclass(
