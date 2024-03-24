@@ -9,8 +9,8 @@ EJECTOR_TO_WITHDRAW_WEI_AMOUNT = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
-EJECTOR_MAX_EXIT_EPOCH = Gauge(
-    "ejector_max_exit_epoch",
+EJECTOR_MAX_WITHDRAWAL_EPOCH = Gauge(
+    "ejector_max_withdrawal_epoch",
     "The max exit epoch",
     namespace=PROMETHEUS_PREFIX,
 )

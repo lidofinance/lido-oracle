@@ -17,6 +17,8 @@ logger = logging.getLogger()
 
 
 class LidoContracts(Module):
+    w3: Web3
+
     lido_locator: Contract
     lido: Contract
     accounting_oracle: Contract
@@ -149,7 +151,7 @@ class LidoContracts(Module):
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
         result = self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
         logger.info({'msg': f'Accounting last processing ref slot {result}'})
-        FRAME_PREV_REPORT_REF_SLOT.set(result)
+        FRAME_PREV_REPORT_REF_SLOT.labels('accounting').set(result)
         return result
 
     def get_ejector_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
@@ -157,5 +159,5 @@ class LidoContracts(Module):
             block_identifier=blockstamp.block_hash
         )
         logger.info({'msg': f'Ejector last processing ref slot {result}'})
-        FRAME_PREV_REPORT_REF_SLOT.set(result)
+        FRAME_PREV_REPORT_REF_SLOT.labels('ejector').set(result)
         return result

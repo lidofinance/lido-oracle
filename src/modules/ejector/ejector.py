@@ -12,11 +12,11 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.metrics.prometheus.business import CONTRACT_ON_PAUSE, FRAME_PREV_REPORT_REF_SLOT
+from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
-    EJECTOR_MAX_EXIT_EPOCH
+    EJECTOR_MAX_WITHDRAWAL_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
@@ -85,8 +85,9 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        last_report_ref_slot = self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
-        FRAME_PREV_REPORT_REF_SLOT.set(last_report_ref_slot)
+        # For metrics only
+        self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
+
         validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = self.get_validators_to_eject(blockstamp)
         logger.info({
             'msg': f'Calculate validators to eject. Count: {len(validators)}',
@@ -174,6 +175,8 @@ class Ejector(BaseModule, ConsensusModule):
                     'going_to_withdraw_balance': going_to_withdraw_balance,
                 })
 
+                EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
+
                 return validators_to_eject
 
             validators_to_eject.append(validator_container)
@@ -187,7 +190,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self._is_paused(blockstamp)
-        CONTRACT_ON_PAUSE.set(on_pause)
+        CONTRACT_ON_PAUSE.labels('reporting').set(on_pause)
         logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
         return not on_pause
 
@@ -257,12 +260,9 @@ class Ejector(BaseModule, ConsensusModule):
             max_exit_epoch_number = activation_exit_epoch
             latest_to_exit_validators_count = 0
 
-        EJECTOR_MAX_EXIT_EPOCH.set(max_exit_epoch_number)
-
         churn_limit = self._get_churn_limit(blockstamp)
 
-        remain_exits_capacity_for_epoch = churn_limit - latest_to_exit_validators_count
-        epochs_required_to_exit_validators = (validators_to_eject_count - remain_exits_capacity_for_epoch) // churn_limit + 1
+        epochs_required_to_exit_validators = (validators_to_eject_count + latest_to_exit_validators_count) // churn_limit
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
@@ -296,6 +296,12 @@ class Ejector(BaseModule, ConsensusModule):
                 max_exit_epoch_number = val_exit_epoch
                 latest_to_exit_validators_count = 1
 
+        logger.info({
+            'msg': 'Calculate latest exit epoch',
+            'value': max_exit_epoch_number,
+            'latest_to_exit_validators_count': latest_to_exit_validators_count,
+        })
+
         return max_exit_epoch_number, latest_to_exit_validators_count
 
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -318,7 +324,11 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.cc.get_validators(blockstamp),
             0,
         )
-        return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
+        logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
+
+        churn_limit = max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
+        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
+        return churn_limit
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
         ps = named_tuple_to_dataclass(

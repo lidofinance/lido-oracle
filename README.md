@@ -263,7 +263,7 @@ Special metrics for ejector oracle:
 | Metric name                       | Description                                 | Labels |
 |-----------------------------------|---------------------------------------------|--------|
 | ejector_withdrawal_wei_amount     | To withdraw amount                          |        |
-| ejector_max_exit_epoch            | Max exit epoch between all validators in CL |        |
+| ejector_max_withdrawal_epoch      | Max exit epoch between all validators in CL |        |
 | ejector_validators_count_to_eject | Validators count to eject                   |        |
 
 # Development
