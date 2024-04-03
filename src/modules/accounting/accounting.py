@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from time import sleep
+import time
 
 from web3.types import Wei
 
@@ -27,7 +27,6 @@ from src.services.bunker import BunkerService
 from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.typings import Web3
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
 
@@ -80,7 +79,7 @@ class Accounting(BaseModule, ConsensusModule):
         slots_to_sleep = self._get_slot_delay_before_data_submit(latest_blockstamp)
         seconds_to_sleep = slots_to_sleep * chain_config.seconds_per_slot
         logger.info({'msg': f'Sleep for {seconds_to_sleep} seconds before sending extra data.'})
-        sleep(seconds_to_sleep)
+        time.sleep(seconds_to_sleep)
 
         latest_blockstamp = self._get_latest_blockstamp()
         if not self.can_submit_extra_data(latest_blockstamp):
@@ -128,9 +127,9 @@ class Accounting(BaseModule, ConsensusModule):
             return True
 
         logger.warning({'msg': '!' * 50})
-        logger.warning({'msg': f'Bunker mode is active. {ALLOW_REPORTING_IN_BUNKER_MODE=}'})
+        logger.warning({'msg': f'Bunker mode is active. {variables.ALLOW_REPORTING_IN_BUNKER_MODE=}'})
         logger.warning({'msg': '!' * 50})
-        return ALLOW_REPORTING_IN_BUNKER_MODE
+        return variables.ALLOW_REPORTING_IN_BUNKER_MODE
 
     @lru_cache(maxsize=1)
     def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
