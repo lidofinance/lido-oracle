@@ -44,7 +44,7 @@ def test_get_with_blockstamp_retries_exhausted(keys_api_client, monkeypatch):
 
     with pytest.raises(KeysOutdatedException):
         with monkeypatch.context() as m:
-            m.setattr(keys_api_client_module, "sleep", sleep_mock)
+            m.setattr(keys_api_client_module.time, "sleep", sleep_mock)
             keys_api_client.get_used_lido_keys(empty_blockstamp)
 
     assert sleep_mock.call_count == variables.HTTP_REQUEST_RETRY_COUNT_KEYS_API - 1

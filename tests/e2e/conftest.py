@@ -19,7 +19,7 @@ def pytest_collection_modifyitems(items: list[Item]):
             if item.get_closest_marker("e2e"):
                 item.add_marker(
                     pytest.mark.skip(
-                        reason="e2e tests are take a lot of time " "and skipped if any other tests are selected"
+                        reason="e2e tests are take a lot of time and skipped if any other tests are selected"
                     )
                 )
 

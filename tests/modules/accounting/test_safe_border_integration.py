@@ -45,7 +45,7 @@ def subject(
     return safe_border
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = False
 
@@ -54,7 +54,7 @@ def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     )
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = True
 
@@ -66,7 +66,7 @@ def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockSta
     )
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_bunker_mode_associated_slashing_predicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
@@ -93,7 +93,7 @@ def test_bunker_mode_associated_slashing_predicted(
     )
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_bunker_mode_associated_slashing_unpredicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
