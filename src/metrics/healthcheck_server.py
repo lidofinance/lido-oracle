@@ -19,8 +19,8 @@ def pulse():
     """Ping to healthcheck server that application is ok"""
     try:
         requests.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/', timeout=10)
-    except RequestsConnectionError:
-        logger.warning({'Healthcheck server is not responding.'})
+    except RequestsConnectionError as error:
+        logger.warning({'msg': 'Healthcheck server is not responding.', 'error': str(error)})
 
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
