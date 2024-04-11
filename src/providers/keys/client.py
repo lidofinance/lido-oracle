@@ -1,5 +1,5 @@
 from time import sleep
-from typing import Optional, cast
+from typing import Optional, cast, Tuple
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider
@@ -33,7 +33,7 @@ class KeysAPIClient(HTTPProvider):
         Returns response if blockstamp < blockNumber from response
         """
         for i in range(self.retry_count):
-            data, meta = self._get(url, query_params=params)
+            data, meta = cast(Tuple[dict | list, dict], self._get(url, query_params=params))
             blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
             if blocknumber_meta >= blockstamp.block_number:

@@ -30,6 +30,34 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 
 
 @pytest.mark.integration
+def test_get_block_attestations(consensus_client: ConsensusClient):
+    root = consensus_client.get_block_root('finalized').root
+
+    attestations = list(consensus_client.get_block_attestations(root))
+    assert attestations
+
+
+@pytest.mark.integration
+def test_get_attestation_committees(consensus_client: ConsensusClient):
+    root = consensus_client.get_block_root('finalized').root
+    block_details = consensus_client.get_block_details(root)
+    blockstamp = build_blockstamp(block_details)
+
+    attestation_committees = list(consensus_client.get_attestation_committees(blockstamp))
+    assert attestation_committees
+
+    attestation_committee = attestation_committees[0]
+    attestation_committee_by_slot = list(
+        consensus_client.get_attestation_committees_no_cache(
+            blockstamp, slot=SlotNumber(int(attestation_committee.slot))
+        )
+    )
+    assert attestation_committee_by_slot[0].slot == attestation_committee.slot
+    assert attestation_committee_by_slot[0].index == attestation_committee.index
+    assert str(attestation_committee_by_slot[0].validators) == str(attestation_committee.validators)
+
+
+@pytest.mark.integration
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)

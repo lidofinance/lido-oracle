@@ -122,6 +122,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
         path_params: Optional[Sequence[str | int]] = None,
         query_params: Optional[dict] = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: bool = False,
     ) -> dict | list:
         for response in self.responses:
             url = endpoint.format(*path_params) if path_params else endpoint
@@ -156,6 +157,7 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
         path_params: Optional[Sequence[str | int]] = None,
         query_params: Optional[dict] = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: bool = False,
     ) -> dict | list:
         url = endpoint.format(*path_params) if path_params else endpoint
         try:
