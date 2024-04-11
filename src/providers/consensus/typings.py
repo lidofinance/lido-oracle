@@ -108,3 +108,31 @@ class BlockDetailsResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
     message: BlockMessage
     signature: str
+
+
+@dataclass
+class AttestationSourceTargetData(FromResponse):
+    epoch: str
+    root: BlockRoot
+
+
+@dataclass
+class AttestationData(Nested, FromResponse):
+    slot: str
+    index: str
+    beacon_block_root: BlockRoot
+    source: AttestationSourceTargetData
+    target: AttestationSourceTargetData
+
+
+@dataclass
+class BlockAttestation(Nested, FromResponse):
+    aggregation_bits: str
+    data: AttestationData
+
+
+@dataclass
+class SlotAttestationCommittee(FromResponse):
+    index: str
+    slot: str
+    validators: list[str]

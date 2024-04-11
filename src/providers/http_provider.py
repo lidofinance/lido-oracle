@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import Session, JSONDecodeError, Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -74,7 +74,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Optional[Sequence[str | int]] = None,
         query_params: Optional[dict] = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-    ) -> Tuple[dict | list, dict]:
+        stream: bool = False,
+    ) -> Tuple[dict | list, dict] | Response:
         """
         Get request with fallbacks
         Returns (data, meta) or raises exception
@@ -86,7 +87,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params)
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -110,8 +111,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         host: str,
         endpoint: str,
         path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None
-    ) -> Tuple[dict | list, dict]:
+        query_params: Optional[dict] = None,
+        stream: bool = False
+    ) -> Tuple[dict | list, dict] | Response:
         """
         Simple get request without fallbacks
         Returns (data, meta) or raises exception
@@ -124,6 +126,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
+                    stream=stream
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})
@@ -145,6 +148,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             if response.status_code != HTTPStatus.OK:
                 logger.debug({'msg': response_fail_msg})
                 raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
+
+            if stream:
+                return response
 
             try:
                 json_response = response.json()
