@@ -153,7 +153,7 @@ class ConsensusClient(HTTPProvider):
                 yield SlotAttestationCommittee.from_response(**committee)
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                return self._get_attestation_committees_with_prysm(blockstamp, epoch, index, slot)
+                yield self._get_attestation_committees_with_prysm(blockstamp, epoch, index, slot)
 
             raise error
 
