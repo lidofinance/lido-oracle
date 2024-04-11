@@ -111,7 +111,7 @@ class BlockDetailsResponse(Nested, FromResponse):
 
 
 @dataclass
-class AttestationSourceTargetData(FromResponse):
+class Checkpoint(FromResponse):
     epoch: str
     root: BlockRoot
 
@@ -121,8 +121,8 @@ class AttestationData(Nested, FromResponse):
     slot: str
     index: str
     beacon_block_root: BlockRoot
-    source: AttestationSourceTargetData
-    target: AttestationSourceTargetData
+    source: Checkpoint
+    target: Checkpoint
 
 
 @dataclass
