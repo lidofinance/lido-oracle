@@ -4,8 +4,10 @@ from http import HTTPStatus
 from typing import Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
+from json_stream import requests as json_stream_requests, util as json_stream_util  # type: ignore
+
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError, Response
+from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -75,7 +77,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
         stream: bool = False,
-    ) -> tuple[dict | list, dict] | Response:
+    ) -> tuple[dict | list, dict]:
         """
         Get request with fallbacks
         Returns (data, meta) or raises exception
@@ -113,7 +115,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False
-    ) -> tuple[dict | list, dict] | Response:
+    ) -> tuple[dict | list, dict]:
         """
         Simple get request without fallbacks
         Returns (data, meta) or raises exception
@@ -149,14 +151,14 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
 
-            if stream:
-                return response
-
-            try:
-                json_response = response.json()
-            except JSONDecodeError as error:
-                logger.debug({'msg': response_fail_msg})
-                raise error
+            if not stream:
+                try:
+                    json_response = response.json()
+                except JSONDecodeError as error:
+                    logger.debug({'msg': response_fail_msg})
+                    raise error
+            else:
+                json_response = json_stream_util.to_standard_types(json_stream_requests.load(response, persistent=True))
 
         if 'data' in json_response:
             data = json_response['data']

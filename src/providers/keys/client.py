@@ -33,7 +33,7 @@ class KeysAPIClient(HTTPProvider):
         Returns response if blockstamp < blockNumber from response
         """
         for i in range(self.retry_count):
-            data, meta = cast(tuple[dict | list, dict], self._get(url, query_params=params))
+            data, meta = self._get(url, query_params=params)
             blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
             if blocknumber_meta >= blockstamp.block_number:

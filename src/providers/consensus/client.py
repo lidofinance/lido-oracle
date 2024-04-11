@@ -1,9 +1,6 @@
 from http import HTTPStatus
 from typing import Literal, Iterator, cast
 
-from json_stream import requests as json_stream_requests, util as json_stream_util  # type: ignore
-from requests import Response
-
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.typings import (
@@ -134,23 +131,23 @@ class ConsensusClient(HTTPProvider):
         slot: SlotNumber | None = None
     ) -> Iterator[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
-        stream: Response
         try:
-            stream = cast(Response, self._get(
+            data, _ = self._get(
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': index, 'slot': slot},
                 stream=True,
                 force_raise=self.__raise_on_prysm_error
-            ))
+            )
+
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                stream = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
+                data, _ = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
             else:
                 raise error
 
-        for committee in json_stream_requests.load(stream)['data'].persistent():
-            yield SlotAttestationCommittee.from_response(**json_stream_util.to_standard_types(committee))
+        for committee in data:
+            yield SlotAttestationCommittee.from_response(**committee)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
@@ -195,15 +192,18 @@ class ConsensusClient(HTTPProvider):
         epoch: EpochNumber | None = None,
         index: int | None = None,
         slot: SlotNumber | None = None
-    ) -> Response:
+    ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number
-        return cast(Response, self._get(
+        data, _ = self._get(
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
             stream=True
-        ))
+        )
+        if not isinstance(data, list):
+            raise ValueError("Expected list response from getEpochCommittees")  # pylint: disable=raise-missing-from
+        return data
 
     def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
