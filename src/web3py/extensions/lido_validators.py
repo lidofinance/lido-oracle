@@ -172,6 +172,11 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
+    def get_module_validators_by_node_operators(self, module_id: StakingModuleId, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
+        """Get module validators by querying the KeysAPI for the module keys"""
+        raise NotImplementedError()
+
+    @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
         result = []
 

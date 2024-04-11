@@ -25,6 +25,7 @@ if MEMBER_PRIV_KEY:
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
+CSM_ORACLE_ADDRESS = os.getenv('CSM_ORACLE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
