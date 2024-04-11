@@ -11,6 +11,7 @@ from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
+from src.modules.csm.csm import CSFeeOracle
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -87,12 +88,16 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Sanity checks.'})
 
+    instance: Accounting | Ejector | CSFeeOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         instance = Accounting(web3)
     elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
-        instance = Ejector(web3)  # type: ignore[assignment]
+        instance = Ejector(web3)
+    elif module_name == OracleModule.CSM:
+        logger.info({'msg': 'Initialize CSM performance oracle module.'})
+        instance = CSFeeOracle(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 

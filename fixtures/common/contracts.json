@@ -118,5 +118,21 @@
       "id": 5,
       "result": "0x000000000000000000000000655617d5fb44649e979e41229cbae9e9b63c0a2a"
     }
+  },
+  {
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0xc582Bc0317dbb0908203541971a358c44b1F3766",
+        "data": "0x0d43e8ad"
+      },
+      "latest"
+    ],
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x000000000000000000000000b2b580ce436e6f77a5713d80887e14788ef49c9a"
+    }
   }
 ]
+

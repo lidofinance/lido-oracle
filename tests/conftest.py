@@ -111,6 +111,7 @@ def keys_api_client(request, responses_path, web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
+    src.variables.CSM_ORACLE_ADDRESS = "0xc582Bc0317dbb0908203541971a358c44b1F3766"
     LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment

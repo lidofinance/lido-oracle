@@ -10,6 +10,7 @@ class OracleModule(StrEnum):
     ACCOUNTING = 'accounting'
     EJECTOR = 'ejector'
     CHECK = 'check'
+    CSM = 'csm'
 
 
 EpochNumber = NewType('EpochNumber', int)
@@ -22,6 +23,9 @@ BlockHash = NewType('BlockHash', HexStr)
 BlockNumber = NewType('BlockNumber', int)
 
 Gwei = NewType('Gwei', int)
+
+ValidatorIndex = NewType('ValidatorIndex', int)
+CommitteeIndex = NewType('CommitteeIndex', int)
 
 
 @dataclass(frozen=True)
