@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Optional, Tuple, Sequence, Callable
+from typing import Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
@@ -71,11 +71,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     def _get(
         self,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
         stream: bool = False,
-    ) -> Tuple[dict | list, dict] | Response:
+    ) -> tuple[dict | list, dict] | Response:
         """
         Get request with fallbacks
         Returns (data, meta) or raises exception
@@ -110,10 +110,10 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         self,
         host: str,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
         stream: bool = False
-    ) -> Tuple[dict | list, dict] | Response:
+    ) -> tuple[dict | list, dict] | Response:
         """
         Simple get request without fallbacks
         Returns (data, meta) or raises exception
