@@ -202,7 +202,7 @@ class ConsensusClient(HTTPProvider):
             stream=True
         )
         if not isinstance(data, list):
-            raise ValueError("Expected list response from getEpochCommittees")  # pylint: disable=raise-missing-from
+            raise ValueError("Expected list response from getEpochCommittees")
         return data
 
     def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
@@ -214,7 +214,7 @@ class ConsensusClient(HTTPProvider):
             query_params={'id': pub_keys}
         )
         if not isinstance(data, list):
-            raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
+            raise ValueError("Expected list response from getStateValidators")
         return data
 
     def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
