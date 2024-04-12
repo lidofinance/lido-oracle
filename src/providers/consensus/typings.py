@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from src.typings import BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
@@ -55,7 +54,7 @@ class BlockHeaderFullResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
     execution_optimistic: bool
     data: BlockHeaderResponseData
-    finalized: Optional[bool] = None
+    finalized: bool | None = None
 
 
 @dataclass

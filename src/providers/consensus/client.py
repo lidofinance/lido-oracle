@@ -1,8 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Optional, Union, Iterator, cast, Tuple
-
-import json_stream.requests  # type: ignore
-from requests import Response
+from typing import Literal, Iterator, cast
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
@@ -62,7 +59,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getGenesis")
         return GenesisResponse.from_response(**data)
 
-    def get_block_root(self, state_id: Union[SlotNumber, BlockRoot, LiteralState]) -> BlockRootResponse:
+    def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
@@ -78,9 +75,9 @@ class ConsensusClient(HTTPProvider):
         return BlockRootResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
-    def get_block_header(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
+    def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
-        data, meta_data = cast(Tuple[dict, dict], self._get(
+        data, meta_data = cast(tuple[dict, dict], self._get(
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
@@ -91,7 +88,7 @@ class ConsensusClient(HTTPProvider):
         return resp
 
     @lru_cache(maxsize=1)
-    def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
+    def get_block_details(self, state_id: SlotNumber | BlockRoot) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
@@ -103,7 +100,7 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
-    def get_block_attestations(self, state_id: Union[SlotNumber, BlockRoot]) -> Iterator[BlockAttestation]:
+    def get_block_attestations(self, state_id: SlotNumber | BlockRoot) -> Iterator[BlockAttestation]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
         data, _ = self._get(
             self.API_GET_BLOCK_ATTESTATIONS,
@@ -119,9 +116,9 @@ class ConsensusClient(HTTPProvider):
     def get_attestation_committees(
         self,
         blockstamp: BlockStamp,
-        epoch: Optional[EpochNumber] = None,
-        index: Optional[int] = None,
-        slot: Optional[SlotNumber] = None
+        epoch: EpochNumber | None = None,
+        index: int | None = None,
+        slot: SlotNumber | None = None
     ) -> Iterator[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
         return self.get_attestation_committees_no_cache(blockstamp, epoch, index, slot)
@@ -129,28 +126,28 @@ class ConsensusClient(HTTPProvider):
     def get_attestation_committees_no_cache(
         self,
         blockstamp: BlockStamp,
-        epoch: Optional[EpochNumber] = None,
-        index: Optional[int] = None,
-        slot: Optional[SlotNumber] = None
+        epoch: EpochNumber | None = None,
+        index: int | None = None,
+        slot: SlotNumber | None = None
     ) -> Iterator[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
-        stream: Response
         try:
-            stream = cast(Response, self._get(
+            data, _ = self._get(
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': index, 'slot': slot},
                 stream=True,
                 force_raise=self.__raise_on_prysm_error
-            ))
+            )
+
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                stream = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
+                data, _ = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
             else:
                 raise error
 
-        for committee in json_stream.requests.load(stream)['data'].persistent():
-            yield SlotAttestationCommittee.from_response(**json_stream.to_standard_types(committee))
+        for committee in data:
+            yield SlotAttestationCommittee.from_response(**committee)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
@@ -158,7 +155,7 @@ class ConsensusClient(HTTPProvider):
         return self.get_validators_no_cache(blockstamp)
 
     @list_of_dataclasses(Validator.from_response)
-    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
             data, _ = self._get(
@@ -192,20 +189,23 @@ class ConsensusClient(HTTPProvider):
     def _get_attestation_committees_stream_with_prysm(
         self,
         blockstamp: BlockStamp,
-        epoch: Optional[EpochNumber] = None,
-        index: Optional[int] = None,
-        slot: Optional[SlotNumber] = None
-    ) -> Response:
+        epoch: EpochNumber | None = None,
+        index: int | None = None,
+        slot: SlotNumber | None = None
+    ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number
-        return cast(Response, self._get(
+        data, _ = self._get(
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
             stream=True
-        ))
+        )
+        if not isinstance(data, list):
+            raise ValueError("Expected list response from getEpochCommittees")
+        return data
 
-    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get validators by slot number
         data, _ = self._get(
@@ -214,7 +214,7 @@ class ConsensusClient(HTTPProvider):
             query_params={'id': pub_keys}
         )
         if not isinstance(data, list):
-            raise ValueError("Expected list response from getStateValidators")  # pylint: disable=raise-missing-from
+            raise ValueError("Expected list response from getStateValidators")
         return data
 
     def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
