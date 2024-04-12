@@ -9,6 +9,7 @@ class anvil_fork:
 
     --state
     """
+
     def __init__(self, path_to_anvil, fork_url, block_number, port='8545'):
         self.path_to_anvil = path_to_anvil
         self.fork_url = fork_url
@@ -19,9 +20,12 @@ class anvil_fork:
         self.process = subprocess.Popen(
             [
                 f'{self.path_to_anvil}anvil',
-                '-f', self.fork_url,
-                '-p', self.port,
-                '--fork-block-number', self.block_number,
+                '-f',
+                self.fork_url,
+                '-p',
+                self.port,
+                '--fork-block-number',
+                self.block_number,
                 '--auto-impersonate',
             ],
         )

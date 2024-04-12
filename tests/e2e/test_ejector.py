@@ -37,6 +37,8 @@ def test_ejector_report(web3_anvil, remove_sleep, caplog):
     report_2 = web3_anvil.lido_contracts.validators_exit_bus_oracle.decode_function_input(tx_2['input'])[1]
 
     actual_tx_2 = web3.eth.get_transaction('0xdcc846c3e433ee538ca5a75471ac75aca29059e46a872d0e11c662de4db52148')
-    actual_report_2 = web3_anvil.lido_contracts.validators_exit_bus_oracle.decode_function_input(actual_tx_2['input'])[1]
+    actual_report_2 = web3_anvil.lido_contracts.validators_exit_bus_oracle.decode_function_input(actual_tx_2['input'])[
+        1
+    ]
 
     assert actual_report_2 == report_2

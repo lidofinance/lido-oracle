@@ -13,8 +13,13 @@ from src import variables
 from src.providers.consensus.client import LiteralState
 from src.providers.consensus.typings import BlockDetailsResponse, BlockRootResponse
 from src.typings import SlotNumber, BlockRoot
-from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils, ConsensusClientModule, \
-    KeysAPIClientModule
+from src.web3py.extensions import (
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+    ConsensusClientModule,
+    KeysAPIClientModule,
+)
 from tests.e2e.fork import anvil_fork
 
 
@@ -81,13 +86,15 @@ def web3_anvil(request):
         cc.get_block_details = MethodType(_get_block_details, cc)
         kac = KeysAPIClientModule(variables.KEYS_API_URI, w3)
 
-        w3.attach_modules({
-            'lido_contracts': LidoContracts,
-            'lido_validators': LidoValidatorsProvider,
-            'transaction': TransactionUtils,
-            'cc': lambda: cc,  # type: ignore[dict-item]
-            'kac': lambda: kac,  # type: ignore[dict-item]
-        })
+        w3.attach_modules(
+            {
+                'lido_contracts': LidoContracts,
+                'lido_validators': LidoValidatorsProvider,
+                'transaction': TransactionUtils,
+                'cc': lambda: cc,  # type: ignore[dict-item]
+                'kac': lambda: kac,  # type: ignore[dict-item]
+            }
+        )
 
         yield w3
 
