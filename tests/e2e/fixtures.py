@@ -166,14 +166,16 @@ def accounting_web3(accounting_ready_fork):
 
     kac.get_used_lido_keys = MethodType(_get_used_lido_keys, kac)
 
-    web3.attach_modules({
-        'transaction': TransactionUtils,
-        'lido_contracts': LidoContracts,
-        'lido_validators': LidoValidatorsProvider,
-        # Mocks
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-    })
+    web3.attach_modules(
+        {
+            'transaction': TransactionUtils,
+            'lido_contracts': LidoContracts,
+            'lido_validators': LidoValidatorsProvider,
+            # Mocks
+            'cc': lambda: cc,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+        }
+    )
 
     def _fetch_indexes(self, module_id, node_operators_ids_in_module):
         class A:
