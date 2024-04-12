@@ -39,7 +39,7 @@ class Withdrawal:
         el_rewards_vault_balance: Wei
     ) -> list[int]:
         on_pause = self._is_requests_finalization_paused()
-        CONTRACT_ON_PAUSE.set(on_pause)
+        CONTRACT_ON_PAUSE.labels('finalization').set(on_pause)
         if on_pause:
             return []
 
