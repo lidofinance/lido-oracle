@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from src.typings import SlotNumber
 
 
+ZERO_HASH = bytes([0]*32)
+
+
 @dataclass
 class MemberInfo:
     is_report_member: bool

@@ -6,8 +6,8 @@ from web3.exceptions import ContractLogicError, TimeExhausted
 
 from src import variables
 from src.constants import MAX_BLOCK_GAS_LIMIT
-from src.modules.accounting.typings import Account
 from src.utils import input
+from tests.conftest import Account
 
 
 class Transaction:

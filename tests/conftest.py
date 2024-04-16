@@ -1,8 +1,11 @@
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from eth_typing import ChecksumAddress
+from hexbytes import HexBytes
 from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
@@ -154,3 +157,9 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
+
+
+@dataclass
+class Account:
+    address: ChecksumAddress
+    _private_key: HexBytes

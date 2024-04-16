@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 
 import pytest
 
@@ -31,18 +31,15 @@ def subject(
     lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):
-    with patch.object(
-        SafeBorder,
-        '_fetch_oracle_report_limits_list',
-        return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32),
-    ), patch.object(
-        SafeBorder,
-        '_fetch_finalization_max_negative_rebase_epoch_shift',
-        return_value=finalization_max_negative_rebase_epoch_shift,
-    ):
-        safe_border = SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32)
+    )
 
-    return safe_border
+    web3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift = Mock(
+        return_value=finalization_max_negative_rebase_epoch_shift
+    )
+
+    return SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
 
 @pytest.mark.integration

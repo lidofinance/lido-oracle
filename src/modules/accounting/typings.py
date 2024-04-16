@@ -4,8 +4,7 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.typings import SlotNumber, Gwei
-from src.web3py.extensions.lido_validators import StakingModuleId
+from src.typings import SlotNumber, Gwei, StakingModuleId
 
 
 @dataclass
@@ -82,12 +81,6 @@ class LidoReportRebase:
 
 
 @dataclass
-class Account:
-    address: ChecksumAddress
-    _private_key: HexBytes
-
-
-@dataclass
 class BatchState:
     remaining_eth_budget: int
     finished: bool
@@ -107,3 +100,13 @@ class BatchState:
 class SharesRequestedToBurn:
     cover_shares: int
     non_cover_shares: int
+
+
+@dataclass
+class WithdrawalRequestStatus:
+    amountOfStETH: int
+    amountOfShares: int
+    owner: ChecksumAddress
+    timestamp: int
+    is_finalized: bool
+    is_claimed: bool

@@ -108,11 +108,8 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
         )
 
     def get_operator_network_penetration_threshold(self, blockstamp: ReferenceBlockStamp) -> float:
-        exiting_keys_delayed_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP'
-        ).call(block_identifier=blockstamp.block_hash)
-
-        return self.w3.to_int(exiting_keys_delayed_border_in_slots_bytes) / TOTAL_BASIS_POINTS
+        exiting_keys_delayed_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(blockstamp.block_hash)
+        return exiting_keys_delayed_border_in_slots_bytes / TOTAL_BASIS_POINTS
 
     @staticmethod
     def count_operator_validators_stats(

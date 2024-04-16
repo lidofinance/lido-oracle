@@ -247,12 +247,12 @@ class TestAccountingSubmitExtraData:
 
         accounting.get_chain_config = Mock(return_value=chain_config)
         accounting.lido_validator_state_service.get_extra_data = Mock(return_value=Mock(extra_data=extra_data))
-        accounting.report_contract.functions.submitReportExtraDataList = Mock()  # type: ignore
+        accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
 
         accounting._submit_extra_data(ref_bs)
 
-        accounting.report_contract.functions.submitReportExtraDataList.assert_called_once_with(extra_data)
+        accounting.report_contract.submit_report_extra_data_list.assert_called_once_with(extra_data)
         accounting.lido_validator_state_service.get_extra_data.assert_called_once_with(ref_bs, chain_config)
         accounting.get_chain_config.assert_called_once_with(ref_bs)
 
@@ -277,14 +277,14 @@ class TestAccountingSubmitExtraData:
     ):
         accounting.get_chain_config = Mock(return_value=chain_config)
         accounting.lido_validator_state_service.get_extra_data = Mock(return_value=Mock(extra_data=extra_data))
-        accounting.report_contract.functions.submitReportExtraDataList = Mock()  # type: ignore
-        accounting.report_contract.functions.submitReportExtraDataEmpty = Mock()  # type: ignore
+        accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
+        accounting.report_contract.submit_report_extra_data_empty = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
 
         accounting._submit_extra_data(ref_bs)
 
-        accounting.report_contract.functions.submitReportExtraDataEmpty.assert_called_once()
-        accounting.report_contract.functions.submitReportExtraDataList.assert_not_called()
+        accounting.report_contract.submit_report_extra_data_empty.assert_called_once()
+        accounting.report_contract.submit_report_extra_data_list.assert_not_called()
         accounting.lido_validator_state_service.get_extra_data.assert_called_once_with(ref_bs, chain_config)
         accounting.get_chain_config.assert_called_once_with(ref_bs)
 
@@ -306,7 +306,7 @@ def test_can_submit_extra_data(
     expected: bool,
     bs: BlockStamp,
 ):
-    accounting._get_processing_state = Mock(
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
         return_value=Mock(
             extra_data_submitted=extra_data_submitted,
             main_data_submitted=main_data_submitted,
@@ -316,7 +316,7 @@ def test_can_submit_extra_data(
     out = accounting.can_submit_extra_data(bs)
 
     assert out == expected, "can_submit_extra_data returned unexpected value"
-    accounting._get_processing_state.assert_called_once_with(bs)
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -349,15 +349,15 @@ def test_is_main_data_submitted(
     accounting: Accounting,
     bs: BlockStamp,
 ):
-    accounting._get_processing_state = Mock(return_value=Mock(main_data_submitted=False))
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(return_value=Mock(main_data_submitted=False))
     assert accounting.is_main_data_submitted(bs) is False, "is_main_data_submitted returned unexpected value"
-    accounting._get_processing_state.assert_called_once_with(bs)
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state.assert_called_once_with(bs.block_hash)
 
-    accounting._get_processing_state.reset_mock()
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state.reset_mock()
 
-    accounting._get_processing_state = Mock(return_value=Mock(main_data_submitted=True))
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(return_value=Mock(main_data_submitted=True))
     assert accounting.is_main_data_submitted(bs) is True, "is_main_data_submitted returned unexpected value"
-    accounting._get_processing_state.assert_called_once_with(bs)
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -386,23 +386,15 @@ def test_get_shares_to_burn(
     bs: BlockStamp,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    call_mock = accounting.w3.lido_contracts.burner.functions.getSharesRequestedToBurn = Mock()  # type: ignore
+    shares_data = Mock(cover_shares=42, non_cover_shares=17)
+    call_mock = accounting.w3.lido_contracts.burner.get_shares_requested_to_burn = Mock(return_value=shares_data)
 
-    with monkeypatch.context() as m:
-        shares_data = Mock(cover_shares=42, non_cover_shares=17)
-        m.setattr(accounting_module, 'named_tuple_to_dataclass', Mock(return_value=shares_data))
+    out = accounting.get_shares_to_burn(bs)
 
-        out = accounting.get_shares_to_burn(bs)
-
-        assert (
-            out == shares_data.cover_shares + shares_data.non_cover_shares
-        ), "get_shares_to_burn returned unexpected value"
-        call_mock.assert_called_once()
-
-        # @lru_cache
-        call_mock.reset_mock()
-        accounting.get_shares_to_burn(bs)
-        call_mock.assert_not_called()
+    assert (
+        out == shares_data.cover_shares + shares_data.non_cover_shares
+    ), "get_shares_to_burn returned unexpected value"
+    call_mock.assert_called_once()
 
 
 @pytest.mark.unit
@@ -435,7 +427,6 @@ def test_simulate_rebase_after_report(
     chain_config: ChainConfig,
 ):
     # NOTE: we don't test the actual rebase calculation here, just the logic of the method
-
     accounting.get_chain_config = Mock(return_value=chain_config)
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
@@ -443,14 +434,7 @@ def test_simulate_rebase_after_report(
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
-    simulation_tx = Mock(
-        call=Mock(
-            return_value=asdict(
-                LidoReportRebaseFactory.build(),
-            ).values(),
-        )
-    )
-    accounting.w3.lido_contracts.lido.functions.handleOracleReport = Mock(return_value=simulation_tx)  # type: ignore
+    accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
     assert isinstance(out, LidoReportRebase), "simulate_rebase_after_report returned unexpected value"
@@ -470,31 +454,6 @@ def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: 
     assert out is RESULT
     accounting.w3.lido_validators.get_staking_modules.assert_called_once_with(ref_bs)
     accounting.lido_validator_state_service.get_exited_lido_validators.assert_called_once_with(ref_bs)
-
-
-@pytest.mark.unit
-def test_get_processing_state(
-    accounting: Accounting,
-    bs: BlockStamp,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    processing_state = Mock()
-    RESULT = object()
-
-    call_mock = accounting.report_contract.functions.getProcessingState = Mock(return_value=processing_state)  # type: ignore
-
-    with monkeypatch.context() as m:
-        m.setattr(accounting_module, 'named_tuple_to_dataclass', Mock(return_value=RESULT))
-
-        out = accounting._get_processing_state(bs)
-
-        assert out is RESULT, "_get_processing_state returned unexpected value"
-        call_mock.assert_called_once()
-
-        # @lru_cache
-        call_mock.reset_mock()
-        accounting._get_processing_state(bs)
-        call_mock.assert_not_called()
 
 
 @pytest.mark.unit

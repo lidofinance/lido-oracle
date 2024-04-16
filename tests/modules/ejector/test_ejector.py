@@ -90,7 +90,7 @@ class TestGetValidatorsToEject:
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=0)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=0)
         result = ejector.get_validators_to_eject(ref_blockstamp)
         assert result == [], "Should not report on no withdraw requests"
 
@@ -104,7 +104,7 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=100)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=100)
 
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
@@ -130,7 +130,7 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=200)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=200)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
         ejector._get_total_el_balance = Mock(return_value=100)
@@ -159,7 +159,7 @@ class TestGetValidatorsToEject:
 @pytest.mark.unit
 @pytest.mark.usefixtures("contracts")
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+    result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp)
     assert result == 8362187000000000000, "Unexpected unfinalized stETH"
 
 

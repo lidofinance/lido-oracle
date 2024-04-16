@@ -30,8 +30,7 @@ class RewardsPredictionService:
         blockstamp: ReferenceBlockStamp,
         chain_configs: ChainConfig,
     ) -> Wei:
-        prediction_duration_in_slots = self._get_prediction_duration_in_slots(blockstamp)
-        logger.info({'msg': 'Fetch prediction frame in slots.', 'value': prediction_duration_in_slots})
+        prediction_duration_in_slots = self.w3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots(blockstamp.block_hash)
 
         token_rebase_events = get_events_in_past(
             self.w3.lido_contracts.lido.events.TokenRebased,  # type: ignore[arg-type]
@@ -102,10 +101,3 @@ class RewardsPredictionService:
             raise InconsistentEvents('Events are inconsistent: unexpected events_type_1 amount.')
 
         return result_event_data
-
-    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
-        return Web3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash,
-            )
-        )

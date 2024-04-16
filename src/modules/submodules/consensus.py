@@ -1,15 +1,17 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Optional
+from typing import Optional, cast
 
 from eth_abi import encode
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, Hash32
 from hexbytes import HexBytes
 from web3.contract import AsyncContract, Contract
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
+from src.providers.execution.contracts.base_oracle import BaseOracleContract
+from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
@@ -40,7 +42,7 @@ class ConsensusModule(ABC):
 
     report_contract should contain getConsensusContract method.
     """
-    report_contract: Contract
+    report_contract: BaseOracleContract
 
     CONTRACT_VERSION: int
     CONSENSUS_VERSION: int
@@ -72,50 +74,31 @@ class ConsensusModule(ABC):
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
-    def _get_consensus_contract(self, blockstamp: BlockStamp) -> Contract | AsyncContract:
-        return self.w3.eth.contract(
-            address=self._get_consensus_contract_address(blockstamp),
-            abi=self.w3.lido_contracts.load_abi('HashConsensus'),
+    def _get_consensus_contract(self, blockstamp: BlockStamp) -> HashConsensusContract:
+        return cast(HashConsensusContract, self.w3.eth.contract(
+            address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
+            ContractFactoryClass=HashConsensusContract,
             decode_tuples=True,
-        )
-
-    def _get_consensus_contract_address(self, blockstamp: BlockStamp) -> ChecksumAddress:
-        return self.report_contract.functions.getConsensusContract().call(block_identifier=blockstamp.block_hash)
+        ))
 
     def _get_consensus_contract_members(self, blockstamp: BlockStamp):
         consensus_contract = self._get_consensus_contract(blockstamp)
-        members, last_reported_ref_slots = consensus_contract.functions.getMembers().call(block_identifier=blockstamp.block_hash)
-        return members, last_reported_ref_slots
+        return consensus_contract.get_members(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        cc = named_tuple_to_dataclass(
-            consensus_contract.functions.getChainConfig().call(block_identifier=blockstamp.block_hash),
-            ChainConfig,
-        )
-        logger.info({'msg': 'Fetch chain config.', 'value': cc})
-        return cc
+        return consensus_contract.get_chain_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        cf = named_tuple_to_dataclass(
-            consensus_contract.functions.getCurrentFrame().call(block_identifier=blockstamp.block_hash),
-            CurrentFrame,
-        )
-        logger.info({'msg': 'Fetch current frame.', 'value': cf})
-        return cf
+        return consensus_contract.get_current_frame(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        fc = named_tuple_to_dataclass(
-            consensus_contract.functions.getFrameConfig().call(block_identifier=blockstamp.block_hash),
-            FrameConfig,
-        )
-        logger.info({'msg': 'Fetch frame config.', 'value': fc})
-        return fc
+        return consensus_contract.get_frame_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
@@ -144,9 +127,10 @@ class ConsensusModule(ABC):
                 last_member_report_ref_slot,
                 # The hash reported by the member for the current frame, if any.
                 current_frame_member_report,
-            ) = consensus_contract.functions.getConsensusStateForMember(
+            ) = consensus_contract.get_consensus_state_for_member(
                 variables.ACCOUNT.address,
-            ).call(block_identifier=blockstamp.block_hash)
+                blockstamp.block_hash,
+            )
 
             is_submit_member = self._is_submit_member(blockstamp)
 
@@ -175,17 +159,11 @@ class ConsensusModule(ABC):
         if not variables.ACCOUNT:
             return True
 
-        submit_role = self.report_contract.functions.SUBMIT_DATA_ROLE().call(
-            block_identifier=blockstamp.block_hash,
-        )
-        is_submit_member = self.report_contract.functions.hasRole(
-            submit_role,
+        return self.report_contract.has_role(
+            self.report_contract.submit_data_role(blockstamp.block_hash),
             variables.ACCOUNT.address,
-        ).call(
-            block_identifier=blockstamp.block_hash,
+            blockstamp.block_hash
         )
-
-        return is_submit_member
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[ReferenceBlockStamp]:
@@ -236,8 +214,8 @@ class ConsensusModule(ABC):
         return bs
 
     def _check_contract_versions(self, blockstamp: BlockStamp) -> bool:
-        contract_version = self.report_contract.functions.getContractVersion().call(block_identifier=blockstamp.block_hash)
-        consensus_version = self.report_contract.functions.getConsensusVersion().call(block_identifier=blockstamp.block_hash)
+        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
+        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
         if contract_version > self.CONTRACT_VERSION or consensus_version > self.CONSENSUS_VERSION:
             raise IncompatibleContractVersion(
@@ -383,15 +361,15 @@ class ConsensusModule(ABC):
         report_hash = self.w3.keccak(encoded)
         return report_hash
 
-    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
+    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: Hash32, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
 
-        tx = consensus_contract.functions.submitReport(blockstamp.ref_slot, report_hash, consensus_version)
+        tx = consensus_contract.submit_report(blockstamp.ref_slot, report_hash, consensus_version)
 
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _submit_report(self, report: tuple, contract_version: int):
-        tx = self.report_contract.functions.submitReportData(report, contract_version)
+        tx = self.report_contract.submit_report_data(report, contract_version)
 
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
