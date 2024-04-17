@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import TypedDict
 
 from src.typings import BlockHash, BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
@@ -58,19 +57,43 @@ class BlockHeaderFullResponse(Nested, FromResponse):
     finalized: bool | None = None
 
 
-class ExecutionPayload(TypedDict):
+@dataclass
+class ExecutionPayload(FromResponse):
     parent_hash: BlockHash
     block_number: int
     timestamp: int
     block_hash: BlockHash
 
 
-class BeaconBlockBody(TypedDict, total=False):
-    execution_payload: ExecutionPayload
+@dataclass
+class Checkpoint:
+    epoch: str
+    root: BlockRoot
 
 
 @dataclass
-class BlockMessage(FromResponse):
+class AttestationData(Nested, FromResponse):
+    slot: str
+    index: str
+    beacon_block_root: BlockRoot
+    source: Checkpoint
+    target: Checkpoint
+
+
+@dataclass
+class BlockAttestation(Nested, FromResponse):
+    aggregation_bits: str
+    data: AttestationData
+
+
+@dataclass
+class BeaconBlockBody(Nested, FromResponse):
+    execution_payload: ExecutionPayload
+    attestations: list[BlockAttestation]
+
+
+@dataclass
+class BlockMessage(Nested, FromResponse):
     slot: str
     proposer_index: str
     parent_root: str
@@ -119,27 +142,6 @@ class BlockDetailsResponse(Nested, FromResponse):
     # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
     message: BlockMessage
     signature: str
-
-
-@dataclass
-class Checkpoint(FromResponse):
-    epoch: str
-    root: BlockRoot
-
-
-@dataclass
-class AttestationData(Nested, FromResponse):
-    slot: str
-    index: str
-    beacon_block_root: BlockRoot
-    source: Checkpoint
-    target: Checkpoint
-
-
-@dataclass
-class BlockAttestation(Nested, FromResponse):
-    aggregation_bits: str
-    data: AttestationData
 
 
 @dataclass

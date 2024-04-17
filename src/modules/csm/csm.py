@@ -1,3 +1,4 @@
+import time
 from functools import cached_property
 import logging
 
@@ -5,11 +6,13 @@ from web3.types import BlockIdentifier
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.csm.checkpoint import CheckpointsFactory
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber, EpochNumber
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
@@ -33,7 +36,8 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
         super().__init__(w3)
-        self.frame_performance: FramePerformance | None
+        self.frame_performance: FramePerformance | None = None
+        # TODO: Feed the cache with the data about the attestations observed so far.
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle
@@ -41,11 +45,13 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
+        collected = self._collect_data(last_finalized_blockstamp)
+
+        if not collected:
+            # The data is not fully collected yet, wait for the next epoch
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         if not report_blockstamp:
-            # TODO: To get ref_slot and if it's in the finalized epoch, wait one more epoch.
-            # Feed the cache with the data about the attestations observed so far.
-            self._collect_data(self._get_latest_blockstamp())
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -124,25 +130,57 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
         return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
-    def _collect_data(self, blockstamp: BlockStamp) -> None:
-        last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        ref_slot = self.get_current_frame(blockstamp).ref_slot
+    def _collect_data(self, last_finalized_blockstamp: BlockStamp) -> bool:
+        """Ongoing report data collection before the report ref slot and it's submission"""
+        converter = Web3Converter(
+            self.get_chain_config(last_finalized_blockstamp), self.get_frame_config(last_finalized_blockstamp)
+        )
+
+        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(last_finalized_blockstamp)
+        r_ref_slot = self.get_current_frame(last_finalized_blockstamp).ref_slot
 
         # TODO: To think about the proper cache invalidation conditions.
         if self.frame_performance:
-            if self.frame_performance.l_slot < last_ref_slot:
+            if self.frame_performance.l_slot < l_ref_slot:
                 self.frame_performance = None
 
         if not self.frame_performance:
-            self.frame_performance = FramePerformance.try_read(ref_slot) or FramePerformance(
-                l_slot=last_ref_slot, r_slot=ref_slot
+            self.frame_performance = FramePerformance.try_read(r_ref_slot) or FramePerformance(
+                l_slot=l_ref_slot, r_slot=r_ref_slot
             )
 
-        # Get the network validators from the 'finalized' state.
-        # Starting the min(r_slot, finalized) slot follow the parent block roots to collect the attestations data back to the l_slot.
-        # TODO: 1 epoch boundaries to get all the attestations.
+        # Finalized slot is the first slot of justifying epoch, so we need to take the previous
+        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
-        self.frame_performance.dump()
+        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
+        if l_epoch > finalized_epoch:
+            return False
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        factory = CheckpointsFactory(self.w3.cc, converter, self.frame_performance)
+        checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
+
+        start = time.time()
+        for checkpoint in checkpoints:
+            if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
+                # checkpoint isn't finalized yet, can't be processed
+                break
+            checkpoint.process(last_finalized_blockstamp)
+        delay = time.time() - start
+        logger.info({"msg": f"All epochs processed in {delay:.2f} seconds"})
+
+        self._print_result()
+        return self.frame_performance.is_coherent
+
+    def _print_result(self):
+        assigned = 0
+        inc = 0
+        for _, aggr in self.frame_performance.aggr_per_val.items():
+            assigned += aggr.assigned
+            inc += aggr.included
+
+        logger.info({"msg": f"Assigned: {assigned}"})
+        logger.info({"msg": f"Included: {inc}"})
 
     def _to_distribute(self, blockstamp: ReferenceBlockStamp) -> int:
         return self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)

@@ -24,6 +24,7 @@ class ReportData:
             self.distributed,
         )
 
+
 @dataclass
 class AttestationsAggregate:
     assigned: int
@@ -32,6 +33,7 @@ class AttestationsAggregate:
     @property
     def perf(self) -> float:
         return self.assigned / self.included
+
 
 @dataclass
 class FramePerformance:
