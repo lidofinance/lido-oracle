@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from web3.types import TxParams, BlockIdentifier
 
-from src.modules.accounting.typings import AccountingProcessingState
+from src.modules.accounting.types import AccountingProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
 

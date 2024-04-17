@@ -1,6 +1,6 @@
 import pytest
 
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 

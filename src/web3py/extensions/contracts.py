@@ -19,7 +19,7 @@ from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonC
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.typings import BlockStamp, SlotNumber
+from src.types import BlockStamp, SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 
 

@@ -7,8 +7,8 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     EFFECTIVE_BALANCE_INCREMENT,
 )
-from src.providers.consensus.typings import Validator
-from src.typings import EpochNumber, Gwei
+from src.providers.consensus.types import Validator
+from src.types import EpochNumber, Gwei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:

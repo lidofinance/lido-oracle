@@ -4,7 +4,7 @@ from typing import Sequence
 
 from web3.types import BlockIdentifier
 
-from src.modules.ejector.typings import EjectorProcessingState
+from src.modules.ejector.types import EjectorProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
 

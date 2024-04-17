@@ -11,9 +11,9 @@ from web3.types import Timestamp
 
 import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
+from src.types import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 from tests.providers import (
@@ -153,7 +153,7 @@ def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
         state_root=slot_details.message.state_root,
         block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
         block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
+        block_timestamp=Timestamp(int(slot_details.message.body['execution_payload']['timestamp'])),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )

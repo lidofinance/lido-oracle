@@ -2,7 +2,8 @@ import json
 from typing import Optional, Any
 
 from web3 import Web3
-from web3.contract import Contract
+
+from src.web3py.contract_tweak import Contract
 
 
 class ContractInterface(Contract):

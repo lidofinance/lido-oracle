@@ -1,5 +1,5 @@
 """Consensus node"""
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 
 def check_validators_provided(web3: Web3, blockstamp):

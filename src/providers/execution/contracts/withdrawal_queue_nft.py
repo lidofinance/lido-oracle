@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.typings import BatchState, WithdrawalRequestStatus
+from src.modules.accounting.types import BatchState, WithdrawalRequestStatus
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 
@@ -107,7 +107,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         """
         maximal length of the batch array provided for prefinalization.
         """
-        response = self.functions.MAX_BATCHES_LENGTH().call()
+        response = self.functions.MAX_BATCHES_LENGTH().call(block_identifier=block_identifier)
 
         logger.info({
             'msg': 'Call `MAX_BATCHES_LENGTH()`.',

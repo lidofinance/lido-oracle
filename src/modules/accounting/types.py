@@ -4,7 +4,7 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.typings import SlotNumber, Gwei, StakingModuleId
+from src.types import SlotNumber, Gwei, StakingModuleId
 
 
 @dataclass
@@ -84,7 +84,7 @@ class LidoReportRebase:
 class BatchState:
     remaining_eth_budget: int
     finished: bool
-    batches: list[int]
+    batches: tuple[int, ...]
     batches_length: int
 
     def as_tuple(self):
@@ -92,7 +92,7 @@ class BatchState:
             self.remaining_eth_budget,
             self.finished,
             self.batches,
-            self.batches_length
+            self.batches_length,
         )
 
 

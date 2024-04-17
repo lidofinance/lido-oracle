@@ -4,7 +4,7 @@ from functools import lru_cache
 from eth_typing import ChecksumAddress, Hash32
 from web3.types import TxParams, BlockIdentifier
 
-from src.modules.submodules.typings import ChainConfig, CurrentFrame, FrameConfig
+from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 

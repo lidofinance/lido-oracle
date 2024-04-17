@@ -2,8 +2,8 @@ from pydantic.class_validators import validator
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
-from src.typings import EpochNumber, Gwei
+from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
     calculate_total_active_effective_balance,
     is_on_exit,

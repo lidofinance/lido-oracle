@@ -6,7 +6,7 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import (
+from src.modules.accounting.types import (
     ReportData,
     LidoReportRebase,
 )
@@ -23,10 +23,10 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.typings import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
 
 

@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.typings import OracleReportLimits
+from src.modules.accounting.types import OracleReportLimits
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 

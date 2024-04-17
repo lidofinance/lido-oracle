@@ -6,9 +6,9 @@ import pytest
 from src import variables
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import BeaconSpecResponse
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import BeaconSpecResponse
+from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory

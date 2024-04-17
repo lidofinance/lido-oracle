@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.submodules.typings import FrameConfig, ChainConfig
+from src.modules.submodules.types import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
 from tests.conftest import get_blockstamp_by_state

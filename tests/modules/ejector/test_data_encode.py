@@ -12,7 +12,7 @@ from src.modules.ejector.data_encode import (
     encode_data,
     sort_validators_to_eject,
 )
-from src.typings import StakingModuleId, NodeOperatorId
+from src.types import StakingModuleId, NodeOperatorId
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.no_registry import LidoValidatorFactory
 

@@ -12,7 +12,7 @@ from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -20,13 +20,13 @@ from src.metrics.prometheus.business import (
     ORACLE_MEMBER_INFO
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
-from src.modules.submodules.typings import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.utils.slot import get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 

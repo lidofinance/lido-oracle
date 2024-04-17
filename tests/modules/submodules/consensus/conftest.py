@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.submodules.consensus import ConsensusModule
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):

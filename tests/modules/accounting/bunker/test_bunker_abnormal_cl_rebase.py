@@ -1,9 +1,9 @@
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.typings import BunkerConfig
+from src.services.bunker_cases.types import BunkerConfig
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 

@@ -5,7 +5,8 @@ from eth_typing import ChecksumAddress, Hash32
 from web3.types import TxParams, BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
-from src.typings import SlotNumber
+from src.types import SlotNumber
+
 
 logger = logging.getLogger(__name__)
 

@@ -5,13 +5,13 @@ from typing import Iterator
 from eth_typing import ChecksumAddress
 
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.typings import ChainConfig
+from src.modules.submodules.types import ChainConfig
 from src.services.exit_order_iterator_state import ExitOrderIteratorStateService, NodeOperatorPredictableState
-from src.typings import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, NodeOperatorId
+from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, NodeOperatorId
 
 from src.utils.validator_state import get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 

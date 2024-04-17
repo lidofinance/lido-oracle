@@ -11,7 +11,7 @@ from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
-from src.typings import OracleModule
+from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
     LidoContracts,
@@ -22,7 +22,7 @@ from src.web3py.extensions import (
     FallbackProviderModule
 )
 from src.web3py.middleware import metrics_collector
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 

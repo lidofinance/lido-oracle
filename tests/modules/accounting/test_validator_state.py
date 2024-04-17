@@ -6,10 +6,10 @@ from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.services.validator_state import LidoValidatorStateService
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator, ValidatorState
-from src.providers.keys.typings import LidoKey
-from src.typings import StakingModuleId, NodeOperatorId
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.keys.types import LidoKey
+from src.types import StakingModuleId, NodeOperatorId
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,

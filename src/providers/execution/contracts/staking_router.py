@@ -29,6 +29,7 @@ class StakingRouterContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
+    @list_of_dataclasses(NodeOperator)
     def get_all_node_operator_digests(self, module_id: int, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
         """
         Returns node operator digest for each node operator in lido protocol

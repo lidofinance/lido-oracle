@@ -9,11 +9,11 @@ from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
-from src.modules.accounting.typings import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.typings import ChainConfig, FrameConfig
+from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.services.withdrawal import Withdrawal
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory

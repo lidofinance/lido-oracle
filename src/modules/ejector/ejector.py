@@ -20,15 +20,15 @@ from src.metrics.prometheus.ejector import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.typings import EjectorProcessingState, ReportData
+from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.providers.consensus.typings import Validator
+from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
     is_active_validator,
@@ -36,7 +36,7 @@ from src.utils.validator_state import (
     is_partially_withdrawable_validator,
 )
 from src.web3py.extensions.lido_validators import LidoValidator
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 

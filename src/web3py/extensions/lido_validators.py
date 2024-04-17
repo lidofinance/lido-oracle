@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress
 from web3.module import Module
 
-from src.providers.consensus.typings import Validator
-from src.providers.keys.typings import LidoKey
-from src.typings import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex
+from src.providers.consensus.types import Validator
+from src.providers.keys.types import LidoKey
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex
 from src.utils.dataclass import Nested
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from src.web3py.typings import Web3  # pragma: no cover
+    from src.web3py.types import Web3  # pragma: no cover
 
 
 @dataclass
@@ -172,8 +172,6 @@ class LidoValidatorsProvider(Module):
 
         for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash):
             operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module.id, blockstamp.block_hash)
-
-            for operator in operators:
-                result.append(NodeOperator.from_response(operator, module))
+            result.extend(operators)
 
         return result

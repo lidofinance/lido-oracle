@@ -5,7 +5,7 @@ from src.services.withdrawal import Withdrawal
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.conftest import get_blockstamp_by_state
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import BatchState
+from src.modules.accounting.types import BatchState
 from tests.factory.configs import OracleReportLimitsFactory
 
 
@@ -61,7 +61,7 @@ def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
 def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
     state_initial = BatchState(remaining_eth_budget=100, finished=False, batches=[1] + [0] * 35, batches_length=1)
     state_final = BatchState(remaining_eth_budget=100, finished=True, batches=[2] + [0] * 35, batches_length=2)
-    subject._fetch_finalization_batches = Mock(side_effect=[state_initial, state_final])
+    subject.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches = Mock(side_effect=[state_initial, state_final])
     subject.w3.lido_contracts.withdrawal_queue_nft.max_batches_length = Mock(return_value=36)
 
     result = subject._calculate_finalization_batches(1, SHARE_RATE_PRECISION_E27, past_blockstamp.block_timestamp)

@@ -12,9 +12,9 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.accounting.extra_data import ExtraDataService, ExtraData
-from src.modules.accounting.typings import OracleReportLimits
-from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp, ReferenceBlockStamp, EpochNumber
+from src.modules.accounting.types import OracleReportLimits
+from src.modules.submodules.types import ChainConfig
+from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
@@ -25,7 +25,7 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator,
     StakingModule,
 )
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

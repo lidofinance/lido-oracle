@@ -2,8 +2,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import ValidatorState, Validator, ValidatorStatus
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import ValidatorState, Validator, ValidatorStatus
 from src.services.exit_order_iterator import NodeOperatorPredictableState
 from src.services.exit_order_iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (

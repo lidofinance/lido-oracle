@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from src.typings import BlockRoot, StateRoot
+from src.types import BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 
 

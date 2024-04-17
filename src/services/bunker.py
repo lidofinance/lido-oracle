@@ -11,12 +11,12 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 
-from src.modules.accounting.typings import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
-from src.services.bunker_cases.typings import BunkerConfig
+from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
-from src.typings import BlockStamp, ReferenceBlockStamp, Gwei
-from src.web3py.typings import Web3
+from src.types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

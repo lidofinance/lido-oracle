@@ -1,13 +1,13 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
 import src.services.prediction as prediction_module
-from src.modules.submodules.typings import ChainConfig
+from src.modules.submodules.types import ChainConfig
 from src.services.prediction import RewardsPredictionService
-from src.typings import BlockNumber, SlotNumber
+from src.types import BlockNumber, SlotNumber
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -280,13 +280,11 @@ def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch
         genesis_time=0,
     )
 
+    web3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots = Mock(return_value=12)
+
     SOME_EVENTS = object()
+
     with monkeypatch.context() as m:
-        m.setattr(
-            RewardsPredictionService,
-            "_get_prediction_duration_in_slots",
-            MagicMock(return_value=12),
-        )
         m.setattr(
             prediction_module,
             "get_events_in_past",

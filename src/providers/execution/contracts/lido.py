@@ -3,7 +3,7 @@ import logging
 from eth_typing import ChecksumAddress
 from web3.types import Gwei, Wei, BlockIdentifier
 
-from src.modules.accounting.typings import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase
 from src.providers.execution.base_interface import ContractInterface
 
 

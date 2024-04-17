@@ -4,8 +4,8 @@ from itertools import count
 from faker import Faker
 from pydantic_factories import Use
 
-from src.providers.consensus.typings import Validator, ValidatorState
-from src.providers.keys.typings import LidoKey
+from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.keys.types import LidoKey
 from tests.factory.web3_factory import Web3Factory
 from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
