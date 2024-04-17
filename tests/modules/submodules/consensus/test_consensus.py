@@ -119,7 +119,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 # ------ Get block for report tests ----------
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
     current_frame = consensus.get_current_frame(bs)
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
@@ -131,7 +131,7 @@ def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
     member_info = consensus.get_member_info(bs)
     member_info.deadline_slot = bs.slot_number - 1
@@ -164,7 +164,7 @@ def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: Consens
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog, set_no_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     member_info = consensus.get_member_info(latest_blockstamp)
     member_info.is_fast_lane = False
@@ -177,7 +177,7 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, c
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog, set_no_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
     assert isinstance(blockstamp, BlockStamp)
