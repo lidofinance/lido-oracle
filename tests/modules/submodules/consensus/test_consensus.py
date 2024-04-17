@@ -64,7 +64,7 @@ def set_report_account(monkeypatch):
 
 
 @pytest.mark.unit
-def test_get_latest_blockstamp(consensus):
+def test_get_latest_blockstamp(consensus, set_no_account):
     bs = consensus._get_latest_blockstamp()
     assert isinstance(bs, BlockStamp)
 
