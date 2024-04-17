@@ -6,6 +6,7 @@ from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.conftest import get_blockstamp_by_state
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.typings import BatchState
+from tests.factory.configs import OracleReportLimitsFactory
 
 
 @pytest.fixture()
@@ -25,6 +26,7 @@ def past_blockstamp(web3, consensus_client):
 
 @pytest.fixture()
 def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(return_value=OracleReportLimitsFactory.build())
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 

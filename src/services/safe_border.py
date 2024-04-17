@@ -56,7 +56,9 @@ class SafeBorder(Web3Converter):
         self.frame_config = frame_config
 
         self.converter = Web3Converter(chain_config, frame_config)
+        self._retrieve_constants()
 
+    def _retrieve_constants(self):
         limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash)
 
         self.finalization_default_shift = math.ceil(
