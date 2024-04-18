@@ -2,7 +2,8 @@ import logging
 from functools import lru_cache
 
 from eth_typing import ChecksumAddress, Hash32
-from web3.types import TxParams, BlockIdentifier
+from web3.contract.contract import ContractFunction
+from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
 from src.types import SlotNumber
@@ -46,7 +47,7 @@ class BaseOracleContract(ContractInterface):
         """
         response = self.functions.hasRole(role, address).call(block_identifier=block_identifier)
         logger.info({
-            'msg': f'Call `hasRole({role}, {address})`.',
+            'msg': f'Call `hasRole({str(role)}, {address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })
@@ -80,7 +81,7 @@ class BaseOracleContract(ContractInterface):
         })
         return response
 
-    def submit_report_data(self, report, contract_version: int) -> TxParams:
+    def submit_report_data(self, report, contract_version: int) -> ContractFunction:
         """
         Submits report data for processing.
         data. See the `ReportData` structure's docs for details.

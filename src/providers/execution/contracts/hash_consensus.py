@@ -1,13 +1,13 @@
 import logging
 from functools import lru_cache
 
-from eth_typing import ChecksumAddress, Hash32
-from web3.types import TxParams, BlockIdentifier
+from eth_typing import ChecksumAddress
+from web3.contract.contract import ContractFunction
+from web3.types import BlockIdentifier
 
 from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
-
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class HashConsensusContract(ContractInterface):
 
         return response
 
-    def submit_report(self, ref_slot: int, report_hash: Hash32, consensus_version: int) -> TxParams:
+    def submit_report(self, ref_slot: int, report_hash: bytes, consensus_version: int) -> ContractFunction:
         """
         Used by oracle members to submit hash of the data calculated for the given reference slot.
 
@@ -127,7 +127,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                 ref_slot,
-                report_hash,
+                str(report_hash),
                 consensus_version,
             ),
         })

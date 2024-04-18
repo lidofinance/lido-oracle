@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Any
+from typing import Optional, Any, Type
 
 from web3 import Web3
 
@@ -7,7 +7,7 @@ from src.web3py.contract_tweak import Contract
 
 
 class ContractInterface(Contract):
-    abi_path: str = None
+    abi_path: str
 
     @staticmethod
     def load_abi(abi_file: str) -> dict:
@@ -15,7 +15,7 @@ class ContractInterface(Contract):
             return json.load(abi_json)
 
     @classmethod
-    def factory(cls, w3: Web3, class_name: Optional[str] = None, **kwargs: Any) -> 'Contract':
+    def factory(cls, w3: Web3, class_name: Optional[str] = None, **kwargs: Any) -> Type['ContractInterface']:
         if cls.abi_path is None:
             raise AttributeError(f'abi_path attribute is missing in {cls.__name__} class')
 

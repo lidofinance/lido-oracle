@@ -252,7 +252,7 @@ class ConsensusModule(ABC):
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
 
-    def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
+    def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
         if not member_info.is_report_member:
@@ -278,7 +278,7 @@ class ConsensusModule(ABC):
         self._send_report_hash(blockstamp, report_hash, self.CONSENSUS_VERSION)
         return None
 
-    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
+    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: bytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
         if member_info.current_frame_consensus_report == ZERO_HASH:
@@ -342,7 +342,7 @@ class ConsensusModule(ABC):
 
         return latest_blockstamp, member_info
 
-    def _encode_data_hash(self, report_data: tuple):
+    def _encode_data_hash(self, report_data: tuple) -> bytes:
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 
@@ -360,7 +360,7 @@ class ConsensusModule(ABC):
         report_hash = self.w3.keccak(encoded)
         return report_hash
 
-    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: Hash32, consensus_version: int):
+    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         tx = consensus_contract.submit_report(blockstamp.ref_slot, report_hash, consensus_version)

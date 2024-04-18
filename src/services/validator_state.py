@@ -124,7 +124,7 @@ class LidoValidatorStateService:
 
             last_requested_ids = self.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices(
                 module.id,
-                [no.id for no in node_operators],
+                tuple(no.id for no in node_operators),
                 blockstamp.block_hash,
             )
 

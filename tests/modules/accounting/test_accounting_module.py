@@ -447,7 +447,7 @@ def test_simulate_rebase_after_report(
 @pytest.mark.unit
 @pytest.mark.usefixtures('lido_validators')
 def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: ReferenceBlockStamp):
-    accounting.w3.lido_validators.get_staking_modules = Mock(return_value=[Mock(), Mock()])
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[Mock(), Mock()])
     accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value=[])
 
     RESULT = object()
@@ -456,7 +456,7 @@ def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: 
     out = accounting._get_newly_exited_validators_by_modules(ref_bs)
 
     assert out is RESULT
-    accounting.w3.lido_validators.get_staking_modules.assert_called_once_with(ref_bs)
+    accounting.w3.lido_contracts.staking_router.get_staking_modules.assert_called_once_with(ref_bs.block_hash)
     accounting.lido_validator_state_service.get_exited_lido_validators.assert_called_once_with(ref_bs)
 
 
