@@ -24,7 +24,7 @@ class StakingRouterContract(ContractInterface):
         logger.info({
             'msg': 'Call `getStakingModules()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -37,8 +37,8 @@ class StakingRouterContract(ContractInterface):
         response = [NodeOperator.from_response(no, module) for no in response]
 
         logger.info({
-            'msg': 'Call `getAllNodeOperatorDigests({})`.'.format(module.id),
+            'msg': f'Call `getAllNodeOperatorDigests({module.id})`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response

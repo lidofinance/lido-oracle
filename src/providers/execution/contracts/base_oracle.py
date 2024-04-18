@@ -22,7 +22,7 @@ class BaseOracleContract(ContractInterface):
         logger.info({
             'msg': 'Call `getConsensusContract()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -35,7 +35,7 @@ class BaseOracleContract(ContractInterface):
         logger.info({
             'msg': 'Call `SUBMIT_DATA_ROLE()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -46,9 +46,9 @@ class BaseOracleContract(ContractInterface):
         """
         response = self.functions.hasRole(role, address).call(block_identifier=block_identifier)
         logger.info({
-            'msg': 'Call `hasRole({}, {})`.'.format(role, address),
+            'msg': f'Call `hasRole({role}, {address})`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -61,7 +61,7 @@ class BaseOracleContract(ContractInterface):
         logger.info({
             'msg': 'Call `getContractVersion().',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -76,7 +76,7 @@ class BaseOracleContract(ContractInterface):
         logger.info({
             'msg': 'Call `getConsensusVersion().',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -97,7 +97,7 @@ class BaseOracleContract(ContractInterface):
         """
         tx = self.functions.submitReportData(report.as_tuple(), contract_version)
         logger.info({
-            'msg': 'Build `submitReport({}, {}) tx.'.format(report.as_tuple(), contract_version)
+            'msg': f'Build `submitReport({report.as_tuple()}, {contract_version}) tx.'
         })
         return tx
 
@@ -111,6 +111,6 @@ class BaseOracleContract(ContractInterface):
         logger.info({
             'msg': 'Call `getLastProcessingRefSlot().',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return SlotNumber(response)

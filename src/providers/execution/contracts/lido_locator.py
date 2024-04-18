@@ -20,7 +20,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `lido()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -31,7 +31,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `accountingOracle()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -42,7 +42,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `stakingRouter()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -53,7 +53,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `validatorsExitBusOracle()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -64,7 +64,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `withdrawalQueue()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -75,7 +75,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `oracleReportSanityChecker()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -86,7 +86,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `oracleDaemonConfig()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -97,7 +97,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `burner()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -108,7 +108,7 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `withdrawalVault()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -119,6 +119,6 @@ class LidoLocatorContract(ContractInterface):
         logger.info({
             'msg': 'Call `elRewardsVault()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response

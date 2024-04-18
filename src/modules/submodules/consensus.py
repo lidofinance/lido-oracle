@@ -4,9 +4,8 @@ from time import sleep
 from typing import Optional, cast
 
 from eth_abi import encode
-from eth_typing import ChecksumAddress, Hash32
+from eth_typing import Hash32
 from hexbytes import HexBytes
-from web3.contract import AsyncContract, Contract
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
@@ -21,12 +20,12 @@ from src.metrics.prometheus.business import (
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
-from src.utils.abi import named_tuple_to_dataclass
 from src.utils.blockstamp import build_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.utils.slot import get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 

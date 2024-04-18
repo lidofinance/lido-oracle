@@ -24,7 +24,7 @@ class AccountingOracleContract(BaseOracleContract):
         logger.info({
             'msg': 'Call `getProcessingState()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -42,5 +42,5 @@ class AccountingOracleContract(BaseOracleContract):
         Submits report extra data in the EXTRA_DATA_FORMAT_LIST format for processing.
         """
         tx = self.functions.submitReportExtraDataList(extra_data)
-        logger.info({'msg': 'Build `submitReportExtraDataList({})` tx.'.format(extra_data)})
+        logger.info({'msg': f'Build `submitReportExtraDataList({extra_data})` tx.'})
         return tx

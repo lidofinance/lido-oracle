@@ -25,6 +25,6 @@ class OracleReportSanityCheckerContract(ContractInterface):
         logger.info({
             'msg': 'Call `getOracleReportLimits()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response

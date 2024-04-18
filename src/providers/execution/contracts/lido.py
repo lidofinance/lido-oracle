@@ -1,7 +1,7 @@
 import logging
 
 from eth_typing import ChecksumAddress
-from web3.types import Gwei, Wei, BlockIdentifier
+from web3.types import Wei, BlockIdentifier
 
 from src.modules.accounting.types import LidoReportRebase
 from src.providers.execution.base_interface import ContractInterface
@@ -52,7 +52,7 @@ class LidoContract(ContractInterface):
         response = LidoReportRebase(*response)
 
         logger.info({
-            'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(
+            'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                 timestamp,
                 time_elapsed,
                 validators_count,
@@ -64,7 +64,7 @@ class LidoContract(ContractInterface):
                 0,
             ),
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -80,7 +80,7 @@ class LidoContract(ContractInterface):
         logger.info({
             'msg': 'Call `getBufferedEther()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return Wei(response)
 
@@ -96,6 +96,6 @@ class LidoContract(ContractInterface):
         logger.info({
             'msg': 'Call `totalSupply()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return Wei(response)

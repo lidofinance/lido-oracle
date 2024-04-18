@@ -26,7 +26,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Call `getMembers()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
 
         return response
@@ -43,7 +43,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Call `getChainConfig()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
 
         return response
@@ -67,7 +67,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Call `getCurrentFrame()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
 
         return response
@@ -87,7 +87,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Call `getFrameConfig()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
 
         return response
@@ -104,7 +104,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Call `getFrameConfig()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
 
         return response
@@ -125,8 +125,11 @@ class HashConsensusContract(ContractInterface):
         tx = self.functions.submitReport(ref_slot, report_hash, consensus_version)
 
         logger.info({
-            'msg': 'Build `submitReport({}, {}, {})`.'.format(ref_slot, report_hash, consensus_version),
+            'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                ref_slot,
+                report_hash,
+                consensus_version,
+            ),
         })
 
         return tx
-

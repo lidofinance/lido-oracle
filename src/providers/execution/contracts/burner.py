@@ -25,6 +25,6 @@ class BurnerContract(ContractInterface):
         logger.info({
             'msg': 'Call `totalSupply()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response

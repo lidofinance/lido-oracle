@@ -1,5 +1,3 @@
-from typing import NewType
-
 from web3 import Web3 as _Web3
 
 

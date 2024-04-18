@@ -20,7 +20,7 @@ from src.metrics.prometheus.ejector import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.types import EjectorProcessingState, ReportData
+from src.modules.ejector.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.types import Validator

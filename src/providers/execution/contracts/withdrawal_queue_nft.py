@@ -22,7 +22,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         logger.info({
             'msg': 'Call `unfinalizedStETH()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return Wei(response)
 
@@ -38,7 +38,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         logger.info({
             'msg': 'Call `bunkerModeSinceTimestamp()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -53,7 +53,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         logger.info({
             'msg': 'Call `getLastFinalizedRequestId()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -67,9 +67,9 @@ class WithdrawalQueueNftContract(ContractInterface):
         response = named_tuple_to_dataclass(response, WithdrawalRequestStatus)
 
         logger.info({
-            'msg': 'Call `getWithdrawalStatus({})`.'.format([request_id]),
+            'msg': f'Call `getWithdrawalStatus({[request_id]})`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -84,21 +84,20 @@ class WithdrawalQueueNftContract(ContractInterface):
         logger.info({
             'msg': 'Call `getLastRequestId()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
     @lru_cache(maxsize=1)
     def is_paused(self, block_identifier: BlockIdentifier = 'latest') -> bool:
         """
-        Returns whether the contract is paused
+        Returns whether the withdrawal queue is paused
         """
         response = self.functions.isPaused().call(block_identifier=block_identifier)
-
         logger.info({
             'msg': 'Call `isPaused()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -112,7 +111,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         logger.info({
             'msg': 'Call `MAX_BATCHES_LENGTH()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -138,13 +137,13 @@ class WithdrawalQueueNftContract(ContractInterface):
         ).call(block_identifier=block_identifier)
 
         logger.info({
-            'msg': 'Call `calculateFinalizationBatches({}, {}, {}, {})`.'.format(
+            'msg': 'Call `calculateFinalizationBatches({}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                 share_rate,
                 timestamp,
                 max_batch_request_count,
                 batch_state,
             ),
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response

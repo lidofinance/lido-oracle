@@ -58,6 +58,7 @@ branch = true
 
 [tool.pylint.format]
 max-line-length = "120"
+min-similarity-lines=6
 
 
 [tool.pylint."messages control"]

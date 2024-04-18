@@ -21,7 +21,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `NORMALIZED_CL_REWARD_PER_EPOCH()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -33,7 +33,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `NORMALIZED_CL_REWARD_MISTAKE_RATE_BP()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -45,7 +45,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `REBASE_CHECK_NEAREST_EPOCH_DISTANCE()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -57,7 +57,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `REBASE_CHECK_DISTANT_EPOCH_DISTANCE()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -69,7 +69,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -81,7 +81,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `PREDICTION_DURATION_IN_SLOTS()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -94,7 +94,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -105,7 +105,7 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
 
@@ -116,6 +116,6 @@ class OracleDaemonConfigContract(ContractInterface):
         logger.info({
             'msg': 'Call `VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS()`.',
             'value': response,
-            'block_identifier': block_identifier.__repr__(),
+            'block_identifier': repr(block_identifier),
         })
         return response
