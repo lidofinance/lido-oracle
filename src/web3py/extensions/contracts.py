@@ -1,7 +1,6 @@
 import json
 import logging
 from time import sleep
-from typing import Any
 
 from web3 import Web3
 from web3.contract import Contract
@@ -29,9 +28,6 @@ class LidoContracts(Module):
     oracle_report_sanity_checker: Contract
     oracle_daemon_config: Contract
     burner: Contract
-    # XXX: It seems it can be a separate module with these contracts
-    csm_oracle: Contract
-    csm_distributor: Contract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -55,7 +51,7 @@ class LidoContracts(Module):
         contract: Contract = None # type: ignore
         try:
             # TODO: Do we really have to care about all the contracts if we just run one module at a time?
-            for contract in [self.accounting_oracle, self.validators_exit_bus_oracle, self.csm_oracle]:
+            for contract in [self.accounting_oracle, self.validators_exit_bus_oracle]:
                 contract.functions.getContractVersion().call()
         except BadFunctionCallOutput:
             logger.info({
@@ -124,21 +120,6 @@ class LidoContracts(Module):
             decode_tuples=True,
         )
 
-        # TODO: Move to a separate module.
-        # {{{
-        self.csm_oracle = self.w3.eth.contract(
-            address=variables.CSM_ORACLE_ADDRESS,
-            abi=self.load_abi('CSFeeOracle'),
-            decode_tuples=True,
-        )
-
-        self.csm_distributor = self.w3.eth.contract(
-            address=self.csm_oracle.functions.feeDistributor().call(),
-            abi=self.load_abi('CSFeeDistributor'),
-            decode_tuples=True,
-        )
-        # }}}
-
         self._check_contracts()
 
     @staticmethod
@@ -183,22 +164,3 @@ class LidoContracts(Module):
         logger.info({'msg': f'Ejector last processing ref slot {result}'})
         FRAME_PREV_REPORT_REF_SLOT.labels('ejector').set(result)
         return result
-
-    # TODO: Move to a separate module.
-    @lru_cache(maxsize=1)
-    def get_csm_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
-        result = self.csm_oracle.functions.getLastProcessingRefSlot().call(
-            block_identifier=blockstamp.block_hash
-        )
-        logger.info({'msg': f'CSM oracle last processing ref slot {result}'})
-        FRAME_PREV_REPORT_REF_SLOT.labels('csm_oracle').set(result)
-        return result
-
-    # TODO: Move to a separate module.
-    def get_csm_stuck_keys_events(self, blockstamp: BlockStamp) -> list[Any]:
-        # TODO: Fetch for stuck keys events from the module directly.
-        raise NotImplementedError()
-
-    # TODO: Move to a separate module.
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> str:
-        raise NotImplementedError()

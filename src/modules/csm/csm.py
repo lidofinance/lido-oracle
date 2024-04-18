@@ -1,12 +1,14 @@
 from functools import cached_property
 import logging
 
+from web3.types import BlockIdentifier
+
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
@@ -29,12 +31,12 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     CONTRACT_VERSION = 1
 
     def __init__(self, w3: Web3):
-        self.report_contract = w3.lido_contracts.csm_oracle
+        self.report_contract = w3.csm.oracle
         super().__init__(w3)
         self.frame_performance: FramePerformance | None
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.lido_contracts.csm_oracle
+        self.report_contract = self.w3.csm.oracle
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -56,8 +58,8 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         assert self.frame_performance.is_coherent
 
         # Get the current frame.
-        _ = self.w3.lido_contracts.get_csm_last_processing_ref_slot(blockstamp)
-        _ = self.get_current_frame(blockstamp).ref_slot
+        last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        ref_slot = self.get_current_frame(blockstamp).ref_slot
 
         # Get module's node operators.
         _ = self.module_validators_by_node_operators(blockstamp)
@@ -66,9 +68,10 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         # Build the map of the current distribution operators.
         # _ = groupby(self.frame_performance.aggr_per_val, operators)
         # Exclude validators of operators with stuck keys.
-        events = self.w3.lido_contracts.get_csm_stuck_keys_events(blockstamp)
-        for _ in events:
-            ...
+        _ = self.w3.csm.get_csm_stuck_node_operators(
+            self._slot_to_block_identifier(last_ref_slot),
+            self._slot_to_block_identifier(ref_slot),
+        )
         # Exclude underperforming validators.
 
         # Calculate share of each CSM node operator.
@@ -76,7 +79,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         shares: tuple[tuple[NodeOperatorId, int]] = tuple()  # type: ignore
 
         # Load the previous tree if any.
-        _ = self.w3.lido_contracts.get_csm_tree_cid(blockstamp)
+        _ = self.w3.csm.get_csm_tree_cid(blockstamp)
         # leafs = []
         # if cid:
         #     leafs = parse_leafs(ipfs.get(cid))
@@ -91,7 +94,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        last_ref_slot = self.w3.lido_contracts.get_csm_last_processing_ref_slot(blockstamp)
+        last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         ref_slot = self.get_current_frame(blockstamp).ref_slot
         return last_ref_slot == ref_slot
 
@@ -122,7 +125,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
     def _collect_data(self, blockstamp: BlockStamp) -> None:
-        last_ref_slot = self.w3.lido_contracts.get_csm_last_processing_ref_slot(blockstamp)
+        last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         ref_slot = self.get_current_frame(blockstamp).ref_slot
 
         # TODO: To think about the proper cache invalidation conditions.
@@ -142,7 +145,12 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         self.frame_performance.dump()
 
     def _to_distribute(self, blockstamp: ReferenceBlockStamp) -> int:
-        # TODO: Move away.
-        return self.w3.lido_contracts.csm_distributor.functions.pendingToDistribute().call(
-            block_identifier=blockstamp.block_hash
-        )
+        return self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
+
+    def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
+        block = self.w3.cc.get_block_details(slot)
+
+        try:
+            return block.message.body["execution_payload"]["block_hash"]
+        except KeyError as e:
+            raise ValueError(f"ExecutionPayload not found in slot {slot}") from e
