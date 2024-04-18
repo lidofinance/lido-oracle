@@ -5,8 +5,9 @@ import pytest
 
 from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import Ejector, EjectorProcessingState
+from src.modules.ejector.ejector import Ejector
 from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp

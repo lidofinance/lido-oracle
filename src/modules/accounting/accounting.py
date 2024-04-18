@@ -172,7 +172,7 @@ class Accounting(BaseModule, ConsensusModule):
         Calculate exited validators count in all modules.
         Exclude modules without changes from the report.
         """
-        staking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
+        staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
         return self.get_updated_modules_stats(staking_modules, exited_validators)
