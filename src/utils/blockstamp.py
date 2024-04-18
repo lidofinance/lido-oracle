@@ -25,12 +25,15 @@ def build_blockstamp(
 def _build_blockstamp_data(
     slot_details: BlockDetailsResponse,
 ) -> dict:
-    execution_data = slot_details.message.body['execution_payload']
+    if "execution_payload" not in slot_details.message.body:
+        raise ValueError(f"ExecutionPayload not found for slot {slot_details.message.slot}")
+
+    execution_payload = slot_details.message.body["execution_payload"]
 
     return {
-        'slot_number': SlotNumber(int(slot_details.message.slot)),
-        'state_root': slot_details.message.state_root,
-        'block_number': BlockNumber(int(execution_data['block_number'])),
-        'block_hash': execution_data['block_hash'],
-        'block_timestamp': Timestamp(int(execution_data['timestamp']))
+        "slot_number": SlotNumber(int(slot_details.message.slot)),
+        "state_root": slot_details.message.state_root,
+        "block_number": BlockNumber(int(execution_payload["block_number"])),
+        "block_hash": execution_payload["block_hash"],
+        "block_timestamp": Timestamp(int(execution_payload["timestamp"]))
     }

@@ -20,7 +20,8 @@ from src.web3py.extensions import (
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoValidatorsProvider,
-    FallbackProviderModule
+    FallbackProviderModule,
+    CSM
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.typings import Web3
@@ -78,6 +79,7 @@ def main(module_name: OracleModule):
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
+        'csm': CSM,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
     })

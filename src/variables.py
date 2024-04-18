@@ -26,12 +26,16 @@ if MEMBER_PRIV_KEY:
 # - App specific -
 LIDO_LOCATOR_ADDRESS = os.getenv('LIDO_LOCATOR_ADDRESS')
 CSM_ORACLE_ADDRESS = os.getenv('CSM_ORACLE_ADDRESS')
+CSM_MODULE_ADDRESS = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block
 # In this case the second report will force report finalization and will consume more gas
 TX_GAS_ADDITION = int(os.getenv('TX_GAS_ADDITION', 100_000))
+
+# Maximum length of a range for eth_getLogs method calls.
+EVENTS_SEARCH_STEP = int(os.getenv('EVENTS_SEARCH_STEP', 10_000))
 
 # Transactions fee calculation variables
 MIN_PRIORITY_FEE = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))

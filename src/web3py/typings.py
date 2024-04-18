@@ -7,6 +7,7 @@ from src.web3py.extensions import (
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoValidatorsProvider,
+    CSM
 )
 
 
@@ -16,3 +17,4 @@ class Web3(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
+    csm: CSM

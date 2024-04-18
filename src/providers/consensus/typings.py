@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import TypedDict
 
-from src.typings import BlockRoot, StateRoot
+from src.typings import BlockHash, BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 
 
@@ -57,13 +58,24 @@ class BlockHeaderFullResponse(Nested, FromResponse):
     finalized: bool | None = None
 
 
+class ExecutionPayload(TypedDict):
+    parent_hash: BlockHash
+    block_number: int
+    timestamp: int
+    block_hash: BlockHash
+
+
+class BeaconBlockBody(TypedDict, total=False):
+    execution_payload: ExecutionPayload
+
+
 @dataclass
 class BlockMessage(FromResponse):
     slot: str
     proposer_index: str
     parent_root: str
     state_root: StateRoot
-    body: dict
+    body: BeaconBlockBody
 
 
 class ValidatorStatus(Enum):
