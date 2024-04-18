@@ -263,6 +263,7 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards,  # _elRewardsVaultBalance
             self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
             self.w3.lido_contracts.accounting_oracle.address,
+            blockstamp.block_hash,
         )
 
     def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
