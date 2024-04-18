@@ -4,7 +4,6 @@ from time import sleep
 from typing import Optional, cast
 
 from eth_abi import encode
-from eth_typing import Hash32
 from hexbytes import HexBytes
 
 from src import variables
