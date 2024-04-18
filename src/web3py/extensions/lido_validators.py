@@ -43,6 +43,9 @@ class StakingModule:
     # number of exited validators
     exited_validators_count: int
 
+    def __hash__(self):
+        return hash(self.id)
+
 
 @dataclass
 class NodeOperator(Nested):
@@ -171,7 +174,7 @@ class LidoValidatorsProvider(Module):
         result = []
 
         for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash):
-            operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module.id, blockstamp.block_hash)
+            operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
             result.extend(operators)
 
         return result

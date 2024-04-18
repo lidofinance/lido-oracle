@@ -29,15 +29,15 @@ class StakingRouterContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    @list_of_dataclasses(NodeOperator)
-    def get_all_node_operator_digests(self, module_id: int, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
+    def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
         """
         Returns node operator digest for each node operator in lido protocol
         """
-        response = self.functions.getAllNodeOperatorDigests(module_id).call(block_identifier=block_identifier)
+        response = self.functions.getAllNodeOperatorDigests(module.id).call(block_identifier=block_identifier)
+        response = [NodeOperator.from_response(no, module) for no in response]
 
         logger.info({
-            'msg': 'Call `getAllNodeOperatorDigests({})`.'.format(module_id),
+            'msg': 'Call `getAllNodeOperatorDigests({})`.'.format(module.id),
             'value': response,
             'block_identifier': block_identifier.__repr__(),
         })

@@ -123,7 +123,7 @@ class LidoValidatorStateService:
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
 
         for module in staking_modules:
-            node_operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module.id, blockstamp.block_hash)
+            node_operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
 
             last_requested_ids = self.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices(
                 module.id,
