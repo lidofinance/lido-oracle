@@ -30,8 +30,12 @@ def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)
 
-    expected_min_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(past_blockstamp.block_hash)
-    expected_max_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.get_last_request_id(past_blockstamp.block_hash)
+    expected_min_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(
+        past_blockstamp.block_hash
+    )
+    expected_max_withdrawal_id = subject.w3.lido_contracts.withdrawal_queue_nft.get_last_request_id(
+        past_blockstamp.block_hash
+    )
 
     results = subject.get_finalization_batches(
         False, SHARE_RATE_PRECISION_E27, withdrawal_vault_balance, el_rewards_vault_balance

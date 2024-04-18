@@ -203,7 +203,7 @@ def test_get_cl_rebase_for_frame(
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):
-    bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10 ** 18)
+    bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10**18)
 
     blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = LidoReportRebase(

@@ -152,8 +152,8 @@ def mock_exit_order_iterator_state_service(monkeypatch):
 
 @pytest.mark.unit
 def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
-    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = (
-        Mock(return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100))
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100)
     )
 
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
@@ -173,8 +173,8 @@ def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_or
 
 @pytest.mark.unit
 def test_exit_order_iterator_next(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
-    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = (
-        Mock(return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100))
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100)
     )
 
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())

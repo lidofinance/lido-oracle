@@ -109,28 +109,32 @@ def lido_validators(web3):
             ),
         )
 
-    web3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={
-        (StakingModuleId(1), NodeOperatorId(0)): [
-            validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1'),  # Stuck
-            validator(index=2, exit_epoch=30, pubkey='0x2'),
-            validator(index=3, exit_epoch=50, pubkey='0x3'),
-            validator(index=4, exit_epoch=TESTING_REF_EPOCH, pubkey='0x4'),
-        ],
-        (StakingModuleId(1), NodeOperatorId(1)): [
-            validator(index=5, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x5', activation_epoch=290),  # Stuck but newest
-            validator(
-                index=6, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x6', activation_epoch=282
-            ),  # Stuck in the same epoch
-            validator(index=7, exit_epoch=20, pubkey='0x7'),
-            validator(index=8, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x8'),
-        ],
-    })
+    web3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={
+            (StakingModuleId(1), NodeOperatorId(0)): [
+                validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1'),  # Stuck
+                validator(index=2, exit_epoch=30, pubkey='0x2'),
+                validator(index=3, exit_epoch=50, pubkey='0x3'),
+                validator(index=4, exit_epoch=TESTING_REF_EPOCH, pubkey='0x4'),
+            ],
+            (StakingModuleId(1), NodeOperatorId(1)): [
+                validator(index=5, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x5', activation_epoch=290),  # Stuck but newest
+                validator(
+                    index=6, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x6', activation_epoch=282
+                ),  # Stuck in the same epoch
+                validator(index=7, exit_epoch=20, pubkey='0x7'),
+                validator(index=8, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x8'),
+            ],
+        }
+    )
 
 
 @pytest.fixture
 def validator_state(web3, contracts, consensus_client, lido_validators):
     service = LidoValidatorStateService(web3)
-    service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(return_value=[3, 8])
+    service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
+        return_value=[3, 8]
+    )
     return service
 
 

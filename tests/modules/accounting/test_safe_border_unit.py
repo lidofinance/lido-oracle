@@ -47,7 +47,9 @@ def safe_border(
     consensus_client,
     lido_validators,
 ):
-    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(return_value=OracleReportLimitsFactory.build())
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build()
+    )
     web3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift = Mock(return_value=100)
     return SafeBorder(web3, past_blockstamp, chain_config, frame_config)
 
@@ -100,7 +102,9 @@ def test_get_negative_rebase_border_epoch_bunker_not_started_yet(safe_border, pa
 
 def test_get_negative_rebase_border_epoch_max(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
-    max_negative_rebase_shift = safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift()
+    max_negative_rebase_shift = (
+        safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift()
+    )
     test_epoch = ref_epoch - max_negative_rebase_shift - 1
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=test_epoch * SLOTS_PER_EPOCH * SLOT_TIME)
 
@@ -116,8 +120,8 @@ def test_get_associated_slashings_border_epoch(safe_border, past_blockstamp):
     test_epoch = ref_epoch - 100
     safe_border._get_earliest_slashed_epoch_among_incomplete_slashings = Mock(return_value=test_epoch)
     assert (
-            safe_border._get_associated_slashings_border_epoch()
-            == safe_border.round_epoch_by_frame(test_epoch) - safe_border.finalization_default_shift
+        safe_border._get_associated_slashings_border_epoch()
+        == safe_border.round_epoch_by_frame(test_epoch) - safe_border.finalization_default_shift
     )
 
 
@@ -140,7 +144,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_valida
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(
-        safe_border, past_blockstamp, lido_validators
+    safe_border, past_blockstamp, lido_validators
 ):
     withdrawable_epoch = past_blockstamp.ref_epoch - 10
     validators = [create_validator_stub(100, withdrawable_epoch, True)]
@@ -150,7 +154,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(
-        safe_border, past_blockstamp, lido_validators
+    safe_border, past_blockstamp, lido_validators
 ):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -165,7 +169,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
-        safe_border, past_blockstamp, lido_validators
+    safe_border, past_blockstamp, lido_validators
 ):
     validators = [
         create_validator_stub(
@@ -198,7 +202,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_bo
 
 
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(
-        safe_border,
+    safe_border,
     past_blockstamp,
     lido_validators,
 ):
@@ -234,7 +238,9 @@ def test_get_last_finalized_withdrawal_request_slot(safe_border):
     timestamp = 1677230000
 
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=3)
-    safe_border.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status = Mock(return_value=WithdrawalStatus(timestamp=timestamp))
+    safe_border.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status = Mock(
+        return_value=WithdrawalStatus(timestamp=timestamp)
+    )
 
     slot = (timestamp - safe_border.chain_config.genesis_time) // safe_border.chain_config.seconds_per_slot
     epoch = slot // safe_border.chain_config.slots_per_epoch

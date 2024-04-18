@@ -349,13 +349,17 @@ def test_is_main_data_submitted(
     accounting: Accounting,
     bs: BlockStamp,
 ):
-    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(return_value=Mock(main_data_submitted=False))
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
+        return_value=Mock(main_data_submitted=False)
+    )
     assert accounting.is_main_data_submitted(bs) is False, "is_main_data_submitted returned unexpected value"
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state.assert_called_once_with(bs.block_hash)
 
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state.reset_mock()
 
-    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(return_value=Mock(main_data_submitted=True))
+    accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
+        return_value=Mock(main_data_submitted=True)
+    )
     assert accounting.is_main_data_submitted(bs) is True, "is_main_data_submitted returned unexpected value"
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state.assert_called_once_with(bs.block_hash)
 

@@ -128,9 +128,7 @@ def test_find_earliest_slashed_epoch_rounded_to_frame(
     SafeBorder._retrieve_constants = Mock()
     SafeBorder._get_negative_rebase_border_epoch = Mock()
     SafeBorder._get_associated_slashings_border_epoch = Mock()
-    SafeBorder._get_last_finalized_withdrawal_request_slot = Mock(
-        return_value=last_finalized_withdrawal_request_slot
-    )
+    SafeBorder._get_last_finalized_withdrawal_request_slot = Mock(return_value=last_finalized_withdrawal_request_slot)
     SafeBorder._slashings_in_frame = Mock(return_value=slashings_in_frame)
 
     web3Mock = Mock()

@@ -177,9 +177,13 @@ def test_compute_activation_exit_epoch(
 
 @pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(return_value=Mock(data_submitted=True))
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(
+        return_value=Mock(data_submitted=True)
+    )
     assert ejector.is_main_data_submitted(blockstamp) is True, "Unexpected is_main_data_submitted result"
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state.assert_called_once_with(blockstamp.block_hash)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state.assert_called_once_with(
+        blockstamp.block_hash
+    )
 
 
 @pytest.mark.unit
