@@ -1,5 +1,5 @@
 import logging
-from functools import lru_cache
+from src.utils.cache import global_lru_cache as lru_cache
 
 from eth_typing import ChecksumAddress, Hash32
 from web3.contract.contract import ContractFunction
