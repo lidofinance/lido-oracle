@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Any, Type, Self
+from typing import Optional, Any, Self
 
 from web3 import Web3
 
