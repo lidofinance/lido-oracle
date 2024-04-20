@@ -1,7 +1,7 @@
 import functools
 from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
-from typing import Callable, Self, Sequence, TypeVar
+from typing import Callable, Self, Sequence, TypeVar, Type
 
 from src.utils.abi import named_tuple_to_dataclass
 
@@ -47,7 +47,7 @@ class FromResponse:
     """
 
     @classmethod
-    def from_response(cls, **kwargs) -> Self:
+    def from_response(cls, **kwargs) -> Type[Self]:
         class_field_names = [field.name for field in fields(cls)]
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 

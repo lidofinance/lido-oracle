@@ -1,3 +1,4 @@
+from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
@@ -34,9 +35,9 @@ def test_cache_do_not_cache_contract_with_relative_blocks():
 
     c.func()
     assert c.func.cache_info().currsize == 0
-    c.func(block_identifier='1')
-    c.func(block_identifier='1')
-    c.func(block_identifier='2')
+    c.func(block_identifier=HexBytes('11'))
+    c.func(block_identifier=HexBytes('11'))
+    c.func(block_identifier=HexBytes('22'))
     c.func(block_identifier='latest')
     c.func(block_identifier='finalized')
     assert c.func.cache_info().currsize == 2
