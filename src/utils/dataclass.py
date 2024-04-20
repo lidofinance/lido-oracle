@@ -47,7 +47,7 @@ class FromResponse:
     """
 
     @classmethod
-    def from_response(cls, **kwargs) -> Type[Self]:
+    def from_response(cls, **kwargs) -> Self:
         class_field_names = [field.name for field in fields(cls)]
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 
