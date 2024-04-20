@@ -43,5 +43,5 @@ class AccountingOracleContract(BaseOracleContract):
         Submits report extra data in the EXTRA_DATA_FORMAT_LIST format for processing.
         """
         tx = self.functions.submitReportExtraDataList(extra_data)
-        logger.info({'msg': f'Build `submitReportExtraDataList({str(extra_data)})` tx.'})
+        logger.info({'msg': f'Build `submitReportExtraDataList({extra_data.hex()})` tx.'})
         return tx

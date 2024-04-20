@@ -39,6 +39,3 @@ class FrameConfig:
     initial_epoch: int
     epochs_per_frame: int
     fast_lane_length_slots: int
-
-
-ZERO_HASH = bytes([0]*32)

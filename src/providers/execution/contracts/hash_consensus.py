@@ -127,7 +127,7 @@ class HashConsensusContract(ContractInterface):
         logger.info({
             'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                 ref_slot,
-                str(report_hash),
+                report_hash.hex(),
                 consensus_version,
             ),
         })

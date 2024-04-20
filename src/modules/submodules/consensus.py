@@ -251,7 +251,7 @@ class ConsensusModule(ABC):
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
 
-    def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes) -> None:
+    def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
 
         if not member_info.is_report_member:
@@ -288,8 +288,8 @@ class ConsensusModule(ABC):
             msg = 'Oracle`s hash differs from consensus report hash.'
             logger.error({
                 'msg': msg,
-                'consensus_report_hash': str(HexBytes(member_info.current_frame_consensus_report)),
-                'report_hash': str(report_hash),
+                'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
+                'report_hash': report_hash.hex(),
             })
             return
 
@@ -341,7 +341,7 @@ class ConsensusModule(ABC):
 
         return latest_blockstamp, member_info
 
-    def _encode_data_hash(self, report_data: tuple) -> bytes:
+    def _encode_data_hash(self, report_data: tuple) -> HexBytes:
         # The Accounting Oracle and Ejector Bus has same named method to report data
         report_function_name = 'submitReportData'
 

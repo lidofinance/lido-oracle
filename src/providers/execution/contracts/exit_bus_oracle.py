@@ -60,7 +60,7 @@ class ExitBusOracleContract(BaseOracleContract):
         ).call(block_identifier=block_identifier)
 
         logger.info({
-            'msg': 'Call `getLastRequestedValidatorIndices({module_id}, {node_operators_ids_in_module})`.',
+            'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {node_operators_ids_in_module})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })

@@ -47,7 +47,7 @@ class BaseOracleContract(ContractInterface):
         """
         response = self.functions.hasRole(role, address).call(block_identifier=block_identifier)
         logger.info({
-            'msg': f'Call `hasRole({str(role)}, {address})`.',
+            'msg': f'Call `hasRole({role.hex()}, {address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })
