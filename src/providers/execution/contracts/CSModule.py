@@ -1,7 +1,9 @@
+import json
 import logging
 from itertools import groupby
 from typing import Callable, Iterable, cast
 
+from eth_typing.evm import ChecksumAddress
 from web3.contract.contract import Contract, ContractEvent
 from web3.types import BlockIdentifier, EventData
 
@@ -13,7 +15,13 @@ logger = logging.getLogger(__name__)
 class CSModule(Contract):
     abi_path = "./assets/CSModule.json"
 
-    def get_stuck_node_operators(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable[int]:
+    # TODO: Inherit from the base class.
+    def __init__(self, address: ChecksumAddress | None = None) -> None:
+        with open(self.abi_path, encoding="utf-8") as f:
+            self.abi = json.load(f)
+        super().__init__(address)
+
+    def get_stuck_node_operators(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable:
         """Returns node operators assumed to be stuck for the given frame (defined by the blockstamps)"""
 
         l_block_number = int(self.w3.eth.get_block(l_block)["number"])  # type: ignore
