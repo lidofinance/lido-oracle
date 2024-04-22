@@ -50,8 +50,8 @@ class CSModule(Contract):
             if not self.is_deployed(l_block):
                 break
 
-            r_block = l_block
-            l_block = l_block - variables.EVENTS_SEARCH_STEP
+            r_block = l_block - 1
+            l_block = r_block - variables.EVENTS_SEARCH_STEP
 
     def is_deployed(self, block: BlockIdentifier) -> bool:
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
