@@ -1,5 +1,4 @@
 import json
-from functools import lru_cache
 import logging
 from typing import cast
 
@@ -35,7 +34,6 @@ class CSFeeOracle(Contract):
         return cast(Address, resp)
 
     # TODO: Inherit the method from the BaseOracle class.
-    @lru_cache(maxsize=1)
     def get_last_processing_ref_slot(self, block: BlockIdentifier = "latest") -> SlotNumber:
         resp = self.functions.getLastProcessingRefSlot().call(block_identifier=block)
         logger.debug(
