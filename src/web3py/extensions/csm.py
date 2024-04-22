@@ -1,7 +1,9 @@
 import logging
+from functools import partial
 from time import sleep
 from typing import Iterable, cast
 
+from lazy_object_proxy import Proxy
 from web3 import Web3
 from web3.contract.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
@@ -10,12 +12,11 @@ from web3.types import BlockIdentifier
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-
-# TODO: Export the classes from the top-level module.
-from src.providers.execution.contracts.CSModule import CSModule
 from src.providers.execution.contracts.CSFeeDistributor import CSFeeDistributor
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 
+# TODO: Export the classes from the top-level module.
+from src.providers.execution.contracts.CSModule import CSModule
 from src.typings import BlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
@@ -102,3 +103,10 @@ class CSM(Module):
             if value.address != current_value.address:
                 logger.info({"msg": f"Contract {key} has been changed to {value.address}"})
         super().__setattr__(key, value)
+
+
+class LazyCSM(CSM):
+    """A wrapper around CSM module to achieve lazy-loading behaviour"""
+
+    def __new__(cls, w3: Web3):
+        return Proxy(partial(CSM, w3))  # type: ignore

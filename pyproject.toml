@@ -25,6 +25,7 @@ more-itertools = "^10.1.0"
 web3 = "^6.10.0"
 web3-multi-provider = "^0.6.0"
 json-stream = "^2.3.2"
+lazy-object-proxy = "^1.9.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
@@ -59,7 +60,6 @@ branch = true
 
 [tool.pylint.format]
 max-line-length = "120"
-
 
 [tool.pylint."messages control"]
 disable = [
