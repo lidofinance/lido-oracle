@@ -54,7 +54,6 @@ class BaseModule(ABC):
             logger.info({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
-    # TODO: We need a configurable timeout for CSM, just use a variable?
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
     def cycle_handler(self):
         blockstamp = self._receive_last_finalized_slot()
