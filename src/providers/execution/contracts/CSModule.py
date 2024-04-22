@@ -23,7 +23,7 @@ class CSModule(Contract):
         )  # TODO: Maybe it's int already?
 
         events = sorted(self.get_stuck_keys_events(r_block), key=by_no_id)
-        for op_id, group in groupby(events, key=by_no_id):
+        for no_id, group in groupby(events, key=by_no_id):
             last_event = sorted(tuple(group), key=lambda e: e["blockNumber"])[-1]
             # Operators unstucked at the very beginning of the frame are fine.
             if (
@@ -32,7 +32,7 @@ class CSModule(Contract):
             ):
                 continue
 
-            yield op_id
+            yield no_id
 
     def get_stuck_keys_events(self, block: BlockIdentifier) -> Iterable[EventData]:
         """Fetch all the StuckSigningKeysCountChanged events up to the given block (closed interval)"""
