@@ -47,7 +47,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         if not collected:
             # The data is not fully collected yet, wait for the next epoch
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-
+        # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
