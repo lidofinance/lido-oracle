@@ -33,6 +33,19 @@ class CSFeeOracle(Contract):
         )
         return cast(Address, resp)
 
+    def perf_threshold(self, block: BlockIdentifier = "latest") -> float:
+        """Performance threshold used to determine underperforming validators"""
+
+        resp = self.functions.perfThresholdBP().call(block_identifier=block)
+        logger.debug(
+            {
+                "msg": "Call to perfThresholdBP()",
+                "value": resp,
+                "block_identifier": repr(block),
+            }
+        )
+        return resp / 10_000  # Convert from basis points
+
     # TODO: Inherit the method from the BaseOracle class.
     def get_last_processing_ref_slot(self, block: BlockIdentifier = "latest") -> SlotNumber:
         resp = self.functions.getLastProcessingRefSlot().call(block_identifier=block)

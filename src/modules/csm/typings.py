@@ -57,6 +57,10 @@ class FramePerformance:
         """Returns average performance of all validators in the cache."""
         return mean((a.perf for a in self.aggr_per_val.values()))
 
+    def perf(self, index: ValidatorIndex) -> float:
+        """Returns performance of a validator by its index."""
+        return self.aggr_per_val[index].perf
+
     def dump(self, epoch: EpochNumber, committees: dict, roots: set[BlockRoot]) -> None:
         """Used to persist the current state of the structure."""
         # TODO: persist the data. no sense to keep it in memory (except of `processed` ?)

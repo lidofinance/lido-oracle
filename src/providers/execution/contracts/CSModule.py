@@ -63,3 +63,14 @@ class CSModule(Contract):
 
     def is_deployed(self, block: BlockIdentifier) -> bool:
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
+
+    def is_paused(self, block: BlockIdentifier = "latest") -> bool:
+        resp = self.functions.isPaused().call(block_identifier=block)
+        logger.debug(
+            {
+                "msg": "Call to isPaused()",
+                "value": resp,
+                "block_identifier": repr(block),
+            }
+        )
+        return resp

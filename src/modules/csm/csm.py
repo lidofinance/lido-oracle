@@ -4,13 +4,14 @@ import logging
 
 from web3.types import BlockIdentifier
 
+from src import variables
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsFactory
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber, EpochNumber
+from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber, EpochNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
@@ -66,22 +67,41 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         ref_slot = self.get_current_frame(blockstamp).ref_slot
 
-        # Get module's node operators.
-        _ = self.module_validators_by_node_operators(blockstamp)
-        # Read performance threshold value from somewhere (hardcoded?).
-        _ = self.frame_performance.avg_perf * 0.95
-        # Build the map of the current distribution operators.
-        # _ = groupby(self.frame_performance.aggr_per_val, operators)
-        # Exclude validators of operators with stuck keys.
-        _ = self.w3.csm.get_csm_stuck_node_operators(
+        threshold = self.frame_performance.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
+        stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
             self._slot_to_block_identifier(last_ref_slot),
             self._slot_to_block_identifier(ref_slot),
         )
-        # Exclude underperforming validators.
+
+        operators = self.module_validators_by_node_operators(blockstamp)
+        # Build the map of the current distribution operators.
+        distribution: dict[NodeOperatorId, int] = {}
+        total = 0
+
+        for (_, no_id), validators in operators.items():
+            if no_id in stuck_operators:
+                continue
+
+            share = len(
+                [
+                    v
+                    for v in validators
+                    if self.frame_performance.perf(ValidatorIndex(int(v.index))) > threshold
+                ]
+            )
+
+            distribution[no_id] = share
+            total += share
 
         # Calculate share of each CSM node operator.
-        _ = self._to_distribute(blockstamp)
-        shares: tuple[tuple[NodeOperatorId, int]] = tuple()  # type: ignore
+        to_distribute = self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
+        shares: list[tuple[NodeOperatorId, int]] = []
+        for no_id, share in distribution.items():
+            shares.append((no_id, to_distribute * share // total))
+
+        distributed = sum((s for (_, s) in shares))
+        if not distributed:
+            ...  # TODO: The code expects the report built, but it doesn't make sense.
 
         # Load the previous tree if any.
         cid = self.w3.csm.get_csm_tree_cid(blockstamp)
@@ -98,7 +118,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
             blockstamp.ref_slot,
             tree_root=b"",  # type: ignore
             tree_cid="",
-            distributed=sum((s for (_, s) in shares)),
+            distributed=distributed
         ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -107,7 +127,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         return last_ref_slot == ref_slot
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        return not self.is_main_data_submitted(blockstamp)
+        return not self.is_main_data_submitted(blockstamp) and not self.w3.csm.module.is_paused()
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self._is_paused(blockstamp)
@@ -120,10 +140,10 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         modules: list[StakingModule] = self.w3.lido_validators.get_staking_modules(self._receive_last_finalized_slot())
 
         for mod in modules:
-            if mod.name == "":  # FIXME
+            if mod.staking_module_address == variables.CSM_MODULE_ADDRESS:
                 return mod
 
-        raise ValueError("No CSM module found")
+        raise ValueError("No CSM module found. Wrong address?")
 
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
@@ -181,9 +201,6 @@ class CSFeeOracle(BaseModule, ConsensusModule):
 
         logger.info({"msg": f"Assigned: {assigned}"})
         logger.info({"msg": f"Included: {inc}"})
-
-    def _to_distribute(self, blockstamp: ReferenceBlockStamp) -> int:
-        return self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
 
     def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
         block = self.w3.cc.get_block_details(slot)
