@@ -60,8 +60,8 @@ class BlockHeaderFullResponse(Nested, FromResponse):
 @dataclass
 class ExecutionPayload(FromResponse):
     parent_hash: BlockHash
-    block_number: int
-    timestamp: int
+    block_number: str
+    timestamp: str
     block_hash: BlockHash
 
 

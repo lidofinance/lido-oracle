@@ -43,14 +43,12 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         self.report_contract = self.w3.csm.oracle
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
-
         collected = self._collect_data(last_finalized_blockstamp)
-
         if not collected:
             # The data is not fully collected yet, wait for the next epoch
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+        report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -62,6 +60,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         assert self.frame_performance
         assert self.frame_performance.is_coherent
+        self._print_collect_result()
 
         # Get the current frame.
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
@@ -132,6 +131,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
 
     def _collect_data(self, last_finalized_blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
+        logger.info({"msg": "Collecting data for the report"})
         converter = Web3Converter(
             self.get_chain_config(last_finalized_blockstamp), self.get_frame_config(last_finalized_blockstamp)
         )
@@ -166,13 +166,10 @@ class CSFeeOracle(BaseModule, ConsensusModule):
                 # checkpoint isn't finalized yet, can't be processed
                 break
             checkpoint.process(last_finalized_blockstamp)
-        delay = time.time() - start
-        logger.info({"msg": f"All epochs processed in {delay:.2f} seconds"})
-
-        self._print_result()
+        logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
         return self.frame_performance.is_coherent
 
-    def _print_result(self):
+    def _print_collect_result(self):
         assigned = 0
         inc = 0
         for _, aggr in self.frame_performance.aggr_per_val.items():
