@@ -277,7 +277,7 @@ class ConsensusModule(ABC):
         self._send_report_hash(blockstamp, report_hash, self.CONSENSUS_VERSION)
         return None
 
-    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: bytes):
+    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
         latest_blockstamp, member_info = self._get_latest_data()
 
         if member_info.current_frame_consensus_report == ZERO_HASH:
