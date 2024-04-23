@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import TypedDict
 
 from src.typings import BlockHash, BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
@@ -56,17 +55,6 @@ class BlockHeaderFullResponse(Nested, FromResponse):
     execution_optimistic: bool
     data: BlockHeaderResponseData
     finalized: bool | None = None
-
-
-class ExecutionPayload(TypedDict):
-    parent_hash: BlockHash
-    block_number: int
-    timestamp: int
-    block_hash: BlockHash
-
-
-class BeaconBlockBody(TypedDict, total=False):
-    execution_payload: ExecutionPayload
 
 
 @dataclass
