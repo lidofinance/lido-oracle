@@ -150,6 +150,12 @@ def test_dataclass_ignore_extra_fields():
     assert pet == Pet(name="Bob", age=5)
 
 
+def test_dataclass_raises_missing_field():
+    response = {"name": "Bob"}
+    with pytest.raises(TypeError, match="age"):
+        pet = Pet.from_response(**response)
+
+
 @dataclass
 class Hooman(Nested, FromResponse):
     favourite_pet: Pet
@@ -162,3 +168,9 @@ def test_dataclass_nested_with_extra_fields():
     )
     hooman = Hooman.from_response(**hooman_response)
     assert hooman == Hooman(favourite_pet=Pet(name="Bob", age=5), pets=[Pet(name="Bob", age=5)])
+
+
+def test_dataclass_nested_raises_missing_field():
+    response = dict(pets=[{"name": "Bob", "age": 5, "extra": "field"}])
+    with pytest.raises(TypeError, match="favourite_pet"):
+        Hooman.from_response(**response)

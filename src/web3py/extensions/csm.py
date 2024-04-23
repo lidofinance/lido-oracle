@@ -17,6 +17,7 @@ from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 
 # TODO: Export the classes from the top-level module.
 from src.providers.execution.contracts.CSModule import CSModule
+from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
 from src.typings import BlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
@@ -40,10 +41,10 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> str:
+    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         logger.info({"msg": f"CSM distributor latest tree CID {result}"})
-        return result
+        return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_csm_stuck_node_operators(
         self, l_block: BlockIdentifier, r_block: BlockIdentifier
