@@ -39,6 +39,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_BLOCK_ATTESTATIONS = 'eth/v1/beacon/blocks/{}/attestations'
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
+    API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
@@ -99,6 +100,22 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
 
+    @lru_cache(maxsize=256)
+    def get_block_details_raw(self, state_id: SlotNumber | BlockRoot) -> dict:
+        """
+        Special method to get block details without casting to dataclass for speedup.
+        And max cache size is 256 slots (8 epochs)
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
+        """
+        data, _ = self._get(
+            self.API_GET_BLOCK_DETAILS,
+            path_params=(state_id,),
+            force_raise=self.__raise_last_missed_slot_error,
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getBlockV2")
+        return data
+
     @lru_cache(maxsize=1)
     def get_block_attestations(self, state_id: SlotNumber | BlockRoot) -> Iterator[BlockAttestation]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
@@ -136,7 +153,6 @@ class ConsensusClient(HTTPProvider):
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': index, 'slot': slot},
-                stream=True,
                 force_raise=self.__raise_on_prysm_error
             )
 
@@ -148,6 +164,15 @@ class ConsensusClient(HTTPProvider):
 
         for committee in data:
             yield SlotAttestationCommittee.from_response(**committee)
+
+    @lru_cache(maxsize=1)
+    def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
+        streamed_json = self._get_stream(
+                self.API_GET_STATE,
+                path_params=(state_id,),
+                force_raise=self.__raise_on_prysm_error
+            )
+        return list(streamed_json['data']['block_roots'])
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
@@ -199,7 +224,6 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
-            stream=True
         )
         if not isinstance(data, list):
             raise ValueError("Expected list response from getEpochCommittees")
