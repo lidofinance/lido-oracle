@@ -170,7 +170,6 @@ class ConsensusClient(HTTPProvider):
         streamed_json = self._get_stream(
                 self.API_GET_STATE,
                 path_params=(state_id,),
-                force_raise=self.__raise_on_prysm_error
             )
         return list(streamed_json['data']['block_roots'])
 
