@@ -1,12 +1,10 @@
-from collections import defaultdict
-import time
-from functools import cached_property
 import logging
+import time
+from collections import defaultdict
+from functools import cached_property
 
-from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
-from src import variables
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsFactory
@@ -14,7 +12,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.typings import BlockStamp, ReferenceBlockStamp, SlotNumber, EpochNumber, ValidatorIndex
+from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
@@ -41,7 +39,6 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         self.report_contract = w3.csm.oracle
         super().__init__(w3)
         self.frame_performance: FramePerformance | None = None
-        # TODO: Feed the cache with the data about the attestations observed so far.
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle
@@ -80,13 +77,11 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         operators = self.module_validators_by_node_operators(blockstamp)
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = {}
-        total = 0
-
         for (_, no_id), validators in operators.items():
             if no_id in stuck_operators:
                 continue
 
-            share = len(
+            portion = len(
                 [
                     v
                     for v in validators
@@ -94,16 +89,17 @@ class CSFeeOracle(BaseModule, ConsensusModule):
                 ]
             )
 
-            distribution[no_id] = share
-            total += share
+            distribution[no_id] = portion
 
         # Calculate share of each CSM node operator.
         to_distribute = self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
         shares: dict[NodeOperatorId, int] = defaultdict(int)
-        for no_id, share in distribution.items():
-            shares[no_id] = to_distribute * share // total
+        total = sum(p for p in distribution.values())
+        for no_id, portion in distribution.items():
+            shares[no_id] = to_distribute * portion // total
 
-        distributed = sum((s for s in shares.values()))
+        distributed = sum(s for s in shares.values())
+        assert distributed <= to_distribute
         if not distributed:
             logger.info({"msg": "No shares distributed"})
             return
@@ -117,9 +113,10 @@ class CSFeeOracle(BaseModule, ConsensusModule):
             root = self.w3.csm.get_csm_tree_root(blockstamp)
             logger.info({"msg": "Restored tree from IPFS dump", "root": root})
 
-            if tree.root != root:  # TODO: Is the `root` 0x-prefixed?
+            if tree.root.hex() != root:  # TODO: Is the `root` 0x-prefixed?
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
+            # Update cumulative amount of shares for all operators.
             for v in tree.tree.values:
                 no_id, amount = v["value"]
                 shares[no_id] += amount
@@ -132,9 +129,9 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         return ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
-            tree_root=HexBytes(tree.tree.root),
+            tree_root=tree.root,
             tree_cid=cid,
-            distributed=distributed
+            distributed=distributed,
         ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -156,7 +153,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         modules: list[StakingModule] = self.w3.lido_validators.get_staking_modules(self._receive_last_finalized_slot())
 
         for mod in modules:
-            if mod.staking_module_address == variables.CSM_MODULE_ADDRESS:
+            if mod.staking_module_address == self.w3.csm.module.address:
                 return mod
 
         raise ValueError("No CSM module found. Wrong address?")

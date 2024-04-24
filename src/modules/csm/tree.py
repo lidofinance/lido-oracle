@@ -2,10 +2,10 @@ import json
 from dataclasses import dataclass
 from typing import Self, Sequence, TypeAlias
 
+from hexbytes import HexBytes
 from oz_merkle_tree import StandardMerkleTree
 
 from src.web3py.extensions.lido_validators import NodeOperatorId
-
 
 Leaf: TypeAlias = tuple[NodeOperatorId, int]
 
@@ -17,8 +17,8 @@ class Tree:
     tree: StandardMerkleTree[Leaf]
 
     @property
-    def root(self) -> str:
-        return self.tree.root.hex()
+    def root(self) -> HexBytes:
+        return HexBytes(self.tree.root)
 
     @classmethod
     def decode(cls, content: bytes) -> Self:
