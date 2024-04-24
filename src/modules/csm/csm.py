@@ -102,7 +102,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         assert distributed <= to_distribute
         if not distributed:
             logger.info({"msg": "No shares distributed"})
-            return
+            return None
 
         # Load the previous tree if any.
         cid = self.w3.csm.get_csm_tree_cid(blockstamp)
