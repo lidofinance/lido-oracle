@@ -7,6 +7,7 @@ from src.providers.keys.typings import LidoKey, KeysApiStatus
 from src.typings import BlockStamp
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.web3py.extensions.lido_validators import StakingModuleId
 
 
 class KeysOutdatedException(Exception):
@@ -25,6 +26,7 @@ class KeysAPIClient(HTTPProvider):
     """
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
 
+    MODULE_OPERATORS_KEYS = 'v1/modules/{}/operators/keys'
     USED_KEYS = 'v1/keys?used=true'
     STATUS = 'v1/status'
 
@@ -49,6 +51,13 @@ class KeysAPIClient(HTTPProvider):
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         return cast(list[dict], self._get_with_blockstamp(self.USED_KEYS, blockstamp))
+
+    @lru_cache(maxsize=1)
+    def get_module_operators_keys(self, module_id: StakingModuleId, blockstamp: BlockStamp) -> dict:
+        """
+        Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
+        """
+        return cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_id), blockstamp))
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""

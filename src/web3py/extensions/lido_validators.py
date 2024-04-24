@@ -174,7 +174,29 @@ class LidoValidatorsProvider(Module):
     @lru_cache(maxsize=1)
     def get_module_validators_by_node_operators(self, module_id: StakingModuleId, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         """Get module validators by querying the KeysAPI for the module keys"""
-        raise NotImplementedError()
+        kapi = self.w3.kac.get_module_operators_keys(module_id, blockstamp)
+        operators = kapi['operators']
+        keys = {k['key']: k for k in kapi['keys']}
+        validators = self.w3.cc.get_validators(blockstamp)
+
+        # Make sure even empty NO will be presented in dict
+        no_validators: ValidatorsByNodeOperator = {
+            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in operators
+        }
+
+        for validator in validators:
+            lido_key = keys.get(validator.validator.pubkey)
+            if not lido_key:
+                continue
+            global_id = (module_id, lido_key['operatorIndex'])
+            no_validators[global_id].append(
+                LidoValidator(
+                    lido_id=LidoKey.from_response(**lido_key),
+                    **asdict(validator),
+                )
+            )
+
+        return no_validators
 
     @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
