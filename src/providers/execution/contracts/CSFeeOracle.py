@@ -20,6 +20,19 @@ class CSFeeOracle(Contract):
             self.abi = json.load(f)
         super().__init__(address)
 
+    def is_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:
+        """Returns whether the contract is paused"""
+
+        resp = self.functions.isPaused().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                "msg": "Call isPaused().",
+                "value": resp,
+                "block_identifier": repr(block_identifier),
+            }
+        )
+        return resp
+
     def fee_distributor(self, block: BlockIdentifier = "latest") -> Address:
         """Returns the address of the CSFeeDistributor"""
 

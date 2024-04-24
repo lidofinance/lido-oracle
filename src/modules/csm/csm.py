@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from functools import cached_property
 
+from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -12,6 +13,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
@@ -21,7 +23,7 @@ from src.web3py.typings import Web3
 logger = logging.getLogger(__name__)
 
 
-class CSFeeOracle(BaseModule, ConsensusModule):
+class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
     distribution of shares among the oprators. The root of the tree is then submitted to the module contract.
@@ -35,13 +37,16 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     CONSENSUS_VERSION = 1
     CONTRACT_VERSION = 1
 
+    report_contract: CSFeeOracle
+    frame_performance: FramePerformance | None
+
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
+        self.frame_performance = None
         super().__init__(w3)
-        self.frame_performance: FramePerformance | None = None
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.csm.oracle
+        self.report_contract = self.w3.csm.oracle  # type: ignore
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         collected = self._collect_data(last_finalized_blockstamp)
@@ -58,7 +63,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     @duration_meter()
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple | None:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         assert self.frame_performance
         assert self.frame_performance.is_coherent
 
@@ -81,13 +86,17 @@ class CSFeeOracle(BaseModule, ConsensusModule):
             if no_id in stuck_operators:
                 continue
 
-            portion = len(
-                [
-                    v
-                    for v in validators
-                    if self.frame_performance.perf(ValidatorIndex(int(v.index))) > threshold
-                ]
-            )
+            portion = 0
+
+            for v in validators:
+                try:
+                    perf = self.frame_performance.aggr_per_val[ValidatorIndex(int(v.index))].perf
+                    if perf > threshold:
+                        portion += 1
+                except KeyError:
+                    # It's possible that the validator is not assigned to any duty, hence it's performance
+                    # is not presented in the aggregates (e.g. exited, pending for activation etc).
+                    continue
 
             distribution[no_id] = portion
 
@@ -95,14 +104,14 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         to_distribute = self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
         shares: dict[NodeOperatorId, int] = defaultdict(int)
         total = sum(p for p in distribution.values())
-        for no_id, portion in distribution.items():
-            shares[no_id] = to_distribute * portion // total
+        if total > 0:
+            for no_id, portion in distribution.items():
+                shares[no_id] = to_distribute * portion // total
 
         distributed = sum(s for s in shares.values())
         assert distributed <= to_distribute
         if not distributed:
-            logger.info({"msg": "No shares distributed"})
-            return None
+            logger.info({"msg": "No shares distributed in the current frame"})
 
         # Load the previous tree if any.
         cid = self.w3.csm.get_csm_tree_cid(blockstamp)
@@ -121,18 +130,29 @@ class CSFeeOracle(BaseModule, ConsensusModule):
                 no_id, amount = v["value"]
                 shares[no_id] += amount
 
-        tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-        logger.info({"msg": "New tree built for the report", "root": tree.root})
-        cid = self.w3.ipfs.upload(tree.encode())
-        self.w3.ipfs.pin(cid)
+        if shares:
+            tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+            logger.info({"msg": "New tree built for the report", "root": str(tree.root)})
+            cid = self.w3.ipfs.upload(tree.encode())
+            self.w3.ipfs.pin(cid)
 
-        return ReportData(
-            self.CONSENSUS_VERSION,
-            blockstamp.ref_slot,
-            tree_root=tree.root,
-            tree_cid=cid,
-            distributed=distributed,
-        ).as_tuple()
+            return ReportData(
+                self.CONSENSUS_VERSION,
+                blockstamp.ref_slot,
+                tree_root=tree.root,
+                tree_cid=cid,
+                distributed=distributed,
+            ).as_tuple()
+        else:
+            logger.info({"msg": "No fee distributed so far, tree doesn't exist"})
+
+            return ReportData(
+                self.CONSENSUS_VERSION,
+                blockstamp.ref_slot,
+                tree_root=HexBytes(b""),
+                tree_cid="",
+                distributed=0,
+            ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
@@ -140,13 +160,12 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         return last_ref_slot == ref_slot
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        return not self.is_main_data_submitted(blockstamp)
+        return not self.is_main_data_submitted(blockstamp) and not self.w3.csm.module.is_paused()
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        on_pause = self._is_paused(blockstamp)
+        on_pause = self.report_contract.is_paused(blockstamp.block_hash)
         CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
-        logger.info({"msg": "Fetch isPaused from CSM oracle contract.", "value": on_pause})
-        return not on_pause and not self.w3.csm.module.is_paused()
+        return not on_pause
 
     @cached_property
     def module(self) -> StakingModule:
@@ -161,9 +180,6 @@ class CSFeeOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
-
-    def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
-        return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
 
     def _collect_data(self, last_finalized_blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
@@ -195,12 +211,15 @@ class CSFeeOracle(BaseModule, ConsensusModule):
 
         factory = CheckpointsFactory(self.w3.cc, converter, self.frame_performance)
         checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
+        logger.info({"msg": f"Chekpoints to read: {len(checkpoints)}"})
 
         start = time.time()
         for checkpoint in checkpoints:
             if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
                 # checkpoint isn't finalized yet, can't be processed
                 break
+            logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
+            logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(last_finalized_blockstamp)
         logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
         return self.frame_performance.is_coherent
@@ -215,6 +234,7 @@ class CSFeeOracle(BaseModule, ConsensusModule):
 
         logger.info({"msg": f"Assigned: {assigned}"})
         logger.info({"msg": f"Included: {inc}"})
+        logger.info({"msg": f"Average performance: {self.frame_performance.avg_perf}"})
 
     def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
         block = self.w3.cc.get_block_details(slot)

@@ -50,6 +50,8 @@ class CSModule(Contract):
         l_block = 0 if l_block < 0 else l_block
 
         while l_block >= 0:
+            logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{r_block}]"})
+
             for e in cast(ContractEvent, self.events.StuckSigningKeysCountChanged).get_logs(
                 fromBlock=l_block, toBlock=r_block
             ):

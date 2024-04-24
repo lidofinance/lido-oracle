@@ -31,7 +31,13 @@ class Tree:
 
     def encode(self) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
-        return json.dumps(self.tree.dump(), indent=2).encode()
+
+        def default(o):
+            if isinstance(o, bytes):
+                return f"0x{o.hex()}"
+            assert False
+
+        return json.dumps(self.tree.dump(), indent=2, default=default).encode()
 
     @classmethod
     def new(cls, values: Sequence[Leaf]) -> Self:

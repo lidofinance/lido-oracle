@@ -11,7 +11,7 @@ from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
-from src.modules.csm.csm import CSFeeOracle
+from src.modules.csm.csm import CSOracle
 from src.providers.ipfs import DummyIPFSProvider
 from src.typings import OracleModule
 from src.utils.build import get_build_info
@@ -97,7 +97,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Sanity checks.'})
 
-    instance: Accounting | Ejector | CSFeeOracle
+    instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         instance = Accounting(web3)
@@ -106,7 +106,7 @@ def main(module_name: OracleModule):
         instance = Ejector(web3)
     elif module_name == OracleModule.CSM:
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
-        instance = CSFeeOracle(web3)
+        instance = CSOracle(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 

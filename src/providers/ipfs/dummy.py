@@ -10,6 +10,9 @@ class DummyIPFSProvider(IPFSProvider, Module):
 
     mempool: dict[CIDv0 | CIDv1, bytes]
 
+    def __init__(self) -> None:
+        self.mempool = {}
+
     def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
         try:
             return self.mempool[cid]
