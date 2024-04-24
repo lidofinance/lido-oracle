@@ -41,6 +41,11 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
+    def get_csm_tree_root(self, blockstamp: BlockStamp) -> str:
+        result = self.fee_distributor.tree_root(blockstamp.block_hash)
+        logger.info({"msg": f"CSM distributor latest tree root {result}"})
+        return result
+
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         logger.info({"msg": f"CSM distributor latest tree CID {result}"})

@@ -261,6 +261,9 @@ class ConsensusModule(ABC):
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
         report_data = self.build_report(blockstamp)
+        if report_data is None:
+            logger.info({'msg': 'No report data built'})
+            return
         logger.info({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._encode_data_hash(report_data)
@@ -450,7 +453,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple | None:
         """Returns ReportData struct with calculated data."""
 
     @abstractmethod
