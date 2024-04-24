@@ -84,10 +84,13 @@ class CSFeeOracle(BaseModule, ConsensusModule):
         shares: tuple[tuple[NodeOperatorId, int]] = tuple()  # type: ignore
 
         # Load the previous tree if any.
-        _ = self.w3.csm.get_csm_tree_cid(blockstamp)
+        cid = self.w3.csm.get_csm_tree_cid(blockstamp)
+
+        if cid:
+            logger.info({'msg': 'Fetching tree by CID from IPFS', 'cid': cid})
+            _ = self.w3.ipfs.fetch(cid)
+
         # leafs = []
-        # if cid:
-        #     leafs = parse_leafs(ipfs.get(cid))
         # Create a Merkle tree of the cumulative distribution of shares among the operators.
 
         return ReportData(

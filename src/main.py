@@ -12,6 +12,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSFeeOracle
+from src.providers.ipfs import DummyIPFSProvider
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -87,6 +88,7 @@ def main(module_name: OracleModule):
         'csm': LazyCSM,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
+        'ipfs': DummyIPFSProvider,  # TODO: Make a factory.
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
