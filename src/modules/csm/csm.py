@@ -110,15 +110,16 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "No shares distributed in the current frame"})
 
         # Load the previous tree if any.
+        root = self.w3.csm.get_csm_tree_root(blockstamp)
         cid = self.w3.csm.get_csm_tree_cid(blockstamp)
+
         if cid:
             logger.info({"msg": "Fetching tree by CID from IPFS", "cid": cid})
             tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
-            root = self.w3.csm.get_csm_tree_root(blockstamp)
             logger.info({"msg": "Restored tree from IPFS dump", "root": root})
 
-            if tree.root.hex() != root:  # TODO: Is the `root` 0x-prefixed?
+            if tree.root.hex() != root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
             # Update cumulative amount of shares for all operators.
@@ -127,15 +128,17 @@ class CSOracle(BaseModule, ConsensusModule):
                 shares[no_id] += amount
 
         if shares:
-            tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-            logger.info({"msg": "New tree built for the report", "root": str(tree.root)})
-            cid = self.w3.ipfs.upload(tree.encode())
-            self.w3.ipfs.pin(cid)
+            if distributed:
+                tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+                logger.info({"msg": "New tree built for the report", "root": str(tree.root)})
+                cid = self.w3.ipfs.upload(tree.encode())
+                self.w3.ipfs.pin(cid)
+                root = tree.root
 
             return ReportData(
                 self.CONSENSUS_VERSION,
                 blockstamp.ref_slot,
-                tree_root=tree.root,
+                tree_root=root,
                 tree_cid=cid,
                 distributed=distributed,
             ).as_tuple()
