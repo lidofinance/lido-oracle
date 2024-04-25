@@ -13,6 +13,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.typings import FramePerformance, ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.submodules.typings import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
@@ -135,7 +136,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 self.w3.ipfs.pin(cid)
                 root = tree.root
 
-        logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
+        if root == ZERO_HASH:
+            logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
 
         return ReportData(
             self.CONSENSUS_VERSION,
