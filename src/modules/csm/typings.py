@@ -66,7 +66,8 @@ class FramePerformance:
 
     @classmethod
     def schema(cls) -> str:
-        return str(cls.__slots__)  # pylint: disable=no-member
+        # pylint: disable=no-member
+        return str(cls.__slots__)  # type: ignore
 
     @property
     def avg_perf(self) -> float:

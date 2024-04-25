@@ -3,7 +3,6 @@ import time
 from collections import defaultdict
 from functools import cached_property
 
-from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -65,6 +64,8 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+        # pylint: disable=too-many-branches
+
         assert self.frame_performance
         assert self.frame_performance.is_coherent
 
@@ -120,7 +121,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
             logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
 
-            if tree.root.hex() != root:
+            if tree.root != root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
             # Update cumulative amount of shares for all operators.
