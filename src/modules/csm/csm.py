@@ -141,6 +141,7 @@ class CSOracle(BaseModule, ConsensusModule):
             ).as_tuple()
 
         logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
+
         return ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
@@ -186,7 +187,10 @@ class CSOracle(BaseModule, ConsensusModule):
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(last_finalized_blockstamp)
         if not l_ref_slot:
             l_ref_slot = converter.get_epoch_first_slot(EpochNumber(converter.frame_config.initial_epoch))
-        r_ref_slot = self.get_current_frame(last_finalized_blockstamp).ref_slot
+        # NOTE: We're looking at the next frame slot optimistically to collect data in advance.
+        # TODO: Listen for refslot and collect data up to the finalized epoch until the new frame has found. So, fetch
+        # the data up to a min(finalized_epoch, ref_slot) if ref_slot > l_ref_slot, otherwise up to the finalized_epoch.
+        r_ref_slot = SlotNumber(l_ref_slot + converter.get_epoch_first_slot(converter.frame_config.epochs_per_frame))  # type: ignore
 
         # TODO: To think about the proper cache invalidation conditions.
         if self.frame_performance:
