@@ -3,6 +3,7 @@ from functools import partial
 from time import sleep
 from typing import Iterable, cast
 
+from hexbytes import HexBytes
 from lazy_object_proxy import Proxy
 from web3 import Web3
 from web3.contract.contract import Contract
@@ -40,6 +41,11 @@ class CSM(Module):
         logger.info({"msg": f"CSM oracle last processing ref slot {result}"})
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
+
+    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+        result = self.fee_distributor.tree_root(blockstamp.block_hash)
+        logger.info({"msg": f"CSM distributor latest tree root {result}"})
+        return HexBytes(result)
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)

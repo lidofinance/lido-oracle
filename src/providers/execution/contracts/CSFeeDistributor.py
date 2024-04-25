@@ -30,6 +30,19 @@ class CSFeeDistributor(Contract):
         )
         return resp
 
+    def tree_root(self, block: BlockIdentifier = "latest") -> str:
+        """Root of the latest published Merkle tree"""
+
+        resp = self.functions.treeRoot().call(block_identifier=block)
+        logger.debug(
+            {
+                "msg": "Call to treeRoot()",
+                "value": resp,
+                "block_identifier": repr(block),
+            }
+        )
+        return resp
+
     def tree_cid(self, block: BlockIdentifier = "latest") -> str:
         """CID of the latest published Merkle tree"""
 

@@ -1,10 +1,16 @@
+import logging
+import pickle
 from dataclasses import dataclass, field
-from hexbytes import HexBytes
 from statistics import mean
-from typing import Self
+from typing import Any, Self
 
-from src.typings import EpochNumber, SlotNumber, ValidatorIndex, BlockRoot
+from hexbytes import HexBytes
+
+from src.typings import BlockRoot, EpochNumber, SlotNumber, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ReportData:
@@ -32,10 +38,11 @@ class AttestationsAggregate:
 
     @property
     def perf(self) -> float:
-        return self.assigned / self.included
+        return self.included / self.assigned
 
 
-@dataclass
+# INFO: Using slots here to compare after loading and object from pickle.
+@dataclass(slots=True)
 class FramePerformance:
     """Data structure to store required data for performance calculation within the given frame."""
 
@@ -52,27 +59,64 @@ class FramePerformance:
     to_distribute: int = 0
     last_cid: str | None = None
 
+    __schema__: str | None = None
+
+    def __post_init__(self) -> None:
+        self.__schema__ = self.schema()
+
+    @classmethod
+    def schema(cls) -> str:
+        # pylint: disable=no-member
+        return str(cls.__slots__)  # type: ignore
+
     @property
     def avg_perf(self) -> float:
         """Returns average performance of all validators in the cache."""
         return mean((a.perf for a in self.aggr_per_val.values()))
 
-    def dump(self, epoch: EpochNumber, committees: dict, roots: set[BlockRoot]) -> None:
+    def dump(
+        self,
+        epoch: EpochNumber,
+        committees: dict[Any, list[dict[str, str | bool]]],
+        roots: set[BlockRoot],
+    ) -> None:
         """Used to persist the current state of the structure."""
         # TODO: persist the data. no sense to keep it in memory (except of `processed` ?)
         self.processed_epochs.add(epoch)
         self.processed_roots.update(roots)
         for committee in committees.values():
             for validator in committee:
-                perf_data = self.aggr_per_val.get(validator['index'], AttestationsAggregate(0, 0))
+                key = ValidatorIndex(int(validator['index']))
+                perf_data = self.aggr_per_val.get(key, AttestationsAggregate(0, 0))
                 perf_data.assigned += 1
                 perf_data.included += 1 if validator['included'] else 0
-                self.aggr_per_val[validator['index']] = perf_data
+                self.aggr_per_val[key] = perf_data
+
+        with open(self.filename(self.l_slot), mode="wb") as f:
+            pickle.dump(self, f)
 
     @classmethod
-    def try_read(cls, ref_slot: SlotNumber) -> Self | None:
+    def try_read(cls, l_slot: SlotNumber) -> Self | None:
         """Used to restore the object from the persistent storage."""
+
+        filename = cls.filename(l_slot)
+        obj = None
+
+        try:
+            with open(filename, mode="rb") as f:
+                obj = pickle.load(f)
+                # TODO: To think about a better way to check for schema changes.
+                if cls.schema() != obj.__schema__:
+                    raise ValueError("Schema mismatch")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.info({"msg": f"Unable to restore FramePerformance instance from {filename}", "error": str(e)})
+
+        return obj
 
     @property
     def is_coherent(self) -> bool:
         return (self.r_slot - self.l_slot) // 32 == len(self.processed_epochs)
+
+    @staticmethod
+    def filename(l_slot: SlotNumber) -> str:
+        return f"{l_slot}.pkl"

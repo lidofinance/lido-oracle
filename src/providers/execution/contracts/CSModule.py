@@ -50,6 +50,8 @@ class CSModule(Contract):
         l_block = 0 if l_block < 0 else l_block
 
         while l_block >= 0:
+            logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{r_block}]"})
+
             for e in cast(ContractEvent, self.events.StuckSigningKeysCountChanged).get_logs(
                 fromBlock=l_block, toBlock=r_block
             ):
@@ -63,3 +65,14 @@ class CSModule(Contract):
 
     def is_deployed(self, block: BlockIdentifier) -> bool:
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
+
+    def is_paused(self, block: BlockIdentifier = "latest") -> bool:
+        resp = self.functions.isPaused().call(block_identifier=block)
+        logger.debug(
+            {
+                "msg": "Call to isPaused()",
+                "value": resp,
+                "block_identifier": repr(block),
+            }
+        )
+        return resp

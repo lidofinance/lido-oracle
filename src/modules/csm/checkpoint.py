@@ -49,7 +49,11 @@ class CheckpointsFactory:
             if index % checkpoint_step == 0 or epoch == r_epoch:
                 checkpoint_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch + 1))
                 checkpoints.append(_prepare_checkpoint(checkpoint_slot, checkpoint_epochs))
+                logger.info(
+                    {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
+                )
                 checkpoint_epochs = []
+        logger.info({"msg": f"Checkpoints to process: {len(checkpoints)}"})
         return checkpoints
 
 
@@ -96,6 +100,7 @@ class Checkpoint:
             roots_to_check = self._select_roots_to_check(duty_epoch)
             if not self.free_threads:
                 self._await_oldest_thread()
+            # TODO: handle error in the thread. wait all, then raise
             thread = Thread(
                 target=self._process_epoch, args=(last_finalized_blockstamp, duty_epoch, roots_to_check)
             )

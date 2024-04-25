@@ -20,6 +20,19 @@ class CSFeeOracle(Contract):
             self.abi = json.load(f)
         super().__init__(address)
 
+    def is_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:
+        """Returns whether the contract is paused"""
+
+        resp = self.functions.isPaused().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                "msg": "Call isPaused().",
+                "value": resp,
+                "block_identifier": repr(block_identifier),
+            }
+        )
+        return resp
+
     def fee_distributor(self, block: BlockIdentifier = "latest") -> Address:
         """Returns the address of the CSFeeDistributor"""
 
@@ -32,6 +45,19 @@ class CSFeeOracle(Contract):
             }
         )
         return cast(Address, resp)
+
+    def perf_threshold(self, block: BlockIdentifier = "latest") -> float:
+        """Performance threshold used to determine underperforming validators"""
+
+        resp = self.functions.perfThresholdBP().call(block_identifier=block)
+        logger.debug(
+            {
+                "msg": "Call to perfThresholdBP()",
+                "value": resp,
+                "block_identifier": repr(block),
+            }
+        )
+        return resp / 10_000  # Convert from basis points
 
     # TODO: Inherit the method from the BaseOracle class.
     def get_last_processing_ref_slot(self, block: BlockIdentifier = "latest") -> SlotNumber:
