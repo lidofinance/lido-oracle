@@ -44,8 +44,7 @@ class CSM(Module):
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         result = self.fee_distributor.tree_root(blockstamp.block_hash)
         logger.info({"msg": f"CSM distributor latest tree root {result}"})
-        # TODO: Is the `root` 0x-prefixed?
-        return HexBytes(bytes.fromhex(result[2:]))
+        return HexBytes(result)
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
