@@ -91,25 +91,31 @@ class FramePerformance:
                 perf_data.included += 1 if validator['included'] else 0
                 self.aggr_per_val[key] = perf_data
 
-        with open(f"{self.r_slot}.pkl", mode="wb") as f:
+        with open(self.filename(self.l_slot), mode="wb") as f:
             pickle.dump(self, f)
 
     @classmethod
-    def try_read(cls, ref_slot: SlotNumber) -> Self | None:
+    def try_read(cls, l_slot: SlotNumber) -> Self | None:
         """Used to restore the object from the persistent storage."""
+
+        filename = cls.filename(l_slot)
         obj = None
 
         try:
-            with open(f"{ref_slot}.pkl", mode="rb") as f:
+            with open(filename, mode="rb") as f:
                 obj = pickle.load(f)
                 # TODO: To think about a better way to check for schema changes.
                 if cls.schema() != obj.__schema__:
                     raise ValueError("Schema mismatch")
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.info({"msg": "Unable to restore FramePerformance instance", "ref_slot": ref_slot, "error": str(e)})
+            logger.info({"msg": f"Unable to restore FramePerformance instance from {filename}", "error": str(e)})
 
         return obj
 
     @property
     def is_coherent(self) -> bool:
         return (self.r_slot - self.l_slot) // 32 == len(self.processed_epochs)
+
+    @staticmethod
+    def filename(l_slot: SlotNumber) -> str:
+        return f"{l_slot}.pkl"

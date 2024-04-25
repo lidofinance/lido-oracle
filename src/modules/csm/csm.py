@@ -174,20 +174,24 @@ class CSOracle(BaseModule, ConsensusModule):
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
 
-    def _collect_data(self, last_finalized_blockstamp: BlockStamp) -> bool:
+    def _collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
         logger.info({"msg": "Collecting data for the report"})
-        converter = Web3Converter(
-            self.get_chain_config(last_finalized_blockstamp), self.get_frame_config(last_finalized_blockstamp)
-        )
+        converter = Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(last_finalized_blockstamp)
+        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         if not l_ref_slot:
             l_ref_slot = converter.get_epoch_first_slot(EpochNumber(converter.frame_config.initial_epoch))
         # NOTE: We're looking at the next frame slot optimistically to collect data in advance.
         # TODO: Listen for refslot and collect data up to the finalized epoch until the new frame has found. So, fetch
         # the data up to a min(finalized_epoch, ref_slot) if ref_slot > l_ref_slot, otherwise up to the finalized_epoch.
-        r_ref_slot = SlotNumber(l_ref_slot + converter.get_epoch_first_slot(converter.frame_config.epochs_per_frame))  # type: ignore
+
+        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+        if l_ref_slot == r_ref_slot:
+            # Look to the next frame ref_slot
+            r_ref_slot = SlotNumber(
+                r_ref_slot + converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
+            )
 
         # TODO: To think about the proper cache invalidation conditions.
         if self.frame_performance:
@@ -195,12 +199,12 @@ class CSOracle(BaseModule, ConsensusModule):
                 self.frame_performance = None
 
         if not self.frame_performance:
-            self.frame_performance = FramePerformance.try_read(r_ref_slot) or FramePerformance(
+            self.frame_performance = FramePerformance.try_read(l_ref_slot, r_ref_slot) or FramePerformance(
                 l_slot=l_ref_slot, r_slot=r_ref_slot
             )
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
-        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
+        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         if l_epoch > finalized_epoch:
@@ -217,7 +221,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 break
             logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
-            checkpoint.process(last_finalized_blockstamp)
+            checkpoint.process(blockstamp)
         logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
         return self.frame_performance.is_coherent
 
