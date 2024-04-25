@@ -69,14 +69,10 @@ class CSOracle(BaseModule, ConsensusModule):
 
         self._print_collect_result()
 
-        # Get the current frame.
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
-
         threshold = self.frame_performance.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
         stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
-            self._slot_to_block_identifier(l_ref_slot),
-            self._slot_to_block_identifier(r_ref_slot),
+            self._slot_to_block_identifier(self.frame_performance.l_slot),
+            self._slot_to_block_identifier(self.frame_performance.r_slot),
         )
 
         operators = self.module_validators_by_node_operators(blockstamp)
@@ -188,6 +184,8 @@ class CSOracle(BaseModule, ConsensusModule):
         )
 
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(last_finalized_blockstamp)
+        if not l_ref_slot:
+            l_ref_slot = converter.get_epoch_first_slot(EpochNumber(converter.frame_config.initial_epoch))
         r_ref_slot = self.get_current_frame(last_finalized_blockstamp).ref_slot
 
         # TODO: To think about the proper cache invalidation conditions.
@@ -210,7 +208,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         factory = CheckpointsFactory(self.w3.cc, converter, self.frame_performance)
         checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
-        logger.info({"msg": f"Chekpoints to read: {len(checkpoints)}"})
 
         start = time.time()
         for checkpoint in checkpoints:
