@@ -1,3 +1,4 @@
+import logging
 import pickle
 from dataclasses import dataclass, field
 from statistics import mean
@@ -7,6 +8,8 @@ from hexbytes import HexBytes
 
 from src.typings import BlockRoot, EpochNumber, SlotNumber, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -63,7 +66,7 @@ class FramePerformance:
 
     @classmethod
     def schema(cls) -> str:
-        return str(cls.__slots__)
+        return str(cls.__slots__)  # pylint: disable=no-member
 
     @property
     def avg_perf(self) -> float:
@@ -94,16 +97,18 @@ class FramePerformance:
     @classmethod
     def try_read(cls, ref_slot: SlotNumber) -> Self | None:
         """Used to restore the object from the persistent storage."""
-        # TODO: To think about an error on schema changes.
+        obj = None
+
         try:
-            obj = None
             with open(f"{ref_slot}.pkl", mode="rb") as f:
                 obj = pickle.load(f)
+                # TODO: To think about a better way to check for schema changes.
                 if cls.schema() != obj.__schema__:
                     raise ValueError("Schema mismatch")
-                return obj
-        except FileNotFoundError:
-            pass
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.info({"msg": "Unable to restore FramePerformance instance", "ref_slot": ref_slot, "error": str(e)})
+
+        return obj
 
     @property
     def is_coherent(self) -> bool:

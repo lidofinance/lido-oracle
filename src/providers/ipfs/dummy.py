@@ -1,5 +1,6 @@
 import hashlib
 
+from web3 import Web3
 from web3.module import Module
 
 from .types import CIDv0, CIDv1, IPFSProvider, NotFound
@@ -10,7 +11,8 @@ class DummyIPFSProvider(IPFSProvider, Module):
 
     mempool: dict[CIDv0 | CIDv1, bytes]
 
-    def __init__(self) -> None:
+    def __init__(self, w3: Web3) -> None:
+        super().__init__(w3)
         self.mempool = {}
 
     def fetch(self, cid: CIDv0 | CIDv1) -> bytes:

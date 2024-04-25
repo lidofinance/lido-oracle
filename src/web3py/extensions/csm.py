@@ -11,7 +11,6 @@ from web3.module import Module
 from web3.types import BlockIdentifier
 
 from src import variables
-from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.providers.execution.contracts.CSFeeDistributor import CSFeeDistributor
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 

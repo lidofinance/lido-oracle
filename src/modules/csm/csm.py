@@ -143,16 +143,15 @@ class CSOracle(BaseModule, ConsensusModule):
                 tree_cid=cid,
                 distributed=distributed,
             ).as_tuple()
-        else:
-            logger.info({"msg": "No fee distributed so far, tree doesn't exist"})
 
-            return ReportData(
-                self.CONSENSUS_VERSION,
-                blockstamp.ref_slot,
-                tree_root=HexBytes(b""),
-                tree_cid="",
-                distributed=0,
-            ).as_tuple()
+        logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
+        return ReportData(
+            self.CONSENSUS_VERSION,
+            blockstamp.ref_slot,
+            tree_root=HexBytes(b""),
+            tree_cid="",
+            distributed=0,
+        ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
