@@ -135,22 +135,14 @@ class CSOracle(BaseModule, ConsensusModule):
                 self.w3.ipfs.pin(cid)
                 root = tree.root
 
-            return ReportData(
-                self.CONSENSUS_VERSION,
-                blockstamp.ref_slot,
-                tree_root=root,
-                tree_cid=cid,
-                distributed=distributed,
-            ).as_tuple()
-
         logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
 
         return ReportData(
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
-            tree_root=HexBytes(b""),
-            tree_cid="",
-            distributed=0,
+            tree_root=root,
+            tree_cid=cid,
+            distributed=distributed,
         ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
