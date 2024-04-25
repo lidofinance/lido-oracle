@@ -118,7 +118,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "Fetching tree by CID from IPFS", "cid": cid})
             tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
-            logger.info({"msg": "Restored tree from IPFS dump", "root": root})
+            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
 
             if tree.root.hex() != root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
@@ -131,7 +131,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if shares:
             if distributed:
                 tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-                logger.info({"msg": "New tree built for the report", "root": str(tree.root)})
+                logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
                 cid = self.w3.ipfs.upload(tree.encode())
                 self.w3.ipfs.pin(cid)
                 root = tree.root
@@ -193,13 +193,15 @@ class CSOracle(BaseModule, ConsensusModule):
                 r_ref_slot + converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
             )
 
+        logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
+
         # TODO: To think about the proper cache invalidation conditions.
         if self.frame_performance:
             if self.frame_performance.l_slot < l_ref_slot:
                 self.frame_performance = None
 
         if not self.frame_performance:
-            self.frame_performance = FramePerformance.try_read(l_ref_slot, r_ref_slot) or FramePerformance(
+            self.frame_performance = FramePerformance.try_read(l_ref_slot) or FramePerformance(
                 l_slot=l_ref_slot, r_slot=r_ref_slot
             )
 
