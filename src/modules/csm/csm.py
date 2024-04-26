@@ -180,19 +180,17 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "Collecting data for the report"})
         converter = Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
+        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         if not l_ref_slot:
-            l_ref_slot = converter.get_epoch_first_slot(EpochNumber(converter.frame_config.initial_epoch)) - 1
-        # NOTE: We're looking at the next frame slot optimistically to collect data in advance.
-        # TODO: Listen for refslot and collect data up to the finalized epoch until the new frame has found. So, fetch
-        # the data up to a min(finalized_epoch, ref_slot) if ref_slot > l_ref_slot, otherwise up to the finalized_epoch.
-
-        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+            # The very first report, no previous ref slot
+            l_ref_slot = r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
         if l_ref_slot == r_ref_slot:
-            # Look to the next frame ref_slot
-            r_ref_slot = SlotNumber(
-                l_ref_slot + converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame)) - 1
-            )
+            # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
+            # To calculate epochs range to collect the data
+            r_ref_slot = converter.get_epoch_last_slot(EpochNumber(
+                converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame
+            ))
 
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
