@@ -69,7 +69,7 @@ class Checkpoint:
 
     slot: SlotNumber  # last slot of the epoch
     duty_epochs: list[EpochNumber]  # max 255 elements
-    block_roots: list[BlockRoot]  # max 8192 elements
+    block_roots: list[BlockRoot | None]  # max 8192 elements
 
     def __init__(
         self,
