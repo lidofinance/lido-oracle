@@ -194,20 +194,8 @@ class CSOracle(BaseModule, ConsensusModule):
     def _collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
         logger.info({"msg": "Collecting data for the report"})
-        converter = Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        if not l_ref_slot:
-            # The very first report, no previous ref slot
-            l_ref_slot = r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
-        if l_ref_slot == r_ref_slot:
-            # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
-            # To calculate epochs range to collect the data
-            r_ref_slot = converter.get_epoch_last_slot(EpochNumber(
-                converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame
-            ))
-
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
         if self.frame_performance:
@@ -224,6 +212,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 r_slot=r_ref_slot,
             )
 
+        converter = self.converter(blockstamp)
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
@@ -245,6 +234,31 @@ class CSOracle(BaseModule, ConsensusModule):
             checkpoint.process(blockstamp)
         logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
         return self.frame_performance.is_coherent
+
+    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+
+        converter = self.converter(blockstamp)
+
+        # The very first report, no previous ref slot.
+        if not l_ref_slot:
+            l_ref_slot = SlotNumber(
+                r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
+            )
+
+        # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
+        # to calculate epochs range to collect the data.
+        if l_ref_slot == r_ref_slot:
+            r_ref_slot = converter.get_epoch_last_slot(
+                EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
+            )
+
+        return l_ref_slot, r_ref_slot
+
+    @lru_cache(maxsize=1)
+    def converter(self, blockstamp: BlockStamp) -> Web3Converter:
+        return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
     def _print_collect_result(self):
         assert self.frame_performance
