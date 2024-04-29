@@ -118,7 +118,7 @@ class Checkpoint:
 
     def _select_roots_to_check(
         self, duty_epoch: EpochNumber
-    ) -> list[BlockRoot]:
+    ) -> list[BlockRoot | None]:
         # inspired by the spec
         # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
         roots_to_check = []
