@@ -1,5 +1,6 @@
 import logging
 from http import HTTPStatus
+from typing import Literal
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.typings import BlockHeaderFullResponse, BlockDetailsResponse
@@ -26,6 +27,7 @@ def get_first_non_missed_slot(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
+    direction: Literal['back'] | Literal['forward'] = 'back'
 ) -> BlockDetailsResponse:
     """
     Get past closest non-missed slot and returns its details.
@@ -88,7 +90,7 @@ def get_first_non_missed_slot(
     if not existed_header:
         raise NoSlotsAvailable('No slots available for current report. Check your CL node.')
 
-    if ref_slot_is_missed:
+    if ref_slot_is_missed and direction == 'back':
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
         non_missed_header_parent_root = existed_header.data.header.message.parent_root

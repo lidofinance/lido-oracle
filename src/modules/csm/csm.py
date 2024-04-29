@@ -16,6 +16,7 @@ from src.modules.submodules.typings import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
@@ -52,6 +53,9 @@ class CSOracle(BaseModule, ConsensusModule):
         collected = self._collect_data(last_finalized_blockstamp)
         if not collected:
             # The data is not fully collected yet, wait for the next epoch
+            logger.info(
+                {"msg": "Data required for the report is not fully collected yet, waiting for the next finalized epoch"}
+            )
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -72,9 +76,21 @@ class CSOracle(BaseModule, ConsensusModule):
         self._print_collect_result()
 
         threshold = self.frame_performance.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
+        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
+        # in the inner frames assures the  l_block <= r_block.
         stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
-            self._slot_to_block_identifier(self.frame_performance.l_slot),
-            self._slot_to_block_identifier(self.frame_performance.r_slot),
+            get_first_non_missed_slot(
+                self.w3.cc,
+                self.frame_performance.l_slot,
+                blockstamp.slot_number,
+                direction='forward',
+            ).message.body.execution_payload.block_hash,
+            get_first_non_missed_slot(
+                self.w3.cc,
+                self.frame_performance.r_slot,
+                blockstamp.slot_number,
+                direction='back',
+            ).message.body.execution_payload.block_hash,
         )
 
         operators = self.module_validators_by_node_operators(blockstamp)

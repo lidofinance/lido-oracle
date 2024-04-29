@@ -25,7 +25,8 @@ def test_get_first_non_missed_slot(web3, consensus_client):
 
 
 @pytest.mark.unit
-def test_get_third_non_missed_slot(web3, consensus_client):
+@pytest.mark.usefixtures("consensus_client")
+def test_get_third_non_missed_slot_backward(web3):
     def get_block_header(_):
         setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
         if getattr(get_block_header, "call_count") == 3:
@@ -43,6 +44,28 @@ def test_get_third_non_missed_slot(web3, consensus_client):
     )
     assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
     assert int(slot_details.message.slot) == 139455
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("consensus_client")
+def test_get_third_non_missed_slot_forward(web3):
+    def get_block_header(_):
+        setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
+        if getattr(get_block_header, "call_count") == 3:
+            web3.cc.get_block_header = original
+        raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
+
+    finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
+
+    original = web3.cc.get_block_header
+    web3.cc.get_block_header = Mock(side_effect=get_block_header)
+    slot_details = get_first_non_missed_slot(
+        web3.cc,
+        slot=1541622,
+        last_finalized_slot_number=finalized_blockstamp.slot_number,
+        direction="forward"
+    )
+    assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
+    assert int(slot_details.message.slot) == 1541625
 
 
 @pytest.mark.unit
