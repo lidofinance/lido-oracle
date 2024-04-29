@@ -60,8 +60,8 @@ class CSM(Module):
         yield from (
             NodeOperatorId(id)
             for id in self.module.get_stuck_node_operators(
-                r_block,
                 l_block,
+                r_block,
             )
         )
 
