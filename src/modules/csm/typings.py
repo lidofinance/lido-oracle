@@ -67,6 +67,7 @@ class FramePerformance:
 
     def __post_init__(self) -> None:
         self.__schema__ = self.schema()
+        logger.info({"msg": f"New instance of {repr(self)} created"})
 
     @classmethod
     def schema(cls) -> str:
@@ -113,7 +114,7 @@ class FramePerformance:
                 obj = pickle.load(f)
                 assert obj
 
-                logger.info({"msg": f"Read {repr(obj)} from {file.absolute()}"})
+                logger.info({"msg": f"{repr(obj)} read from {file.absolute()}"})
 
                 # TODO: To think about a better way to check for schema changes.
                 if cls.schema() != obj.__schema__:
