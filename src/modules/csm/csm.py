@@ -210,14 +210,18 @@ class CSOracle(BaseModule, ConsensusModule):
 
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
-        # TODO: To think about the proper cache invalidation conditions.
         if self.frame_performance:
-            if self.frame_performance.l_slot < l_ref_slot:
+            # If the frame is extending we can reuse the cache.
+            if r_ref_slot > self.frame_performance.r_slot:
+                self.frame_performance.r_slot = r_ref_slot
+            # If the collected data overlaps the current frame, the cache should be invalidated.
+            if l_ref_slot > self.frame_performance.l_slot or r_ref_slot < self.frame_performance.r_slot:
                 self.frame_performance = None
 
         if not self.frame_performance:
-            self.frame_performance = FramePerformance.try_read(l_ref_slot) or FramePerformance(
-                l_slot=l_ref_slot, r_slot=r_ref_slot
+            self.frame_performance = FramePerformance.try_read(
+                l_slot=l_ref_slot,
+                r_slot=r_ref_slot,
             )
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous

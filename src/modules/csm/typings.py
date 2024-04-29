@@ -1,6 +1,8 @@
 import logging
+import os
 import pickle
 from dataclasses import dataclass, field
+from pathlib import Path
 from statistics import mean
 from typing import Any, Self
 
@@ -41,8 +43,7 @@ class AttestationsAggregate:
         return self.included / self.assigned
 
 
-# INFO: Using slots here to compare after loading and object from pickle.
-@dataclass(slots=True)
+@dataclass(slots=True, repr=False)
 class FramePerformance:
     """Data structure to store required data for performance calculation within the given frame."""
 
@@ -50,6 +51,7 @@ class FramePerformance:
     r_slot: SlotNumber
 
     aggr_per_val: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
+
     processed_epochs: set[EpochNumber] = field(default_factory=set)
     processed_roots: set[BlockRoot] = field(default_factory=set)
 
@@ -60,6 +62,8 @@ class FramePerformance:
     last_cid: str | None = None
 
     __schema__: str | None = None
+
+    EXTENSION = ".pkl"
 
     def __post_init__(self) -> None:
         self.__schema__ = self.schema()
@@ -92,31 +96,44 @@ class FramePerformance:
                 perf_data.included += 1 if validator['included'] else 0
                 self.aggr_per_val[key] = perf_data
 
-        with open(self.filename(self.l_slot), mode="wb") as f:
+        with self.buffer.open(mode="wb") as f:
             pickle.dump(self, f)
 
+        os.replace(self.buffer, self.file(self.l_slot, self.r_slot))
+
     @classmethod
-    def try_read(cls, l_slot: SlotNumber) -> Self | None:
+    def try_read(cls, l_slot: SlotNumber, r_slot: SlotNumber) -> Self:
         """Used to restore the object from the persistent storage."""
 
-        filename = cls.filename(l_slot)
-        obj = None
+        file = cls.file(l_slot, r_slot)
+        obj: Self | None = None
 
         try:
-            with open(filename, mode="rb") as f:
+            with file.open(mode="rb") as f:
                 obj = pickle.load(f)
+                assert obj
+
+                logger.info({"msg": f"Read {repr(obj)} from {file.absolute()}"})
+
                 # TODO: To think about a better way to check for schema changes.
                 if cls.schema() != obj.__schema__:
                     raise ValueError("Schema mismatch")
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.info({"msg": f"Unable to restore FramePerformance instance from {filename}", "error": str(e)})
+            logger.info({"msg": f"Unable to restore FramePerformance instance from {file.absolute()}", "error": str(e)})
 
-        return obj
+        return obj or cls(l_slot=l_slot, r_slot=r_slot)
 
     @property
     def is_coherent(self) -> bool:
         return (self.r_slot - self.l_slot) // 32 == len(self.processed_epochs)
 
-    @staticmethod
-    def filename(l_slot: SlotNumber) -> str:
-        return f"{l_slot}.pkl"
+    @classmethod
+    def file(cls, l_slot: SlotNumber, r_slot: SlotNumber) -> Path:
+        return Path(f"{l_slot}_{r_slot}").with_suffix(cls.EXTENSION)
+
+    @property
+    def buffer(self) -> Path:
+        return self.file(self.l_slot, self.r_slot).with_suffix(".buf")
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(l_slot={self.l_slot},r_slot={self.r_slot})"
