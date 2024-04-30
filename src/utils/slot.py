@@ -30,7 +30,7 @@ def get_first_non_missed_slot(
     direction: Literal['back'] | Literal['forward'] = 'back'
 ) -> BlockDetailsResponse:
     """
-    Get past closest non-missed slot and returns its details.
+    Get past/next closest non-missed slot and returns its details.
 
     Raise NoSlotsAvailable if all slots are missed in range [slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
@@ -57,7 +57,8 @@ def get_first_non_missed_slot(
     #    3rd tick - 21 slot is missed. Check next slot.
     #    4th tick - 22 slot is missed. Check next slot.
     #    5th tick - 23 slot exists!
-    #               Get `parent_root` of 23 slot and get its parent slot by this root
+    #               If we seek for the next non-missed slot, we're finished. Otherwise,
+    #               get `parent_root` of 23 slot and get its parent slot by this root
     #               In our case it is 18 slot because it's first non-missed slot before 23 slot.
     #
     #  So, in this strategy we always get parent slot of existed slot and can get the nearest slot for `ref_slot`
@@ -105,6 +106,7 @@ def get_first_non_missed_slot(
             )
 
     slot_details = cc.get_block_details(existed_header.data.root)
+    logger.info({'msg': f'Resolved to slot: {slot_details.message.slot}'})
     return slot_details
 
 

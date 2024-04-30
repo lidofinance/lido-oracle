@@ -65,7 +65,9 @@ class CSModule(Contract):
             r_block = BlockNumber(l_block - 1)
             l_block = BlockNumber(r_block - variables.EVENTS_SEARCH_STEP)
 
+    # TODO: Move to a base contract class.
     def is_deployed(self, block: BlockIdentifier) -> bool:
+        logger.info({"msg": f"Check that the contract {self.__class__.__name__} id deployed at {block=}"})
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
 
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:
