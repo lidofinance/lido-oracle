@@ -199,6 +199,8 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
         if self.frame_performance:
+            # If the cache is in memory, its left border should follow up the last ref slot.
+            assert self.frame_performance.l_slot <= l_ref_slot
             # If the frame is extending we can reuse the cache.
             if r_ref_slot > self.frame_performance.r_slot:
                 self.frame_performance.r_slot = r_ref_slot
