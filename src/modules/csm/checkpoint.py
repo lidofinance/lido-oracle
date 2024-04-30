@@ -1,7 +1,7 @@
 import logging
 import time
 from threading import Thread, Lock
-from typing import cast
+from typing import Any, Iterable, cast
 
 from src.modules.csm.typings import FramePerformance
 from src.providers.consensus.client import ConsensusClient
@@ -38,15 +38,33 @@ class CheckpointsFactory:
         def _prepare_checkpoint(_slot: SlotNumber, _duty_epochs: list[EpochNumber]):
             return Checkpoint(self.cc, self.converter, self.frame_performance, _slot, _duty_epochs)
 
-        processing_delay = finalized_epoch - (max(self.frame_performance.processed_epochs, default=0) or l_epoch)
-        checkpoint_step = min(self.MAX_CHECKPOINT_STEP, max(processing_delay, self.MIN_CHECKPOINT_STEP))
+        def _max_in_seq(items: Iterable[Any]) -> Any:
+            sorted_ = sorted(items)
+            assert sorted_
+            item = sorted_[0]
+            for curr in sorted_:
+                if curr - item > 1:
+                    break
+                item = curr
+            return item
+
+        l_epoch = _max_in_seq((l_epoch, *self.frame_performance.processed_epochs))
+        processing_delay = finalized_epoch - l_epoch
+
+        if l_epoch == r_epoch:
+            logger.info({"msg": "All epochs processed, no checkpoints required"})
+            return []
+
+        if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch < r_epoch:
+            logger.info({"msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay}"})
+            return []
 
         duty_epochs = cast(list[EpochNumber], list(range(l_epoch, r_epoch + 1)))
         checkpoints: list[Checkpoint] = []
         checkpoint_epochs = []
         for index, epoch in enumerate(duty_epochs, 1):
             checkpoint_epochs.append(epoch)
-            if index % checkpoint_step == 0 or epoch == r_epoch:
+            if index % self.MAX_CHECKPOINT_STEP == 0 or epoch == r_epoch:
                 checkpoint_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch + 1))
                 checkpoints.append(_prepare_checkpoint(checkpoint_slot, checkpoint_epochs))
                 logger.info(

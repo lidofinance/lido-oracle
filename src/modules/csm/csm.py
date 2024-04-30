@@ -232,7 +232,8 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(blockstamp)
-        logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
+        if checkpoints:
+            logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
         return self.frame_performance.is_coherent
 
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
