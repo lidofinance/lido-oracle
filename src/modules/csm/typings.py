@@ -1,9 +1,10 @@
 import logging
 import os
 import pickle
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from statistics import mean
+from threading import Timer
 from typing import Any, Self
 
 from hexbytes import HexBytes
@@ -43,6 +44,9 @@ class AttestationsAggregate:
         return self.included / self.assigned
 
 
+SCHEMA_VERSION = 1
+
+
 @dataclass(slots=True, repr=False)
 class FramePerformance:
     """Data structure to store required data for performance calculation within the given frame."""
@@ -57,22 +61,15 @@ class FramePerformance:
 
     stuck_operators: set[NodeOperatorId] = field(default_factory=set)
 
-    # XXX: Discussable fields (just to make it easier to debug failures).
-    to_distribute: int = 0
-    last_cid: str | None = None
+    version: int | None = None
 
-    __schema__: str | None = None
-
+    STATUS_INTERVAL = 300
     EXTENSION = ".pkl"
 
     def __post_init__(self) -> None:
-        self.__schema__ = self.schema()
         logger.info({"msg": f"New instance of {repr(self)} created"})
-
-    @classmethod
-    def schema(cls) -> str:
-        # pylint: disable=no-member
-        return str(cls.__slots__)  # type: ignore
+        self.version = self.version or SCHEMA_VERSION
+        self.status()
 
     @property
     def avg_perf(self) -> float:
@@ -100,13 +97,13 @@ class FramePerformance:
         with self.buffer.open(mode="wb") as f:
             pickle.dump(self, f)
 
-        os.replace(self.buffer, self.file(self.l_slot, self.r_slot))
+        os.replace(self.buffer, self.file())
 
     @classmethod
     def try_read(cls, l_slot: SlotNumber, r_slot: SlotNumber) -> Self:
         """Used to restore the object from the persistent storage."""
 
-        file = cls.file(l_slot, r_slot)
+        file = cls.file()
         obj: Self | None = None
 
         try:
@@ -115,10 +112,6 @@ class FramePerformance:
                 assert obj
 
                 logger.info({"msg": f"{repr(obj)} read from {file.absolute()}"})
-
-                # TODO: To think about a better way to check for schema changes.
-                if cls.schema() != obj.__schema__:
-                    raise ValueError("Schema mismatch")
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.info({"msg": f"Unable to restore FramePerformance instance from {file.absolute()}", "error": str(e)})
 
@@ -129,12 +122,35 @@ class FramePerformance:
         return (self.r_slot - self.l_slot) // 32 == len(self.processed_epochs)
 
     @classmethod
-    def file(cls, l_slot: SlotNumber, r_slot: SlotNumber) -> Path:
-        return Path(f"{l_slot}_{r_slot}").with_suffix(cls.EXTENSION)
+    def file(cls) -> Path:
+        return Path("cache").with_suffix(cls.EXTENSION)
 
     @property
     def buffer(self) -> Path:
-        return self.file(self.l_slot, self.r_slot).with_suffix(".buf")
+        return self.file().with_suffix(".buf")
+
+    def status(self) -> None:
+        logger.info({"msg": f"Processed {len(self.processed_epochs)} epochs in the frame {self.l_slot}:{self.r_slot}"})
+        Timer(self.STATUS_INTERVAL, self.status).start()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(l_slot={self.l_slot},r_slot={self.r_slot})"
+
+    def __setstate__(self, state: dict) -> None:
+        # @see https://github.com/python/cpython/blob/3.11/Lib/pickle.py#L1712-L1733
+        if not isinstance(state, tuple) and len(state) == 2:
+            raise ValueError("Unexpected 'state' structure")
+
+        _, slotstate = state
+        assert slotstate
+
+        fields_ = tuple(f.name for f in fields(self))
+        for k, v in slotstate.items():
+            if k in fields_:
+                setattr(self, k, v)
+
+        # TODO: To think about a better way to check for schema changes.
+        if not self.version or self.version != SCHEMA_VERSION:
+            raise ValueError("Unexpected version")
+
+        self.status()
