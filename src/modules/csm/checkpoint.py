@@ -3,9 +3,10 @@ import time
 from threading import Thread, Lock
 from typing import Any, Iterable, cast
 
-from src.modules.csm.typings import FramePerformance
+from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.typings import EpochNumber, BlockRoot, SlotNumber, BlockStamp
+from src.typings import EpochNumber, BlockRoot, SlotNumber, BlockStamp, ValidatorIndex
+from src.utils.range import seq
 from src.utils.web3converter import Web3Converter
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ lock = Lock()
 class CheckpointsFactory:
     cc: ConsensusClient
     converter: Web3Converter
-    frame_performance: FramePerformance
+    state: State
 
     # min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
     MIN_CHECKPOINT_STEP = 10
@@ -24,10 +25,10 @@ class CheckpointsFactory:
     # in the end we got 255 committees and 8192 block_roots to check them for every checkpoint
     MAX_CHECKPOINT_STEP = 255
 
-    def __init__(self, cc: ConsensusClient, converter: Web3Converter, frame_performance: FramePerformance):
+    def __init__(self, cc: ConsensusClient, converter: Web3Converter, state: State):
         self.cc = cc
         self.converter = converter
-        self.frame_performance = frame_performance
+        self.state = state
 
     def prepare_checkpoints(
         self,
@@ -36,7 +37,7 @@ class CheckpointsFactory:
         finalized_epoch: EpochNumber
     ):
         def _prepare_checkpoint(_slot: SlotNumber, _duty_epochs: list[EpochNumber]):
-            return Checkpoint(self.cc, self.converter, self.frame_performance, _slot, _duty_epochs)
+            return Checkpoint(self.cc, self.converter, self.state, _slot, _duty_epochs)
 
         def _max_in_seq(items: Iterable[Any]) -> Any:
             sorted_ = sorted(items)
@@ -48,7 +49,7 @@ class CheckpointsFactory:
                 item = curr
             return item
 
-        l_epoch = _max_in_seq((l_epoch, *self.frame_performance.processed_epochs))
+        l_epoch = _max_in_seq((l_epoch, *self.state.processed_epochs))
         processing_delay = finalized_epoch - l_epoch
 
         if l_epoch == r_epoch:
@@ -59,7 +60,8 @@ class CheckpointsFactory:
             logger.info({"msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay}"})
             return []
 
-        duty_epochs = cast(list[EpochNumber], list(range(l_epoch, r_epoch + 1)))
+        r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
+        duty_epochs = cast(list[EpochNumber], list(seq(l_epoch, r_epoch)))
         checkpoints: list[Checkpoint] = []
         checkpoint_epochs = []
         for index, epoch in enumerate(duty_epochs, 1):
@@ -83,7 +85,7 @@ class Checkpoint:
     converter: Web3Converter
 
     threads: list[Thread]
-    frame_performance: FramePerformance
+    state: State
 
     slot: SlotNumber  # last slot of the epoch
     duty_epochs: list[EpochNumber]  # max 255 elements
@@ -93,7 +95,7 @@ class Checkpoint:
         self,
         cc: ConsensusClient,
         converter: Web3Converter,
-        frame_performance: FramePerformance,
+        state: State,
         slot: SlotNumber,
         duty_epochs: list[EpochNumber]
     ):
@@ -103,7 +105,7 @@ class Checkpoint:
         self.duty_epochs = duty_epochs
         self.block_roots = []
         self.threads = []
-        self.frame_performance = frame_performance
+        self.state = state
 
     @property
     def free_threads(self):
@@ -111,7 +113,7 @@ class Checkpoint:
 
     def process(self, last_finalized_blockstamp: BlockStamp):
         for duty_epoch in self.duty_epochs:
-            if duty_epoch in self.frame_performance.processed_epochs:
+            if duty_epoch in self.state.processed_epochs:
                 continue
             if not self.block_roots:
                 self._get_block_roots()
@@ -140,9 +142,9 @@ class Checkpoint:
         # inspired by the spec
         # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
         roots_to_check = []
-        slots = range(
+        slots = seq(
             self.converter.get_epoch_first_slot(duty_epoch),
-            self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1)) + 1
+            self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1))
         )
         for slot_to_check in slots:
             # TODO: get the magic number from the CL spec
@@ -167,16 +169,24 @@ class Checkpoint:
     ):
         logger.info({"msg": f"Process epoch {duty_epoch}"})
         start = time.time()
-        checked_roots = set()
         committees = self._prepare_committees(last_finalized_blockstamp, EpochNumber(duty_epoch))
         for root in roots_to_check:
             if root is None:
                 continue
             slot_data = self.cc.get_block_details_raw(BlockRoot(root))
             self._process_attestations(slot_data, committees)
-            checked_roots.add(root)
+
         with lock:
-            self.frame_performance.dump(duty_epoch, committees, checked_roots)
+            for committee in committees.values():
+                for validator in committee:
+                    self.state.inc(
+                        ValidatorIndex(int(validator['index'])),
+                        included=validator['included'],
+                    )
+            self.state.processed_epochs.add(duty_epoch)
+            self.state.commit()
+            self.state.status()
+
         logger.info({"msg": f"Epoch {duty_epoch} processed in {time.time() - start:.2f} seconds"})
 
     def _prepare_committees(self, last_finalized_blockstamp: BlockStamp, epoch: int) -> dict:

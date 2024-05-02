@@ -136,3 +136,7 @@ dmypy.json
 
 # vim
 *.swp
+
+# Cache
+*.pkl
+*.buf
