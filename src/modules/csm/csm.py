@@ -72,6 +72,7 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+        # pylint: disable=too-many-statements
         # pylint: disable=too-many-branches
         assert self.state
 
@@ -156,7 +157,7 @@ class CSOracle(BaseModule, ConsensusModule):
         # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
         # when the tree has only one leaf.
         if shares:
-            shares[self.w3.csm.module.MAX_OPERATORS_COUNT] = 0
+            shares[self.w3.csm.module.MAX_OPERATORS_COUNT] = 0  # type: ignore
 
         if distributed:
             tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
