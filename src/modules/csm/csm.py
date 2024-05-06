@@ -261,6 +261,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
+        # TODO: More than one frame distance for the first report is not handled.
         # The very first report, no previous ref slot.
         if not l_ref_slot:
             l_ref_slot = SlotNumber(
