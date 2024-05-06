@@ -5,7 +5,7 @@ import pickle
 from typing import Self
 from collections import UserDict
 from dataclasses import dataclass, field
-from statistics import mean, StatisticsError
+from statistics import mean
 from pathlib import Path
 
 from src.typings import EpochNumber, ValidatorIndex
