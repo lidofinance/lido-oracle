@@ -17,7 +17,7 @@ from src.modules.submodules.typings import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.range import seq
+from src.utils.range import sequence
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
@@ -252,7 +252,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if checkpoints:
             logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
 
-        return all(epoch in self.state.processed_epochs for epoch in seq(l_epoch, r_epoch))
+        return all(epoch in self.state.processed_epochs for epoch in sequence(l_epoch, r_epoch))
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:

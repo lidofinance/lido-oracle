@@ -6,7 +6,7 @@ from typing import Any, Iterable, cast
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.typings import EpochNumber, BlockRoot, SlotNumber, BlockStamp, ValidatorIndex
-from src.utils.range import seq
+from src.utils.range import sequence
 from src.utils.web3converter import Web3Converter
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class CheckpointsFactory:
             return []
 
         r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
-        duty_epochs = cast(list[EpochNumber], list(seq(l_epoch, r_epoch)))
+        duty_epochs = cast(list[EpochNumber], list(sequence(l_epoch, r_epoch)))
         checkpoints: list[Checkpoint] = []
         checkpoint_epochs = []
         for index, epoch in enumerate(duty_epochs, 1):
@@ -142,7 +142,7 @@ class Checkpoint:
         # inspired by the spec
         # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
         roots_to_check = []
-        slots = seq(
+        slots = sequence(
             self.converter.get_epoch_first_slot(duty_epoch),
             self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1))
         )
