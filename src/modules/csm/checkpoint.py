@@ -128,8 +128,13 @@ class Checkpoint:
                 try:
                     future.result()
                 except Exception as e:
-                    logger.error({"msg": f"Error processing epoch {duty_epoch} in thread", "error": str(e)})
-                    raise e
+                    logger.error({
+                        "msg": f"Error processing epoch {duty_epoch} in thread, " +
+                               "wait the current threads and shutdown the executor",
+                        "error": str(e)
+                    })
+                    ext.shutdown(wait=True, cancel_futures=True)
+                    raise ValueError(e)
 
     def _select_roots_to_check(
         self, duty_epoch: EpochNumber
