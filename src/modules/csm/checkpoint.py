@@ -133,6 +133,9 @@ class Checkpoint:
                                "wait the current threads and shutdown the executor",
                         "error": str(e)
                     })
+                    # Wait only for the current running threads to prevent
+                    # a lot of similar error-possible requests to the consensus node.
+                    # Raise the error after a batch of running threads is finished
                     ext.shutdown(wait=True, cancel_futures=True)
                     raise ValueError(e) from e
 
