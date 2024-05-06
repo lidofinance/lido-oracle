@@ -1,12 +1,14 @@
+from unittest.mock import Mock
+
 import pytest
 
-from src.providers.consensus.typings import ValidatorState
-from src.providers.keys.typings import LidoKey
+from src.providers.consensus.types import ValidatorState
+from src.providers.keys.types import LidoKey
 from src.services.exit_order_iterator import ExitOrderIterator
 from src.services.exit_order_iterator_state import NodeOperatorPredictableState, ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import ChainConfigFactory
+from tests.factory.configs import ChainConfigFactory, OracleReportLimitsFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
@@ -137,9 +139,6 @@ def mock_exit_order_iterator_state_service(monkeypatch):
     class MockedExitOrderIteratorStateService(ExitOrderIteratorStateService):
         pass
 
-    inner_ = lambda _: None
-    inner_.max_validator_exit_requests_per_report = 100
-    MockedExitOrderIteratorStateService.get_oracle_report_limits = lambda *_: inner_
     MockedExitOrderIteratorStateService.get_operator_network_penetration_threshold = lambda *_: 0.05
     MockedExitOrderIteratorStateService.get_operators_with_last_exited_validator_indexes = lambda *_: {}
     MockedExitOrderIteratorStateService.get_exitable_lido_validators = lambda *_: []
@@ -153,6 +152,10 @@ def mock_exit_order_iterator_state_service(monkeypatch):
 
 @pytest.mark.unit
 def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100)
+    )
+
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
     web3.lido_validators.get_lido_node_operators = lambda _: []
     web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
@@ -170,6 +173,10 @@ def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_or
 
 @pytest.mark.unit
 def test_exit_order_iterator_next(web3, lido_validators, contracts, mock_exit_order_iterator_state_service):
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(max_validator_exit_requests_per_report=100)
+    )
+
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
     web3.lido_validators.get_lido_node_operators = lambda _: []
     web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []

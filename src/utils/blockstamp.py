@@ -1,7 +1,7 @@
 from web3.types import Timestamp
 
-from src.providers.consensus.typings import BlockDetailsResponse
-from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp, BlockStamp, BlockNumber
+from src.providers.consensus.types import BlockDetailsResponse
+from src.types import SlotNumber, EpochNumber, ReferenceBlockStamp, BlockStamp, BlockNumber
 
 
 def build_reference_blockstamp(

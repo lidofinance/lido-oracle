@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, LidoValidatorsProvider
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
     LidoKeyFactory,
@@ -11,6 +11,7 @@ from tests.factory.no_registry import (
     StakingModuleFactory,
     ValidatorFactory,
 )
+
 
 blockstamp = ReferenceBlockStampFactory.build()
 

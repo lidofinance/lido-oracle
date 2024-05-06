@@ -1,4 +1,4 @@
-from src.modules.submodules.typings import MemberInfo
+from src.modules.submodules.types import MemberInfo
 from tests.factory.web3_factory import Web3Factory
 
 

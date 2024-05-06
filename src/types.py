@@ -18,6 +18,10 @@ StateRoot = NewType('StateRoot', HexStr)
 BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
 
+StakingModuleId = NewType('StakingModuleId', int)
+NodeOperatorId = NewType('NodeOperatorId', int)
+NodeOperatorGlobalIndex = tuple[StakingModuleId, NodeOperatorId]
+
 BlockHash = NewType('BlockHash', HexStr)
 BlockNumber = NewType('BlockNumber', int)
 

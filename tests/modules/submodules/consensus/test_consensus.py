@@ -4,13 +4,12 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.modules.accounting.typings import Account
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import BeaconSpecResponse
-from src.typings import BlockStamp, ReferenceBlockStamp
-from tests.conftest import get_blockstamp_by_state
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import BeaconSpecResponse
+from src.types import BlockStamp, ReferenceBlockStamp
+from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory
 
@@ -65,7 +64,7 @@ def set_report_account(monkeypatch):
 
 
 @pytest.mark.unit
-def test_get_latest_blockstamp(consensus):
+def test_get_latest_blockstamp(consensus, set_no_account):
     bs = consensus._get_latest_blockstamp()
     assert isinstance(bs, BlockStamp)
 
@@ -120,7 +119,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 # ------ Get block for report tests ----------
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
     current_frame = consensus.get_current_frame(bs)
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
@@ -132,7 +131,7 @@ def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog):
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
     member_info = consensus.get_member_info(bs)
     member_info.deadline_slot = bs.slot_number - 1
@@ -165,7 +164,7 @@ def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: Consens
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog, set_no_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     member_info = consensus.get_member_info(latest_blockstamp)
     member_info.is_fast_lane = False
@@ -178,7 +177,7 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, c
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog):
+def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog, set_no_account):
     latest_blockstamp = get_blockstamp_by_state(web3, 'head')
     blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
     assert isinstance(blockstamp, BlockStamp)

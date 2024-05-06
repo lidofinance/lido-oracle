@@ -20,23 +20,23 @@ from src.metrics.prometheus.ejector import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.typings import EjectorProcessingState, ReportData
+from src.modules.ejector.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.providers.consensus.typings import Validator
+from src.providers.consensus.types import Validator
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp
-from src.utils.abi import named_tuple_to_dataclass
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
 )
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
-from src.web3py.typings import Web3
+from src.web3py.extensions.lido_validators import LidoValidator
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,8 @@ class Ejector(BaseModule, ConsensusModule):
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
     def __init__(self, w3: Web3):
-        self.report_contract = w3.lido_contracts.validators_exit_bus_oracle
+        self.report_contract: ExitBusOracleContract = w3.lido_contracts.validators_exit_bus_oracle
+
         super().__init__(w3)
 
         self.prediction_service = RewardsPredictionService(w3)
@@ -109,7 +110,7 @@ class Ejector(BaseModule, ConsensusModule):
         return report_data.as_tuple()
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        to_withdraw_amount = self.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+        to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
         logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
 
         EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
@@ -185,11 +186,8 @@ class Ejector(BaseModule, ConsensusModule):
 
         return validators_to_eject
 
-    def _is_paused(self, blockstamp: ReferenceBlockStamp) -> bool:
-        return self.report_contract.functions.isPaused().call(block_identifier=blockstamp.block_hash)
-
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        on_pause = self._is_paused(blockstamp)
+        on_pause = self.report_contract.is_paused(blockstamp.block_hash)
         CONTRACT_ON_PAUSE.labels('reporting').set(on_pause)
         logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
         return not on_pause
@@ -218,31 +216,11 @@ class Ejector(BaseModule, ConsensusModule):
         return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
 
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
-        total_el_balance = Wei(
+        return Wei(
             self.w3.lido_contracts.get_el_vault_balance(blockstamp) +
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp) +
-            self._get_buffer_ether(blockstamp)
+            self.w3.lido_contracts.lido.get_buffered_ether(blockstamp.block_hash)
         )
-        return total_el_balance
-
-    def _get_buffer_ether(self, blockstamp: BlockStamp) -> Wei:
-        """
-        The reserved buffered ether is min(current_buffered_ether, unfinalized_withdrawal_requests_amount)
-        We can skip calculating reserved buffer for ejector, because in case if
-        (unfinalized_withdrawal_requests_amount <= current_buffered_ether)
-        We won't eject validators at all, because we have enough eth to fulfill all requests.
-        """
-        return Wei(
-            self.w3.lido_contracts.lido.functions.getBufferedEther().call(
-                block_identifier=blockstamp.block_hash
-            )
-        )
-
-    def get_total_unfinalized_withdrawal_requests_amount(self, blockstamp: BlockStamp) -> Wei:
-        unfinalized_steth = self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
-            block_identifier=blockstamp.block_hash,
-        )
-        return unfinalized_steth
 
     def _get_predicted_withdrawable_epoch(
         self,
@@ -330,16 +308,8 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
         return churn_limit
 
-    def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
-        ps = named_tuple_to_dataclass(
-            self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
-            EjectorProcessingState,
-        )
-        logger.info({'msg': 'Fetch processing state.', 'value': ps})
-        return ps
-
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        processing_state = self._get_processing_state(blockstamp)
+        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
         return processing_state.data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:

@@ -4,9 +4,9 @@ from enum import Enum
 
 from hexbytes import HexBytes
 
-from src.modules.submodules.typings import ZERO_HASH
-from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
-from src.web3py.typings import Web3
+from src.modules.submodules.types import ZERO_HASH
+from src.types import NodeOperatorGlobalIndex
+from src.web3py.types import Web3
 
 
 class ItemType(Enum):

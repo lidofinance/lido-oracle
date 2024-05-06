@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from more_itertools import ilen
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.modules.submodules.typings import ChainConfig
+from src.modules.submodules.types import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 
 @dataclass
@@ -23,8 +23,8 @@ class NodeOperatorPredictableState:
 class ExitOrderIteratorStateService(LidoValidatorStateService):
     """Service prepares lido operator statistic, which used to form validators queue in right order"""
 
-    def __init__(self, web3: Web3, blockstamp: ReferenceBlockStamp):
-        super().__init__(web3)
+    def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp):
+        super().__init__(w3)
 
         self._operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         self._operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
@@ -108,11 +108,8 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
         )
 
     def get_operator_network_penetration_threshold(self, blockstamp: ReferenceBlockStamp) -> float:
-        exiting_keys_delayed_border_in_slots_bytes = self.w3.lido_contracts.oracle_daemon_config.functions.get(
-            'NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP'
-        ).call(block_identifier=blockstamp.block_hash)
-
-        return self.w3.to_int(exiting_keys_delayed_border_in_slots_bytes) / TOTAL_BASIS_POINTS
+        delay_border = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(blockstamp.block_hash)
+        return delay_border / TOTAL_BASIS_POINTS
 
     @staticmethod
     def count_operator_validators_stats(
