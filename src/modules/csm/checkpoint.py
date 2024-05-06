@@ -134,7 +134,7 @@ class Checkpoint:
                         "error": str(e)
                     })
                     ext.shutdown(wait=True, cancel_futures=True)
-                    raise ValueError(e)
+                    raise ValueError(e) from e
 
     def _select_roots_to_check(
         self, duty_epoch: EpochNumber
