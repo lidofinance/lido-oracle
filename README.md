@@ -175,7 +175,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                  |
 | `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                |
 | `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                    |
-| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue (0 = infinity)                                                                                                                  | False    | `3000`                  |
+| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue                                                                                                                                 | False    | `3000`                  |
 | `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                     |
 | `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                   |
 | `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                   |
@@ -305,7 +305,7 @@ export KEYS_API_URI=...
 export LIDO_LOCATOR_ADDRESS=...
 export CSM_ORACLE_ADDRESS=...
 export CSM_MODULE_ADDRESS=...
-export MAX_CYCLE_LIFETIME_IN_SECONDS=0
+export MAX_CYCLE_LIFETIME_IN_SECONDS=60000  # Reasonable high value to make sure the oracle has enough time to process the whole frame.
 ```
 
 Run oracle module

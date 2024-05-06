@@ -264,7 +264,7 @@ class ConsensusModule(ABC):
         logger.info({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._encode_data_hash(report_data)
-        logger.info({'msg': 'Calculate report hash.', 'value': report_hash})
+        logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
         # We need to check whether report has unexpected data before sending.
         # otherwise we have to check it manually.
         if not self.is_reporting_allowed(blockstamp):

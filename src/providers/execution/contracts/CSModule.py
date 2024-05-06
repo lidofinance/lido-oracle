@@ -3,7 +3,7 @@ import logging
 from itertools import groupby
 from typing import Callable, Iterable, cast
 
-from eth_typing.evm import ChecksumAddress
+from eth_typing import BlockNumber, ChecksumAddress
 from web3.contract.contract import Contract, ContractEvent
 from web3.types import BlockIdentifier, EventData
 
@@ -24,13 +24,15 @@ class CSModule(Contract):
     def get_stuck_node_operators(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable:
         """Returns node operators assumed to be stuck for the given frame (defined by the blockstamps)"""
 
-        l_block_number = int(self.w3.eth.get_block(l_block)["number"])  # type: ignore
+        l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
+        r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
+        assert l_block_number <= r_block_number
 
         by_no_id: Callable[[EventData], int] = lambda e: int(
             e["args"]["nodeOperatorId"]
         )  # TODO: Maybe it's int already?
 
-        events = sorted(self.get_stuck_keys_events(r_block), key=by_no_id)
+        events = sorted(self.get_stuck_keys_events(r_block_number), key=by_no_id)
         for no_id, group in groupby(events, key=by_no_id):
             last_event = sorted(tuple(group), key=lambda e: e["blockNumber"])[-1]
             # Operators unstucked at the very beginning of the frame are fine.
@@ -42,12 +44,13 @@ class CSModule(Contract):
 
             yield no_id
 
-    def get_stuck_keys_events(self, block: BlockIdentifier) -> Iterable[EventData]:
+    # TODO: Make a cache for the events?
+    def get_stuck_keys_events(self, r_block: BlockNumber) -> Iterable[EventData]:
         """Fetch all the StuckSigningKeysCountChanged events up to the given block (closed interval)"""
 
-        r_block = int(self.w3.eth.get_block(block)["number"])  # type: ignore
-        l_block = r_block - variables.EVENTS_SEARCH_STEP
-        l_block = 0 if l_block < 0 else l_block
+        assert variables.EVENTS_SEARCH_STEP
+
+        l_block = BlockNumber(max(0, r_block - variables.EVENTS_SEARCH_STEP))
 
         while l_block >= 0:
             logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{r_block}]"})
@@ -60,10 +63,12 @@ class CSModule(Contract):
             if not self.is_deployed(l_block):
                 break
 
-            r_block = l_block - 1
-            l_block = r_block - variables.EVENTS_SEARCH_STEP
+            r_block = BlockNumber(l_block - 1)
+            l_block = BlockNumber(r_block - variables.EVENTS_SEARCH_STEP)
 
+    # TODO: Move to a base contract class.
     def is_deployed(self, block: BlockIdentifier) -> bool:
+        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}"})
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
 
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:

@@ -76,7 +76,7 @@ PROMETHEUS_PREFIX = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 HEALTHCHECK_SERVER_PORT = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
-MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000)) or None
+MAX_CYCLE_LIFETIME_IN_SECONDS = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
 
 
 def check_all_required_variables():

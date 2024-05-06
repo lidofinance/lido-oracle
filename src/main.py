@@ -79,6 +79,7 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize keys api client.'})
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
+    logger.info({'msg': 'Check configured providers.'})
     check_providers_chain_ids(web3, cc, kac)
 
     web3.attach_modules({

@@ -43,13 +43,13 @@ class CSM(Module):
         return result
 
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
-        result = self.fee_distributor.tree_root(blockstamp.block_hash)
-        logger.info({"msg": f"CSM distributor latest tree root {result}"})
-        return HexBytes(result)
+        result = HexBytes(self.fee_distributor.tree_root(blockstamp.block_hash))
+        logger.info({"msg": f"CSM distributor latest tree root {repr(result)}"})
+        return result
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
-        logger.info({"msg": f"CSM distributor latest tree CID {result}"})
+        logger.info({"msg": f"CSM distributor latest tree CID '{result}'"})
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_csm_stuck_node_operators(
@@ -60,8 +60,8 @@ class CSM(Module):
         yield from (
             NodeOperatorId(id)
             for id in self.module.get_stuck_node_operators(
-                r_block,
                 l_block,
+                r_block,
             )
         )
 

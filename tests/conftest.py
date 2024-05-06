@@ -8,7 +8,7 @@ from web3.types import Timestamp
 
 import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
+from src.typings import SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
 from src.web3py.typings import Web3
 
@@ -141,7 +141,7 @@ def lido_validators(web3, consensus_client, keys_api_client):
     )
 
 
-def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
+def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
     root = w3.cc.get_block_root(state_id).root
     slot_details = w3.cc.get_block_details(root)
 

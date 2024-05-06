@@ -8,19 +8,26 @@ from web3.types import BlockIdentifier
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsFactory
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
-from src.modules.csm.typings import FramePerformance, ReportData
+from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.typings import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.range import sequence
+from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
+
+
+class InvalidState(Exception):
+    ...
 
 
 class CSOracle(BaseModule, ConsensusModule):
@@ -38,20 +45,21 @@ class CSOracle(BaseModule, ConsensusModule):
     CONTRACT_VERSION = 1
 
     report_contract: CSFeeOracle
-    frame_performance: FramePerformance | None
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
-        self.frame_performance = None
+        self.state: State | None = None
         super().__init__(w3)
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        collected = self._collect_data(last_finalized_blockstamp)
+        collected = self.collect_data(last_finalized_blockstamp)
         if not collected:
-            # The data is not fully collected yet, wait for the next epoch
+            logger.info(
+                {"msg": "Data required for the report is not fully collected yet. Waiting for the next finalized epoch"}
+            )
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -65,16 +73,31 @@ class CSOracle(BaseModule, ConsensusModule):
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         # pylint: disable=too-many-branches
+        assert self.state
 
-        assert self.frame_performance
-        assert self.frame_performance.is_coherent
+        try:
+            self.validate_state(blockstamp, full=True)
+        except InvalidState as ex:
+            raise ValueError("Unable to build report") from ex
+        self.state.status()
 
-        self._print_collect_result()
-
-        threshold = self.frame_performance.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
+        threshold = self.state.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
+        # in the inner frames assures the  l_block <= r_block.
         stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
-            self._slot_to_block_identifier(self.frame_performance.l_slot),
-            self._slot_to_block_identifier(self.frame_performance.r_slot),
+            get_first_non_missed_slot(
+                self.w3.cc,
+                l_ref_slot,
+                blockstamp.slot_number,
+                direction='forward',
+            ).message.body.execution_payload.block_hash,
+            get_first_non_missed_slot(
+                self.w3.cc,
+                r_ref_slot,
+                blockstamp.slot_number,
+                direction='back',
+            ).message.body.execution_payload.block_hash,
         )
 
         operators = self.module_validators_by_node_operators(blockstamp)
@@ -88,7 +111,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
             for v in validators:
                 try:
-                    perf = self.frame_performance.aggr_per_val[ValidatorIndex(int(v.index))].perf
+                    perf = self.state[ValidatorIndex(int(v.index))].perf
                     if perf > threshold:
                         portion += 1
                 except KeyError:
@@ -175,35 +198,44 @@ class CSOracle(BaseModule, ConsensusModule):
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
 
-    def _collect_data(self, blockstamp: BlockStamp) -> bool:
+    def validate_state(self, blockstamp: BlockStamp, full: bool = False) -> None:
+        assert self.state
+        converter = self.converter(blockstamp)
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        for epoch in self.state.processed_epochs:
+            if l_epoch <= epoch <= r_epoch:
+                continue
+            logger.info({"msg": f"Invalid state: processed {epoch=}, but range is [{l_epoch};{r_epoch}]"})
+            raise InvalidState()
+
+        if full:
+            for epoch in sequence(l_epoch, r_epoch):
+                if epoch not in self.state.processed_epochs:
+                    logger.info({"msg": f"Invalid state: {epoch} was not processed"})
+                    raise InvalidState()
+
+    def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
         logger.info({"msg": "Collecting data for the report"})
-        converter = Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        if not l_ref_slot:
-            # The very first report, no previous ref slot
-            l_ref_slot = r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
-        if l_ref_slot == r_ref_slot:
-            # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
-            # To calculate epochs range to collect the data
-            r_ref_slot = converter.get_epoch_last_slot(EpochNumber(
-                converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame
-            ))
-
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
-        # TODO: To think about the proper cache invalidation conditions.
-        if self.frame_performance:
-            if self.frame_performance.l_slot < l_ref_slot:
-                self.frame_performance = None
+        self.state = self.state or State.load()
 
-        if not self.frame_performance:
-            self.frame_performance = FramePerformance.try_read(l_ref_slot) or FramePerformance(
-                l_slot=l_ref_slot, r_slot=r_ref_slot
-            )
+        try:
+            self.validate_state(blockstamp)
+        except InvalidState:
+            logger.info({"msg": "Discarding invalidated state cache"})
+            self.state.clear()
+            self.state.commit()
 
+        self.state.status()
+
+        converter = self.converter(blockstamp)
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
@@ -212,31 +244,49 @@ class CSOracle(BaseModule, ConsensusModule):
             return False
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
-        factory = CheckpointsFactory(self.w3.cc, converter, self.frame_performance)
+        factory = CheckpointsFactory(self.w3.cc, converter, self.state)
         checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
 
         start = time.time()
         for checkpoint in checkpoints:
+            # TODO: Check that we still need to check these checkpoints.
             if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
-                # checkpoint isn't finalized yet, can't be processed
+                logger.info({"msg": f"Checkpoint for slot {checkpoint.slot} is not finalized yet"})
                 break
             logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(blockstamp)
-        logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
-        return self.frame_performance.is_coherent
+        if checkpoints:
+            logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
 
-    def _print_collect_result(self):
-        assert self.frame_performance
-        assigned = 0
-        inc = 0
-        for _, aggr in self.frame_performance.aggr_per_val.items():
-            assigned += aggr.assigned
-            inc += aggr.included
+        return all(epoch in self.state.processed_epochs for epoch in sequence(l_epoch, r_epoch))
 
-        logger.info({"msg": f"Assigned: {assigned}"})
-        logger.info({"msg": f"Included: {inc}"})
-        logger.info({"msg": f"Average performance: {self.frame_performance.avg_perf}"})
+    @lru_cache(maxsize=1)
+    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+
+        converter = self.converter(blockstamp)
+
+        # TODO: More than one frame distance for the first report is not handled.
+        # The very first report, no previous ref slot.
+        if not l_ref_slot:
+            l_ref_slot = SlotNumber(
+                r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
+            )
+
+        # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
+        # to calculate epochs range to collect the data.
+        if l_ref_slot == r_ref_slot:
+            r_ref_slot = converter.get_epoch_last_slot(
+                EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
+            )
+
+        return l_ref_slot, r_ref_slot
+
+    @lru_cache(maxsize=1)
+    def converter(self, blockstamp: BlockStamp) -> Web3Converter:
+        return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
     def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
         block = self.w3.cc.get_block_details(slot)
