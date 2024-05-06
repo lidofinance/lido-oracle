@@ -76,7 +76,7 @@ class CSOracle(BaseModule, ConsensusModule):
         assert self.state
 
         try:
-            self.validate_state(blockstamp)
+            self.validate_state(blockstamp, full=True)
         except InvalidState as ex:
             raise ValueError("Unable to build report") from ex
         self.state.status()
@@ -198,17 +198,24 @@ class CSOracle(BaseModule, ConsensusModule):
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
 
-    def validate_state(self, blockstamp) -> None:
+    def validate_state(self, blockstamp: BlockStamp, full: bool = False) -> None:
         assert self.state
         converter = self.converter(blockstamp)
         l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
         for epoch in self.state.processed_epochs:
             if l_epoch <= epoch <= r_epoch:
                 continue
             logger.info({"msg": f"Invalid state: processed {epoch=}, but range is [{l_epoch};{r_epoch}]"})
-            raise InvalidState
+            raise InvalidState()
+
+        if full:
+            for epoch in sequence(l_epoch, r_epoch):
+                if epoch not in self.state.processed_epochs:
+                    logger.info({"msg": f"Invalid state: {epoch} was not processed"})
+                    raise InvalidState()
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
