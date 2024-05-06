@@ -48,8 +48,9 @@ class CSModule(Contract):
     def get_stuck_keys_events(self, r_block: BlockNumber) -> Iterable[EventData]:
         """Fetch all the StuckSigningKeysCountChanged events up to the given block (closed interval)"""
 
-        l_block = BlockNumber(r_block - variables.EVENTS_SEARCH_STEP)
-        l_block = BlockNumber(0) if l_block < 0 else l_block
+        assert variables.EVENTS_SEARCH_STEP
+
+        l_block = BlockNumber(max(0, r_block - variables.EVENTS_SEARCH_STEP))
 
         while l_block >= 0:
             logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{r_block}]"})
