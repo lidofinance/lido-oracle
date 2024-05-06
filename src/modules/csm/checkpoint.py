@@ -1,7 +1,6 @@
 import logging
 import time
-
-from threading import Thread, Lock
+from threading import Lock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterable, cast
 
@@ -86,14 +85,9 @@ class CheckpointsFactory:
 
 
 class Checkpoint:
-    # TODO: should be configurable or calculated based on the system resources
-    MAX_THREADS: int = 4
-
     cc: ConsensusClient
     converter: Web3Converter
 
-    threads: list[Thread]
-    thread_exception: Exception
     state: State
 
     slot: SlotNumber  # last slot of the epoch
@@ -113,12 +107,7 @@ class Checkpoint:
         self.slot = slot
         self.duty_epochs = duty_epochs
         self.block_roots = []
-        self.threads = []
         self.state = state
-
-    @property
-    def free_threads(self):
-        return self.MAX_THREADS - len(self.threads)
 
     def process(self, last_finalized_blockstamp: BlockStamp):
         def _unprocessed():
@@ -141,14 +130,6 @@ class Checkpoint:
                 except Exception as e:
                     logger.error({"msg": f"Error processing epoch {duty_epoch} in thread", "error": str(e)})
                     raise e
-
-    def _await_all_threads(self):
-        while self.threads:
-            self._await_oldest_thread()
-
-    def _await_oldest_thread(self):
-        old = self.threads.pop(0)
-        old.join()
 
     def _select_roots_to_check(
         self, duty_epoch: EpochNumber
