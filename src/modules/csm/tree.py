@@ -26,7 +26,7 @@ class Tree:
 
         try:
             return cls(StandardMerkleTree.load(json.loads(content)))
-        except json.JSONDecodeError as e:  # TODO: yaml is a way better, but no support out of the box.
+        except json.JSONDecodeError as e:
             raise ValueError("Unsupported tree format") from e
 
     def encode(self) -> bytes:
