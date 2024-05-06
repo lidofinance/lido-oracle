@@ -152,13 +152,18 @@ class CSOracle(BaseModule, ConsensusModule):
                 no_id, amount = v["value"]
                 shares[no_id] += amount
 
+        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
+        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
+        # when the tree has only one leaf.
         if shares:
-            if distributed:
-                tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-                logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
-                cid = self.w3.ipfs.upload(tree.encode())
-                self.w3.ipfs.pin(cid)
-                root = tree.root
+            shares[self.w3.csm.module.MAX_OPERATORS_COUNT] = 0
+
+        if distributed:
+            tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+            logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+            cid = self.w3.ipfs.upload(tree.encode())
+            self.w3.ipfs.pin(cid)
+            root = tree.root
 
         if root == ZERO_HASH:
             logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
