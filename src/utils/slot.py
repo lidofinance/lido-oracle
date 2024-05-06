@@ -95,16 +95,25 @@ def get_first_non_missed_slot(
         # Ref slot is missed, and we have next non-missed slot.
         # We should get parent root of this non-missed slot
         non_missed_header_parent_root = existed_header.data.header.message.parent_root
-
         existed_header = cc.get_block_header(non_missed_header_parent_root)
-        _check_block_header(existed_header)
 
         if int(existed_header.data.header.message.slot) >= slot:
             raise InconsistentData(
-                "Parent root next to the ref slot's existing header doesn't match the expected slot. "
-                'Probably problem with the consensus node.'
+                "Parent root next to the ref slot's existing header doesn't match the expected slot.\n"
+                'Probably, a problem with the consensus node.'
             )
 
+    if direction == 'forward':
+        prev_header = cc.get_block_header(existed_header.data.header.message.parent_root)
+        _check_block_header(prev_header)
+
+        if int(prev_header.data.header.message.slot) > slot:
+            raise InconsistentData(
+                'The next found ref slot is not a descendant of the provided one.\n'
+                'Probably, a problem with the consensus node.'
+            )
+
+    _check_block_header(existed_header)
     slot_details = cc.get_block_details(existed_header.data.root)
     logger.info({'msg': f'Resolved to slot: {slot_details.message.slot}'})
     return slot_details
