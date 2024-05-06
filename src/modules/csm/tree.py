@@ -35,7 +35,6 @@ class Tree:
         def default(o):
             if isinstance(o, bytes):
                 return f"0x{o.hex()}"
-            assert False
 
         return json.dumps(self.tree.dump(), indent=2, default=default).encode()
 
