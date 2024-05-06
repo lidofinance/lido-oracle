@@ -50,14 +50,20 @@ class CheckpointsFactory:
             return item
 
         l_epoch = _max_in_seq((l_epoch, *self.state.processed_epochs))
-        processing_delay = finalized_epoch - l_epoch
-
         if l_epoch == r_epoch:
-            logger.info({"msg": "All epochs processed, no checkpoints required"})
+            logger.info({"msg": "All epochs processed. No checkpoint required."})
             return []
 
+        processing_delay = finalized_epoch - l_epoch
         if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch < r_epoch:
-            logger.info({"msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay}"})
+            logger.info(
+                {
+                    "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
+                    "finalized_epoch": finalized_epoch,
+                    "l_epoch": l_epoch,
+                    "r_epoch": r_epoch,
+                }
+            )
             return []
 
         r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
