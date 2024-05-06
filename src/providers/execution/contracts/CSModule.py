@@ -67,7 +67,7 @@ class CSModule(Contract):
 
     # TODO: Move to a base contract class.
     def is_deployed(self, block: BlockIdentifier) -> bool:
-        logger.info({"msg": f"Check that the contract {self.__class__.__name__} id deployed at {block=}"})
+        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}"})
         return self.w3.eth.get_code(self.address, block_identifier=block) != b""
 
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:

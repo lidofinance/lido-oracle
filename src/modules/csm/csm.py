@@ -57,9 +57,8 @@ class CSOracle(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         collected = self.collect_data(last_finalized_blockstamp)
         if not collected:
-            # The data is not fully collected yet, wait for the next epoch
             logger.info(
-                {"msg": "Data required for the report is not fully collected yet, waiting for the next finalized epoch"}
+                {"msg": "Data required for the report is not fully collected yet. Waiting for the next finalized epoch"}
             )
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         # pylint:disable=duplicate-code
@@ -251,7 +250,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(blockstamp)
         if checkpoints:
-            logger.info({"msg": f"All epochs processed in {time.time() - start:.2f} seconds"})
+            logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
 
         return all(epoch in self.state.processed_epochs for epoch in seq(l_epoch, r_epoch))
 
