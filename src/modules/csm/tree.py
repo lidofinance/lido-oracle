@@ -35,6 +35,7 @@ class Tree:
         def default(o):
             if isinstance(o, bytes):
                 return f"0x{o.hex()}"
+            raise ValueError(f"Unexpected type for json encoding, got {repr(o)}")
 
         return json.dumps(self.tree.dump(), indent=2, default=default).encode()
 
