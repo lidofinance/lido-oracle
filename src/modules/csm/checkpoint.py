@@ -4,6 +4,8 @@ from threading import Lock
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterable, cast
 
+from timeout_decorator import TimeoutError as DecoratorTimeoutError
+
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.typings import EpochNumber, BlockRoot, SlotNumber, BlockStamp, ValidatorIndex
@@ -119,25 +121,26 @@ class Checkpoint:
                 yield _epoch
 
         with ThreadPoolExecutor() as ext:
-            futures = {
-                ext.submit(self._process_epoch, last_finalized_blockstamp, duty_epoch): duty_epoch
-                for duty_epoch in _unprocessed()
-            }
-            for future in as_completed(futures):
-                duty_epoch = futures[future]
-                try:
+            try:
+                futures = {
+                    ext.submit(self._process_epoch, last_finalized_blockstamp, duty_epoch)
+                    for duty_epoch in _unprocessed()
+                }
+                for future in as_completed(futures):
                     future.result()
-                except Exception as e:
-                    logger.error({
-                        "msg": f"Error processing epoch {duty_epoch} in thread, " +
-                               "wait the current threads and shutdown the executor",
-                        "error": str(e)
-                    })
-                    # Wait only for the current running threads to prevent
-                    # a lot of similar error-possible requests to the consensus node.
-                    # Raise the error after a batch of running threads is finished
-                    ext.shutdown(wait=True, cancel_futures=True)
-                    raise ValueError(e) from e
+            except DecoratorTimeoutError as e:
+                logger.error({"msg": "Timeout processing epochs in threads", "error": str(e)})
+                # Don't wait the current running tasks to finish, cancel the rest and shutdown the executor
+                # To interrupt the current running tasks, we need to raise a special exception
+                ext.shutdown(wait=False, cancel_futures=True)
+                raise SystemExit(1) from e
+            except Exception as e:
+                logger.error({"msg": "Error processing epochs in threads, wait the current threads", "error": str(e)})
+                # Wait only for the current running threads to prevent
+                # a lot of similar error-possible requests to the consensus node.
+                # Raise the error after a batch of running threads is finished
+                ext.shutdown(wait=True, cancel_futures=True)
+                raise ValueError(e) from e
 
     def _select_roots_to_check(
         self, duty_epoch: EpochNumber
