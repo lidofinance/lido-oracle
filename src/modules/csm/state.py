@@ -18,14 +18,6 @@ class InvalidState(Exception):
     ...
 
 
-class InvalidStateLeftBorder(InvalidState):
-    ...
-
-
-class InvalidStateRightBorder(InvalidState):
-    ...
-
-
 @dataclass
 class AttestationsAggregate:
     assigned: int
@@ -39,10 +31,9 @@ class AttestationsAggregate:
 @dataclass
 class State(UserDict[ValidatorIndex, AttestationsAggregate]):
     """Tracks processing state of CSM performance oracle frame"""
-    l_epoch: EpochNumber = field(default_factory=int)
-    r_epoch: EpochNumber = field(default_factory=int)
     data: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
     epochs_to_process: set[EpochNumber] = field(default_factory=set)
+    processed_epochs: set[EpochNumber] = field(default_factory=set)
 
     EXTENSION = ".pkl"
 
@@ -72,14 +63,11 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
 
         os.replace(self.buffer, self.file())
 
-    def is_empty(self) -> bool:
-        return not self.data and not self.epochs_to_process and not self.l_epoch and not self.r_epoch
-
     def clear(self) -> None:
-        self.l_epoch = EpochNumber(0)
-        self.r_epoch = EpochNumber(0)
         self.data = {}
         self.epochs_to_process.clear()
+        self.processed_epochs.clear()
+        assert self.is_empty
 
     def inc(self, key: ValidatorIndex, included: bool) -> None:
         perf = self.get(key, AttestationsAggregate(0, 0))
@@ -94,7 +82,7 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
 
         logger.info(
             {
-                "msg": f"Left {len(self.epochs_to_process)} epochs to process",
+                "msg": f"Processed {len(self.processed_epochs)} of {len(self.epochs_to_process)} epochs",
                 "assigned": assigned,
                 "included": included,
                 "avg_perf": self.avg_perf,
@@ -102,41 +90,40 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
         )
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-        if self.l_epoch > 0 and self.l_epoch != l_epoch:
-            logger.warning({"msg": f"Invalid left state border: should be {l_epoch=} but {self.l_epoch=}"})
-            raise InvalidStateLeftBorder()
+        for epoch in self.epochs_to_process:
+            if l_epoch <= epoch <= r_epoch:
+                raise InvalidState()
 
-        if self.r_epoch > 0 and self.r_epoch != r_epoch:
-            logger.warning({"msg": f"Invalid right state border: should be {r_epoch=} but {self.r_epoch=}"})
-            raise InvalidStateRightBorder()
+        for epoch in self.processed_epochs:
+            if l_epoch <= epoch <= r_epoch:
+                raise InvalidState()
 
     def validate_and_adjust(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
 
-        def _discard():
+        try:
+            self.validate(l_epoch, r_epoch)
+        except InvalidState:
             logger.warning({"msg": "Discarding invalidated state cache"})
             self.clear()
             self.commit()
 
-        try:
-            self.validate(l_epoch, r_epoch)
-        except InvalidStateLeftBorder:
-            _discard()
-        except InvalidStateRightBorder:
-            if self.r_epoch < r_epoch:
-                _discard()
-            else:
-                logger.warning({"msg": "The last report was missed. Reuse the state with the new right border"})
-                # expand the state to the new right border
-                self.epochs_to_process.update(sequence(self.r_epoch - 1, r_epoch))
-                self.r_epoch = r_epoch
-                self.commit()
-
-        if self.is_empty():
-            logger.warning({"msg": "State cache is empty. Initialize the state"})
-            self.l_epoch = l_epoch
-            self.r_epoch = r_epoch
-            self.epochs_to_process = set(sequence(l_epoch, r_epoch))
+        if self.is_empty or r_epoch > max(self.epochs_to_process):
+            self.epochs_to_process.update(sequence(l_epoch, r_epoch))
             self.commit()
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.data and not self.epochs_to_process and not self.processed_epochs
+
+    @property
+    def unprocessed_epochs(self) -> set[EpochNumber]:
+        if not self.epochs_to_process:
+            raise ValueError("Epochs to process are not set")
+        return self.epochs_to_process - self.processed_epochs
+
+    @property
+    def is_fulfilled(self) -> bool:
+        return not self.unprocessed_epochs
 
     @property
     def avg_perf(self) -> float:

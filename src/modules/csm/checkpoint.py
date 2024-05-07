@@ -40,7 +40,7 @@ class CheckpointsFactory:
         def _prepare_checkpoint(_slot: SlotNumber, _duty_epochs: list[EpochNumber]):
             return Checkpoint(self.cc, self.converter, self.state, _slot, _duty_epochs)
 
-        l_epoch = min(self.state.epochs_to_process) or l_epoch
+        l_epoch = min(self.state.unprocessed_epochs) or l_epoch
         if l_epoch == r_epoch:
             logger.info({"msg": "All epochs processed. No checkpoint required."})
             return []
@@ -102,11 +102,10 @@ class Checkpoint:
     def process(self, last_finalized_blockstamp: BlockStamp):
         def _unprocessed():
             for _epoch in self.duty_epochs:
-                if _epoch not in self.state.epochs_to_process:
-                    continue
-                if not self.block_roots:
-                    self._get_block_roots()
-                yield _epoch
+                if _epoch in self.state.unprocessed_epochs:
+                    if not self.block_roots:
+                        self._get_block_roots()
+                    yield _epoch
 
         with ThreadPoolExecutor() as ext:
             futures = {
@@ -175,13 +174,9 @@ class Checkpoint:
                         ValidatorIndex(int(validator['index'])),
                         included=validator['included'],
                     )
-            try:
-                self.state.epochs_to_process.remove(duty_epoch)
-            except KeyError as e:
-                raise ValueError(
-                    f"Processed {duty_epoch} epoch is not a part of epochs to process." +
-                    f"Epochs to process: {self.state.epochs_to_process}"
-                ) from e
+            if duty_epoch not in self.state.epochs_to_process:
+                raise ValueError(f"Processed {duty_epoch} epoch is not a part of epochs to process")
+            self.state.processed_epochs.add(duty_epoch)
             self.state.commit()
             self.state.status()
 

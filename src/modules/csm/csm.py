@@ -67,7 +67,7 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-statements
         assert self.state
         l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         converter = self.converter(blockstamp)
@@ -81,7 +81,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         self.state.status()
 
-        if self.state.epochs_to_process:
+        if not self.state.is_fulfilled:
             raise ValueError("Not all epochs were processed")
 
         threshold = self.state.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
@@ -236,7 +236,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if checkpoints:
             logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
 
-        return not self.state.epochs_to_process
+        return self.state.is_fulfilled
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
