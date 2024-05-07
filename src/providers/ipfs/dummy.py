@@ -1,18 +1,14 @@
 import hashlib
 
-from web3 import Web3
-from web3.module import Module
-
-from .types import CIDv0, CIDv1, IPFSProvider, NotFound
+from .types import CIDv0, CIDv1, IPFSProvider, FetchError
 
 
-class DummyIPFSProvider(IPFSProvider, Module):
+class DummyIPFSProvider(IPFSProvider):
     """Dummy IPFS provider which using the local filesystem as a backend"""
 
     mempool: dict[CIDv0 | CIDv1, bytes]
 
-    def __init__(self, w3: Web3) -> None:
-        super().__init__(w3)
+    def __init__(self) -> None:
         self.mempool = {}
 
     def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
@@ -20,10 +16,10 @@ class DummyIPFSProvider(IPFSProvider, Module):
             return self.mempool[cid]
         except KeyError:
             try:
-                with open(cid, mode="r")  as f:
+                with open(str(cid), mode="r")  as f:
                     return f.read().encode("utf-8")
             except Exception as e:
-                raise NotFound() from e
+                raise FetchError(cid) from e
 
 
     def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
@@ -34,5 +30,5 @@ class DummyIPFSProvider(IPFSProvider, Module):
     def pin(self, cid: CIDv0 | CIDv1) -> None:
         content = self.fetch(cid)
 
-        with open(cid, mode="w", encoding="utf-8") as f:
+        with open(str(cid), mode="w", encoding="utf-8") as f:
             f.write(content.decode())

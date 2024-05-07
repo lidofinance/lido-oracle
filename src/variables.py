@@ -6,6 +6,8 @@ from eth_account import Account
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI = os.getenv('KEYS_API_URI', '').split(',')
+GW3_ACCESS_KEY = os.getenv('GW3_ACCESS_KEY')
+GW3_SECRET_KEY = os.getenv('GW3_SECRET_KEY')
 
 # - Account -
 ACCOUNT = None
@@ -69,6 +71,8 @@ HTTP_REQUEST_RETRY_COUNT_KEYS_API = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_KEYS
 HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API = int(
     os.getenv('HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API', 5)
 )
+
+HTTP_REQUEST_TIMEOUT_IPFS = int(os.getenv('HTTP_REQUEST_TIMEOUT_IPFS', 30))
 
 # - Metrics -
 PROMETHEUS_PORT = int(os.getenv('PROMETHEUS_PORT', 9000))

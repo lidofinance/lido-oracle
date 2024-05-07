@@ -141,7 +141,6 @@ class CSOracle(BaseModule, ConsensusModule):
         if cid:
             logger.info({"msg": "Fetching tree by CID from IPFS", "cid": cid})
             tree = Tree.decode(self.w3.ipfs.fetch(cid))
-
             logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
 
             if tree.root != root:
@@ -172,7 +171,7 @@ class CSOracle(BaseModule, ConsensusModule):
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
             tree_root=root,
-            tree_cid=cid,
+            tree_cid=str(cid),
             distributed=distributed,
         ).as_tuple()
 
