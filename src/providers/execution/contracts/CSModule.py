@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 class CSModule(Contract):
     abi_path = "./assets/CSModule.json"
 
+    MAX_OPERATORS_COUNT = 2 ** 64
+
     # TODO: Inherit from the base class.
     def __init__(self, address: ChecksumAddress | None = None) -> None:
         with open(self.abi_path, encoding="utf-8") as f:
