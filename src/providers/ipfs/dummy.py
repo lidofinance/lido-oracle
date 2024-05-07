@@ -1,10 +1,12 @@
 import hashlib
 
-from .types import CIDv0, CIDv1, IPFSProvider, FetchError
+from .types import CIDv0, CIDv1, IPFSError, IPFSProvider, FetchError
 
 
 class DummyIPFSProvider(IPFSProvider):
     """Dummy IPFS provider which using the local filesystem as a backend"""
+
+    # pylint: disable=unreachable
 
     mempool: dict[CIDv0 | CIDv1, bytes]
 
@@ -23,11 +25,13 @@ class DummyIPFSProvider(IPFSProvider):
 
 
     def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+        raise IPFSError  # FIXME: Remove after migration
         cid = CIDv0("Qm" + hashlib.sha256(content).hexdigest())  # XXX: Dummy.
         self.mempool[cid] = content
         return cid
 
     def pin(self, cid: CIDv0 | CIDv1) -> None:
+        raise IPFSError  # FIXME: Remove after migration
         content = self.fetch(cid)
 
         with open(str(cid), mode="w", encoding="utf-8") as f:
