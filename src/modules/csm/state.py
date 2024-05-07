@@ -89,20 +89,41 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
             }
         )
 
-    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+    def validate_for_report(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         for epoch in self.epochs_to_process:
             if l_epoch <= epoch <= r_epoch:
-                raise InvalidState()
+                continue
+            raise InvalidState()
 
         for epoch in self.processed_epochs:
             if l_epoch <= epoch <= r_epoch:
+                continue
+            raise InvalidState()
+
+        if not self.is_fulfilled:
+            raise InvalidState()
+
+        for epoch in sequence(l_epoch, r_epoch):
+            if epoch not in self.processed_epochs:
                 raise InvalidState()
 
-    def validate_and_adjust(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
+    def validate_for_collect(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
 
-        try:
-            self.validate(l_epoch, r_epoch)
-        except InvalidState:
+        invalidated = False
+
+        for epoch in self.epochs_to_process:
+            if l_epoch <= epoch <= r_epoch:
+                continue
+            invalidated = True
+            break
+
+        for epoch in self.processed_epochs:
+            if l_epoch <= epoch <= r_epoch:
+                continue
+            invalidated = True
+            break
+
+        if invalidated:
             logger.warning({"msg": "Discarding invalidated state cache"})
             self.clear()
             self.commit()

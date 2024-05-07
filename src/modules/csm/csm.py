@@ -75,14 +75,11 @@ class CSOracle(BaseModule, ConsensusModule):
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         try:
-            self.state.validate(l_epoch, r_epoch)
-        except InvalidState as ex:
-            raise ValueError("Unable to build report") from ex
+            self.state.validate_for_report(l_epoch, r_epoch)
+        except InvalidState as e:
+            raise ValueError("State is not valid for the report") from e
 
         self.state.status()
-
-        if not self.state.is_fulfilled:
-            raise ValueError("Not all epochs were processed")
 
         threshold = self.state.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
 
@@ -218,7 +215,7 @@ class CSOracle(BaseModule, ConsensusModule):
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         self.state = self.state or State.load()
-        self.state.validate_and_adjust(l_epoch, r_epoch)
+        self.state.validate_for_collect(l_epoch, r_epoch)
         self.state.status()
 
         factory = CheckpointsFactory(self.w3.cc, converter, self.state)
