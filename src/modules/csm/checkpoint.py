@@ -174,10 +174,8 @@ class Checkpoint:
                         ValidatorIndex(int(validator['index'])),
                         included=validator['included'],
                     )
-            if duty_epoch not in self.state.epochs_to_process:
-                raise ValueError(f"Processed {duty_epoch} epoch is not a part of epochs to process")
-            if duty_epoch in self.state.processed_epochs:
-                raise ValueError(f"Epoch {duty_epoch} is already processed")
+            if duty_epoch not in self.state.unprocessed_epochs:
+                raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
             self.state.processed_epochs.add(duty_epoch)
             self.state.commit()
             self.state.status()
