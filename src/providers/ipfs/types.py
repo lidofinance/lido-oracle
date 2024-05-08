@@ -42,6 +42,12 @@ class IPFSProvider(ABC):
         ...
 
     @abstractmethod
+    def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+        cid = self.upload(content, name)
+        self.pin(cid)
+        return cid
+
+    @abstractmethod
     def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
         ...
 

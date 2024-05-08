@@ -160,8 +160,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if distributed:
             tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
             logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
-            cid = self.w3.ipfs.upload(tree.encode())
-            self.w3.ipfs.pin(cid)
+            cid = self.w3.ipfs.publish(tree.encode())
             root = tree.root
 
         if root == ZERO_HASH:
