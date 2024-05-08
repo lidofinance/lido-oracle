@@ -19,7 +19,7 @@ class GW3(IPFSProvider):
 
     ENDPOINT = "https://gw3.io"
 
-    def __init__(self, access_key: str, access_secret: str, timeout: int) -> None:
+    def __init__(self, access_key: str, access_secret: str, *, timeout: int) -> None:
         super().__init__()
         self.access_key = access_key
         self.access_secret = base64.urlsafe_b64decode(access_secret)
