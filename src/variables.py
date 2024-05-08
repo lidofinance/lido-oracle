@@ -8,6 +8,7 @@ CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI = os.getenv('KEYS_API_URI', '').split(',')
 GW3_ACCESS_KEY = os.getenv('GW3_ACCESS_KEY')
 GW3_SECRET_KEY = os.getenv('GW3_SECRET_KEY')
+PINATA_JWT = os.getenv('PINATA_JWT')
 
 # - Account -
 ACCOUNT = None
