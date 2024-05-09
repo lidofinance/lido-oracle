@@ -12,7 +12,7 @@ from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
-from src.providers.ipfs.types import IPFSError
+from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
