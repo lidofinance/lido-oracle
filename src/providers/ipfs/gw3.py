@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import logging
 import time
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 
@@ -26,65 +26,60 @@ class GW3(IPFSProvider):
         self.timeout = timeout
 
     def fetch(self, cid: CIDv0 | CIDv1):
-        url = f"{self.ENDPOINT}/ipfs/{cid}"
-        req = requests.Request("GET", url)
         try:
-            response = self._send(req)
-            return response.content
+            resp = self._send("GET", f"{self.ENDPOINT}/ipfs/{cid}")
         except IPFSError as ex:
             raise FetchError(cid) from ex
+        return resp.content
 
     def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
         url = self._auth_upload(len(content))
         try:
             response = requests.post(url, data=content, timeout=self.timeout)
+            cid = response.headers["IPFS-Hash"]
         except IPFSError as ex:
             raise UploadError from ex
-        cid = response.headers["IPFS-Hash"]
+        except KeyError as ex:
+            raise UploadError from ex
+
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
 
     def pin(self, cid: CIDv0 | CIDv1) -> None:
-        url = f"{self.ENDPOINT}/api/v0/pin/add?arg={cid}"
-        req = requests.Request("POST", url)
         try:
-            self._send(req)
+            self._send("POST", f"{self.ENDPOINT}/api/v0/pin/add", {"arg": str(cid)})
         except IPFSError as ex:
             raise PinError(cid) from ex
 
     def _auth_upload(self, size: int) -> str:
-        url = f"{self.ENDPOINT}/ipfs/?size={size}"
-        req = requests.Request("POST", url)
         try:
-            response = self._send(req)
-            response.raise_for_status()
+            response = self._send("POST", f"{self.ENDPOINT}/ipfs/", {"size": size})
+            return response.json()["data"]["url"]
         except IPFSError as ex:
             raise UploadError from ex
-        return response.json()["data"]["url"]
+        except KeyError as ex:
+            raise UploadError from ex
 
-    def _send(self, req: requests.Request):
-        prepped = self._sign(req.prepare())
+    def _send(self, method: str, url: str, params: dict | None = None) -> requests.Response:
+        req = self._signed_req(method, url, params)
         try:
-            response = requests.Session().send(prepped, timeout=self.timeout)
+            response = requests.Session().send(req, timeout=self.timeout)
             response.raise_for_status()
-            return response
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise IPFSError from ex
+        return response
 
-    def _sign(self, req: requests.PreparedRequest) -> requests.PreparedRequest:
-        if not req.url or not req.method:
-            raise RuntimeError(f"Invalid {repr(req)} given")
+    def _signed_req(self, method: str, url: str, params: dict | None = None) -> requests.PreparedRequest:
+        params = params or {}
+        params["ts"] = str(int(time.time()))
+        query = urlencode(params, doseq=True)
 
-        url = urlparse(req.url)
-        args = dict(parse_qsl(url.query))
-        args["ts"] = str(int(time.time()))
-        query = urlencode(args, doseq=True)
-
-        data = "\n".join((req.method, url.path, query)).encode("utf-8")
+        parsed_url = urlparse(url)
+        data = "\n".join((method, parsed_url.path, query)).encode("utf-8")
         mac = hmac.new(self.access_secret, data, hashlib.sha256)
         sign = base64.urlsafe_b64encode(mac.digest())
 
-        req.url = urlunparse(url._replace(query=query))
+        req = requests.Request(method=method, url=url, params=params)
         req.headers["X-Access-Key"] = self.access_key
         req.headers["X-Access-Signature"] = sign.decode("utf-8")
-        return req
+        return req.prepare()
