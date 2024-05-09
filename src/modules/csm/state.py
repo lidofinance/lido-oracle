@@ -31,7 +31,7 @@ class AttestationsAggregate:
 @dataclass
 class State(UserDict[ValidatorIndex, AttestationsAggregate]):
     """Tracks processing state of CSM performance oracle frame"""
-    _data: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
+    data: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
     _epochs_to_process: set[EpochNumber] = field(default_factory=set)
     _processed_epochs: set[EpochNumber] = field(default_factory=set)
 
@@ -64,7 +64,7 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
         os.replace(self.buffer, self.file())
 
     def clear(self) -> None:
-        self._data = {}
+        self.data = {}
         self._epochs_to_process.clear()
         self._processed_epochs.clear()
         assert self.is_empty
@@ -132,7 +132,7 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
 
     @property
     def is_empty(self) -> bool:
-        return not self._data and not self._epochs_to_process and not self._processed_epochs
+        return not self.data and not self._epochs_to_process and not self._processed_epochs
 
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
