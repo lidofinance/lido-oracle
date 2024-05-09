@@ -12,7 +12,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
-from src.providers.ipfs import DummyIPFSProvider, GW3, IPFSProvider, MultiIPFSProvider, Pinata
+from src.providers.ipfs import DummyIPFSProvider, GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -155,6 +155,8 @@ def ipfs_providers() -> Iterable[IPFSProvider]:
             variables.PINATA_JWT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
+
+    yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
     yield DummyIPFSProvider()  # FIXME: Remove after migration.
 
