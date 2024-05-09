@@ -46,6 +46,7 @@ def retry(fn):
                 if not retries_left:
                     raise MaxRetryError from ex
                 logger.warning({"msg": f"Retrying a failed call of {fn.__name__}, {retries_left=}", "error": str(ex)})
+        raise MaxRetryError
 
     return wrapped
 
