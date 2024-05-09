@@ -8,7 +8,7 @@ from web3.types import BlockIdentifier
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsFactory
-from src.modules.csm.state import State
+from src.modules.csm.state import State, InvalidState
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -17,17 +17,12 @@ from src.modules.submodules.typings import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.range import sequence
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.typings import Web3
 
 logger = logging.getLogger(__name__)
-
-
-class InvalidState(Exception):
-    ...
 
 
 class CSOracle(BaseModule, ConsensusModule):
@@ -72,18 +67,22 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        # pylint: disable=too-many-statements
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-statements
         assert self.state
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+        converter = self.converter(blockstamp)
+        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         try:
-            self.validate_state(blockstamp, full=True)
-        except InvalidState as ex:
-            raise ValueError("Unable to build report") from ex
+            self.state.validate_for_report(l_epoch, r_epoch)
+        except InvalidState as e:
+            raise ValueError("State is not valid for the report") from e
+
         self.state.status()
 
         threshold = self.state.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
@@ -204,42 +203,12 @@ class CSOracle(BaseModule, ConsensusModule):
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
 
-    def validate_state(self, blockstamp: BlockStamp, full: bool = False) -> None:
-        assert self.state
-        converter = self.converter(blockstamp)
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
-        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
-        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
-
-        for epoch in self.state.processed_epochs:
-            if l_epoch <= epoch <= r_epoch:
-                continue
-            logger.info({"msg": f"Invalid state: processed {epoch=}, but range is [{l_epoch};{r_epoch}]"})
-            raise InvalidState()
-
-        if full:
-            for epoch in sequence(l_epoch, r_epoch):
-                if epoch not in self.state.processed_epochs:
-                    logger.info({"msg": f"Invalid state: {epoch} was not processed"})
-                    raise InvalidState()
-
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
         logger.info({"msg": "Collecting data for the report"})
 
         l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
-
-        self.state = self.state or State.load()
-
-        try:
-            self.validate_state(blockstamp)
-        except InvalidState:
-            logger.info({"msg": "Discarding invalidated state cache"})
-            self.state.clear()
-            self.state.commit()
-
-        self.state.status()
 
         converter = self.converter(blockstamp)
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
@@ -249,6 +218,10 @@ class CSOracle(BaseModule, ConsensusModule):
         if l_epoch > finalized_epoch:
             return False
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        self.state = self.state or State.load()
+        self.state.validate_for_collect(l_epoch, r_epoch)
+        self.state.status()
 
         factory = CheckpointsFactory(self.w3.cc, converter, self.state)
         checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
@@ -265,7 +238,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if checkpoints:
             logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
 
-        return all(epoch in self.state.processed_epochs for epoch in sequence(l_epoch, r_epoch))
+        return self.state.is_fulfilled
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:

@@ -2,7 +2,7 @@ import logging
 import time
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Iterable, cast
+from typing import cast
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
@@ -42,17 +42,7 @@ class CheckpointsFactory:
         def _prepare_checkpoint(_slot: SlotNumber, _duty_epochs: list[EpochNumber]):
             return Checkpoint(self.cc, self.converter, self.state, _slot, _duty_epochs)
 
-        def _max_in_seq(items: Iterable[Any]) -> Any:
-            sorted_ = sorted(items)
-            assert sorted_
-            item = sorted_[0]
-            for curr in sorted_:
-                if curr - item > 1:
-                    break
-                item = curr
-            return item
-
-        l_epoch = _max_in_seq((l_epoch, *self.state.processed_epochs))
+        l_epoch = min(self.state.unprocessed_epochs) or l_epoch
         if l_epoch == r_epoch:
             logger.info({"msg": "All epochs processed. No checkpoint required."})
             return []
@@ -114,11 +104,10 @@ class Checkpoint:
     def process(self, last_finalized_blockstamp: BlockStamp):
         def _unprocessed():
             for _epoch in self.duty_epochs:
-                if _epoch in self.state.processed_epochs:
-                    continue
-                if not self.block_roots:
-                    self._get_block_roots()
-                yield _epoch
+                if _epoch in self.state.unprocessed_epochs:
+                    if not self.block_roots:
+                        self._get_block_roots()
+                    yield _epoch
 
         with ThreadPoolExecutor() as ext:
             try:
@@ -188,7 +177,9 @@ class Checkpoint:
                         ValidatorIndex(int(validator['index'])),
                         included=validator['included'],
                     )
-            self.state.processed_epochs.add(duty_epoch)
+            if duty_epoch not in self.state.unprocessed_epochs:
+                raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
+            self.state.add_processed_epoch(duty_epoch)
             self.state.commit()
             self.state.status()
 
