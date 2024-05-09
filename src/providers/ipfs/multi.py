@@ -25,9 +25,9 @@ class MultiProvider(Generic[T], ABC):
 
 
 class SupportsRetries(Protocol):
-
     @property
-    def retries(self) -> int: ...
+    def retries(self) -> int:
+        ...
 
 
 class MaxRetryError(IPFSError):
@@ -74,7 +74,7 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
 
     # NOTE: The provider is NOT thread-safe.
 
-    def __init__(self, providers: Iterable[IPFSProvider], * ,retries: int = 3) -> None:
+    def __init__(self, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
         super().__init__()
         self.retries = retries
         self.providers = list(providers)
