@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from functools import wraps
-from typing import Generic, Iterable, TypeVar
+from typing import Generic, Iterable, TypeVar, Protocol
 
 from .cid import CIDv0, CIDv1
 from .types import IPFSError, IPFSProvider
@@ -22,6 +22,32 @@ class MultiProvider(Generic[T], ABC):
     @property
     def provider(self) -> T:
         return self.providers[self.current_provider_index]
+
+
+class SupportsRetries(Protocol):
+
+    @property
+    def retries(self) -> int: ...
+
+
+class MaxRetryError(IPFSError):
+    ...
+
+
+def retry(fn):
+    @wraps(fn)
+    def wrapped(self: SupportsRetries, *args, **kwargs):
+        retries_left = self.retries
+        while retries_left:
+            try:
+                return fn(self, *args, **kwargs)
+            except IPFSError as ex:
+                retries_left -= 1
+                if not retries_left:
+                    raise MaxRetryError from ex
+                logger.warning({"msg": f"Retrying a failed call of {fn.__name__}, {retries_left=}", "error": str(ex)})
+
+    return wrapped
 
 
 def with_fallback(fn):
@@ -45,18 +71,23 @@ def with_fallback(fn):
 class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
     """Fallback-driven provider for IPFS"""
 
-    def __init__(self, providers: Iterable[IPFSProvider]) -> None:
+    # NOTE: The provider is NOT thread-safe.
+
+    def __init__(self, providers: Iterable[IPFSProvider], * ,retries: int = 3) -> None:
         super().__init__()
+        self.retries = retries
         self.providers = list(providers)
         assert self.providers
         for p in self.providers:
             assert isinstance(p, IPFSProvider)
 
     @with_fallback
+    @retry
     def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
         return self.provider.fetch(cid)
 
     @with_fallback
+    @retry
     def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
         # If the current provider fails to upload or pin a file, it makes sense
         # to try to both upload and to pin via a different provider.
@@ -68,5 +99,6 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
         raise NotImplementedError
 
     @with_fallback
+    @retry
     def pin(self, cid: CIDv0 | CIDv1) -> None:
         return self.provider.pin(cid)

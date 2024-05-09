@@ -1,7 +1,11 @@
+import logging
 import requests
 
 from .cid import CIDv0, CIDv1, is_cid_v0
 from .types import FetchError, IPFSProvider, PinError, UploadError
+
+
+logger = logging.getLogger(__name__)
 
 
 class Pinata(IPFSProvider):
@@ -22,6 +26,7 @@ class Pinata(IPFSProvider):
             resp = requests.get(url, timeout=self.timeout)
             resp.raise_for_status()
         except requests.RequestException as ex:
+            logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise FetchError(cid) from ex
         return resp.content
 
@@ -32,6 +37,7 @@ class Pinata(IPFSProvider):
                 resp = s.post(url, files={"file": content})
                 resp.raise_for_status()
         except requests.RequestException as ex:
+            logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise UploadError from ex
         cid = resp.json()["IpfsHash"]
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
@@ -43,4 +49,5 @@ class Pinata(IPFSProvider):
                 resp = s.post(url, json={"hashToPin": str(cid)})
                 resp.raise_for_status()
         except requests.RequestException as ex:
+            logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise PinError(cid) from ex
