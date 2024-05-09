@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 class PublicIPFS(IPFSProvider):
     """Public IPFS gateway (fetch-only provider)"""
 
+    # pylint:disable=duplicate-code
+
     GATEWAY = "https://ipfs.io"
 
     def __init__(self, *, timeout: int) -> None:
