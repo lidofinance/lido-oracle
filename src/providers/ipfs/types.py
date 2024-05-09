@@ -32,7 +32,8 @@ class PinError(IPFSError):
         self.cid = cid
 
     def __str__(self) -> str:
-        return f"Unable to fetch {repr(self.cid)}"
+        return f"Unable to pin {repr(self.cid)}"
+
 
 class IPFSProvider(ABC):
     """Interface for all implementations of an [IPFS](https://docs.ipfs.tech) provider"""
