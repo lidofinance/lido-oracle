@@ -179,7 +179,7 @@ class Checkpoint:
                     )
             if duty_epoch not in self.state.unprocessed_epochs:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
-            self.state.processed_epochs.add(duty_epoch)
+            self.state.add_processed_epoch(duty_epoch)
             self.state.commit()
             self.state.status()
 
