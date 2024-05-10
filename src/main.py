@@ -1,5 +1,5 @@
 import sys
-from typing import cast
+from typing import Iterable, cast
 
 from prometheus_client import start_http_server
 from web3.middleware import simple_cache_middleware
@@ -12,7 +12,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
-from src.providers.ipfs import DummyIPFSProvider
+from src.providers.ipfs import DummyIPFSProvider, GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.typings import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
@@ -79,6 +79,12 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize keys api client.'})
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
+    logger.info({'msg': 'Initialize IPFS providers.'})
+    ipfs = MultiIPFSProvider(
+        ipfs_providers(),
+        retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+    )
+
     logger.info({'msg': 'Check configured providers.'})
     check_providers_chain_ids(web3, cc, kac)
 
@@ -89,7 +95,7 @@ def main(module_name: OracleModule):
         'csm': LazyCSM,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
-        'ipfs': DummyIPFSProvider,  # TODO: Make a factory.
+        'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
@@ -137,6 +143,25 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
                      f'Execution chain id: {execution_chain_id}\n'
                      f'Consensus chain id: {consensus_chain_id}\n'
                      f'Keys API chain id: {keys_api_chain_id}\n')
+
+
+def ipfs_providers() -> Iterable[IPFSProvider]:
+    if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
+        yield GW3(
+            variables.GW3_ACCESS_KEY,
+            variables.GW3_SECRET_KEY,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.PINATA_JWT:
+        yield Pinata(
+            variables.PINATA_JWT,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
+
+    yield DummyIPFSProvider()  # FIXME: Remove after migration.
 
 
 if __name__ == '__main__':

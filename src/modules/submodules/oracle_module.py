@@ -12,6 +12,7 @@ from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
 from src.providers.http_provider import NotOkResponse
+from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
@@ -86,6 +87,7 @@ class BaseModule(ABC):
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        # pylint: disable=too-many-branches
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
@@ -112,6 +114,8 @@ class BaseModule(ABC):
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
         except Web3Exception as error:
             logger.error({'msg': 'Web3py exception.', 'error': str(error)})
+        except IPFSError as error:
+            logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         else:
