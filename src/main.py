@@ -80,7 +80,10 @@ def main(module_name: OracleModule):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     logger.info({'msg': 'Initialize IPFS providers.'})
-    ipfs = MultiIPFSProvider(ipfs_providers())
+    ipfs = MultiIPFSProvider(
+        ipfs_providers(),
+        retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+    )
 
     logger.info({'msg': 'Check configured providers.'})
     check_providers_chain_ids(web3, cc, kac)
