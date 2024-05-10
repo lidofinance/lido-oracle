@@ -34,41 +34,6 @@ class MaxRetryError(IPFSError):
     ...
 
 
-def retry(fn):
-    @wraps(fn)
-    def wrapped(self: SupportsRetries, *args, **kwargs):
-        retries_left = self.retries
-        while retries_left:
-            try:
-                return fn(self, *args, **kwargs)
-            except IPFSError as ex:
-                retries_left -= 1
-                if not retries_left:
-                    raise MaxRetryError from ex
-                logger.warning({"msg": f"Retrying a failed call of {fn.__name__}, {retries_left=}", "error": str(ex)})
-        raise MaxRetryError
-
-    return wrapped
-
-
-def with_fallback(fn):
-    @wraps(fn)
-    def wrapped(self: MultiProvider, *args, **kwargs):
-        try:
-            result = fn(self, *args, **kwargs)
-        except IPFSError:
-            self.current_provider_index = (self.current_provider_index + 1) % len(self.providers)
-            if self.last_working_provider_index == self.current_provider_index:
-                logger.error({"msg": "No more IPFS providers left to call"})
-                raise
-            return wrapped(self, *args, **kwargs)
-
-        self.last_working_provider_index = self.current_provider_index
-        return result
-
-    return wrapped
-
-
 class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
     """Fallback-driven provider for IPFS"""
 
@@ -81,6 +46,43 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
         assert self.providers
         for p in self.providers:
             assert isinstance(p, IPFSProvider)
+
+    @staticmethod
+    def with_fallback(fn):
+        @wraps(fn)
+        def wrapped(self: MultiProvider, *args, **kwargs):
+            try:
+                result = fn(self, *args, **kwargs)
+            except IPFSError:
+                self.current_provider_index = (self.current_provider_index + 1) % len(self.providers)
+                if self.last_working_provider_index == self.current_provider_index:
+                    logger.error({"msg": "No more IPFS providers left to call"})
+                    raise
+                return wrapped(self, *args, **kwargs)
+
+            self.last_working_provider_index = self.current_provider_index
+            return result
+
+        return wrapped
+
+    @staticmethod
+    def retry(fn):
+        @wraps(fn)
+        def wrapped(self: SupportsRetries, *args, **kwargs):
+            retries_left = self.retries
+            while retries_left:
+                try:
+                    return fn(self, *args, **kwargs)
+                except IPFSError as ex:
+                    retries_left -= 1
+                    if not retries_left:
+                        raise MaxRetryError from ex
+                    logger.warning(
+                        {"msg": f"Retrying a failed call of {fn.__name__}, {retries_left=}", "error": str(ex)}
+                    )
+            raise MaxRetryError
+
+        return wrapped
 
     @with_fallback
     @retry
