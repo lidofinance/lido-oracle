@@ -39,7 +39,10 @@ class Pinata(IPFSProvider):
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise UploadError from ex
-        cid = resp.json()["IpfsHash"]
+        try:
+            cid = resp.json()["IpfsHash"]
+        except KeyError as ex:
+            raise UploadError from ex
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
 
     def pin(self, cid: CIDv0 | CIDv1) -> None:
