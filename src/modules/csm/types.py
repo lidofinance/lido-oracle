@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from hexbytes import HexBytes
 
+from src.providers.ipfs import CID
 from src.typings import SlotNumber
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ class ReportData:
     consensusVersion: int
     ref_slot: SlotNumber
     tree_root: HexBytes
-    tree_cid: str
+    tree_cid: CID
     distributed: int
 
     def as_tuple(self):
@@ -22,6 +23,6 @@ class ReportData:
             self.consensusVersion,
             self.ref_slot,
             self.tree_root,
-            self.tree_cid,
+            str(self.tree_cid),
             self.distributed,
         )

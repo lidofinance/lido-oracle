@@ -170,7 +170,7 @@ class CSOracle(BaseModule, ConsensusModule):
             self.CONSENSUS_VERSION,
             blockstamp.ref_slot,
             tree_root=root,
-            tree_cid=str(cid),
+            tree_cid=cid,
             distributed=distributed,
         ).as_tuple()
 
