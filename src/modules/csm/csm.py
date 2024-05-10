@@ -69,10 +69,11 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         # pylint: disable=too-many-branches,too-many-statements
         assert self.state
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        r_ref_slot = blockstamp.ref_slot
         converter = self.converter(blockstamp)
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
-        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+        r_epoch = blockstamp.ref_epoch
 
         try:
             self.state.validate_for_report(l_epoch, r_epoch)
