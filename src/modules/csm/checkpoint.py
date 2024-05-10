@@ -1,14 +1,14 @@
 import logging
 import time
-from threading import Lock
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import cast
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.typings import EpochNumber, BlockRoot, SlotNumber, BlockStamp, ValidatorIndex
+from src.typings import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.web3converter import Web3Converter
 
@@ -33,19 +33,16 @@ class CheckpointsFactory:
         self.converter = converter
         self.state = state
 
-    def prepare_checkpoints(
-        self,
-        l_epoch: EpochNumber,
-        r_epoch: EpochNumber,
-        finalized_epoch: EpochNumber
-    ):
+    def prepare_checkpoints(self, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber):
         def _prepare_checkpoint(_slot: SlotNumber, _duty_epochs: list[EpochNumber]):
             return Checkpoint(self.cc, self.converter, self.state, _slot, _duty_epochs)
 
-        l_epoch = min(self.state.unprocessed_epochs) or l_epoch
-        if l_epoch == r_epoch:
+        if not self.state.unprocessed_epochs:
             logger.info({"msg": "All epochs processed. No checkpoint required."})
             return []
+
+        l_epoch = min(self.state.unprocessed_epochs) or l_epoch
+        assert l_epoch < r_epoch
 
         processing_delay = finalized_epoch - l_epoch
         if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch < r_epoch:
@@ -92,7 +89,7 @@ class Checkpoint:
         converter: Web3Converter,
         state: State,
         slot: SlotNumber,
-        duty_epochs: list[EpochNumber]
+        duty_epochs: list[EpochNumber],
     ):
         self.cc = cc
         self.converter = converter
@@ -131,15 +128,13 @@ class Checkpoint:
                 ext.shutdown(wait=True, cancel_futures=True)
                 raise ValueError(e) from e
 
-    def _select_roots_to_check(
-        self, duty_epoch: EpochNumber
-    ) -> list[BlockRoot | None]:
+    def _select_roots_to_check(self, duty_epoch: EpochNumber) -> list[BlockRoot | None]:
         # inspired by the spec
         # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
         roots_to_check = []
         slots = sequence(
             self.converter.get_epoch_first_slot(duty_epoch),
-            self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1))
+            self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1)),
         )
         for slot_to_check in slots:
             # TODO: get the magic number from the CL spec
@@ -202,9 +197,7 @@ class Checkpoint:
         def to_bits(aggregation_bits: str):
             # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
             att_bytes = bytes.fromhex(aggregation_bits[2:])
-            return [
-                bool((att_bytes[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(att_bytes) * 8)
-            ]
+            return [bool((att_bytes[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(att_bytes) * 8)]
 
         for attestation in slot_data['message']['body']['attestations']:
             committee_id = f"{attestation['data']['slot']}{attestation['data']['index']}"
