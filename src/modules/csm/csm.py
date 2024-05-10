@@ -120,7 +120,8 @@ class CSOracle(BaseModule, ConsensusModule):
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
 
-            distribution[no_id] = portion
+            if portion:
+                distribution[no_id] = portion
 
         # Calculate share of each CSM node operator.
         to_distribute = self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
