@@ -1,7 +1,6 @@
 import logging
-from abc import ABC
 from functools import wraps
-from typing import Generic, Iterable, TypeVar, Protocol
+from typing import Iterable
 
 from .cid import CIDv0, CIDv1
 from .types import IPFSError, IPFSProvider
@@ -9,35 +8,18 @@ from .types import IPFSError, IPFSProvider
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar("T")
-
-
-class MultiProvider(Generic[T], ABC):
-    """Base class for working with multiple providers"""
-
-    providers: list[T]
-    current_provider_index: int = 0
-    last_working_provider_index: int = 0
-
-    @property
-    def provider(self) -> T:
-        return self.providers[self.current_provider_index]
-
-
-class SupportsRetries(Protocol):
-    @property
-    def retries(self) -> int:
-        ...
-
-
 class MaxRetryError(IPFSError):
     ...
 
 
-class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
+class MultiIPFSProvider(IPFSProvider):
     """Fallback-driven provider for IPFS"""
 
     # NOTE: The provider is NOT thread-safe.
+
+    providers: list[IPFSProvider]
+    current_provider_index: int = 0
+    last_working_provider_index: int = 0
 
     def __init__(self, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
         super().__init__()
@@ -50,7 +32,7 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
     @staticmethod
     def with_fallback(fn):
         @wraps(fn)
-        def wrapped(self: MultiProvider, *args, **kwargs):
+        def wrapped(self: "MultiIPFSProvider", *args, **kwargs):
             try:
                 result = fn(self, *args, **kwargs)
             except IPFSError:
@@ -68,7 +50,7 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
     @staticmethod
     def retry(fn):
         @wraps(fn)
-        def wrapped(self: SupportsRetries, *args, **kwargs):
+        def wrapped(self: "MultiIPFSProvider", *args, **kwargs):
             retries_left = self.retries
             while retries_left:
                 try:
@@ -83,6 +65,10 @@ class MultiIPFSProvider(IPFSProvider, MultiProvider[IPFSProvider]):
             raise MaxRetryError
 
         return wrapped
+
+    @property
+    def provider(self) -> IPFSProvider:
+        return self.providers[self.current_provider_index]
 
     @with_fallback
     @retry
