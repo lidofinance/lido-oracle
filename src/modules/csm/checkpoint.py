@@ -42,7 +42,7 @@ class CheckpointsFactory:
             return []
 
         l_epoch = min(self.state.unprocessed_epochs) or l_epoch
-        assert l_epoch < r_epoch
+        assert l_epoch <= r_epoch
 
         processing_delay = finalized_epoch - l_epoch
         if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch < r_epoch:
