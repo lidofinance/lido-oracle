@@ -70,7 +70,6 @@ class CSOracle(BaseModule, ConsensusModule):
         # pylint: disable=too-many-branches,too-many-statements
         assert self.state
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        r_ref_slot = blockstamp.ref_slot
         converter = self.converter(blockstamp)
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         r_epoch = blockstamp.ref_epoch
@@ -93,12 +92,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.slot_number,
                 direction='forward',
             ).message.body.execution_payload.block_hash,
-            get_first_non_missed_slot(
-                self.w3.cc,
-                r_ref_slot,
-                blockstamp.slot_number,
-                direction='back',
-            ).message.body.execution_payload.block_hash,
+            blockstamp.block_hash
         )
 
         operators = self.module_validators_by_node_operators(blockstamp)
