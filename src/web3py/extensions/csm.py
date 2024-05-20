@@ -57,13 +57,16 @@ class CSM(Module):
     ) -> Iterable[NodeOperatorId]:
         """Returns node operators assumed to be stuck for the given frame (defined by the slots)"""
 
-        yield from (
-            NodeOperatorId(id)
-            for id in self.module.get_stuck_node_operators(
+        stuck: set[NodeOperatorId] = set()
+        stuck.update(self.module.current_stuck_operators_ids(l_block))
+        stuck.update(
+            self.module.frame_stuck_operators_ids(
                 l_block,
                 r_block,
             )
         )
+
+        return stuck
 
     def _load_contracts(self) -> None:
         self.oracle = cast(
