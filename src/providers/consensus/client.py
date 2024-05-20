@@ -101,23 +101,7 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse.from_response(**data)
 
     @lru_cache(maxsize=256)
-    def get_block_details_raw(self, state_id: SlotNumber | BlockRoot) -> dict:
-        """
-        Special method to get block details without casting to dataclass for speedup.
-        And max cache size is 256 slots (8 epochs)
-        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
-        """
-        data, _ = self._get(
-            self.API_GET_BLOCK_DETAILS,
-            path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
-        )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockV2")
-        return data
-
-    @lru_cache(maxsize=1)
-    def get_block_attestations(self, state_id: SlotNumber | BlockRoot) -> Iterator[BlockAttestation]:
+    def get_block_attestations(self, state_id: SlotNumber | BlockRoot) -> list[BlockAttestation]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
         data, _ = self._get(
             self.API_GET_BLOCK_ATTESTATIONS,
@@ -126,8 +110,7 @@ class ConsensusClient(HTTPProvider):
         )
         if not isinstance(data, list):
             raise ValueError("Expected list response from getBlockAttestations")
-        for att in data:
-            yield BlockAttestation.from_response(**att)
+        return [BlockAttestation.from_response(**att) for att in data]
 
     @lru_cache(maxsize=1)
     def get_attestation_committees(
