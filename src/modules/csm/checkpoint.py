@@ -2,12 +2,13 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from typing import cast
+from typing import cast, Iterable
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.typings import BlockAttestation
 from src.typings import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.web3converter import Web3Converter
@@ -162,8 +163,8 @@ class Checkpoint:
         for root in self._select_roots_to_check(duty_epoch):
             if root is None:
                 continue
-            slot_data = self.cc.get_block_details_raw(BlockRoot(root))
-            self._process_attestations(slot_data, committees)
+            attestations = self.cc.get_block_attestations(BlockRoot(root))
+            self._process_attestations(attestations, committees)
 
         with lock:
             for committee in committees.values():
@@ -193,16 +194,16 @@ class Checkpoint:
         logger.info({"msg": f"Committees for epoch {epoch} processed in {time.time() - start:.2f} seconds"})
         return committees
 
-    def _process_attestations(self, slot_data: dict, committees: dict) -> None:
+    def _process_attestations(self, attestations: Iterable[BlockAttestation], committees: dict) -> None:
         def to_bits(aggregation_bits: str):
             # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
             att_bytes = bytes.fromhex(aggregation_bits[2:])
             return [bool((att_bytes[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(att_bytes) * 8)]
 
-        for attestation in slot_data['message']['body']['attestations']:
-            committee_id = f"{attestation['data']['slot']}{attestation['data']['index']}"
+        for attestation in attestations:
+            committee_id = f"{attestation.data.slot}{attestation.data.index}"
             committee = committees.get(committee_id)
-            att_bits = to_bits(attestation['aggregation_bits'])
+            att_bits = to_bits(attestation.aggregation_bits)
             if not committee:
                 continue
             for index_in_committee, validator in enumerate(committee):
