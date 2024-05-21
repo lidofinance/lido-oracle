@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.providers.http_provider import NotOkResponse
-from src.typings import SlotNumber
+from src.types import SlotNumber
 from src.utils.slot import NoSlotsAvailable, get_first_non_missed_slot
 from tests.conftest import get_blockstamp_by_state
 
