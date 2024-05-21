@@ -92,7 +92,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.slot_number,
                 direction='forward',
             ).message.body.execution_payload.block_hash,
-            blockstamp.block_hash
+            blockstamp.block_hash,
         )
 
         operators = self.module_validators_by_node_operators(blockstamp)
@@ -185,7 +185,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @cached_property
     def module(self) -> StakingModule:
-        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(self._receive_last_finalized_slot())
+        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
+            self._receive_last_finalized_slot().block_hash
+        )
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:
