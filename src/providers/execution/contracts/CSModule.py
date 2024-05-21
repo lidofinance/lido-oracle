@@ -54,28 +54,21 @@ class CSModule(Contract):
 
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
         r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
-        assert l_block_number <= r_block_number
 
         by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
-        by_block: Callable[[EventData], int] = lambda e: e["blockNumber"]
 
         events = sorted(self.get_stuck_keys_events(l_block_number, r_block_number), key=by_no_id)
+        assert all(l_block_number <= e["blockNumber"] <= r_block_number for e in events)
         for no_id, group in groupby(events, key=by_no_id):
-            last_event = sorted(tuple(group), key=by_block)[-1]
-            # Operators unstucked at the very beginning of the frame are fine.
-            if (
-                last_event["args"]["stuckKeysCount"] == 0 and
-                last_event["blockNumber"] <= l_block_number
-            ):
-                continue
-
-            yield NodeOperatorId(no_id)
+            if any(e["args"]["stuckKeysCount"] > 0 for e in group):
+                yield NodeOperatorId(no_id)
 
     # TODO: Make a cache for the events?
     def get_stuck_keys_events(self, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
         """Fetch all the StuckSigningKeysCountChanged in the given blocks range (closed interval)"""
 
         assert variables.EVENTS_SEARCH_STEP
+        assert l_block <= r_block
 
         while True:
             to_block = min(r_block, BlockNumber(l_block + variables.EVENTS_SEARCH_STEP))
