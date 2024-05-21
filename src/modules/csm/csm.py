@@ -135,7 +135,7 @@ class CSOracle(BaseModule, ConsensusModule):
         cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
         if cid:
-            logger.info({"msg": "Fetching tree by CID from IPFS", "cid": cid})
+            logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
             tree = Tree.decode(self.w3.ipfs.fetch(cid))
             logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
 
