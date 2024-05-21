@@ -107,7 +107,7 @@ class Checkpoint:
                         self._get_block_roots()
                     yield _epoch
 
-        with ThreadPoolExecutor() as ext:
+        with ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY) as ext:
             try:
                 futures = {
                     ext.submit(self._process_epoch, last_finalized_blockstamp, duty_epoch)
