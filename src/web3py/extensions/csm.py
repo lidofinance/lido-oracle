@@ -55,7 +55,7 @@ class CSM(Module):
     def get_csm_stuck_node_operators(
         self, l_block: BlockIdentifier, r_block: BlockIdentifier
     ) -> Iterable[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the slots)"""
+        """Returns node operators assumed to be stuck for the given frame (defined by the blocks identifiers)"""
 
         stuck: set[NodeOperatorId] = set()
         stuck.update(self.module.get_stuck_operators_ids(l_block))

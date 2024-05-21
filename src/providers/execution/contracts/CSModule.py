@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 # TODO: Move to types?
 class NodeOperatorSummary(NamedTuple):
+    """getNodeOperatorSummary response, @see IStakingModule.sol"""
+
     targetLimitMode: int
     targetValidatorsCount: int
     stuckValidatorsCount: int
@@ -48,7 +50,7 @@ class CSModule(Contract):
                 yield no_id
 
     def new_stuck_operators_ids(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the blockstamps)"""
+        """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
 
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
         r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
@@ -71,7 +73,7 @@ class CSModule(Contract):
 
     # TODO: Make a cache for the events?
     def get_stuck_keys_events(self, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
-        """Fetch all the StuckSigningKeysCountChanged events up to the given block (closed interval)"""
+        """Fetch all the StuckSigningKeysCountChanged in the given blocks range (closed interval)"""
 
         assert variables.EVENTS_SEARCH_STEP
 
