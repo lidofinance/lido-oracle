@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from statistics import mean
 from pathlib import Path
 
-from src.typings import EpochNumber, ValidatorIndex
+from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
 logger = logging.getLogger(__name__)

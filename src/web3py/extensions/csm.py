@@ -19,7 +19,7 @@ from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
 # TODO: Export the classes from the top-level module.
 from src.providers.execution.contracts.CSModule import CSModule
 from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
-from src.typings import BlockStamp, SlotNumber
+from src.types import BlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
 logger = logging.getLogger(__name__)

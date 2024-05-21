@@ -18,11 +18,11 @@ from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.typings import SlotNumber, BlockStamp, BlockRoot
+from src.types import SlotNumber, BlockStamp, BlockRoot
 
 
 logger = logging.getLogger(__name__)

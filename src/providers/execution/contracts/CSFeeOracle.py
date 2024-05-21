@@ -1,24 +1,16 @@
-import json
 import logging
 from typing import cast
 
-from eth_typing.evm import Address, ChecksumAddress
-from web3.contract.contract import Contract
+from eth_typing.evm import Address
 from web3.types import BlockIdentifier
 
-from src.typings import SlotNumber
+from src.providers.execution.contracts.base_oracle import BaseOracleContract
 
 logger = logging.getLogger(__name__)
 
 
-class CSFeeOracle(Contract):
+class CSFeeOracle(BaseOracleContract):
     abi_path = "./assets/CSFeeOracle.json"
-
-    # TODO: Inherit from the base class.
-    def __init__(self, address: ChecksumAddress | None = None) -> None:
-        with open(self.abi_path, encoding="utf-8") as f:
-            self.abi = json.load(f)
-        super().__init__(address)
 
     def is_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:
         """Returns whether the contract is paused"""
@@ -58,15 +50,3 @@ class CSFeeOracle(Contract):
             }
         )
         return resp / 10_000  # Convert from basis points
-
-    # TODO: Inherit the method from the BaseOracle class.
-    def get_last_processing_ref_slot(self, block: BlockIdentifier = "latest") -> SlotNumber:
-        resp = self.functions.getLastProcessingRefSlot().call(block_identifier=block)
-        logger.debug(
-            {
-                "msg": "Call to getLastProcessingRefSlot()",
-                "value": resp,
-                "block_identifier": repr(block),
-            }
-        )
-        return SlotNumber(resp)

@@ -2,13 +2,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator, ValidatorStatus, ValidatorState
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker import BunkerService
-from src.providers.keys.typings import LidoKey
+from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import BlockNumber, BlockStamp, ReferenceBlockStamp
+from src.services.bunker_cases.types import BunkerConfig
+from src.types import BlockNumber, BlockStamp, ReferenceBlockStamp
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
@@ -121,18 +121,6 @@ def mock_get_eth_distributed_events(abnormal_case):
         return events[(from_block, to_block)]
 
     abnormal_case._get_eth_distributed_events = Mock(side_effect=_get_eth_distributed_events)
-
-
-@pytest.fixture
-def mock_get_total_supply(bunker):
-    def _get_total_supply(block: BlockStamp):
-        supplies = {
-            0: 15 * 10**18,
-        }
-
-        return supplies[block.block_number]
-
-    bunker._get_total_supply = Mock(side_effect=_get_total_supply)
 
 
 @pytest.fixture

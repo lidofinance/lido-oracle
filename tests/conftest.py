@@ -1,16 +1,19 @@
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from eth_typing import ChecksumAddress
+from hexbytes import HexBytes
 from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
+from src.types import SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
 from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 from tests.providers import (
@@ -154,3 +157,9 @@ def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
+
+
+@dataclass
+class Account:
+    address: ChecksumAddress
+    _private_key: HexBytes

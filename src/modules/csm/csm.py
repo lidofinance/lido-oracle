@@ -13,14 +13,14 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.modules.submodules.typings import ZERO_HASH
+from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
-from src.typings import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @cached_property
     def module(self) -> StakingModule:
-        modules: list[StakingModule] = self.w3.lido_validators.get_staking_modules(self._receive_last_finalized_slot())
+        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(self._receive_last_finalized_slot())
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:

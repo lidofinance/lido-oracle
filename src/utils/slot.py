@@ -3,9 +3,9 @@ from http import HTTPStatus
 from typing import Literal
 
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.typings import BlockHeaderFullResponse, BlockDetailsResponse
+from src.providers.consensus.types import BlockHeaderFullResponse, BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
-from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp
+from src.types import SlotNumber, EpochNumber, ReferenceBlockStamp
 from src.utils.blockstamp import build_reference_blockstamp, build_blockstamp
 
 logger = logging.getLogger(__name__)

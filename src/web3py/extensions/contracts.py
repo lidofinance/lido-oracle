@@ -1,6 +1,6 @@
-import json
 import logging
 from time import sleep
+from typing import cast
 
 from web3 import Web3
 from web3.contract import Contract
@@ -10,8 +10,18 @@ from web3.types import Wei
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-from src.typings import BlockStamp, SlotNumber
+from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from src.providers.execution.contracts.burner import BurnerContract
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from src.providers.execution.contracts.lido import LidoContract
+from src.providers.execution.contracts.lido_locator import LidoLocatorContract
+from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
+from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
+from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
+from src.types import BlockStamp, SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
+
 
 logger = logging.getLogger()
 
@@ -19,15 +29,15 @@ logger = logging.getLogger()
 class LidoContracts(Module):
     w3: Web3
 
-    lido_locator: Contract
-    lido: Contract
-    accounting_oracle: Contract
-    staking_router: Contract
-    validators_exit_bus_oracle: Contract
-    withdrawal_queue_nft: Contract
-    oracle_report_sanity_checker: Contract
-    oracle_daemon_config: Contract
-    burner: Contract
+    lido_locator: LidoLocatorContract
+    lido: LidoContract
+    accounting_oracle: AccountingOracleContract
+    staking_router: StakingRouterContract
+    validators_exit_bus_oracle: ExitBusOracleContract
+    withdrawal_queue_nft: WithdrawalQueueNftContract
+    oracle_report_sanity_checker: OracleReportSanityCheckerContract
+    oracle_daemon_config: OracleDaemonConfigContract
+    burner: BurnerContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -52,7 +62,7 @@ class LidoContracts(Module):
         try:
             # TODO: Do we really have to care about all the contracts if we just run one module at a time?
             for contract in [self.accounting_oracle, self.validators_exit_bus_oracle]:
-                contract.functions.getContractVersion().call()
+                contract.get_contract_version()
         except BadFunctionCallOutput:
             logger.info({
                 'msg': f'getContractVersion method from one of the oracle contracts {contract.address=}'
@@ -66,66 +76,61 @@ class LidoContracts(Module):
 
     def _load_contracts(self):
         # Contract that stores all lido contract addresses
-        self.lido_locator = self.w3.eth.contract(
+        self.lido_locator: LidoLocatorContract = cast(LidoLocatorContract, self.w3.eth.contract(
             address=variables.LIDO_LOCATOR_ADDRESS, # type: ignore
-            abi=self.load_abi('LidoLocator'),
+            ContractFactoryClass=LidoLocatorContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.lido = self.w3.eth.contract(
-            address=self.lido_locator.functions.lido().call(),
-            abi=self.load_abi('Lido'),
+        self.lido: LidoContract = cast(LidoContract, self.w3.eth.contract(
+            address=self.lido_locator.lido(),
+            ContractFactoryClass=LidoContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.accounting_oracle = self.w3.eth.contract(
-            address=self.lido_locator.functions.accountingOracle().call(),
-            abi=self.load_abi('AccountingOracle'),
+        self.accounting_oracle: AccountingOracleContract = cast(AccountingOracleContract, self.w3.eth.contract(
+            address=self.lido_locator.accounting_oracle(),
+            ContractFactoryClass=AccountingOracleContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.staking_router = self.w3.eth.contract(
-            address=self.lido_locator.functions.stakingRouter().call(),
-            abi=self.load_abi('StakingRouter'),
+        self.staking_router: StakingRouterContract = cast(StakingRouterContract, self.w3.eth.contract(
+            address=self.lido_locator.staking_router(),
+            ContractFactoryClass=StakingRouterContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.validators_exit_bus_oracle = self.w3.eth.contract(
-            address=self.lido_locator.functions.validatorsExitBusOracle().call(),
-            abi=self.load_abi('ValidatorsExitBusOracle'),
+        self.validators_exit_bus_oracle: ExitBusOracleContract = cast(ExitBusOracleContract, self.w3.eth.contract(
+            address=self.lido_locator.validator_exit_bus_oracle(),
+            ContractFactoryClass=ExitBusOracleContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.withdrawal_queue_nft = self.w3.eth.contract(
-            address=self.lido_locator.functions.withdrawalQueue().call(),
-            abi=self.load_abi('WithdrawalQueueERC721'),
+        self.withdrawal_queue_nft: WithdrawalQueueNftContract = cast(WithdrawalQueueNftContract, self.w3.eth.contract(
+            address=self.lido_locator.withdrawal_queue(),
+            ContractFactoryClass=WithdrawalQueueNftContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.oracle_report_sanity_checker = self.w3.eth.contract(
-            address=self.lido_locator.functions.oracleReportSanityChecker().call(),
-            abi=self.load_abi('OracleReportSanityChecker'),
+        self.oracle_report_sanity_checker: OracleReportSanityCheckerContract = cast(OracleReportSanityCheckerContract, self.w3.eth.contract(
+            address=self.lido_locator.oracle_report_sanity_checker(),
+            ContractFactoryClass=OracleReportSanityCheckerContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.oracle_daemon_config = self.w3.eth.contract(
-            address=self.lido_locator.functions.oracleDaemonConfig().call(),
-            abi=self.load_abi('OracleDaemonConfig'),
+        self.oracle_daemon_config: OracleDaemonConfigContract = cast(OracleDaemonConfigContract, self.w3.eth.contract(
+            address=self.lido_locator.oracle_daemon_config(),
+            ContractFactoryClass=OracleDaemonConfigContract,
             decode_tuples=True,
-        )
+        ))
 
-        self.burner = self.w3.eth.contract(
-            address=self.lido_locator.functions.burner().call(),
-            abi=self.load_abi('Burner'),
+        self.burner: BurnerContract = cast(BurnerContract, self.w3.eth.contract(
+            address=self.lido_locator.burner(),
+            ContractFactoryClass=BurnerContract,
             decode_tuples=True,
-        )
+        ))
 
         self._check_contracts()
-
-    @staticmethod
-    def load_abi(abi_name: str, abi_path: str = './assets/'):
-        with open(f'{abi_path}{abi_name}.json') as f:
-            return json.load(f)
 
     # --- Contract methods ---
     @lru_cache(maxsize=1)
@@ -134,33 +139,25 @@ class LidoContracts(Module):
 
     def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
-            self.lido_locator.functions.withdrawalVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
+            self.lido_locator.withdrawal_vault(blockstamp.block_hash),
             block_identifier=blockstamp.block_hash,
         ))
 
     @lru_cache(maxsize=1)
     def get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(self.w3.eth.get_balance(
-            self.lido_locator.functions.elRewardsVault().call(
-                block_identifier=blockstamp.block_hash
-            ),
+            self.lido_locator.el_rewards_vault(blockstamp.block_hash),
             block_identifier=blockstamp.block_hash,
         ))
 
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
-        result = self.accounting_oracle.functions.getLastProcessingRefSlot().call(block_identifier=blockstamp.block_hash)
-        logger.info({'msg': f'Accounting last processing ref slot {result}'})
+        result = self.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
         FRAME_PREV_REPORT_REF_SLOT.labels('accounting').set(result)
         return result
 
     @lru_cache(maxsize=1)
     def get_ejector_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
-        result = self.validators_exit_bus_oracle.functions.getLastProcessingRefSlot().call(
-            block_identifier=blockstamp.block_hash
-        )
-        logger.info({'msg': f'Ejector last processing ref slot {result}'})
+        result = self.validators_exit_bus_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
         FRAME_PREV_REPORT_REF_SLOT.labels('ejector').set(result)
         return result

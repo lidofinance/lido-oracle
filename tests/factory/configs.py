@@ -1,8 +1,8 @@
 from typing import overload
-from src.modules.accounting.typings import OracleReportLimits
-from src.modules.submodules.typings import ChainConfig, FrameConfig
-from src.providers.consensus.typings import BeaconSpecResponse
-from src.services.bunker_cases.typings import BunkerConfig
+from src.modules.accounting.types import OracleReportLimits
+from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.providers.consensus.types import BeaconSpecResponse
+from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3Factory
 
 

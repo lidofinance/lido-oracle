@@ -7,9 +7,9 @@ from src.constants import (
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
     EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE
 )
-from src.modules.submodules.typings import FrameConfig, ChainConfig
-from src.providers.consensus.typings import Validator
-from src.typings import EpochNumber, Gwei, ReferenceBlockStamp, FrameNumber, SlotNumber
+from src.modules.submodules.types import FrameConfig, ChainConfig
+from src.providers.consensus.types import Validator
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, FrameNumber, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
 

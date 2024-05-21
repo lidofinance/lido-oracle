@@ -13,7 +13,7 @@ from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.providers.ipfs import DummyIPFSProvider, GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
-from src.typings import OracleModule
+from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
     LidoContracts,
@@ -25,7 +25,7 @@ from src.web3py.extensions import (
     LazyCSM
 )
 from src.web3py.middleware import metrics_collector
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 

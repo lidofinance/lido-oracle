@@ -5,14 +5,15 @@ import pytest
 
 from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import Ejector, EjectorProcessingState
+from src.modules.ejector.ejector import Ejector
 from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.typings import ChainConfig
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.modules.submodules.types import ChainConfig
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
@@ -65,7 +66,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
-    ejector._is_paused = Mock(return_value=True)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
@@ -90,7 +91,7 @@ class TestGetValidatorsToEject:
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=0)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=0)
         result = ejector.get_validators_to_eject(ref_blockstamp)
         assert result == [], "Should not report on no withdraw requests"
 
@@ -104,7 +105,7 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=100)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=100)
 
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
@@ -130,7 +131,7 @@ class TestGetValidatorsToEject:
         monkeypatch: pytest.MonkeyPatch,
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
-        ejector.get_total_unfinalized_withdrawal_requests_amount = Mock(return_value=200)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=200)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
         ejector._get_total_el_balance = Mock(return_value=100)
@@ -159,7 +160,7 @@ class TestGetValidatorsToEject:
 @pytest.mark.unit
 @pytest.mark.usefixtures("contracts")
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.get_total_unfinalized_withdrawal_requests_amount(blockstamp)
+    result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
     assert result == 8362187000000000000, "Unexpected unfinalized stETH"
 
 
@@ -177,9 +178,13 @@ def test_compute_activation_exit_epoch(
 
 @pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    ejector._get_processing_state = Mock(return_value=Mock(data_submitted=True))
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(
+        return_value=Mock(data_submitted=True)
+    )
     assert ejector.is_main_data_submitted(blockstamp) is True, "Unexpected is_main_data_submitted result"
-    ejector._get_processing_state.assert_called_once_with(blockstamp)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state.assert_called_once_with(
+        blockstamp.block_hash
+    )
 
 
 @pytest.mark.unit
@@ -290,25 +295,18 @@ def test_get_sweep_delay_in_epochs(
         assert result == 1, "Unexpected sweep delay in epochs"
 
 
-@pytest.mark.unit
-@pytest.mark.usefixtures("contracts")
-def test_get_reserved_buffer(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector._get_buffer_ether(blockstamp)
-    assert result == 2991010000000000000010, "Unexpected reserved buffer"
-
-
 @pytest.mark.usefixtures("contracts")
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=3)
     ejector.w3.lido_contracts.get_el_vault_balance = Mock(return_value=17)
-    ejector._get_buffer_ether = Mock(return_value=1)
+    ejector.w3.lido_contracts.lido.get_buffered_ether = Mock(return_value=1)
 
     result = ejector._get_total_el_balance(blockstamp)
     assert result == 21, "Unexpected total balance"
 
     ejector.w3.lido_contracts.get_withdrawal_balance.assert_called_once_with(blockstamp)
     ejector.w3.lido_contracts.get_el_vault_balance.assert_called_once_with(blockstamp)
-    ejector._get_buffer_ether.assert_called_once_with(blockstamp)
+    ejector.w3.lido_contracts.lido.get_buffered_ether.assert_called_once_with(blockstamp.block_hash)
 
 
 class TestChurnLimit:
@@ -368,7 +366,7 @@ class TestChurnLimit:
 
 @pytest.mark.unit
 def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector._get_processing_state(blockstamp)
+    result = ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state(blockstamp.block_hash)
     assert isinstance(result, EjectorProcessingState), "Unexpected processing state response"
 
 

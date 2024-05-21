@@ -1,15 +1,16 @@
-import json
 import logging
 from itertools import groupby
 from typing import Callable, Iterable, NamedTuple, cast
 
-from eth_typing import BlockNumber, ChecksumAddress
-from web3.contract.contract import Contract, ContractEvent
+from eth_typing import BlockNumber
+from web3.contract.contract import ContractEvent
 from web3.types import BlockIdentifier, EventData
 
 from src import variables
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId
+
+from ..base_interface import ContractInterface
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +29,10 @@ class NodeOperatorSummary(NamedTuple):
     depositableValidatorsCount: int
 
 
-class CSModule(Contract):
+class CSModule(ContractInterface):
     abi_path = "./assets/CSModule.json"
 
     MAX_OPERATORS_COUNT = 2**64
-
-    # TODO: Inherit from the base class.
-    def __init__(self, address: ChecksumAddress | None = None) -> None:
-        with open(self.abi_path, encoding="utf-8") as f:
-            self.abi = json.load(f)
-        super().__init__(address)
 
     @lru_cache(maxsize=1)
     def get_stuck_operators_ids(self, block: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
@@ -85,11 +80,6 @@ class CSModule(Contract):
                 break
 
             l_block = to_block
-
-    # TODO: Move to a base contract class.
-    def is_deployed(self, block: BlockIdentifier) -> bool:
-        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}"})
-        return self.w3.eth.get_code(self.address, block_identifier=block) != b""
 
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:
         resp = self.functions.isPaused().call(block_identifier=block)

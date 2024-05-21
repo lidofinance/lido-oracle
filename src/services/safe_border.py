@@ -1,17 +1,15 @@
 import math
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional
 
 from eth_typing import HexStr
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from src.modules.accounting.typings import OracleReportLimits
 from src.utils.web3converter import Web3Converter
-from src.utils.abi import named_tuple_to_dataclass
-from src.typings import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import Validator
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 from src.utils.slot import get_blockstamp
 
 
@@ -34,7 +32,6 @@ class SafeBorder(Web3Converter):
     2. Negative rebase border
     3. Associated slashing border
     """
-
     chain_config: ChainConfig
     frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
@@ -57,8 +54,14 @@ class SafeBorder(Web3Converter):
         self.frame_config = frame_config
 
         self.converter = Web3Converter(chain_config, frame_config)
-
         self._retrieve_constants()
+
+    def _retrieve_constants(self):
+        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash)
+
+        self.finalization_default_shift = math.ceil(
+            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+        )
 
     @duration_meter()
     def get_safe_border_epoch(
@@ -91,8 +94,9 @@ class SafeBorder(Web3Converter):
         bunker_start_or_last_successful_report_epoch = self._get_bunker_start_or_last_successful_report_epoch()
 
         latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
-        earliest_allowable_epoch = self.get_epoch_by_slot(
-            self.blockstamp.ref_slot) - self.finalization_max_negative_rebase_shift
+
+        max_negative_rebase = self.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift(self.blockstamp.block_hash)
+        earliest_allowable_epoch = self.get_epoch_by_slot(self.blockstamp.ref_slot) - max_negative_rebase
 
         return EpochNumber(max(earliest_allowable_epoch, latest_allowable_epoch))
 
@@ -240,7 +244,7 @@ class SafeBorder(Web3Converter):
         return EpochNumber(int(sorted_validators[0].validator.activation_epoch))
 
     def _get_bunker_mode_start_timestamp(self) -> Optional[int]:
-        start_timestamp = self._get_bunker_start_timestamp()
+        start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
 
         if start_timestamp > self.blockstamp.block_timestamp:
             return None
@@ -248,56 +252,17 @@ class SafeBorder(Web3Converter):
         return start_timestamp
 
     def _get_last_finalized_withdrawal_request_slot(self) -> SlotNumber:
-        last_finalized_request_id = self._get_last_finalized_request_id()
+        last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
         if last_finalized_request_id == 0:
             # request with id: 0 is reserved by protocol. No requests were finalized.
             return SlotNumber(0)
 
-        last_finalized_request_data = self._get_withdrawal_request_status(last_finalized_request_id)
+        last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(last_finalized_request_id)
 
         return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
         return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
-
-    def _retrieve_constants(self):
-        limits_list = self._fetch_oracle_report_limits_list()
-        self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
-        )
-
-        self.finalization_max_negative_rebase_shift = self._fetch_finalization_max_negative_rebase_epoch_shift()
-
-    def _fetch_oracle_report_limits_list(self):
-        return named_tuple_to_dataclass(
-            self.w3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call(
-                block_identifier=self.blockstamp.block_hash
-            ),
-            OracleReportLimits
-        )
-
-    def _fetch_finalization_max_negative_rebase_epoch_shift(self):
-        return self.w3.to_int(
-            primitive=self.w3.lido_contracts.oracle_daemon_config.functions.get(
-                'FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT',
-            ).call(block_identifier=self.blockstamp.block_hash)
-        )
-
-    def _get_bunker_start_timestamp(self) -> int:
-        # If bunker mode is off returns max(uint256)
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.bunkerModeSinceTimestamp().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _get_last_finalized_request_id(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _get_withdrawal_request_status(self, request_id: int) -> Any:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getWithdrawalStatus([request_id]).call(
-            block_identifier=self.blockstamp.block_hash
-        )[0]
 
     def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
         rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))

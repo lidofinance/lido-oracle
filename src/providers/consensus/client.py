@@ -3,7 +3,7 @@ from typing import Literal, Iterator, cast
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
-from src.providers.consensus.typings import (
+from src.providers.consensus.types import (
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
@@ -14,7 +14,7 @@ from src.providers.consensus.typings import (
     SlotAttestationCommittee, BlockAttestation,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.typings import BlockRoot, BlockStamp, SlotNumber, EpochNumber
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 

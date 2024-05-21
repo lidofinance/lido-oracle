@@ -4,8 +4,8 @@ from unittest.mock import Mock
 import pytest
 
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.typings import Validator
-from src.typings import SlotNumber
+from src.providers.consensus.types import Validator
+from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory

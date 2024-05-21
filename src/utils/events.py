@@ -1,6 +1,6 @@
 from web3.contract.contract import ContractEvent
 
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 
 
 def get_events_in_past(

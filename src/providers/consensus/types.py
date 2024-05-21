@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from src.typings import BlockHash, BlockRoot, StateRoot
+from src.types import BlockHash, BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 
 

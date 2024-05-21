@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from hexbytes import HexBytes
 
 from src.providers.ipfs import CID
-from src.typings import SlotNumber
+from src.types import SlotNumber
 
 logger = logging.getLogger(__name__)
 

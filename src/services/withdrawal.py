@@ -2,12 +2,11 @@ from web3.types import Wei
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
-from src.utils.abi import named_tuple_to_dataclass
-from src.web3py.typings import Web3
-from src.typings import ReferenceBlockStamp
+from src.web3py.types import Web3
+from src.types import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from src.modules.accounting.typings import BatchState
+from src.modules.accounting.types import BatchState
 
 
 class Withdrawal:
@@ -38,7 +37,7 @@ class Withdrawal:
         withdrawal_vault_balance: Wei,
         el_rewards_vault_balance: Wei
     ) -> list[int]:
-        on_pause = self._is_requests_finalization_paused()
+        on_pause = self.w3.lido_contracts.withdrawal_queue_nft.is_paused(self.blockstamp.block_hash)
         CONTRACT_ON_PAUSE.labels('finalization').set(on_pause)
         if on_pause:
             return []
@@ -57,76 +56,43 @@ class Withdrawal:
         return self._calculate_finalization_batches(share_rate, available_eth, withdrawable_until_timestamp)
 
     def _has_unfinalized_requests(self) -> bool:
-        last_finalized_id = self._fetch_last_finalized_request_id()
-        last_requested_id = self._fetch_last_request_id()
+        last_finalized_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
+        last_requested_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_request_id(self.blockstamp.block_hash)
 
         return last_finalized_id < last_requested_id
 
     def _get_available_eth(self, withdrawal_vault_balance: Wei, el_rewards_vault_balance: Wei) -> Wei:
-        buffered_ether = self._fetch_buffered_ether()
+        buffered_ether = self.w3.lido_contracts.lido.get_buffered_ether(self.blockstamp.block_hash)
+
         # This amount of eth could not be spent for deposits.
-        unfinalized_steth = self._fetch_unfinalized_steth()
+        unfinalized_steth = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(self.blockstamp.block_hash)
 
         reserved_buffer = min(buffered_ether, unfinalized_steth)
 
         return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_buffer)
 
     def _calculate_finalization_batches(
-        self, share_rate: int, available_eth: int, until_timestamp: int
+        self,
+        share_rate: int,
+        available_eth: int,
+        until_timestamp: int
     ) -> list[int]:
+        max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length(self.blockstamp.block_hash)
+
         state = BatchState(
             remaining_eth_budget=available_eth,
             finished=False,
-            batches=[0] * self._fetch_max_batches_length(),
+            batches=tuple([0] * max_length),
             batches_length=0
         )
 
         while not state.finished:
-            state = self._fetch_finalization_batches(
+            state = self.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches(
                 share_rate,
                 until_timestamp,
-                state
+                FINALIZATION_BATCH_MAX_REQUEST_COUNT,
+                state.as_tuple(),
+                self.blockstamp.block_hash,
             )
 
         return list(filter(lambda value: value > 0, state.batches))
-
-    def _fetch_last_finalized_request_id(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastFinalizedRequestId().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _fetch_last_request_id(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.getLastRequestId().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _fetch_buffered_ether(self) -> Wei:
-        return Wei(self.w3.lido_contracts.lido.functions.getBufferedEther().call(
-            block_identifier=self.blockstamp.block_hash
-        ))
-
-    def _fetch_unfinalized_steth(self) -> Wei:
-        return Wei(self.w3.lido_contracts.withdrawal_queue_nft.functions.unfinalizedStETH().call(
-            block_identifier=self.blockstamp.block_hash
-        ))
-
-    def _is_requests_finalization_paused(self) -> bool:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.isPaused().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _fetch_max_batches_length(self) -> int:
-        return self.w3.lido_contracts.withdrawal_queue_nft.functions.MAX_BATCHES_LENGTH().call(
-            block_identifier=self.blockstamp.block_hash
-        )
-
-    def _fetch_finalization_batches(self, share_rate: int, timestamp: int, batch_state: BatchState) -> BatchState:
-        return named_tuple_to_dataclass(
-            self.w3.lido_contracts.withdrawal_queue_nft.functions.calculateFinalizationBatches(
-                share_rate,
-                timestamp,
-                FINALIZATION_BATCH_MAX_REQUEST_COUNT,
-                batch_state.as_tuple()
-            ).call(block_identifier=self.blockstamp.block_hash),
-            BatchState
-        )

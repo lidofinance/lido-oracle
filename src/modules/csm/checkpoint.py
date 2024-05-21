@@ -2,14 +2,15 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from typing import cast, Iterable
+from typing import Iterable, cast
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
+from src import variables
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.typings import BlockAttestation
-from src.typings import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
+from src.providers.consensus.types import BlockAttestation
+from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.web3converter import Web3Converter
 
