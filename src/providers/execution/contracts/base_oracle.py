@@ -81,7 +81,7 @@ class BaseOracleContract(ContractInterface):
         })
         return response
 
-    def submit_report_data(self, report, contract_version: int) -> ContractFunction:
+    def submit_report_data(self, report: tuple, contract_version: int) -> ContractFunction:
         """
         Submits report data for processing.
         data. See the `ReportData` structure's docs for details.
@@ -96,10 +96,8 @@ class BaseOracleContract(ContractInterface):
         - The keccak256 hash of the ABI-encoded data is different from the last hash provided by the hash consensus contract.
         - The provided data doesn't meet safety checks.
         """
-        tx = self.functions.submitReportData(report.as_tuple(), contract_version)
-        logger.info({
-            'msg': f'Build `submitReport({report.as_tuple()}, {contract_version}) tx.'
-        })
+        tx = self.functions.submitReportData(report, contract_version)
+        logger.info({'msg': f'Build `submitReport({report}, {contract_version}) tx.'})
         return tx
 
     @lru_cache(maxsize=1)
