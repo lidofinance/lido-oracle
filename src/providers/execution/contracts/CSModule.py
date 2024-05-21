@@ -8,6 +8,7 @@ from web3.contract.contract import Contract, ContractEvent
 from web3.types import BlockIdentifier, EventData
 
 from src import variables
+from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
 logger = logging.getLogger(__name__)
@@ -36,15 +37,17 @@ class CSModule(Contract):
             self.abi = json.load(f)
         super().__init__(address)
 
-    # TODO: Consider adding cache.
-    def current_stuck_operators_ids(self, block: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
-        # TODO: Check performance on a large amount of node operators in a module.
-        if self.is_deployed(block):
-            for no_id in self.node_operators_ids(block):
-                if self.node_operator_summary(no_id, block).stuckValidatorsCount > 0:
-                    yield no_id
+    @lru_cache(maxsize=1)
+    def get_stuck_operators_ids(self, block: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
+        if not self.is_deployed(block):
+            return
 
-    def frame_stuck_operators_ids(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable[NodeOperatorId]:
+        # TODO: Check performance on a large amount of node operators in a module.
+        for no_id in self.node_operators_ids(block):
+            if self.node_operator_summary(no_id, block).stuckValidatorsCount > 0:
+                yield no_id
+
+    def new_stuck_operators_ids(self, l_block: BlockIdentifier, r_block: BlockIdentifier) -> Iterable[NodeOperatorId]:
         """Returns node operators assumed to be stuck for the given frame (defined by the blockstamps)"""
 
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
