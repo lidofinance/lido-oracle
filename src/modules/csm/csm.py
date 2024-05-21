@@ -150,7 +150,7 @@ class CSOracle(BaseModule, ConsensusModule):
         # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
         # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
         # when the tree has only one leaf.
-        stone = self.w3.csm.module.MAX_OPERATORS_COUNT
+        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
         if shares:
             shares[stone] = 0
         if stone in shares and len(shares) > 2:
