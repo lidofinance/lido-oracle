@@ -58,8 +58,8 @@ class Ejector(BaseModule, ConsensusModule):
 
     3. Decode lido validators into bytes and send report transaction
     """
-    CONSENSUS_VERSION = 1
-    CONTRACT_VERSION = 1
+    COMPATIBLE_CONTRACT_VERSIONS = [1]
+    COMPATIBLE_CONSENSUS_VERSIONS = [1]
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
@@ -98,7 +98,7 @@ class Ejector(BaseModule, ConsensusModule):
         data, data_format = encode_data(validators)
 
         report_data = ReportData(
-            self.CONSENSUS_VERSION,
+            self.report_contract.get_consensus_version(),
             blockstamp.ref_slot,
             len(validators),
             data_format,

@@ -44,8 +44,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
-    CONSENSUS_VERSION = 1
-    CONTRACT_VERSION = 1
+    COMPATIBLE_CONTRACT_VERSIONS = [1]
+    COMPATIBLE_CONSENSUS_VERSIONS = [1]
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -140,7 +140,7 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
-            consensus_version=self.CONSENSUS_VERSION,
+            consensus_version=self.report_contract.get_consensus_version(),
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
