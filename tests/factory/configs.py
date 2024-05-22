@@ -44,3 +44,4 @@ class BeaconSpecResponseFactory(Web3Factory):
 
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
+    SLOTS_PER_HISTORICAL_ROOT = 8192
