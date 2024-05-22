@@ -152,6 +152,7 @@ def test_incompatible_contract_version(consensus):
     with pytest.raises(IncompatibleOracleVersion):
         consensus._check_contract_versions(bs)
 
+
 @pytest.mark.unit
 def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: ConsensusModule, caplog):
     bs = ReferenceBlockStampFactory.build()
