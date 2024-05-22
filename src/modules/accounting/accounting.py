@@ -140,7 +140,7 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
-            consensus_version=self.report_contract.get_consensus_version(),
+            consensus_version=self.report_contract.get_consensus_version(blockstamp.block_hash),
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
