@@ -94,6 +94,11 @@ class ConsensusModule(ABC):
         return consensus_contract.get_current_frame(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
+    def get_initial_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
+        consensus_contract = self._get_consensus_contract(blockstamp)
+        return consensus_contract.get_initial_ref_slot(blockstamp.block_hash)
+
+    @lru_cache(maxsize=1)
     def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_frame_config(blockstamp.block_hash)

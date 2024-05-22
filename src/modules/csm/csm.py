@@ -250,12 +250,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        # TODO: More than one frame distance for the first report is not handled.
         # The very first report, no previous ref slot.
         if not l_ref_slot:
-            l_ref_slot = SlotNumber(
-                r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
-            )
+            l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.

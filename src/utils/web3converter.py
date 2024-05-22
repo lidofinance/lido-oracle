@@ -17,6 +17,10 @@ class Web3Converter:
         self.chain_config = chain_config
         self.frame_config = frame_config
 
+    @property
+    def slots_per_frame(self) -> int:
+        return self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch
+
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
 
