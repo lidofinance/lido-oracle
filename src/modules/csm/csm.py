@@ -14,7 +14,7 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
+from src.providers.execution.contracts import CSFeeOracle
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
