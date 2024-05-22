@@ -227,10 +227,14 @@ class CSOracle(BaseModule, ConsensusModule):
 
         start = time.time()
         for checkpoint in checkpoints:
-            # TODO: Check that we still need to check these checkpoints.
+            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+                logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop proccessing"})
+                break
+
             if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
                 logger.info({"msg": f"Checkpoint for slot {checkpoint.slot} is not finalized yet"})
                 break
+
             logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(blockstamp)
