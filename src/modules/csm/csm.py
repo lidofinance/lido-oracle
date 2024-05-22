@@ -229,7 +229,7 @@ class CSOracle(BaseModule, ConsensusModule):
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop proccessing"})
-                break
+                raise ValueError("Outdated checkpoint")
 
             if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
                 logger.info({"msg": f"Checkpoint for slot {checkpoint.slot} is not finalized yet"})
