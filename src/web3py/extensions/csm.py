@@ -13,11 +13,7 @@ from web3.types import BlockIdentifier
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-from src.providers.execution.contracts.CSFeeDistributor import CSFeeDistributor
-from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
-
-# TODO: Export the classes from the top-level module.
-from src.providers.execution.contracts.CSModule import CSModule
+from src.providers.execution.contracts import CSFeeDistributor, CSFeeOracle, CSModule
 from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId

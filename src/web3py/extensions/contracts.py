@@ -58,7 +58,7 @@ class LidoContracts(Module):
 
     def _check_contracts(self):
         """This is startup check that checks that contract are deployed and has valid implementation"""
-        contract: Contract = None # type: ignore
+        contract: AccountingOracleContract | ExitBusOracleContract = None # type: ignore
         try:
             # TODO: Do we really have to care about all the contracts if we just run one module at a time?
             for contract in [self.accounting_oracle, self.validators_exit_bus_oracle]:

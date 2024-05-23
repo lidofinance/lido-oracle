@@ -133,15 +133,15 @@ class Checkpoint:
     def _select_roots_to_check(self, duty_epoch: EpochNumber) -> list[BlockRoot | None]:
         # inspired by the spec
         # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
+        SLOTS_PER_HISTORICAL_ROOT = int(self.cc.get_config_spec().SLOTS_PER_HISTORICAL_ROOT)
         roots_to_check = []
         slots = sequence(
             self.converter.get_epoch_first_slot(duty_epoch),
             self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1)),
         )
         for slot_to_check in slots:
-            # TODO: get the magic number from the CL spec
-            if self.slot - 8192 < slot_to_check <= self.slot:
-                roots_to_check.append(self.block_roots[slot_to_check % 8192])
+            if self.slot - SLOTS_PER_HISTORICAL_ROOT < slot_to_check <= self.slot:
+                roots_to_check.append(self.block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT])
                 continue
             raise ValueError("Slot is out of the state block roots range")
         return roots_to_check

@@ -11,6 +11,7 @@ class BeaconSpecResponse(FromResponse):
     SLOTS_PER_EPOCH: str
     SECONDS_PER_SLOT: str
     DEPOSIT_CONTRACT_ADDRESS: str
+    SLOTS_PER_HISTORICAL_ROOT: str
 
 
 @dataclass

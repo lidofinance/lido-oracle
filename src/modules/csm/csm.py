@@ -14,7 +14,7 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts.CSFeeOracle import CSFeeOracle
+from src.providers.execution.contracts import CSFeeOracle
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
@@ -227,10 +227,14 @@ class CSOracle(BaseModule, ConsensusModule):
 
         start = time.time()
         for checkpoint in checkpoints:
-            # TODO: Check that we still need to check these checkpoints.
+            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+                logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop proccessing"})
+                raise ValueError("Outdated checkpoint")
+
             if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
                 logger.info({"msg": f"Checkpoint for slot {checkpoint.slot} is not finalized yet"})
                 break
+
             logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
             logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
             checkpoint.process(blockstamp)
@@ -246,12 +250,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        # TODO: More than one frame distance for the first report is not handled.
         # The very first report, no previous ref slot.
         if not l_ref_slot:
-            l_ref_slot = SlotNumber(
-                r_ref_slot - converter.get_epoch_last_slot(EpochNumber(converter.frame_config.epochs_per_frame))
-            )
+            l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.

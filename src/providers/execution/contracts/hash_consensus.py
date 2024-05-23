@@ -1,4 +1,5 @@
 import logging
+from src.types import SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 
 from eth_typing import ChecksumAddress
@@ -66,6 +67,19 @@ class HashConsensusContract(ContractInterface):
 
         logger.info({
             'msg': 'Call `getCurrentFrame()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+        })
+
+        return response
+
+    @lru_cache(maxsize=1)
+    def get_initial_ref_slot(self, block_identifier: BlockIdentifier = 'latest') -> SlotNumber:
+        """Returns the earliest possible reference slot, i.e. the reference slot of the reporting frame with zero index."""
+        response = self.functions.getInitialRefSlot().call(block_identifier=block_identifier)
+
+        logger.info({
+            'msg': 'Call `getInitialRefSlot()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })
