@@ -225,8 +225,8 @@ class ConsensusModule(ABC):
         if not compatibility:
             raise IncompatibleOracleVersion(
                 f'Incompatible Oracle version. '
-                f'Expected contract version {contract_version} got {self.COMPATIBLE_CONTRACT_VERSIONS}. '
-                f'Expected consensus version {consensus_version} got {self.COMPATIBLE_CONSENSUS_VERSIONS}.'
+                f'Expected contract versions, one of: {self.COMPATIBLE_CONTRACT_VERSIONS} got {contract_version}. '
+                f'Expected consensus versions, one of: {self.COMPATIBLE_CONSENSUS_VERSIONS} got {consensus_version}.'
             )
 
     # ----- Working with report -----
