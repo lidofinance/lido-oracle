@@ -10,6 +10,7 @@ class JsonFormatter(logging.Formatter):
             message['value'] = str(message['value'])
 
         to_json_msg = json.dumps({
+            'timestamp': int(record.created),
             'name': record.name,
             'levelname': record.levelname,
             'funcName': record.funcName,
