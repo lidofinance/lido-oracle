@@ -4,8 +4,8 @@ import pytest
 
 from src.providers.consensus.types import ValidatorState
 from src.providers.keys.types import LidoKey
-from src.services.exit_order_iterator import ExitOrderIterator
-from src.services.exit_order_iterator_state import NodeOperatorPredictableState, ExitOrderIteratorStateService
+from src.services.exit_order.iterator import ExitOrderIterator
+from src.services.exit_order.iterator_state import NodeOperatorPredictableState, ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, OracleReportLimitsFactory
@@ -146,7 +146,7 @@ def mock_exit_order_iterator_state_service(monkeypatch):
     MockedExitOrderIteratorStateService.get_total_predictable_validators_count = lambda *_: 0
 
     monkeypatch.setattr(
-        'src.services.exit_order_iterator.ExitOrderIteratorStateService', MockedExitOrderIteratorStateService
+        'src.services.exit_order.iterator.ExitOrderIteratorStateService', MockedExitOrderIteratorStateService
     )
 
 
