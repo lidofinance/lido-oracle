@@ -89,7 +89,7 @@ class LidoValidatorStateService:
             )
 
         # Find only updated states for Node Operator
-        node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
+        node_operators = self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
 
         for operator in node_operators:
             global_index = (operator.staking_module.id, operator.id)
@@ -138,7 +138,7 @@ class LidoValidatorStateService:
     @lru_cache(maxsize=1)
     def get_lido_newly_exited_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators = deepcopy(self.get_exited_lido_validators(blockstamp))
-        node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
+        node_operators = self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
 
         for operator in node_operators:
             global_index = (operator.staking_module.id, operator.id)

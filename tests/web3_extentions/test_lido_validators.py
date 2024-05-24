@@ -49,7 +49,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validat
 
 @pytest.mark.unit
 def test_get_node_operators(web3, lido_validators, contracts):
-    node_operators = web3.lido_validators.get_lido_node_operators(blockstamp)
+    node_operators = web3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
 
     assert len(node_operators) == 2
 
@@ -76,7 +76,7 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
 def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
     validator = LidoValidatorFactory.build()
     web3.lido_validators.get_lido_validators = Mock(return_value=[validator])
-    web3.lido_validators.get_lido_node_operators = Mock(
+    web3.lido_contracts.staking_router.get_lido_node_operator_digests = Mock(
         return_value=[
             NodeOperatorFactory.build(
                 staking_module=StakingModuleFactory.build(

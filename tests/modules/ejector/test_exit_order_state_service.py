@@ -379,7 +379,7 @@ def test_get_operator_network_penetration_threshold(
 
 @pytest.mark.unit
 def test_exit_order_iterator_state_service_init(web3, past_blockstamp, lido_validators, contracts):
-    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_contracts.staking_router.get_lido_node_operator_digests = lambda _: []
     web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
     ExitOrderIteratorStateService.get_operators_with_last_exited_validator_indexes = lambda _, __: {}
     exit_order_iterator_state_service = ExitOrderIteratorStateService(web3, past_blockstamp)

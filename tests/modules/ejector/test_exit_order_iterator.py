@@ -157,7 +157,7 @@ def test_exit_order_iterator_iter(web3, lido_validators, contracts, mock_exit_or
     )
 
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
-    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_contracts.staking_router.get_lido_node_operator_digests = lambda _: []
     web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
 
     iterator.__iter__()
@@ -178,7 +178,7 @@ def test_exit_order_iterator_next(web3, lido_validators, contracts, mock_exit_or
     )
 
     iterator = ExitOrderIterator(web3, ReferenceBlockStampFactory.build(), ChainConfigFactory.build())
-    web3.lido_validators.get_lido_node_operators = lambda _: []
+    web3.lido_contracts.staking_router.get_lido_node_operator_digests = lambda _: []
     web3.lido_validators.get_lido_validators_by_node_operators = lambda _: []
 
     iterator.__iter__()

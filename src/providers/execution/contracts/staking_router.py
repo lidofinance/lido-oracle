@@ -32,6 +32,8 @@ class StakingRouterContract(ContractInterface):
     def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
         """
         Returns node operator digest for each node operator in lido protocol
+
+        Warning: cache can contain only response for one module. Use get_lido_node_operator_digests to get all NOs.
         """
         response = self.functions.getAllNodeOperatorDigests(module.id).call(block_identifier=block_identifier)
         response = [NodeOperator.from_response(no, module) for no in response]
@@ -41,4 +43,13 @@ class StakingRouterContract(ContractInterface):
             'value': response,
             'block_identifier': repr(block_identifier),
         })
+        return response
+
+    @lru_cache(maxsize=1)
+    def get_lido_node_operator_digests(self, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
+        """Fetches all node operators from all modules"""
+        modules = self.get_staking_modules(block_identifier)
+        response = []
+        for module in modules:
+            response.extend(self.get_all_node_operator_digests(module, block_identifier))
         return response

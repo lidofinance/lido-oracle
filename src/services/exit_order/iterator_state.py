@@ -26,7 +26,7 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
     def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp):
         super().__init__(w3)
 
-        self._operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
+        self._operators = self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
         self._operator_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         self._operator_last_requested_to_exit_indexes = self.get_operators_with_last_exited_validator_indexes(
             blockstamp

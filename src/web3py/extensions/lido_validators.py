@@ -109,7 +109,7 @@ class LidoValidatorsProvider(Module):
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
 
-        no_operators = self.get_lido_node_operators(blockstamp)
+        no_operators = self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
 
         # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
         total_deposited_validators = 0
@@ -141,7 +141,7 @@ class LidoValidatorsProvider(Module):
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         merged_validators = self.get_lido_validators(blockstamp)
-        no_operators = self.get_lido_node_operators(blockstamp)
+        no_operators = self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(blockstamp.block_hash)
 
         # Make sure even empty NO will be presented in dict
         no_validators: ValidatorsByNodeOperator = {
@@ -168,13 +168,3 @@ class LidoValidatorsProvider(Module):
                 })
 
         return no_validators
-
-    @lru_cache(maxsize=1)
-    def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
-        result = []
-
-        for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash):
-            operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
-            result.extend(operators)
-
-        return result

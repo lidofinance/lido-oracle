@@ -72,7 +72,7 @@ class ExitOrderIterator:
         # Prepare dict of staking module id by staking module address for faster search
         self.staking_module_id = {
             operator.staking_module.staking_module_address: operator.staking_module.id
-            for operator in self.w3.lido_validators.get_lido_node_operators(self.blockstamp)
+            for operator in self.w3.lido_contracts.staking_router.get_lido_node_operator_digests(self.blockstamp.block_hash)
         }
         return self
 
