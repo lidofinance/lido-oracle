@@ -13,12 +13,14 @@ def test_staking_router(staking_router_contract, caplog):
             (
                 'get_staking_modules',
                 None,
-                lambda response: check_value_type(response, list) and map(lambda sm: check_value_type(sm, StakingModule)),
-             ),
+                lambda response: check_value_type(response, list)
+                and map(lambda sm: check_value_type(sm, StakingModule)),
+            ),
             (
                 'get_all_node_operator_digests',
                 (StakingModuleFactory.build(id=1),),
-                lambda response: check_value_type(response, list) and map(lambda sm: check_value_type(sm, NodeOperator)),
+                lambda response: check_value_type(response, list)
+                and map(lambda sm: check_value_type(sm, NodeOperator)),
             ),
         ],
         caplog,
