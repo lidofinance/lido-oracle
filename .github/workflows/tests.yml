@@ -7,7 +7,7 @@ permissions:
   security-events: write
 
 jobs:
-  tests:
+  unit-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +31,9 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Test with pytest
-        run: poetry run pytest -m "not integration and not e2e" --cov=src tests
+        run: poetry run pytest --cov=src tests
+        env:
+          LIDO_LOCATOR_ADDRESS: 0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
 
   linters:
     runs-on: ubuntu-latest
