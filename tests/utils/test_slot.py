@@ -9,7 +9,6 @@ from src.utils.slot import NoSlotsAvailable, get_first_non_missed_slot
 from tests.conftest import get_blockstamp_by_state
 
 
-@pytest.mark.unit
 @pytest.mark.possible_integration
 def test_get_first_non_missed_slot(web3, consensus_client):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
@@ -45,7 +44,6 @@ def test_get_third_non_missed_slot(web3, consensus_client):
     assert int(slot_details.message.slot) == 139455
 
 
-@pytest.mark.unit
 @pytest.mark.possible_integration
 def test_all_slots_are_missed(web3, consensus_client):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
