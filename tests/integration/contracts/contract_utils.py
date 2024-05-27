@@ -10,26 +10,26 @@ ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
 
 
 def check_contract(
-	contract: ContractInterface,
-	functions_spec: list[tuple[str, Optional[tuple], Callable[[Any], None]]],
-	caplog,
+    contract: ContractInterface,
+    functions_spec: list[tuple[str, Optional[tuple], Callable[[Any], None]]],
+    caplog,
 ):
-	caplog.set_level(logging.INFO)
+    caplog.set_level(logging.INFO)
 
-	for function in functions_spec:
-		# get method
-		method = contract.__getattribute__(function[0])
-		# call method with args
-		response = method(*function[1]) if function[1] is not None else method()
-		# check response
-		function[2](response)
+    for function in functions_spec:
+        # get method
+        method = contract.__getattribute__(function[0])  # pylint: disable=unnecessary-dunder-call
+        # call method with args
+        response = method(*function[1]) if function[1] is not None else method()
+        # check response
+        function[2](response)
 
-	assert len(functions_spec) == len(caplog.messages)
+    assert len(functions_spec) == len(caplog.messages)
 
 
 def check_value_re(regrex, value) -> None:
-	assert regrex.findall(value)
+    assert regrex.findall(value)
 
 
 def check_value_type(value, _type) -> None:
-	assert isinstance(value, _type)
+    assert isinstance(value, _type)
