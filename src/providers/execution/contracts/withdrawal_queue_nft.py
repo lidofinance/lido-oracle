@@ -64,7 +64,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         request_id: id of request to check status
         """
         response = self.functions.getWithdrawalStatus([request_id]).call(block_identifier=block_identifier)
-        response = named_tuple_to_dataclass(response, WithdrawalRequestStatus)
+        response = named_tuple_to_dataclass(response[0], WithdrawalRequestStatus)
 
         logger.info({
             'msg': f'Call `getWithdrawalStatus({[request_id]})`.',
@@ -135,6 +135,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             max_batch_request_count,
             batch_state,
         ).call(block_identifier=block_identifier)
+        response = named_tuple_to_dataclass(response, BatchState)
 
         logger.info({
             'msg': 'Call `calculateFinalizationBatches({}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string

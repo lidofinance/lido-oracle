@@ -250,9 +250,9 @@ class Accounting(BaseModule, ConsensusModule):
         chain_conf = self.get_chain_config(blockstamp)
 
         return self.w3.lido_contracts.lido.handle_oracle_report(
-            # We use block timestamp, instead of slot timestamp,
-            # because missed slot will break simulation contract logics
-            # Details: https://github.com/lidofinance/lido-oracle/issues/291
+            # Lido contract has sanity check that timestamp is not in the future.
+            # That's why we get revert if timestamp in args > call block timestamp.
+            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
             blockstamp.block_timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
