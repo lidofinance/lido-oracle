@@ -1,6 +1,7 @@
 import logging
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
 
 from eth_typing import ChecksumAddress
 from web3.module import Module
@@ -17,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.web3py.types import Web3  # pragma: no cover
+
+
+class NodeOperatorLimitMode(Enum):
+    DISABLED = 0
+    SOFT = 1
+    FORCE = 2
 
 
 @dataclass
@@ -42,6 +49,15 @@ class StakingModule:
     last_deposit_block: int
     # number of exited validators
     exited_validators_count: int
+    # ---------------------
+    # Available after SR2
+    # ---------------------
+    # module's share threshold, upon crossing which, exits of validators from the module will be prioritized, in BP
+    priority_exit_share_threshold: Optional[int] = None
+    # the maximum number of validators that can be deposited in a single block
+    max_deposits_per_block: Optional[int] = None
+    # the minimum distance between deposits in blocks
+    min_deposit_block_distance: Optional[int] = None
 
     def __hash__(self):
         return hash(self.id)
@@ -51,7 +67,7 @@ class StakingModule:
 class NodeOperator(Nested):
     id: NodeOperatorId
     is_active: bool
-    is_target_limit_active: bool
+    is_target_limit_active: NodeOperatorLimitMode
     target_validators_count: int
     stuck_validators_count: int
     refunded_validators_count: int
@@ -73,6 +89,14 @@ class NodeOperator(Nested):
             total_deposited_validators,
             depositable_validators_count,
         ) = data
+
+        # Staking router v1 contract returns bool value in target limit mode
+        # Staking router v1.5 introduce new limit mode (force) and updates is_target_limit_active to uint type
+        #
+        # False == 0 == No priority ejections
+        # True  == 1 == Soft priority ejections
+        #          2 == Force priority ejections
+        is_target_limit_active = NodeOperatorLimitMode(is_target_limit_active)
 
         return cls(
             _id,

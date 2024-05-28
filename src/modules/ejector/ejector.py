@@ -26,6 +26,7 @@ from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order.iterator import ExitOrderIterator
+from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
@@ -139,11 +140,18 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
-        validators_iterator = ExitOrderIterator(
-            web3=self.w3,
-            blockstamp=blockstamp,
-            chain_config=chain_config
-        )
+        if self.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version(blockstamp.block_hash) == 1:
+            validators_iterator = ExitOrderIterator(
+                web3=self.w3,
+                blockstamp=blockstamp,
+                chain_config=chain_config
+            )
+        else:
+            validators_iterator = ValidatorExitIteratorV2(
+                w3=self.w3,
+                blockstamp=blockstamp,
+                chain_config=chain_config
+            )
 
         for validator_container in validators_iterator:
             withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, len(validators_to_eject) + len(validators_going_to_exit) + 1)
@@ -176,8 +184,13 @@ class Ejector(BaseModule, ConsensusModule):
                     'going_to_withdraw_balance': going_to_withdraw_balance,
                 })
 
-                EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
+                if self.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version(blockstamp.block_hash) != 1:
+                    forced_validators = validators_iterator.get_remaining_forced_validators()
+                    if forced_validators:
+                        logger.info({'msg': 'Eject delayed forced to exit validators.', 'value': len(forced_validators)})
+                        validators_to_eject.extend(forced_validators)
 
+                EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
                 return validators_to_eject
 
             validators_to_eject.append(validator_container)
