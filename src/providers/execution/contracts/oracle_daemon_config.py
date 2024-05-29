@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class OracleDaemonConfigContract(ContractInterface):
     abi_path = './assets/OracleDaemonConfig.json'
 
-    def _get(self, param: str, block_identifier: BlockIdentifier = 'latest') -> Any:
+    def _get(self, param: str, block_identifier: BlockIdentifier = 'latest') -> int:
         response = Web3.to_int(self.functions.get(param).call(block_identifier=block_identifier))
 
         logger.info({

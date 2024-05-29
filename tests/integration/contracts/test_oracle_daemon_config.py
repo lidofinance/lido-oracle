@@ -18,12 +18,12 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
             (
                 'rebase_check_nearest_epoch_distance',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
             (
                 'rebase_check_distant_epoch_distance',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
             (
                 'node_operator_network_penetration_threshold_bp',
@@ -33,22 +33,22 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
             (
                 'prediction_duration_in_slots',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
             (
                 'finalization_max_negative_rebase_epoch_shift',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
             (
                 'validator_delayed_timeout_in_slots',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
             (
                 'validator_delinquent_timeout_in_slots',
                 None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
+                lambda response: check_value_type(response, int),
             ),
         ],
         caplog,
