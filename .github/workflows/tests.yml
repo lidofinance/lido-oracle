@@ -7,7 +7,7 @@ permissions:
   security-events: write
 
 jobs:
-  unit-tests:
+  tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +33,9 @@ jobs:
       - name: Test with pytest
         run: poetry run pytest --cov=src tests
         env:
-          LIDO_LOCATOR_ADDRESS: 0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
 
   linters:
     runs-on: ubuntu-latest

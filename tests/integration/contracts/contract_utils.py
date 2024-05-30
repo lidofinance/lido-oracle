@@ -24,7 +24,9 @@ def check_contract(
         # check response
         function[2](response)
 
-    assert len(functions_spec) == len(caplog.messages)
+    log_with_call = list(filter(lambda log: 'Call ' in log or 'Build ' in log, caplog.messages))
+
+    assert len(functions_spec) == len(log_with_call)
 
 
 def check_value_re(regrex, value) -> None:
