@@ -8,7 +8,7 @@ from web3.types import BlockIdentifier
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsFactory
-from src.modules.csm.state import State, InvalidState
+from src.modules.csm.state import InvalidState, State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -81,7 +81,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         self.state.status()
 
-        threshold = self.state.avg_perf * self.w3.csm.oracle.perf_threshold(blockstamp.block_hash)
+        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway(blockstamp.block_hash)
 
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
