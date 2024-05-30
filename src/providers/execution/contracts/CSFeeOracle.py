@@ -38,13 +38,13 @@ class CSFeeOracle(BaseOracleContract):
         )
         return cast(Address, resp)
 
-    def perf_threshold(self, block: BlockIdentifier = "latest") -> float:
-        """Performance threshold used to determine underperforming validators"""
+    def perf_leeway(self, block: BlockIdentifier = "latest") -> float:
+        """Performance threshold leeway used to determine underperforming validators"""
 
-        resp = self.functions.perfThresholdBP().call(block_identifier=block)
+        resp = self.functions.avgPerfLeewayBP().call(block_identifier=block)
         logger.debug(
             {
-                "msg": "Call to perfThresholdBP()",
+                "msg": "Call to avgPerfLeewayBP()",
                 "value": resp,
                 "block_identifier": repr(block),
             }
