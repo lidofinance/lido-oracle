@@ -37,7 +37,7 @@ class StakingModule:
     # part of the fee taken from staking rewards that goes to the treasury
     treasury_fee: int
     # target percent of total validators in protocol, in BP
-    target_share: int
+    stake_share_limit: int
     # staking module status if staking module can not accept
     # the deposits or can participate in further reward distribution
     status: int
@@ -58,6 +58,17 @@ class StakingModule:
     max_deposits_per_block: Optional[int] = None
     # the minimum distance between deposits in blocks
     min_deposit_block_distance: Optional[int] = None
+
+    @classmethod
+    def from_response(cls, **staking_module):
+        """
+        To support both versions of StakingRouter, we map values by order instead of keys.
+
+        Breaking changes are
+        target_share -> stake_share_limit
+        """
+        # `target_share` renamed to `stake_share_limit`
+        return cls(*staking_module.values())  # pylint: disable=no-value-for-parameter
 
     def __hash__(self):
         return hash(self.id)
@@ -194,11 +205,20 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
+    def get_lido_node_operators_by_modules(self, blockstamp: BlockStamp) -> dict[StakingModuleId, list[NodeOperator]]:
+        result = {}
+
+        modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
+        for module in modules:
+            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
+
+        return result
+
+    @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
         result = []
 
-        for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash):
-            operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
-            result.extend(operators)
+        for nos in self.get_lido_node_operators_by_modules(blockstamp).values():
+            result.extend(nos)
 
         return result

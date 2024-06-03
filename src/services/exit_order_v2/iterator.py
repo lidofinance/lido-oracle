@@ -5,7 +5,7 @@ from more_itertools import ilen
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.types import ChainConfig
+from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
@@ -48,22 +48,28 @@ class ValidatorExitIteratorV2:
     | V       |                                             | Highest number of validators                          |                        |
     | V       |                                             |                                                       | Lowest validator index |
     """
-    total_lido_validators = 0
+    index: int = 0
+    total_lido_validators: int = 0
     module_stats: dict[StakingModuleId, StakingModuleStats] = {}
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
-    lido_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
+    exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
 
-    _done: bool = True
+    max_validators_to_exit: int
 
-    def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig):
+    no_penetration: int = -1
+    eth_validators_count: int = -1
+
+    def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp, seconds_per_slot: int):
         self.w3 = w3
         self.blockstamp = blockstamp
-        self.chain_config = chain_config
+        self.seconds_per_slot = seconds_per_slot
+
+        self.lvs = LidoValidatorStateService(self.w3)
 
     @duration_meter()
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        self._done = False
         self.index = 0
+        self.total_lido_validators = 0
         self._prepare_data_structure()
         self._calculate_lido_stats()
         self._load_constants()
@@ -71,18 +77,20 @@ class ValidatorExitIteratorV2:
 
     @duration_meter()
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
-        if self.index >= self.max_validators_to_exit:
-            raise StopIteration
-
-        node_operator = sorted(self.node_operators_stats.values(), key=self._no_predicate)[0]
-
-        if not node_operator.exitable_validators:
-            raise StopIteration
-
         self.index += 1
 
-        gid = NodeOperatorGlobalIndex(node_operator.module_stats.staking_module.id, node_operator.node_operator.id)
-        return gid, self._eject_validator(gid)
+        if self.index > self.max_validators_to_exit:
+            raise StopIteration
+
+        for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
+            if node_operator.exitable_validators:
+                gid = NodeOperatorGlobalIndex((
+                    node_operator.module_stats.staking_module.id,
+                    node_operator.node_operator.id,
+                ))
+                return gid, self._eject_validator(gid)
+
+        raise StopIteration
 
     def _prepare_data_structure(self):
         modules = self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp.block_hash)
@@ -98,18 +106,23 @@ class ValidatorExitIteratorV2:
 
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
-            self.lido_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
-            self.lido_validators[gid].sort(key=lambda val: val.index)
+            self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
+            self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         delayed_validators = self._get_delayed_validators()
 
-        for gid, validators in self.lido_validators.items():
+        for gid, validators in self.exitable_validators.items():
             self.total_lido_validators += len(validators)
 
             self.module_stats[gid[0]].exitable_validators += len(validators)
-            self.node_operators_stats[gid].exitable_validators = len(validators)
 
+            # Calculate validators that are not yet in CL
+            deposited_validators = self.node_operators_stats[gid].node_operator.total_deposited_validators
+            transient_validators_count = deposited_validators - len(lido_validators[gid])
+
+            self.node_operators_stats[gid].exitable_validators = len(validators) + transient_validators_count
             self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
             self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
 
@@ -124,11 +137,15 @@ class ValidatorExitIteratorV2:
             self.blockstamp.block_hash,
         ).max_validator_exit_requests_per_report
 
+        self.no_penetration = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
+            block_identifier=self.blockstamp.block_hash,
+        ) / TOTAL_BASIS_POINTS
+
+        self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
+
     def get_filter_non_exitable_validators(self, gid: NodeOperatorGlobalIndex):
-        """
-        If validator was deposited, but isn't representended on CL side он считается exitable
-        """
-        indexes = self.w3.lido_validators.get_operators_with_last_exited_validator_indexes(self.blockstamp)
+        """Validators that were deposited, but not yet represented on CL side are exitable."""
+        indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
@@ -138,20 +155,16 @@ class ValidatorExitIteratorV2:
         return is_validator_exitable
 
     def _get_delayed_validators(self) -> dict[NodeOperatorGlobalIndex, int]:
-        last_requested_to_exit = self.w3.lido_validators.get_operators_with_last_exited_validator_indexes(self.blockstamp)
+        last_requested_to_exit = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
-        validators_timeout = self.w3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots(
-            self.blockstamp.block_hash,
-        )
-        recent_requests = self.w3.lido_validators.get_recently_requests_to_exit_indexes_by_operators(
-            self.chain_config.seconds_per_slot,
-            validators_timeout,
+        recent_requests = self.lvs.get_recently_requested_validators_by_operator(
+            self.seconds_per_slot,
             self.blockstamp,
         )
 
         result = {}
 
-        for gid, validators_list in self.lido_validators.items():
+        for gid, validators_list in self.exitable_validators.items():
 
             def is_delayed(validator: LidoValidator) -> bool:
                 requested_to_exit = int(validator.index) <= last_requested_to_exit[gid]
@@ -171,7 +184,7 @@ class ValidatorExitIteratorV2:
         return result
 
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
-        validator = self.lido_validators[gid].pop(0)
+        validator = self.exitable_validators[gid].pop(0)
 
         # Change lido total
         self.total_lido_validators -= 1
@@ -186,58 +199,76 @@ class ValidatorExitIteratorV2:
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
             node_operator.delayed_validators,
-            self._no_force_predicate(node_operator),
-            self._no_soft_predicate(node_operator),
-            self._max_share_rate_coefficient(node_operator),
-            self._stake_weight_coefficient(node_operator),
+            - self._no_force_predicate(node_operator),
+            - self._no_soft_predicate(node_operator),
+            - self._max_share_rate_coefficient_predicate(node_operator),
+            - self._stake_weight_coefficient_predicate(
+                node_operator,
+                self.no_penetration,
+                self.eth_validators_count,
+            ),
             - node_operator.exitable_validators
         )
 
-    def _max_share_rate_coefficient(self, node_operator: NodeOperatorStats) -> int:
+    @staticmethod
+    def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
+        return ValidatorExitIteratorV2._get_expected_validators_diff(
+            node_operator.exitable_validators,
+            node_operator.force_exit_to,
+        )
+
+    @staticmethod
+    def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
+        return ValidatorExitIteratorV2._get_expected_validators_diff(
+            node_operator.exitable_validators,
+            node_operator.soft_exit_to,
+        )
+
+    @staticmethod
+    def _get_expected_validators_diff(current: int, expected: Optional[int]):
+        if expected is not None:
+            if current > expected:
+                return current - expected
+        return 0
+
+    def _max_share_rate_coefficient_predicate(self, node_operator: NodeOperatorStats) -> int:
         """
         The lower coefficient the higher priority to eject validator
         """
         max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
         max_validators_count = int(max_share_rate * self.total_lido_validators)
-        return max(max_validators_count - node_operator.module_stats.exitable_validators, 0)
+        return max(node_operator.module_stats.exitable_validators - max_validators_count, 0)
 
-    def _stake_weight_coefficient(self, node_operator: NodeOperatorStats) -> int:
+    @staticmethod
+    def _stake_weight_coefficient_predicate(
+        node_operator: NodeOperatorStats,
+        total_validators: int,
+        no_penetration: float,
+    ) -> int:
         """
         The lower coefficient the higher priority to eject validator
         """
-        no_penetration = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
-            block_identifier=self.blockstamp.block_hash,
-        ) / TOTAL_BASIS_POINTS
-
-        eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
-
-        if eth_validators_count * no_penetration < node_operator.exitable_validators:
-            return -node_operator.total_age
+        if total_validators * no_penetration < node_operator.exitable_validators:
+            return node_operator.total_age
 
         return 0
 
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        if self._done:
-            raise RuntimeError('Cant call method `get_remaining_forced_validators` before iterator.')
-
-        self._done = True
-
         result = []
-        for i in range(self.max_validators_to_exit - self.index):
-            node_operator = sorted(self.node_operators_stats.values(), key=self._no_force_predicate)[0]
 
-            if self._no_force_predicate(node_operator) == 0:
-                break
+        while self.index < self.max_validators_to_exit:
+            self.index += 1
 
-            gid = NodeOperatorGlobalIndex(node_operator.module_stats.staking_module.id, node_operator.node_operator.id)
-            result.append((gid, self._eject_validator(gid)))
+            for node_operator in sorted(self.node_operators_stats.values(), key=lambda no: -self._no_force_predicate(no)):
+                if self._no_force_predicate(node_operator) == 0:
+                    return result
+
+                if node_operator.exitable_validators:
+                    gid = NodeOperatorGlobalIndex((
+                        node_operator.module_stats.staking_module.id,
+                        node_operator.node_operator.id,
+                    ))
+                    result.append((gid, self._eject_validator(gid)))
+                    break
 
         return result
-
-    @staticmethod
-    def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
-        return node_operator.force_exit_to - node_operator.exitable_validators if node_operator.force_exit_to else 0
-
-    @staticmethod
-    def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
-        return node_operator.soft_exit_to - node_operator.exitable_validators if node_operator.soft_exit_to else 0

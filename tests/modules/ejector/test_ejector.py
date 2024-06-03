@@ -11,6 +11,7 @@ from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp
+from src.utils.validator_state import compute_activation_exit_epoch
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
@@ -169,18 +170,6 @@ def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None
 
 
 @pytest.mark.unit
-def test_compute_activation_exit_epoch(
-    ejector: Ejector,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with monkeypatch.context() as m:
-        m.setattr(ejector_module, "MAX_SEED_LOOKAHEAD", 17)
-        ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-        result = ejector.compute_activation_exit_epoch(ref_blockstamp)
-        assert result == 3546 + 17 + 1, "Unexpected activation exit epoch"
-
-
-@pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(
         return_value=Mock(data_submitted=True)
@@ -233,10 +222,10 @@ def test_get_withdrawable_lido_validators(
             Mock(side_effect=lambda v, _: int(v.balance) > 32),
         )
 
-        result = ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
+        result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
         assert result == 42 * 10**9, "Unexpected withdrawable amount"
 
-        ejector._get_withdrawable_lido_validators_balance(ref_blockstamp, 42)
+        ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
         ejector.w3.lido_validators.get_lido_validators.assert_called_once()
 
 
