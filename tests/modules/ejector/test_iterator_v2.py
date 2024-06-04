@@ -40,10 +40,10 @@ def test_get_filter_non_exitable_validators(iterator):
     )
 
     filt = iterator.get_filter_non_exitable_validators((1, 1))
-    assert not filt(LidoValidatorFactory.build())
+    assert not filt(LidoValidatorFactory.build(index="1"))
 
     filt = iterator.get_filter_non_exitable_validators((1, 2))
-    assert filt(LidoValidatorFactory.build())
+    assert filt(LidoValidatorFactory.build(index="1"))
 
 
 def test_get_delayed_validators(iterator):
@@ -78,9 +78,11 @@ def test_calculate_validators_age(iterator, monkeypatch):
 
 def test_eject_validator(iterator):
     sk_1 = StakingModuleFactory.build(
+        id=1,
         priority_exit_share_threshold=1 * 10000,
     )
     sk_2 = StakingModuleFactory.build(
+        id=2,
         priority_exit_share_threshold=1 * 10000,
     )
     iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(
