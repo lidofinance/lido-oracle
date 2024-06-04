@@ -84,10 +84,10 @@ class ValidatorExitIteratorV2:
 
         for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
             if node_operator.exitable_validators:
-                gid = NodeOperatorGlobalIndex((
+                gid = (
                     node_operator.module_stats.staking_module.id,
                     node_operator.node_operator.id,
-                ))
+                )
                 return gid, self._eject_validator(gid)
 
         raise StopIteration
@@ -235,7 +235,12 @@ class ValidatorExitIteratorV2:
         """
         The lower coefficient the higher priority to eject validator
         """
-        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
+        priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
+
+        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else 0
+
+        max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
+
         max_validators_count = int(max_share_rate * self.total_lido_validators)
         return max(node_operator.module_stats.exitable_validators - max_validators_count, 0)
 
@@ -254,7 +259,7 @@ class ValidatorExitIteratorV2:
         return 0
 
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        result = []
+        result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
         while self.index < self.max_validators_to_exit:
             self.index += 1
@@ -264,10 +269,10 @@ class ValidatorExitIteratorV2:
                     return result
 
                 if node_operator.exitable_validators:
-                    gid = NodeOperatorGlobalIndex((
+                    gid = (
                         node_operator.module_stats.staking_module.id,
                         node_operator.node_operator.id,
-                    ))
+                    )
                     result.append((gid, self._eject_validator(gid)))
                     break
 

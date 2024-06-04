@@ -33,7 +33,8 @@ from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
-    compute_activation_exit_epoch, compute_exit_churn_limit,
+    compute_activation_exit_epoch,
+    compute_exit_churn_limit,
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
@@ -240,8 +241,7 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
-        validators = self.w3.cc.get_validators(blockstamp)
-        max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(validators)
+        max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
 
         activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
 
@@ -255,12 +255,14 @@ class Ejector(BaseModule, ConsensusModule):
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
-    def _get_latest_exit_epoch(self, validators: list[Validator]) -> tuple[EpochNumber, int]:
+    def _get_latest_exit_epoch(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, int]:
         """
         Returns the latest exit epoch and amount of validators that are exiting in this epoch
         """
         max_exit_epoch_number = EpochNumber(0)
         latest_to_exit_validators_count = 0
+
+        validators = self.w3.cc.get_validators(blockstamp)
 
         for validator in validators:
             val_exit_epoch = EpochNumber(int(validator.validator.exit_epoch))
@@ -292,11 +294,11 @@ class Ejector(BaseModule, ConsensusModule):
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     def _get_total_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> int:
-        total_withdrawable_validators = len([
+        total_withdrawable_validators = len(list(filter(lambda validator: (
             is_partially_withdrawable_validator(validator) or
             is_fully_withdrawable_validator(validator, blockstamp.ref_epoch)
-            for validator in self.w3.cc.get_validators(blockstamp)
-        ])
+        ), self.w3.cc.get_validators(blockstamp))))
+
         logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
         return total_withdrawable_validators
 

@@ -253,7 +253,7 @@ class LidoValidatorStateService:
         node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
         # Initialize dict with empty sets for operators which validators were not contained in any event
         global_indexes: dict[NodeOperatorGlobalIndex, set[int]] = {
-            NodeOperatorGlobalIndex((operator.staking_module.id, operator.id)): set() for operator in node_operators
+            (operator.staking_module.id, operator.id): set() for operator in node_operators
         }
 
         for event in events:

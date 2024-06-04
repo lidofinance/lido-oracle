@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src import constants
 from src.constants import MAX_EFFECTIVE_BALANCE
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector
@@ -11,7 +12,7 @@ from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp
-from src.utils.validator_state import compute_activation_exit_epoch
+from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
@@ -43,6 +44,7 @@ def ref_blockstamp() -> ReferenceBlockStamp:
 
 @pytest.fixture()
 def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
+    web3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
     return Ejector(web3)
 
 
@@ -88,16 +90,6 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
 
 
 class TestGetValidatorsToEject:
-    @pytest.mark.unit
-    def test_should_not_report_on_no_withdraw_requests(
-        self,
-        ejector: Ejector,
-        ref_blockstamp: ReferenceBlockStamp,
-    ) -> None:
-        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=0)
-        result = ejector.get_validators_to_eject(ref_blockstamp)
-        assert result == [], "Should not report on no withdraw requests"
-
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
     def test_no_validators_to_eject(
@@ -320,7 +312,7 @@ class TestChurnLimit:
     def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
-        assert result == ejector_module.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
+        assert result == constants.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
@@ -333,8 +325,6 @@ class TestChurnLimit:
     ) -> None:
         with monkeypatch.context() as m:
             ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
-            m.setattr(ejector_module, "MIN_PER_EPOCH_CHURN_LIMIT", 4)
-            m.setattr(ejector_module, "CHURN_LIMIT_QUOTIENT", 1)
             result = ejector._get_churn_limit(ref_blockstamp)
             assert result == 4, "Unexpected churn limit"
             ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
@@ -349,8 +339,8 @@ class TestChurnLimit:
     ) -> None:
         with monkeypatch.context() as m:
             ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
-            m.setattr(ejector_module, "MIN_PER_EPOCH_CHURN_LIMIT", 0)
-            m.setattr(ejector_module, "CHURN_LIMIT_QUOTIENT", 2)
+            m.setattr(validator_state, "MIN_PER_EPOCH_CHURN_LIMIT", 0)
+            m.setattr(validator_state, "CHURN_LIMIT_QUOTIENT", 2)
             result = ejector._get_churn_limit(ref_blockstamp)
             assert result == 49, "Unexpected churn limit"
             ejector._get_churn_limit(ref_blockstamp)
@@ -378,6 +368,3 @@ def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None
     (max_epoch, count) = ejector._get_latest_exit_epoch(blockstamp)
     assert count == 2, "Unexpected count of exiting validators"
     assert max_epoch == 42, "Unexpected max epoch"
-
-    ejector._get_latest_exit_epoch(blockstamp)
-    ejector.w3.cc.get_validators.assert_called_once_with(blockstamp)

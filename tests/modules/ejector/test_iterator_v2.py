@@ -1,3 +1,4 @@
+from types import MethodType
 from unittest.mock import Mock
 
 import pytest
@@ -61,8 +62,8 @@ def test_get_delayed_validators(iterator):
     )
 
     iterator.exitable_validators = {
-        (1, 1): [LidoValidatorFactory.build(), LidoValidatorFactory.build()],
-        (1, 2): [LidoValidatorFactory.build(), LidoValidatorFactory.build()],
+        (1, 1): [LidoValidatorFactory.build(index="1"), LidoValidatorFactory.build(index="2")],
+        (1, 2): [LidoValidatorFactory.build(index="3"), LidoValidatorFactory.build(index="4")],
     }
 
     assert iterator._get_delayed_validators() == {(1, 1): 1, (1, 2): 0}
@@ -228,13 +229,24 @@ def test_no_force_and_soft_predicate(iterator):
 
     # Priority to bigger diff exitable - forced_to
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_force_predicate(x))
-    assert [1, 4, 2, 3] == [no.node_operator.id for no in sorted_nos]
+
+    assert [nos[0], nos[3], nos[1], nos[2]] == sorted_nos
 
     # Last two elements have same weight
-    assert [1, 4] == [no.node_operator.id for no in sorted_nos][:2]
+    assert [
+        nos[0].node_operator.id,
+        nos[3].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
-    assert [3, 2] == [no.node_operator.id for no in sorted_nos][:2]
+    assert [
+        nos[2].node_operator.id,
+        nos[1].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
 
 @pytest.mark.unit
@@ -270,10 +282,10 @@ def test_max_share_rate_coefficient_predicate(iterator):
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._max_share_rate_coefficient_predicate(x))
 
-    assert sorted_nos[0].node_operator.id == 2
-    assert sorted_nos[1].node_operator.id in [3, 1]
-    assert sorted_nos[2].node_operator.id in [3, 1]
-    assert sorted_nos[3].node_operator.id == 4
+    assert sorted_nos[0] == nos[1]
+    assert sorted_nos[1] in [nos[2], nos[0]]
+    assert sorted_nos[2] in [nos[2], nos[0]]
+    assert sorted_nos[3] == nos[3]
 
 
 @pytest.mark.unit
@@ -302,7 +314,7 @@ def test_stake_weight_coefficient_predicate(iterator):
         ),
     )
 
-    assert [2, 3, 1] == [no.node_operator.id for no in sorted_nos]
+    assert [nos[1], nos[2], nos[0]] == sorted_nos
 
 
 @pytest.mark.unit
@@ -310,12 +322,26 @@ def test_get_remaining_forced_validators(iterator):
     iterator.max_validators_to_exit = 10
     iterator.index = 5
 
-    def _next(func):
-        new_call_count = getattr(_next, "call_count", 0) + 1
-        setattr(_next, "call_count", new_call_count)
-        if new_call_count == 5:
-            raise StopIteration
+    iterator.node_operators_stats = {
+        (1, 1): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=None),
+        (1, 2): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=9),
+    }
+    iterator.node_operators_stats[(1, 1)].module_stats.staking_module.id = 1
+    iterator.node_operators_stats[(1, 2)].module_stats.staking_module.id = 1
+    iterator.node_operators_stats[(1, 1)].node_operator.id = 1
+    iterator.node_operators_stats[(1, 2)].node_operator.id = 2
 
-    iterator._next = _next
+    def _eject(self, gid):
+        self.node_operators_stats[gid].exitable_validators -= 1
 
-    assert 4 == len(iterator.get_remaining_forced_validators())
+    iterator._eject_validator = MethodType(_eject, iterator)
+
+    vals = iterator.get_remaining_forced_validators()
+
+    assert len(vals) == 1
+
+    iterator.max_validators_to_exit = 10
+    iterator.index = 10
+
+    vals = iterator.get_remaining_forced_validators()
+    assert len(vals) == 0
