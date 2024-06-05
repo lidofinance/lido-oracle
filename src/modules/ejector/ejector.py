@@ -25,7 +25,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.services.exit_order_iterator import ExitOrderIterator
+from src.services.exit_order.iterator import ExitOrderIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex

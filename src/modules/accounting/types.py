@@ -104,8 +104,8 @@ class SharesRequestedToBurn:
 
 @dataclass
 class WithdrawalRequestStatus:
-    amountOfStETH: int
-    amountOfShares: int
+    amount_of_st_eth: int
+    amount_of_shares: int
     owner: ChecksumAddress
     timestamp: int
     is_finalized: bool

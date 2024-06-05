@@ -16,15 +16,11 @@ def build_reference_blockstamp(
     )
 
 
-def build_blockstamp(
-    slot_details: BlockDetailsResponse,
-):
+def build_blockstamp(slot_details: BlockDetailsResponse):
     return BlockStamp(**_build_blockstamp_data(slot_details))
 
 
-def _build_blockstamp_data(
-    slot_details: BlockDetailsResponse,
-) -> dict:
+def _build_blockstamp_data(slot_details: BlockDetailsResponse) -> dict:
     execution_data = slot_details.message.body['execution_payload']
 
     return {
