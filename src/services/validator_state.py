@@ -10,7 +10,7 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_EXITED_VALIDATORS,
     ACCOUNTING_DELAYED_VALIDATORS,
 )
-from src.modules.accounting.extra_data import ExtraDataService, ExtraData
+from src.modules.accounting.third_phase import ExtraDataService, ExtraData
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber
 from src.utils.events import get_events_in_past
@@ -31,24 +31,6 @@ class LidoValidatorStateService:
     """Helper that calculates/aggregates Lido validator's states."""
     def __init__(self, w3: Web3):
         self.w3 = w3
-        self.extra_data_service = ExtraDataService()
-
-    @lru_cache(maxsize=1)
-    def get_extra_data(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> ExtraData:
-        stuck_validators = self.get_lido_newly_stuck_validators(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
-        exited_validators = self.get_lido_newly_exited_validators(blockstamp)
-        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
-
-        extra_data = self.extra_data_service.collect(
-            stuck_validators=stuck_validators,
-            exited_validators=exited_validators,
-            max_items_count=orl.max_accounting_extra_data_list_items_count,
-            max_no_in_payload_count=orl.max_node_operators_per_extra_data_item_count,
-        )
-        logger.info({'msg': 'Calculate extra data.', 'value': extra_data})
-        return extra_data
 
     def get_lido_newly_stuck_validators(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> dict[NodeOperatorGlobalIndex, int]:
         lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)

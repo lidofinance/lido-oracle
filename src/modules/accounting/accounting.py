@@ -6,6 +6,9 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
+from src.modules.accounting.third_phase.extra_data import ExtraDataService
+from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2
+from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     ReportData,
     LidoReportRebase,
@@ -44,8 +47,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
-    COMPATIBLE_CONTRACT_VERSIONS = [1]
-    COMPATIBLE_CONSENSUS_VERSIONS = [1]
+    COMPATIBLE_CONTRACT_VERSIONS = [1, 2]
+    COMPATIBLE_CONSENSUS_VERSIONS = [1, 2]
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -88,14 +91,15 @@ class Accounting(BaseModule, ConsensusModule):
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        extra_data = self.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
 
-        if extra_data.extra_data:
-            tx = self.report_contract.submit_report_extra_data_list(extra_data.extra_data)
-        else:
+        if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY:
             tx = self.report_contract.submit_report_extra_data_empty()
+            return self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+        for tx_data in extra_data.extra_data_list:
+            tx = self.report_contract.submit_report_extra_data_list(tx_data)
+            self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -136,7 +140,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        extra_data = self.get_extra_data(blockstamp)
         finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
@@ -297,3 +301,29 @@ class Accounting(BaseModule, ConsensusModule):
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode
+
+    @lru_cache(maxsize=1)
+    def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+
+        chain_config = self.get_chain_config(blockstamp)
+        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
+        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
+        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
+        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+
+        if consensus_version == 1:
+            return ExtraDataService.collect(
+                stuck_validators,
+                exited_validators,
+                orl.max_accounting_extra_data_list_items_count,
+                orl.max_node_operators_per_extra_data_item_count,
+            )
+
+        return ExtraDataServiceV2.collect(
+            stuck_validators,
+            exited_validators,
+            orl.max_accounting_extra_data_list_items_count,
+            orl.max_node_operators_per_extra_data_item_count,
+        )
