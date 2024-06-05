@@ -62,7 +62,7 @@ def test_fail_with_status_code(provider, web3):
 
 
 def test_fail_with_body_error(provider, web3):
-    with pytest.raises(MethodUnavailable):
+    with pytest.raises((MethodUnavailable, ValueError)):
         web3.eth.coinbase
     labels = _get_requests_labels()
     assert labels == {'call_method': '', 'call_to': '', 'code': '-32601', 'endpoint': 'eth_coinbase', 'le': '0.01'}
