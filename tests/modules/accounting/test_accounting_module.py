@@ -258,7 +258,7 @@ class TestAccountingSubmitExtraData:
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        ("extra_data",),
+        ("third_phase",),
         [
             (None,),
             (bytes(0),),

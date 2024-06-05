@@ -1,0 +1,40 @@
+from dataclasses import dataclass
+from enum import Enum
+
+from hexbytes import HexBytes
+
+
+class ItemType(Enum):
+    EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
+    EXTRA_DATA_TYPE_EXITED_VALIDATORS = 2
+
+
+class FormatList(Enum):
+    EXTRA_DATA_FORMAT_LIST_EMPTY = 0
+    EXTRA_DATA_FORMAT_LIST_NON_EMPTY = 1
+
+
+@dataclass
+class ExtraData:
+    extra_data_list: list[bytes]
+    data_hash: bytes
+    format: FormatList
+    items_count: int
+
+
+@dataclass
+class ItemPayload:
+    module_id: bytes
+    node_ops_count: bytes
+    node_operator_ids: bytes
+    vals_counts: bytes
+
+
+class ExtraDataLengths:
+    NEXT_HASH = 32
+    ITEM_INDEX = 3
+    ITEM_TYPE = 2
+    MODULE_ID = 3
+    NODE_OPS_COUNT = 8
+    NODE_OPERATOR_IDS = 8
+    STUCK_OR_EXITED_VALS_COUNT = 16

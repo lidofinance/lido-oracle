@@ -1,7 +1,7 @@
 import pytest
 from hexbytes import HexBytes
 
-from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
+from src.modules.accounting.third_phase import ExtraDataService, ExtraData, FormatList
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
 
 
