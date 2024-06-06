@@ -10,7 +10,6 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_EXITED_VALIDATORS,
     ACCOUNTING_DELAYED_VALIDATORS,
 )
-from src.modules.accounting.third_phase import ExtraDataService, ExtraData
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber
 from src.utils.events import get_events_in_past

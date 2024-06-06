@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from hexbytes import HexBytes
-
 
 class ItemType(Enum):
     EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
@@ -20,14 +18,6 @@ class ExtraData:
     data_hash: bytes
     format: FormatList
     items_count: int
-
-
-@dataclass
-class ItemPayload:
-    module_id: bytes
-    node_ops_count: bytes
-    node_operator_ids: bytes
-    vals_counts: bytes
 
 
 class ExtraDataLengths:

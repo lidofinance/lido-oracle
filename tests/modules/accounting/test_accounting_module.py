@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import Any, Iterable, cast
 from unittest.mock import Mock, patch
 
@@ -9,6 +8,7 @@ from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
+from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig
@@ -245,38 +245,24 @@ class TestAccountingSubmitExtraData:
     ):
         extra_data = bytes(32)
 
-        accounting.get_chain_config = Mock(return_value=chain_config)
-        accounting.lido_validator_state_service.get_extra_data = Mock(return_value=Mock(extra_data=extra_data))
+        accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+        accounting.get_extra_data = Mock(return_value=Mock(extra_data_list=[extra_data]))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
 
         accounting._submit_extra_data(ref_bs)
 
         accounting.report_contract.submit_report_extra_data_list.assert_called_once_with(extra_data)
-        accounting.lido_validator_state_service.get_extra_data.assert_called_once_with(ref_bs, chain_config)
-        accounting.get_chain_config.assert_called_once_with(ref_bs)
+        accounting.get_extra_data.assert_called_once_with(ref_bs)
 
     @pytest.mark.unit
-    @pytest.mark.parametrize(
-        ("third_phase",),
-        [
-            (None,),
-            (bytes(0),),
-            ([],),
-            (b'',),
-            ('',),
-            (False,),
-        ],
-    )
     def test_submit_extra_data_empty(
         self,
         accounting: Accounting,
         ref_bs: ReferenceBlockStamp,
         chain_config: ChainConfig,
-        extra_data: Any,
     ):
-        accounting.get_chain_config = Mock(return_value=chain_config)
-        accounting.lido_validator_state_service.get_extra_data = Mock(return_value=Mock(extra_data=extra_data))
+        accounting.get_extra_data = Mock(return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.report_contract.submit_report_extra_data_empty = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
@@ -285,8 +271,7 @@ class TestAccountingSubmitExtraData:
 
         accounting.report_contract.submit_report_extra_data_empty.assert_called_once()
         accounting.report_contract.submit_report_extra_data_list.assert_not_called()
-        accounting.lido_validator_state_service.get_extra_data.assert_called_once_with(ref_bs, chain_config)
-        accounting.get_chain_config.assert_called_once_with(ref_bs)
+        accounting.get_extra_data.assert_called_once_with(ref_bs)
 
 
 @pytest.mark.unit
