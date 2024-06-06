@@ -51,7 +51,7 @@ class BaseModule(ABC):
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
-            logger.info({'msg': 'Startup new cycle.'})
+            logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)

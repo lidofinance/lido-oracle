@@ -60,7 +60,7 @@ class ExtraDataServiceV2:
             items_count=items_count,
             extra_data_list=hashed_txs,
             data_hash=first_hash,
-            format=extra_data_format,
+            format=extra_data_format.value,
         )
 
     @classmethod

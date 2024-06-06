@@ -16,7 +16,7 @@ class FormatList(Enum):
 class ExtraData:
     extra_data_list: list[bytes]
     data_hash: bytes
-    format: FormatList
+    format: int
     items_count: int
 
 
