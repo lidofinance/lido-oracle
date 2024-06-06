@@ -3,10 +3,18 @@ from dataclasses import dataclass
 
 from hexbytes import HexBytes
 
-from src.modules.accounting.third_phase.types import ItemType, ExtraData, FormatList, ItemPayload, ExtraDataLengths
+from src.modules.accounting.third_phase.types import ItemType, ExtraData, FormatList, ExtraDataLengths
 from src.modules.submodules.types import ZERO_HASH
 from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3
+
+
+@dataclass
+class ItemPayload:
+    module_id: bytes
+    node_ops_count: bytes
+    node_operator_ids: bytes
+    vals_counts: bytes
 
 
 @dataclass
@@ -46,16 +54,18 @@ class ExtraDataService:
         extra_data_bytes = cls.to_bytes(extra_data)
 
         if extra_data:
+            extra_data_list = [extra_data_bytes]
             data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
             data_hash = Web3.keccak(extra_data_bytes)
         else:
+            extra_data_list = []
             data_format = FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
-            data_hash = ZERO_HASH
+            data_hash = HexBytes(ZERO_HASH)
 
         return ExtraData(
-            extra_data_list=[extra_data_bytes],
+            extra_data_list=extra_data_list,
             data_hash=data_hash,
-            format=data_format.value,
+            format=data_format,
             items_count=len(extra_data),
         )
 

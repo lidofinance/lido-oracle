@@ -72,13 +72,13 @@ class OracleReportLimits:
     max_node_operators_per_extra_data_item_count: int
     request_timestamp_margin: int
     max_positive_token_rebase: int
-    appeared_validators_per_day_limit: Optional[int]
+    appeared_validators_per_day_limit: Optional[int] = None
 
     @classmethod
     def from_response(cls, **kwargs) -> Self:
         # churn_validators_per_day_limit was renamed in new version
         # Unpack structure by order
-        return cls(*kwargs.values())
+        return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
 
 @dataclass(frozen=True)

@@ -1,9 +1,26 @@
-import itertools
+from dataclasses import dataclass
+from itertools import groupby
 
-from src.modules.accounting.third_phase.types import ExtraData, ItemType, ItemPayload, ExtraDataLengths, FormatList
+from src.modules.accounting.third_phase.types import ExtraData, ItemType, ExtraDataLengths, FormatList
 from src.modules.submodules.types import ZERO_HASH
 from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3
+
+
+def batch(iterable: list, n: int):
+    """
+    ToDo: Replace with batched from itertools when python 3.12
+    """
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+
+@dataclass
+class ItemPayload:
+    module_id: int
+    node_operator_ids: list[int]
+    vals_counts: list[int]
 
 
 class ExtraDataServiceV2:
@@ -31,7 +48,8 @@ class ExtraDataServiceV2:
     ) -> ExtraData:
         stuck_payloads = cls.build_validators_payloads(stuck_validators, max_no_in_payload_count)
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
-        items_count, first_hash, txs = cls.build_extra_data_transactions_data(stuck_payloads, exited_payloads, max_items_count)
+        items_count, txs = cls.build_extra_transactions_data(stuck_payloads, exited_payloads, max_items_count)
+        first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
 
         if items_count:
             extra_data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
@@ -40,7 +58,7 @@ class ExtraDataServiceV2:
 
         return ExtraData(
             items_count=items_count,
-            extra_data_list=txs,
+            extra_data_list=hashed_txs,
             data_hash=first_hash,
             format=extra_data_format,
         )
@@ -55,33 +73,32 @@ class ExtraDataServiceV2:
 
         payloads = []
 
-        for module_id, operators_by_module in itertools.groupby(operator_validators, key=lambda x: x[0][0]):
-            operator_ids = []
-            vals_count = []
+        for module_id, operators_by_module in groupby(operator_validators, key=lambda x: x[0][0]):
+            for nos_in_batch in batch(list(operators_by_module), max_no_in_payload_count):
+                operator_ids = []
+                vals_count = []
 
-            for nos_in_batch in itertools.batched(operators_by_module, max_no_in_payload_count):
                 for ((_, no_id), validators_count) in nos_in_batch:
-                    operator_ids.append(no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_IDS))
-                    vals_count.append(validators_count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT))
+                    operator_ids.append(no_id)
+                    vals_count.append(validators_count)
 
                 payloads.append(
                     ItemPayload(
-                        module_id=module_id.to_bytes(ExtraDataLengths.MODULE_ID),
-                        node_ops_count=len(operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT),
-                        node_operator_ids=b"".join(operator_ids),
-                        vals_counts=b"".join(vals_count),
+                        module_id=module_id,
+                        node_operator_ids=operator_ids,
+                        vals_counts=vals_count,
                     )
                 )
 
         return payloads
 
     @classmethod
-    def build_extra_data_transactions_data(
+    def build_extra_transactions_data(
         cls,
         stuck_payloads: list[ItemPayload],
         exited_payloads: list[ItemPayload],
         max_items_count: int,
-    ) -> tuple[int, bytes, list[bytes]]:
+    ) -> tuple[int, list[bytes]]:
         all_payloads = [
             *[(ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, payload) for payload in stuck_payloads],
             *[(ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, payload) for payload in exited_payloads],
@@ -90,20 +107,27 @@ class ExtraDataServiceV2:
         index = 0
         result = []
 
-        for batch in itertools.batched(all_payloads, max_items_count):
+        for payload_batch in batch(all_payloads, max_items_count):
             tx = b''
-            for item_type, payload in batch:
+            for item_type, payload in payload_batch:
                 tx += index.to_bytes(ExtraDataLengths.ITEM_INDEX)
                 tx += item_type.value.to_bytes(ExtraDataLengths.ITEM_TYPE)
                 tx += payload.module_id.to_bytes(ExtraDataLengths.MODULE_ID)
-                tx += payload.node_ops_count.to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
-                tx += payload.node_operator_ids
-                tx += payload.vals_counts
+                tx += len(payload.node_operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
+                tx += b''.join(
+                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_IDS)
+                    for no_id in payload.node_operator_ids
+                )
+                tx += b''.join(
+                    count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT)
+                    for count in payload.vals_counts
+                )
 
-            index += 1
+                index += 1
+
             result.append(tx)
 
-        return index, cls.add_hashes_to_transactions(result)[0], cls.add_hashes_to_transactions(result)[1]
+        return index, result
 
     @staticmethod
     def add_hashes_to_transactions(txs_data: list[bytes]) -> tuple[bytes, list[bytes]]:
@@ -115,6 +139,8 @@ class ExtraDataServiceV2:
         for tx in txs_data:
             full_tx_data = next_hash + tx
             txs_with_hashes.append(full_tx_data)
-            next_hash = Web3.keccak(next_hash)
+            next_hash = Web3.keccak(full_tx_data)
+
+        txs_with_hashes.reverse()
 
         return next_hash, txs_with_hashes

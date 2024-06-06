@@ -91,15 +91,15 @@ class Accounting(BaseModule, ConsensusModule):
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
-        extra_data = self.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        extra_data = self.get_extra_data(blockstamp)
 
         if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY:
             tx = self.report_contract.submit_report_extra_data_empty()
-            return self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
-
-        for tx_data in extra_data.extra_data_list:
-            tx = self.report_contract.submit_report_extra_data_list(tx_data)
             self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+        else:
+            for tx_data in extra_data.extra_data_list:
+                tx = self.report_contract.submit_report_extra_data_list(tx_data)
+                self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     @lru_cache(maxsize=1)
     @duration_meter()
