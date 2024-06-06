@@ -164,6 +164,7 @@ class LidoValidatorStateService:
 
         return result
 
+    @lru_cache(maxsize=1)
     def get_recently_requested_but_not_exited_validators(
         self,
         blockstamp: ReferenceBlockStamp,

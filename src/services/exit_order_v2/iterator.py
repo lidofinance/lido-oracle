@@ -77,18 +77,19 @@ class ValidatorExitIteratorV2:
 
     @duration_meter()
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
-        self.index += 1
-
-        if self.index > self.max_validators_to_exit:
+        if self.index == self.max_validators_to_exit:
             raise StopIteration
 
         for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
-            if node_operator.exitable_validators:
-                gid = (
-                    node_operator.module_stats.staking_module.id,
-                    node_operator.node_operator.id,
-                )
-                return gid, self._eject_validator(gid)
+            if not node_operator.exitable_validators:
+                break
+
+            self.index += 1
+            gid = (
+                node_operator.module_stats.staking_module.id,
+                node_operator.node_operator.id,
+            )
+            return gid, self._eject_validator(gid)
 
         raise StopIteration
 
@@ -116,11 +117,11 @@ class ValidatorExitIteratorV2:
         for gid, validators in self.exitable_validators.items():
             self.total_lido_validators += len(validators)
 
-            self.module_stats[gid[0]].exitable_validators += len(validators)
-
             # Calculate validators that are not yet in CL
             deposited_validators = self.node_operators_stats[gid].node_operator.total_deposited_validators
             transient_validators_count = deposited_validators - len(lido_validators[gid])
+
+            self.module_stats[gid[0]].exitable_validators += len(validators) + transient_validators_count
 
             self.node_operators_stats[gid].exitable_validators = len(validators) + transient_validators_count
             self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
@@ -237,6 +238,7 @@ class ValidatorExitIteratorV2:
         """
         priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
 
+        # ToDo: remove after upgrade to sr v2
         priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else 0
 
         max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
@@ -261,14 +263,13 @@ class ValidatorExitIteratorV2:
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
-        while self.index < self.max_validators_to_exit:
-            self.index += 1
-
+        while self.index != self.max_validators_to_exit:
             for node_operator in sorted(self.node_operators_stats.values(), key=lambda no: -self._no_force_predicate(no)):
                 if self._no_force_predicate(node_operator) == 0:
                     return result
 
                 if node_operator.exitable_validators:
+                    self.index += 1
                     gid = (
                         node_operator.module_stats.staking_module.id,
                         node_operator.node_operator.id,
