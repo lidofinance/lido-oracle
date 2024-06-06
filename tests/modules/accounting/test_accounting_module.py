@@ -262,7 +262,7 @@ class TestAccountingSubmitExtraData:
         ref_bs: ReferenceBlockStamp,
         chain_config: ChainConfig,
     ):
-        accounting.get_extra_data = Mock(return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY))
+        accounting.get_extra_data = Mock(return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.report_contract.submit_report_extra_data_empty = Mock()  # type: ignore
         accounting.w3.transaction = Mock()

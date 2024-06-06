@@ -36,7 +36,7 @@ def test_collect():
         3,
     )
 
-    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
+    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
     assert len(extra_data.extra_data_list) == 4
     assert extra_data.data_hash == Web3.keccak(extra_data.extra_data_list[0])
     assert extra_data.extra_data_list[0][:32] == Web3.keccak(extra_data.extra_data_list[1])
@@ -46,7 +46,7 @@ def test_collect():
     )
 
     extra_data = ExtraDataServiceV2.collect({}, {}, 2, 4)
-    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
 
 
 @pytest.mark.unit
