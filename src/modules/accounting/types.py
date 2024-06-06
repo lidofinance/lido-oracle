@@ -23,7 +23,7 @@ class ReportData:
     withdrawal_finalization_batches: list[int]
     finalization_share_rate: int
     is_bunker: bool
-    extra_data_format: FormatList
+    extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
 
@@ -76,7 +76,8 @@ class OracleReportLimits:
 
     @classmethod
     def from_response(cls, **kwargs) -> Self:
-        # churn_validators_per_day_limit was renamed in new version
+        # Compatability breaking rename
+        # churn_validators_per_day_limit -> exited_validators_per_day_limit
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 

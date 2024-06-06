@@ -65,7 +65,7 @@ class ExtraDataService:
         return ExtraData(
             extra_data_list=extra_data_list,
             data_hash=data_hash,
-            format=data_format,
+            format=data_format.value,
             items_count=len(extra_data),
         )
 

@@ -93,7 +93,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
         extra_data = self.get_extra_data(blockstamp)
 
-        if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY:
+        if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
             tx = self.report_contract.submit_report_extra_data_empty()
             self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
         else:
