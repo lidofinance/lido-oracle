@@ -22,7 +22,7 @@ class TestBuildValidators:
     def test_collect_zero(self, extra_data_service, contracts):
         extra_data = extra_data_service.collect({}, {}, 10, 10)
         assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
         assert not extra_data.extra_data_list
         assert extra_data.data_hash == HexBytes('0x0000000000000000000000000000000000000000000000000000000000000000')
 
@@ -35,7 +35,7 @@ class TestBuildValidators:
         }
         extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 10, 10)
         assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
         assert len(extra_data.extra_data_list) == 1
         assert (
             extra_data.extra_data_list[0]
@@ -69,7 +69,7 @@ class TestBuildValidators:
         }
         extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 1, 2)
         assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
+        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
         assert len(extra_data.extra_data_list) == 1
         assert (
             extra_data.extra_data_list[0]
