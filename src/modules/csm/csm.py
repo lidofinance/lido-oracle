@@ -7,14 +7,14 @@ from web3.types import BlockIdentifier
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import CheckpointsFactory
-from src.modules.csm.state import InvalidState, State
+from src.modules.csm.checkpoint import CheckpointsIterator, CheckpointProcessor
+from src.modules.csm.state import State, InvalidState
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts import CSFeeOracle
+from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracle
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
@@ -222,24 +222,33 @@ class CSOracle(BaseModule, ConsensusModule):
         self.state.validate_for_collect(l_epoch, r_epoch)
         self.state.status()
 
-        factory = CheckpointsFactory(self.w3.cc, converter, self.state)
-        checkpoints = factory.prepare_checkpoints(l_epoch, r_epoch, finalized_epoch)
+        if done := self.state.is_fulfilled:
+            logger.info({"msg": "All epochs are already processed. Nothing to collect"})
+            return done
 
+        checkpoints = CheckpointsIterator(
+            converter, min(self.state.unprocessed_epochs) or l_epoch, r_epoch, finalized_epoch
+        )
+        processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
+
+        new_processed_epochs = 0
         start = time.time()
         for checkpoint in checkpoints:
+
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
-                logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop proccessing"})
+                logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
 
-            if converter.get_epoch_by_slot(checkpoint.slot) > finalized_epoch:
+            if checkpoint.slot > blockstamp.slot_number:
                 logger.info({"msg": f"Checkpoint for slot {checkpoint.slot} is not finalized yet"})
                 break
 
-            logger.info({"msg": f"Processing checkpoint for slot {checkpoint.slot}"})
-            logger.info({"msg": f"Processing {len(checkpoint.duty_epochs)} epochs"})
-            checkpoint.process(blockstamp)
-        if checkpoints:
-            logger.info({"msg": f"All epochs were processed in {time.time() - start:.2f} seconds"})
+            new_processed_epochs += processor.exec(checkpoint)
+
+        if new_processed_epochs:
+            logger.info(
+                {"msg": f"Collecting data for {new_processed_epochs} epochs was done in {time.time() - start:.2f} sec"}
+            )
 
         return self.state.is_fulfilled
 

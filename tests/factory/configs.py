@@ -1,7 +1,13 @@
 from typing import overload
 from src.modules.accounting.types import OracleReportLimits
 from src.modules.submodules.types import ChainConfig, FrameConfig
-from src.providers.consensus.types import BeaconSpecResponse
+from src.providers.consensus.types import (
+    BeaconSpecResponse,
+    SlotAttestationCommittee,
+    BlockAttestation,
+    AttestationData,
+    Checkpoint,
+)
 from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3Factory
 
@@ -45,3 +51,24 @@ class BeaconSpecResponseFactory(Web3Factory):
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
+
+
+class SlotAttestationCommitteeFactory(Web3Factory):
+    __model__ = SlotAttestationCommittee
+
+    slot = 0
+    index = 0
+    validators = []
+
+
+class BlockAttestationFactory(Web3Factory):
+    __model__ = BlockAttestation
+
+    aggregation_bits = "0x"
+    data = AttestationData(
+        slot="0",
+        index="0",
+        beacon_block_root="0x",
+        source=Checkpoint("0", "0x"),
+        target=Checkpoint("0", "0x"),
+    )
