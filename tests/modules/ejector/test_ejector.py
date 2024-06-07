@@ -107,6 +107,8 @@ class TestGetValidatorsToEject:
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
         ejector._get_total_el_balance = Mock(return_value=50)
         ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(return_value=[])
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=10)
 
         with monkeypatch.context() as m:
             m.setattr(
@@ -276,7 +278,7 @@ def test_get_sweep_delay_in_epochs(
         )
 
         # all 1024 validators
-        result = ejector._get_sweep_delay_in_epochs(ref_blockstamp)
+        result = ejector._get_sweep_delay_in_epochs(ReferenceBlockStampFactory.build(slot_number=1))
         assert result == 1, "Unexpected sweep delay in epochs"
 
 

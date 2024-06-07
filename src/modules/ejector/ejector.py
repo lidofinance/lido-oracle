@@ -123,11 +123,14 @@ class Ejector(BaseModule, ConsensusModule):
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         validator_to_eject_balance_sum = 0
 
-        while expected_balance < to_withdraw_amount:
-            gid, next_validator = next(validators_iterator)
-            validators_to_eject.append((gid, next_validator))
-            validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(next_validator)
-            expected_balance = self._get_total_expected_balance(len(validators_to_eject), blockstamp) + validator_to_eject_balance_sum
+        try:
+            while expected_balance < to_withdraw_amount:
+                gid, next_validator = next(validators_iterator)
+                validators_to_eject.append((gid, next_validator))
+                validator_to_eject_balance_sum += self._get_predicted_withdrawable_balance(next_validator)
+                expected_balance = self._get_total_expected_balance(len(validators_to_eject), blockstamp) + validator_to_eject_balance_sum
+        except StopIteration:
+            pass
 
         logger.info({
             'msg': 'Calculate validators to eject',
