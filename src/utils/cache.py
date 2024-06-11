@@ -18,7 +18,7 @@ def global_lru_cache(*args, **kwargs):
             # Do not cache any requests with relative blocks
             # Like 'latest', 'earliest', 'pending', 'safe', 'finalized' or if default block provided
             if issubclass(args[0].__class__, ContractInterface):
-                block = kwargs.get('block_identifier', None)
+                block = kwargs.get('block_identifier', args[-1])
                 if block is None or block in BlockParams.__args__:
                     return func(*args, **kwargs)
 
