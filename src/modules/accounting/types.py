@@ -5,7 +5,6 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.modules.accounting.third_phase.types import FormatList
 from src.types import SlotNumber, Gwei, StakingModuleId
 
 
