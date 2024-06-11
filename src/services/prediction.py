@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 
 from web3.types import Wei, EventData
 
@@ -25,6 +26,7 @@ class RewardsPredictionService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
+    @lru_cache(maxsize=1)
     def get_rewards_per_epoch(
         self,
         blockstamp: ReferenceBlockStamp,

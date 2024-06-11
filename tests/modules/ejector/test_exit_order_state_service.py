@@ -99,7 +99,7 @@ def mock_get_lido_validators(exit_order_state):
 
 @pytest.fixture
 def mock_get_recently_requests_to_exit_indexes(exit_order_state):
-    def _get_recently_requests_to_exit_indexes(blockstamp, *_):
+    def _get_recently_requests_to_exit_indexes(_, blockstamp):
         responses = {
             100: {
                 (0, 0): [8, 9],
@@ -117,7 +117,7 @@ def mock_get_recently_requests_to_exit_indexes(exit_order_state):
 
         return responses[blockstamp.slot_number]
 
-    exit_order_state.get_recently_requests_to_exit_indexes_by_operators = Mock(
+    exit_order_state.get_recently_requested_validators_by_operator = Mock(
         side_effect=_get_recently_requests_to_exit_indexes
     )
 

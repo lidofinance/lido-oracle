@@ -1,6 +1,7 @@
 import logging
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
 
 from eth_typing import ChecksumAddress
 from web3.module import Module
@@ -19,6 +20,12 @@ if TYPE_CHECKING:
     from src.web3py.types import Web3  # pragma: no cover
 
 
+class NodeOperatorLimitMode(Enum):
+    DISABLED = 0
+    SOFT = 1
+    FORCE = 2
+
+
 @dataclass
 class StakingModule:
     # unique id of the staking module
@@ -30,7 +37,7 @@ class StakingModule:
     # part of the fee taken from staking rewards that goes to the treasury
     treasury_fee: int
     # target percent of total validators in protocol, in BP
-    target_share: int
+    stake_share_limit: int
     # staking module status if staking module can not accept
     # the deposits or can participate in further reward distribution
     status: int
@@ -42,6 +49,26 @@ class StakingModule:
     last_deposit_block: int
     # number of exited validators
     exited_validators_count: int
+    # ---------------------
+    # Available after SR2
+    # ---------------------
+    # module's share threshold, upon crossing which, exits of validators from the module will be prioritized, in BP
+    priority_exit_share_threshold: Optional[int] = None
+    # the maximum number of validators that can be deposited in a single block
+    max_deposits_per_block: Optional[int] = None
+    # the minimum distance between deposits in blocks
+    min_deposit_block_distance: Optional[int] = None
+
+    @classmethod
+    def from_response(cls, **staking_module):
+        """
+        To support both versions of StakingRouter, we map values by order instead of keys.
+
+        Breaking changes are
+        target_share -> stake_share_limit
+        """
+        # `target_share` renamed to `stake_share_limit`
+        return cls(*staking_module.values())  # pylint: disable=no-value-for-parameter
 
     def __hash__(self):
         return hash(self.id)
@@ -51,7 +78,7 @@ class StakingModule:
 class NodeOperator(Nested):
     id: NodeOperatorId
     is_active: bool
-    is_target_limit_active: bool
+    is_target_limit_active: NodeOperatorLimitMode
     target_validators_count: int
     stuck_validators_count: int
     refunded_validators_count: int
@@ -73,6 +100,14 @@ class NodeOperator(Nested):
             total_deposited_validators,
             depositable_validators_count,
         ) = data
+
+        # Staking router v1 contract returns bool value in target limit mode
+        # Staking router v1.5 introduce new limit mode (force) and updates is_target_limit_active to uint type
+        #
+        # False == 0 == No priority ejections
+        # True  == 1 == Soft priority ejections
+        #          2 == Force priority ejections
+        is_target_limit_active = NodeOperatorLimitMode(is_target_limit_active)
 
         return cls(
             _id,
@@ -170,11 +205,20 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
+    def get_lido_node_operators_by_modules(self, blockstamp: BlockStamp) -> dict[StakingModuleId, list[NodeOperator]]:
+        result = {}
+
+        modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
+        for module in modules:
+            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
+
+        return result
+
+    @lru_cache(maxsize=1)
     def get_lido_node_operators(self, blockstamp: BlockStamp) -> list[NodeOperator]:
         result = []
 
-        for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash):
-            operators = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
-            result.extend(operators)
+        for nos in self.get_lido_node_operators_by_modules(blockstamp).values():
+            result.extend(nos)
 
         return result

@@ -14,7 +14,19 @@ class StakingRouterContract(ContractInterface):
     abi_path = './assets/StakingRouter.json'
 
     @lru_cache(maxsize=1)
-    @list_of_dataclasses(StakingModule)
+    def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        response = self.functions.getContractVersion().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `getContractVersion()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+            }
+        )
+        return response
+
+    @lru_cache(maxsize=1)
+    @list_of_dataclasses(StakingModule.from_response)
     def get_staking_modules(self, block_identifier: BlockIdentifier = 'latest') -> list[StakingModule]:
         """
         Returns all registered staking modules
@@ -28,7 +40,6 @@ class StakingRouterContract(ContractInterface):
         })
         return response
 
-    @lru_cache(maxsize=1)
     def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
         """
         Returns node operator digest for each node operator in lido protocol
@@ -42,3 +53,7 @@ class StakingRouterContract(ContractInterface):
             'block_identifier': repr(block_identifier),
         })
         return response
+
+
+class StakingRouterContractV2(StakingRouterContract):
+    abi_path = './assets/StakingRouterV2.json'

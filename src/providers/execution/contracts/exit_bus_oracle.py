@@ -42,7 +42,6 @@ class ExitBusOracleContract(BaseOracleContract):
         })
         return response
 
-    @lru_cache(maxsize=1)
     def get_last_requested_validator_indices(
         self,
         module_id: int,

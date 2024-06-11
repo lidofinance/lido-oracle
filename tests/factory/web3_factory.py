@@ -100,9 +100,11 @@ class Web3Factory(ModelFactory[Any]):
         faker = cls.get_faker()
 
         return {
+            str: faker.pyint,
             HexAddress: lambda: to_checksum_address(HexBytes(faker.binary(length=20)).hex()),
             HexStr: lambda: HexBytes(faker.binary(length=20)).hex(),
             HexBytes: lambda: HexBytes(faker.binary(length=64)),
+            Optional[int]: lambda: None,
         }
 
     @classmethod
