@@ -20,7 +20,7 @@ class OracleReportSanityCheckerContract(ContractInterface):
         Returns the limits list for the Lido's oracle report sanity checks
         """
         response = self.functions.getOracleReportLimits().call(block_identifier=block_identifier)
-        response = named_tuple_to_dataclass(response, OracleReportLimits)
+        response = named_tuple_to_dataclass(response, OracleReportLimits.from_response)
 
         logger.info({
             'msg': 'Call `getOracleReportLimits()`.',

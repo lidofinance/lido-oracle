@@ -89,6 +89,21 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
     ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
 
 
+class SimpleIterator:
+    def __init__(self, lst):
+        self.lst = lst
+
+    def __iter__(self):
+        self.iter = iter(self.lst)
+        return self
+
+    def __next__(self):
+        return next(self.iter)
+
+    def get_remaining_forced_validators(self):
+        pass
+
+
 class TestGetValidatorsToEject:
     @pytest.mark.unit
     @pytest.mark.usefixtures("consensus_client")
@@ -115,6 +130,19 @@ class TestGetValidatorsToEject:
                 ejector_module.ExitOrderIterator,
                 "__iter__",
                 Mock(return_value=iter([])),
+            )
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+            assert result == [], "Unexpected validators to eject"
+
+        ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
+
+        with monkeypatch.context() as m:
+            val_iter = iter(SimpleIterator([]))
+            val_iter.get_remaining_forced_validators = Mock(return_value=[])
+            m.setattr(
+                ejector_module.ValidatorExitIteratorV2,
+                "__iter__",
+                Mock(return_value=val_iter),
             )
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [], "Unexpected validators to eject"
@@ -154,6 +182,19 @@ class TestGetValidatorsToEject:
             )
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [validators[0]], "Unexpected validators to eject"
+
+        ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
+
+        with monkeypatch.context() as m:
+            val_iter = iter(SimpleIterator(validators[:2]))
+            val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
+            m.setattr(
+                ejector_module.ValidatorExitIteratorV2,
+                "__iter__",
+                Mock(return_value=val_iter),
+            )
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+            assert result == [validators[0], *validators[2:]], "Unexpected validators to eject"
 
 
 @pytest.mark.unit
