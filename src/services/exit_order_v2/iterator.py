@@ -49,15 +49,15 @@ class ValidatorExitIteratorV2:
     | V       |                                             |                                                       | Lowest validator index |
     """
     index: int = 0
-    total_lido_validators: int = 0
+    total_lido_exitable_validators: int = 0
     module_stats: dict[StakingModuleId, StakingModuleStats] = {}
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
     exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
 
     max_validators_to_exit: int
 
-    no_penetration: int = -1
-    eth_validators_count: int = -1
+    no_penetration_threshold: int = 0
+    eth_validators_count: int = 0
 
     def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp, seconds_per_slot: int):
         self.w3 = w3
@@ -69,7 +69,7 @@ class ValidatorExitIteratorV2:
     @duration_meter()
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         self.index = 0
-        self.total_lido_validators = 0
+        self.total_lido_exitable_validators = 0
         self._prepare_data_structure()
         self._calculate_lido_stats()
         self._load_constants()
@@ -115,15 +115,17 @@ class ValidatorExitIteratorV2:
         delayed_validators = self._get_delayed_validators()
 
         for gid, validators in self.exitable_validators.items():
-            self.total_lido_validators += len(validators)
 
             # Calculate validators that are not yet in CL
             deposited_validators = self.node_operators_stats[gid].node_operator.total_deposited_validators
             transient_validators_count = deposited_validators - len(lido_validators[gid])
 
-            self.module_stats[gid[0]].exitable_validators += len(validators) + transient_validators_count
+            no_validators = len(validators) + transient_validators_count
 
-            self.node_operators_stats[gid].exitable_validators = len(validators) + transient_validators_count
+            self.total_lido_exitable_validators += no_validators
+            self.module_stats[gid[0]].exitable_validators += no_validators
+            self.node_operators_stats[gid].exitable_validators = no_validators
+
             self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
             self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
 
@@ -138,7 +140,7 @@ class ValidatorExitIteratorV2:
             self.blockstamp.block_hash,
         ).max_validator_exit_requests_per_report
 
-        self.no_penetration = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
+        self.no_penetration_threshold = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
             block_identifier=self.blockstamp.block_hash,
         ) / TOTAL_BASIS_POINTS
 
@@ -188,7 +190,7 @@ class ValidatorExitIteratorV2:
         validator = self.exitable_validators[gid].pop(0)
 
         # Change lido total
-        self.total_lido_validators -= 1
+        self.total_lido_exitable_validators -= 1
         # Change module total
         self.module_stats[gid[0]].exitable_validators -= 1
         # Change node operator stats
@@ -205,7 +207,7 @@ class ValidatorExitIteratorV2:
             - self._max_share_rate_coefficient_predicate(node_operator),
             - self._stake_weight_coefficient_predicate(
                 node_operator,
-                self.no_penetration,
+                self.no_penetration_threshold,
                 self.eth_validators_count,
             ),
             - node_operator.exitable_validators
@@ -234,16 +236,16 @@ class ValidatorExitIteratorV2:
 
     def _max_share_rate_coefficient_predicate(self, node_operator: NodeOperatorStats) -> int:
         """
-        The lower coefficient the higher priority to eject validator
+        The higher coefficient the higher priority to eject validator
         """
         priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
 
         # ToDo: remove after upgrade to sr v2
-        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else 0
+        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else TOTAL_BASIS_POINTS
 
         max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
 
-        max_validators_count = int(max_share_rate * self.total_lido_validators)
+        max_validators_count = int(max_share_rate * self.total_lido_exitable_validators)
         return max(node_operator.module_stats.exitable_validators - max_validators_count, 0)
 
     @staticmethod
@@ -253,7 +255,7 @@ class ValidatorExitIteratorV2:
         no_penetration: float,
     ) -> int:
         """
-        The lower coefficient the higher priority to eject validator
+        The higher coefficient the higher priority to eject validator
         """
         if total_validators * no_penetration < node_operator.exitable_validators:
             return node_operator.total_age
@@ -261,14 +263,22 @@ class ValidatorExitIteratorV2:
         return 0
 
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+        """
+        Returns a list of validators from NOs that are requested for forced exit.
+        This includes an additional scenario where enough validators have been ejected to fulfill the withdrawal requests,
+        but forced ejections are still necessary.
+        """
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
+        # Extra validators limited by VEBO report
         while self.index != self.max_validators_to_exit:
             for node_operator in sorted(self.node_operators_stats.values(), key=lambda no: -self._no_force_predicate(no)):
                 if self._no_force_predicate(node_operator) == 0:
+                    # First in list no has no forced validators. Cycle done
                     return result
 
                 if node_operator.exitable_validators:
+                    # When found Node Operator
                     self.index += 1
                     gid = (
                         node_operator.module_stats.staking_module.id,
