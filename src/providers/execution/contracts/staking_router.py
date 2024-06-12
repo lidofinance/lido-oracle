@@ -72,7 +72,7 @@ class StakingRouterContractV2(StakingRouterContract):
             # But latest contracts has new version
             staking_router = self.w3.eth.contract(
                 address=self.address,
-                abi=self.load_abi(super(StakingRouterContractV2, self).abi_path),
+                abi=self.load_abi(super().abi_path),
                 decode_tuples=True,
             )
             response = staking_router.functions.getStakingModules().call(block_identifier=block_identifier)
