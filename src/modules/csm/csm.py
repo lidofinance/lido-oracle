@@ -260,7 +260,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(FAR_FUTURE_EPOCH)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
-            raise ValueError("CSFeeOracle with no initial epoch yet")
+            raise ValueError("CSM oracle initial epoch is FAR_FUTURE_EPOCH")
 
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = self.get_current_frame(blockstamp).ref_slot
