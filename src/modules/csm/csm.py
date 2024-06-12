@@ -5,6 +5,7 @@ from functools import cached_property
 
 from web3.types import BlockIdentifier
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointsIterator, CheckpointProcessor
@@ -56,6 +57,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 {"msg": "Data required for the report is not fully collected yet. Waiting for the next finalized epoch"}
             )
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
         # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
@@ -206,10 +208,11 @@ class CSOracle(BaseModule, ConsensusModule):
         """Ongoing report data collection before the report ref slot and it's submission"""
         logger.info({"msg": "Collecting data for the report"})
 
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
+        converter = self.converter(blockstamp)
+
+        l_ref_slot, r_ref_slot = self.current_frame_range(converter, blockstamp)
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
-        converter = self.converter(blockstamp)
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
@@ -235,7 +238,7 @@ class CSOracle(BaseModule, ConsensusModule):
         start = time.time()
         for checkpoint in checkpoints:
 
-            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+            if self.current_frame_range(converter, self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
 
@@ -253,11 +256,14 @@ class CSOracle(BaseModule, ConsensusModule):
         return self.state.is_fulfilled
 
     @lru_cache(maxsize=1)
-    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+    def current_frame_range(self, converter: Web3Converter, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+
+        far_future_initial_epoch = converter.get_epoch_by_timestamp(FAR_FUTURE_EPOCH)
+        if converter.frame_config.initial_epoch == far_future_initial_epoch:
+            raise ValueError("CSFeeOracle with no initial epoch yet")
+
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = self.get_current_frame(blockstamp).ref_slot
-
-        converter = self.converter(blockstamp)
 
         # The very first report, no previous ref slot.
         if not l_ref_slot:
