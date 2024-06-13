@@ -94,16 +94,16 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
 
     def validate_for_report(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         if not self.is_fulfilled:
-            raise InvalidState()
+            raise InvalidState(f'State is not fulfilled. {self.unprocessed_epochs=}')
 
         for epoch in self._processed_epochs:
             if l_epoch <= epoch <= r_epoch:
                 continue
-            raise InvalidState()
+            raise InvalidState(f'Processed epoch {epoch} is out of range')
 
         for epoch in sequence(l_epoch, r_epoch):
             if epoch not in self._processed_epochs:
-                raise InvalidState()
+                raise InvalidState(f'Epoch {epoch} should be processed')
 
     def validate_for_collect(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
 
