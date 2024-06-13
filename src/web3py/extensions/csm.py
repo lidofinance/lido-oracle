@@ -6,8 +6,7 @@ from typing import Iterable, cast
 from hexbytes import HexBytes
 from lazy_object_proxy import Proxy
 from web3 import Web3
-from web3.contract.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
+from web3.exceptions import Web3Exception
 from web3.module import Module
 from web3.types import BlockIdentifier
 
@@ -67,50 +66,37 @@ class CSM(Module):
         return stuck
 
     def _load_contracts(self) -> None:
-        self.oracle = cast(
-            CSFeeOracle,
-            self.w3.eth.contract(
-                address=variables.CSM_ORACLE_ADDRESS,  # type: ignore
-                ContractFactoryClass=CSFeeOracle,
-                decode_tuples=True,
-            ),
-        )
-
-        self.module = cast(
-            CSModule,
-            self.w3.eth.contract(
-                address=variables.CSM_MODULE_ADDRESS,  # type: ignore
-                ContractFactoryClass=CSModule,
-                decode_tuples=True,
-            ),
-        )
-
-        self.fee_distributor = cast(
-            CSFeeDistributor,
-            self.w3.eth.contract(
-                address=self.oracle.fee_distributor(),
-                ContractFactoryClass=CSFeeDistributor,
-                decode_tuples=True,
-            ),
-        )
-
-    def _check_contracts(self):
-        """This is startup check that checks that contract are deployed and has valid implementation"""
         try:
-            self.oracle.functions.getContractVersion().call()
-        except BadFunctionCallOutput:
-            logger.info({"msg": "Some of the contracts aren't healthy"})
+            self.oracle = cast(
+                CSFeeOracle,
+                self.w3.eth.contract(
+                    address=variables.CSM_ORACLE_ADDRESS,  # type: ignore
+                    ContractFactoryClass=CSFeeOracle,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.module = cast(
+                CSModule,
+                self.w3.eth.contract(
+                    address=variables.CSM_MODULE_ADDRESS,  # type: ignore
+                    ContractFactoryClass=CSModule,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.fee_distributor = cast(
+                CSFeeDistributor,
+                self.w3.eth.contract(
+                    address=self.oracle.fee_distributor(),
+                    ContractFactoryClass=CSFeeDistributor,
+                    decode_tuples=True,
+                ),
+            )
+        except Web3Exception as ex:
+            logger.error({"msg": "Some of the contracts aren't healthy", "error": str(ex)})
             sleep(60)
             self._load_contracts()
-        else:
-            return
-
-    def __setattr__(self, key, value):
-        current_value = getattr(self, key, None)
-        if isinstance(current_value, Contract) and isinstance(value, Contract):
-            if value.address != current_value.address:
-                logger.info({"msg": f"Contract {key} has been changed to {value.address}"})
-        super().__setattr__(key, value)
 
 
 class LazyCSM(CSM):
