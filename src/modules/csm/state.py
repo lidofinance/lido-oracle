@@ -1,12 +1,9 @@
-from functools import reduce
 import logging
 import os
 import pickle
-from typing import Self
-from collections import UserDict
 from dataclasses import dataclass, field
-from statistics import mean
 from pathlib import Path
+from typing import Self
 
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
@@ -14,24 +11,27 @@ from src.utils.range import sequence
 logger = logging.getLogger(__name__)
 
 
-class InvalidState(Exception):
-    ...
+class InvalidState(Exception): ...
 
 
 @dataclass
 class AttestationsAggregate:
+    """Aggregate of attestations duties observed for a validator"""
+
     assigned: int
     included: int
 
     @property
     def perf(self) -> float:
-        return self.included / self.assigned
+        return self.included / self.assigned if self.assigned else 0
 
 
 @dataclass
-class State(UserDict[ValidatorIndex, AttestationsAggregate]):
-    """Tracks processing state of CSM performance oracle frame"""
+class State:
+    """Processing state of a CSM performance oracle frame"""
+
     data: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
+
     _epochs_to_process: set[EpochNumber] = field(default_factory=set)
     _processed_epochs: set[EpochNumber] = field(default_factory=set)
 
@@ -70,24 +70,22 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
         assert self.is_empty
 
     def inc(self, key: ValidatorIndex, included: bool) -> None:
-        perf = self.get(key, AttestationsAggregate(0, 0))
+        perf = self.data.get(key, AttestationsAggregate(0, 0))
         perf.assigned += 1
         perf.included += 1 if included else 0
-        self[key] = perf
+        self.data[key] = perf
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
 
     def status(self) -> None:
-        assigned, included = reduce(
-            lambda acc, aggr: (acc[0] + aggr.assigned, acc[1] + aggr.included), self.values(), (0, 0)
-        )
+        network_aggr = self.network_aggr
 
         logger.info(
             {
                 "msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs",
-                "assigned": assigned,
-                "included": included,
+                "assigned": network_aggr.assigned,
+                "included": network_aggr.included,
                 "avg_perf": self.avg_perf,
             }
         )
@@ -106,7 +104,6 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
                 raise InvalidState(f'Epoch {epoch} should be processed')
 
     def validate_for_collect(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
-
         invalidated = False
 
         for epoch in self._epochs_to_process:
@@ -147,7 +144,19 @@ class State(UserDict[ValidatorIndex, AttestationsAggregate]):
     @property
     def avg_perf(self) -> float:
         """Returns average performance of all validators in the cache"""
-        return mean((aggr.perf for aggr in self.values())) if self.values() else 0
+        return self.network_aggr.perf
+
+    @property
+    def network_aggr(self) -> AttestationsAggregate:
+        included = assigned = 0
+        for aggr in self.data.values():
+            assert aggr.included <= aggr.assigned
+            included += aggr.included
+            assigned += aggr.assigned
+        return AttestationsAggregate(
+            included=included,
+            assigned=assigned,
+        )
 
     @property
     def buffer(self) -> Path:

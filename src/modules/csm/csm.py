@@ -109,7 +109,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
             for v in validators:
                 try:
-                    perf = self.state[ValidatorIndex(int(v.index))].perf
+                    perf = self.state.data[ValidatorIndex(int(v.index))].perf
                     if perf > threshold:
                         portion += 1
                 except KeyError:
