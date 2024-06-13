@@ -1,17 +1,14 @@
 import logging
 from functools import wraps
 from time import perf_counter
-from typing import Callable, TypeVar
+from typing import Callable
 
 from src.metrics.prometheus.basic import FUNCTIONS_DURATION, Status
 
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar("T")
-
-
-def duration_meter():
+def duration_meter[T]():
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:

@@ -3,7 +3,7 @@ from contextlib import suppress
 from dataclasses import is_dataclass
 from enum import EnumMeta
 from inspect import isclass
-from typing import Any, Optional, Union, cast, NewType
+from typing import Any, Union, cast, NewType
 
 from eth_typing import HexStr, HexAddress
 from eth_utils import to_checksum_address
@@ -26,7 +26,7 @@ class Web3Factory(ModelFactory[Any]):
 
     @classmethod
     def get_field_value(
-        cls, model_field: "ModelField", field_parameters: Optional[Union[dict[Any, Any], list[Any]]] = None
+        cls, model_field: "ModelField", field_parameters: Union[dict[Any, Any], list[Any]] | None = None
     ) -> Any:
         """Returns a field value on the subclass if existing, otherwise returns a mock value.
 
@@ -104,7 +104,7 @@ class Web3Factory(ModelFactory[Any]):
             HexAddress: lambda: to_checksum_address(HexBytes(faker.binary(length=20)).hex()),
             HexStr: lambda: HexBytes(faker.binary(length=20)).hex(),
             HexBytes: lambda: HexBytes(faker.binary(length=64)),
-            Optional[int]: lambda: None,
+            int | None: lambda: None,
         }
 
     @classmethod

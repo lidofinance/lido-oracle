@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
@@ -102,7 +102,7 @@ class ConsensusClient(HTTPProvider):
         return self.get_validators_no_cache(blockstamp)
 
     @list_of_dataclasses(Validator.from_response)
-    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
             data, _ = self._get(
@@ -133,7 +133,7 @@ class ConsensusClient(HTTPProvider):
             return last_error
         return None
 
-    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get validators by slot number
         data, _ = self._get(

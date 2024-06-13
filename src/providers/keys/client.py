@@ -1,5 +1,5 @@
 from time import sleep
-from typing import Optional, cast
+from typing import cast
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider
@@ -28,7 +28,7 @@ class KeysAPIClient(HTTPProvider):
     USED_KEYS = 'v1/keys?used=true'
     STATUS = 'v1/status'
 
-    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: Optional[dict] = None) -> dict | list:
+    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: dict | None = None) -> dict | list:
         """
         Returns response if blockstamp < blockNumber from response
         """

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterator, Optional
+from typing import Iterator
 
 from more_itertools import ilen
 
@@ -26,8 +26,8 @@ class NodeOperatorStats:
     exitable_validators: int = 0
     delayed_validators: int = 0
     total_age: int = 0
-    force_exit_to: Optional[int] = None
-    soft_exit_to: Optional[int] = None
+    force_exit_to: int | None = None
+    soft_exit_to: int | None = None
 
 
 class ValidatorExitIteratorV2:
@@ -228,7 +228,7 @@ class ValidatorExitIteratorV2:
         )
 
     @staticmethod
-    def _get_expected_validators_diff(current: int, expected: Optional[int]):
+    def _get_expected_validators_diff(current: int, expected: int | None):
         if expected is not None:
             if current > expected:
                 return current - expected
