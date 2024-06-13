@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 class CSFeeDistributor(ContractInterface):
     abi_path = "./assets/CSFeeDistributor.json"
 
-    def pending_to_distribute(self, block: BlockIdentifier = "latest") -> int:
+    def shares_to_distribute(self, block: BlockIdentifier = "latest") -> int:
         """Returns the amount of shares that are pending to be distributed"""
 
-        resp = self.functions.pendingToDistribute().call(block_identifier=block)
+        resp = self.functions.pendingSharesToDistribute().call(block_identifier=block)
         logger.debug(
             {
-                "msg": "Call to pendingToDistribute()",
+                "msg": "Call to pendingSharesToDistribute()",
                 "value": resp,
                 "block_identifier": repr(block),
             }
