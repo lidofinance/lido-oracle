@@ -80,7 +80,7 @@ class CSOracle(BaseModule, ConsensusModule):
         try:
             self.state.validate_for_report(l_epoch, r_epoch)
         except InvalidState as e:
-            raise ValueError("State is not valid for the report") from e
+            raise ValueError(f"State is not valid for the report. {e}") from e
 
         self.state.status()
 
