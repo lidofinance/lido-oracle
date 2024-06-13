@@ -87,7 +87,6 @@ class MultiIPFSProvider(IPFSProvider):
         # without a guarantee the file will be available via another one.
         raise NotImplementedError
 
-    @with_fallback
-    @retry
     def pin(self, cid: CIDv0 | CIDv1) -> None:
-        return self.provider.pin(cid)
+        # CID can be unavailable for the next provider in the providers list.
+        raise NotImplementedError

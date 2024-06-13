@@ -1,3 +1,4 @@
+from json import JSONDecodeError
 import logging
 import requests
 
@@ -41,6 +42,8 @@ class Pinata(IPFSProvider):
             raise UploadError from ex
         try:
             cid = resp.json()["IpfsHash"]
+        except JSONDecodeError as ex:
+            raise UploadError from ex
         except KeyError as ex:
             raise UploadError from ex
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)

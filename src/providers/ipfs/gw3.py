@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+from json import JSONDecodeError
 import logging
 import time
 from urllib.parse import urlencode, urlparse
@@ -36,9 +37,10 @@ class GW3(IPFSProvider):
         url = self._auth_upload(len(content))
         try:
             response = requests.post(url, data=content, timeout=self.timeout)
-            cid = response.headers["IPFS-Hash"]
         except IPFSError as ex:
             raise UploadError from ex
+        try:
+            cid = response.headers["IPFS-Hash"]
         except KeyError as ex:
             raise UploadError from ex
 
@@ -53,8 +55,11 @@ class GW3(IPFSProvider):
     def _auth_upload(self, size: int) -> str:
         try:
             response = self._send("POST", f"{self.ENDPOINT}/ipfs/", {"size": size})
-            return response.json()["data"]["url"]
         except IPFSError as ex:
+            raise UploadError from ex
+        try:
+            return response.json()["data"]["url"]
+        except JSONDecodeError as ex:
             raise UploadError from ex
         except KeyError as ex:
             raise UploadError from ex
