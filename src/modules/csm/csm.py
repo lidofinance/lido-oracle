@@ -8,8 +8,8 @@ from web3.types import BlockIdentifier
 from src.constants import FAR_FUTURE_EPOCH
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import CheckpointsIterator, CheckpointProcessor
-from src.modules.csm.state import State, InvalidState
+from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator
+from src.modules.csm.state import InvalidState, State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -71,8 +71,9 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         # pylint: disable=too-many-branches,too-many-statements
         assert self.state
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+
         converter = self.converter(blockstamp)
+        l_ref_slot, _ = self.current_frame_range(converter, blockstamp)
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         r_epoch = blockstamp.ref_epoch
 
@@ -237,7 +238,6 @@ class CSOracle(BaseModule, ConsensusModule):
         new_processed_epochs = 0
         start = time.time()
         for checkpoint in checkpoints:
-
             if self.current_frame_range(converter, self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
@@ -257,7 +257,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, converter: Web3Converter, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
-
         far_future_initial_epoch = converter.get_epoch_by_timestamp(FAR_FUTURE_EPOCH)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
             raise ValueError("CSM oracle initial epoch is FAR_FUTURE_EPOCH")
