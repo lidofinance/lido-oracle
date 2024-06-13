@@ -30,7 +30,7 @@ class CSFeeOracle(BaseOracleContract):
         """Returns the address of the CSFeeDistributor"""
 
         resp = self.functions.feeDistributor().call(block_identifier=block)
-        logger.debug(
+        logger.info(
             {
                 "msg": "Call to feeDistributor()",
                 "value": resp,
@@ -43,7 +43,7 @@ class CSFeeOracle(BaseOracleContract):
         """Performance threshold leeway used to determine underperforming validators"""
 
         resp = self.functions.avgPerfLeewayBP().call(block_identifier=block)
-        logger.debug(
+        logger.info(
             {
                 "msg": "Call to avgPerfLeewayBP()",
                 "value": resp,
