@@ -35,18 +35,14 @@ class CSM(Module):
 
     def get_csm_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
         result = self.oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-        logger.info({"msg": f"CSM oracle last processing ref slot {result}"})
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
-        result = HexBytes(self.fee_distributor.tree_root(blockstamp.block_hash))
-        logger.info({"msg": f"CSM distributor latest tree root {repr(result)}"})
-        return result
+        return self.fee_distributor.tree_root(blockstamp.block_hash)
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
-        logger.info({"msg": f"CSM distributor latest tree CID '{result}'"})
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_csm_stuck_node_operators(

@@ -1,5 +1,6 @@
 import logging
 
+from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
 from ..base_interface import ContractInterface
@@ -23,24 +24,24 @@ class CSFeeDistributor(ContractInterface):
         )
         return resp
 
-    def tree_root(self, block: BlockIdentifier = "latest") -> str:
+    def tree_root(self, block: BlockIdentifier = "latest") -> HexBytes:
         """Root of the latest published Merkle tree"""
 
         resp = self.functions.treeRoot().call(block_identifier=block)
-        logger.debug(
+        logger.info(
             {
                 "msg": "Call to treeRoot()",
                 "value": resp,
                 "block_identifier": repr(block),
             }
         )
-        return resp
+        return HexBytes(resp)
 
     def tree_cid(self, block: BlockIdentifier = "latest") -> str:
         """CID of the latest published Merkle tree"""
 
         resp = self.functions.treeCid().call(block_identifier=block)
-        logger.debug(
+        logger.info(
             {
                 "msg": "Call to treeCid()",
                 "value": resp,
