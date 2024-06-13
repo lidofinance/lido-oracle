@@ -1,6 +1,7 @@
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from threading import Lock
 from typing import Iterable, cast
 
@@ -13,8 +14,6 @@ from src.providers.consensus.types import BlockAttestation
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.web3converter import Web3Converter
-
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 lock = Lock()
@@ -91,8 +90,10 @@ class CheckpointsIterator:
         adjusted_r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
         if r_epoch != adjusted_r_epoch:
             logger.warning(
-                {"msg": f"Right border epoch of checkpoints iterator is recalculated according to the finalized epoch. "
-                        f"Before: {r_epoch} After: {adjusted_r_epoch}"}
+                {
+                    "msg": f"Right border epoch of checkpoints iterator is recalculated according to the finalized epoch. "
+                    f"Before: {r_epoch} After: {adjusted_r_epoch}"
+                }
             )
         return adjusted_r_epoch
 
@@ -104,7 +105,7 @@ class CheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter,  finalized_blockstamp: BlockStamp):
+    def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter, finalized_blockstamp: BlockStamp):
         self.cc = cc
         self.converter = converter
         self.state = state
@@ -134,8 +135,8 @@ class CheckpointProcessor:
         return [None if br[i] == br[i - 1] else br[i] for i in range(len(br))]
 
     def _select_block_roots(
-        self, duty_epoch: EpochNumber, block_roots: list[BlockRoot], checkpoint_slot: SlotNumber
-    ) -> list[BlockRoot | None]:
+        self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
+    ) -> list[BlockRoot]:
         roots_to_check = []
         SLOTS_PER_HISTORICAL_ROOT = int(self.cc.get_config_spec().SLOTS_PER_HISTORICAL_ROOT)
         # To check duties in the current epoch you need to
@@ -151,17 +152,13 @@ class CheckpointProcessor:
                 roots_to_check.append(block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT])
                 continue
             raise ValueError("Slot is out of the state block roots range")
-        return roots_to_check
+        return [root for root in roots_to_check if root]
 
-    def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot | None]]):
+    def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
         with ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY) as ext:
             try:
                 futures = {
-                    ext.submit(
-                        self._check_duty,
-                        duty_epoch,
-                        duty_epochs_roots[duty_epoch]
-                    )
+                    ext.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
                     for duty_epoch in unprocessed_epochs
                 }
                 for future in as_completed(futures):
@@ -173,8 +170,7 @@ class CheckpointProcessor:
                 ext.shutdown(wait=False, cancel_futures=True)
                 raise SystemExit(1) from e
             except Exception as e:
-                logger.error(
-                    {"msg": "Error processing epochs in threads, wait the current threads", "error": str(e)})
+                logger.error({"msg": "Error processing epochs in threads, wait the current threads", "error": str(e)})
                 # Wait only for the current running threads to prevent
                 # a lot of similar error-possible requests to the consensus node.
                 # Raise the error after a batch of running threads is finished
@@ -184,7 +180,7 @@ class CheckpointProcessor:
     def _check_duty(
         self,
         duty_epoch: EpochNumber,
-        block_roots: list[BlockRoot | None],
+        block_roots: list[BlockRoot],
     ):
         logger.info({"msg": f"Process epoch {duty_epoch}"})
         start = time.time()
@@ -225,7 +221,6 @@ class CheckpointProcessor:
 
 
 def process_attestations(attestations: Iterable[BlockAttestation], committees: dict) -> None:
-
     for attestation in attestations:
         committee_id = f"{attestation.data.slot}_{attestation.data.index}"
         committee = committees.get(committee_id)
