@@ -10,19 +10,18 @@ from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
+from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.types import SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
-from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
-from src.web3py.types import Web3
-
 from src.web3py.contract_tweak import tweak_w3_contracts
+from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.types import Web3
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
     ResponseFromFileKeysAPIClientModule,
-    UpdateResponsesProvider,
     UpdateResponsesConsensusClientModule,
     UpdateResponsesKeysAPIClientModule,
+    UpdateResponsesProvider,
 )
 
 
@@ -108,6 +107,13 @@ def keys_api_client(request, responses_path, web3):
     else:
         client = ResponseFromFileKeysAPIClientModule(responses_path.with_suffix('.ka.json'), web3)
     web3.attach_modules({"kac": lambda: client})
+
+
+@pytest.fixture()
+def csm(web3):
+    mock = Mock()
+    web3.attach_modules({"csm": lambda: mock})
+    return mock
 
 
 # ---- Lido contracts ----

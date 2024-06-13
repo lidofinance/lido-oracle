@@ -2,6 +2,7 @@ import logging
 import time
 from collections import defaultdict
 from functools import cached_property
+from typing import Iterable
 
 from web3.types import BlockIdentifier
 
@@ -84,52 +85,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         self.state.status()
 
-        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway(blockstamp.block_hash)
-
-        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
-        # in the inner frames assures the  l_block <= r_block.
-        stuck_operators = self.w3.csm.get_csm_stuck_node_operators(
-            get_first_non_missed_slot(
-                self.w3.cc,
-                l_ref_slot,
-                blockstamp.slot_number,
-                direction='forward',
-            ).message.body.execution_payload.block_hash,
-            blockstamp.block_hash,
-        )
-
-        operators = self.module_validators_by_node_operators(blockstamp)
-        # Build the map of the current distribution operators.
-        distribution: dict[NodeOperatorId, int] = {}
-        for (_, no_id), validators in operators.items():
-            if no_id in stuck_operators:
-                continue
-
-            portion = 0
-
-            for v in validators:
-                try:
-                    perf = self.state.data[ValidatorIndex(int(v.index))].perf
-                    if perf > threshold:
-                        portion += 1
-                except KeyError:
-                    # It's possible that the validator is not assigned to any duty, hence it's performance
-                    # is not presented in the aggregates (e.g. exited, pending for activation etc).
-                    continue
-
-            if portion:
-                distribution[no_id] = portion
-
-        # Calculate share of each CSM node operator.
-        to_distribute = self.w3.csm.fee_distributor.pending_to_distribute(blockstamp.block_hash)
-        shares: dict[NodeOperatorId, int] = defaultdict(int)
-        total = sum(p for p in distribution.values())
-        if total > 0:
-            for no_id, portion in distribution.items():
-                shares[no_id] = to_distribute * portion // total
-
-        distributed = sum(s for s in shares.values())
-        assert distributed <= to_distribute
+        distributed, shares = self.calculate_distribution(blockstamp)
         if not distributed:
             logger.info({"msg": "No shares distributed in the current frame"})
 
@@ -211,7 +167,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        l_ref_slot, r_ref_slot = self.current_frame_range(converter, blockstamp)
+        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
@@ -238,7 +194,7 @@ class CSOracle(BaseModule, ConsensusModule):
         new_processed_epochs = 0
         start = time.time()
         for checkpoint in checkpoints:
-            if self.current_frame_range(converter, self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
 
@@ -255,8 +211,67 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
+    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, dict[NodeOperatorId, int]]:
+        """Computes distribution of fee shares at the given timestamp"""
+
+        assert self.state
+
+        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway(blockstamp.block_hash)
+        operators_to_validators = self.module_validators_by_node_operators(blockstamp)
+
+        # Build the map of the current distribution operators.
+        distribution: dict[NodeOperatorId, int] = {}
+        for (_, no_id), validators in operators_to_validators.items():
+            if no_id in self.stuck_operators(blockstamp):
+                continue
+
+            no_share = 0
+
+            for v in validators:
+                try:
+                    aggr = self.state.data[ValidatorIndex(int(v.index))]
+                except KeyError:
+                    # It's possible that the validator is not assigned to any duty, hence it's performance
+                    # is not presented in the aggregates (e.g. exited, pending for activation etc).
+                    continue
+                else:
+                    if aggr.perf > threshold:
+                        no_share += aggr.assigned
+
+            if no_share:
+                distribution[no_id] = no_share
+
+        # Calculate share of each CSM node operator.
+        to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
+        shares: dict[NodeOperatorId, int] = defaultdict(int)
+        total = sum(p for p in distribution.values())
+        if total > 0:
+            for no_id, portion in distribution.items():
+                shares[no_id] = to_distribute * portion // total
+
+        distributed = sum(s for s in shares.values())
+        assert distributed <= to_distribute
+        return distributed, shares
+
     @lru_cache(maxsize=1)
-    def current_frame_range(self, converter: Web3Converter, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+    def stuck_operators(self, blockstamp) -> Iterable[NodeOperatorId]:
+        l_ref_slot, _ = self.current_frame_range(blockstamp)
+        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
+        # in the inner frames assures the  l_block <= r_block.
+        return self.w3.csm.get_csm_stuck_node_operators(
+            get_first_non_missed_slot(
+                self.w3.cc,
+                l_ref_slot,
+                blockstamp.slot_number,
+                direction='forward',
+            ).message.body.execution_payload.block_hash,
+            blockstamp.block_hash,
+        )
+
+    @lru_cache(maxsize=1)
+    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+        converter = self.converter(blockstamp)
+
         far_future_initial_epoch = converter.get_epoch_by_timestamp(FAR_FUTURE_EPOCH)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
             raise ValueError("CSM oracle initial epoch is FAR_FUTURE_EPOCH")
