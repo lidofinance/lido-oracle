@@ -74,7 +74,7 @@ class CSOracle(BaseModule, ConsensusModule):
         assert self.state
 
         converter = self.converter(blockstamp)
-        l_ref_slot, _ = self.current_frame_range(converter, blockstamp)
+        l_ref_slot, _ = self.current_frame_range(blockstamp)
         l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         r_epoch = blockstamp.ref_epoch
 
@@ -236,6 +236,8 @@ class CSOracle(BaseModule, ConsensusModule):
                     continue
                 else:
                     if aggr.perf > threshold:
+                        # Count of assigned attestations used as a metrics of time
+                        # the validator was active in the current frame.
                         no_share += aggr.assigned
 
             if no_share:

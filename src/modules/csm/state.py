@@ -11,7 +11,8 @@ from src.utils.range import sequence
 logger = logging.getLogger(__name__)
 
 
-class InvalidState(Exception): ...
+class InvalidState(Exception):
+    """State has data considered as invalid for a report"""
 
 
 @dataclass
