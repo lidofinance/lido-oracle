@@ -16,7 +16,7 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracle
+from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
@@ -41,7 +41,7 @@ class CSOracle(BaseModule, ConsensusModule):
     CONSENSUS_VERSION = 1
     CONTRACT_VERSION = 1
 
-    report_contract: CSFeeOracle
+    report_contract: CSFeeOracleContract
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle

@@ -29,7 +29,7 @@ class NodeOperatorSummary(NamedTuple):
     depositableValidatorsCount: int
 
 
-class CSModule(ContractInterface):
+class CSModuleContract(ContractInterface):
     abi_path = "./assets/CSModule.json"
 
     MAX_OPERATORS_COUNT = 2**64

@@ -10,7 +10,7 @@ from src.providers.execution.contracts.base_oracle import BaseOracleContract
 logger = logging.getLogger(__name__)
 
 
-class CSFeeOracle(BaseOracleContract):
+class CSFeeOracleContract(BaseOracleContract):
     abi_path = "./assets/CSFeeOracle.json"
 
     def is_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:

@@ -12,9 +12,9 @@ from web3.types import BlockIdentifier
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributor
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracle
-from src.providers.execution.contracts.cs_module import CSModule
+from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 class CSM(Module):
     w3: Web3
 
-    oracle: CSFeeOracle
-    fee_distributor: CSFeeDistributor
-    module: CSModule
+    oracle: CSFeeOracleContract
+    fee_distributor: CSFeeDistributorContract
+    module: CSModuleContract
 
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
@@ -64,28 +64,28 @@ class CSM(Module):
     def _load_contracts(self) -> None:
         try:
             self.oracle = cast(
-                CSFeeOracle,
+                CSFeeOracleContract,
                 self.w3.eth.contract(
                     address=variables.CSM_ORACLE_ADDRESS,  # type: ignore
-                    ContractFactoryClass=CSFeeOracle,
+                    ContractFactoryClass=CSFeeOracleContract,
                     decode_tuples=True,
                 ),
             )
 
             self.module = cast(
-                CSModule,
+                CSModuleContract,
                 self.w3.eth.contract(
                     address=variables.CSM_MODULE_ADDRESS,  # type: ignore
-                    ContractFactoryClass=CSModule,
+                    ContractFactoryClass=CSModuleContract,
                     decode_tuples=True,
                 ),
             )
 
             self.fee_distributor = cast(
-                CSFeeDistributor,
+                CSFeeDistributorContract,
                 self.w3.eth.contract(
                     address=self.oracle.fee_distributor(),
-                    ContractFactoryClass=CSFeeDistributor,
+                    ContractFactoryClass=CSFeeDistributorContract,
                     decode_tuples=True,
                 ),
             )

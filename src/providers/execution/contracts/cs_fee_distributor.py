@@ -8,7 +8,7 @@ from ..base_interface import ContractInterface
 logger = logging.getLogger(__name__)
 
 
-class CSFeeDistributor(ContractInterface):
+class CSFeeDistributorContract(ContractInterface):
     abi_path = "./assets/CSFeeDistributor.json"
 
     def shares_to_distribute(self, block: BlockIdentifier = "latest") -> int:
