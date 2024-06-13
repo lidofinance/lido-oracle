@@ -70,6 +70,7 @@ class StakingRouterContractV2(StakingRouterContract):
         if contract_version == 1:
             # Backward compatibility in case if new oracle have to build report for old protocol version
             # But latest contracts has new version
+            logger.warning({'msg': 'Use StakingRouter.json abi (old one) to parse the response.'})
             staking_router = self.w3.eth.contract(
                 address=self.address,
                 abi=self.load_abi(super().abi_path),
