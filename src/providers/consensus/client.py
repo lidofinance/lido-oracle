@@ -112,18 +112,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected list response from getBlockAttestations")
         return [BlockAttestation.from_response(**att) for att in data]
 
-    @lru_cache(maxsize=1)
     def get_attestation_committees(
-        self,
-        blockstamp: BlockStamp,
-        epoch: EpochNumber | None = None,
-        index: int | None = None,
-        slot: SlotNumber | None = None
-    ) -> Iterator[SlotAttestationCommittee]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
-        return self.get_attestation_committees_no_cache(blockstamp, epoch, index, slot)
-
-    def get_attestation_committees_no_cache(
         self,
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
