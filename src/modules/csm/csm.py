@@ -221,8 +221,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
+        stuck_operators = self.stuck_operators(blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
-            if no_id in self.stuck_operators(blockstamp):
+            if no_id in stuck_operators:
                 continue
 
             for v in validators:
@@ -253,7 +254,6 @@ class CSOracle(BaseModule, ConsensusModule):
         assert distributed <= to_distribute
         return distributed, shares
 
-    @lru_cache(maxsize=1)
     def stuck_operators(self, blockstamp) -> Iterable[NodeOperatorId]:
         l_ref_slot, _ = self.current_frame_range(blockstamp)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
