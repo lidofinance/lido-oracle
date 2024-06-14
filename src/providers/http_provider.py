@@ -4,6 +4,7 @@ from http import HTTPStatus
 from typing import Sequence, Callable
 from urllib.parse import urljoin, urlparse
 
+# NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
 
@@ -77,9 +78,10 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-    ) -> tuple[dict | list, dict]:
+        stream: bool = False,
+    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
         """
-        Get request with fallbacks
+        Get plain or streamed request with fallbacks
         Returns (data, meta) or raises exception
 
         force_raise - function that returns an Exception if it should be thrown immediately.
@@ -89,7 +91,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params)
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -114,10 +116,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         endpoint: str,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
-    ) -> tuple[dict | list, dict]:
+        stream: bool = False,
+    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
         """
         Simple get request without fallbacks
-        Returns (data, meta) or raises exception
+        Returns (data, meta) or streamed transient list-like or dict-like object JSON or raises exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
 
@@ -127,6 +130,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
+                    stream=stream
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})
@@ -143,15 +147,23 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 domain=urlparse(host).netloc,
             )
 
-            response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
-
             if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
                 logger.debug({'msg': response_fail_msg})
                 raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
+
+            if stream:
+                return json_stream_requests.load(response)
 
             try:
                 json_response = response.json()
             except JSONDecodeError as error:
+                response_fail_msg = (
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                )
                 logger.debug({'msg': response_fail_msg})
                 raise error
 
@@ -164,87 +176,6 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             meta = {}
 
         return data, meta
-
-    def _get_stream(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-    ) -> TransientStreamingJSONObject | TransientStreamingJSONList:
-        """
-        Get streamed request with fallbacks
-        Returns streamed transient list-like or dict-like object JSON or raises exception
-
-        force_raise - function that returns an Exception if it should be thrown immediately.
-        Sometimes NotOk response from first provider is the response that we are expecting.
-        """
-        errors: list[Exception] = []
-
-        for host in self.hosts:
-            try:
-                return self._get_stream_without_fallbacks(host, endpoint, path_params, query_params)
-            except Exception as e:  # pylint: disable=W0703
-                errors.append(e)
-
-                # Check if exception should be raised immediately
-                if to_force_raise := force_raise(errors):
-                    raise to_force_raise from e
-
-                logger.warning(
-                    {
-                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
-                        'error': str(e),
-                        'provider': urlparse(host).netloc,
-                    }
-                )
-
-        # Raise error from last provider.
-        raise errors[-1]
-
-    def _get_stream_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-    ) -> TransientStreamingJSONObject | TransientStreamingJSONList:
-        """
-        Simple get streamed request without fallbacks
-        Returns streamed transient list-like or dict-like object JSON or raises exception
-        """
-        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
-
-        with self.PROMETHEUS_HISTOGRAM.time() as t:
-            try:
-                response = self.session.get(
-                    self._urljoin(host, complete_endpoint if path_params else endpoint),
-                    params=query_params,
-                    timeout=self.request_timeout,
-                    stream=True
-                )
-            except Exception as error:
-                logger.error({'msg': str(error)})
-                t.labels(
-                    endpoint=endpoint,
-                    code=0,
-                    domain=urlparse(host).netloc,
-                )
-                raise error
-
-            t.labels(
-                endpoint=endpoint,
-                code=response.status_code,
-                domain=urlparse(host).netloc,
-            )
-
-            response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
-
-            if response.status_code != HTTPStatus.OK:
-                logger.debug({'msg': response_fail_msg})
-                raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
-
-            return json_stream_requests.load(response)
 
     def get_all_providers(self) -> list[str]:
         return self.hosts

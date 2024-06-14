@@ -66,8 +66,6 @@ def get_events_in_past(
 def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
     """Fetch all the events in the given blocks range (closed interval)"""
 
-    assert variables.EVENTS_SEARCH_STEP
-
     if l_block > r_block:
         raise ValueError(f"{l_block=} > {r_block=}")
 

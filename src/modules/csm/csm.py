@@ -17,7 +17,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
@@ -159,7 +159,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
+        return self.w3.lido_validators.get_module_validators_by_node_operators(
+            StakingModuleAddress(self.module.staking_module_address), blockstamp
+        )
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
