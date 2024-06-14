@@ -7,7 +7,7 @@ from web3.module import Module
 
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
 from src.utils.dataclass import Nested
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -170,12 +170,14 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
-    def get_module_validators_by_node_operators(self, module_id: StakingModuleId, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
+    def get_module_validators_by_node_operators(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         """Get module validators by querying the KeysAPI for the module keys"""
-        kapi = self.w3.kac.get_module_operators_keys(module_id, blockstamp)
+        kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
         operators = kapi['operators']
         keys = {k['key']: k for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
+
+        module_id = StakingModuleId(int(kapi['module']['id']))
 
         # Make sure even empty NO will be presented in dict
         no_validators: ValidatorsByNodeOperator = {
