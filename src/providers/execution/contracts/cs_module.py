@@ -6,7 +6,6 @@ from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
 from web3.types import BlockIdentifier, EventData
 
-from src.providers.execution.exceptions import InconsistentEvents
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_range
 from src.web3py.extensions.lido_validators import NodeOperatorId
@@ -61,8 +60,6 @@ class CSModuleContract(ContractInterface):
             ),
             key=by_no_id,
         )
-        if not all(l_block_number <= e["blockNumber"] <= r_block_number for e in events):
-            raise InconsistentEvents
 
         for no_id, group in groupby(events, key=by_no_id):
             if any(e["args"]["stuckKeysCount"] > 0 for e in group):
