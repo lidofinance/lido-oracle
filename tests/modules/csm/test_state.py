@@ -35,7 +35,7 @@ def test_state_avg_perf():
         }
     )
 
-    # assert state.avg_perf == 0
+    assert state.avg_perf == 0
 
     state = State(
         {
@@ -124,4 +124,3 @@ def test_state_inc():
 
 def test_state_file_is_path():
     assert isinstance(State.file(), Path)
-
