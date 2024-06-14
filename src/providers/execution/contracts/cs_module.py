@@ -7,6 +7,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import BlockIdentifier, EventData
 
 from src import variables
+from src.providers.execution.exceptions import InconsistentEvents
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
@@ -53,7 +54,9 @@ class CSModuleContract(ContractInterface):
         by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
 
         events = sorted(self.get_stuck_keys_events(l_block_number, r_block_number), key=by_no_id)
-        assert all(l_block_number <= e["blockNumber"] <= r_block_number for e in events)
+        if not all(l_block_number <= e["blockNumber"] <= r_block_number for e in events):
+            raise InconsistentEvents
+
         for no_id, group in groupby(events, key=by_no_id):
             if any(e["args"]["stuckKeysCount"] > 0 for e in group):
                 yield NodeOperatorId(no_id)
