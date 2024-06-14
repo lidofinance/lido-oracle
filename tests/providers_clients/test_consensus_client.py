@@ -48,9 +48,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 
     attestation_committee = attestation_committees[0]
     attestation_committee_by_slot = list(
-        consensus_client.get_attestation_committees(
-            blockstamp, slot=SlotNumber(int(attestation_committee.slot))
-        )
+        consensus_client.get_attestation_committees(blockstamp, slot=SlotNumber(int(attestation_committee.slot)))
     )
     assert attestation_committee_by_slot[0].slot == attestation_committee.slot
     assert attestation_committee_by_slot[0].index == attestation_committee.index
