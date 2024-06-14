@@ -6,9 +6,9 @@ from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
 from web3.types import BlockIdentifier, EventData
 
-from src import variables
 from src.providers.execution.exceptions import InconsistentEvents
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.events import get_events_in_range
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
 from ..base_interface import ContractInterface
@@ -53,36 +53,20 @@ class CSModuleContract(ContractInterface):
 
         by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
 
-        events = sorted(self.get_stuck_keys_events(l_block_number, r_block_number), key=by_no_id)
+        events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.events.StuckSigningKeysCountChanged),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
         if not all(l_block_number <= e["blockNumber"] <= r_block_number for e in events):
             raise InconsistentEvents
 
         for no_id, group in groupby(events, key=by_no_id):
             if any(e["args"]["stuckKeysCount"] > 0 for e in group):
                 yield NodeOperatorId(no_id)
-
-    # TODO: Make a cache for the events?
-    def get_stuck_keys_events(self, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
-        """Fetch all the StuckSigningKeysCountChanged in the given blocks range (closed interval)"""
-
-        assert variables.EVENTS_SEARCH_STEP
-        assert l_block <= r_block
-
-        while True:
-            to_block = min(r_block, BlockNumber(l_block + variables.EVENTS_SEARCH_STEP))
-
-            logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{to_block}]"})
-
-            for e in cast(ContractEvent, self.events.StuckSigningKeysCountChanged).get_logs(
-                fromBlock=l_block,
-                toBlock=to_block,
-            ):
-                yield e
-
-            if to_block == r_block:
-                break
-
-            l_block = to_block
 
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:
         resp = self.functions.isPaused().call(block_identifier=block)
