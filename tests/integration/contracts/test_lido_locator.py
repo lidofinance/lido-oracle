@@ -5,7 +5,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
-def test_deposit_security_module_call(lido_locator_contract, caplog):
+def test_lido_locator_contract(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [

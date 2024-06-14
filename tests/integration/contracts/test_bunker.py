@@ -5,7 +5,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
-def test_bunker(burner_contract, caplog):
+def test_burner(burner_contract, caplog):
     check_contract(
         burner_contract,
         [
