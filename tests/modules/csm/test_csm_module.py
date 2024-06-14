@@ -19,7 +19,7 @@ def test_init(module: CSOracle):
 
 def test_calculate_distribution(module: CSOracle, csm: CSM):
     csm.fee_distributor.shares_to_distribute = Mock(return_value=10_000)
-    csm.oracle.perf_leeway = Mock(return_value=0.05)
+    csm.oracle.perf_leeway_bp = Mock(return_value=500)
 
     module.module_validators_by_node_operators = Mock(
         return_value={

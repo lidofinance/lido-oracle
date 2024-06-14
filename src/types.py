@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NewType
 
-from eth_typing import HexStr
+from eth_typing import BlockNumber, HexStr
 from web3.types import Timestamp
 
 
@@ -25,7 +25,6 @@ NodeOperatorId = NewType('NodeOperatorId', int)
 NodeOperatorGlobalIndex = tuple[StakingModuleId, NodeOperatorId]
 
 BlockHash = NewType('BlockHash', HexStr)
-BlockNumber = NewType('BlockNumber', int)
 
 Gwei = NewType('Gwei', int)
 
