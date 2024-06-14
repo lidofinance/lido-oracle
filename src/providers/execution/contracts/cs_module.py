@@ -65,7 +65,6 @@ class CSModuleContract(ContractInterface):
     def get_stuck_keys_events(self, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
         """Fetch all the StuckSigningKeysCountChanged in the given blocks range (closed interval)"""
 
-        assert variables.EVENTS_SEARCH_STEP
         assert l_block <= r_block
 
         while True:
