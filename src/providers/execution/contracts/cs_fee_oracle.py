@@ -4,7 +4,6 @@ from typing import cast
 from eth_typing.evm import Address
 from web3.types import BlockIdentifier
 
-from src.constants import TOTAL_BASIS_POINTS
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ class CSFeeOracleContract(BaseOracleContract):
         )
         return cast(Address, resp)
 
-    def perf_leeway(self, block: BlockIdentifier = "latest") -> float:
+    def perf_leeway_bp(self, block: BlockIdentifier = "latest") -> int:
         """Performance threshold leeway used to determine underperforming validators"""
 
         resp = self.functions.avgPerfLeewayBP().call(block_identifier=block)
@@ -50,4 +49,4 @@ class CSFeeOracleContract(BaseOracleContract):
                 "block_identifier": repr(block),
             }
         )
-        return resp / TOTAL_BASIS_POINTS
+        return resp

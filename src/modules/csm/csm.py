@@ -6,7 +6,7 @@ from typing import Iterable
 
 from web3.types import BlockIdentifier
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, TOTAL_BASIS_POINTS
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator
@@ -216,7 +216,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         assert self.state
 
-        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway(blockstamp.block_hash)
+        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
         # Build the map of the current distribution operators.
