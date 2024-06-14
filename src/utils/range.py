@@ -5,5 +5,6 @@ T = TypeVar("T", bound=int)
 
 def sequence(start: T, stop: T) -> Iterable[T]:
     """Returns inclusive range object [start;stop]"""
-    assert stop > 0
+    if start > stop:
+        raise ValueError(f"{start=} > {stop=}")
     return cast(Iterable, range(start, stop + 1))
