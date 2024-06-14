@@ -34,7 +34,7 @@ class CSModuleContract(ContractInterface):
     @lru_cache(maxsize=1)
     def get_stuck_operators_ids(self, block_identifier: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
         if not self.is_deployed(block_identifier):
-            return
+            return []
 
         # TODO: Check performance on a large amount of node operators in a module.
         for no_id in self.node_operators_ids(block_identifier):
