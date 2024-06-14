@@ -27,5 +27,6 @@ class ContractInterface(Contract):
         return super().factory(w3, class_name, **kwargs)
 
     def is_deployed(self, block: BlockIdentifier) -> bool:
-        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}"})
-        return self.w3.eth.get_code(self.address, block_identifier=block) != b""
+        result = self.w3.eth.get_code(self.address, block_identifier=block) != b""
+        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}", "value": result})
+        return result
