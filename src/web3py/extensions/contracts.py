@@ -69,8 +69,6 @@ class LidoContracts(Module):
             })
             sleep(60)
             self._load_contracts()
-        else:
-            return
 
     def _load_contracts(self):
         self.lido_locator: LidoLocatorContract = cast(LidoLocatorContract, self.w3.eth.contract(

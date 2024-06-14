@@ -1,6 +1,5 @@
 import re
 from collections.abc import Callable
-from typing import TypeVar
 
 
 def camel_to_snake(name):

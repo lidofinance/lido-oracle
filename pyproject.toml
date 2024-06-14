@@ -28,8 +28,6 @@ web3-multi-provider = "^0.6.0"
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
-pylint = "^2.16.2"
-mypy = "^1.0.1"
 pydantic = "1.10.6"
 pytest-cov = "^4.0.0"
 pydantic-factories = "^1.17.2"
@@ -40,6 +38,8 @@ types-urllib3 = "^1.26.25.8"
 # }}}
 hypothesis = "^6.68.2"
 black = "^23.3.0"
+pylint = "^3.2.3"
+mypy = "^1.10.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -96,8 +96,10 @@ disable = [
 ]
 
 [tool.mypy]
+python_version = "3.12"
 strict_equality = true
 mypy_path = "stubs"
+disable_error_code = "valid-type,name-defined"
 
 [[tool.mypy.overrides]]
 module = "src.web3py.contract_tweak"

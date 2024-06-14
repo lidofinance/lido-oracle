@@ -25,9 +25,7 @@ class Web3Factory(ModelFactory[Any]):
     __model__ = BaseModel
 
     @classmethod
-    def get_field_value(
-        cls, model_field: "ModelField", field_parameters: dict | list | None = None
-    ) -> Any:
+    def get_field_value(cls, model_field: "ModelField", field_parameters: dict | list | None = None) -> Any:
         """Returns a field value on the subclass if existing, otherwise returns a mock value.
 
         Args:

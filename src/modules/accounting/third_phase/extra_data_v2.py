@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from itertools import groupby, batched
+from typing import Sequence
 
 from src.modules.accounting.third_phase.types import ExtraData, ItemType, ExtraDataLengths, FormatList
 from src.modules.submodules.types import ZERO_HASH
@@ -10,8 +11,8 @@ from src.web3py.types import Web3
 @dataclass
 class ItemPayload:
     module_id: int
-    node_operator_ids: list[int]
-    vals_counts: list[int]
+    node_operator_ids: Sequence[int]
+    vals_counts: Sequence[int]
 
 
 class ExtraDataServiceV2:
