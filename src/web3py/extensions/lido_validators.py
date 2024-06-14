@@ -173,6 +173,8 @@ class LidoValidatorsProvider(Module):
     def get_module_validators_by_node_operators(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         """Get module validators by querying the KeysAPI for the module keys"""
         kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
+        if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
+            raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
         operators = kapi['operators']
         keys = {k['key']: k for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
