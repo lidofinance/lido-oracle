@@ -220,12 +220,10 @@ class CSOracle(BaseModule, ConsensusModule):
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
         # Build the map of the current distribution operators.
-        distribution: dict[NodeOperatorId, int] = {}
+        distribution: dict[NodeOperatorId, int] = defaultdict(int)
         for (_, no_id), validators in operators_to_validators.items():
             if no_id in self.stuck_operators(blockstamp):
                 continue
-
-            no_share = 0
 
             for v in validators:
                 try:
@@ -234,22 +232,22 @@ class CSOracle(BaseModule, ConsensusModule):
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
-                else:
-                    if aggr.perf > threshold:
-                        # Count of assigned attestations used as a metrics of time
-                        # the validator was active in the current frame.
-                        no_share += aggr.assigned
 
-            if no_share:
-                distribution[no_id] = no_share
+                if aggr.perf > threshold:
+                    # Count of assigned attestations used as a metrics of time
+                    # the validator was active in the current frame.
+                    distribution[no_id] += aggr.assigned
 
         # Calculate share of each CSM node operator.
+        total = sum(p for p in distribution.values())
+        if total == 0:
+            return 0, {}
+
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
         shares: dict[NodeOperatorId, int] = defaultdict(int)
-        total = sum(p for p in distribution.values())
-        if total > 0:
-            for no_id, portion in distribution.items():
-                shares[no_id] = to_distribute * portion // total
+        for no_id, no_share in distribution.items():
+            if no_share:
+                shares[no_id] = to_distribute * no_share // total
 
         distributed = sum(s for s in shares.values())
         assert distributed <= to_distribute
