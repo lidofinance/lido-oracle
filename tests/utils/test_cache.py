@@ -6,7 +6,7 @@ from src.utils.cache import clear_global_cache, global_lru_cache
 
 
 class Calc:
-    @global_lru_cache(maxsize=1)
+    @global_lru_cache(maxsize=2)
     def get(self, a, b):
         return a + b
 
@@ -15,6 +15,9 @@ def test_clear_global_cache():
     calc = Calc()
     calc.get(1, 2)
     assert calc.get.cache_info().currsize == 1
+
+    calc.get(2, 1)
+    assert calc.get.cache_info().currsize == 2
 
     clear_global_cache()
 
@@ -41,3 +44,9 @@ def test_cache_do_not_cache_contract_with_relative_blocks():
     c.func(block_identifier='latest')
     c.func(block_identifier='finalized')
     assert c.func.cache_info().currsize == 2
+
+    c.func(HexBytes('22'))
+    c.func(HexBytes('11'))
+    c.func(HexBytes('33'))
+    c.func('finalized')
+    assert c.func.cache_info().currsize == 3

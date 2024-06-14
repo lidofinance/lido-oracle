@@ -1,7 +1,7 @@
 import functools
 from weakref import WeakKeyDictionary
 
-from web3.types import BlockParams
+from web3.types import BlockParams, BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
 
@@ -13,12 +13,18 @@ def global_lru_cache(*args, **kwargs):
         cached_func = functools.lru_cache(*args, **kwargs)(func)
 
         def wrapper(*args, **kwargs):
-
             # If lru_cache is on contract
             # Do not cache any requests with relative blocks
             # Like 'latest', 'earliest', 'pending', 'safe', 'finalized' or if default block provided
             if issubclass(args[0].__class__, ContractInterface):
-                block = kwargs.get('block_identifier', args[-1])
+                block = kwargs.get('block_identifier', None)
+
+                # In case when args[-1] is not Class Instance
+                if block is None and type(args[-1]) in BlockIdentifier.__args__:
+                    block = args[-1]
+                    kwargs['block_identifier'] = args[-1]
+                    args = args[:-1]
+
                 if block is None or block in BlockParams.__args__:
                     return func(*args, **kwargs)
 

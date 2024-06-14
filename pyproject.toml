@@ -30,6 +30,7 @@ base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pylint = "^2.16.2"
 mypy = "^1.0.1"
+pydantic = "1.10.6"
 pytest-cov = "^4.0.0"
 pydantic-factories = "^1.17.2"
 # {{{ stubs for mypy

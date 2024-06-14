@@ -1,17 +1,9 @@
-from unittest.mock import Mock
-
 import pytest
 from web3 import Web3
 
-from src.modules.accounting.third_phase.extra_data_v2 import batch, ExtraDataServiceV2, ItemPayload
+from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2, ItemPayload
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.submodules.types import ZERO_HASH
-
-
-@pytest.mark.unit
-def test_batch():
-    assert list(batch([1, 2, 3, 4, 5, 6, 7], 3)) == [[1, 2, 3], [4, 5, 6], [7]]
-    assert list(batch('abcde', 4)) == ['abcd', 'e']
 
 
 @pytest.mark.unit
