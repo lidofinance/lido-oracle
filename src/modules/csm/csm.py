@@ -17,7 +17,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex, StakingModuleAddress
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
@@ -213,7 +213,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, dict[NodeOperatorId, int]]:
+    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
         """Computes distribution of fee shares at the given timestamp"""
 
         assert self.state
@@ -242,12 +242,13 @@ class CSOracle(BaseModule, ConsensusModule):
                     distribution[no_id] += aggr.assigned
 
         # Calculate share of each CSM node operator.
+        shares = defaultdict[NodeOperatorId, int](int)
         total = sum(p for p in distribution.values())
-        if total == 0:
-            return 0, {}
+
+        if not total:
+            return 0, shares
 
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
-        shares: dict[NodeOperatorId, int] = defaultdict(int)
         for no_id, no_share in distribution.items():
             if no_share:
                 shares[no_id] = to_distribute * no_share // total
