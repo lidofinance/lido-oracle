@@ -102,6 +102,7 @@ def get_first_non_missed_slot(
             )
 
         if direction == 'back':
+            _check_block_header(existing_header)
             existing_header = parent_header
 
     _check_block_header(existing_header)
