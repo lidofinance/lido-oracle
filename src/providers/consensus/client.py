@@ -1,6 +1,8 @@
 from http import HTTPStatus
 from typing import Literal, Iterator, cast
 
+from json_stream.base import TransientStreamingJSONObject  # type: ignore
+
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
@@ -112,18 +114,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected list response from getBlockAttestations")
         return [BlockAttestation.from_response(**att) for att in data]
 
-    @lru_cache(maxsize=1)
     def get_attestation_committees(
-        self,
-        blockstamp: BlockStamp,
-        epoch: EpochNumber | None = None,
-        index: int | None = None,
-        slot: SlotNumber | None = None
-    ) -> Iterator[SlotAttestationCommittee]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
-        return self.get_attestation_committees_no_cache(blockstamp, epoch, index, slot)
-
-    def get_attestation_committees_no_cache(
         self,
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
@@ -150,10 +141,11 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
-        streamed_json = self._get_stream(
+        streamed_json = cast(TransientStreamingJSONObject, self._get(
                 self.API_GET_STATE,
                 path_params=(state_id,),
-            )
+                stream=True,
+            ))
         return list(streamed_json['data']['block_roots'])
 
     @lru_cache(maxsize=1)

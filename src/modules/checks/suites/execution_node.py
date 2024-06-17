@@ -1,5 +1,8 @@
 """Execution node"""
+from eth_typing import BlockNumber
 import pytest
+
+from src.utils.events import get_events_in_range
 
 get_deposit_count_abi = {
     "inputs": [],
@@ -42,13 +45,16 @@ def check_balance_availability(web3, blockstamp, deposit_contract):
 def check_events_range_availability(web3, blockstamp, deposit_contract):
     """Check that execution-client able to get event logs on the blockstamp state"""
     latest_block = web3.eth.get_block('latest')
-    deposit_contract.events.DepositEvent.get_logs(fromBlock=blockstamp.block_number, toBlock=latest_block.number)
+    list(get_events_in_range(deposit_contract.events.DepositEvent, blockstamp.block_number, latest_block.number))
 
 
 def check_events_week_range_availability(web3, deposit_contract):
     """Check that execution-client able to get event logs a week ago"""
     latest_block = web3.eth.get_block('latest')
-    deposit_contract.events.DepositEvent.get_logs(
-        fromBlock=max(0, latest_block.number - 8 * 225 * 32),  # 8 days
-        toBlock=latest_block.number,
+    list(
+        get_events_in_range(
+            deposit_contract.events.DepositEvent,
+            l_block=BlockNumber(max(0, latest_block.number - 8 * 225 * 32)),  # 8 days
+            r_block=latest_block.number,
+        )
     )

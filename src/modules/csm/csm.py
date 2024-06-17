@@ -6,7 +6,7 @@ from typing import Iterable
 
 from web3.types import BlockIdentifier
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, TOTAL_BASIS_POINTS
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator
@@ -16,8 +16,8 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracle
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
@@ -41,7 +41,7 @@ class CSOracle(BaseModule, ConsensusModule):
     CONSENSUS_VERSION = 1
     CONTRACT_VERSION = 1
 
-    report_contract: CSFeeOracle
+    report_contract: CSFeeOracleContract
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
@@ -159,7 +159,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_module_validators_by_node_operators(self.module.id, blockstamp)
+        return self.w3.lido_validators.get_module_validators_by_node_operators(
+            StakingModuleAddress(self.module.staking_module_address), blockstamp
+        )
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection before the report ref slot and it's submission"""
@@ -211,12 +213,12 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, dict[NodeOperatorId, int]]:
+    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
         """Computes distribution of fee shares at the given timestamp"""
 
         assert self.state
 
-        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway(blockstamp.block_hash)
+        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
         # Build the map of the current distribution operators.
@@ -240,12 +242,13 @@ class CSOracle(BaseModule, ConsensusModule):
                     distribution[no_id] += aggr.assigned
 
         # Calculate share of each CSM node operator.
+        shares = defaultdict[NodeOperatorId, int](int)
         total = sum(p for p in distribution.values())
-        if total == 0:
-            return 0, {}
+
+        if not total:
+            return 0, shares
 
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
-        shares: dict[NodeOperatorId, int] = defaultdict(int)
         for no_id, no_share in distribution.items():
             if no_share:
                 shares[no_id] = to_distribute * no_share // total

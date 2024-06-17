@@ -71,50 +71,42 @@ def get_first_non_missed_slot(
 
     logger.info({'msg': f'Get Blockstamp for ref slot: {slot}.'})
 
-    ref_slot_is_missed = False
-    existed_header = None
+    ref_slot_is_missing = False
+    existing_header = None
     for i in range(slot, last_finalized_slot_number + 1):
         try:
-            existed_header = cc.get_block_header(SlotNumber(i))
+            existing_header = cc.get_block_header(SlotNumber(i))
         except NotOkResponse as error:
             if error.status != HTTPStatus.NOT_FOUND:
                 # Not expected status - raise exception
                 raise error
 
-            ref_slot_is_missed = True
+            ref_slot_is_missing = True
 
             logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error.__dict__)})
         else:
-            _check_block_header(existed_header)
             break
 
-    if not existed_header:
+    if not existing_header:
         raise NoSlotsAvailable('No slots available for current report. Check your CL node.')
 
-    if ref_slot_is_missed and direction == 'back':
-        # Ref slot is missed, and we have next non-missed slot.
-        # We should get parent root of this non-missed slot
-        non_missed_header_parent_root = existed_header.data.header.message.parent_root
-        existed_header = cc.get_block_header(non_missed_header_parent_root)
+    if ref_slot_is_missing:
+        # Ref slot is missing. We need to check the parent root found non-missing slot
+        non_missed_header_parent_root = existing_header.data.header.message.parent_root
+        parent_header = cc.get_block_header(non_missed_header_parent_root)
 
-        if int(existed_header.data.header.message.slot) >= slot:
+        if int(parent_header.data.header.message.slot) >= slot:
             raise InconsistentData(
                 "Parent root next to the ref slot's existing header doesn't match the expected slot.\n"
                 'Probably, a problem with the consensus node.'
             )
 
-    if direction == 'forward':
-        prev_header = cc.get_block_header(existed_header.data.header.message.parent_root)
-        _check_block_header(prev_header)
+        if direction == 'back':
+            _check_block_header(existing_header)
+            existing_header = parent_header
 
-        if int(prev_header.data.header.message.slot) > slot:
-            raise InconsistentData(
-                'The next found ref slot is not a descendant of the provided one.\n'
-                'Probably, a problem with the consensus node.'
-            )
-
-    _check_block_header(existed_header)
-    slot_details = cc.get_block_details(existed_header.data.root)
+    _check_block_header(existing_header)
+    slot_details = cc.get_block_details(existing_header.data.root)
     logger.info({'msg': f'Resolved to slot: {slot_details.message.slot}'})
     return slot_details
 

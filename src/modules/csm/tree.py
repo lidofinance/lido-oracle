@@ -7,7 +7,8 @@ from oz_merkle_tree import StandardMerkleTree
 
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
-Leaf: TypeAlias = tuple[NodeOperatorId, int]
+Shares: TypeAlias = int
+Leaf: TypeAlias = tuple[NodeOperatorId, Shares]
 
 
 @dataclass
