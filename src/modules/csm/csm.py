@@ -45,7 +45,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
-        self.state: State | None = None
+        self.state = State.load()
         super().__init__(w3)
 
     def refresh_contracts(self):
@@ -71,7 +71,6 @@ class CSOracle(BaseModule, ConsensusModule):
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         # pylint: disable=too-many-branches,too-many-statements
-        assert self.state
 
         converter = self.converter(blockstamp)
         l_ref_slot, _ = self.current_frame_range(blockstamp)
@@ -180,7 +179,6 @@ class CSOracle(BaseModule, ConsensusModule):
             return False
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
-        self.state = self.state or State.load()
         self.state.validate_for_collect(l_epoch, r_epoch)
         self.state.status()
 
@@ -215,8 +213,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
         """Computes distribution of fee shares at the given timestamp"""
-
-        assert self.state
 
         threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
