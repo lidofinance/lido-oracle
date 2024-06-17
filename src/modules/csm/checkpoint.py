@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 lock = Lock()
 
 
+class MinStepIsNotReached(Exception):
+    ...
+
+
 @dataclass
 class Checkpoint:
     slot: SlotNumber  # last slot of the epoch
@@ -86,7 +90,7 @@ class CheckpointsIterator:
                     "r_epoch": r_epoch,
                 }
             )
-            raise ValueError('Minimum checkpoint step is not reached yet')
+            raise MinStepIsNotReached()
         adjusted_r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
         if r_epoch != adjusted_r_epoch:
             logger.warning(

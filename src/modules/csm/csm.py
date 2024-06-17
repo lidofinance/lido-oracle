@@ -9,7 +9,7 @@ from web3.types import BlockIdentifier
 from src.constants import FAR_FUTURE_EPOCH
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator
+from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.state import InvalidState, State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
@@ -186,9 +186,13 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
             return done
 
-        checkpoints = CheckpointsIterator(
-            converter, min(self.state.unprocessed_epochs) or l_epoch, r_epoch, finalized_epoch
-        )
+        try:
+            checkpoints = CheckpointsIterator(
+                converter, min(self.state.unprocessed_epochs) or l_epoch, r_epoch, finalized_epoch
+            )
+        except MinStepIsNotReached:
+            return False
+
         processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
         new_processed_epochs = 0
