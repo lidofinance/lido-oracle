@@ -72,7 +72,7 @@ def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: Blo
     while True:
         to_block = min(r_block, BlockNumber(l_block + variables.EVENTS_SEARCH_STEP))
 
-        logger.info({"msg": f"Fetching stuck node operators events in range [{l_block};{to_block}]"})
+        logger.info({"msg": f"Fetching {event.event_name} events in range [{l_block};{to_block}]"})
 
         for e in event.get_logs(fromBlock=l_block, toBlock=to_block):
             if not l_block <= e["blockNumber"] <= to_block:
