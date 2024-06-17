@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NewType
 
-from eth_typing import BlockNumber, HexStr
+from eth_typing import BlockNumber, ChecksumAddress, HexStr
 from web3.types import Timestamp
 
 
@@ -19,7 +19,7 @@ StateRoot = NewType('StateRoot', HexStr)
 BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
 
-StakingModuleAddress = NewType('StakingModuleAddress', HexStr)
+StakingModuleAddress = NewType('StakingModuleAddress', ChecksumAddress)
 StakingModuleId = NewType('StakingModuleId', int)
 NodeOperatorId = NewType('NodeOperatorId', int)
 NodeOperatorGlobalIndex = tuple[StakingModuleId, NodeOperatorId]
