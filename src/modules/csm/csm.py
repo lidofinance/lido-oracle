@@ -6,7 +6,7 @@ from typing import Iterable
 
 from web3.types import BlockIdentifier
 
-from src.constants import FAR_FUTURE_EPOCH, TOTAL_BASIS_POINTS
+from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator
@@ -271,9 +271,9 @@ class CSOracle(BaseModule, ConsensusModule):
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
         converter = self.converter(blockstamp)
 
-        far_future_initial_epoch = converter.get_epoch_by_timestamp(FAR_FUTURE_EPOCH)
+        far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
-            raise ValueError("CSM oracle initial epoch is FAR_FUTURE_EPOCH")
+            raise ValueError("CSM oracle initial epoch is not set yet")
 
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = self.get_current_frame(blockstamp).ref_slot
