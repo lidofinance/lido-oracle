@@ -281,6 +281,8 @@ class CSOracle(BaseModule, ConsensusModule):
         # The very first report, no previous ref slot.
         if not l_ref_slot:
             l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
+            if l_ref_slot < 0:
+                raise ValueError("Invalid frame configuration for the current network")
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.
