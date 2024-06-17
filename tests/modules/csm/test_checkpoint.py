@@ -4,7 +4,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.checkpoint import CheckpointsIterator, Checkpoint, CheckpointProcessor, process_attestations
+from src.modules.csm.checkpoint import (
+    CheckpointsIterator,
+    Checkpoint,
+    CheckpointProcessor,
+    process_attestations,
+    MinStepIsNotReached,
+)
 from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
@@ -41,7 +47,7 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 
 def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
-    with pytest.raises(ValueError, match='Minimum checkpoint step is not reached yet'):
+    with pytest.raises(MinStepIsNotReached):
         CheckpointsIterator(converter, 100, 600, 109)
 
 
