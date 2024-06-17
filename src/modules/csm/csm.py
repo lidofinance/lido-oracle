@@ -295,7 +295,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return l_ref_slot, r_ref_slot
 
-    @lru_cache(maxsize=1)
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
