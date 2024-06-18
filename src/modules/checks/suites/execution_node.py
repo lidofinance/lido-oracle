@@ -69,5 +69,4 @@ def check_events_week_range_availability(web3, deposit_contract, range_):
     deposits_count_before = _get_deposit_count(from_block)
     deposits_count_now = _get_deposit_count(to_block)
     assert deposits_count_now >= deposits_count_before, "Deposits count decreased"
-    if deposits_in_range := deposits_count_now - deposits_count_before:
-        assert len(events) == deposits_in_range, "Events count doesn't match deposits count"
+    assert len(events) == (deposits_count_now - deposits_count_before), "Events count doesn't match deposits count"
