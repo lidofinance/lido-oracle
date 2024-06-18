@@ -4,12 +4,19 @@ import pytest
 from src.main import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
+from src.modules.csm.csm import CSOracle
 
 
 @pytest.fixture()
 def skip_locator(web3):
     if not hasattr(web3, 'lido_contracts'):
         pytest.skip('LIDO_LOCATOR_ADDRESS is not set')
+
+
+@pytest.fixture()
+def skip_csm(web3):
+    if not hasattr(web3, 'csm'):
+        pytest.skip('CSM_ORACLE_ADDRESS or CSM_MODULE_ADDRESS is not set')
 
 
 @pytest.fixture()
@@ -20,6 +27,11 @@ def accounting(web3, skip_locator):
 @pytest.fixture()
 def ejector(web3, skip_locator):
     return Ejector(web3)
+
+
+@pytest.fixture()
+def csm(web3, skip_locator, skip_csm):
+    return CSOracle(web3)
 
 
 def check_providers_chain_ids(web3):
@@ -35,3 +47,8 @@ def check_accounting_contract_configs(accounting):
 def check_ejector_contract_configs(ejector):
     """Make sure ejector contract configs are valid"""
     ejector.check_contract_configs()
+
+
+def check_csm_contract_configs(csm):
+    """Make sure csm contract configs are valid"""
+    csm.check_contract_configs()

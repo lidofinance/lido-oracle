@@ -15,6 +15,7 @@ from src.web3py.extensions import (
     TransactionUtils,
     LidoContracts,
     FallbackProviderModule,
+    CSM,
 )
 from src.web3py.types import Web3
 
@@ -24,30 +25,54 @@ TITLE_PROPERTY_NAME = "test_title"
 
 @pytest.fixture()
 def web3():
-    web3 = Web3(FallbackProviderModule(
-        variables.EXECUTION_CLIENT_URI,
-        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
-    ))
+    web3 = Web3(
+        FallbackProviderModule(
+            variables.EXECUTION_CLIENT_URI, request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
+        )
+    )
     tweak_w3_contracts(web3)
     cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
-    web3.attach_modules({
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-    })
+    web3.attach_modules(
+        {
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            'cc': lambda: cc,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+        }
+    )
     if variables.LIDO_LOCATOR_ADDRESS:
         web3.attach_modules({'lido_contracts': LidoContracts})
+    if variables.CSM_ORACLE_ADDRESS and variables.CSM_MODULE_ADDRESS:
+        web3.attach_modules({'csm': CSM})
 
     return web3
 
 
-@pytest.fixture(params=[pytest.param("finalized_blockstamp", id="Finalized blockstamp"),
-                        pytest.param("blockstamp_frame_ago", id="Blockstamp frame ago")])
-def blockstamp(request):
-    return request.getfixturevalue(request.param)
+@pytest.fixture(
+    params=[
+        pytest.param(0, id="Finalized blockstamp"),
+        pytest.param(270, id="Blockstamp accounting frame ago"),
+        pytest.param(
+            6300,
+            id="Blockstamp CSM frame ago",
+            marks=pytest.mark.skipif(variables.CSM_MODULE_ADDRESS is None, reason="CSM_MODULE_ADDRESS is not set"),
+        ),
+    ]
+)
+def blockstamp(web3, finalized_blockstamp, request):
+    epochs_per_frame = request.param
+    cc_config = web3.cc.get_config_spec()
+    slots_per_frame = epochs_per_frame * int(cc_config.SLOTS_PER_EPOCH)
+    last_report_ref_slot = SlotNumber(finalized_blockstamp.slot_number - slots_per_frame)
+
+    return get_reference_blockstamp(
+        web3.cc,
+        last_report_ref_slot,
+        ref_epoch=EpochNumber(last_report_ref_slot // int(cc_config.SLOTS_PER_EPOCH)),
+        last_finalized_slot_number=finalized_blockstamp.slot_number,
+    )
 
 
 @pytest.fixture
@@ -60,22 +85,7 @@ def finalized_blockstamp(web3):
         web3.cc,
         bs.slot_number,
         ref_epoch=EpochNumber(bs.slot_number // int(cc_config.SLOTS_PER_EPOCH)),
-        last_finalized_slot_number=bs.slot_number
-    )
-
-
-@pytest.fixture
-def blockstamp_frame_ago(web3, finalized_blockstamp):
-    epochs_per_frame = 270
-    cc_config = web3.cc.get_config_spec()
-    slots_per_frame = epochs_per_frame * int(cc_config.SLOTS_PER_EPOCH)
-    last_report_ref_slot = SlotNumber(finalized_blockstamp.slot_number - slots_per_frame)
-
-    return get_reference_blockstamp(
-        web3.cc,
-        last_report_ref_slot,
-        ref_epoch=EpochNumber(last_report_ref_slot // int(cc_config.SLOTS_PER_EPOCH)),
-        last_finalized_slot_number=finalized_blockstamp.slot_number
+        last_finalized_slot_number=bs.slot_number,
     )
 
 
@@ -93,6 +103,7 @@ class CustomTerminal(TerminalDistReporter):
 def pytest_configure(config):
     class SessionLike:
         config = None
+
     session_like = SessionLike()
     session_like.config = config
     if is_xdist_controller(session_like):
@@ -119,17 +130,19 @@ def pytest_report_teststatus(report, config):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report) -> None:
-    title = [prop for name, prop in report.user_properties if name == TITLE_PROPERTY_NAME][0]
     if report.when == 'setup' and not report.passed:
-        print(title, end="")
+        print(report.head_line, end="")
     if report.when == 'call':
-        print(title, end="")
+        print(report.head_line, end="")
     if report.when == 'teardown':
         print()
 
 
 def pytest_runtest_setup(item: pytest.Item):
-    tw: TerminalWriter = item.config.pluginmanager.get_plugin("terminalreporter")._tw  # pylint: disable=protected-access
+    # pylint: disable=protected-access
+    tw: TerminalWriter = item.config.pluginmanager.get_plugin(
+        "terminalreporter"
+    )._tw
 
     obj = getattr(item, "obj", None)
     parent = getattr(item.parent, "obj", None)
