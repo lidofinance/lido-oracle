@@ -73,7 +73,7 @@ def test_checkpoints_iterator_r_epoch_is_changed_by_finalized(converter):
 )
 def test_checkpoints_iterator_given_checkpoints(converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints):
     iterator = CheckpointsIterator(converter, l_epoch, r_epoch, finalized_epoch)
-    assert iter(iterator).checkpoints == expected_checkpoints
+    assert list(iter(iterator)) == expected_checkpoints
 
 
 @pytest.fixture
