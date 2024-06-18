@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from _typeshed import Incomplete
 from eth_typing import URI as URI
@@ -15,26 +15,26 @@ class MultiProvider(JSONBaseProvider):
     endpoint_uri: str
     def __init__(
         self,
-        endpoint_urls: List[Union[URI, str]],
-        request_kwargs: Optional[Any] = ...,
-        session: Optional[Any] = ...,
-        websocket_kwargs: Optional[Any] = ...,
-        websocket_timeout: Optional[Any] = ...,
+        endpoint_urls: list[URI | str],
+        request_kwargs: Any | None = ...,
+        session: Any | None = ...,
+        websocket_kwargs: Any | None = ...,
+        websocket_timeout: Any | None = ...,
     ) -> None: ...
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse: ...
 
 class MultiHTTPProvider(MultiProvider):
     def __init__(
         self,
-        endpoint_urls: List[Union[URI, str]],
-        request_kwargs: Optional[Any] = ...,
-        session: Optional[Any] = ...,
+        endpoint_urls: list[URI | str],
+        request_kwargs: Any | None = ...,
+        session: Any | None = ...,
     ) -> None: ...
 
 class FallbackProvider(MultiProvider):
     def __init__(
         self,
-        endpoint_urls: List[Union[URI, str]],
-        request_kwargs: Optional[Any] = ...,
-        session: Optional[Any] = ...,
+        endpoint_urls: list[URI | str],
+        request_kwargs: Any | None = ...,
+        session: Any | None = ...,
     ) -> None: ...

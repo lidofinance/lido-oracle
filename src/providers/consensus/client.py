@@ -28,8 +28,13 @@ class ConsensusClient(HTTPProvider):
     API specifications can be found here
     https://ethereum.github.io/beacon-APIs/
 
-    state_id
-    State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
+    state_id - State identifier. Can be one of:
+    - "head" (canonical head in node's view),
+    - "genesis",
+    - "finalized",
+    - "justified",
+    - <slot>,
+    - <hex encoded stateRoot with 0x prefix>.
     """
     PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 

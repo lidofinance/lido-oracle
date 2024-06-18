@@ -125,11 +125,7 @@ class HashConsensusContract(ContractInterface):
         tx = self.functions.submitReport(ref_slot, report_hash, consensus_version)
 
         logger.info({
-            'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
-                ref_slot,
-                report_hash.hex(),
-                consensus_version,
-            ),
+            'msg': f'Build `submitReport({ref_slot}, {report_hash.hex()}, {consensus_version})`.'
         })
 
         return tx
