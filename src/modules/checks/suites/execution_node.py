@@ -42,14 +42,7 @@ def check_balance_availability(web3, blockstamp, deposit_contract):
     web3.eth.get_balance(deposit_contract.address, block_identifier=blockstamp.block_hash)
 
 
-def check_events_range_availability(web3, blockstamp, deposit_contract):
-    """Check that execution-client able to get event logs on the blockstamp state"""
-    latest_block = web3.eth.get_block('latest')
-    list(get_events_in_range(deposit_contract.events.DepositEvent, blockstamp.block_number, latest_block.number))
-
-
-@pytest.mark.parametrize('range_', [8 * 225 * 32, 32 * 225 * 32], ids=['week', 'month'])
-def check_events_week_range_availability(web3, deposit_contract, range_):
+def check_events_range_availability(web3, deposit_contract, blockstamp):
     """Check that execution-client able to get event logs in a range"""
     def _get_deposit_count(block):
         return int.from_bytes(
@@ -57,16 +50,14 @@ def check_events_week_range_availability(web3, deposit_contract, range_):
         )
 
     latest_block = web3.eth.get_block('latest')
-    from_block = max(0, latest_block.number - range_)
-    to_block = latest_block.number
     events = list(
         get_events_in_range(
             deposit_contract.events.DepositEvent,
-            l_block=BlockNumber(from_block),
-            r_block=to_block,
+            l_block=blockstamp.block_number,
+            r_block=latest_block.number,
         )
     )
-    deposits_count_before = _get_deposit_count(from_block)
-    deposits_count_now = _get_deposit_count(to_block)
+    deposits_count_before = _get_deposit_count(blockstamp.block_number)
+    deposits_count_now = _get_deposit_count(latest_block.number)
     assert deposits_count_now >= deposits_count_before, "Deposits count decreased"
     assert len(events) == (deposits_count_now - deposits_count_before), "Events count doesn't match deposits count"
