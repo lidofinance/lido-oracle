@@ -1,5 +1,5 @@
 import math
-from typing import Iterable, Optional
+from typing import Iterable
 
 from eth_typing import HexStr
 
@@ -128,7 +128,7 @@ class SafeBorder(Web3Converter):
         return self._get_default_requests_border_epoch()
 
     @duration_meter()
-    def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> Optional[EpochNumber]:
+    def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> EpochNumber | None:
         validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
 
@@ -160,7 +160,7 @@ class SafeBorder(Web3Converter):
     # The exit period for a specific validator may be equal to the MIN_VALIDATOR_WITHDRAWAL_DELAY.
     # This means that there are so many validators in the queue that the exit epoch moves with the withdrawable epoch,
     # and we cannot detect when slashing has started.
-    def _predict_earliest_slashed_epoch(self, validator: Validator) -> Optional[EpochNumber]:
+    def _predict_earliest_slashed_epoch(self, validator: Validator) -> EpochNumber | None:
         exit_epoch = int(validator.validator.exit_epoch)
         withdrawable_epoch = int(validator.validator.withdrawable_epoch)
 
@@ -243,7 +243,7 @@ class SafeBorder(Web3Converter):
         )
         return EpochNumber(int(sorted_validators[0].validator.activation_epoch))
 
-    def _get_bunker_mode_start_timestamp(self) -> Optional[int]:
+    def _get_bunker_mode_start_timestamp(self) -> int | None:
         start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
 
         if start_timestamp > self.blockstamp.block_timestamp:

@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from eth_typing import ChecksumAddress
 from web3.module import Module
@@ -53,11 +53,11 @@ class StakingModule:
     # Available after SR2
     # ---------------------
     # module's share threshold, upon crossing which, exits of validators from the module will be prioritized, in BP
-    priority_exit_share_threshold: Optional[int] = None
+    priority_exit_share_threshold: int | None = None
     # the maximum number of validators that can be deposited in a single block
-    max_deposits_per_block: Optional[int] = None
+    max_deposits_per_block: int | None = None
     # the minimum distance between deposits in blocks
-    min_deposit_block_distance: Optional[int] = None
+    min_deposit_block_distance: int | None = None
 
     @classmethod
     def from_response(cls, **staking_module):

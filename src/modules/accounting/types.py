@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Self
+from typing import Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
@@ -71,7 +71,7 @@ class OracleReportLimits:
     max_node_operators_per_extra_data_item_count: int
     request_timestamp_margin: int
     max_positive_token_rebase: int
-    appeared_validators_per_day_limit: Optional[int] = None
+    appeared_validators_per_day_limit: int | None = None
 
     @classmethod
     def from_response(cls, **kwargs) -> Self:

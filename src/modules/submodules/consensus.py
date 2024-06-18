@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Optional, cast
+from typing import cast
 
 from eth_abi import encode
 from hexbytes import HexBytes
@@ -167,7 +167,7 @@ class ConsensusModule(ABC):
         )
 
     # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> Optional[ReferenceBlockStamp]:
+    def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
         """
         Get blockstamp that should be used to build and send report for current frame.
         Returns:

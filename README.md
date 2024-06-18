@@ -268,7 +268,7 @@ Special metrics for ejector oracle:
 
 # Development
 
-Python version: 3.11
+Python version: 3.12
 
 ## Setup
 

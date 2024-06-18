@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from src.providers.execution.base_interface import ContractInterface
 
@@ -11,7 +11,7 @@ ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
 
 def check_contract(
     contract: ContractInterface,
-    functions_spec: list[tuple[str, Optional[tuple], Callable[[Any], None]]],
+    functions_spec: list[tuple[str, tuple | None, Callable[[Any], None]]],
     caplog,
 ):
     caplog.set_level(logging.INFO)

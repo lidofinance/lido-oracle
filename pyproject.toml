@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "3.0.0"
+version = "4.0.0-rc.1"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
 authors = [
     "Raman Siamionau",
@@ -16,7 +16,7 @@ authors = [
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 prometheus-client = "^0.16.0"
 timeout-decorator = "^0.5.0"
 pytest = "^7.2.1"
@@ -28,8 +28,7 @@ web3-multi-provider = "^0.6.0"
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
-pylint = "^2.16.2"
-mypy = "^1.0.1"
+pydantic = "1.10.6"
 pytest-cov = "^4.0.0"
 pydantic-factories = "^1.17.2"
 # {{{ stubs for mypy
@@ -39,6 +38,8 @@ types-urllib3 = "^1.26.25.8"
 # }}}
 hypothesis = "^6.68.2"
 black = "^23.3.0"
+pylint = "^3.2.3"
+mypy = "^1.10.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -95,8 +96,10 @@ disable = [
 ]
 
 [tool.mypy]
+python_version = "3.12"
 strict_equality = true
 mypy_path = "stubs"
+disable_error_code = "valid-type,name-defined"
 
 [[tool.mypy.overrides]]
 module = "src.web3py.contract_tweak"

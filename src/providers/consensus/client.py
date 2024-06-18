@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
@@ -56,7 +56,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getGenesis")
         return GenesisResponse.from_response(**data)
 
-    def get_block_root(self, state_id: Union[SlotNumber, BlockRoot, LiteralState]) -> BlockRootResponse:
+    def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
@@ -72,7 +72,7 @@ class ConsensusClient(HTTPProvider):
         return BlockRootResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
-    def get_block_header(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockHeaderFullResponse:
+    def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
         data, meta_data = self._get(
             self.API_GET_BLOCK_HEADER,
@@ -85,7 +85,7 @@ class ConsensusClient(HTTPProvider):
         return resp
 
     @lru_cache(maxsize=1)
-    def get_block_details(self, state_id: Union[SlotNumber, BlockRoot]) -> BlockDetailsResponse:
+    def get_block_details(self, state_id: SlotNumber | BlockRoot) -> BlockDetailsResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
@@ -102,7 +102,7 @@ class ConsensusClient(HTTPProvider):
         return self.get_validators_no_cache(blockstamp)
 
     @list_of_dataclasses(Validator.from_response)
-    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
             data, _ = self._get(
@@ -133,7 +133,7 @@ class ConsensusClient(HTTPProvider):
             return last_error
         return None
 
-    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: Optional[str | tuple] = None) -> list[dict]:
+    def _get_validators_with_prysm(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get validators by slot number
         data, _ = self._get(

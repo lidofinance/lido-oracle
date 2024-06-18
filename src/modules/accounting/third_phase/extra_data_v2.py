@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from itertools import groupby
+from itertools import groupby, batched
+from typing import Sequence
 
 from src.modules.accounting.third_phase.types import ExtraData, ItemType, ExtraDataLengths, FormatList
 from src.modules.submodules.types import ZERO_HASH
@@ -7,20 +8,11 @@ from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 
 
-def batch(iterable: list, n: int):
-    """
-    ToDo: Replace with batched from itertools when python 3.12
-    """
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx:min(ndx + n, l)]
-
-
 @dataclass
 class ItemPayload:
     module_id: int
-    node_operator_ids: list[int]
-    vals_counts: list[int]
+    node_operator_ids: Sequence[int]
+    vals_counts: Sequence[int]
 
 
 class ExtraDataServiceV2:
@@ -74,7 +66,7 @@ class ExtraDataServiceV2:
         payloads = []
 
         for module_id, operators_by_module in groupby(operator_validators, key=lambda x: x[0][0]):
-            for nos_in_batch in batch(list(operators_by_module), max_no_in_payload_count):
+            for nos_in_batch in batched(list(operators_by_module), max_no_in_payload_count):
                 operator_ids = []
                 vals_count = []
 
@@ -107,7 +99,7 @@ class ExtraDataServiceV2:
         index = 0
         result = []
 
-        for payload_batch in batch(all_payloads, max_items_count):
+        for payload_batch in batched(all_payloads, max_items_count):
             tx = b''
             for item_type, payload in payload_batch:
                 tx += index.to_bytes(ExtraDataLengths.ITEM_INDEX)
