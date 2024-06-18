@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Iterator, cast
+from typing import Literal, cast
 
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
