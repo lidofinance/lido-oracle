@@ -15,7 +15,7 @@ from src.web3py.extensions import (
     TransactionUtils,
     LidoContracts,
     FallbackProviderModule,
-    LazyCSM,
+    CSM,
 )
 from src.web3py.types import Web3
 
@@ -42,7 +42,7 @@ def web3():
     if variables.LIDO_LOCATOR_ADDRESS:
         web3.attach_modules({'lido_contracts': LidoContracts})
     if variables.CSM_ORACLE_ADDRESS and variables.CSM_MODULE_ADDRESS:
-        web3.attach_modules({'csm': LazyCSM})
+        web3.attach_modules({'csm': CSM})
 
     return web3
 
