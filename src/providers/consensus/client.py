@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Iterator, cast
+from typing import Literal, cast
 
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
@@ -120,7 +120,7 @@ class ConsensusClient(HTTPProvider):
         epoch: EpochNumber | None = None,
         index: int | None = None,
         slot: SlotNumber | None = None
-    ) -> Iterator[SlotAttestationCommittee]:
+    ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
         try:
             data, _ = self._get(
@@ -135,9 +135,7 @@ class ConsensusClient(HTTPProvider):
                 data, _ = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
             else:
                 raise error
-
-        for committee in data:
-            yield SlotAttestationCommittee.from_response(**committee)
+        return [SlotAttestationCommittee.from_response(**committee) for committee in data]
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:

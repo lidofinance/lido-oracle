@@ -25,3 +25,18 @@ def check_block_header_provided(web3: Web3, blockstamp):
 def check_block_roots_from_state_provided(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block roots from state"""
     assert web3.cc.get_state_block_roots(blockstamp.slot_number), "consensus-client provide no block roots from state"
+
+
+def check_attestation_committees(web3: Web3, blockstamp):
+    """Check that consensus-client able to provide attestation committees"""
+    cc_config = web3.cc.get_config_spec()
+    slots_per_epoch = int(cc_config.SLOTS_PER_EPOCH)
+    epoch = (
+        blockstamp.slot_number // slots_per_epoch - int(cc_config.SLOTS_PER_HISTORICAL_ROOT) // slots_per_epoch
+    )
+    assert web3.cc.get_attestation_committees(blockstamp, epoch), "consensus-client provide no attestation committees"
+
+
+def check_block_attestations(web3: Web3, blockstamp):
+    """Check that consensus-client able to provide block attestations"""
+    assert web3.cc.get_block_attestations(blockstamp.slot_number), "consensus-client provide no block attestations"
