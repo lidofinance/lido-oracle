@@ -40,6 +40,7 @@ hypothesis = "^6.68.2"
 black = "^23.3.0"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
+ruff = "^0.4.9"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -105,6 +106,27 @@ disable_error_code = "valid-type,name-defined"
 module = "src.web3py.contract_tweak"
 ignore_errors = true  # skipped because of extensive copy-paste from the upstream
 
-[tool.black]
-line-length = 120
-skip-string-normalization = true
+[tool.ruff]
+line-length = 140
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+extend-select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
