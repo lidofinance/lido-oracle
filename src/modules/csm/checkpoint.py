@@ -8,6 +8,7 @@ from typing import Iterable, cast
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from src import variables
+from src.constants import SLOTS_PER_HISTORICAL_ROOT
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation
@@ -35,8 +36,6 @@ class CheckpointsIterator:
     l_epoch: EpochNumber
     r_epoch: EpochNumber
 
-    checkpoints: list[Checkpoint]
-
     # Min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
     MIN_CHECKPOINT_STEP = 10
     # Max checkpoint step is 255 epochs because block_roots size from state is 8192 slots (256 epochs)
@@ -47,13 +46,13 @@ class CheckpointsIterator:
     def __init__(
         self, converter: Web3Converter, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber
     ):
-        assert l_epoch <= r_epoch
+        if l_epoch > r_epoch:
+            raise ValueError("Left border epoch should be less or equal right border epoch")
         self.converter = converter
         self.l_epoch = l_epoch
         self.r_epoch = self._get_adjusted_r_epoch(r_epoch, finalized_epoch)
 
     def __iter__(self):
-        self.checkpoints = []
 
         duty_epochs = cast(list[EpochNumber], list(sequence(self.l_epoch, self.r_epoch)))
 
@@ -69,19 +68,12 @@ class CheckpointsIterator:
                 logger.info(
                     {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
                 )
-                self.checkpoints.append(Checkpoint(checkpoint_slot, checkpoint_epochs))
+                yield Checkpoint(checkpoint_slot, checkpoint_epochs)
                 checkpoint_epochs = []
-        logger.info({"msg": f"Checkpoints to process: {len(self.checkpoints)}"})
-        return self
-
-    def __next__(self):
-        if not self.checkpoints:
-            raise StopIteration
-        return self.checkpoints.pop(0)
 
     def _get_adjusted_r_epoch(self, r_epoch: EpochNumber, finalized_epoch: EpochNumber):
         processing_delay = finalized_epoch - self.l_epoch
-        if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch < r_epoch:
+        if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch <= r_epoch:
             logger.info(
                 {
                     "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
@@ -93,7 +85,7 @@ class CheckpointsIterator:
             raise MinStepIsNotReached()
         adjusted_r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
         if r_epoch != adjusted_r_epoch:
-            logger.warning(
+            logger.info(
                 {
                     "msg": f"Right border epoch of checkpoints iterator is recalculated according to the finalized epoch. "
                     f"Before: {r_epoch} After: {adjusted_r_epoch}"
@@ -142,7 +134,6 @@ class CheckpointProcessor:
         self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> list[BlockRoot]:
         roots_to_check = []
-        SLOTS_PER_HISTORICAL_ROOT = int(self.cc.get_config_spec().SLOTS_PER_HISTORICAL_ROOT)
         # To check duties in the current epoch you need to
         # have 32 slots of the current epoch and 32 slots of the next epoch
         slots = sequence(
@@ -153,10 +144,11 @@ class CheckpointProcessor:
             # From spec
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
             if checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT < slot_to_check <= checkpoint_slot:
-                roots_to_check.append(block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT])
+                if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
+                    roots_to_check.append(br)
                 continue
             raise ValueError("Slot is out of the state block roots range")
-        return [root for root in roots_to_check if root]
+        return roots_to_check
 
     def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
         with ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY) as ext:
@@ -190,8 +182,6 @@ class CheckpointProcessor:
         start = time.time()
         committees = self._prepare_committees(EpochNumber(duty_epoch))
         for root in block_roots:
-            if root is None:
-                continue
             attestations = self.cc.get_block_attestations(BlockRoot(root))
             process_attestations(attestations, committees)
 
