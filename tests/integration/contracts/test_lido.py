@@ -1,6 +1,5 @@
 import pytest
 
-from src.modules.accounting.types import LidoReportRebase
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
