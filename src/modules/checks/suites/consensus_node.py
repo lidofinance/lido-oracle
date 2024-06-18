@@ -4,20 +4,24 @@ from src.web3py.types import Web3
 
 def check_validators_provided(web3: Web3, blockstamp):
     """Check that consensus-client able to provide validators"""
-    result = web3.cc.get_validators_no_cache(blockstamp)
-    assert len(result) > 0, "consensus-client provide no validators"
+    assert web3.cc.get_validators_no_cache(blockstamp), "consensus-client provide no validators"
 
 
 def check_block_details_provided(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block details"""
-    web3.cc.get_block_details(blockstamp.slot_number)
+    assert web3.cc.get_block_details(blockstamp.slot_number), "consensus-client provide no block details"
 
 
 def check_block_root_provided(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block root"""
-    web3.cc.get_block_root(blockstamp.slot_number)
+    assert web3.cc.get_block_root(blockstamp.slot_number), "consensus-client provide no block root"
 
 
 def check_block_header_provided(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block header"""
-    web3.cc.get_block_header(blockstamp.slot_number)
+    assert web3.cc.get_block_header(blockstamp.slot_number), "consensus-client provide no block header"
+
+
+def check_block_roots_from_state_provided(web3: Web3, blockstamp):
+    """Check that consensus-client able to provide block roots from state"""
+    assert web3.cc.get_state_block_roots(blockstamp.slot_number), "consensus-client provide no block roots from state"

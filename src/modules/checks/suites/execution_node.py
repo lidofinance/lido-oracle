@@ -48,13 +48,25 @@ def check_events_range_availability(web3, blockstamp, deposit_contract):
     list(get_events_in_range(deposit_contract.events.DepositEvent, blockstamp.block_number, latest_block.number))
 
 
-def check_events_week_range_availability(web3, deposit_contract):
-    """Check that execution-client able to get event logs a week ago"""
+@pytest.mark.parametrize('range_', [8 * 225 * 32, 32 * 225 * 32], ids=['week', 'month'])
+def check_events_week_range_availability(web3, deposit_contract, range_):
+    """Check that execution-client able to get event logs in a range"""
+    def _get_deposit_count(block):
+        return int.from_bytes(
+            deposit_contract.functions.get_deposit_count().call(block_identifier=block), 'little'
+        )
+
     latest_block = web3.eth.get_block('latest')
-    list(
+    from_block = max(0, latest_block.number - range_)
+    to_block = latest_block.number
+    events = list(
         get_events_in_range(
             deposit_contract.events.DepositEvent,
-            l_block=BlockNumber(max(0, latest_block.number - 8 * 225 * 32)),  # 8 days
-            r_block=latest_block.number,
+            l_block=BlockNumber(from_block),
+            r_block=to_block,
         )
     )
+    deposits_count_before = _get_deposit_count(from_block)
+    deposits_count_now = _get_deposit_count(to_block)
+    if deposits_count_now - deposits_count_before > 0:
+        assert events, "No events found"
