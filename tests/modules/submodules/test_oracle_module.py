@@ -1,19 +1,18 @@
-from unittest.mock import Mock
 from typing import Type
+from unittest.mock import Mock
 
 import pytest
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
-
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
+from src import variables
+from src.modules.submodules.exceptions import IncompatibleOracleVersion, IsNotMemberException
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src import variables
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 

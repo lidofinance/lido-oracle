@@ -26,8 +26,8 @@ def test_get_first_non_missed_slot(web3, consensus_client):
 @pytest.mark.unit
 def test_get_third_non_missed_slot(web3, consensus_client):
     def get_block_header(_):
-        setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
-        if getattr(get_block_header, "call_count") == 3:
+        get_block_header.call_count = getattr(get_block_header, 'call_count', 0) + 1
+        if get_block_header.call_count == 3:
             web3.cc.get_block_header = original
         raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
 

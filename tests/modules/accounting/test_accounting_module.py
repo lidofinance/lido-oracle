@@ -1,4 +1,4 @@
-from typing import Any, Iterable, cast
+from typing import Iterable, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -104,7 +104,7 @@ def test_get_consensus_lido_state(accounting: Accounting):
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators))
+    assert balance == sum(int(val.balance) for val in validators)
 
 
 @pytest.mark.unit

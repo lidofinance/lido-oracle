@@ -2,7 +2,6 @@ from prometheus_client import Gauge
 
 from src.variables import PROMETHEUS_PREFIX
 
-
 EJECTOR_TO_WITHDRAW_WEI_AMOUNT = Gauge(
     "ejector_withdrawal_wei_amount",
     "Withdrawal wei amount",

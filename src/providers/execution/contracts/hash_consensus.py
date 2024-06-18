@@ -1,5 +1,4 @@
 import logging
-from src.utils.cache import global_lru_cache as lru_cache
 
 from eth_typing import ChecksumAddress
 from web3.contract.contract import ContractFunction
@@ -8,6 +7,7 @@ from web3.types import BlockIdentifier
 from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 

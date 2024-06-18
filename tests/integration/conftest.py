@@ -1,7 +1,7 @@
 from typing import cast
 
 import pytest
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
 from src import variables
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract

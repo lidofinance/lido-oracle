@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState, ValidatorStatus
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, ReferenceBlockStamp
 

@@ -1,7 +1,7 @@
 import pytest
 from eth_typing import ChecksumAddress
 
-from tests.integration.contracts.contract_utils import check_contract, check_value_type, check_value_re, ADDRESS_REGREX
+from tests.integration.contracts.contract_utils import ADDRESS_REGREX, check_contract, check_value_re, check_value_type
 
 
 @pytest.mark.integration

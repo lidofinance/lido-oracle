@@ -6,8 +6,8 @@ from src.constants import TOTAL_BASIS_POINTS
 from src.modules.submodules.types import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp
-from src.utils.validator_state import is_on_exit, get_validator_age
-from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
+from src.utils.validator_state import get_validator_age, is_on_exit
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 
 

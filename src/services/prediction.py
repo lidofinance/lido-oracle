@@ -1,13 +1,12 @@
 import logging
 from functools import lru_cache
 
-from web3.types import Wei, EventData
+from web3.types import EventData, Wei
 
 from src.modules.submodules.types import ChainConfig
 from src.types import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 

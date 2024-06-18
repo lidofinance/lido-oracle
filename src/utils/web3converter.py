@@ -1,5 +1,5 @@
-from src.types import SlotNumber, EpochNumber, FrameNumber
 from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.types import EpochNumber, FrameNumber, SlotNumber
 
 
 class Web3Converter:

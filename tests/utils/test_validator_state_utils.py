@@ -1,21 +1,20 @@
-from pydantic.class_validators import validator
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH
+from src.providers.consensus.types import Validator, ValidatorState, ValidatorStatus
 from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
-    calculate_total_active_effective_balance,
-    is_on_exit,
-    get_validator_age,
     calculate_active_effective_balance_sum,
-    is_validator_eligible_to_exit,
-    is_fully_withdrawable_validator,
-    is_partially_withdrawable_validator,
-    has_eth1_withdrawal_credential,
-    is_exited_validator,
-    is_active_validator,
+    calculate_total_active_effective_balance,
     compute_activation_exit_epoch,
+    get_validator_age,
+    has_eth1_withdrawal_credential,
+    is_active_validator,
+    is_exited_validator,
+    is_fully_withdrawable_validator,
+    is_on_exit,
+    is_partially_withdrawable_validator,
+    is_validator_eligible_to_exit,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -295,4 +294,4 @@ class TestCalculateTotalEffectiveBalance:
 @pytest.mark.unit
 def test_compute_activation_exit_epoch():
     ref_epoch = 3455
-    assert 3460 == compute_activation_exit_epoch(ref_epoch)
+    assert compute_activation_exit_epoch(ref_epoch) == 3460

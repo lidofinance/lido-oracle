@@ -1,14 +1,13 @@
 import logging
 import threading
 from datetime import datetime, timedelta
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 import requests
 from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from src import variables
 from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
-
 
 _last_pulse = datetime.now()
 logger = logging.getLogger(__name__)

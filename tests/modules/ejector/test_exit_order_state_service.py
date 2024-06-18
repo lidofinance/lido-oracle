@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import ValidatorState, Validator, ValidatorStatus
+from src.providers.consensus.types import Validator, ValidatorState, ValidatorStatus
 from src.services.exit_order.iterator import NodeOperatorPredictableState
 from src.services.exit_order.iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (
@@ -11,7 +11,6 @@ from src.web3py.extensions.lido_validators import (
     StakingModule,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-
 
 FAR_FUTURE_EPOCH = 2**64 - 1
 TESTING_VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS = 10

@@ -1,8 +1,9 @@
 from typing import Any
 
-from web3_multi_provider import FallbackProvider
-from src.providers.consistency import ProviderConsistencyModule
 from web3 import Web3
+from web3_multi_provider import FallbackProvider
+
+from src.providers.consistency import ProviderConsistencyModule
 
 
 class FallbackProviderModule(ProviderConsistencyModule, FallbackProvider):

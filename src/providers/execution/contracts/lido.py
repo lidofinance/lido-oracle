@@ -1,11 +1,10 @@
 import logging
 
 from eth_typing import ChecksumAddress
-from web3.types import Wei, BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
 from src.modules.accounting.types import LidoReportRebase
 from src.providers.execution.base_interface import ContractInterface
-
 
 logger = logging.getLogger(__name__)
 

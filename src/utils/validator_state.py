@@ -1,14 +1,14 @@
 from typing import Sequence
 
 from src.constants import (
-    MAX_EFFECTIVE_BALANCE,
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
-    SHARD_COMMITTEE_PERIOD,
-    FAR_FUTURE_EPOCH,
+    CHURN_LIMIT_QUOTIENT,
     EFFECTIVE_BALANCE_INCREMENT,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE,
     MAX_SEED_LOOKAHEAD,
     MIN_PER_EPOCH_CHURN_LIMIT,
-    CHURN_LIMIT_QUOTIENT,
+    SHARD_COMMITTEE_PERIOD,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, Gwei

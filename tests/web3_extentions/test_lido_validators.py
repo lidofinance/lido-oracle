@@ -12,7 +12,6 @@ from tests.factory.no_registry import (
     ValidatorFactory,
 )
 
-
 blockstamp = ReferenceBlockStampFactory.build()
 
 

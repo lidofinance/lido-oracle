@@ -1,12 +1,12 @@
 from time import sleep
 from typing import cast
 
-from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
+from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
 from src.providers.http_provider import HTTPProvider
-from src.providers.keys.types import LidoKey, KeysApiStatus
+from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import list_of_dataclasses
 
 
 class KeysOutdatedException(Exception):

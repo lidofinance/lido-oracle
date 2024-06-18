@@ -1,21 +1,19 @@
 import logging
 import math
-
 from typing import Sequence
 
 from web3.types import EventData
 
-from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
+from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 

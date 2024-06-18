@@ -7,25 +7,23 @@ from web3.middleware import simple_cache_middleware
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.modules.accounting.accounting import Accounting
-from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
+from src.modules.ejector.ejector import Ejector
 from src.types import OracleModule
 from src.utils.build import get_build_info
+from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    LidoContracts,
-    TransactionUtils,
     ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
+    LidoContracts,
     LidoValidatorsProvider,
-    FallbackProviderModule
+    TransactionUtils,
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.types import Web3
-
-from src.web3py.contract_tweak import tweak_w3_contracts
-
 
 logger = logging.getLogger()
 

@@ -1,6 +1,6 @@
 import pytest
 from requests import HTTPError
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 from web3.exceptions import MethodUnavailable
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION

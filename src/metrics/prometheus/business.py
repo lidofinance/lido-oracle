@@ -2,7 +2,6 @@ from prometheus_client import Gauge, Info
 
 from src.variables import PROMETHEUS_PREFIX
 
-
 ORACLE_MEMBER_INFO = Info(
     "member",
     "Oracle member info",

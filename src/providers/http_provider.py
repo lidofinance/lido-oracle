@@ -1,16 +1,15 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Tuple, Sequence, Callable
+from typing import Callable, Sequence, Tuple
 from urllib.parse import urljoin, urlparse
 
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
-
 
 logger = logging.getLogger(__name__)
 

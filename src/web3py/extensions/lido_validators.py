@@ -8,10 +8,9 @@ from web3.module import Module
 
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex
-from src.utils.dataclass import Nested
+from src.types import BlockStamp, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
-
+from src.utils.dataclass import Nested
 
 logger = logging.getLogger(__name__)
 

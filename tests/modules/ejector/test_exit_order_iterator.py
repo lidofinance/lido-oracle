@@ -5,8 +5,8 @@ import pytest
 from src.providers.consensus.types import ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.exit_order.iterator import ExitOrderIterator
-from src.services.exit_order.iterator_state import NodeOperatorPredictableState, ExitOrderIteratorStateService
-from src.web3py.extensions.lido_validators import LidoValidator, StakingModuleId, NodeOperatorId
+from src.services.exit_order.iterator_state import ExitOrderIteratorStateService, NodeOperatorPredictableState
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModuleId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, OracleReportLimitsFactory
 from tests.factory.no_registry import LidoValidatorFactory

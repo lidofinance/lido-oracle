@@ -7,8 +7,7 @@ from eth_typing import ChecksumAddress
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig
 from src.services.exit_order.iterator_state import ExitOrderIteratorStateService, NodeOperatorPredictableState
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, NodeOperatorId
-
+from src.types import NodeOperatorGlobalIndex, NodeOperatorId, ReferenceBlockStamp, StakingModuleId
 from src.utils.validator_state import get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3

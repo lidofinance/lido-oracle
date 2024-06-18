@@ -3,10 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2, NodeOperatorStats, StakingModuleStats
+from src.services.exit_order_v2.iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIteratorV2
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import NodeOperatorFactory, StakingModuleFactory, LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, NodeOperatorFactory, StakingModuleFactory
 from tests.factory.web3_factory import Web3Factory
 
 

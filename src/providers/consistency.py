@@ -1,5 +1,5 @@
+from abc import ABC, abstractmethod
 from typing import Any
-from abc import abstractmethod, ABC
 
 
 class InconsistentProviders(Exception):

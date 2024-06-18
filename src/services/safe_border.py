@@ -6,11 +6,11 @@ from eth_typing import HexStr
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from src.utils.web3converter import Web3Converter
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.slot import get_blockstamp
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
-from src.utils.slot import get_blockstamp
 
 
 class WrongExitPeriod(Exception):

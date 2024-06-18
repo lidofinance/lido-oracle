@@ -5,7 +5,7 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.types import SlotNumber, Gwei, StakingModuleId
+from src.types import Gwei, SlotNumber, StakingModuleId
 
 
 @dataclass

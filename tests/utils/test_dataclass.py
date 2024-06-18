@@ -3,7 +3,7 @@ from typing import Any, Iterable
 
 import pytest
 
-from src.utils.dataclass import DecodeToDataclassException, list_of_dataclasses, Nested, FromResponse
+from src.utils.dataclass import DecodeToDataclassException, FromResponse, Nested, list_of_dataclasses
 
 pytestmark = pytest.mark.unit
 

@@ -1,27 +1,26 @@
 import logging
 import time
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from dataclasses import asdict
 from enum import Enum
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
-
-from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
-from src.providers.http_provider import NotOkResponse
-from src.providers.keys.client import KeysOutdatedException
-from src.utils.cache import clear_global_cache
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
-from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.types import Web3
+from timeout_decorator import TimeoutError as DecoratorTimeoutError
+from timeout_decorator import timeout
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.types import SlotNumber, BlockStamp, BlockRoot
-
+from src.metrics.healthcheck_server import pulse
+from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.modules.submodules.exceptions import IncompatibleOracleVersion, IsNotMemberException
+from src.providers.http_provider import NotOkResponse
+from src.providers.keys.client import KeysOutdatedException
+from src.types import BlockRoot, BlockStamp, SlotNumber
+from src.utils.blockstamp import build_blockstamp
+from src.utils.cache import clear_global_cache
+from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 

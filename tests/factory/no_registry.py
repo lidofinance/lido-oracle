@@ -7,9 +7,8 @@ from pydantic_factories import Use
 from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
-from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
-
 
 faker = Faker()
 

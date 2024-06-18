@@ -1,14 +1,13 @@
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from src.types import ReferenceBlockStamp
+from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.services.safe_border import SafeBorder
+from src.types import ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory, OracleReportLimitsFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
-
-from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 
 @pytest.fixture()

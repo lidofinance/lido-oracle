@@ -2,9 +2,8 @@ import pytest
 from hexbytes import HexBytes
 
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
-from src.modules.accounting.third_phase.types import FormatList, ExtraData
+from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
-
 
 pytestmark = pytest.mark.unit
 

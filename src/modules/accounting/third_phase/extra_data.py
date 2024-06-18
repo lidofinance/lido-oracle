@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from hexbytes import HexBytes
 
-from src.modules.accounting.third_phase.types import ItemType, ExtraData, FormatList, ExtraDataLengths
+from src.modules.accounting.third_phase.types import ExtraData, ExtraDataLengths, FormatList, ItemType
 from src.modules.submodules.types import ZERO_HASH
 from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3

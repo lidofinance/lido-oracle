@@ -4,18 +4,18 @@ from typing import Literal
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
+    BeaconSpecResponse,
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
     BlockRootResponse,
-    Validator,
-    BeaconSpecResponse,
     GenesisResponse,
+    Validator,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import list_of_dataclasses
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,6 @@ from typing import Any, Callable
 
 from src.providers.execution.base_interface import ContractInterface
 
-
 HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)
 ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
 

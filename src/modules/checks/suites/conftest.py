@@ -4,20 +4,19 @@ from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
-from src.types import EpochNumber, SlotNumber, BlockRoot
+from src.types import BlockRoot, EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
+    LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
-    LidoContracts,
-    FallbackProviderModule,
 )
 from src.web3py.types import Web3
-
 
 TITLE_PROPERTY_NAME = "test_title"
 

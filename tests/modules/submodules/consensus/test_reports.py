@@ -2,11 +2,11 @@ from unittest.mock import Mock
 
 import pytest
 from hexbytes import HexBytes
+
 from src import variables
 from src.modules.accounting.types import ReportData
-from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
+from src.modules.submodules.types import ZERO_HASH, ChainConfig, FrameConfig
 from tests.conftest import Account
-
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 

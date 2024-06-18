@@ -2,7 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Sequence, Callable
+from typing import Any, Callable, Sequence
 
 from web3 import Web3
 from web3.module import Module
@@ -42,7 +42,7 @@ class FromFile:
         mock_path = BASE_FIXTURES_PATH / mock_path
         if not mock_path.exists():
             return
-        with open(mock_path, "r") as f:
+        with open(mock_path) as f:
             self.responses = json.load(f)
 
 

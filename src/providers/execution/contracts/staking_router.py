@@ -1,11 +1,11 @@
 import logging
-from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
+from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
-from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
+from src.web3py.extensions.lido_validators import NodeOperator, StakingModule
 
 logger = logging.getLogger(__name__)
 

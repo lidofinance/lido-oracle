@@ -3,9 +3,9 @@ from contextlib import suppress
 from dataclasses import is_dataclass
 from enum import EnumMeta
 from inspect import isclass
-from typing import Any, cast, NewType
+from typing import Any, NewType, cast
 
-from eth_typing import HexStr, HexAddress
+from eth_typing import HexAddress, HexStr
 from eth_utils import to_checksum_address
 from hexbytes import HexBytes
 from pydantic import BaseModel
@@ -13,9 +13,9 @@ from pydantic.fields import ModelField
 from pydantic_factories import ModelFactory
 from pydantic_factories.exceptions import ParameterError
 from pydantic_factories.factory import T
-from pydantic_factories.utils import unwrap_new_type_if_needed, is_pydantic_model, is_literal
+from pydantic_factories.utils import is_literal, is_pydantic_model, unwrap_new_type_if_needed
 from pydantic_factories.value_generators.complex_types import handle_complex_type
-from typing_extensions import is_typeddict, get_args
+from typing_extensions import get_args, is_typeddict
 
 
 class Web3Factory(ModelFactory[Any]):

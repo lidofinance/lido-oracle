@@ -5,11 +5,11 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from requests import HTTPError, Response
+from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
-from web3 import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def metrics_collector(
 
     abi_dir = './assets/'
     for filename in os.listdir(abi_dir):
-        with open(os.path.join(abi_dir, filename), 'r') as f:
+        with open(os.path.join(abi_dir, filename)) as f:
             try:
                 contracts.append(w3.eth.contract(abi=json.load(f)))
             except json.JSONDecodeError:
@@ -37,7 +37,7 @@ def metrics_collector(
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         try:
             # Works only with HTTP and Websocket Provider
-            domain = urlparse(getattr(w3.provider, "endpoint_uri")).netloc
+            domain = urlparse(w3.provider.endpoint_uri).netloc
         except:
             domain = 'unavailable'
 

@@ -10,12 +10,12 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.ejector import (
-    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
-    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
-    EJECTOR_MAX_WITHDRAWAL_EPOCH,
-)
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.metrics.prometheus.ejector import (
+    EJECTOR_MAX_WITHDRAWAL_EPOCH,
+    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
+    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+)
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -26,18 +26,17 @@ from src.services.exit_order.iterator import ExitOrderIterator
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
+from src.types import BlockStamp, EpochNumber, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
+    compute_activation_exit_epoch,
+    compute_exit_churn_limit,
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
-    compute_activation_exit_epoch,
-    compute_exit_churn_limit,
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,4 @@
 import logging
-from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
@@ -7,7 +6,7 @@ from web3.types import BlockIdentifier
 from src.modules.accounting.types import AccountingProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
-
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 

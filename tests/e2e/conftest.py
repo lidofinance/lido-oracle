@@ -1,11 +1,12 @@
 import logging
 import time
 from logging.handlers import QueueHandler
-import pytest
-
-from pytest import Item
-from src.main import main
 from multiprocessing import Process, Queue
+
+import pytest
+from pytest import Item
+
+from src.main import main
 from src.variables import EXECUTION_CLIENT_URI
 
 

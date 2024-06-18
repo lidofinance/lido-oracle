@@ -7,7 +7,7 @@ UNKNOWN_BUILD_INFO = {"version": "unknown", "branch": "unknown", "commit": "unkn
 def get_build_info() -> dict:
     path = "./build-info.json"
     if os.path.exists(path):
-        with open(path, "r") as f:
+        with open(path) as f:
             try:
                 build_info = json.load(f)
             except json.JSONDecodeError:
