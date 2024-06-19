@@ -59,11 +59,17 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
         (0, 254, 255, [Checkpoint(255 * 32, list(range(0, 254)))]),
         (
             # fit to max checkpoint step, can generate full checkpoint (with 255 epochs)
-            0, 254, 256, [Checkpoint(256 * 32, list(range(0, 255)))]
+            0,
+            254,
+            256,
+            [Checkpoint(256 * 32, list(range(0, 255)))],
         ),
         (
             # fit to max checkpoint step, and first 15 epochs is processed
-            15, 254, 256, [Checkpoint(256 * 32, list(range(15, 255)))]
+            15,
+            254,
+            256,
+            [Checkpoint(256 * 32, list(range(15, 255)))],
         ),
         (15, 255, 26, [Checkpoint(26 * 32, list(range(15, 25)))]),
         (
@@ -73,8 +79,8 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             [
                 Checkpoint(8192, list(range(0, 255))),
                 Checkpoint(16352, list(range(255, 510))),
-                Checkpoint(16384, list(range(510, 511)))
-            ]
+                Checkpoint(16384, list(range(510, 511))),
+            ],
         ),
         (
             0,
@@ -84,7 +90,7 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
                 Checkpoint(8192, list(range(0, 255))),
                 Checkpoint(16352, list(range(255, 510))),
                 Checkpoint(21664, list(range(510, 676))),
-            ]
+            ],
         ),
     ],
 )
