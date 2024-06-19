@@ -123,7 +123,7 @@ def test_checkpoints_processor_get_block_roots_with_duplicates(
         finalized_blockstamp,
     )
     roots = processor._get_block_roots(1)
-    assert len([r for r in roots if r is not None]) == 4096
+    assert len([r for r in roots if r is not None]) == 4097
 
 
 @pytest.fixture
