@@ -128,7 +128,8 @@ class CheckpointProcessor:
         # checkpoint for us like a time point, that's why we use slot, not root
         br = self.cc.get_state_block_roots(checkpoint_slot)
         # replace duplicated roots to None to mark missed slots
-        return [None if br[i] == br[i - 1] else br[i] for i in range(len(br))]
+        # the first root always exists
+        return [br[0], *[None if br[i] == br[i - 1] else br[i] for i in range(1, len(br))]]
 
     def _select_block_roots(
         self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
