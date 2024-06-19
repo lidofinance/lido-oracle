@@ -44,7 +44,7 @@ def web3():
     )
     if variables.LIDO_LOCATOR_ADDRESS:
         web3.attach_modules({'lido_contracts': LidoContracts})
-    if variables.CSM_ORACLE_ADDRESS and variables.CSM_MODULE_ADDRESS:
+    if variables.CSM_MODULE_ADDRESS:
         web3.attach_modules({'csm': CSM})
 
     return web3
