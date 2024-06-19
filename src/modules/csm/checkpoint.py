@@ -144,7 +144,7 @@ class CheckpointProcessor:
         for slot_to_check in slots:
             # From spec
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
-            if checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT < slot_to_check <= checkpoint_slot:
+            if slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT:
                 if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
                     roots_to_check.append(br)
                 continue
