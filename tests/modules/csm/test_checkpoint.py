@@ -51,24 +51,41 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
         CheckpointsIterator(converter, 100, 600, 109)
 
 
-def test_checkpoints_iterator_r_epoch_is_changed_by_finalized(converter):
-    l_epoch = 100
-    r_epoch = 600
-    finalized_epoch = 110
-    expected = finalized_epoch - 1
-    iterator = CheckpointsIterator(converter, l_epoch, r_epoch, finalized_epoch)
-    assert r_epoch != iterator.r_epoch, "Right border should be changed"
-    assert iterator.r_epoch == expected, "Right border should be equal to the finalized epoch minus one"
-
-
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
-        (0, 255, 255, [Checkpoint(8192, list(range(0, 255)))]),
-        (15, 255, 255, [Checkpoint(8192, list(range(15, 255)))]),
-        (15, 255, 25, [Checkpoint(832, list(range(15, 25)))]),
-        (0, 255 * 2, 255 * 2, [Checkpoint(8192, list(range(0, 255))), Checkpoint(16352, list(range(255, 510)))]),
-        (15, 255 * 2, 350, [Checkpoint(8672, list(range(15, 270))), Checkpoint(11232, list(range(270, 350)))]),
+        (0, 254, 253, [Checkpoint(253 * 32, list(range(0, 252)))]),
+        (0, 254, 254, [Checkpoint(254 * 32, list(range(0, 253)))]),
+        (0, 254, 255, [Checkpoint(255 * 32, list(range(0, 254)))]),
+        (
+            # fit to max checkpoint step, can generate full checkpoint (with 255 epochs)
+            0, 254, 256, [Checkpoint(256 * 32, list(range(0, 255)))]
+        ),
+        (
+            # fit to max checkpoint step, and first 15 epochs is processed
+            15, 254, 256, [Checkpoint(256 * 32, list(range(15, 255)))]
+        ),
+        (15, 255, 26, [Checkpoint(26 * 32, list(range(15, 25)))]),
+        (
+            0,
+            255 * 2,
+            255 * 2 + 2,
+            [
+                Checkpoint(8192, list(range(0, 255))),
+                Checkpoint(16352, list(range(255, 510))),
+                Checkpoint(16384, list(range(510, 511)))
+            ]
+        ),
+        (
+            0,
+            225 * 3,
+            225 * 3 + 2,
+            [
+                Checkpoint(8192, list(range(0, 255))),
+                Checkpoint(16352, list(range(255, 510))),
+                Checkpoint(21664, list(range(510, 676))),
+            ]
+        ),
     ],
 )
 def test_checkpoints_iterator_given_checkpoints(converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints):

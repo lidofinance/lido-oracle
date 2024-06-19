@@ -36,12 +36,17 @@ class CheckpointsIterator:
     l_epoch: EpochNumber
     r_epoch: EpochNumber
 
+    # Max available epoch to process according to the finalized epoch
+    max_available_epoch_to_check: EpochNumber
+
     # Min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
     MIN_CHECKPOINT_STEP = 10
     # Max checkpoint step is 255 epochs because block_roots size from state is 8192 slots (256 epochs)
     # to check duty of every epoch, we need to check 64 slots (32 slots of duty epoch + 32 slots of next epoch).
     # In the end we got 255 committees and 8192 block_roots to check them for every checkpoint.
     MAX_CHECKPOINT_STEP = 255
+    # Delay from last duty epoch to get checkpoint slot
+    CHECKPOINT_SLOT_DELAY_EPOCHS = 2
 
     def __init__(
         self, converter: Web3Converter, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber
@@ -50,48 +55,46 @@ class CheckpointsIterator:
             raise ValueError("Left border epoch should be less or equal right border epoch")
         self.converter = converter
         self.l_epoch = l_epoch
-        self.r_epoch = self._get_adjusted_r_epoch(r_epoch, finalized_epoch)
+        self.r_epoch = r_epoch
+
+        self.max_available_epoch_to_check = min(
+            self.r_epoch, EpochNumber(finalized_epoch - self.CHECKPOINT_SLOT_DELAY_EPOCHS)
+        )
+
+        if self.r_epoch > self.max_available_epoch_to_check and not self._is_min_step_reached(finalized_epoch):
+            raise MinStepIsNotReached()
 
     def __iter__(self):
-
         duty_epochs = cast(list[EpochNumber], list(sequence(self.l_epoch, self.r_epoch)))
 
         checkpoint_epochs = []
         for index, epoch in enumerate(duty_epochs, 1):
             checkpoint_epochs.append(epoch)
-            if index % self.MAX_CHECKPOINT_STEP == 0 or epoch == self.r_epoch:
-                # We need to get the first slot of the next of next epoch to get fit to
-                # 8192 roots in `checkpoint_slot` state block_roots to check duties in every epoch in checkpoint.
-                # To check duties in the current epoch you need to
-                # get 32 slots of the current epoch and 32 slots of the next epoch.
-                checkpoint_slot = SlotNumber(self.converter.get_epoch_last_slot(EpochNumber(epoch + 1)) + 1)
+            if epoch == self.max_available_epoch_to_check or index % self.MAX_CHECKPOINT_STEP == 0:
+                checkpoint_slot = self.converter.get_epoch_first_slot(
+                    EpochNumber(epoch + self.CHECKPOINT_SLOT_DELAY_EPOCHS)
+                )
                 logger.info(
                     {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
                 )
                 yield Checkpoint(checkpoint_slot, checkpoint_epochs)
                 checkpoint_epochs = []
+            if epoch == self.max_available_epoch_to_check:
+                break
 
-    def _get_adjusted_r_epoch(self, r_epoch: EpochNumber, finalized_epoch: EpochNumber):
+    def _is_min_step_reached(self, finalized_epoch: EpochNumber):
         processing_delay = finalized_epoch - self.l_epoch
-        if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch <= r_epoch:
-            logger.info(
-                {
-                    "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
-                    "finalized_epoch": finalized_epoch,
-                    "l_epoch": self.l_epoch,
-                    "r_epoch": r_epoch,
-                }
-            )
-            raise MinStepIsNotReached()
-        adjusted_r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
-        if r_epoch != adjusted_r_epoch:
-            logger.info(
-                {
-                    "msg": f"Right border epoch of checkpoints iterator is recalculated according to the finalized epoch. "
-                    f"Before: {r_epoch} After: {adjusted_r_epoch}"
-                }
-            )
-        return adjusted_r_epoch
+        if processing_delay > self.MIN_CHECKPOINT_STEP:
+            return True
+        logger.info(
+            {
+                "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
+                "finalized_epoch": finalized_epoch,
+                "l_epoch": self.l_epoch,
+                "r_epoch": self.r_epoch,
+            }
+        )
+        return False
 
 
 class CheckpointProcessor:
