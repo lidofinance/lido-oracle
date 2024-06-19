@@ -64,11 +64,11 @@ def test_checkpoints_iterator_r_epoch_is_changed_by_finalized(converter):
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
-        (0, 255, 255, [Checkpoint(8191, list(range(0, 255)))]),
-        (15, 255, 255, [Checkpoint(8191, list(range(15, 255)))]),
-        (15, 255, 25, [Checkpoint(831, list(range(15, 25)))]),
-        (0, 255 * 2, 255 * 2, [Checkpoint(8191, list(range(0, 255))), Checkpoint(16351, list(range(255, 510)))]),
-        (15, 255 * 2, 350, [Checkpoint(8671, list(range(15, 270))), Checkpoint(11231, list(range(270, 350)))]),
+        (0, 255, 255, [Checkpoint(8192, list(range(0, 255)))]),
+        (15, 255, 255, [Checkpoint(8192, list(range(15, 255)))]),
+        (15, 255, 25, [Checkpoint(832, list(range(15, 25)))]),
+        (0, 255 * 2, 255 * 2, [Checkpoint(8192, list(range(0, 255))), Checkpoint(16352, list(range(255, 510)))]),
+        (15, 255 * 2, 350, [Checkpoint(8672, list(range(15, 270))), Checkpoint(11232, list(range(270, 350)))]),
     ],
 )
 def test_checkpoints_iterator_given_checkpoints(converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints):

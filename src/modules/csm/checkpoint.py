@@ -60,11 +60,11 @@ class CheckpointsIterator:
         for index, epoch in enumerate(duty_epochs, 1):
             checkpoint_epochs.append(epoch)
             if index % self.MAX_CHECKPOINT_STEP == 0 or epoch == self.r_epoch:
-                # We need to get the last slot of the next epoch to get fit to
+                # We need to get the first slot of the next of next epoch to get fit to
                 # 8192 roots in `checkpoint_slot` state block_roots to check duties in every epoch in checkpoint.
                 # To check duties in the current epoch you need to
                 # get 32 slots of the current epoch and 32 slots of the next epoch.
-                checkpoint_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch + 1))
+                checkpoint_slot = SlotNumber(self.converter.get_epoch_last_slot(EpochNumber(epoch + 1)) + 1)
                 logger.info(
                     {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
                 )
