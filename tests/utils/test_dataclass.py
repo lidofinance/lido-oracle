@@ -1,5 +1,5 @@
 from dataclasses import dataclass, is_dataclass
-from typing import Any, Iterable
+from typing import Any
 
 import pytest
 
@@ -81,23 +81,6 @@ def test_list_of_dataclasses_with_wrong_type():
 
     with pytest.raises(DecodeToDataclassException):
         get_cars_with_already_as_cars()
-
-
-def test_list_of_dataclasses_empty():
-    @list_of_dataclasses(Car)
-    def get_no_cars() -> list[Car]:
-        return []
-
-    assert get_no_cars() == []
-
-
-def test_list_of_dataclasses_generator():
-    @list_of_dataclasses(Car)
-    def get_iterable_cars() -> Iterable:
-        return range(10)
-
-    with pytest.raises(DecodeToDataclassException):
-        get_iterable_cars()
 
 
 def test_list_of_dataclasses_with_mixed_types():

@@ -61,12 +61,6 @@ def list_of_dataclasses(
         def wrapper_decorator(*args, **kwargs):
             list_of_elements = func(*args, **kwargs)
 
-            if not isinstance(list_of_elements, list) and not isinstance(list_of_elements, tuple):
-                raise DecodeToDataclassException(f'Type {type(list_of_elements)} is not supported.')
-
-            if not list_of_elements:
-                return list_of_elements
-
             if isinstance(list_of_elements[0], dict):
                 return list(map(lambda x: _dataclass_factory(**x), list_of_elements))
 
