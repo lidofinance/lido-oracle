@@ -150,11 +150,11 @@ class CheckpointProcessor:
         for slot_to_check in slots:
             # From spec
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
-            if slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT:
-                if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
-                    roots_to_check.append(br)
-                continue
-            raise ValueError("Slot is out of the state block roots range")
+            if not (slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT):
+                raise ValueError("Slot is out of the state block roots range")
+            if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
+                roots_to_check.append(br)
+
         return roots_to_check
 
     def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):

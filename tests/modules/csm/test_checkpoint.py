@@ -72,7 +72,7 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             [Checkpoint(256 * 32, list(range(15, 255)))],
         ),
         (
-            #
+            # fit to min checkpoint step, and first 15 epochs is processed
             15,
             255,
             27,
