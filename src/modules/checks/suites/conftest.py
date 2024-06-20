@@ -4,6 +4,8 @@ from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
+from src.main import ipfs_providers
+from src.providers.ipfs.multi import MultiIPFSProvider
 from src.types import EpochNumber, SlotNumber, BlockRoot
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
@@ -46,6 +48,12 @@ def web3():
         web3.attach_modules({'lido_contracts': LidoContracts})
     if variables.CSM_MODULE_ADDRESS:
         web3.attach_modules({'csm': CSM})
+
+        ipfs = MultiIPFSProvider(
+            ipfs_providers(),
+            retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+        )
+        web3.attach_modules({'ipfs': lambda: ipfs}) # type: ignore
 
     return web3
 

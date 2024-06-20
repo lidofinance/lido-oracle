@@ -16,7 +16,7 @@ def skip_locator(web3):
 @pytest.fixture()
 def skip_csm(web3):
     if not hasattr(web3, 'csm'):
-        pytest.skip('CSM_ORACLE_ADDRESS or CSM_MODULE_ADDRESS is not set')
+        pytest.skip('CSM_MODULE_ADDRESS is not set')
 
 
 @pytest.fixture()
