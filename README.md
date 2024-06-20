@@ -279,7 +279,7 @@ Special metrics for CSM oracle:
 
 # Development
 
-Python version: 3.11
+Python version: 3.12
 
 ## Setup
 

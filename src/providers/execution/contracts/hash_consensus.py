@@ -116,7 +116,7 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getConsensusStateForMember(address).call(block_identifier=block_identifier)
 
         logger.info({
-            'msg': 'Call `getFrameConfig()`.',
+            'msg': 'Call `getConsensusStateForMember()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })

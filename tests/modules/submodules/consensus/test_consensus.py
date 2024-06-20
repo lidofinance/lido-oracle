@@ -6,6 +6,7 @@ import pytest
 from src import variables
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
+from src.modules.submodules.exceptions import IncompatibleOracleVersion
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
@@ -142,13 +143,14 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
 
 
 @pytest.mark.unit
-def test_get_blockstamp_for_report_version_mismatch(consensus: ConsensusModule, caplog):
+def test_incompatible_contract_version(consensus):
     bs = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=bs)
-    consensus._check_contract_versions = Mock(return_value=False)
 
-    consensus.get_blockstamp_for_report(bs)
-    assert "Waiting for Contracts to be updated" in caplog.messages[-1]
+    consensus.report_contract.get_contract_version = Mock(return_value=2)
+    consensus.report_contract.get_consensus_version = Mock(return_value=1)
+
+    with pytest.raises(IncompatibleOracleVersion):
+        consensus._check_contract_versions(bs)
 
 
 @pytest.mark.unit

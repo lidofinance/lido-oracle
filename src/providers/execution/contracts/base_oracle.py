@@ -97,7 +97,9 @@ class BaseOracleContract(ContractInterface):
         - The provided data doesn't meet safety checks.
         """
         tx = self.functions.submitReportData(report, contract_version)
-        logger.info({'msg': f'Build `submitReport({report}, {contract_version}) tx.'})
+        logger.info({
+            'msg': f'Build `submitReport({report}, {contract_version}) tx.'
+        })
         return tx
 
     @lru_cache(maxsize=1)

@@ -50,8 +50,9 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
     ) -> dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState]:
         """Prepare node operators stats for sorting their validators in exit order"""
 
-        recently_requested_to_exit_indexes_per_operator = self.get_recently_requests_to_exit_indexes_by_operators(
-            blockstamp, chain_config, self._operator_validators.keys()
+        recently_requested_to_exit_indexes_per_operator = self.get_recently_requested_validators_by_operator(
+            chain_config.seconds_per_slot,
+            blockstamp,
         )
 
         operator_predictable_stats: dict[NodeOperatorGlobalIndex, NodeOperatorPredictableState] = {}

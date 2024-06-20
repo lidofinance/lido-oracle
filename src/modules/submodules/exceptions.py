@@ -2,5 +2,5 @@ class IsNotMemberException(Exception):
     pass
 
 
-class IncompatibleContractVersion(Exception):
+class IncompatibleOracleVersion(Exception):
     pass
