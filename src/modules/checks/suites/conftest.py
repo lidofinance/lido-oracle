@@ -125,6 +125,9 @@ def pytest_report_teststatus(report, config):
             return "passed", "✅ Checked", "✅ Checked"
         if report.failed:
             return "failed", "❌ Failed", "❌ Failed"
+        if report.skipped:
+            reason = report.longrepr[-1]
+            return "skipped", reason, "Skipped"
     return None
 
 
