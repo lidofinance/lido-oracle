@@ -54,38 +54,38 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
-        (0, 254, 253, [Checkpoint(253 * 32, list(range(0, 252)))]),
-        (0, 254, 254, [Checkpoint(254 * 32, list(range(0, 253)))]),
-        (0, 254, 255, [Checkpoint(255 * 32, list(range(0, 254)))]),
+        (0, 254, 253, [Checkpoint(253 * 32, tuple(range(0, 252)))]),
+        (0, 254, 254, [Checkpoint(254 * 32, tuple(range(0, 253)))]),
+        (0, 254, 255, [Checkpoint(255 * 32, tuple(range(0, 254)))]),
         (
             # fit to max checkpoint step, can generate full checkpoint (with 255 epochs)
             0,
             254,
             256,
-            [Checkpoint(256 * 32, list(range(0, 255)))],
+            [Checkpoint(256 * 32, tuple(range(0, 255)))],
         ),
         (
             # fit to max checkpoint step, and first 15 epochs is processed
             15,
             254,
             256,
-            [Checkpoint(256 * 32, list(range(15, 255)))],
+            [Checkpoint(256 * 32, tuple(range(15, 255)))],
         ),
         (
             # fit to min checkpoint step, and first 15 epochs is processed
             15,
             255,
             27,
-            [Checkpoint(27 * 32, list(range(15, 26)))],
+            [Checkpoint(27 * 32, tuple(range(15, 26)))],
         ),
         (
             0,
             255 * 2,
             255 * 2 + 2,
             [
-                Checkpoint(8192, list(range(0, 255))),
-                Checkpoint(16352, list(range(255, 510))),
-                Checkpoint(16384, list(range(510, 511))),
+                Checkpoint(8192, tuple(range(0, 255))),
+                Checkpoint(16352, tuple(range(255, 510))),
+                Checkpoint(16384, tuple(range(510, 511))),
             ],
         ),
         (
@@ -93,9 +93,9 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             225 * 3,
             225 * 3 + 2,
             [
-                Checkpoint(8192, list(range(0, 255))),
-                Checkpoint(16352, list(range(255, 510))),
-                Checkpoint(21664, list(range(510, 676))),
+                Checkpoint(8192, tuple(range(0, 255))),
+                Checkpoint(16352, tuple(range(255, 510))),
+                Checkpoint(21664, tuple(range(510, 676))),
             ],
         ),
     ],

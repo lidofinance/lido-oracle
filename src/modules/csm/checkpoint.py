@@ -2,8 +2,9 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from itertools import batched
 from threading import Lock
-from typing import Iterable, cast
+from typing import Iterable
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
@@ -65,22 +66,17 @@ class CheckpointsIterator:
             raise MinStepIsNotReached()
 
     def __iter__(self):
-        duty_epochs = cast(list[EpochNumber], list(sequence(self.l_epoch, self.r_epoch)))
-
-        checkpoint_epochs = []
-        for index, epoch in enumerate(duty_epochs, 1):
-            checkpoint_epochs.append(epoch)
-            if epoch == self.max_available_epoch_to_check or index % self.MAX_CHECKPOINT_STEP == 0:
-                checkpoint_slot = self.converter.get_epoch_first_slot(
-                    EpochNumber(epoch + self.CHECKPOINT_SLOT_DELAY_EPOCHS)
-                )
-                logger.info(
-                    {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
-                )
-                yield Checkpoint(checkpoint_slot, checkpoint_epochs)
-                checkpoint_epochs = []
-            if epoch == self.max_available_epoch_to_check:
-                break
+        for checkpoint_epochs in batched(
+            sequence(self.l_epoch, self.max_available_epoch_to_check),
+            self.MAX_CHECKPOINT_STEP,
+        ):
+            checkpoint_slot = self.converter.get_epoch_first_slot(
+                EpochNumber(max(checkpoint_epochs) + self.CHECKPOINT_SLOT_DELAY_EPOCHS)
+            )
+            logger.info(
+                {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
+            )
+            yield Checkpoint(checkpoint_slot, checkpoint_epochs)
 
     def _is_min_step_reached(self):
         processing_delay = self.max_available_epoch_to_check - self.l_epoch
