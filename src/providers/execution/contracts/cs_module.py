@@ -1,6 +1,8 @@
 import logging
 from typing import Iterable, NamedTuple
 
+from eth_typing import ChecksumAddress
+from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.utils.cache import global_lru_cache as lru_cache
@@ -29,6 +31,19 @@ class CSModuleContract(ContractInterface):
     abi_path = "./assets/CSModule.json"
 
     MAX_OPERATORS_COUNT = 2**64
+
+    def accounting(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+        """Returns the address of the CSAccounting contract"""
+
+        resp = self.functions.accounting().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                "msg": "Call to accounting()",
+                "value": resp,
+                "block_identifier": repr(block_identifier),
+            }
+        )
+        return Web3.to_checksum_address(resp)
 
     @lru_cache(maxsize=1)
     def get_stuck_operators_ids(self, block_identifier: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:

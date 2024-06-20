@@ -42,7 +42,6 @@ def main(module_name: OracleModule):
             'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
-            'CSM_ORACLE_ADDRESS': variables.CSM_ORACLE_ADDRESS,
             'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
             'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
@@ -51,7 +50,6 @@ def main(module_name: OracleModule):
     ENV_VARIABLES_INFO.info({
         "ACCOUNT": str(variables.ACCOUNT.address) if variables.ACCOUNT else 'Dry',
         "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
-        "CSM_ORACLE_ADDRESS": str(variables.CSM_ORACLE_ADDRESS),
         "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
         "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
         "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
