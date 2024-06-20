@@ -2,8 +2,9 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from itertools import batched
 from threading import Lock
-from typing import Iterable, cast
+from typing import Iterable
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
@@ -36,12 +37,17 @@ class CheckpointsIterator:
     l_epoch: EpochNumber
     r_epoch: EpochNumber
 
+    # Max available epoch to process according to the finalized epoch
+    max_available_epoch_to_check: EpochNumber
+
     # Min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
     MIN_CHECKPOINT_STEP = 10
     # Max checkpoint step is 255 epochs because block_roots size from state is 8192 slots (256 epochs)
     # to check duty of every epoch, we need to check 64 slots (32 slots of duty epoch + 32 slots of next epoch).
     # In the end we got 255 committees and 8192 block_roots to check them for every checkpoint.
     MAX_CHECKPOINT_STEP = 255
+    # Delay from last duty epoch to get checkpoint slot
+    CHECKPOINT_SLOT_DELAY_EPOCHS = 2
 
     def __init__(
         self, converter: Web3Converter, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber
@@ -50,48 +56,41 @@ class CheckpointsIterator:
             raise ValueError("Left border epoch should be less or equal right border epoch")
         self.converter = converter
         self.l_epoch = l_epoch
-        self.r_epoch = self._get_adjusted_r_epoch(r_epoch, finalized_epoch)
+        self.r_epoch = r_epoch
+
+        self.max_available_epoch_to_check = min(
+            self.r_epoch, EpochNumber(finalized_epoch - self.CHECKPOINT_SLOT_DELAY_EPOCHS)
+        )
+
+        if self.r_epoch > self.max_available_epoch_to_check and not self._is_min_step_reached():
+            raise MinStepIsNotReached()
 
     def __iter__(self):
-
-        duty_epochs = cast(list[EpochNumber], list(sequence(self.l_epoch, self.r_epoch)))
-
-        checkpoint_epochs = []
-        for index, epoch in enumerate(duty_epochs, 1):
-            checkpoint_epochs.append(epoch)
-            if index % self.MAX_CHECKPOINT_STEP == 0 or epoch == self.r_epoch:
-                # We need to get the first slot of the next of next epoch to get fit to
-                # 8192 roots in `checkpoint_slot` state block_roots to check duties in every epoch in checkpoint.
-                # To check duties in the current epoch you need to
-                # get 32 slots of the current epoch and 32 slots of the next epoch.
-                checkpoint_slot = SlotNumber(self.converter.get_epoch_last_slot(EpochNumber(epoch + 1)) + 1)
-                logger.info(
-                    {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
-                )
-                yield Checkpoint(checkpoint_slot, checkpoint_epochs)
-                checkpoint_epochs = []
-
-    def _get_adjusted_r_epoch(self, r_epoch: EpochNumber, finalized_epoch: EpochNumber):
-        processing_delay = finalized_epoch - self.l_epoch
-        if processing_delay < self.MIN_CHECKPOINT_STEP and finalized_epoch <= r_epoch:
-            logger.info(
-                {
-                    "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
-                    "finalized_epoch": finalized_epoch,
-                    "l_epoch": self.l_epoch,
-                    "r_epoch": r_epoch,
-                }
+        for checkpoint_epochs in batched(
+            sequence(self.l_epoch, self.max_available_epoch_to_check),
+            self.MAX_CHECKPOINT_STEP,
+        ):
+            checkpoint_slot = self.converter.get_epoch_first_slot(
+                EpochNumber(max(checkpoint_epochs) + self.CHECKPOINT_SLOT_DELAY_EPOCHS)
             )
-            raise MinStepIsNotReached()
-        adjusted_r_epoch = min(r_epoch, EpochNumber(finalized_epoch - 1))
-        if r_epoch != adjusted_r_epoch:
             logger.info(
-                {
-                    "msg": f"Right border epoch of checkpoints iterator is recalculated according to the finalized epoch. "
-                    f"Before: {r_epoch} After: {adjusted_r_epoch}"
-                }
+                {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
             )
-        return adjusted_r_epoch
+            yield Checkpoint(checkpoint_slot, checkpoint_epochs)
+
+    def _is_min_step_reached(self):
+        processing_delay = self.max_available_epoch_to_check - self.l_epoch
+        if processing_delay >= self.MIN_CHECKPOINT_STEP:
+            return True
+        logger.info(
+            {
+                "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
+                "max_available_epoch_to_check": self.max_available_epoch_to_check,
+                "l_epoch": self.l_epoch,
+                "r_epoch": self.r_epoch,
+            }
+        )
+        return False
 
 
 class CheckpointProcessor:
@@ -125,11 +124,14 @@ class CheckpointProcessor:
 
     def _get_block_roots(self, checkpoint_slot: SlotNumber):
         logger.info({"msg": f"Get block roots for slot {checkpoint_slot}"})
-        # checkpoint for us like a time point, that's why we use slot, not root
+        # Checkpoint for us like a time point, that's why we use slot, not root.
+        # `s % 8192 = i` is the index where slot `s` will be located.
+        # If `s` is `checkpoint_slot -> state.slot`, then it cannot yet be in `block_roots`.
+        # So it is the index that will be overwritten in the next slot, i.e. the index of the oldest root.
+        pivot_index = checkpoint_slot % SLOTS_PER_HISTORICAL_ROOT
         br = self.cc.get_state_block_roots(checkpoint_slot)
-        # replace duplicated roots to None to mark missed slots
-        # the first root always exists
-        return [br[0], *[None if br[i] == br[i - 1] else br[i] for i in range(1, len(br))]]
+        # Replace duplicated roots to None to mark missed slots
+        return [br[i] if i == pivot_index or br[i] != br[i - 1] else None for i in range(len(br))]
 
     def _select_block_roots(
         self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
@@ -144,11 +146,11 @@ class CheckpointProcessor:
         for slot_to_check in slots:
             # From spec
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
-            if slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT:
-                if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
-                    roots_to_check.append(br)
-                continue
-            raise ValueError("Slot is out of the state block roots range")
+            if not slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT:
+                raise ValueError("Slot is out of the state block roots range")
+            if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
+                roots_to_check.append(br)
+
         return roots_to_check
 
     def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
