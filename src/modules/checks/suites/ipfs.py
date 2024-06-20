@@ -1,17 +1,20 @@
 """IPFS provider"""
 
 
+import random
+import string
+
 import pytest
-from faker import Faker
 
 from src import variables
 from src.main import ipfs_providers
-from src.providers.ipfs import GW3, Pinata, PublicIPFS, IPFSProvider, IPFSError
+from src.providers.ipfs import GW3, IPFSError, IPFSProvider, Pinata, PublicIPFS
 
 
 @pytest.fixture()
 def content():
-    return Faker().text()
+    letters = string.ascii_letters
+    return "".join(random.choice(letters) for _ in range(255))
 
 
 def providers():
