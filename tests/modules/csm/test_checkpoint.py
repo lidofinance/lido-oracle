@@ -76,7 +76,7 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             15,
             255,
             27,
-            [Checkpoint(27 * 32, list(range(15, 26)))]
+            [Checkpoint(27 * 32, list(range(15, 26)))],
         ),
         (
             0,
