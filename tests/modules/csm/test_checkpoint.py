@@ -226,13 +226,13 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
     committees = processor._prepare_committees(0)
     assert len(committees) == 2048
     for index, (committee_id, validators) in enumerate(committees.items()):
-        slot, committee_index = committee_id.split('_')
+        slot, committee_index = committee_id
         committee_from_raw = raw[index]
         assert int(slot) == committee_from_raw.slot
         assert int(committee_index) == committee_from_raw.index
         assert len(validators) == 32
         for validator in validators:
-            assert validator['included'] is False
+            assert validator.included is False
 
 
 def test_checkpoints_processor_process_attestations(mock_get_attestation_committees, consensus_client, converter):
@@ -256,9 +256,13 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
     attestation2.data.index = 0
     attestation2.aggregation_bits = '0x' + '0' * 32
     process_attestations([attestation, attestation2], committees)
-    for validator in committees["0_0"]:
-        # only the first attestation is accounted
-        assert validator['included'] is True
+    for index, validators in enumerate(committees.values()):
+        for validator in validators:
+            # only the first attestation is accounted
+            if index == 0:
+                assert validator.included is True
+            else:
+                assert validator.included is False
 
 
 def test_checkpoints_processor_process_attestations_undefined_committee(
@@ -281,7 +285,7 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
     process_attestations([attestation], committees)
     for validators in committees.values():
         for v in validators:
-            assert v['included'] is False
+            assert v.included is False
 
 
 @pytest.fixture()

@@ -31,6 +31,12 @@ class Checkpoint:
     duty_epochs: list[EpochNumber]  # max 255 elements
 
 
+@dataclass
+class ValidatorDuty:
+    index: ValidatorIndex
+    included: bool
+
+
 class CheckpointsIterator:
     converter: Web3Converter
 
@@ -190,10 +196,10 @@ class CheckpointProcessor:
 
         with lock:
             for committee in committees.values():
-                for validator in committee:
+                for validator_duty in committee:
                     self.state.inc(
-                        ValidatorIndex(int(validator['index'])),
-                        included=validator['included'],
+                        validator_duty.index,
+                        included=validator_duty.included,
                     )
             if duty_epoch not in self.state.unprocessed_epochs:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
@@ -203,34 +209,35 @@ class CheckpointProcessor:
 
         logger.info({"msg": f"Epoch {duty_epoch} processed in {time.time() - start:.2f} seconds"})
 
-    def _prepare_committees(self, epoch: int) -> dict:
+    def _prepare_committees(self, epoch: EpochNumber) -> dict[tuple[str, str], list[ValidatorDuty]]:
         start = time.time()
         committees = {}
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
             validators = []
             # Order of insertion is used to track the positions in the committees.
             for validator in committee.validators:
-                data = {"index": validator, "included": False}
-                validators.append(data)
-            committees[f"{committee.slot}_{committee.index}"] = validators
+                validators.append(ValidatorDuty(index=ValidatorIndex(int(validator)), included=False))
+            committees[(committee.slot, committee.index)] = validators
         logger.info({"msg": f"Committees for epoch {epoch} processed in {time.time() - start:.2f} seconds"})
         return committees
 
 
-def process_attestations(attestations: Iterable[BlockAttestation], committees: dict) -> None:
+def process_attestations(
+    attestations: Iterable[BlockAttestation], committees: dict[tuple[str, str], list[ValidatorDuty]]
+) -> None:
     for attestation in attestations:
-        committee_id = f"{attestation.data.slot}_{attestation.data.index}"
+        committee_id = (attestation.data.slot, attestation.data.index)
         committee = committees.get(committee_id)
         att_bits = _to_bits(attestation.aggregation_bits)
         if not committee:
             continue
-        for index_in_committee, validator in enumerate(committee):
-            if validator['included']:
+        for index_in_committee, validator_duty in enumerate(committee):
+            if validator_duty.included:
                 # validator has already fulfilled its duties
                 continue
             if _is_attested(att_bits, index_in_committee):
-                validator['included'] = True
-                committees[committee_id][index_in_committee] = validator
+                validator_duty.included = True
+                committees[committee_id][index_in_committee] = validator_duty
 
 
 def _is_attested(bits: list[bool], index: int) -> bool:
