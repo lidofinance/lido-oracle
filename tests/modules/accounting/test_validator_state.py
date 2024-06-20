@@ -40,7 +40,7 @@ def lido_validators(web3):
         staking_module_address='0x8a1E2986E52b441058325c315f83C9D4129bDF72',
         staking_module_fee=500,
         treasury_fee=500,
-        target_share=10000,
+        stake_share_limit=10000,
         status=0,
         name='NodeOperatorsRegistry',
         last_deposit_at=1676386968,

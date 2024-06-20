@@ -7,7 +7,7 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -119,7 +119,7 @@ def test_run_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Type[Excep
     "ex",
     [
         IsNotMemberException,
-        IncompatibleContractVersion,
+        IncompatibleOracleVersion,
     ],
 )
 def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Type[Exception]):

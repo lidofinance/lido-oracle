@@ -10,7 +10,7 @@ from web3.exceptions import Web3Exception
 
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
@@ -53,7 +53,7 @@ class BaseModule(ABC):
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
-            logger.info({'msg': 'Startup new cycle.'})
+            logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
@@ -95,7 +95,7 @@ class BaseModule(ABC):
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
-        except IncompatibleContractVersion as exception:
+        except IncompatibleOracleVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise exception
         except DecoratorTimeoutError as exception:

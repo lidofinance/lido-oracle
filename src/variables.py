@@ -32,7 +32,7 @@ LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
 CSM_ORACLE_ADDRESS: Final = os.getenv('CSM_ORACLE_ADDRESS')
 CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
-CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 0)) or None
+CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)) or None
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block

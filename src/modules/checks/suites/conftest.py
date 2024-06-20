@@ -139,10 +139,7 @@ def pytest_runtest_logreport(report) -> None:
 
 
 def pytest_runtest_setup(item: pytest.Item):
-    # pylint: disable=protected-access
-    tw: TerminalWriter = item.config.pluginmanager.get_plugin(
-        "terminalreporter"
-    )._tw
+    tw: TerminalWriter = item.config.pluginmanager.get_plugin("terminalreporter")._tw  # type: ignore  # pylint: disable=protected-access
 
     obj = getattr(item, "obj", None)
     parent = getattr(item.parent, "obj", None)

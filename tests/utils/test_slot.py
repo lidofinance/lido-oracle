@@ -10,7 +10,6 @@ from src.utils.slot import NoSlotsAvailable, get_first_non_missed_slot
 from tests.conftest import get_blockstamp_by_state
 
 
-@pytest.mark.unit
 @pytest.mark.possible_integration
 @pytest.mark.usefixtures("consensus_client")
 def test_get_first_non_missed_slot(web3):

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
@@ -22,7 +23,7 @@ class ReportData:
     finalization_share_rate: int
     is_bunker: bool
     extra_data_format: int
-    extra_data_hash: HexBytes
+    extra_data_hash: bytes
     extra_data_items_count: int
 
     def as_tuple(self):
@@ -61,7 +62,7 @@ class AccountingProcessingState:
 
 @dataclass
 class OracleReportLimits:
-    churn_validators_per_day_limit: int
+    exited_validators_per_day_limit: int
     one_off_cl_balance_decrease_bp_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
@@ -70,6 +71,14 @@ class OracleReportLimits:
     max_node_operators_per_extra_data_item_count: int
     request_timestamp_margin: int
     max_positive_token_rebase: int
+    appeared_validators_per_day_limit: int | None = None
+
+    @classmethod
+    def from_response(cls, **kwargs) -> Self:
+        # Compatability breaking rename
+        # churn_validators_per_day_limit -> exited_validators_per_day_limit
+        # Unpack structure by order
+        return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
 
 @dataclass(frozen=True)
@@ -104,8 +113,8 @@ class SharesRequestedToBurn:
 
 @dataclass
 class WithdrawalRequestStatus:
-    amountOfStETH: int
-    amountOfShares: int
+    amount_of_st_eth: int
+    amount_of_shares: int
     owner: ChecksumAddress
     timestamp: int
     is_finalized: bool

@@ -15,6 +15,7 @@ from src.utils.validator_state import (
     has_eth1_withdrawal_credential,
     is_exited_validator,
     is_active_validator,
+    compute_activation_exit_epoch,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -289,3 +290,9 @@ class TestCalculateTotalEffectiveBalance:
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == Gwei(2000000000)
+
+
+@pytest.mark.unit
+def test_compute_activation_exit_epoch():
+    ref_epoch = 3455
+    assert 3460 == compute_activation_exit_epoch(ref_epoch)

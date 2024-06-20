@@ -1,8 +1,9 @@
 import pytest
 from hexbytes import HexBytes
 
-from src.modules.accounting.extra_data import ExtraDataService, ExtraData, FormatList
-from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
+from src.modules.accounting.third_phase.extra_data import ExtraDataService
+from src.modules.accounting.third_phase.types import FormatList, ExtraData
+from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
 
 
 pytestmark = pytest.mark.unit
@@ -22,7 +23,7 @@ class TestBuildValidators:
         extra_data = extra_data_service.collect({}, {}, 10, 10)
         assert isinstance(extra_data, ExtraData)
         assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
-        assert extra_data.extra_data == b''
+        assert not extra_data.extra_data_list
         assert extra_data.data_hash == HexBytes('0x0000000000000000000000000000000000000000000000000000000000000000')
 
     def test_collect_non_zero(self, extra_data_service):
@@ -35,8 +36,9 @@ class TestBuildValidators:
         extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 10, 10)
         assert isinstance(extra_data, ExtraData)
         assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
+        assert len(extra_data.extra_data_list) == 1
         assert (
-            extra_data.extra_data
+            extra_data.extra_data_list[0]
             == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
         )
         assert extra_data.data_hash == HexBytes(
@@ -68,8 +70,9 @@ class TestBuildValidators:
         extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 1, 2)
         assert isinstance(extra_data, ExtraData)
         assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
+        assert len(extra_data.extra_data_list) == 1
         assert (
-            extra_data.extra_data
+            extra_data.extra_data_list[0]
             == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
         )
         assert extra_data.data_hash == HexBytes(
@@ -82,10 +85,12 @@ class TestBuildValidators:
         item_length = 3 + 2 + 3 + 8
         no_payload_length = 8 + 16
         # Expecting one module
-        assert len(extra_data.extra_data) == item_length + no_payload_length * 2
+        assert len(extra_data.extra_data_list[0]) == item_length + no_payload_length * 2
         # Expecting two modules
         extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 2, 2)
-        assert len(extra_data.extra_data) == item_length + no_payload_length * 2 + item_length + no_payload_length
+        assert (
+            len(extra_data.extra_data_list[0]) == item_length + no_payload_length * 2 + item_length + no_payload_length
+        )
 
     def test_order(self, extra_data_service, monkeypatch):
         vals_order = {

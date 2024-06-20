@@ -3,7 +3,6 @@ from typing import Iterable, NamedTuple
 
 from web3.types import BlockIdentifier
 
-
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
@@ -34,7 +33,7 @@ class CSModuleContract(ContractInterface):
     @lru_cache(maxsize=1)
     def get_stuck_operators_ids(self, block_identifier: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
         if not self.is_deployed(block_identifier):
-            return []
+            return
 
         # TODO: Check performance on a large amount of node operators in a module.
         for no_id in self.node_operators_ids(block_identifier):
@@ -67,7 +66,9 @@ class CSModuleContract(ContractInterface):
         )
         return resp
 
-    def node_operator_summary(self, no_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest") -> NodeOperatorSummary:
+    def node_operator_summary(
+        self, no_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest"
+    ) -> NodeOperatorSummary:
         resp = self.functions.getNodeOperatorSummary(no_id).call(block_identifier=block_identifier)
         logger.info(
             {

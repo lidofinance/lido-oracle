@@ -17,7 +17,7 @@ from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.staking_router import StakingRouterContract, StakingRouterContractV2
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
@@ -71,8 +71,6 @@ class LidoContracts(Module):
             })
             sleep(60)
             self._load_contracts()
-        else:
-            return
 
     def _load_contracts(self):
         # Contract that stores all lido contract addresses
@@ -91,12 +89,6 @@ class LidoContracts(Module):
         self.accounting_oracle: AccountingOracleContract = cast(AccountingOracleContract, self.w3.eth.contract(
             address=self.lido_locator.accounting_oracle(),
             ContractFactoryClass=AccountingOracleContract,
-            decode_tuples=True,
-        ))
-
-        self.staking_router: StakingRouterContract = cast(StakingRouterContract, self.w3.eth.contract(
-            address=self.lido_locator.staking_router(),
-            ContractFactoryClass=StakingRouterContract,
             decode_tuples=True,
         ))
 
@@ -130,7 +122,31 @@ class LidoContracts(Module):
             decode_tuples=True,
         ))
 
+        self._load_staking_router(self.lido_locator)
         self._check_contracts()
+
+    def _load_staking_router(self, lido_locator: LidoLocatorContract):
+        staking_router_address = lido_locator.staking_router()
+
+        self.staking_router = cast(
+            StakingRouterContractV2,
+            self.w3.eth.contract(
+                address=staking_router_address,
+                ContractFactoryClass=StakingRouterContractV2,
+                decode_tuples=True,
+            ),
+        )
+
+        if self.staking_router.get_contract_version() == 1:
+            logger.debug({'msg': 'Use staking router V1.'})
+            self.staking_router = cast(
+                StakingRouterContract,
+                self.w3.eth.contract(
+                    address=staking_router_address,
+                    ContractFactoryClass=StakingRouterContract,
+                    decode_tuples=True,
+                ),
+            )
 
     # --- Contract methods ---
     @lru_cache(maxsize=1)

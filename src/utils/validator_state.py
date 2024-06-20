@@ -6,6 +6,9 @@ from src.constants import (
     SHARD_COMMITTEE_PERIOD,
     FAR_FUTURE_EPOCH,
     EFFECTIVE_BALANCE_INCREMENT,
+    MAX_SEED_LOOKAHEAD,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    CHURN_LIMIT_QUOTIENT,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, Gwei
@@ -98,3 +101,16 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
             effective_balance_sum += int(validator.validator.effective_balance)
 
     return Gwei(effective_balance_sum)
+
+
+def compute_activation_exit_epoch(ref_epoch: EpochNumber):
+    """
+    Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+
+    Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+    """
+    return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
+
+
+def compute_exit_churn_limit(active_validators_count: int):
+    return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
