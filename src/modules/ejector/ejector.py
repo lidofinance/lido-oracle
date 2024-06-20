@@ -1,4 +1,3 @@
-import json
 import logging
 from functools import reduce
 
@@ -105,19 +104,6 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
-
-        try:
-            with open('validators_response.json', 'w') as f:
-                f.write(
-                    json.dumps([{
-                        **v.__dict__,
-                        'validator': v.validator.__dict__,
-                    } for v in self.w3.cc.get_validators(blockstamp)])
-                )
-        except Exception as error:  # pylint: disable=W0703
-            logger.error({'msg': 'Failed to save get_validators response.', 'error': str(error)})
-        else:
-            logger.info({'msg': 'Response get_validators from Consensus Client written to validators_response.json.'})
 
         return report_data.as_tuple()
 
@@ -310,12 +296,6 @@ class Ejector(BaseModule, ConsensusModule):
                 max_exit_epoch_number = val_exit_epoch
                 latest_to_exit_validators_count = 1
 
-        logger.info({
-            'msg': 'Calculate latest exit epoch',
-            'value': max_exit_epoch_number,
-            'latest_to_exit_validators_count': latest_to_exit_validators_count,
-        })
-
         return max_exit_epoch_number, latest_to_exit_validators_count
 
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
@@ -338,11 +318,7 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.cc.get_validators(blockstamp),
             0,
         )
-        logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
-
-        churn_limit = max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
-        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
-        return churn_limit
+        return max(MIN_PER_EPOCH_CHURN_LIMIT, total_active_validators // CHURN_LIMIT_QUOTIENT)
 
     def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
         ps = named_tuple_to_dataclass(
