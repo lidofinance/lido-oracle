@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import NewType
 
-from eth_typing import HexStr
+from eth_typing import BlockNumber, ChecksumAddress, HexStr
 from web3.types import Timestamp
 
 
@@ -10,6 +10,7 @@ class OracleModule(StrEnum):
     ACCOUNTING = 'accounting'
     EJECTOR = 'ejector'
     CHECK = 'check'
+    CSM = 'csm'
 
 
 EpochNumber = NewType('EpochNumber', int)
@@ -18,10 +19,17 @@ StateRoot = NewType('StateRoot', HexStr)
 BlockRoot = NewType('BlockRoot', HexStr)
 SlotNumber = NewType('SlotNumber', int)
 
+StakingModuleAddress = NewType('StakingModuleAddress', ChecksumAddress)
+StakingModuleId = NewType('StakingModuleId', int)
+NodeOperatorId = NewType('NodeOperatorId', int)
+NodeOperatorGlobalIndex = tuple[StakingModuleId, NodeOperatorId]
+
 BlockHash = NewType('BlockHash', HexStr)
-BlockNumber = NewType('BlockNumber', int)
 
 Gwei = NewType('Gwei', int)
+
+ValidatorIndex = NewType('ValidatorIndex', int)
+CommitteeIndex = NewType('CommitteeIndex', int)
 
 
 @dataclass(frozen=True)

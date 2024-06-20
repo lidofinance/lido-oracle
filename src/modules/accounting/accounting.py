@@ -6,11 +6,12 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import (
+from src.modules.accounting.third_phase.extra_data import ExtraDataService
+from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2
+from src.modules.accounting.third_phase.types import ExtraData, FormatList
+from src.modules.accounting.types import (
     ReportData,
-    AccountingProcessingState,
     LidoReportRebase,
-    SharesRequestedToBurn,
 )
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
@@ -19,17 +20,17 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
 )
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.typings import BlockStamp, Gwei, ReferenceBlockStamp
-from src.utils.abi import named_tuple_to_dataclass
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
-from src.web3py.typings import Web3
-from src.web3py.extensions.lido_validators import StakingModule, NodeOperatorGlobalIndex, StakingModuleId
+from src.web3py.types import Web3
+from src.web3py.extensions.lido_validators import StakingModule
 
 
 logger = logging.getLogger(__name__)
@@ -46,11 +47,11 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
-    CONSENSUS_VERSION = 1
-    CONTRACT_VERSION = 1
+    COMPATIBLE_CONTRACT_VERSIONS = [1, 2]
+    COMPATIBLE_CONSENSUS_VERSIONS = [1, 2]
 
     def __init__(self, w3: Web3):
-        self.report_contract = w3.lido_contracts.accounting_oracle
+        self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
         super().__init__(w3)
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
@@ -90,14 +91,15 @@ class Accounting(BaseModule, ConsensusModule):
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        extra_data = self.get_extra_data(blockstamp)
 
-        if extra_data.extra_data:
-            tx = self.report_contract.functions.submitReportExtraDataList(extra_data.extra_data)
+        if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
+            tx = self.report_contract.submit_report_extra_data_empty()
+            self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
         else:
-            tx = self.report_contract.functions.submitReportExtraDataEmpty()
-
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+            for tx_data in extra_data.extra_data_list:
+                tx = self.report_contract.submit_report_extra_data_list(tx_data)
+                self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -108,13 +110,13 @@ class Accounting(BaseModule, ConsensusModule):
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract got report data (second phase)
-        processing_state = self._get_processing_state(blockstamp)
+        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
         logger.debug({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
     def can_submit_extra_data(self, blockstamp: BlockStamp) -> bool:
         """Check if Oracle can submit extra data. Can only be submitted after second phase."""
-        processing_state = self._get_processing_state(blockstamp)
+        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
         return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
@@ -132,26 +134,17 @@ class Accounting(BaseModule, ConsensusModule):
         logger.warning({'msg': '!' * 50})
         return ALLOW_REPORTING_IN_BUNKER_MODE
 
-    @lru_cache(maxsize=1)
-    def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
-        ps = named_tuple_to_dataclass(
-            self.report_contract.functions.getProcessingState().call(block_identifier=blockstamp.block_hash),
-            AccountingProcessingState,
-        )
-        logger.info({'msg': 'Fetch processing state.', 'value': ps})
-        return ps
-
     # ---------------------------------------- Build report ----------------------------------------
     def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
 
         staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
-        extra_data = self.lido_validator_state_service.get_extra_data(blockstamp, self.get_chain_config(blockstamp))
+        extra_data = self.get_extra_data(blockstamp)
         finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
 
         report_data = ReportData(
-            consensus_version=self.CONSENSUS_VERSION,
+            consensus_version=self.report_contract.get_consensus_version(blockstamp.block_hash),
             ref_slot=blockstamp.ref_slot,
             validators_count=validators_count,
             cl_balance_gwei=cl_balance,
@@ -183,7 +176,7 @@ class Accounting(BaseModule, ConsensusModule):
         Calculate exited validators count in all modules.
         Exclude modules without changes from the report.
         """
-        staking_modules = self.w3.lido_validators.get_staking_modules(blockstamp)
+        staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         exited_validators = self.lido_validator_state_service.get_exited_lido_validators(blockstamp)
 
         return self.get_updated_modules_stats(staking_modules, exited_validators)
@@ -260,10 +253,10 @@ class Accounting(BaseModule, ConsensusModule):
 
         chain_conf = self.get_chain_config(blockstamp)
 
-        simulated_tx = self.w3.lido_contracts.lido.functions.handleOracleReport(
-            # We use block timestamp, instead of slot timestamp,
-            # because missed slot will break simulation contract logics
-            # Details: https://github.com/lidofinance/lido-oracle/issues/291
+        return self.w3.lido_contracts.lido.handle_oracle_report(
+            # Lido contract has sanity check that timestamp is not in the future.
+            # That's why we get revert if timestamp in args > call block timestamp.
+            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
             blockstamp.block_timestamp,  # _reportTimestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
@@ -273,31 +266,12 @@ class Accounting(BaseModule, ConsensusModule):
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             el_rewards,  # _elRewardsVaultBalance
             self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
-            # Decision about withdrawals processing
-            [],  # _lastFinalizableRequestId
-            0,  # _simulatedShareRate
+            self.w3.lido_contracts.accounting_oracle.address,
+            blockstamp.block_hash,
         )
 
-        logger.info({'msg': 'Simulate lido rebase for report.', 'value': simulated_tx.args})
-
-        result = simulated_tx.call(
-            transaction={'from': self.w3.lido_contracts.accounting_oracle.address},
-            block_identifier=blockstamp.block_hash,
-        )
-
-        logger.info({'msg': 'Fetch simulated lido rebase for report.', 'value': result})
-
-        return LidoReportRebase(*result)
-
-    @lru_cache(maxsize=1)
     def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
-        shares_data = named_tuple_to_dataclass(
-            self.w3.lido_contracts.burner.functions.getSharesRequestedToBurn().call(
-                block_identifier=blockstamp.block_hash,
-            ),
-            SharesRequestedToBurn,
-        )
-
+        shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return shares_data.cover_shares + shares_data.non_cover_shares
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
@@ -327,3 +301,29 @@ class Accounting(BaseModule, ConsensusModule):
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
         return bunker_mode
+
+    @lru_cache(maxsize=1)
+    def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+
+        chain_config = self.get_chain_config(blockstamp)
+        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
+        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
+        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
+        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+
+        if consensus_version == 1:
+            return ExtraDataService.collect(
+                stuck_validators,
+                exited_validators,
+                orl.max_accounting_extra_data_list_items_count,
+                orl.max_node_operators_per_extra_data_item_count,
+            )
+
+        return ExtraDataServiceV2.collect(
+            stuck_validators,
+            exited_validators,
+            orl.max_accounting_extra_data_list_items_count,
+            orl.max_node_operators_per_extra_data_item_count,
+        )

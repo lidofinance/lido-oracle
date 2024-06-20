@@ -2,7 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional, Sequence, Callable
+from typing import Any, Sequence, Callable
 
 from web3 import Web3
 from web3.module import Module
@@ -119,9 +119,10 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     def _get(
         self,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: bool = False,
     ) -> dict | list:
         for response in self.responses:
             url = endpoint.format(*path_params) if path_params else endpoint
@@ -153,9 +154,10 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def _get(
         self,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: bool = False,
     ) -> dict | list:
         url = endpoint.format(*path_params) if path_params else endpoint
         try:

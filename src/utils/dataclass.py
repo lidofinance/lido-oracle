@@ -1,7 +1,7 @@
 import functools
 from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
-from typing import Callable, Self, Sequence, TypeVar
+from typing import Callable, Self, Sequence
 
 from src.utils.abi import named_tuple_to_dataclass
 
@@ -37,9 +37,6 @@ class Nested:
         return field_type
 
 
-T = TypeVar('T')
-
-
 @dataclass
 class FromResponse:
     """
@@ -52,7 +49,7 @@ class FromResponse:
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 
 
-def list_of_dataclasses(
+def list_of_dataclasses[T](
     _dataclass_factory: Callable[..., T]
 ) -> Callable[[Callable[..., Sequence]], Callable[..., list[T]]]:
     """Decorator to transform list of dicts from func response to list of dataclasses"""
@@ -60,6 +57,12 @@ def list_of_dataclasses(
         @functools.wraps(func)
         def wrapper_decorator(*args, **kwargs):
             list_of_elements = func(*args, **kwargs)
+
+            if not isinstance(list_of_elements, list) and not isinstance(list_of_elements, tuple):
+                raise DecodeToDataclassException(f'Type {type(list_of_elements)} is not supported.')
+
+            if not list_of_elements:
+                return list_of_elements
 
             if isinstance(list_of_elements[0], dict):
                 return list(map(lambda x: _dataclass_factory(**x), list_of_elements))

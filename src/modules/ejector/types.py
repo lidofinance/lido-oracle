@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.typings import SlotNumber
+from src.types import SlotNumber
 
 
 @dataclass

@@ -1,12 +1,12 @@
 import pytest
 
 from src.modules.submodules.consensus import ConsensusModule
-from src.typings import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):
-    CONSENSUS_VERSION = 1
-    CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSIONS = [1]
+    COMPATIBLE_CONTRACT_VERSIONS = [1]
 
     def __init__(self, w3):
         self.report_contract = w3.lido_contracts.accounting_oracle

@@ -1,10 +1,9 @@
-FROM python:3.11-slim as base
+FROM python:3.12.4-slim as base
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    gcc=4:10.2.1-1 \
-    libffi-dev=3.3-6 \
-    g++=4:10.2.1-1 \
-    curl=7.74.0-1.3+deb11u7 \
+    libffi-dev=3.4.4-1 \
+    g++=4:12.2.0-3 \
+    curl=7.88.1-10+deb12u5 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 

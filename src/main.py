@@ -1,5 +1,5 @@
 import sys
-from typing import cast
+from typing import Iterable, cast
 
 from prometheus_client import start_http_server
 from web3.middleware import simple_cache_middleware
@@ -11,7 +11,9 @@ from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
-from src.typings import OracleModule
+from src.modules.csm.csm import CSOracle
+from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
+from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.web3py.extensions import (
     LidoContracts,
@@ -19,10 +21,11 @@ from src.web3py.extensions import (
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoValidatorsProvider,
-    FallbackProviderModule
+    FallbackProviderModule,
+    LazyCSM
 )
 from src.web3py.middleware import metrics_collector
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 
@@ -39,12 +42,15 @@ def main(module_name: OracleModule):
             'module': module_name,
             'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
+            'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
+            'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
         },
     })
     ENV_VARIABLES_INFO.info({
         "ACCOUNT": str(variables.ACCOUNT.address) if variables.ACCOUNT else 'Dry',
         "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
+        "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
         "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
         "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
     })
@@ -71,14 +77,23 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize keys api client.'})
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
+    logger.info({'msg': 'Initialize IPFS providers.'})
+    ipfs = MultiIPFSProvider(
+        ipfs_providers(),
+        retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+    )
+
+    logger.info({'msg': 'Check configured providers.'})
     check_providers_chain_ids(web3, cc, kac)
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
+        'csm': LazyCSM,
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
+        'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
@@ -87,12 +102,16 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Sanity checks.'})
 
+    instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         instance = Accounting(web3)
     elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
-        instance = Ejector(web3)  # type: ignore[assignment]
+        instance = Ejector(web3)
+    elif module_name == OracleModule.CSM:
+        logger.info({'msg': 'Initialize CSM performance oracle module.'})
+        instance = CSOracle(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
@@ -122,6 +141,23 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
                      f'Execution chain id: {execution_chain_id}\n'
                      f'Consensus chain id: {consensus_chain_id}\n'
                      f'Keys API chain id: {keys_api_chain_id}\n')
+
+
+def ipfs_providers() -> Iterable[IPFSProvider]:
+    if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
+        yield GW3(
+            variables.GW3_ACCESS_KEY,
+            variables.GW3_SECRET_KEY,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.PINATA_JWT:
+        yield Pinata(
+            variables.PINATA_JWT,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
 
 if __name__ == '__main__':

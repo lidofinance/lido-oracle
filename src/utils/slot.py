@@ -1,10 +1,11 @@
 import logging
 from http import HTTPStatus
+from typing import Literal
 
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.typings import BlockHeaderFullResponse, BlockDetailsResponse
+from src.providers.consensus.types import BlockHeaderFullResponse, BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
-from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp
+from src.types import SlotNumber, EpochNumber, ReferenceBlockStamp
 from src.utils.blockstamp import build_reference_blockstamp, build_blockstamp
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,10 @@ def get_first_non_missed_slot(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
+    direction: Literal['back'] | Literal['forward'] = 'back'
 ) -> BlockDetailsResponse:
     """
-    Get past closest non-missed slot and returns its details.
+    Get past/next closest non-missed slot and returns its details.
 
     Raise NoSlotsAvailable if all slots are missed in range [slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
@@ -55,7 +57,8 @@ def get_first_non_missed_slot(
     #    3rd tick - 21 slot is missed. Check next slot.
     #    4th tick - 22 slot is missed. Check next slot.
     #    5th tick - 23 slot exists!
-    #               Get `parent_root` of 23 slot and get its parent slot by this root
+    #               If we seek for the next non-missed slot, we're finished. Otherwise,
+    #               get `parent_root` of 23 slot and get its parent slot by this root
     #               In our case it is 18 slot because it's first non-missed slot before 23 slot.
     #
     #  So, in this strategy we always get parent slot of existed slot and can get the nearest slot for `ref_slot`
@@ -68,41 +71,43 @@ def get_first_non_missed_slot(
 
     logger.info({'msg': f'Get Blockstamp for ref slot: {slot}.'})
 
-    ref_slot_is_missed = False
-    existed_header = None
+    ref_slot_is_missing = False
+    existing_header = None
     for i in range(slot, last_finalized_slot_number + 1):
         try:
-            existed_header = cc.get_block_header(SlotNumber(i))
+            existing_header = cc.get_block_header(SlotNumber(i))
         except NotOkResponse as error:
             if error.status != HTTPStatus.NOT_FOUND:
                 # Not expected status - raise exception
                 raise error
 
-            ref_slot_is_missed = True
+            ref_slot_is_missing = True
 
             logger.warning({'msg': f'Missed slot: {i}. Check next slot.', 'error': str(error.__dict__)})
         else:
-            _check_block_header(existed_header)
             break
 
-    if not existed_header:
+    if not existing_header:
         raise NoSlotsAvailable('No slots available for current report. Check your CL node.')
 
-    if ref_slot_is_missed:
-        # Ref slot is missed, and we have next non-missed slot.
-        # We should get parent root of this non-missed slot
-        non_missed_header_parent_root = existed_header.data.header.message.parent_root
+    if ref_slot_is_missing:
+        # Ref slot is missing. We need to check the parent root found non-missing slot
+        non_missed_header_parent_root = existing_header.data.header.message.parent_root
+        parent_header = cc.get_block_header(non_missed_header_parent_root)
 
-        existed_header = cc.get_block_header(non_missed_header_parent_root)
-        _check_block_header(existed_header)
-
-        if int(existed_header.data.header.message.slot) >= slot:
+        if int(parent_header.data.header.message.slot) >= slot:
             raise InconsistentData(
-                "Parent root next to the ref slot's existing header doesn't match the expected slot. "
-                'Probably problem with the consensus node.'
+                "Parent root next to the ref slot's existing header doesn't match the expected slot.\n"
+                'Probably, a problem with the consensus node.'
             )
 
-    slot_details = cc.get_block_details(existed_header.data.root)
+        if direction == 'back':
+            _check_block_header(existing_header)
+            existing_header = parent_header
+
+    _check_block_header(existing_header)
+    slot_details = cc.get_block_details(existing_header.data.root)
+    logger.info({'msg': f'Resolved to slot: {slot_details.message.slot}'})
     return slot_details
 
 

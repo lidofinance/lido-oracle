@@ -1,6 +1,14 @@
+import logging
+from typing import Iterable
+from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
+from web3.types import EventData
+from src.providers.execution.exceptions import InconsistentEvents
 
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
+from src import variables
+
+logger = logging.getLogger(__name__)
 
 
 def get_events_in_past(
@@ -11,8 +19,8 @@ def get_events_in_past(
     timestamp_field_name: str = 'timestamp',
 ):
     """
-        This is protection against missed slots when between 10 and 11 block number could be 5 missed slots.
-        Events should contain Timestamp field.
+    This is protection against missed slots when between 10 and 11 block number could be 5 missed slots.
+    Events should contain Timestamp field.
     """
     #   [ ] - slot
     #   [x] - slot with existed block
@@ -46,6 +54,32 @@ def get_events_in_past(
     from_block = max(0, to_blockstamp.block_number - for_slots_without_missed_blocks)
     from_timestamp = to_blockstamp.block_timestamp - for_slots_without_missed_blocks * seconds_per_slot
 
-    events = contract_event.get_logs(fromBlock=from_block, toBlock=to_blockstamp.block_number)
+    events = get_events_in_range(
+        contract_event,
+        l_block=BlockNumber(from_block),
+        r_block=BlockNumber(to_blockstamp.block_number),
+    )
 
     return [event for event in events if event['args'][timestamp_field_name] > from_timestamp]
+
+
+def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
+    """Fetch all the events in the given blocks range (closed interval)"""
+
+    if l_block > r_block:
+        raise ValueError(f"{l_block=} > {r_block=}")
+
+    while True:
+        to_block = min(r_block, BlockNumber(l_block + variables.EVENTS_SEARCH_STEP))
+
+        logger.info({"msg": f"Fetching {event.event_name} events in range [{l_block};{to_block}]"})
+
+        for e in event.get_logs(fromBlock=l_block, toBlock=to_block):
+            if not l_block <= e["blockNumber"] <= to_block:
+                raise InconsistentEvents
+            yield e
+
+        if to_block == r_block:
+            break
+
+        l_block = BlockNumber(to_block + 1)

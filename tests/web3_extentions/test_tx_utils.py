@@ -1,12 +1,13 @@
+from collections import defaultdict
 from unittest.mock import Mock
 
 import pytest
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, TimeExhausted
 
 from src import variables
 from src.constants import MAX_BLOCK_GAS_LIMIT
-from src.modules.accounting.typings import Account
 from src.utils import input
+from tests.conftest import Account
 
 
 class Transaction:
@@ -100,3 +101,23 @@ def test_daemon_check_and_send_transaction(web3, tx_utils, tx, account, monkeypa
         web3.transaction._check_transaction = Mock(return_value=True)
         web3.transaction.check_and_send_transaction(tx, account)
         web3.transaction._sign_and_send_transaction.assert_not_called()
+
+
+def test_find_transaction_timeout(web3, tx_utils, tx, account, monkeypatch):
+    web3.eth.wait_for_transaction_receipt = Mock(side_effect=TimeExhausted())
+
+    assert not web3.transaction._handle_sent_transaction('0x000001')
+
+    web3.eth.wait_for_transaction_receipt = Mock(
+        return_value={
+            'blockHash': b'',
+            'blockNumber': '',
+            'gasUsed': '',
+            'effectiveGasPrice': '',
+            'status': '',
+            'transactionHash': b'',
+            'transactionIndex': '',
+        }
+    )
+
+    assert web3.transaction._handle_sent_transaction('0x000001')

@@ -1,18 +1,15 @@
 import logging
+from functools import lru_cache
 
-from web3.types import Wei, EventData
+from web3.types import EventData, Wei
 
-from src.modules.submodules.typings import ChainConfig
-from src.typings import ReferenceBlockStamp
+from src.modules.submodules.types import ChainConfig
+from src.providers.execution.exceptions import InconsistentEvents
+from src.types import ReferenceBlockStamp
 from src.utils.events import get_events_in_past
-from src.web3py.typings import Web3
-
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
-
-
-class InconsistentEvents(ValueError):
-    pass
 
 
 class RewardsPredictionService:
@@ -25,13 +22,13 @@ class RewardsPredictionService:
     def __init__(self, w3: Web3):
         self.w3 = w3
 
+    @lru_cache(maxsize=1)
     def get_rewards_per_epoch(
         self,
         blockstamp: ReferenceBlockStamp,
         chain_configs: ChainConfig,
     ) -> Wei:
-        prediction_duration_in_slots = self._get_prediction_duration_in_slots(blockstamp)
-        logger.info({'msg': 'Fetch prediction frame in slots.', 'value': prediction_duration_in_slots})
+        prediction_duration_in_slots = self.w3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots(blockstamp.block_hash)
 
         token_rebase_events = get_events_in_past(
             self.w3.lido_contracts.lido.events.TokenRebased,  # type: ignore[arg-type]
@@ -102,10 +99,3 @@ class RewardsPredictionService:
             raise InconsistentEvents('Events are inconsistent: unexpected events_type_1 amount.')
 
         return result_event_data
-
-    def _get_prediction_duration_in_slots(self, blockstamp: ReferenceBlockStamp) -> int:
-        return Web3.to_int(
-            self.w3.lido_contracts.oracle_daemon_config.functions.get('PREDICTION_DURATION_IN_SLOTS').call(
-                block_identifier=blockstamp.block_hash,
-            )
-        )

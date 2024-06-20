@@ -1,8 +1,12 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Optional, Tuple, Sequence, Callable
+from typing import Sequence, Callable
 from urllib.parse import urljoin, urlparse
+
+# NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
+from json_stream import requests as json_stream_requests  # type: ignore
+from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
 
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
@@ -71,12 +75,13 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     def _get(
         self,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-    ) -> Tuple[dict | list, dict]:
+        stream: bool = False,
+    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
         """
-        Get request with fallbacks
+        Get plain or streamed request with fallbacks
         Returns (data, meta) or raises exception
 
         force_raise - function that returns an Exception if it should be thrown immediately.
@@ -86,7 +91,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params)
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -109,12 +114,13 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         self,
         host: str,
         endpoint: str,
-        path_params: Optional[Sequence[str | int]] = None,
-        query_params: Optional[dict] = None
-    ) -> Tuple[dict | list, dict]:
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        stream: bool = False,
+    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
         """
         Simple get request without fallbacks
-        Returns (data, meta) or raises exception
+        Returns (data, meta) or streamed transient list-like or dict-like object JSON or raises exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
 
@@ -124,6 +130,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
+                    stream=stream
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})
@@ -140,15 +147,23 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 domain=urlparse(host).netloc,
             )
 
-            response_fail_msg = f'Response from {complete_endpoint} [{response.status_code}] with text: "{str(response.text)}" returned.'
-
             if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
                 logger.debug({'msg': response_fail_msg})
                 raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
+
+            if stream:
+                return json_stream_requests.load(response)
 
             try:
                 json_response = response.json()
             except JSONDecodeError as error:
+                response_fail_msg = (
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                )
                 logger.debug({'msg': response_fail_msg})
                 raise error
 

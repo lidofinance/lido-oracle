@@ -1,25 +1,28 @@
+from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from eth_typing import ChecksumAddress
+from hexbytes import HexBytes
 from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
+from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
-from src.typings import BlockStamp, SlotNumber, BlockNumber, EpochNumber, ReferenceBlockStamp
-from src.web3py.extensions import LidoContracts, TransactionUtils, LidoValidatorsProvider
-from src.web3py.typings import Web3
-
 from src.web3py.contract_tweak import tweak_w3_contracts
+from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.types import Web3
 from tests.providers import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
     ResponseFromFileKeysAPIClientModule,
-    UpdateResponsesProvider,
     UpdateResponsesConsensusClientModule,
     UpdateResponsesKeysAPIClientModule,
+    UpdateResponsesProvider,
 )
 
 
@@ -107,11 +110,34 @@ def keys_api_client(request, responses_path, web3):
     web3.attach_modules({"kac": lambda: client})
 
 
+@pytest.fixture()
+def csm(web3):
+    mock = Mock()
+    web3.attach_modules({"csm": lambda: mock})
+    return mock
+
+
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
     LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
+
+    def _load_staking_router(self, lido_locator):
+        from src.providers.execution.contracts.staking_router import StakingRouterContract  # pylint: disable=C0415
+
+        staking_router_address = lido_locator.staking_router()
+        self.staking_router = cast(
+            StakingRouterContract,
+            self.w3.eth.contract(
+                address=staking_router_address,
+                ContractFactoryClass=StakingRouterContract,
+                decode_tuples=True,
+            ),
+        )
+
+    LidoContracts._load_staking_router = _load_staking_router  # pylint: disable=protected-access
+
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment
         web3.attach_modules(
@@ -141,16 +167,22 @@ def lido_validators(web3, consensus_client, keys_api_client):
     )
 
 
-def get_blockstamp_by_state(w3, state_id) -> BlockStamp:
+def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
     root = w3.cc.get_block_root(state_id).root
     slot_details = w3.cc.get_block_details(root)
 
     return ReferenceBlockStamp(
         slot_number=SlotNumber(int(slot_details.message.slot)),
         state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(slot_details.message.body['execution_payload']['block_number'])),
-        block_hash=slot_details.message.body['execution_payload']['block_hash'],
-        block_timestamp=Timestamp(slot_details.message.body['execution_payload']['timestamp']),
+        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
+        block_hash=slot_details.message.body.execution_payload.block_hash,
+        block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
+
+
+@dataclass
+class Account:
+    address: ChecksumAddress
+    _private_key: HexBytes
