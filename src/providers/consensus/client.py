@@ -135,7 +135,7 @@ class ConsensusClient(HTTPProvider):
                 data = self._get_attestation_committees_with_prysm(blockstamp, epoch, index, slot)
             else:
                 raise error
-        return data
+        return cast(list[SlotAttestationCommittee], data)
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
