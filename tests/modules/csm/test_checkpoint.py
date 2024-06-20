@@ -71,7 +71,13 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             256,
             [Checkpoint(256 * 32, list(range(15, 255)))],
         ),
-        (15, 255, 26, [Checkpoint(26 * 32, list(range(15, 25)))]),
+        (
+            #
+            15,
+            255,
+            27,
+            [Checkpoint(27 * 32, list(range(15, 26)))]
+        ),
         (
             0,
             255 * 2,
@@ -146,7 +152,7 @@ def test_checkpoints_processor_get_block_roots_with_duplicates(
         finalized_blockstamp,
     )
     roots = processor._get_block_roots(1)
-    assert len([r for r in roots if r is not None]) == 4097
+    assert len([r for r in roots if r is not None]) == 4096
 
 
 @pytest.fixture

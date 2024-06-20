@@ -84,7 +84,7 @@ class CheckpointsIterator:
 
     def _is_min_step_reached(self):
         processing_delay = self.max_available_epoch_to_check - self.l_epoch
-        if processing_delay > self.MIN_CHECKPOINT_STEP:
+        if processing_delay >= self.MIN_CHECKPOINT_STEP:
             return True
         logger.info(
             {
@@ -128,11 +128,14 @@ class CheckpointProcessor:
 
     def _get_block_roots(self, checkpoint_slot: SlotNumber):
         logger.info({"msg": f"Get block roots for slot {checkpoint_slot}"})
-        # checkpoint for us like a time point, that's why we use slot, not root
+        # Checkpoint for us like a time point, that's why we use slot, not root.
+        # `s % 8192 = i` is the index where slot `s` will be located.
+        # If `s` is `checkpoint_slot -> state.slot`, then it cannot yet be in `block_roots`.
+        # So it is the index that will be overwritten in the next slot, i.e. the index of the oldest root.
+        pivot_index = checkpoint_slot % SLOTS_PER_HISTORICAL_ROOT
         br = self.cc.get_state_block_roots(checkpoint_slot)
-        # replace duplicated roots to None to mark missed slots
-        # the first root always exists
-        return [br[0], *[None if br[i] == br[i - 1] else br[i] for i in range(1, len(br))]]
+        # Replace duplicated roots to None to mark missed slots
+        return [br[i] if i == pivot_index or br[i] != br[i - 1] else None for i in range(len(br))]
 
     def _select_block_roots(
         self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
