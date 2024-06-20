@@ -15,6 +15,7 @@ from web3.types import BlockIdentifier, EventData
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
+from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
@@ -92,15 +93,6 @@ class CSM(Module):
 
     def _load_contracts(self) -> None:
         try:
-            self.oracle = cast(
-                CSFeeOracleContract,
-                self.w3.eth.contract(
-                    address=variables.CSM_ORACLE_ADDRESS,  # type: ignore
-                    ContractFactoryClass=CSFeeOracleContract,
-                    decode_tuples=True,
-                ),
-            )
-
             self.module = cast(
                 CSModuleContract,
                 self.w3.eth.contract(
@@ -110,11 +102,29 @@ class CSM(Module):
                 ),
             )
 
+            accounting = cast(
+                CSAccountingContract,
+                self.w3.eth.contract(
+                    address=self.module.accounting(),
+                    ContractFactoryClass=CSAccountingContract,
+                    decode_tuples=True,
+                ),
+            )
+
             self.fee_distributor = cast(
                 CSFeeDistributorContract,
                 self.w3.eth.contract(
-                    address=self.oracle.fee_distributor(),
+                    address=accounting.fee_distributor(),
                     ContractFactoryClass=CSFeeDistributorContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.oracle = cast(
+                CSFeeOracleContract,
+                self.w3.eth.contract(
+                    address=self.fee_distributor.oracle(),
+                    ContractFactoryClass=CSFeeOracleContract,
                     decode_tuples=True,
                 ),
             )
