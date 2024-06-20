@@ -41,7 +41,7 @@ types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 # }}}
 hypothesis = "^6.68.2"
-black = "^23.3.0"
+black = "^24.3.0"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 
