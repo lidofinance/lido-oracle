@@ -114,6 +114,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected list response from getBlockAttestations")
         return [BlockAttestation.from_response(**att) for att in data]
 
+    @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
         self,
         blockstamp: BlockStamp,
@@ -129,13 +130,12 @@ class ConsensusClient(HTTPProvider):
                 query_params={'epoch': epoch, 'index': index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error
             )
-
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                data, _ = self._get_attestation_committees_stream_with_prysm(blockstamp, epoch, index, slot)
+                data = self._get_attestation_committees_with_prysm(blockstamp, epoch, index, slot)
             else:
                 raise error
-        return [SlotAttestationCommittee.from_response(**committee) for committee in data]
+        return data
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
@@ -183,7 +183,7 @@ class ConsensusClient(HTTPProvider):
             return last_error
         return None
 
-    def _get_attestation_committees_stream_with_prysm(
+    def _get_attestation_committees_with_prysm(
         self,
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
