@@ -61,7 +61,7 @@ class CheckpointsIterator:
             self.r_epoch, EpochNumber(finalized_epoch - self.CHECKPOINT_SLOT_DELAY_EPOCHS)
         )
 
-        if self.r_epoch > self.max_available_epoch_to_check and not self._is_min_step_reached(finalized_epoch):
+        if self.r_epoch > self.max_available_epoch_to_check and not self._is_min_step_reached():
             raise MinStepIsNotReached()
 
     def __iter__(self):
@@ -82,14 +82,14 @@ class CheckpointsIterator:
             if epoch == self.max_available_epoch_to_check:
                 break
 
-    def _is_min_step_reached(self, finalized_epoch: EpochNumber):
-        processing_delay = finalized_epoch - self.l_epoch
+    def _is_min_step_reached(self):
+        processing_delay = self.max_available_epoch_to_check - self.l_epoch
         if processing_delay > self.MIN_CHECKPOINT_STEP:
             return True
         logger.info(
             {
                 "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
-                "finalized_epoch": finalized_epoch,
+                "max_available_epoch_to_check": self.max_available_epoch_to_check,
                 "l_epoch": self.l_epoch,
                 "r_epoch": self.r_epoch,
             }
