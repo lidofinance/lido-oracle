@@ -38,8 +38,8 @@ class CSOracle(BaseModule, ConsensusModule):
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
 
-    CONSENSUS_VERSION = 1
-    CONTRACT_VERSION = 1
+    COMPATIBLE_CONTRACT_VERSIONS = [1]
+    COMPATIBLE_CONSENSUS_VERSIONS = [1]
 
     report_contract: CSFeeOracleContract
 
@@ -124,7 +124,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
 
         return ReportData(
-            self.CONSENSUS_VERSION,
+            self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
             tree_root=root,
             tree_cid=cid,
