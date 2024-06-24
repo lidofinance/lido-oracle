@@ -52,7 +52,7 @@ def check_events_range_availability(deposit_contract, blockstamp, finalized_bloc
             r_block=finalized_blockstamp.block_number,
         )
     )
-    deposits_count_before = deposit_contract.get_deposit_count(blockstamp.block_hash)
+    deposits_count_before = deposit_contract.get_deposit_count(blockstamp.block_number - 1)
     deposits_count_now = deposit_contract.get_deposit_count(finalized_blockstamp.block_hash)
     assert deposits_count_now >= deposits_count_before, "Deposits count decreased"
     assert len(events) == (deposits_count_now - deposits_count_before), "Events count doesn't match deposits count"
