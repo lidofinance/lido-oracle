@@ -7,7 +7,7 @@ from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.state import InvalidState, State
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
@@ -75,11 +75,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
 
-        try:
-            self.state.validate_for_report(l_epoch, r_epoch)
-        except InvalidState as e:
-            raise ValueError(f"State is not valid for the report. {e}") from e
-
+        self.state.validate_for_report(l_epoch, r_epoch)
         self.state.status()
 
         distributed, shares = self.calculate_distribution(blockstamp)
