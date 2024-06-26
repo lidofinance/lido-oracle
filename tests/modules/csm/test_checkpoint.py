@@ -1,27 +1,27 @@
 from copy import deepcopy
-from typing import cast, Iterator
+from typing import Iterator, cast
 from unittest.mock import Mock
 
 import pytest
 
 from src.modules.csm.checkpoint import (
-    CheckpointsIterator,
     Checkpoint,
     CheckpointProcessor,
-    process_attestations,
+    CheckpointsIterator,
     MinStepIsNotReached,
+    process_attestations,
 )
 from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BeaconSpecResponse, SlotAttestationCommittee, BlockAttestation
+from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
 from src.utils.web3converter import Web3Converter
 from tests.factory.configs import (
-    FrameConfigFactory,
-    ChainConfigFactory,
     BeaconSpecResponseFactory,
-    SlotAttestationCommitteeFactory,
     BlockAttestationFactory,
+    ChainConfigFactory,
+    FrameConfigFactory,
+    SlotAttestationCommitteeFactory,
 )
 
 
@@ -312,7 +312,7 @@ def test_checkpoints_processor_check_duty(
     converter,
 ):
     state = State()
-    state.validate_for_collect(0, 255)
+    state.migrate(0, 255)
     finalized_blockstamp = ...
     processor = CheckpointProcessor(
         consensus_client,
@@ -337,7 +337,7 @@ def test_checkpoints_processor_process(
     converter,
 ):
     state = State()
-    state.validate_for_collect(0, 255)
+    state.migrate(0, 255)
     finalized_blockstamp = ...
     processor = CheckpointProcessor(
         consensus_client,
@@ -362,7 +362,7 @@ def test_checkpoints_processor_exec(
     converter,
 ):
     state = State()
-    state.validate_for_collect(0, 255)
+    state.migrate(0, 255)
     finalized_blockstamp = ...
     processor = CheckpointProcessor(
         consensus_client,

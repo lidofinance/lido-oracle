@@ -72,7 +72,7 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
 
-        self.state.validate_for_report(l_epoch, r_epoch)
+        self.state.validate(l_epoch, r_epoch)
         self.state.status()
 
         distributed, shares = self.calculate_distribution(blockstamp)
@@ -154,7 +154,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if l_epoch > finalized_epoch:
             return False
 
-        self.state.validate_for_collect(l_epoch, r_epoch)
+        self.state.migrate(l_epoch, r_epoch)
         self.state.status()
 
         if done := self.state.is_fulfilled:

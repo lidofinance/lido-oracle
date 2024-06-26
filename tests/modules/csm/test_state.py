@@ -82,7 +82,7 @@ def test_state_clear():
         }
     )
 
-    state._epochs_to_process = {EpochNumber(1), EpochNumber(33)}
+    state._epochs_to_process = (EpochNumber(1), EpochNumber(33))
     state._processed_epochs = {EpochNumber(42), EpochNumber(17)}
 
     state.clear()
@@ -124,3 +124,61 @@ def test_state_inc():
 
 def test_state_file_is_path():
     assert isinstance(State.file(), Path)
+
+
+class TestStateTransition:
+    """Tests for State's transition for different l_epoch, r_epoch values"""
+
+    @pytest.fixture(autouse=True)
+    def no_commit(self):
+        State.commit = Mock()
+
+    def test_empty_to_new_frame(self):
+        state = State()
+        assert state.is_empty
+
+        l_epoch = EpochNumber(1)
+        r_epoch = EpochNumber(255)
+
+        state.migrate(l_epoch, r_epoch)
+
+        assert not state.is_empty
+        assert state.unprocessed_epochs == set(sequence(l_epoch, r_epoch))
+
+    @pytest.mark.parametrize(
+        ("l_epoch_old", "r_epoch_old", "l_epoch_new", "r_epoch_new"),
+        [
+            pytest.param(1, 255, 256, 510, id="Migrate a..bA..B"),
+            pytest.param(1, 255, 32, 510, id="Migrate a..A..b..B"),
+            pytest.param(32, 510, 1, 255, id="Migrate: A..a..B..b"),
+        ],
+    )
+    def test_new_frame_requires_discarding_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
+        state = State()
+        state.clear = Mock(side_effect=state.clear)
+        state.migrate(l_epoch_old, r_epoch_old)
+        state.clear.assert_not_called()
+
+        state.migrate(l_epoch_new, r_epoch_new)
+        state.clear.assert_called_once()
+
+        assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
+
+    @pytest.mark.parametrize(
+        ("l_epoch_old", "r_epoch_old", "l_epoch_new", "r_epoch_new"),
+        [
+            pytest.param(1, 255, 1, 510, id="Migrate Aa..b..B"),
+            pytest.param(32, 510, 1, 510, id="Migrate: A..a..b..B"),
+        ],
+    )
+    def test_new_frame_extends_old_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
+        state = State()
+        state.clear = Mock(side_effect=state.clear)
+
+        state.migrate(l_epoch_old, r_epoch_old)
+        state.clear.assert_not_called()
+
+        state.migrate(l_epoch_new, r_epoch_new)
+        state.clear.assert_not_called()
+
+        assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))

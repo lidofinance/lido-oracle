@@ -40,17 +40,17 @@ class State:
     new object with no data in it. During epochs processing aggregates in `data` are being updated and eventually the
     state is `commit`'ed back to the filesystem.
 
-    The state can be invalidated by calling to `validate_for_collect` method resulting in `clear`'ing the state.
+    The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
 
     data: defaultdict[ValidatorIndex, AttestationsAggregate]
 
-    _epochs_to_process: set[EpochNumber]
+    _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
     def __init__(self, data: dict[ValidatorIndex, AttestationsAggregate] | None = None) -> None:
         self.data = defaultdict(AttestationsAggregate, data or {})
-        self._epochs_to_process = set()
+        self._epochs_to_process = tuple()
         self._processed_epochs = set()
 
     EXTENSION = ".pkl"
@@ -88,7 +88,7 @@ class State:
 
     def clear(self) -> None:
         self.data = defaultdict(AttestationsAggregate)
-        self._epochs_to_process.clear()
+        self._epochs_to_process = tuple()
         self._processed_epochs.clear()
         assert self.is_empty
 
@@ -110,30 +110,28 @@ class State:
             }
         )
 
-    def validate_for_report(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-        if not self.is_fulfilled:
-            raise InvalidState(f'State is not fulfilled. {self.unprocessed_epochs=}')
-
-        for epoch in self._processed_epochs:
-            if not l_epoch <= epoch <= r_epoch:
-                raise InvalidState(f'Processed epoch {epoch} is out of range')
-
-        for epoch in sequence(l_epoch, r_epoch):
-            if epoch not in self._processed_epochs:
-                raise InvalidState(f'Epoch {epoch} should be processed')
-
-    def validate_for_collect(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
+    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
         for state_epochs in [self._epochs_to_process, self._processed_epochs]:
             for epoch in state_epochs:
                 if epoch < l_epoch or epoch > r_epoch:
                     logger.warning({"msg": "Discarding invalidated state cache"})
                     self.clear()
-                    self.commit()
                     break
 
-        if self.is_empty or r_epoch > max(self._epochs_to_process):
-            self._epochs_to_process.update(sequence(l_epoch, r_epoch))
-            self.commit()
+        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+        self.commit()
+
+    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+        if not self.is_fulfilled:
+            raise InvalidState(f"State is not fulfilled. {self.unprocessed_epochs=}")
+
+        for epoch in self._processed_epochs:
+            if not l_epoch <= epoch <= r_epoch:
+                raise InvalidState(f"Processed epoch {epoch} is out of range")
+
+        for epoch in sequence(l_epoch, r_epoch):
+            if epoch not in self._processed_epochs:
+                raise InvalidState(f"Epoch {epoch} should be processed")
 
     @property
     def is_empty(self) -> bool:
@@ -143,7 +141,7 @@ class State:
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise ValueError("Epochs to process are not set")
-        return self._epochs_to_process - self._processed_epochs
+        return set(self._epochs_to_process) - self._processed_epochs
 
     @property
     def is_fulfilled(self) -> bool:
