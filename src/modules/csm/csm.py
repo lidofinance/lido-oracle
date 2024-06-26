@@ -1,5 +1,4 @@
 import logging
-import time
 from collections import defaultdict
 from functools import cached_property
 from typing import Iterable
@@ -195,18 +194,11 @@ class CSOracle(BaseModule, ConsensusModule):
 
         processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
-        new_processed_epochs = 0
-        start = time.time()
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
-            new_processed_epochs += processor.exec(checkpoint)
-
-        if new_processed_epochs:
-            logger.info(
-                {"msg": f"Collecting data for {new_processed_epochs} epochs was done in {time.time() - start:.2f} sec"}
-            )
+            processor.exec(checkpoint)
 
         return self.state.is_fulfilled
 

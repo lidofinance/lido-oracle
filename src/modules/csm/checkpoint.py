@@ -1,5 +1,4 @@
 import logging
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
@@ -15,14 +14,14 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
+from src.utils.timeit import timeit
 from src.utils.web3converter import Web3Converter
 
 logger = logging.getLogger(__name__)
 lock = Lock()
 
 
-class MinStepIsNotReached(Exception):
-    ...
+class MinStepIsNotReached(Exception): ...
 
 
 @dataclass
@@ -182,13 +181,13 @@ class CheckpointProcessor:
                 ext.shutdown(wait=True, cancel_futures=True)
                 raise ValueError(e) from e
 
+    @timeit(lambda args, duration: logger.info({"msg": f"Epoch {args.duty_epoch} processed in {duration:.2f} seconds"}))
     def _check_duty(
         self,
         duty_epoch: EpochNumber,
         block_roots: list[BlockRoot],
     ):
         logger.info({"msg": f"Process epoch {duty_epoch}"})
-        start = time.time()
         committees = self._prepare_committees(EpochNumber(duty_epoch))
         for root in block_roots:
             attestations = self.cc.get_block_attestations(BlockRoot(root))
@@ -207,10 +206,12 @@ class CheckpointProcessor:
             self.state.commit()
             self.state.status()
 
-        logger.info({"msg": f"Epoch {duty_epoch} processed in {time.time() - start:.2f} seconds"})
-
+    @timeit(
+        lambda args, duration: logger.info(
+            {"msg": f"Committees for epoch {args.epoch} processed in {duration:.2f} seconds"}
+        )
+    )
     def _prepare_committees(self, epoch: EpochNumber) -> dict[tuple[str, str], list[ValidatorDuty]]:
-        start = time.time()
         committees = {}
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
             validators = []
@@ -218,7 +219,6 @@ class CheckpointProcessor:
             for validator in committee.validators:
                 validators.append(ValidatorDuty(index=ValidatorIndex(int(validator)), included=False))
             committees[(committee.slot, committee.index)] = validators
-        logger.info({"msg": f"Committees for epoch {epoch} processed in {time.time() - start:.2f} seconds"})
         return committees
 
 
