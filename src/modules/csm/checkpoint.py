@@ -228,17 +228,10 @@ class CheckpointProcessor:
 def process_attestations(attestations: Iterable[BlockAttestation], committees: Committees) -> None:
     for attestation in attestations:
         committee_id = (attestation.data.slot, attestation.data.index)
-        committee = committees.get(committee_id)
+        committee = committees.get(committee_id, [])
         att_bits = _to_bits(attestation.aggregation_bits)
-        if not committee:
-            continue
         for index_in_committee, validator_duty in enumerate(committee):
-            if validator_duty.included:
-                # validator has already fulfilled its duties
-                continue
-            if _is_attested(att_bits, index_in_committee):
-                validator_duty.included = True
-                committees[committee_id][index_in_committee] = validator_duty
+            validator_duty.included = validator_duty.included or _is_attested(att_bits, index_in_committee)
 
 
 def _is_attested(bits: Sequence[bool], index: int) -> bool:
