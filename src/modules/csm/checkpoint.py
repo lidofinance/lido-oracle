@@ -1,11 +1,9 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Executor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
 from typing import Iterable, Sequence
-
-from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT
@@ -108,11 +106,14 @@ class CheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
+    executor: Executor
+
     def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter, finalized_blockstamp: BlockStamp):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
+        self.executor = ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY)
 
     def exec(self, checkpoint: Checkpoint) -> int:
         logger.info(
@@ -162,27 +163,20 @@ class CheckpointProcessor:
         return roots_to_check
 
     def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
-        with ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY) as ext:
-            try:
-                futures = {
-                    ext.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
-                    for duty_epoch in unprocessed_epochs
-                }
-                for future in as_completed(futures):
-                    future.result()
-            except DecoratorTimeoutError as e:
-                logger.error({"msg": "Timeout processing epochs in threads", "error": str(e)})
-                # Don't wait the current running tasks to finish, cancel the rest and shutdown the executor
-                # To interrupt the current running tasks, we need to raise a special exception
-                ext.shutdown(wait=False, cancel_futures=True)
-                raise SystemExit(1) from e
-            except Exception as e:
-                logger.error({"msg": "Error processing epochs in threads, wait the current threads", "error": str(e)})
-                # Wait only for the current running threads to prevent
-                # a lot of similar error-possible requests to the consensus node.
-                # Raise the error after a batch of running threads is finished
-                ext.shutdown(wait=True, cancel_futures=True)
-                raise ValueError(e) from e
+        try:
+            futures = {
+                self.executor.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
+                for duty_epoch in unprocessed_epochs
+            }
+            for future in as_completed(futures):
+                future.result()
+        except Exception as e:
+            logger.error({"msg": "Error processing epochs in threads", "error": repr(e)})
+            raise SystemExit(1) from e
+        finally:
+            logger.info({"msg": "Shutting down the executor"})
+            self.executor.shutdown(wait=True, cancel_futures=True)
+            logger.info({"msg": "The executor was shut down"})
 
     @timeit(lambda args, duration: logger.info({"msg": f"Epoch {args.duty_epoch} processed in {duration:.2f} seconds"}))
     def _check_duty(
@@ -190,7 +184,7 @@ class CheckpointProcessor:
         duty_epoch: EpochNumber,
         block_roots: list[BlockRoot],
     ):
-        logger.info({"msg": f"Process epoch {duty_epoch}"})
+        logger.info({"msg": f"Processing epoch {duty_epoch}"})
         committees = self._prepare_committees(EpochNumber(duty_epoch))
         for root in block_roots:
             attestations = self.cc.get_block_attestations(BlockRoot(root))
