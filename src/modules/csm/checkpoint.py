@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import Executor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
@@ -106,14 +106,11 @@ class CheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    executor: Executor
-
     def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter, finalized_blockstamp: BlockStamp):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
-        self.executor = ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY)
 
     def exec(self, checkpoint: Checkpoint) -> int:
         logger.info(
@@ -163,9 +160,10 @@ class CheckpointProcessor:
         return roots_to_check
 
     def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
+        executor = ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY)
         try:
             futures = {
-                self.executor.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
+                executor.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
                 for duty_epoch in unprocessed_epochs
             }
             for future in as_completed(futures):
@@ -175,7 +173,7 @@ class CheckpointProcessor:
             raise SystemExit(1) from e
         finally:
             logger.info({"msg": "Shutting down the executor"})
-            self.executor.shutdown(wait=True, cancel_futures=True)
+            executor.shutdown(wait=True, cancel_futures=True)
             logger.info({"msg": "The executor was shut down"})
 
     @timeit(lambda args, duration: logger.info({"msg": f"Epoch {args.duty_epoch} processed in {duration:.2f} seconds"}))
