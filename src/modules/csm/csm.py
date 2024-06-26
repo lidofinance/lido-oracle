@@ -3,8 +3,6 @@ from collections import defaultdict
 from functools import cached_property
 from typing import Iterable
 
-from web3.types import BlockIdentifier
-
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
@@ -71,10 +69,7 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         # pylint: disable=too-many-branches,too-many-statements
 
-        converter = self.converter(blockstamp)
-        l_ref_slot, _ = self.current_frame_range(blockstamp)
-        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
-        r_epoch = blockstamp.ref_epoch
+        l_epoch, r_epoch = self.current_frame_range(blockstamp)
 
         try:
             self.state.validate_for_report(l_epoch, r_epoch)
@@ -167,16 +162,13 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
-        logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
+        l_epoch, r_epoch = self.current_frame_range(blockstamp)
+        logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
-
-        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         if l_epoch > finalized_epoch:
             return False
-        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         self.state.validate_for_collect(l_epoch, r_epoch)
         self.state.status()
@@ -195,14 +187,14 @@ class CSOracle(BaseModule, ConsensusModule):
         processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
         for checkpoint in checkpoints:
-            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
             processor.exec(checkpoint)
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
         """Computes distribution of fee shares at the given timestamp"""
 
         threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
@@ -244,8 +236,9 @@ class CSOracle(BaseModule, ConsensusModule):
         assert distributed <= to_distribute
         return distributed, shares
 
-    def stuck_operators(self, blockstamp) -> Iterable[NodeOperatorId]:
-        l_ref_slot, _ = self.current_frame_range(blockstamp)
+    def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
+        l_epoch, _ = self.current_frame_range(blockstamp)
+        l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         return self.w3.csm.get_csm_stuck_node_operators(
@@ -259,7 +252,7 @@ class CSOracle(BaseModule, ConsensusModule):
         )
 
     @lru_cache(maxsize=1)
-    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         converter = self.converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
@@ -282,15 +275,10 @@ class CSOracle(BaseModule, ConsensusModule):
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
 
-        return l_ref_slot, r_ref_slot
+        l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        return l_epoch, r_epoch
 
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
-
-    def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
-        block = self.w3.cc.get_block_details(slot)
-
-        try:
-            return block.message.body.execution_payload.block_hash
-        except KeyError as e:
-            raise ValueError(f"ExecutionPayload not found in slot {slot}") from e
