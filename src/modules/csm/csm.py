@@ -24,6 +24,10 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
+class NoModuleFound(Exception):
+    """Raised if no module find in the StakingRouter by the provided address"""
+
+
 class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
@@ -148,7 +152,7 @@ class CSOracle(BaseModule, ConsensusModule):
             if mod.staking_module_address == self.w3.csm.module.address:
                 return mod
 
-        raise ValueError("No CSM module found. Wrong address?")
+        raise NoModuleFound
 
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
