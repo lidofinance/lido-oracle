@@ -12,7 +12,6 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
@@ -71,8 +70,6 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        # pylint: disable=too-many-branches,too-many-statements
-
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
 
         self.state.validate_for_report(l_epoch, r_epoch)
@@ -88,34 +85,21 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if cid:
             logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-            tree = Tree.decode(self.w3.ipfs.fetch(cid))
-            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
+            last_tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
-            if tree.root != root:
+            if last_tree.root != root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
+            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
             # Update cumulative amount of shares for all operators.
-            for v in tree.tree.values:
+            for v in last_tree.tree.values:
                 no_id, amount = v["value"]
                 shares[no_id] += amount
 
-        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
-        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
-        # when the tree has only one leaf.
-        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
-        if shares:
-            shares[stone] = 0
-        if stone in shares and len(shares) > 2:
-            shares.pop(stone)
-
-        if distributed:
-            tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-            logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        tree = self.make_tree(shares)
+        if tree:
             cid = self.w3.ipfs.publish(tree.encode())
             root = tree.root
-
-        if root == ZERO_HASH:
-            logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
@@ -251,6 +235,24 @@ class CSOracle(BaseModule, ConsensusModule):
             ).message.body.execution_payload.block_hash,
             blockstamp.block_hash,
         )
+
+    def make_tree(self, shares) -> Tree | None:
+        if not shares:
+            return None
+
+        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
+        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
+        # when the tree has only one leaf.
+        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
+        shares[stone] = 0
+
+        # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
+        if stone in shares and len(shares) > 2:
+            shares.pop(stone)
+
+        tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+        logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        return tree
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
