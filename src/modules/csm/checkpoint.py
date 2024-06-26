@@ -241,11 +241,11 @@ def process_attestations(attestations: Iterable[BlockAttestation], committees: C
                 committees[committee_id][index_in_committee] = validator_duty
 
 
-def _is_attested(bits: list[bool], index: int) -> bool:
+def _is_attested(bits: Sequence[bool], index: int) -> bool:
     return bits[index]
 
 
-def _to_bits(aggregation_bits: str):
+def _to_bits(aggregation_bits: str) -> Sequence[bool]:
     # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
     att_bytes = bytes.fromhex(aggregation_bits[2:])
     return [bool((att_bytes[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(att_bytes) * 8)]
