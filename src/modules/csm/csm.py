@@ -237,7 +237,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 shares[no_id] = to_distribute * no_share // total
 
         distributed = sum(s for s in shares.values())
-        assert distributed <= to_distribute
+        if distributed > to_distribute:
+            raise ValueError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares
 
     def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
