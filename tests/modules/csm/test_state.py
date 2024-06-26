@@ -71,7 +71,7 @@ def test_state_load():
 
     orig.commit()
     copy = State.load()
-    assert copy == orig
+    assert copy.data == orig.data
 
 
 def test_state_clear():
@@ -87,7 +87,7 @@ def test_state_clear():
 
     state.clear()
     assert state.is_empty
-    assert state == State()
+    assert not state.data
 
 
 def test_state_add_processed_epoch():
