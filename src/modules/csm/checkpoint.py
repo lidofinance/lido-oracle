@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
@@ -27,7 +27,7 @@ class MinStepIsNotReached(Exception): ...
 @dataclass
 class Checkpoint:
     slot: SlotNumber  # last slot of the epoch
-    duty_epochs: list[EpochNumber]  # max 255 elements
+    duty_epochs: Sequence[EpochNumber]  # max 255 elements
 
 
 @dataclass
@@ -96,6 +96,9 @@ class CheckpointsIterator:
             }
         )
         return False
+
+
+type Committees = dict[tuple[str, str], list[ValidatorDuty]]
 
 
 class CheckpointProcessor:
@@ -211,7 +214,7 @@ class CheckpointProcessor:
             {"msg": f"Committees for epoch {args.epoch} processed in {duration:.2f} seconds"}
         )
     )
-    def _prepare_committees(self, epoch: EpochNumber) -> dict[tuple[str, str], list[ValidatorDuty]]:
+    def _prepare_committees(self, epoch: EpochNumber) -> Committees:
         committees = {}
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
             validators = []
@@ -222,9 +225,7 @@ class CheckpointProcessor:
         return committees
 
 
-def process_attestations(
-    attestations: Iterable[BlockAttestation], committees: dict[tuple[str, str], list[ValidatorDuty]]
-) -> None:
+def process_attestations(attestations: Iterable[BlockAttestation], committees: Committees) -> None:
     for attestation in attestations:
         committee_id = (attestation.data.slot, attestation.data.index)
         committee = committees.get(committee_id)
