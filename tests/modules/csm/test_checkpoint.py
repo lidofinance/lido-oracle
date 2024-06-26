@@ -25,6 +25,11 @@ from tests.factory.configs import (
 )
 
 
+@pytest.fixture(autouse=True)
+def no_commit(monkeypatch):
+    monkeypatch.setattr(State, "commit", Mock())
+
+
 @pytest.fixture
 def frame_config() -> FrameConfig:
     return FrameConfigFactory.build(

@@ -130,8 +130,8 @@ class TestStateTransition:
     """Tests for State's transition for different l_epoch, r_epoch values"""
 
     @pytest.fixture(autouse=True)
-    def no_commit(self):
-        State.commit = Mock()
+    def no_commit(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(State, "commit", Mock())
 
     def test_empty_to_new_frame(self):
         state = State()
