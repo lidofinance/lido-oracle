@@ -135,7 +135,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return last_ref_slot == ref_slot
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        return not self.is_main_data_submitted(blockstamp) and not self.w3.csm.module.is_paused()
+        return not self.is_main_data_submitted(blockstamp)
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self.report_contract.is_paused(blockstamp.block_hash)
