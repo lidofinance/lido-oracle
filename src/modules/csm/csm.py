@@ -27,6 +27,10 @@ class NoModuleFound(Exception):
     """Raised if no module find in the StakingRouter by the provided address"""
 
 
+class CSMError(Exception):
+    """Unrecoverable error in CSM module"""
+
+
 class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
@@ -221,7 +225,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         distributed = sum(s for s in shares.values())
         if distributed > to_distribute:
-            raise ValueError(f"Invalid distribution: {distributed=} > {to_distribute=}")
+            raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares
 
     def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
@@ -272,7 +276,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if not l_ref_slot:
             l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
             if l_ref_slot < 0:
-                raise ValueError("Invalid frame configuration for the current network")
+                raise CSMError("Invalid frame configuration for the current network")
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.
