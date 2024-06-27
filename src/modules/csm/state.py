@@ -111,7 +111,7 @@ class State:
         )
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
-        for state_epochs in [self._epochs_to_process, self._processed_epochs]:
+        for state_epochs in (self._epochs_to_process, self._processed_epochs):
             for epoch in state_epochs:
                 if epoch < l_epoch or epoch > r_epoch:
                     logger.warning({"msg": "Discarding invalidated state cache"})
