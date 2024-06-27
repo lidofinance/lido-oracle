@@ -1,21 +1,17 @@
 import logging
-import time
 from collections import defaultdict
 from functools import cached_property
 from typing import Iterable
-
-from web3.types import BlockIdentifier
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.state import InvalidState, State
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
@@ -25,6 +21,14 @@ from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule,
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
+
+
+class NoModuleFound(Exception):
+    """Raised if no module find in the StakingRouter by the provided address"""
+
+
+class CSMError(Exception):
+    """Unrecoverable error in CSM module"""
 
 
 class CSOracle(BaseModule, ConsensusModule):
@@ -70,18 +74,12 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        # pylint: disable=too-many-branches,too-many-statements
-
-        converter = self.converter(blockstamp)
-        l_ref_slot, _ = self.current_frame_range(blockstamp)
-        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
+        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
+        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
+        l_epoch, _ = self.current_frame_range(blockstamp)
         r_epoch = blockstamp.ref_epoch
 
-        try:
-            self.state.validate_for_report(l_epoch, r_epoch)
-        except InvalidState as e:
-            raise ValueError(f"State is not valid for the report. {e}") from e
-
+        self.state.validate(l_epoch, r_epoch)
         self.state.status()
 
         distributed, shares = self.calculate_distribution(blockstamp)
@@ -94,34 +92,21 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if cid:
             logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-            tree = Tree.decode(self.w3.ipfs.fetch(cid))
-            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
+            last_tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
-            if tree.root != root:
+            if last_tree.root != root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
+            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
             # Update cumulative amount of shares for all operators.
-            for v in tree.tree.values:
+            for v in last_tree.tree.values:
                 no_id, amount = v["value"]
                 shares[no_id] += amount
 
-        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
-        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
-        # when the tree has only one leaf.
-        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
-        if shares:
-            shares[stone] = 0
-        if stone in shares and len(shares) > 2:
-            shares.pop(stone)
-
-        if distributed:
-            tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-            logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        tree = self.make_tree(shares)
+        if tree:
             cid = self.w3.ipfs.publish(tree.encode())
             root = tree.root
-
-        if root == ZERO_HASH:
-            logger.info({"msg": "No fee distributed so far, and tree doesn't exist"})
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
@@ -137,7 +122,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return last_ref_slot == ref_slot
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        return not self.is_main_data_submitted(blockstamp) and not self.w3.csm.module.is_paused()
+        return not self.is_main_data_submitted(blockstamp)
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self.report_contract.is_paused(blockstamp.block_hash)
@@ -154,7 +139,7 @@ class CSOracle(BaseModule, ConsensusModule):
             if mod.staking_module_address == self.w3.csm.module.address:
                 return mod
 
-        raise ValueError("No CSM module found. Wrong address?")
+        raise NoModuleFound
 
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
@@ -168,18 +153,15 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        l_ref_slot, r_ref_slot = self.current_frame_range(blockstamp)
-        logger.info({"msg": f"Frame for performance data collect: ({l_ref_slot};{r_ref_slot}]"})
+        l_epoch, r_epoch = self.current_frame_range(blockstamp)
+        logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
-
-        l_epoch = EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + 1)
         if l_epoch > finalized_epoch:
             return False
-        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
-        self.state.validate_for_collect(l_epoch, r_epoch)
+        self.state.migrate(l_epoch, r_epoch)
         self.state.status()
 
         if done := self.state.is_fulfilled:
@@ -195,22 +177,15 @@ class CSOracle(BaseModule, ConsensusModule):
 
         processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
-        new_processed_epochs = 0
-        start = time.time()
         for checkpoint in checkpoints:
-            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_ref_slot, r_ref_slot):
+            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
                 logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
                 raise ValueError("Outdated checkpoint")
-            new_processed_epochs += processor.exec(checkpoint)
-
-        if new_processed_epochs:
-            logger.info(
-                {"msg": f"Collecting data for {new_processed_epochs} epochs was done in {time.time() - start:.2f} sec"}
-            )
+            processor.exec(checkpoint)
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(self, blockstamp: BlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
         """Computes distribution of fee shares at the given timestamp"""
 
         threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
@@ -249,11 +224,13 @@ class CSOracle(BaseModule, ConsensusModule):
                 shares[no_id] = to_distribute * no_share // total
 
         distributed = sum(s for s in shares.values())
-        assert distributed <= to_distribute
+        if distributed > to_distribute:
+            raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares
 
-    def stuck_operators(self, blockstamp) -> Iterable[NodeOperatorId]:
-        l_ref_slot, _ = self.current_frame_range(blockstamp)
+    def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
+        l_epoch, _ = self.current_frame_range(blockstamp)
+        l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         return self.w3.csm.get_csm_stuck_node_operators(
@@ -266,8 +243,26 @@ class CSOracle(BaseModule, ConsensusModule):
             blockstamp.block_hash,
         )
 
+    def make_tree(self, shares) -> Tree | None:
+        if not shares:
+            return None
+
+        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
+        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
+        # when the tree has only one leaf.
+        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
+        shares[stone] = 0
+
+        # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
+        if stone in shares and len(shares) > 2:
+            shares.pop(stone)
+
+        tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+        logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        return tree
+
     @lru_cache(maxsize=1)
-    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[SlotNumber, SlotNumber]:
+    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         converter = self.converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
@@ -281,7 +276,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if not l_ref_slot:
             l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
             if l_ref_slot < 0:
-                raise ValueError("Invalid frame configuration for the current network")
+                raise CSMError("Invalid frame configuration for the current network")
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.
@@ -290,15 +285,10 @@ class CSOracle(BaseModule, ConsensusModule):
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
 
-        return l_ref_slot, r_ref_slot
+        l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        return l_epoch, r_epoch
 
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
-
-    def _slot_to_block_identifier(self, slot: SlotNumber) -> BlockIdentifier:
-        block = self.w3.cc.get_block_details(slot)
-
-        try:
-            return block.message.body.execution_payload.block_hash
-        except KeyError as e:
-            raise ValueError(f"ExecutionPayload not found in slot {slot}") from e

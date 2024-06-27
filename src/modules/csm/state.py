@@ -1,7 +1,8 @@
 import logging
 import os
 import pickle
-from dataclasses import dataclass, field
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
@@ -11,7 +12,7 @@ from src.utils.range import sequence
 logger = logging.getLogger(__name__)
 
 
-class InvalidState(Exception):
+class InvalidState(ValueError):
     """State has data considered as invalid for a report"""
 
 
@@ -19,22 +20,38 @@ class InvalidState(Exception):
 class AttestationsAggregate:
     """Aggregate of attestations duties observed for a validator"""
 
-    assigned: int
-    included: int
+    assigned: int = 0
+    included: int = 0
 
     @property
     def perf(self) -> float:
         return self.included / self.assigned if self.assigned else 0
 
+    def inc(self, included: bool) -> None:
+        self.assigned += 1
+        self.included += 1 if included else 0
 
-@dataclass
+
 class State:
-    """Processing state of a CSM performance oracle frame"""
+    """
+    Processing state of a CSM performance oracle frame.
 
-    data: dict[ValidatorIndex, AttestationsAggregate] = field(default_factory=dict)
+    During the CSM module startup the state object is being either `load`'ed from the filesystem or being created as a
+    new object with no data in it. During epochs processing aggregates in `data` are being updated and eventually the
+    state is `commit`'ed back to the filesystem.
 
-    _epochs_to_process: set[EpochNumber] = field(default_factory=set)
-    _processed_epochs: set[EpochNumber] = field(default_factory=set)
+    The state can be migrated to be used for another frame's report by calling the `migrate` method.
+    """
+
+    data: defaultdict[ValidatorIndex, AttestationsAggregate]
+
+    _epochs_to_process: tuple[EpochNumber, ...]
+    _processed_epochs: set[EpochNumber]
+
+    def __init__(self, data: dict[ValidatorIndex, AttestationsAggregate] | None = None) -> None:
+        self.data = defaultdict(AttestationsAggregate, data or {})
+        self._epochs_to_process = tuple()
+        self._processed_epochs = set()
 
     EXTENSION = ".pkl"
 
@@ -47,16 +64,13 @@ class State:
         try:
             with file.open(mode="rb") as f:
                 obj = pickle.load(f)
-                assert obj
-
-                logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
+                if not obj:
+                    raise ValueError("Got empty object")
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.info({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
+        else:
+            logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
         return obj or cls()
-
-    @classmethod
-    def file(cls) -> Path:
-        return Path("cache").with_suffix(cls.EXTENSION)
 
     def commit(self) -> None:
         with self.buffer.open(mode="wb") as f:
@@ -64,17 +78,22 @@ class State:
 
         os.replace(self.buffer, self.file())
 
+    @classmethod
+    def file(cls) -> Path:
+        return Path("cache").with_suffix(cls.EXTENSION)
+
+    @property
+    def buffer(self) -> Path:
+        return self.file().with_suffix(".buf")
+
     def clear(self) -> None:
-        self.data = {}
-        self._epochs_to_process.clear()
+        self.data = defaultdict(AttestationsAggregate)
+        self._epochs_to_process = tuple()
         self._processed_epochs.clear()
         assert self.is_empty
 
     def inc(self, key: ValidatorIndex, included: bool) -> None:
-        perf = self.data.get(key, AttestationsAggregate(0, 0))
-        perf.assigned += 1
-        perf.included += 1 if included else 0
-        self.data[key] = perf
+        self.data[key].inc(included)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
@@ -91,42 +110,28 @@ class State:
             }
         )
 
-    def validate_for_report(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
+        for state_epochs in (self._epochs_to_process, self._processed_epochs):
+            for epoch in state_epochs:
+                if epoch < l_epoch or epoch > r_epoch:
+                    logger.warning({"msg": "Discarding invalidated state cache"})
+                    self.clear()
+                    break
+
+        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+        self.commit()
+
+    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         if not self.is_fulfilled:
-            raise InvalidState(f'State is not fulfilled. {self.unprocessed_epochs=}')
+            raise InvalidState(f"State is not fulfilled. {self.unprocessed_epochs=}")
 
         for epoch in self._processed_epochs:
-            if l_epoch <= epoch <= r_epoch:
-                continue
-            raise InvalidState(f'Processed epoch {epoch} is out of range')
+            if not l_epoch <= epoch <= r_epoch:
+                raise InvalidState(f"Processed epoch {epoch} is out of range")
 
         for epoch in sequence(l_epoch, r_epoch):
             if epoch not in self._processed_epochs:
-                raise InvalidState(f'Epoch {epoch} should be processed')
-
-    def validate_for_collect(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
-        invalidated = False
-
-        for epoch in self._epochs_to_process:
-            if l_epoch <= epoch <= r_epoch:
-                continue
-            invalidated = True
-            break
-
-        for epoch in self._processed_epochs:
-            if l_epoch <= epoch <= r_epoch:
-                continue
-            invalidated = True
-            break
-
-        if invalidated:
-            logger.warning({"msg": "Discarding invalidated state cache"})
-            self.clear()
-            self.commit()
-
-        if self.is_empty or r_epoch > max(self._epochs_to_process):
-            self._epochs_to_process.update(sequence(l_epoch, r_epoch))
-            self.commit()
+                raise InvalidState(f"Epoch {epoch} should be processed")
 
     @property
     def is_empty(self) -> bool:
@@ -136,7 +141,7 @@ class State:
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise ValueError("Epochs to process are not set")
-        return self._epochs_to_process - self._processed_epochs
+        return set(self._epochs_to_process) - self._processed_epochs
 
     @property
     def is_fulfilled(self) -> bool:
@@ -150,18 +155,12 @@ class State:
     @property
     def network_aggr(self) -> AttestationsAggregate:
         included = assigned = 0
-        for aggr in self.data.values():
-            assert aggr.included <= aggr.assigned
+        for validator, aggr in self.data.items():
+            if aggr.included > aggr.assigned:
+                raise ValueError(f"Invalid aggregate: {validator=}, {aggr=}")
             included += aggr.included
             assigned += aggr.assigned
         return AttestationsAggregate(
             included=included,
             assigned=assigned,
         )
-
-    @property
-    def buffer(self) -> Path:
-        return self.file().with_suffix(".buf")
-
-    def __bool__(self) -> bool:
-        return True
