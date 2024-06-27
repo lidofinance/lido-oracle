@@ -70,7 +70,10 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        l_epoch, r_epoch = self.current_frame_range(blockstamp)
+        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
+        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
+        l_epoch, _ = self.current_frame_range(blockstamp)
+        r_epoch = blockstamp.ref_epoch
 
         self.state.validate(l_epoch, r_epoch)
         self.state.status()
