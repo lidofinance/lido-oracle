@@ -270,13 +270,17 @@ class CSOracle(BaseModule, ConsensusModule):
             raise ValueError("CSM oracle initial epoch is not set yet")
 
         l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+        r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
         # The very first report, no previous ref slot.
         if not l_ref_slot:
-            l_ref_slot = SlotNumber(self.get_initial_ref_slot(blockstamp) - converter.slots_per_frame)
+            l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise CSMError("Invalid frame configuration for the current network")
+
+        # NOTE: before the initial slot the contract can't return current frame
+        if blockstamp.slot_number > initial_ref_slot:
+            r_ref_slot = self.get_current_frame(blockstamp).ref_slot
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.
