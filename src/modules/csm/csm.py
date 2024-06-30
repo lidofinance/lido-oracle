@@ -5,6 +5,8 @@ from typing import Iterable
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
+from src.metrics.prometheus.csm import CSM_CURRENT_FRAME_RANGE_L_EPOCH, CSM_CURRENT_FRAME_RANGE_R_EPOCH, \
+    CSM_FINALIZED_EPOCH
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.state import State
@@ -158,6 +160,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
+        CSM_FINALIZED_EPOCH.set(finalized_epoch)
         if l_epoch > finalized_epoch:
             return False
 
@@ -291,6 +294,10 @@ class CSOracle(BaseModule, ConsensusModule):
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
+
+        # Update Prometheus metrics
+        CSM_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
+        CSM_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
 
         return l_epoch, r_epoch
 
