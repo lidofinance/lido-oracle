@@ -31,7 +31,13 @@ class Pinata(IPFSProvider):
             raise FetchError(cid) from ex
         return resp.content
 
+    def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+        # NOTE: The content is pinned by the `upload` method.
+        return self.upload(content)
+
     def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+        """Pinata has no dedicated endpoint for uploading, so pinFileToIPFS is used"""
+
         url = f"{self.API_ENDPOINT}/pinning/pinFileToIPFS"
         try:
             with self.session as s:
@@ -49,11 +55,5 @@ class Pinata(IPFSProvider):
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
 
     def pin(self, cid: CIDv0 | CIDv1) -> None:
-        url = f"{self.API_ENDPOINT}/pinning/pinByHash"
-        try:
-            with self.session as s:
-                resp = s.post(url, json={"hashToPin": str(cid)})
-                resp.raise_for_status()
-        except requests.RequestException as ex:
-            logger.error({"msg": "Request has been failed", "error": str(ex)})
-            raise PinError(cid) from ex
+        """pinByHash is a paid feature"""
+        raise PinError(cid)
