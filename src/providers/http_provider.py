@@ -27,7 +27,7 @@ class NotOkResponse(Exception):
     status: int
     text: str
 
-    def __init__(self, *args, status: int, text: str):
+    def __init__(self, *args, status: int | None = None, text: str | None = None):
         self.status = status
         self.text = text
         super().__init__(*args)
@@ -39,6 +39,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     PROMETHEUS_HISTOGRAM: Histogram
     request_timeout: int
+
+    PROVIDER_EXCEPTION = NotOkResponse
 
     def __init__(
         self,
@@ -139,7 +141,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     code=0,
                     domain=urlparse(host).netloc,
                 )
-                raise error
+                raise self.PROVIDER_EXCEPTION from error
 
             t.labels(
                 endpoint=endpoint,
@@ -153,7 +155,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     f' with text: "{str(response.text)}" returned.'
                 )
                 logger.debug({'msg': response_fail_msg})
-                raise NotOkResponse(response_fail_msg, status=response.status_code, text=response.text)
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
             if stream:
                 return json_stream_requests.load(response)
@@ -165,7 +167,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
                 )
                 logger.debug({'msg': response_fail_msg})
-                raise error
+                raise self.PROVIDER_EXCEPTION from error
 
         if 'data' in json_response:
             data = json_response['data']
