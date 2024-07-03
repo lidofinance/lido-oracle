@@ -27,7 +27,7 @@ class NotOkResponse(Exception):
     status: int
     text: str
 
-    def __init__(self, *args, status: int | None = None, text: str | None = None):
+    def __init__(self, *args, status: int, text: str):
         self.status = status
         self.text = text
         super().__init__(*args)
@@ -141,7 +141,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     code=0,
                     domain=urlparse(host).netloc,
                 )
-                raise self.PROVIDER_EXCEPTION from error
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
 
             t.labels(
                 endpoint=endpoint,
@@ -167,7 +167,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
                 )
                 logger.debug({'msg': response_fail_msg})
-                raise self.PROVIDER_EXCEPTION from error
+                raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
         if 'data' in json_response:
             data = json_response['data']
