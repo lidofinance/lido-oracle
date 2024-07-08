@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
-from src.metrics.prometheus.csm import CSM_UNPROCESSED_EPOCHS_COUNT, CSM_NETWORK_AVG_PERFORMANCE, \
-    CSM_MIN_UNPROCESSED_EPOCH
+from src.metrics.prometheus.csm import (
+    CSM_UNPROCESSED_EPOCHS_COUNT,
+    CSM_MIN_UNPROCESSED_EPOCH,
+)
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -155,9 +157,7 @@ class State:
     @property
     def avg_perf(self) -> float:
         """Returns average performance of all validators in the cache"""
-        avg = self.network_aggr.perf
-        CSM_NETWORK_AVG_PERFORMANCE.set(avg)
-        return avg
+        return self.network_aggr.perf
 
     @property
     def network_aggr(self) -> AttestationsAggregate:
