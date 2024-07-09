@@ -48,7 +48,7 @@ class LidoContract(ContractInterface):
             transaction={'from': accounting_oracle_address},
             block_identifier=block_identifier,
             # Fix: insufficient funds for gas * price + value
-            state_override={'balance': 10**18},
+            state_override={accounting_oracle_address: {'balance': Wei(10**18)}},
         )
 
         response = LidoReportRebase(*response)
