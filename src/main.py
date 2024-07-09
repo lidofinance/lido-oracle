@@ -33,7 +33,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 logger = logging.getLogger()
 
 
-class IncompatibleVersionException(Exception):
+class IncompatibleException(Exception):
     pass
 
 
@@ -89,7 +89,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Check configured providers.'})
     if kac.get_status().appVersion < '1.5.0':
-        raise IncompatibleVersionException('Incompatible KAPI version. Required >= 1.5.0.')
+        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
 
     check_providers_chain_ids(web3, cc, kac)
 
@@ -144,7 +144,7 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
     if execution_chain_id == consensus_chain_id == keys_api_chain_id:
         return
 
-    raise IncompatibleVersionException(
+    raise IncompatibleException(
         'Different chain ids detected:\n'
         f'Execution chain id: {execution_chain_id}\n'
         f'Consensus chain id: {consensus_chain_id}\n'
