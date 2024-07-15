@@ -1,5 +1,6 @@
 import logging
 import time
+import traceback
 from abc import abstractmethod, ABC
 from dataclasses import asdict
 from enum import Enum
@@ -101,7 +102,8 @@ class BaseModule(ABC):
         except DecoratorTimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
         except NoActiveProviderError as exception:
-            logger.error({'msg': 'No active node available.', 'error': str(exception)})
+            tr = traceback.format_exception(exception)
+            logger.error({'msg': 'No active node available.', 'error': tr})
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
         except NotOkResponse as error:
