@@ -82,6 +82,8 @@ class CheckpointsIterator:
             yield Checkpoint(checkpoint_slot, checkpoint_epochs)
 
     def _is_min_step_reached(self):
+        # NOTE: processing delay can be negative
+        # if the finalized epoch is less than next epoch to check (l_epoch)
         processing_delay = self.max_available_epoch_to_check - self.l_epoch
         if processing_delay >= self.MIN_CHECKPOINT_STEP:
             return True
