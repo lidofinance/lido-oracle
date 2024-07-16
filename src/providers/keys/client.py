@@ -2,7 +2,7 @@ from time import sleep
 from typing import cast
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
-from src.providers.http_provider import HTTPProvider
+from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.providers.keys.types import LidoKey, KeysApiStatus
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.dataclass import list_of_dataclasses
@@ -10,6 +10,10 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 
 class KeysOutdatedException(Exception):
+    pass
+
+
+class KAPIClientError(NotOkResponse):
     pass
 
 
@@ -24,6 +28,7 @@ class KeysAPIClient(HTTPProvider):
     Keys API specification can be found here https://keys-api.lido.fi/api/static/index.html
     """
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
+    PROVIDER_EXCEPTION = KAPIClientError
 
     MODULE_OPERATORS_KEYS = 'v1/modules/{}/operators/keys'
     USED_KEYS = 'v1/keys?used=true'

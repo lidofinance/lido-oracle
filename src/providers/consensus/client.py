@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
 
+class ConsensusClientError(NotOkResponse):
+    pass
+
+
 class ConsensusClient(HTTPProvider):
     """
     API specifications can be found here
@@ -34,6 +38,7 @@ class ConsensusClient(HTTPProvider):
     state_id
     State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
     """
+    PROVIDER_EXCEPTION = ConsensusClientError
     PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
     API_GET_BLOCK_ROOT = 'eth/v1/beacon/blocks/{}/root'
