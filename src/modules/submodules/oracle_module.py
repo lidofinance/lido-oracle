@@ -101,13 +101,12 @@ class BaseModule(ABC):
             raise exception
         except DecoratorTimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
-        except NoActiveProviderError as exception:
-            tr = traceback.format_exception(exception)
-            logger.error({'msg': 'No active node available.', 'error': tr})
+        except NoActiveProviderError as error:
+            logger.error({'msg': ''.join(traceback.format_exception(error))})
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
         except NotOkResponse as error:
-            logger.error({'msg': 'Received non-ok response.', 'error': str(error)})
+            logger.error({'msg': ''.join(traceback.format_exception(error))})
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
         except KeysOutdatedException as error:
