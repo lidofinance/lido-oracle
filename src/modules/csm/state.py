@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
+from src.metrics.prometheus.csm import (
+    CSM_UNPROCESSED_EPOCHS_COUNT,
+    CSM_MIN_UNPROCESSED_EPOCH,
+)
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -141,7 +145,10 @@ class State:
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise ValueError("Epochs to process are not set")
-        return set(self._epochs_to_process) - self._processed_epochs
+        diff = set(self._epochs_to_process) - self._processed_epochs
+        CSM_UNPROCESSED_EPOCHS_COUNT.set(len(diff))
+        CSM_MIN_UNPROCESSED_EPOCH.set(min(diff) if diff else 0)
+        return diff
 
     @property
     def is_fulfilled(self) -> bool:
