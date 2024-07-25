@@ -317,13 +317,13 @@ class Accounting(BaseModule, ConsensusModule):
             return ExtraDataService.collect(
                 stuck_validators,
                 exited_validators,
-                orl.max_accounting_extra_data_list_items_count,
-                orl.max_node_operators_per_extra_data_item_count,
+                orl.max_items_per_extra_data_transaction,
+                orl.max_node_operators_per_extra_data_item,
             )
 
         return ExtraDataServiceV2.collect(
             stuck_validators,
             exited_validators,
-            orl.max_accounting_extra_data_list_items_count,
-            orl.max_node_operators_per_extra_data_item_count,
+            orl.max_items_per_extra_data_transaction,
+            orl.max_node_operators_per_extra_data_item,
         )

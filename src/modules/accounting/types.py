@@ -63,15 +63,17 @@ class AccountingProcessingState:
 @dataclass
 class OracleReportLimits:
     exited_validators_per_day_limit: int
-    one_off_cl_balance_decrease_bp_limit: int
+    appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
     max_validator_exit_requests_per_report: int
-    max_accounting_extra_data_list_items_count: int
-    max_node_operators_per_extra_data_item_count: int
+    max_items_per_extra_data_transaction: int
+    max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int
     max_positive_token_rebase: int
-    appeared_validators_per_day_limit: int | None = None
+    initial_slashing_amount_p_wei: int | None = None
+    inactivity_penalties_amount_p_wei: int | None = None
+    cl_balance_oracles_error_upper_bp_limit: int | None = None
 
     @classmethod
     def from_response(cls, **kwargs) -> Self:
