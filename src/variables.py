@@ -3,26 +3,20 @@ from typing import Final
 
 from eth_account import Account
 
+from src.utils.env import from_file_or_env
+
 # - Providers-
 EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
-GW3_ACCESS_KEY: Final = os.getenv('GW3_ACCESS_KEY')
-GW3_SECRET_KEY: Final = os.getenv('GW3_SECRET_KEY')
-PINATA_JWT: Final = os.getenv('PINATA_JWT')
+
+GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
+GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
+PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
 
 # - Account -
 ACCOUNT = None
-MEMBER_PRIV_KEY = os.getenv('MEMBER_PRIV_KEY')
-
-MEMBER_PRIV_KEY_FILE: Final = os.getenv('MEMBER_PRIV_KEY_FILE')
-if MEMBER_PRIV_KEY_FILE:
-    if not os.path.exists(MEMBER_PRIV_KEY_FILE):
-        raise ValueError(f'File {MEMBER_PRIV_KEY_FILE} does not exist. '
-                         f'Fix MEMBER_PRIV_KEY_FILE variable or remove it.')
-
-    with open(MEMBER_PRIV_KEY_FILE) as f:
-        MEMBER_PRIV_KEY = f.read().rstrip()
+MEMBER_PRIV_KEY = from_file_or_env('MEMBER_PRIV_KEY')
 
 if MEMBER_PRIV_KEY:
     ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)  # False-positive. pylint: disable=no-value-for-parameter

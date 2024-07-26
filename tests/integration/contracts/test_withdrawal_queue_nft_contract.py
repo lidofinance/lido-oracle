@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import WithdrawalRequestStatus, BatchState
+from src.modules.accounting.types import BatchState, WithdrawalRequestStatus
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
@@ -65,7 +65,7 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
                         ),
                         0,
                     ),
-                    "0xb35dd0cae381072a4856c08cf06013e56998d9152e970d89a1f38e92f133a8ea",
+                    "0xcc74e3f3fe27f9f8da8b91c1aede727ebfa82d9c74cf4b873d81269e866dce72",
                 ),
                 lambda response: check_value_type(response, BatchState),
             ),
