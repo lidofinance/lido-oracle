@@ -1,6 +1,7 @@
 import sys
 from typing import Iterable, cast
 
+from packaging.version import Version
 from prometheus_client import start_http_server
 from web3.middleware import simple_cache_middleware
 
@@ -88,7 +89,7 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if kac.get_status().appVersion < '1.5.0':
+    if Version(kac.get_status().appVersion) < Version('1.5.0'):
         raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
 
     check_providers_chain_ids(web3, cc, kac)

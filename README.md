@@ -7,10 +7,11 @@ Oracle daemon for Lido decentralized staking service: Monitoring the state of th
 
 ## How it works
 
-There are two modules in the oracle:
+There are 3 modules in the oracle:
 
 - Accounting
 - Ejector
+- CSM
 
 ### Accounting module
 
@@ -31,8 +32,8 @@ The frame includes these stages:
   one of the oracles chosen in turn submits the actual report to the AccountingOracle contract, which triggers the core protocol
   state update, including the token rebase, finalization of withdrawal requests, and
   deciding whether to go in the bunker mode.
-- **Extra data report**: an additional report carrying additional information. This part is required.
-  All node operators rewards are distributed in this phase.
+- **Extra data report**: an third phase report carrying additional information. It can be delivered multi-transactionally.
+  Delivers stuck and exited validators count by node operators. For some modules unlocks rewards distribution.
 
 ### Ejector module
 
@@ -43,7 +44,9 @@ Ejector module requests Lido validators to eject via events in Execution Layer w
 - Finds out how much ETH is needed to cover withdrawals.
 - Predicts mean Lido income into Withdrawal and Execution Rewards Vaults.
 - Figures out when the next validator will be withdrawn.
-- Encode Lido validators to eject int bytes and send transaction.
+- Form a validator's queue with enough validators to fill all withdrawals requests.
+- Force eject validators from Node Operator with boosted exits flag even no withdrawal requests.
+- Encode validators data and send transaction
 
 # Usage
 
@@ -233,26 +236,26 @@ groups:
 
 The oracle exposes the following basic metrics:
 
-| Metric name                 | Description                                                     | Labels                                                                                                                                     |
-|-----------------------------|-----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| build_info                  | Build info                                                      | version, branch, commit                                                                                                                    |
+| Metric name                 | Description                                                     | Labels                                                                                                                 |
+|-----------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| build_info                  | Build info                                                      | version, branch, commit                                                                                                |
 | env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, CSM_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, MAX_CYCLE_LIFETIME_IN_SECONDS |
-| genesis_time                | Fetched genesis time from node                                  |                                                                                                                                            |
-| account_balance             | Fetched account balance from EL                                 | address                                                                                                                                    |
-| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                              |
-| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                                              |
-| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                               |
-| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                                                               |
-| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                     |
-| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                     |
-| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                            |
-| transaction_count           | Total count of transactions. Success or failure                 | status                                                                                                                                     |
-| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                                           |
-| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                                                            |
-| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                                                            |
-| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                                                            |
-| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                                                            |
-| contract_on_pause           | Contract on pause                                               |                                                                                                                                            |
+| genesis_time                | Fetched genesis time from node                                  |                                                                                                                        |
+| account_balance             | Fetched account balance from EL                                 | address                                                                                                                |
+| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                          |
+| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                          |
+| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                           |
+| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                                           |
+| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                 |
+| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                 |
+| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                        |
+| transactions_count          | Total count of transactions. Success or failure                 | status                                                                                                                 |
+| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                       |
+| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                                        |
+| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                                        |
+| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                                        |
+| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                                        |
+| contract_on_pause           | Contract on pause                                               |                                                                                                                        |
 
 Special metrics for accounting oracle:
 
