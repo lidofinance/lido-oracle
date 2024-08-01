@@ -232,7 +232,7 @@ class ConsensusModule(ABC):
 
         if not compatibility:
             raise IncompatibleOracleVersion(
-                f'Incompatible Oracle version. Block tag: {block_tag}. '
+                f'Incompatible Oracle version. Block tag: {repr(block_tag)}. '
                 f'Expected contract versions, one of: {self.COMPATIBLE_CONTRACT_VERSIONS} got {contract_version}. '
                 f'Expected consensus versions, one of: {self.COMPATIBLE_CONSENSUS_VERSIONS} got {consensus_version}.'
             )

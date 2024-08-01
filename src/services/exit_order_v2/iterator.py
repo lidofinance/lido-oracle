@@ -59,9 +59,8 @@ class ValidatorExitIteratorV2:
     exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
 
     max_validators_to_exit: int
-
-    no_penetration_threshold: float= 0
-    eth_validators_count: int = 0
+    no_penetration_threshold: float
+    eth_validators_count: int
 
     def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp, seconds_per_slot: int):
         self.w3 = w3
@@ -70,6 +69,13 @@ class ValidatorExitIteratorV2:
 
         self.lvs = LidoValidatorStateService(self.w3)
 
+        self._reset_attributes()
+
+    def _reset_attributes(self):
+        self.module_stats = {}
+        self.node_operators_stats = {}
+        self.exitable_validators = {}
+
     @duration_meter()
     def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         self.index = 0
@@ -77,6 +83,7 @@ class ValidatorExitIteratorV2:
         self._prepare_data_structure()
         self._calculate_lido_stats()
         self._load_blockchain_state()
+        self._reset_attributes()
         return self
 
     @duration_meter()
@@ -223,8 +230,8 @@ class ValidatorExitIteratorV2:
             - self._max_share_rate_coefficient_predicate(node_operator),
             - self._stake_weight_coefficient_predicate(
                 node_operator,
-                self.no_penetration_threshold,
                 self.eth_validators_count,
+                self.no_penetration_threshold,
             ),
             - node_operator.exitable_validators
         )
@@ -290,7 +297,7 @@ class ValidatorExitIteratorV2:
         while self.index != self.max_validators_to_exit:
             for node_operator in sorted(self.node_operators_stats.values(), key=lambda no: -self._no_force_predicate(no)):
                 if self._no_force_predicate(node_operator) == 0:
-                    # First in list no has no forced validators. Cycle done
+                    # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
                 if node_operator.exitable_validators:

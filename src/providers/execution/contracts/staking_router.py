@@ -6,7 +6,7 @@ from web3.types import BlockIdentifier
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.dataclass import list_of_dataclasses
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
-from variables import EL_REQUESTS_BATCH_SIZE
+from src.variables import EL_REQUESTS_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
