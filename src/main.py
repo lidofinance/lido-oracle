@@ -31,7 +31,7 @@ from src.web3py.types import Web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class IncompatibleException(Exception):

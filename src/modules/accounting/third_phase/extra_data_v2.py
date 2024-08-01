@@ -35,12 +35,12 @@ class ExtraDataServiceV2:
         cls,
         stuck_validators: dict[NodeOperatorGlobalIndex, int],
         exited_validators: dict[NodeOperatorGlobalIndex, int],
-        max_items_count: int,
+        max_items_count_per_tx: int,
         max_no_in_payload_count: int,
     ) -> ExtraData:
         stuck_payloads = cls.build_validators_payloads(stuck_validators, max_no_in_payload_count)
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
-        items_count, txs = cls.build_extra_transactions_data(stuck_payloads, exited_payloads, max_items_count)
+        items_count, txs = cls.build_extra_transactions_data(stuck_payloads, exited_payloads, max_items_count_per_tx)
         first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
 
         if items_count:
@@ -89,7 +89,7 @@ class ExtraDataServiceV2:
         cls,
         stuck_payloads: list[ItemPayload],
         exited_payloads: list[ItemPayload],
-        max_items_count: int,
+        max_items_count_per_tx: int,
     ) -> tuple[int, list[bytes]]:
         all_payloads = [
             *[(ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, payload) for payload in stuck_payloads],
@@ -99,7 +99,7 @@ class ExtraDataServiceV2:
         index = 0
         result = []
 
-        for payload_batch in batched(all_payloads, max_items_count):
+        for payload_batch in batched(all_payloads, max_items_count_per_tx):
             tx_body = b''
             for item_type, payload in payload_batch:
                 tx_body += index.to_bytes(ExtraDataLengths.ITEM_INDEX)

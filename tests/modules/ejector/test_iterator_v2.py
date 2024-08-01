@@ -151,13 +151,13 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
     assert iterator.node_operators_stats[(2, 1)].force_exit_to is not None
     assert iterator.exitable_validators[(2, 1)][0].index == '7'
-    assert iterator.total_lido_exitable_validators == 7
+    assert iterator.total_lido_validators == 7
 
     prev_total_age = iterator.node_operators_stats[(1, 1)].total_age
 
     iterator._eject_validator((1, 1))
 
-    assert iterator.total_lido_exitable_validators == 6
+    assert iterator.total_lido_validators == 6
     assert iterator.module_stats[1].exitable_validators == 4
     assert iterator.node_operators_stats[(1, 1)].exitable_validators == 2
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
@@ -165,7 +165,7 @@ def test_eject_validator(iterator):
     iterator.max_validators_to_exit = 3
     iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_count = 1000
-    iterator._load_constants = Mock()
+    iterator._load_blockchain_state = Mock()
 
     validators_to_eject = list(iterator)
     assert len(validators_to_eject) == 3
@@ -183,7 +183,7 @@ def test_eject_validator(iterator):
 
 @pytest.mark.unit
 def test_no_predicate(iterator):
-    iterator.total_lido_exitable_validators = 1000
+    iterator.total_lido_validators = 1000
     iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_count = 10000
 
@@ -253,7 +253,7 @@ def test_no_force_and_soft_predicate(iterator):
 
 @pytest.mark.unit
 def test_max_share_rate_coefficient_predicate(iterator):
-    iterator.total_lido_exitable_validators = 10000
+    iterator.total_lido_validators = 10000
 
     nos = [
         NodeOperatorStatsFactory.build(

@@ -23,7 +23,7 @@ from src.types import BlockStamp, SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class LidoContracts(Module):

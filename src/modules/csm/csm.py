@@ -38,7 +38,7 @@ class CSMError(Exception):
 class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
-    distribution of shares among the oprators. The root of the tree is then submitted to the module contract.
+    distribution of shares among the operators. The root of the tree is then submitted to the module contract.
 
     The algorithm for calculating performance includes the following steps:
         1. Collect all the attestation duties of the network validators for the frame.
