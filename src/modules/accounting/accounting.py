@@ -270,7 +270,7 @@ class Accounting(BaseModule, ConsensusModule):
             blockstamp.block_hash,
         )
 
-    def get_shares_to_burn(self, blockstamp: BlockStamp) -> int:
+    def get_shares_to_burn(self, blockstamp: ReferenceBlockStamp) -> int:
         shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return shares_data.cover_shares + shares_data.non_cover_shares
 

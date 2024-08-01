@@ -100,24 +100,24 @@ class ExtraDataServiceV2:
         result = []
 
         for payload_batch in batched(all_payloads, max_items_count):
-            tx = b''
+            tx_body = b''
             for item_type, payload in payload_batch:
-                tx += index.to_bytes(ExtraDataLengths.ITEM_INDEX)
-                tx += item_type.value.to_bytes(ExtraDataLengths.ITEM_TYPE)
-                tx += payload.module_id.to_bytes(ExtraDataLengths.MODULE_ID)
-                tx += len(payload.node_operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
-                tx += b''.join(
-                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_IDS)
+                tx_body += index.to_bytes(ExtraDataLengths.ITEM_INDEX)
+                tx_body += item_type.value.to_bytes(ExtraDataLengths.ITEM_TYPE)
+                tx_body += payload.module_id.to_bytes(ExtraDataLengths.MODULE_ID)
+                tx_body += len(payload.node_operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
+                tx_body += b''.join(
+                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID)
                     for no_id in payload.node_operator_ids
                 )
-                tx += b''.join(
+                tx_body += b''.join(
                     count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT)
                     for count in payload.vals_counts
                 )
 
                 index += 1
 
-            result.append(tx)
+            result.append(tx_body)
 
         return index, result
 

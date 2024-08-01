@@ -77,8 +77,8 @@ class OracleReportLimits:
 
     @classmethod
     def from_response(cls, **kwargs) -> Self:
-        # Compatability breaking rename
-        # churn_validators_per_day_limit -> exited_validators_per_day_limit
+        # Compatability breaking rename. `churn_validators_per_day_limit` was split into:
+        # exited_validators_per_day_limit and appeared_validators_per_day_limit
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 

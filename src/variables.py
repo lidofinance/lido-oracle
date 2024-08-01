@@ -25,6 +25,7 @@ if MEMBER_PRIV_KEY:
 LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
 CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
+EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 1000))
 CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)) or None
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases

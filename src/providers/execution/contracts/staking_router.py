@@ -6,6 +6,7 @@ from web3.types import BlockIdentifier
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.dataclass import list_of_dataclasses
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
+from variables import EL_REQUESTS_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,22 @@ class StakingRouterContract(ContractInterface):
         """
         Returns node operator digest for each node operator in lido protocol
         """
-        response = self.functions.getAllNodeOperatorDigests(module.id).call(block_identifier=block_identifier)
+        response = []
+        i = 0
+
+        while True:
+            nos = self.functions.getNodeOperatorDigests(
+                module.id,
+                i * EL_REQUESTS_BATCH_SIZE,
+                EL_REQUESTS_BATCH_SIZE,
+            ).call(block_identifier=block_identifier)
+
+            i += 1
+            response.extend(nos)
+
+            if len(nos) != EL_REQUESTS_BATCH_SIZE:
+                break
+
         response = [NodeOperator.from_response(no, module) for no in response]
 
         logger.info({

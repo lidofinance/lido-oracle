@@ -23,7 +23,7 @@ class BurnerContract(ContractInterface):
 
         response = named_tuple_to_dataclass(response, SharesRequestedToBurn)
         logger.info({
-            'msg': 'Call `totalSupply()`.',
+            'msg': 'Call `getSharesRequestedToBurn()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })

@@ -49,6 +49,7 @@ def main(module_name: OracleModule):
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
             'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
             'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
+            'EL_REQUESTS_BATCH_SIZE': variables.EL_REQUESTS_BATCH_SIZE,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
         },
     })
@@ -57,6 +58,7 @@ def main(module_name: OracleModule):
         "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
         "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
         "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
+        "EL_REQUESTS_BATCH_SIZE": str(variables.EL_REQUESTS_BATCH_SIZE),
         "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
     })
     BUILD_INFO.info(build_info)

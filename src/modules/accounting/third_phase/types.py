@@ -26,5 +26,5 @@ class ExtraDataLengths:
     ITEM_TYPE = 2
     MODULE_ID = 3
     NODE_OPS_COUNT = 8
-    NODE_OPERATOR_IDS = 8
+    NODE_OPERATOR_ID = 8
     STUCK_OR_EXITED_VALS_COUNT = 16
