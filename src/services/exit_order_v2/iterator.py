@@ -233,7 +233,8 @@ class ValidatorExitIteratorV2:
                 self.eth_validators_count,
                 self.no_penetration_threshold,
             ),
-            - node_operator.exitable_validators
+            - node_operator.exitable_validators,
+            self._lowest_validator_index_predicate(node_operator),
         )
 
     @staticmethod
@@ -285,6 +286,19 @@ class ValidatorExitIteratorV2:
 
         return 0
 
+    def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats):
+        validators = self.exitable_validators[(
+            node_operator.node_operator.staking_module.id,
+            node_operator.node_operator.id,
+        )]
+
+        # If NO doesn't have exitable validators - sorting by validators index doesn't matter
+        first_val_index = 0
+        if validators:
+            first_val_index = validators[0].index
+
+        return first_val_index
+
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Returns a list of validators from NOs that are requested for forced exit.
@@ -295,19 +309,25 @@ class ValidatorExitIteratorV2:
 
         # Extra validators limited by VEBO report
         while self.index != self.max_validators_to_exit:
-            for node_operator in sorted(self.node_operators_stats.values(), key=lambda no: -self._no_force_predicate(no)):
-                if self._no_force_predicate(node_operator) == 0:
+            for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
+                if self._no_force_predicate(no_stats) == 0:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
-                if node_operator.exitable_validators:
+                if no_stats.exitable_validators:
                     # When found Node Operator
                     self.index += 1
                     gid = (
-                        node_operator.module_stats.staking_module.id,
-                        node_operator.node_operator.id,
+                        no_stats.node_operator.staking_module.id,
+                        no_stats.node_operator.id,
                     )
                     result.append((gid, self._eject_validator(gid)))
                     break
 
         return result
+
+    def no_remaining_forced_predicate(self, no: NodeOperatorStats) -> tuple:
+        return (
+            -self._no_force_predicate(no),
+            self._lowest_validator_index_predicate(no),
+        )

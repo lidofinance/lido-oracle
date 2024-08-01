@@ -324,26 +324,82 @@ def test_get_remaining_forced_validators(iterator):
     iterator.max_validators_to_exit = 10
     iterator.index = 5
 
+    sm = StakingModuleFactory.build(id=1)
+
     iterator.node_operators_stats = {
-        (1, 1): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=None),
-        (1, 2): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=9),
+        (1, 1): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=sm),
+        ),
+        (1, 2): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=sm),
+        ),
+        (1, 3): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=3, staking_module=sm),
+        ),
+        (1, 4): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=4, staking_module=sm),
+        ),
     }
-    iterator.node_operators_stats[(1, 1)].module_stats.staking_module.id = 1
-    iterator.node_operators_stats[(1, 2)].module_stats.staking_module.id = 1
-    iterator.node_operators_stats[(1, 1)].node_operator.id = 1
-    iterator.node_operators_stats[(1, 2)].node_operator.id = 2
+
+    iterator.exitable_validators = {
+        (1, 1): [],
+        (1, 2): [LidoValidatorFactory.build(index=5)],
+        (1, 3): [LidoValidatorFactory.build(index=3)],
+        (1, 4): [LidoValidatorFactory.build(index=4)],
+    }
 
     def _eject(self, gid):
         self.node_operators_stats[gid].exitable_validators -= 1
+        return self.exitable_validators[gid][0]
 
     iterator._eject_validator = MethodType(_eject, iterator)
 
     vals = iterator.get_remaining_forced_validators()
 
-    assert len(vals) == 1
+    assert len(vals) == 3
+
+    assert vals[0][1].index == 3
+    assert vals[1][1].index == 4
+    assert vals[2][1].index == 5
+
+    iterator.node_operators_stats[1, 2].exitable_validators = 11
 
     iterator.max_validators_to_exit = 10
-    iterator.index = 10
+    iterator.index = 9
 
     vals = iterator.get_remaining_forced_validators()
-    assert len(vals) == 0
+    assert len(vals) == 1
+
+
+def test_lowest_validators_index_predicate(iterator):
+    iterator.node_operators_stats = {
+        (1, 1): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
+        ),
+        (1, 2): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=1)),
+        ),
+    }
+
+    iterator.exitable_validators = {
+        (1, 1): [LidoValidatorFactory.build(index=5)],
+        (1, 2): [LidoValidatorFactory.build(index=10)],
+    }
+
+    index = iterator._lowest_validator_index_predicate(iterator.node_operators_stats[(1, 1)])
+    assert index == 5
+
+    index = iterator._lowest_validator_index_predicate(iterator.node_operators_stats[(1, 2)])
+    assert index == 10
