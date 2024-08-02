@@ -286,7 +286,7 @@ class ValidatorExitIteratorV2:
 
         return 0
 
-    def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats):
+    def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         validators = self.exitable_validators[(
             node_operator.node_operator.staking_module.id,
             node_operator.node_operator.id,
@@ -295,7 +295,7 @@ class ValidatorExitIteratorV2:
         # If NO doesn't have exitable validators - sorting by validators index doesn't matter
         first_val_index = 0
         if validators:
-            first_val_index = validators[0].index
+            first_val_index = int(validators[0].index)
 
         return first_val_index
 
