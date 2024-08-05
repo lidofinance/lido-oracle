@@ -37,6 +37,7 @@ def mock_latest_data(consensus):
 @pytest.mark.unit
 def test_process_report_main(consensus, tx_utils, caplog):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(is_report_member=True, current_frame_consensus_report=ZERO_HASH)

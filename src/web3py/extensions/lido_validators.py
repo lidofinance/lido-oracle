@@ -133,7 +133,7 @@ class CountOfKeysDiffersException(Exception):
     pass
 
 
-ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 
 
 class LidoValidatorsProvider(Module):
@@ -144,6 +144,11 @@ class LidoValidatorsProvider(Module):
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
 
+        self._kapi_sanity_check(len(lido_keys), blockstamp)
+
+        return self.merge_validators_with_keys(lido_keys, validators)
+
+    def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
@@ -151,11 +156,9 @@ class LidoValidatorsProvider(Module):
         for node_operator in no_operators:
             total_deposited_validators += node_operator.total_deposited_validators
 
-        if len(lido_keys) < total_deposited_validators:
-            raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({len(lido_keys)}) '
+        if keys_count_received < total_deposited_validators:
+            raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({keys_count_received}) '
                                               f'than amount of deposited validators ({total_deposited_validators}) returned from Staking Router')
-
-        return self.merge_validators_with_keys(lido_keys, validators)
 
     @staticmethod
     def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
