@@ -44,34 +44,41 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validat
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
-    web3.lido_validators.get_lido_node_operators = Mock(return_value=[
-        NodeOperatorFactory.build(total_deposited_validators=2),
-    ])
+    web3.lido_validators.get_lido_node_operators = Mock(
+        return_value=[
+            NodeOperatorFactory.build(total_deposited_validators=2),
+        ]
+    )
 
     with pytest.raises(CountOfKeysDiffersException):
         web3.lido_validators.get_lido_validators(blockstamp)
 
-    web3.lido_validators.get_lido_node_operators = Mock(return_value=[
-        NodeOperatorFactory.build(total_deposited_validators=1),
-    ])
+    web3.lido_validators.get_lido_node_operators = Mock(
+        return_value=[
+            NodeOperatorFactory.build(total_deposited_validators=1),
+        ]
+    )
 
     web3.lido_validators.get_lido_validators(blockstamp)
 
     # Keys can exist in KAPI, but no yet represented on CL
-    web3.lido_validators.get_lido_node_operators = Mock(return_value=[
-        NodeOperatorFactory.build(total_deposited_validators=0),
-    ])
+    web3.lido_validators.get_lido_node_operators = Mock(
+        return_value=[
+            NodeOperatorFactory.build(total_deposited_validators=0),
+        ]
+    )
 
     web3.lido_validators.get_lido_validators(blockstamp)
 
 
 @pytest.mark.unit
 def test_get_lido_node_operators_by_modules(web3, lido_validators, contracts):
-
-    web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[
-        StakingModuleFactory.build(id=1),
-        StakingModuleFactory.build(id=2),
-    ])
+    web3.lido_contracts.staking_router.get_staking_modules = Mock(
+        return_value=[
+            StakingModuleFactory.build(id=1),
+            StakingModuleFactory.build(id=2),
+        ]
+    )
     web3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(side_effect=lambda x, _: list(range(x.id)))
 
     result = web3.lido_validators.get_lido_node_operators_by_modules(blockstamp)
@@ -82,10 +89,12 @@ def test_get_lido_node_operators_by_modules(web3, lido_validators, contracts):
 
 @pytest.mark.unit
 def test_get_node_operators(web3, lido_validators, contracts):
-    web3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={
-        0: [0, 2, 3],
-        1: [1, 5],
-    })
+    web3.lido_validators.get_lido_node_operators_by_modules = Mock(
+        return_value={
+            0: [0, 2, 3],
+            1: [1, 5],
+        }
+    )
 
     node_operators = web3.lido_validators.get_lido_node_operators(blockstamp)
 
@@ -99,40 +108,44 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
     sm1 = StakingModuleFactory.build(id=1)
     sm2 = StakingModuleFactory.build(id=2)
 
-    web3.lido_validators.get_lido_validators = Mock(return_value=[
-        LidoValidatorFactory.build(
-            lido_id=LidoKeyFactory.build(
-                operatorIndex=1,
-                moduleAddress=sm1.staking_module_address,
-            )
-        ),
-        LidoValidatorFactory.build(
-            lido_id=LidoKeyFactory.build(
-                operatorIndex=1,
-                moduleAddress=sm1.staking_module_address,
-            )
-        ),
-        LidoValidatorFactory.build(
-            lido_id=LidoKeyFactory.build(
-                operatorIndex=1,
-                moduleAddress=sm2.staking_module_address,
-            )
-        ),
-    ])
-    web3.lido_validators.get_lido_node_operators = Mock(return_value=[
-        NodeOperatorFactory.build(
-            id=1,
-            staking_module=sm1,
-        ),
-        NodeOperatorFactory.build(
-            id=2,
-            staking_module=sm1,
-        ),
-        NodeOperatorFactory.build(
-            id=1,
-            staking_module=sm2,
-        ),
-    ])
+    web3.lido_validators.get_lido_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build(
+                lido_id=LidoKeyFactory.build(
+                    operatorIndex=1,
+                    moduleAddress=sm1.staking_module_address,
+                )
+            ),
+            LidoValidatorFactory.build(
+                lido_id=LidoKeyFactory.build(
+                    operatorIndex=1,
+                    moduleAddress=sm1.staking_module_address,
+                )
+            ),
+            LidoValidatorFactory.build(
+                lido_id=LidoKeyFactory.build(
+                    operatorIndex=1,
+                    moduleAddress=sm2.staking_module_address,
+                )
+            ),
+        ]
+    )
+    web3.lido_validators.get_lido_node_operators = Mock(
+        return_value=[
+            NodeOperatorFactory.build(
+                id=1,
+                staking_module=sm1,
+            ),
+            NodeOperatorFactory.build(
+                id=2,
+                staking_module=sm1,
+            ),
+            NodeOperatorFactory.build(
+                id=1,
+                staking_module=sm2,
+            ),
+        ]
+    )
 
     no_validators = web3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
