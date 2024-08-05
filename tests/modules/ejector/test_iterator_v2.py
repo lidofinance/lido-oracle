@@ -187,6 +187,11 @@ def test_no_predicate(iterator):
     iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_count = 10000
 
+    iterator.exitable_validators = {
+        (1, 1): [LidoValidatorFactory.build(index=10)],
+        (2, 2): [LidoValidatorFactory.build(index=20)]
+    }
+
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
             exitable_validators=100,
@@ -194,14 +199,14 @@ def test_no_predicate(iterator):
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
-            node_operator=NodeOperatorFactory.build(),
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
             module_stats=ModuleStatsFactory.build(
                 exitable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
     )
-    assert result == (1, -50, -75, -185, 0, -100)
+    assert result == (1, -50, -75, -185, 0, -100, 10)
 
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
@@ -210,14 +215,14 @@ def test_no_predicate(iterator):
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
-            node_operator=NodeOperatorFactory.build(),
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=2)),
             module_stats=ModuleStatsFactory.build(
                 exitable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
     )
-    assert result == (0, -1950, -1975, -185, -1000, -2000)
+    assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
 
 
 @pytest.mark.unit
