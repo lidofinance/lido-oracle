@@ -189,7 +189,7 @@ def test_no_predicate(iterator):
 
     iterator.exitable_validators = {
         (1, 1): [LidoValidatorFactory.build(index=10)],
-        (2, 2): [LidoValidatorFactory.build(index=20)]
+        (2, 2): [LidoValidatorFactory.build(index=20)],
     }
 
     result = iterator._no_predicate(
