@@ -13,8 +13,6 @@ class OracleModule(StrEnum):
     CSM = 'csm'
 
 
-type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
-
 EpochNumber = NewType('EpochNumber', int)
 FrameNumber = NewType('FrameNumber', int)
 StateRoot = NewType('StateRoot', HexStr)
@@ -36,6 +34,8 @@ CommitteeIndex = NewType('CommitteeIndex', int)
 FinalizationBatches = NewType('FinalizationBatches', list[int])
 WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
+
+type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
 
 
 @dataclass(frozen=True)
