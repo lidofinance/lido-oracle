@@ -13,6 +13,8 @@ class OracleModule(StrEnum):
     CSM = 'csm'
 
 
+type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
+
 EpochNumber = NewType('EpochNumber', int)
 FrameNumber = NewType('FrameNumber', int)
 StateRoot = NewType('StateRoot', HexStr)

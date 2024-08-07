@@ -9,21 +9,11 @@ from src.types import (
     SlotNumber,
     Gwei,
     StakingModuleId,
-    NodeOperatorGlobalIndex,
     FinalizationBatches,
     ELVaultBalance,
     WithdrawalVaultBalance,
+    OperatorsValidatorCount,
 )
-
-type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
-type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
-type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[IsBunker, FinalizationShareRate, FinalizationBatches]
-type SharesToBurn = int
-IsBunker = NewType('IsBunker', bool)
-FinalizationShareRate = NewType('FinalizationShareRate', int)
-ValidatorsCount = NewType('ValidatorsCount', int)
-ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
 
 @dataclass
@@ -139,3 +129,13 @@ class WithdrawalRequestStatus:
     timestamp: int
     is_finalized: bool
     is_claimed: bool
+
+
+type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
+type SharesToBurn = int
+BunkerMode = NewType('BunkerMode', bool)
+FinalizationShareRate = NewType('FinalizationShareRate', int)
+ValidatorsCount = NewType('ValidatorsCount', int)
+ValidatorsBalance = NewType('ValidatorsBalance', Gwei)

@@ -15,7 +15,7 @@ from src.modules.accounting.types import (
     GenericExtraData,
     WqReport,
     RebaseReport,
-    IsBunker,
+    BunkerMode,
     FinalizationShareRate,
     ValidatorsCount,
     ValidatorsBalance,
@@ -278,7 +278,7 @@ class Accounting(BaseModule, ConsensusModule):
         return slots_elapsed
 
     @lru_cache(maxsize=1)
-    def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> IsBunker:
+    def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> BunkerMode:
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
@@ -290,7 +290,7 @@ class Accounting(BaseModule, ConsensusModule):
             cl_rebase_report,
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
-        return IsBunker(bunker_mode)
+        return BunkerMode(bunker_mode)
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
