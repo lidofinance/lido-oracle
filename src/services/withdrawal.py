@@ -3,7 +3,7 @@ from web3.types import Wei
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
-from src.types import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp, FinalizationBatches
 from src.services.safe_border import SafeBorder
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.modules.accounting.types import BatchState
@@ -36,14 +36,14 @@ class Withdrawal:
         share_rate: int,
         withdrawal_vault_balance: Wei,
         el_rewards_vault_balance: Wei
-    ) -> list[int]:
+    ) -> FinalizationBatches:
         on_pause = self.w3.lido_contracts.withdrawal_queue_nft.is_paused(self.blockstamp.block_hash)
         CONTRACT_ON_PAUSE.labels('finalization').set(on_pause)
         if on_pause:
-            return []
+            return FinalizationBatches([])
 
         if not self._has_unfinalized_requests():
-            return []
+            return FinalizationBatches([])
 
         withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode)
         withdrawable_until_timestamp = (
@@ -53,7 +53,7 @@ class Withdrawal:
         )
         available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance)
 
-        return self._calculate_finalization_batches(share_rate, available_eth, withdrawable_until_timestamp)
+        return FinalizationBatches(self._calculate_finalization_batches(share_rate, available_eth, withdrawable_until_timestamp))
 
     def _has_unfinalized_requests(self) -> bool:
         last_finalized_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)

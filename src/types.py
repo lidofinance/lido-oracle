@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import NewType
 
 from eth_typing import BlockNumber, ChecksumAddress, HexStr
-from web3.types import Timestamp
+from web3.types import Timestamp, Wei
 
 
 class OracleModule(StrEnum):
@@ -30,6 +30,10 @@ Gwei = NewType('Gwei', int)
 
 ValidatorIndex = NewType('ValidatorIndex', int)
 CommitteeIndex = NewType('CommitteeIndex', int)
+
+FinalizationBatches = NewType('FinalizationBatches', list[int])
+WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
+ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 
 @dataclass(frozen=True)
