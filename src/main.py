@@ -16,6 +16,7 @@ from src.modules.csm.csm import CSOracle
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
+from src.utils.exception import IncompatibleException
 from src.web3py.extensions import (
     LidoContracts,
     TransactionUtils,
@@ -32,10 +33,6 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 
 
 logger = logging.getLogger(__name__)
-
-
-class IncompatibleException(Exception):
-    pass
 
 
 def main(module_name: OracleModule):

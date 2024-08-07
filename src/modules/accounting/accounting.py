@@ -12,6 +12,13 @@ from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     ReportData,
     LidoReportRebase,
+    GenericExtraData,
+    WqReport,
+    RebaseReport,
+    BunkerMode,
+    FinalizationShareRate,
+    ValidatorsCount,
+    ValidatorsBalance,
 )
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
@@ -26,12 +33,12 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.exception import IncompatibleException
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
-
 
 logger = logging.getLogger(__name__)
 
@@ -135,37 +142,20 @@ class Accounting(BaseModule, ConsensusModule):
         return ALLOW_REPORTING_IN_BUNKER_MODE
 
     # ---------------------------------------- Build report ----------------------------------------
-    def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
-        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+    def _calculate_report(self, blockstamp: ReferenceBlockStamp):
+        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
+        logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
 
-        staking_module_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
+        # Have branching at a high level when collecting a report
+        # or in the `execute_module` method
+        if consensus_version == 1:
+            report_data = self._calculate_report_v1(blockstamp)
+        elif consensus_version == 2:
+            report_data = self._calculate_report_v2(blockstamp)
+        else:
+            raise IncompatibleException("Consensus version is not supported")
 
-        extra_data = self.get_extra_data(blockstamp)
-        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
-
-        report_data = ReportData(
-            consensus_version=self.report_contract.get_consensus_version(blockstamp.block_hash),
-            ref_slot=blockstamp.ref_slot,
-            validators_count=validators_count,
-            cl_balance_gwei=cl_balance,
-            staking_module_ids_with_exited_validators=staking_module_ids_list,
-            count_exited_validators_by_staking_module=exit_validators_count_list,
-            withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
-            el_rewards_vault_balance=self.w3.lido_contracts.get_el_vault_balance(blockstamp),
-            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
-            withdrawal_finalization_batches=finalization_batches,
-            finalization_share_rate=finalization_share_rate,
-            is_bunker=self._is_bunker(blockstamp),
-            extra_data_format=extra_data.format,
-            extra_data_hash=extra_data.data_hash,
-            extra_data_items_count=extra_data.items_count,
-        )
-
-        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
-        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
-        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
-        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
-
+        self._update_metrics(report_data)
         return report_data
 
     def _get_newly_exited_validators_by_modules(
@@ -199,16 +189,16 @@ class Accounting(BaseModule, ConsensusModule):
         return list(module_stats.keys()), list(module_stats.values())
 
     @lru_cache(maxsize=1)
-    def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[int, Gwei]:
+    def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         count = len(lido_validators)
         total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
 
         logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
-        return count, total_balance
+        return ValidatorsCount(count), ValidatorsBalance(total_balance)
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[int, list[int]]:
+    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -227,7 +217,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return share_rate, batches
+        return FinalizationShareRate(share_rate), batches
 
     @lru_cache(maxsize=1)
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
@@ -288,7 +278,7 @@ class Accounting(BaseModule, ConsensusModule):
         return slots_elapsed
 
     @lru_cache(maxsize=1)
-    def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> bool:
+    def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> BunkerMode:
         frame_config = self.get_frame_config(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
@@ -300,7 +290,7 @@ class Accounting(BaseModule, ConsensusModule):
             cl_rebase_report,
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})
-        return bunker_mode
+        return BunkerMode(bunker_mode)
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
@@ -326,4 +316,104 @@ class Accounting(BaseModule, ConsensusModule):
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
+        )
+
+    @lru_cache(maxsize=1)
+    def _get_generic_extra_data(self, blockstamp: ReferenceBlockStamp) -> GenericExtraData:
+        chain_config = self.get_chain_config(blockstamp)
+        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
+        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
+        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
+        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        return stuck_validators, exited_validators, orl
+
+    def _calculate_report_v1(self, blockstamp: ReferenceBlockStamp) -> ReportData:
+        # Separate parts of the report into separate methods.
+        # This way we can reuse the identical parts when collecting reports
+        # for different consensus versions without unnecessary code duplication.
+        rebase_part = self._calculate_rebase_report(blockstamp)
+        modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
+        wq_part = self._calculate_wq_report(blockstamp)
+
+        # Distinct parts explicitly labeled by version
+        # So at the top level it is clear in which parts the reports will differ
+        extra_data_part_v1 = self._calculate_extra_data_report_v1(blockstamp)
+        return self._combine_report_parts(1, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v1)
+
+    def _calculate_report_v2(self, blockstamp: ReferenceBlockStamp) -> ReportData:
+        rebase_part = self._calculate_rebase_report(blockstamp)
+        modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
+        wq_part = self._calculate_wq_report(blockstamp)
+
+        extra_data_part_v2 = self._calculate_extra_data_report_v2(blockstamp)
+        return self._combine_report_parts(2, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v2)
+
+    # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
+    def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
+        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+        withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
+        el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
+        shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
+        return validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn
+
+    # calculates is_bunker, finalization_share_rate, finalization_batches
+    def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
+        is_bunker = self._is_bunker(blockstamp)
+        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
+        return is_bunker, finalization_share_rate, finalization_batches
+
+    def _calculate_extra_data_report_v1(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        return ExtraDataService.collect(
+            stuck_validators,
+            exited_validators,
+            orl.max_items_per_extra_data_transaction,
+            orl.max_node_operators_per_extra_data_item,
+        )
+
+    def _calculate_extra_data_report_v2(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        return ExtraDataServiceV2.collect(
+            stuck_validators,
+            exited_validators,
+            orl.max_items_per_extra_data_transaction,
+            orl.max_node_operators_per_extra_data_item,
+        )
+
+    @staticmethod
+    def _update_metrics(report_data: ReportData):
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
+        ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
+
+    @staticmethod
+    def _combine_report_parts(
+        consensus_version: int,
+        blockstamp: ReferenceBlockStamp,
+        report_rebase_part: RebaseReport,
+        report_modules_part: tuple[list[StakingModuleId], list[int]],
+        report_wq_part: WqReport,
+        extra_data: ExtraData
+    ) -> ReportData:
+        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
+        staking_module_ids_list, exit_validators_count_list = report_modules_part
+        is_bunker, finalization_share_rate, finalization_batches = report_wq_part
+        return ReportData(
+            consensus_version=consensus_version,
+            ref_slot=blockstamp.ref_slot,
+            validators_count=validators_count,
+            cl_balance_gwei=cl_balance,
+            staking_module_ids_with_exited_validators=staking_module_ids_list,
+            count_exited_validators_by_staking_module=exit_validators_count_list,
+            withdrawal_vault_balance=withdrawal_vault_balance,
+            el_rewards_vault_balance=el_rewards_vault_balance,
+            shares_requested_to_burn=shares_requested_to_burn,
+            withdrawal_finalization_batches=finalization_batches,
+            finalization_share_rate=finalization_share_rate,
+            is_bunker=is_bunker,
+            extra_data_format=extra_data.format,
+            extra_data_hash=extra_data.data_hash,
+            extra_data_items_count=extra_data.items_count,
         )
