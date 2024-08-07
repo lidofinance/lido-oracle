@@ -131,11 +131,12 @@ class WithdrawalRequestStatus:
     is_claimed: bool
 
 
-type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
-type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
-type SharesToBurn = int
 BunkerMode = NewType('BunkerMode', bool)
 FinalizationShareRate = NewType('FinalizationShareRate', int)
 ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
+
+type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
+type SharesToBurn = int
