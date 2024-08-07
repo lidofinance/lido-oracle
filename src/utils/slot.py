@@ -1,6 +1,5 @@
 import logging
 from http import HTTPStatus
-from typing import Literal
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockHeaderFullResponse, BlockDetailsResponse
