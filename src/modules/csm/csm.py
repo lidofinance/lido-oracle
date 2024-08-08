@@ -38,7 +38,7 @@ class CSMError(Exception):
 class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
-    distribution of shares among the oprators. The root of the tree is then submitted to the module contract.
+    distribution of shares among the operators. The root of the tree is then submitted to the module contract.
 
     The algorithm for calculating performance includes the following steps:
         1. Collect all the attestation duties of the network validators for the frame.
@@ -273,11 +273,14 @@ class CSOracle(BaseModule, ConsensusModule):
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
             raise ValueError("CSM oracle initial epoch is not set yet")
 
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        l_ref_slot = last_processing_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
+        if last_processing_ref_slot > blockstamp.slot_number:
+            raise ValueError(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
+
         # The very first report, no previous ref slot.
-        if not l_ref_slot:
+        if not last_processing_ref_slot:
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise CSMError("Invalid frame configuration for the current network")
@@ -292,6 +295,11 @@ class CSOracle(BaseModule, ConsensusModule):
             r_ref_slot = converter.get_epoch_last_slot(
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
+
+        if last_processing_ref_slot > r_ref_slot:
+            raise CSMError(f"{last_processing_ref_slot=} > {r_ref_slot=}")
+        if r_ref_slot < l_ref_slot:
+            raise CSMError(f"{r_ref_slot=} < {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)

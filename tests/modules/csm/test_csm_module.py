@@ -1,15 +1,26 @@
+from dataclasses import dataclass
+from typing import NoReturn
 from unittest.mock import Mock
 
 import pytest
 
+from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAggregate, State
-from src.types import NodeOperatorId, ValidatorIndex
+from src.modules.submodules.types import CurrentFrame
+from src.types import NodeOperatorId, SlotNumber, ValidatorIndex
 from src.web3py.extensions.csm import CSM
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture()
-def module(web3, csm: CSM):
+def do_not_load_state(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(State, "load", Mock())
+
+
+@pytest.fixture()
+def module(web3, csm: CSM, do_not_load_state: NoReturn):
     yield CSOracle(web3)
 
 
@@ -63,3 +74,147 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         (NodeOperatorId(3), 3125),
         (NodeOperatorId(6), 3125),
     )
+
+
+# Static functions you were dreaming of for so long.
+
+
+def last_slot_of_epoch(epoch: int) -> int:
+    return epoch * 32 + 31
+
+
+def slot_to_epoch(slot: int) -> int:
+    return slot // 32
+
+
+@pytest.fixture()
+def mock_chain_config(module: CSOracle):
+    module.get_chain_config = Mock(
+        return_value=ChainConfigFactory.build(
+            slots_per_epoch=32,
+            seconds_per_slot=12,
+            genesis_time=0,
+        )
+    )
+
+
+# FAR_FUTURE_EPOCH from constants is not an epoch in a sense.
+# The constant works as far the chain config isn't changed,
+# especially genesis_time = 0.
+FAR_FUTURE_EPOCH = (UINT64_MAX - 0) // 12 // 32
+
+
+@dataclass(frozen=True)
+class FrameTestParam:
+    epochs_per_frame: int
+    initial_ref_slot: int
+    last_processing_ref_slot: int
+    current_ref_slot: int
+    finalized_slot: int
+    expected_frame: tuple[int, int]
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=0,
+                initial_ref_slot=last_slot_of_epoch(FAR_FUTURE_EPOCH),
+                last_processing_ref_slot=0,
+                current_ref_slot=0,
+                finalized_slot=0,
+                expected_frame=(0, 0),
+            ),
+            id="initial_epoch_not_set",
+            marks=pytest.mark.xfail(raises=ValueError),
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=1575,
+                initial_ref_slot=2017759,
+                last_processing_ref_slot=2168959,
+                current_ref_slot=2219359,
+                finalized_slot=2261631,
+                expected_frame=(67780, 69354),
+            ),
+            id="holesky_testnet",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=32,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=0,
+                current_ref_slot=0,
+                finalized_slot=0,
+                expected_frame=(69, 100),
+            ),
+            id="not_yet_reached_initial_epoch",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=32,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=0,
+                current_ref_slot=last_slot_of_epoch(164),
+                finalized_slot=last_slot_of_epoch(170),
+                expected_frame=(69, 164),
+            ),
+            id="frame_0",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=0,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=last_slot_of_epoch(100),
+                current_ref_slot=last_slot_of_epoch(132),
+                finalized_slot=last_slot_of_epoch(124),
+                expected_frame=(101, 132),
+            ),
+            id="frame_1",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=0,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=last_slot_of_epoch(132),
+                current_ref_slot=last_slot_of_epoch(196),
+                finalized_slot=last_slot_of_epoch(200),
+                expected_frame=(133, 196),
+            ),
+            id="one_frame_missed",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=0,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=last_slot_of_epoch(90),
+                current_ref_slot=last_slot_of_epoch(132),
+                finalized_slot=last_slot_of_epoch(124),
+                expected_frame=(91, 132),
+            ),
+            id="initial_epoch_moved_forward_with_missed_frame",
+        ),
+    ],
+)
+def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoReturn, param: FrameTestParam):
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            initial_epoch=slot_to_epoch(param.initial_ref_slot),
+            epochs_per_frame=param.epochs_per_frame,
+            fast_lane_length_slots=...,
+        )
+    )
+
+    csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
+    module.get_current_frame = Mock(
+        return_value=CurrentFrame(
+            ref_slot=SlotNumber(param.current_ref_slot),
+            report_processing_deadline_slot=SlotNumber(0),
+        )
+    )
+    module.get_initial_ref_slot = Mock(return_value=param.initial_ref_slot)
+    bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
+
+    l_epoch, r_epoch = module.current_frame_range(bs)
+    assert (l_epoch, r_epoch) == param.expected_frame
