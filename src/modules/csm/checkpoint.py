@@ -206,7 +206,7 @@ class CheckpointProcessor:
             self.state.status()
             unprocessed_epochs = self.state.unprocessed_epochs
             CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))
-            CSM_MIN_UNPROCESSED_EPOCH.set(min(unprocessed_epochs or {EpochNumber(0)}))
+            CSM_MIN_UNPROCESSED_EPOCH.set(min(unprocessed_epochs or {EpochNumber(-1)}))
 
     @timeit(
         lambda args, duration: logger.info(
