@@ -160,6 +160,17 @@ class FrameTestParam:
                 finalized_slot=last_slot_of_epoch(170),
                 expected_frame=(69, 164),
             ),
+            id="first_report_with_missed_frames",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=32,
+                initial_ref_slot=last_slot_of_epoch(100),
+                last_processing_ref_slot=0,
+                current_ref_slot=last_slot_of_epoch(100),
+                finalized_slot=last_slot_of_epoch(120),
+                expected_frame=(69, 100),
+            ),
             id="frame_0",
         ),
         pytest.param(
