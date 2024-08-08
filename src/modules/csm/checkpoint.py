@@ -7,6 +7,7 @@ from typing import Iterable, Sequence
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT
+from src.metrics.prometheus.csm import CSM_UNPROCESSED_EPOCHS_COUNT, CSM_MIN_UNPROCESSED_EPOCH
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 lock = Lock()
 
 
-class MinStepIsNotReached(Exception): ...
+class MinStepIsNotReached(Exception):
+    ...
 
 
 @dataclass
@@ -202,6 +204,9 @@ class CheckpointProcessor:
             self.state.add_processed_epoch(duty_epoch)
             self.state.commit()
             self.state.status()
+            unprocessed_epochs = self.state.unprocessed_epochs
+            CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))
+            CSM_MIN_UNPROCESSED_EPOCH.set(min(unprocessed_epochs or {0}))
 
     @timeit(
         lambda args, duration: logger.info(
