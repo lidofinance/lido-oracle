@@ -22,13 +22,13 @@ class SlotNotFinalized(Exception):
     pass
 
 
-def _get_closest_non_missed_headers(
+def _get_non_missed_slot_header(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
 ) -> tuple[bool, BlockHeaderFullResponse]:
     """
-    Get closest non-missed slot and returns its header.
+    Get non-missed slot header near to `slot` in range [slot, last_finalized_slot_number].
 
     Raise NoSlotsAvailable if all slots are missed in range [slot, last_finalized_slot_number]
     and we have nowhere to take parent root.
@@ -95,9 +95,9 @@ def get_prev_non_missed_slot(
     """
     Get non-missed slot data. In case of missed slot, we take parent root and get parent slot data.
     """
-    slot_is_missing, existing_header = _get_closest_non_missed_headers(cc, slot, last_finalized_slot_number)
+    is_slot_missing, existing_header = _get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
 
-    if not slot_is_missing:
+    if not is_slot_missing:
         return cc.get_block_details(existing_header.data.root)
 
     non_missed_header_parent_root = existing_header.data.header.message.parent_root
@@ -124,7 +124,7 @@ def get_next_non_missed_slot(
     """
     Get non-missed slot data. In case of missed slot, we take first next non-missed slot.
     """
-    _, existing_header = _get_closest_non_missed_headers(cc, slot, last_finalized_slot_number)
+    _, existing_header = _get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
     return cc.get_block_details(existing_header.data.root)
 
 
