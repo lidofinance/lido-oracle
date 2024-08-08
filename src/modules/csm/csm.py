@@ -17,6 +17,7 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.providers.execution.exceptions import InconsistentData
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
@@ -277,7 +278,7 @@ class CSOracle(BaseModule, ConsensusModule):
         r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
         if last_processing_ref_slot > blockstamp.slot_number:
-            raise ValueError(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
+            raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
 
         # The very first report, no previous ref slot.
         if not last_processing_ref_slot:
@@ -297,9 +298,9 @@ class CSOracle(BaseModule, ConsensusModule):
             )
 
         if last_processing_ref_slot > r_ref_slot:
-            raise CSMError(f"{last_processing_ref_slot=} > {r_ref_slot=}")
-        if r_ref_slot < l_ref_slot:
-            raise CSMError(f"{r_ref_slot=} < {l_ref_slot=}")
+            raise CSMError(f"HashConsensus invariant is broken: {last_processing_ref_slot=} > {r_ref_slot=}")
+        if l_ref_slot >= r_ref_slot:
+            raise CSMError(f"Got invalid frame range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
