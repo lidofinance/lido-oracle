@@ -1,11 +1,19 @@
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, NewType
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.types import SlotNumber, Gwei, StakingModuleId
+from src.types import (
+    SlotNumber,
+    Gwei,
+    StakingModuleId,
+    FinalizationBatches,
+    ELVaultBalance,
+    WithdrawalVaultBalance,
+    OperatorsValidatorCount,
+)
 
 
 @dataclass
@@ -121,3 +129,14 @@ class WithdrawalRequestStatus:
     timestamp: int
     is_finalized: bool
     is_claimed: bool
+
+
+BunkerMode = NewType('BunkerMode', bool)
+FinalizationShareRate = NewType('FinalizationShareRate', int)
+ValidatorsCount = NewType('ValidatorsCount', int)
+ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
+
+type SharesToBurn = int
+type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]

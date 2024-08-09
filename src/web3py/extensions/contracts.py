@@ -19,7 +19,7 @@ from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonC
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract, StakingRouterContractV2
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import BlockStamp, SlotNumber
+from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
 
@@ -150,21 +150,21 @@ class LidoContracts(Module):
 
     # --- Contract methods ---
     @lru_cache(maxsize=1)
-    def get_withdrawal_balance(self, blockstamp: BlockStamp) -> Wei:
+    def get_withdrawal_balance(self, blockstamp: BlockStamp) -> WithdrawalVaultBalance:
         return self.get_withdrawal_balance_no_cache(blockstamp)
 
-    def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
+    def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> WithdrawalVaultBalance:
+        return WithdrawalVaultBalance(Wei(self.w3.eth.get_balance(
             self.lido_locator.withdrawal_vault(blockstamp.block_hash),
             block_identifier=blockstamp.block_hash,
-        ))
+        )))
 
     @lru_cache(maxsize=1)
-    def get_el_vault_balance(self, blockstamp: BlockStamp) -> Wei:
-        return Wei(self.w3.eth.get_balance(
+    def get_el_vault_balance(self, blockstamp: BlockStamp) -> ELVaultBalance:
+        return ELVaultBalance(Wei(self.w3.eth.get_balance(
             self.lido_locator.el_rewards_vault(blockstamp.block_hash),
             block_identifier=blockstamp.block_hash,
-        ))
+        )))
 
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
