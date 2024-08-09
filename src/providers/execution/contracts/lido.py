@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 
 from eth_typing import ChecksumAddress
 from web3.types import Wei, BlockIdentifier
@@ -70,6 +71,7 @@ class LidoContract(ContractInterface):
         })
         return response
 
+    @lru_cache(maxsize=1)
     def get_buffered_ether(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
         """
         Get the amount of Ether temporary buffered on this contract balance
@@ -86,6 +88,7 @@ class LidoContract(ContractInterface):
         })
         return Wei(response)
 
+    @lru_cache(maxsize=1)
     def total_supply(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
         """
         return the amount of tokens in existence.

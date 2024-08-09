@@ -147,7 +147,6 @@ class Ejector(BaseModule, ConsensusModule):
 
         return validators_to_eject
 
-    @lru_cache(maxsize=1)
     def _get_total_expected_balance(self, vals_to_exit: int, blockstamp: ReferenceBlockStamp):
         chain_config = self.get_chain_config(blockstamp)
 
@@ -199,7 +198,6 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
         return not on_pause
 
-    @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
 
@@ -220,6 +218,7 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
         return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
 
+    @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
         return Wei(
             self.w3.lido_contracts.get_el_vault_balance(blockstamp) +
@@ -227,7 +226,6 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.lido_contracts.lido.get_buffered_ether(blockstamp.block_hash)
         )
 
-    @lru_cache(maxsize=1)
     def _get_predicted_withdrawable_epoch(
         self,
         blockstamp: ReferenceBlockStamp,
@@ -250,6 +248,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
+    @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, int]:
         """
         Returns the latest exit epoch and amount of validators that are exiting in this epoch
