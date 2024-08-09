@@ -10,14 +10,15 @@ from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import CheckpointProcessor, CheckpointsIterator, MinStepIsNotReached
+from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
-from src.modules.csm.types import ReportData
+from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
+from src.providers.ipfs.cid import CID
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_next_non_missed_slot
@@ -86,39 +87,40 @@ class CSOracle(BaseModule, ConsensusModule):
         r_epoch = blockstamp.ref_epoch
 
         self.state.validate(l_epoch, r_epoch)
-        self.state.status()
+        self.state.log_status()
 
         distributed, shares = self.calculate_distribution(blockstamp)
         if not distributed:
             logger.info({"msg": "No shares distributed in the current frame"})
 
         # Load the previous tree if any.
-        root = self.w3.csm.get_csm_tree_root(blockstamp)
-        cid = self.w3.csm.get_csm_tree_cid(blockstamp)
+        prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
+        prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if cid:
-            logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-            last_tree = Tree.decode(self.w3.ipfs.fetch(cid))
+        if prev_cid:
+            logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(prev_cid)})
+            ipfs_tree = Tree.decode(self.w3.ipfs.fetch(prev_cid))
 
-            if last_tree.root != root:
+            if ipfs_tree.root != prev_root:
                 raise ValueError("Unexpected tree root got from IPFS dump")
 
-            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(root)})
+            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(prev_root)})
             # Update cumulative amount of shares for all operators.
-            for v in last_tree.tree.values:
+            for v in ipfs_tree.tree.values:
                 no_id, amount = v["value"]
                 shares[no_id] += amount
 
         tree = self.make_tree(shares)
+        cid: CID | None = None
+
         if tree:
             cid = self.w3.ipfs.publish(tree.encode())
-            root = tree.root
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
-            tree_root=root,
-            tree_cid=cid,
+            tree_root=tree.root if tree else prev_root,
+            tree_cid=cid or prev_cid,
             distributed=distributed,
         ).as_tuple()
 
@@ -154,7 +156,8 @@ class CSOracle(BaseModule, ConsensusModule):
         )
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
-        """Ongoing report data collection before the report ref slot and it's submission"""
+        """Ongoing report data collection for the estimated reference slot"""
+
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -168,20 +171,20 @@ class CSOracle(BaseModule, ConsensusModule):
             return False
 
         self.state.migrate(l_epoch, r_epoch)
-        self.state.status()
+        self.state.log_status()
 
         if done := self.state.is_fulfilled:
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
             return done
 
         try:
-            checkpoints = CheckpointsIterator(
+            checkpoints = FrameCheckpointsIterator(
                 converter, min(self.state.unprocessed_epochs) or l_epoch, r_epoch, finalized_epoch
             )
         except MinStepIsNotReached:
             return False
 
-        processor = CheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
+        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
@@ -248,7 +251,7 @@ class CSOracle(BaseModule, ConsensusModule):
             blockstamp.block_hash,
         )
 
-    def make_tree(self, shares) -> Tree | None:
+    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree | None:
         if not shares:
             return None
 
