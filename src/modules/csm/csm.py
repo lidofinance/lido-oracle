@@ -297,8 +297,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
 
-        if last_processing_ref_slot > r_ref_slot:
-            raise CSMError(f"HashConsensus invariant is broken: {last_processing_ref_slot=} > {r_ref_slot=}")
+        if l_ref_slot < last_processing_ref_slot:
+            raise CSMError(f"Got invalid frame range: {l_ref_slot=} < {last_processing_ref_slot=}")
         if l_ref_slot >= r_ref_slot:
             raise CSMError(f"Got invalid frame range {r_ref_slot=}, {l_ref_slot=}")
 
