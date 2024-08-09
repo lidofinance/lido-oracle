@@ -50,22 +50,6 @@ class CSM(Module):
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-    def get_csm_stuck_node_operators(
-        self, l_block: BlockIdentifier, r_block: BlockIdentifier
-    ) -> Iterable[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the blocks identifiers)"""
-
-        stuck: set[NodeOperatorId] = set()
-        stuck.update(self.module.get_stuck_operators_ids(l_block))
-        stuck.update(
-            self.get_operators_with_stucks_in_range(
-                l_block,
-                r_block,
-            )
-        )
-
-        return stuck
-
     def get_operators_with_stucks_in_range(
         self,
         l_block: BlockIdentifier,

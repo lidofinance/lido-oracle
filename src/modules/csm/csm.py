@@ -18,10 +18,11 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
+from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
+from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator, NodeOperator
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -233,19 +234,28 @@ class CSOracle(BaseModule, ConsensusModule):
         return distributed, shares
 
     def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
+        stuck: set[NodeOperatorId] = set()
         l_epoch, _ = self.current_frame_range(blockstamp)
         l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
-        return self.w3.csm.get_csm_stuck_node_operators(
+        l_blockstamp = build_blockstamp(
             get_first_non_missed_slot(
                 self.w3.cc,
                 l_ref_slot,
                 blockstamp.slot_number,
                 direction='forward',
-            ).message.body.execution_payload.block_hash,
-            blockstamp.block_hash,
+            )
         )
+        no_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
+        stuck.update({no.id for no in no_by_module.get(self.module.id) if no.stuck_validators_count > 0})
+        stuck.update(
+            self.w3.csm.get_operators_with_stucks_in_range(
+                l_blockstamp.block_hash,
+                blockstamp.block_hash,
+            )
+        )
+        return stuck
 
     def make_tree(self, shares) -> Tree | None:
         if not shares:
