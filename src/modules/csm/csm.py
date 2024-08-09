@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from functools import cached_property
 from typing import Iterable
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
@@ -137,22 +136,10 @@ class CSOracle(BaseModule, ConsensusModule):
         CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
         return not on_pause
 
-    @cached_property
-    def module(self) -> StakingModule:
-        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
-            self._receive_last_finalized_slot().block_hash
-        )
-
-        for mod in modules:
-            if mod.staking_module_address == self.w3.csm.module.address:
-                return mod
-
-        raise NoModuleFound
-
     @lru_cache(maxsize=1)
     def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_module_validators_by_node_operators(
-            StakingModuleAddress(self.module.staking_module_address), blockstamp
+            StakingModuleAddress(self.w3.csm.module.address), blockstamp
         )
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
@@ -316,3 +303,15 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
+
+    # XXX: Call in __init__ after PR #500.
+    def _check_module(self) -> None:
+        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
+            self._receive_last_finalized_slot().block_hash
+        )
+
+        for mod in modules:
+            if mod.staking_module_address == self.w3.csm.module.address:
+                return
+
+        raise NoModuleFound
