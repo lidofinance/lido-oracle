@@ -4,9 +4,9 @@ from functools import lru_cache
 from eth_typing import ChecksumAddress
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.types import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
-
+from utils.abi import named_tuple_to_dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -104,3 +104,22 @@ class LidoContract(ContractInterface):
             'block_identifier': repr(block_identifier),
         })
         return Wei(response)
+
+    @lru_cache(maxsize=1)
+    def get_beacon_stat(self, block_identifier: BlockIdentifier = 'latest') -> BeaconStat:
+        """
+        Returns the key values related to Consensus Layer side of the contract. It historically contains beacon
+
+        depositedValidators - number of deposited validators from Lido contract side
+        beaconValidators - number of Lido validators visible on Consensus Layer, reported by oracle
+        beaconBalance - total amount of ether on the Consensus Layer side (sum of all the balances of Lido validators)
+        """
+        response = self.functions.getBeaconStat().call(block_identifier=block_identifier)
+        response = named_tuple_to_dataclass(response, BeaconStat)
+
+        logger.info({
+            'msg': 'Call `getBeaconStat()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+        })
+        return response

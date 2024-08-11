@@ -43,7 +43,7 @@ class StakingRouterContract(ContractInterface):
 
     def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
         """
-        Returns node operator digest for each node operator in lido protocol
+        Returns node operator digests for each node operator in staking module
         """
         response = []
         i = 0
@@ -55,6 +55,13 @@ class StakingRouterContract(ContractInterface):
                 EL_REQUESTS_BATCH_SIZE,
             ).call(block_identifier=block_identifier)
 
+            logger.info({
+                'msg': f'Call `getNodeOperatorDigests({module.id}, {i * EL_REQUESTS_BATCH_SIZE}, {EL_REQUESTS_BATCH_SIZE})`.',
+                # Too long response
+                'value': len(response),
+                'block_identifier': repr(block_identifier),
+            })
+
             i += 1
             response.extend(nos)
 
@@ -62,13 +69,6 @@ class StakingRouterContract(ContractInterface):
                 break
 
         response = [NodeOperator.from_response(no, module) for no in response]
-
-        logger.info({
-            'msg': f'Call `getAllNodeOperatorDigests({module.id})`.',
-            # Too long response
-            'value': len(response),
-            'block_identifier': repr(block_identifier),
-        })
         return response
 
 

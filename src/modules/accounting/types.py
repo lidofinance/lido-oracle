@@ -140,3 +140,10 @@ type SharesToBurn = int
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
+
+
+@dataclass
+class BeaconStat:
+    deposited_validators: int
+    beacon_validators: int
+    beacon_balance: int
