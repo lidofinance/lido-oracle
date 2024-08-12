@@ -143,29 +143,29 @@ def test_eject_validator(iterator):
     iterator._prepare_data_structure()
     iterator._calculate_lido_stats()
 
-    assert iterator.module_stats[1].exitable_validators == 5
-    assert iterator.module_stats[2].exitable_validators == 2
-    assert iterator.node_operators_stats[(1, 1)].exitable_validators == 3
+    assert iterator.module_stats[1].predictable_validators == 5
+    assert iterator.module_stats[2].predictable_validators == 2
+    assert iterator.node_operators_stats[(1, 1)].predictable_validators == 3
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
     assert iterator.node_operators_stats[(2, 1)].force_exit_to is not None
     assert iterator.exitable_validators[(2, 1)][0].index == '7'
-    assert iterator.total_lido_exitable_validators == 7
+    assert iterator.total_lido_validators == 7
 
     prev_total_age = iterator.node_operators_stats[(1, 1)].total_age
 
     iterator._eject_validator((1, 1))
 
-    assert iterator.total_lido_exitable_validators == 6
-    assert iterator.module_stats[1].exitable_validators == 4
-    assert iterator.node_operators_stats[(1, 1)].exitable_validators == 2
+    assert iterator.total_lido_validators == 6
+    assert iterator.module_stats[1].predictable_validators == 4
+    assert iterator.node_operators_stats[(1, 1)].predictable_validators == 2
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
     iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_count = 1000
-    iterator._load_constants = Mock()
+    iterator._load_blockchain_state = Mock()
 
     validators_to_eject = list(iterator)
     assert len(validators_to_eject) == 3
@@ -183,9 +183,14 @@ def test_eject_validator(iterator):
 
 @pytest.mark.unit
 def test_no_predicate(iterator):
-    iterator.total_lido_exitable_validators = 1000
+    iterator.total_lido_validators = 1000
     iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_count = 10000
+
+    iterator.exitable_validators = {
+        (1, 1): [LidoValidatorFactory.build(index=10)],
+        (2, 2): [LidoValidatorFactory.build(index=20)],
+    }
 
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
@@ -194,14 +199,14 @@ def test_no_predicate(iterator):
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
-            node_operator=NodeOperatorFactory.build(),
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
             module_stats=ModuleStatsFactory.build(
                 exitable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
     )
-    assert result == (1, -50, -75, -185, 0, -100)
+    assert result == (1, -50, -75, -185, 0, -100, 10)
 
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
@@ -210,14 +215,14 @@ def test_no_predicate(iterator):
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
-            node_operator=NodeOperatorFactory.build(),
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=2)),
             module_stats=ModuleStatsFactory.build(
                 exitable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
     )
-    assert result == (0, -1950, -1975, -185, -1000, -2000)
+    assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
 
 
 @pytest.mark.unit
@@ -253,7 +258,7 @@ def test_no_force_and_soft_predicate(iterator):
 
 @pytest.mark.unit
 def test_max_share_rate_coefficient_predicate(iterator):
-    iterator.total_lido_exitable_validators = 10000
+    iterator.total_lido_validators = 10000
 
     nos = [
         NodeOperatorStatsFactory.build(
@@ -324,26 +329,82 @@ def test_get_remaining_forced_validators(iterator):
     iterator.max_validators_to_exit = 10
     iterator.index = 5
 
+    sm = StakingModuleFactory.build(id=1)
+
     iterator.node_operators_stats = {
-        (1, 1): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=None),
-        (1, 2): NodeOperatorStatsFactory.build(exitable_validators=10, force_exit_to=9),
+        (1, 1): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=sm),
+        ),
+        (1, 2): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=sm),
+        ),
+        (1, 3): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=3, staking_module=sm),
+        ),
+        (1, 4): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=4, staking_module=sm),
+        ),
     }
-    iterator.node_operators_stats[(1, 1)].module_stats.staking_module.id = 1
-    iterator.node_operators_stats[(1, 2)].module_stats.staking_module.id = 1
-    iterator.node_operators_stats[(1, 1)].node_operator.id = 1
-    iterator.node_operators_stats[(1, 2)].node_operator.id = 2
+
+    iterator.exitable_validators = {
+        (1, 1): [],
+        (1, 2): [LidoValidatorFactory.build(index=5)],
+        (1, 3): [LidoValidatorFactory.build(index=3)],
+        (1, 4): [LidoValidatorFactory.build(index=4)],
+    }
 
     def _eject(self, gid):
-        self.node_operators_stats[gid].exitable_validators -= 1
+        self.node_operators_stats[gid].predictable_validators -= 1
+        return self.predictable_validators[gid][0]
 
     iterator._eject_validator = MethodType(_eject, iterator)
 
     vals = iterator.get_remaining_forced_validators()
 
-    assert len(vals) == 1
+    assert len(vals) == 3
+
+    assert vals[0][1].index == 3
+    assert vals[1][1].index == 4
+    assert vals[2][1].index == 5
+
+    iterator.node_operators_stats[1, 2].predictable_validators = 11
 
     iterator.max_validators_to_exit = 10
-    iterator.index = 10
+    iterator.index = 9
 
     vals = iterator.get_remaining_forced_validators()
-    assert len(vals) == 0
+    assert len(vals) == 1
+
+
+def test_lowest_validators_index_predicate(iterator):
+    iterator.node_operators_stats = {
+        (1, 1): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
+        ),
+        (1, 2): NodeOperatorStatsFactory.build(
+            exitable_validators=10,
+            force_exit_to=None,
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=1)),
+        ),
+    }
+
+    iterator.exitable_validators = {
+        (1, 1): [LidoValidatorFactory.build(index=5)],
+        (1, 2): [LidoValidatorFactory.build(index=10)],
+    }
+
+    index = iterator._lowest_validator_index_predicate(iterator.node_operators_stats[(1, 1)])
+    assert index == 5
+
+    index = iterator._lowest_validator_index_predicate(iterator.node_operators_stats[(1, 2)])
+    assert index == 10

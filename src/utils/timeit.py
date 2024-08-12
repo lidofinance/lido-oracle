@@ -3,8 +3,10 @@ from functools import wraps
 from types import SimpleNamespace
 from typing import Callable
 
+
 type Arguments = SimpleNamespace
 type Duration = float
+
 
 def timeit(log_fn: Callable[[Arguments, Duration], None]):
     def decorator[T](func: Callable[..., T]):

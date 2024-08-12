@@ -4,6 +4,7 @@ from time import sleep
 from typing import cast
 
 from eth_abi import encode
+from eth_typing import BlockIdentifier
 from hexbytes import HexBytes
 
 from src import variables
@@ -211,16 +212,18 @@ class ConsensusModule(ABC):
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
 
-        # Make sure module is compatible with contracts on reference blockstamp.
-        self._check_contract_versions(bs)
         return bs
 
     def _check_contract_versions(self, blockstamp: ReferenceBlockStamp):
         """
         Check if Oracle can process report on reference blockstamp.
         """
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
+        self._check_compatability(blockstamp.block_hash)
+        self._check_compatability('latest')
+
+    def _check_compatability(self, block_tag: BlockIdentifier):
+        contract_version = self.report_contract.get_contract_version(block_tag)
+        consensus_version = self.report_contract.get_consensus_version(block_tag)
 
         compatibility = (
             contract_version in self.COMPATIBLE_CONTRACT_VERSIONS
@@ -229,7 +232,7 @@ class ConsensusModule(ABC):
 
         if not compatibility:
             raise IncompatibleOracleVersion(
-                f'Incompatible Oracle version. '
+                f'Incompatible Oracle version. Block tag: {repr(block_tag)}. '
                 f'Expected contract versions, one of: {self.COMPATIBLE_CONTRACT_VERSIONS} got {contract_version}. '
                 f'Expected consensus versions, one of: {self.COMPATIBLE_CONSENSUS_VERSIONS} got {consensus_version}.'
             )
@@ -237,6 +240,9 @@ class ConsensusModule(ABC):
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
+        # Make sure module is compatible with contracts on reference and latest blockstamps.
+        self._check_contract_versions(blockstamp)
+
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 

@@ -17,10 +17,11 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.providers.execution.exceptions import InconsistentData
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_first_non_missed_slot
+from src.utils.slot import get_next_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -39,7 +40,7 @@ class CSMError(Exception):
 class CSOracle(BaseModule, ConsensusModule):
     """
     CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
-    distribution of shares among the oprators. The root of the tree is then submitted to the module contract.
+    distribution of shares among the operators. The root of the tree is then submitted to the module contract.
 
     The algorithm for calculating performance includes the following steps:
         1. Collect all the attestation duties of the network validators for the frame.
@@ -59,6 +60,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
+        self.state.clear()
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         collected = self.collect_data(last_finalized_blockstamp)
@@ -240,11 +242,10 @@ class CSOracle(BaseModule, ConsensusModule):
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         l_blockstamp = build_blockstamp(
-            get_first_non_missed_slot(
+            get_next_non_missed_slot(
                 self.w3.cc,
                 l_ref_slot,
                 blockstamp.slot_number,
-                direction='forward',
             )
         )
         no_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
@@ -283,11 +284,14 @@ class CSOracle(BaseModule, ConsensusModule):
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
             raise ValueError("CSM oracle initial epoch is not set yet")
 
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        l_ref_slot = last_processing_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
+        if last_processing_ref_slot > blockstamp.slot_number:
+            raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
+
         # The very first report, no previous ref slot.
-        if not l_ref_slot:
+        if not last_processing_ref_slot:
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise CSMError("Invalid frame configuration for the current network")
@@ -302,6 +306,11 @@ class CSOracle(BaseModule, ConsensusModule):
             r_ref_slot = converter.get_epoch_last_slot(
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
+
+        if l_ref_slot < last_processing_ref_slot:
+            raise CSMError(f"Got invalid frame range: {l_ref_slot=} < {last_processing_ref_slot=}")
+        if l_ref_slot >= r_ref_slot:
+            raise CSMError(f"Got invalid frame range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)

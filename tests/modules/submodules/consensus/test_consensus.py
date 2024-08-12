@@ -143,6 +143,18 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
 
 
 @pytest.mark.unit
+def test_compatible_contract_version(consensus):
+    bs = ReferenceBlockStampFactory.build()
+
+    consensus._check_compatability = Mock()
+    consensus._check_contract_versions(bs)
+
+    assert consensus._check_compatability.call_count == 2
+    assert consensus._check_compatability._mock_mock_calls[0].args[0] == bs.block_hash
+    assert consensus._check_compatability._mock_mock_calls[1].args[0] == 'latest'
+
+
+@pytest.mark.unit
 def test_incompatible_contract_version(consensus):
     bs = ReferenceBlockStampFactory.build()
 
