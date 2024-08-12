@@ -17,6 +17,7 @@ from src.modules.csm.types import ReportData
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.providers.execution.exceptions import InconsistentData
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_first_non_missed_slot
@@ -273,11 +274,14 @@ class CSOracle(BaseModule, ConsensusModule):
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
             raise ValueError("CSM oracle initial epoch is not set yet")
 
-        l_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        l_ref_slot = last_processing_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
+        if last_processing_ref_slot > blockstamp.slot_number:
+            raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
+
         # The very first report, no previous ref slot.
-        if not l_ref_slot:
+        if not last_processing_ref_slot:
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise CSMError("Invalid frame configuration for the current network")
@@ -292,6 +296,11 @@ class CSOracle(BaseModule, ConsensusModule):
             r_ref_slot = converter.get_epoch_last_slot(
                 EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
             )
+
+        if l_ref_slot < last_processing_ref_slot:
+            raise CSMError(f"Got invalid frame range: {l_ref_slot=} < {last_processing_ref_slot=}")
+        if l_ref_slot >= r_ref_slot:
+            raise CSMError(f"Got invalid frame range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)

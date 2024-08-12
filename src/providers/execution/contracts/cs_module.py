@@ -13,7 +13,6 @@ from ..base_interface import ContractInterface
 logger = logging.getLogger(__name__)
 
 
-# TODO: Move to types?
 class NodeOperatorSummary(NamedTuple):
     """getNodeOperatorSummary response, @see IStakingModule.sol"""
 
