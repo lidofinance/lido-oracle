@@ -61,7 +61,7 @@ def test_get_delayed_validators(iterator):
         }
     )
 
-    iterator.exitable_validators = {
+    iterator.predictable_validators = {
         (1, 1): [LidoValidatorFactory.build(index="1"), LidoValidatorFactory.build(index="2")],
         (1, 2): [LidoValidatorFactory.build(index="3"), LidoValidatorFactory.build(index="4")],
     }
@@ -150,7 +150,7 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
     assert iterator.node_operators_stats[(2, 1)].force_exit_to is not None
-    assert iterator.exitable_validators[(2, 1)][0].index == '7'
+    assert iterator.predictable_validators[(2, 1)][0].index == '7'
     assert iterator.total_lido_validators == 7
 
     prev_total_age = iterator.node_operators_stats[(1, 1)].total_age
@@ -194,14 +194,14 @@ def test_no_predicate(iterator):
 
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
-            exitable_validators=100,
+            predictable_validators=100,
             delayed_validators=1,
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
             node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=200,
+                predictable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
@@ -210,14 +210,14 @@ def test_no_predicate(iterator):
 
     result = iterator._no_predicate(
         NodeOperatorStatsFactory.build(
-            exitable_validators=2000,
+            predictable_validators=2000,
             delayed_validators=0,
             total_age=1000,
             force_exit_to=50,
             soft_exit_to=25,
             node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=2)),
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=200,
+                predictable_validators=200,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
             ),
         )
@@ -228,10 +228,10 @@ def test_no_predicate(iterator):
 @pytest.mark.unit
 def test_no_force_and_soft_predicate(iterator):
     nos = [
-        NodeOperatorStatsFactory.build(force_exit_to=10, exitable_validators=20, soft_exit_to=20),
-        NodeOperatorStatsFactory.build(force_exit_to=5, exitable_validators=5, soft_exit_to=0),
-        NodeOperatorStatsFactory.build(force_exit_to=None, exitable_validators=100, soft_exit_to=20),
-        NodeOperatorStatsFactory.build(force_exit_to=0, exitable_validators=4, soft_exit_to=None),
+        NodeOperatorStatsFactory.build(force_exit_to=10, predictable_validators=20, soft_exit_to=20),
+        NodeOperatorStatsFactory.build(force_exit_to=5, predictable_validators=5, soft_exit_to=0),
+        NodeOperatorStatsFactory.build(force_exit_to=None, predictable_validators=100, soft_exit_to=20),
+        NodeOperatorStatsFactory.build(force_exit_to=0, predictable_validators=4, soft_exit_to=None),
     ]
 
     # Priority to bigger diff exitable - forced_to
@@ -263,25 +263,25 @@ def test_max_share_rate_coefficient_predicate(iterator):
     nos = [
         NodeOperatorStatsFactory.build(
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=1010,
+                predictable_validators=1010,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.2 * 10000),
             ),
         ),
         NodeOperatorStatsFactory.build(
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=3000,
+                predictable_validators=3000,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.2 * 10000),
             ),
         ),
         NodeOperatorStatsFactory.build(
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=3000,
+                predictable_validators=3000,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=1 * 10000),
             ),
         ),
         NodeOperatorStatsFactory.build(
             module_stats=ModuleStatsFactory.build(
-                exitable_validators=5000,
+                predictable_validators=5000,
                 staking_module=StakingModuleFactory.build(priority_exit_share_threshold=1 * 10000),
             ),
         ),
@@ -299,15 +299,15 @@ def test_max_share_rate_coefficient_predicate(iterator):
 def test_stake_weight_coefficient_predicate(iterator):
     nos = [
         NodeOperatorStatsFactory.build(
-            exitable_validators=900,
+            predictable_validators=900,
             total_age=3000,
         ),
         NodeOperatorStatsFactory.build(
-            exitable_validators=1010,
+            predictable_validators=1010,
             total_age=2000,
         ),
         NodeOperatorStatsFactory.build(
-            exitable_validators=2010,
+            predictable_validators=2010,
             total_age=1000,
         ),
     ]
@@ -333,22 +333,22 @@ def test_get_remaining_forced_validators(iterator):
 
     iterator.node_operators_stats = {
         (1, 1): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=None,
             node_operator=NodeOperatorFactory.build(id=1, staking_module=sm),
         ),
         (1, 2): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=9,
             node_operator=NodeOperatorFactory.build(id=2, staking_module=sm),
         ),
         (1, 3): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=9,
             node_operator=NodeOperatorFactory.build(id=3, staking_module=sm),
         ),
         (1, 4): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=9,
             node_operator=NodeOperatorFactory.build(id=4, staking_module=sm),
         ),
@@ -363,7 +363,7 @@ def test_get_remaining_forced_validators(iterator):
 
     def _eject(self, gid):
         self.node_operators_stats[gid].predictable_validators -= 1
-        return self.predictable_validators[gid][0]
+        return self.exitable_validators[gid][0]
 
     iterator._eject_validator = MethodType(_eject, iterator)
 
@@ -387,12 +387,12 @@ def test_get_remaining_forced_validators(iterator):
 def test_lowest_validators_index_predicate(iterator):
     iterator.node_operators_stats = {
         (1, 1): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=None,
             node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
         ),
         (1, 2): NodeOperatorStatsFactory.build(
-            exitable_validators=10,
+            predictable_validators=10,
             force_exit_to=None,
             node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=1)),
         ),
