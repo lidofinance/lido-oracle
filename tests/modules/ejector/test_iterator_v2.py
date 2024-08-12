@@ -61,7 +61,7 @@ def test_get_delayed_validators(iterator):
         }
     )
 
-    iterator.predictable_validators = {
+    iterator.exitable_validators = {
         (1, 1): [LidoValidatorFactory.build(index="1"), LidoValidatorFactory.build(index="2")],
         (1, 2): [LidoValidatorFactory.build(index="3"), LidoValidatorFactory.build(index="4")],
     }
