@@ -6,7 +6,7 @@ import pytest
 
 from src.providers.http_provider import NotOkResponse
 from src.types import SlotNumber
-from src.utils.slot import NoSlotsAvailable, get_first_non_missed_slot
+from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot, get_next_non_missed_slot
 from tests.conftest import get_blockstamp_by_state
 
 
@@ -16,7 +16,7 @@ def test_get_first_non_missed_slot(web3):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     ref_slot = SlotNumber(finalized_blockstamp.slot_number - 225)
 
-    slot_details = get_first_non_missed_slot(
+    slot_details = get_prev_non_missed_slot(
         web3.cc,
         slot=ref_slot,
         last_finalized_slot_number=finalized_blockstamp.slot_number,
@@ -38,7 +38,7 @@ def test_get_third_non_missed_slot_backward(web3):
 
     original = web3.cc.get_block_header
     web3.cc.get_block_header = Mock(side_effect=get_block_header)
-    slot_details = get_first_non_missed_slot(
+    slot_details = get_prev_non_missed_slot(
         web3.cc,
         slot=SlotNumber(139456),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
@@ -60,11 +60,10 @@ def test_get_third_non_missed_slot_forward(web3):
 
     original = web3.cc.get_block_header
     web3.cc.get_block_header = Mock(side_effect=get_block_header)
-    slot_details = get_first_non_missed_slot(
+    slot_details = get_next_non_missed_slot(
         web3.cc,
         slot=SlotNumber(1541622),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
-        direction="forward",
     )
     assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
     assert int(slot_details.message.slot) == 1541625
@@ -77,7 +76,7 @@ def test_all_slots_are_missed(web3):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     web3.cc.get_block_header = Mock(side_effect=NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text"))
     with pytest.raises(NoSlotsAvailable):
-        get_first_non_missed_slot(
+        get_prev_non_missed_slot(
             cc=web3.cc,
             slot=finalized_blockstamp.ref_slot,
             last_finalized_slot_number=SlotNumber(finalized_blockstamp.ref_slot + 50),
