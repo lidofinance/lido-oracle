@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.state import AttestationsAggregate, State
+from src.modules.csm.state import AttestationsAccumulator, State
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -19,7 +19,7 @@ def mock_state_file(state_file_path: Path):
 
 
 def test_attestation_aggregate_perf():
-    aggr = AttestationsAggregate(included=333, assigned=777)
+    aggr = AttestationsAccumulator(included=333, assigned=777)
     assert aggr.perf == pytest.approx(0.4285, abs=1e-4)
 
 
@@ -30,8 +30,8 @@ def test_state_avg_perf():
 
     state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=0, assigned=0),
-            ValidatorIndex(1): AttestationsAggregate(included=0, assigned=0),
+            ValidatorIndex(0): AttestationsAccumulator(included=0, assigned=0),
+            ValidatorIndex(1): AttestationsAccumulator(included=0, assigned=0),
         }
     )
 
@@ -39,8 +39,8 @@ def test_state_avg_perf():
 
     state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAggregate(included=167, assigned=223),
+            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
         }
     )
 
@@ -50,8 +50,8 @@ def test_state_avg_perf():
 def test_state_attestations():
     state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAggregate(included=167, assigned=223),
+            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
         }
     )
 
@@ -64,8 +64,8 @@ def test_state_attestations():
 def test_state_load():
     orig = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAggregate(included=167, assigned=223),
+            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
         }
     )
 
@@ -77,8 +77,8 @@ def test_state_load():
 def test_state_clear():
     state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAggregate(included=167, assigned=223),
+            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
         }
     )
 
@@ -100,8 +100,8 @@ def test_state_add_processed_epoch():
 def test_state_inc():
     state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=0, assigned=0),
-            ValidatorIndex(1): AttestationsAggregate(included=1, assigned=2),
+            ValidatorIndex(0): AttestationsAccumulator(included=0, assigned=0),
+            ValidatorIndex(1): AttestationsAccumulator(included=1, assigned=2),
         }
     )
 
@@ -116,9 +116,9 @@ def test_state_inc():
     state.inc(ValidatorIndex(2), False)
 
     assert tuple(state.data.values()) == (
-        AttestationsAggregate(included=1, assigned=2),
-        AttestationsAggregate(included=3, assigned=5),
-        AttestationsAggregate(included=1, assigned=2),
+        AttestationsAccumulator(included=1, assigned=2),
+        AttestationsAccumulator(included=3, assigned=5),
+        AttestationsAccumulator(included=1, assigned=2),
     )
 
 

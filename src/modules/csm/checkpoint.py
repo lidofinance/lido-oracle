@@ -25,7 +25,7 @@ class MinStepIsNotReached(Exception):
 
 
 @dataclass
-class Checkpoint:
+class FrameCheckpoint:
     slot: SlotNumber  # last slot of the epoch
     duty_epochs: Sequence[EpochNumber]  # max 255 elements
 
@@ -36,7 +36,7 @@ class ValidatorDuty:
     included: bool
 
 
-class CheckpointsIterator:
+class FrameCheckpointsIterator:
     converter: Web3Converter
 
     l_epoch: EpochNumber
@@ -81,7 +81,7 @@ class CheckpointsIterator:
             logger.info(
                 {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
             )
-            yield Checkpoint(checkpoint_slot, checkpoint_epochs)
+            yield FrameCheckpoint(checkpoint_slot, checkpoint_epochs)
 
     def _is_min_step_reached(self):
         # NOTE: processing delay can be negative
@@ -103,7 +103,7 @@ class CheckpointsIterator:
 type Committees = dict[tuple[str, str], list[ValidatorDuty]]
 
 
-class CheckpointProcessor:
+class FrameCheckpointProcessor:
     cc: ConsensusClient
     converter: Web3Converter
 
@@ -116,7 +116,7 @@ class CheckpointProcessor:
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
 
-    def exec(self, checkpoint: Checkpoint) -> int:
+    def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
             {"msg": f"Processing checkpoint for slot {checkpoint.slot} with {len(checkpoint.duty_epochs)} epochs"}
         )
@@ -203,7 +203,7 @@ class CheckpointProcessor:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
             self.state.add_processed_epoch(duty_epoch)
             self.state.commit()
-            self.state.status()
+            self.state.log_status()
             unprocessed_epochs = self.state.unprocessed_epochs
             CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))
             CSM_MIN_UNPROCESSED_EPOCH.set(min(unprocessed_epochs or {EpochNumber(-1)}))
