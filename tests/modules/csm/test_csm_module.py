@@ -14,13 +14,18 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
-@pytest.fixture()
-def do_not_load_state(monkeypatch: pytest.MonkeyPatch):
+@pytest.fixture(autouse=True)
+def mock_check_module(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_check_module", Mock())
+
+
+@pytest.fixture(autouse=True)
+def mock_load_state(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(State, "load", Mock())
 
 
 @pytest.fixture()
-def module(web3, csm: CSM, do_not_load_state: NoReturn):
+def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 

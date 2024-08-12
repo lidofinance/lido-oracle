@@ -56,6 +56,7 @@ class CSOracle(BaseModule, ConsensusModule):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
+        self._check_module()
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
@@ -304,7 +305,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-    # XXX: Call in __init__ after PR #500.
     def _check_module(self) -> None:
         modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
             self._receive_last_finalized_slot().block_hash
