@@ -17,8 +17,8 @@ class InvalidState(ValueError):
 
 
 @dataclass
-class AttestationsAggregate:
-    """Aggregate of attestations duties observed for a validator"""
+class AttestationsAccumulator:
+    """Accumulator of attestations duties observed for a validator"""
 
     assigned: int = 0
     included: int = 0
@@ -27,7 +27,7 @@ class AttestationsAggregate:
     def perf(self) -> float:
         return self.included / self.assigned if self.assigned else 0
 
-    def inc(self, included: bool) -> None:
+    def add_duty(self, included: bool) -> None:
         self.assigned += 1
         self.included += 1 if included else 0
 
@@ -43,13 +43,13 @@ class State:
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
 
-    data: defaultdict[ValidatorIndex, AttestationsAggregate]
+    data: defaultdict[ValidatorIndex, AttestationsAccumulator]
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    def __init__(self, data: dict[ValidatorIndex, AttestationsAggregate] | None = None) -> None:
-        self.data = defaultdict(AttestationsAggregate, data or {})
+    def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
+        self.data = defaultdict(AttestationsAccumulator, data or {})
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
 
@@ -87,18 +87,18 @@ class State:
         return self.file().with_suffix(".buf")
 
     def clear(self) -> None:
-        self.data = defaultdict(AttestationsAggregate)
+        self.data = defaultdict(AttestationsAccumulator)
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
         assert self.is_empty
 
     def inc(self, key: ValidatorIndex, included: bool) -> None:
-        self.data[key].inc(included)
+        self.data[key].add_duty(included)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
 
-    def status(self) -> None:
+    def log_status(self) -> None:
         network_aggr = self.network_aggr
 
         logger.info(
@@ -154,14 +154,14 @@ class State:
         return self.network_aggr.perf
 
     @property
-    def network_aggr(self) -> AttestationsAggregate:
+    def network_aggr(self) -> AttestationsAccumulator:
         included = assigned = 0
-        for validator, aggr in self.data.items():
-            if aggr.included > aggr.assigned:
-                raise ValueError(f"Invalid aggregate: {validator=}, {aggr=}")
-            included += aggr.included
-            assigned += aggr.assigned
-        return AttestationsAggregate(
+        for validator, acc in self.data.items():
+            if acc.included > acc.assigned:
+                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
+            included += acc.included
+            assigned += acc.assigned
+        return AttestationsAccumulator(
             included=included,
             assigned=assigned,
         )

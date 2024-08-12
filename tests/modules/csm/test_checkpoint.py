@@ -5,9 +5,9 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.csm.checkpoint import (
-    Checkpoint,
-    CheckpointProcessor,
-    CheckpointsIterator,
+    FrameCheckpoint,
+    FrameCheckpointProcessor,
+    FrameCheckpointsIterator,
     MinStepIsNotReached,
     process_attestations,
 )
@@ -53,44 +53,44 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
     with pytest.raises(MinStepIsNotReached):
-        CheckpointsIterator(converter, 100, 600, 109)
+        FrameCheckpointsIterator(converter, 100, 600, 109)
 
 
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
-        (0, 254, 253, [Checkpoint(253 * 32, tuple(range(0, 252)))]),
-        (0, 254, 254, [Checkpoint(254 * 32, tuple(range(0, 253)))]),
-        (0, 254, 255, [Checkpoint(255 * 32, tuple(range(0, 254)))]),
+        (0, 254, 253, [FrameCheckpoint(253 * 32, tuple(range(0, 252)))]),
+        (0, 254, 254, [FrameCheckpoint(254 * 32, tuple(range(0, 253)))]),
+        (0, 254, 255, [FrameCheckpoint(255 * 32, tuple(range(0, 254)))]),
         (
             # fit to max checkpoint step, can generate full checkpoint (with 255 epochs)
             0,
             254,
             256,
-            [Checkpoint(256 * 32, tuple(range(0, 255)))],
+            [FrameCheckpoint(256 * 32, tuple(range(0, 255)))],
         ),
         (
             # fit to max checkpoint step, and first 15 epochs is processed
             15,
             254,
             256,
-            [Checkpoint(256 * 32, tuple(range(15, 255)))],
+            [FrameCheckpoint(256 * 32, tuple(range(15, 255)))],
         ),
         (
             # fit to min checkpoint step, and first 15 epochs is processed
             15,
             255,
             27,
-            [Checkpoint(27 * 32, tuple(range(15, 26)))],
+            [FrameCheckpoint(27 * 32, tuple(range(15, 26)))],
         ),
         (
             0,
             255 * 2,
             255 * 2 + 2,
             [
-                Checkpoint(8192, tuple(range(0, 255))),
-                Checkpoint(16352, tuple(range(255, 510))),
-                Checkpoint(16384, tuple(range(510, 511))),
+                FrameCheckpoint(8192, tuple(range(0, 255))),
+                FrameCheckpoint(16352, tuple(range(255, 510))),
+                FrameCheckpoint(16384, tuple(range(510, 511))),
             ],
         ),
         (
@@ -98,15 +98,15 @@ def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
             225 * 3,
             225 * 3 + 2,
             [
-                Checkpoint(8192, tuple(range(0, 255))),
-                Checkpoint(16352, tuple(range(255, 510))),
-                Checkpoint(21664, tuple(range(510, 676))),
+                FrameCheckpoint(8192, tuple(range(0, 255))),
+                FrameCheckpoint(16352, tuple(range(255, 510))),
+                FrameCheckpoint(21664, tuple(range(510, 676))),
             ],
         ),
     ],
 )
 def test_checkpoints_iterator_given_checkpoints(converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints):
-    iterator = CheckpointsIterator(converter, l_epoch, r_epoch, finalized_epoch)
+    iterator = FrameCheckpointsIterator(converter, l_epoch, r_epoch, finalized_epoch)
     assert list(iter(iterator)) == expected_checkpoints
 
 
@@ -135,7 +135,7 @@ def mock_get_state_block_roots_with_duplicates(consensus_client):
 def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_block_roots, converter: Web3Converter):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         converter,
         state,
@@ -150,7 +150,7 @@ def test_checkpoints_processor_get_block_roots_with_duplicates(
 ):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         converter,
         state,
@@ -172,7 +172,7 @@ def test_checkpoints_processor_select_block_roots(
 ):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -189,7 +189,7 @@ def test_checkpoints_processor_select_block_roots_out_of_range(
 ):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -221,7 +221,7 @@ def mock_get_attestation_committees(consensus_client):
 def test_checkpoints_processor_prepare_committees(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -243,7 +243,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
 def test_checkpoints_processor_process_attestations(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -275,7 +275,7 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
 ):
     state = ...
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -319,7 +319,7 @@ def test_checkpoints_processor_check_duty(
     state = State()
     state.migrate(0, 255)
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -344,7 +344,7 @@ def test_checkpoints_processor_process(
     state = State()
     state.migrate(0, 255)
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
@@ -369,13 +369,13 @@ def test_checkpoints_processor_exec(
     state = State()
     state.migrate(0, 255)
     finalized_blockstamp = ...
-    processor = CheckpointProcessor(
+    processor = FrameCheckpointProcessor(
         consensus_client,
         state,
         converter,
         finalized_blockstamp,
     )
-    iterator = CheckpointsIterator(converter, 0, 1, 255)
+    iterator = FrameCheckpointsIterator(converter, 0, 1, 255)
     for checkpoint in iterator:
         processor.exec(checkpoint)
     assert len(state._processed_epochs) == 2
