@@ -153,6 +153,17 @@ class CSOracle(BaseModule, ConsensusModule):
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
 
+        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
+            logger.warning(
+                {
+                    "msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {
+                        converter.get_epoch_by_slot(blockstamp.slot_number)
+                    }"
+                }
+            )
+            return False
+
         # Finalized slot is the first slot of justifying epoch, so we need to take the previous
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
         if l_epoch > finalized_epoch:
