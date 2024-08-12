@@ -249,7 +249,7 @@ class CSOracle(BaseModule, ConsensusModule):
             )
         )
         no_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
-        stuck.update({no.id for no in no_by_module.get(self.module.id) if no.stuck_validators_count > 0})
+        stuck.update(no.id for no in no_by_module.get(self.module.id) if no.stuck_validators_count > 0)
         stuck.update(
             self.w3.csm.get_operators_with_stucks_in_range(
                 l_blockstamp.block_hash,
