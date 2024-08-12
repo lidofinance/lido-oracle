@@ -143,9 +143,9 @@ def test_eject_validator(iterator):
     iterator._prepare_data_structure()
     iterator._calculate_lido_stats()
 
-    assert iterator.module_stats[1].exitable_validators == 5
-    assert iterator.module_stats[2].exitable_validators == 2
-    assert iterator.node_operators_stats[(1, 1)].exitable_validators == 3
+    assert iterator.module_stats[1].predictable_validators == 5
+    assert iterator.module_stats[2].predictable_validators == 2
+    assert iterator.node_operators_stats[(1, 1)].predictable_validators == 3
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
@@ -158,8 +158,8 @@ def test_eject_validator(iterator):
     iterator._eject_validator((1, 1))
 
     assert iterator.total_lido_validators == 6
-    assert iterator.module_stats[1].exitable_validators == 4
-    assert iterator.node_operators_stats[(1, 1)].exitable_validators == 2
+    assert iterator.module_stats[1].predictable_validators == 4
+    assert iterator.node_operators_stats[(1, 1)].predictable_validators == 2
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
@@ -362,8 +362,8 @@ def test_get_remaining_forced_validators(iterator):
     }
 
     def _eject(self, gid):
-        self.node_operators_stats[gid].exitable_validators -= 1
-        return self.exitable_validators[gid][0]
+        self.node_operators_stats[gid].predictable_validators -= 1
+        return self.predictable_validators[gid][0]
 
     iterator._eject_validator = MethodType(_eject, iterator)
 
@@ -375,7 +375,7 @@ def test_get_remaining_forced_validators(iterator):
     assert vals[1][1].index == 4
     assert vals[2][1].index == 5
 
-    iterator.node_operators_stats[1, 2].exitable_validators = 11
+    iterator.node_operators_stats[1, 2].predictable_validators = 11
 
     iterator.max_validators_to_exit = 10
     iterator.index = 9

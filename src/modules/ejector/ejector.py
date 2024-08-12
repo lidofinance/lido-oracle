@@ -198,6 +198,7 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Fetch isPaused from ejector bus contract.', 'value': on_pause})
         return not on_pause
 
+    @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
 

@@ -6,7 +6,7 @@ from web3.types import Wei, BlockIdentifier
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
-from utils.abi import named_tuple_to_dataclass
+from src.utils.abi import named_tuple_to_dataclass
 
 logger = logging.getLogger(__name__)
 

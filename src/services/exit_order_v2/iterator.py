@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StakingModuleStats:
     staking_module: StakingModule
-    exitable_validators: int = 0
+    predictable_validators: int = 0
 
 
 @dataclass
@@ -27,7 +27,7 @@ class NodeOperatorStats:
     node_operator: NodeOperator
     module_stats: StakingModuleStats
 
-    exitable_validators: int = 0
+    predictable_validators: int = 0
     delayed_validators: int = 0
     total_age: int = 0
     force_exit_to: int | None = None
@@ -92,14 +92,16 @@ class ValidatorExitIteratorV2:
             raise StopIteration
 
         for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
-            if not node_operator.exitable_validators:
-                break
-
-            self.index += 1
             gid = (
                 node_operator.module_stats.staking_module.id,
                 node_operator.node_operator.id,
             )
+            # Check if there is exitable validators
+            # get next node operator if yes
+            if not self.exitable_validators[gid]:
+                continue
+
+            self.index += 1
             return gid, self._eject_validator(gid)
 
         raise StopIteration
@@ -131,11 +133,11 @@ class ValidatorExitIteratorV2:
             deposited_validators = self.node_operators_stats[gid].node_operator.total_deposited_validators
             transient_validators_count = deposited_validators - len(lido_validators[gid])
 
-            no_validators = len(validators) + transient_validators_count
+            no_predictable_validators = len(validators) + transient_validators_count
 
-            self.total_lido_validators += no_validators
-            self.module_stats[gid[0]].exitable_validators += no_validators
-            self.node_operators_stats[gid].exitable_validators = no_validators
+            self.total_lido_validators += no_predictable_validators
+            self.module_stats[gid[0]].predictable_validators += no_predictable_validators
+            self.node_operators_stats[gid].predictable_validators = no_predictable_validators
 
             self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
             self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
@@ -158,7 +160,7 @@ class ValidatorExitIteratorV2:
         self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
 
     def get_filter_non_exitable_validators(self, gid: NodeOperatorGlobalIndex):
-        """Validators that are not yet active on CL can still be exited."""
+        """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
         indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
         def is_validator_exitable(validator: LidoValidator):
@@ -205,9 +207,9 @@ class ValidatorExitIteratorV2:
         # Change lido total
         self.total_lido_validators -= 1
         # Change module total
-        self.module_stats[gid[0]].exitable_validators -= 1
+        self.module_stats[gid[0]].predictable_validators -= 1
         # Change node operator stats
-        self.node_operators_stats[gid].exitable_validators -= 1
+        self.node_operators_stats[gid].predictable_validators -= 1
         self.node_operators_stats[gid].total_age -= get_validator_age(validator, self.blockstamp.ref_epoch)
 
         logger.debug({
@@ -215,8 +217,8 @@ class ValidatorExitIteratorV2:
             'eth_validators_count': self.eth_validators_count,
             'total_lido_validators': self.total_lido_validators,
             'no_gid': gid[0],
-            'module_stats': self.module_stats[gid[0]].exitable_validators,
-            'no_stats_exitable_validators': self.node_operators_stats[gid].exitable_validators,
+            'module_stats': self.module_stats[gid[0]].predictable_validators,
+            'no_stats_exitable_validators': self.node_operators_stats[gid].predictable_validators,
             'no_stats_total_age': self.node_operators_stats[gid].total_age,
         })
 
@@ -233,21 +235,21 @@ class ValidatorExitIteratorV2:
                 self.eth_validators_count,
                 self.no_penetration_threshold,
             ),
-            - node_operator.exitable_validators,
+            - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),
         )
 
     @staticmethod
     def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
         return ValidatorExitIteratorV2._get_expected_validators_diff(
-            node_operator.exitable_validators,
+            node_operator.predictable_validators,
             node_operator.force_exit_to,
         )
 
     @staticmethod
     def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
         return ValidatorExitIteratorV2._get_expected_validators_diff(
-            node_operator.exitable_validators,
+            node_operator.predictable_validators,
             node_operator.soft_exit_to,
         )
 
@@ -270,7 +272,7 @@ class ValidatorExitIteratorV2:
         max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
 
         max_validators_count = int(max_share_rate * self.total_lido_validators)
-        return max(node_operator.module_stats.exitable_validators - max_validators_count, 0)
+        return max(node_operator.module_stats.predictable_validators - max_validators_count, 0)
 
     @staticmethod
     def _stake_weight_coefficient_predicate(
@@ -281,7 +283,7 @@ class ValidatorExitIteratorV2:
         """
         The higher coefficient the higher priority to eject validator
         """
-        if total_validators * no_penetration < node_operator.exitable_validators:
+        if total_validators * no_penetration < node_operator.predictable_validators:
             return node_operator.total_age
 
         return 0
@@ -314,7 +316,7 @@ class ValidatorExitIteratorV2:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
-                if no_stats.exitable_validators:
+                if no_stats.predictable_validators:
                     # When found Node Operator
                     self.index += 1
                     gid = (

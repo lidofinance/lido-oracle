@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.modules.accounting.types import BeaconStat
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
@@ -44,28 +45,34 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validat
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
-    web3.lido_validators.get_lido_node_operators = Mock(
-        return_value=[
-            NodeOperatorFactory.build(total_deposited_validators=2),
-        ]
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(
+            deposited_validators=10,
+            beacon_validators=0,
+            beacon_balance=0,
+        )
     )
 
     with pytest.raises(CountOfKeysDiffersException):
         web3.lido_validators.get_lido_validators(blockstamp)
 
-    web3.lido_validators.get_lido_node_operators = Mock(
-        return_value=[
-            NodeOperatorFactory.build(total_deposited_validators=1),
-        ]
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(
+            deposited_validators=1,
+            beacon_validators=0,
+            beacon_balance=0,
+        )
     )
 
     web3.lido_validators.get_lido_validators(blockstamp)
 
     # Keys can exist in KAPI, but no yet represented on CL
-    web3.lido_validators.get_lido_node_operators = Mock(
-        return_value=[
-            NodeOperatorFactory.build(total_deposited_validators=0),
-        ]
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(
+            deposited_validators=0,
+            beacon_validators=0,
+            beacon_balance=0,
+        )
     )
 
     web3.lido_validators.get_lido_validators(blockstamp)

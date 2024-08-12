@@ -27,7 +27,7 @@ class ExtraDataServiceV2:
     | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
     | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
 
-    max_items_count - max itemIndex in extra data.
+    max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
     """
     @classmethod
