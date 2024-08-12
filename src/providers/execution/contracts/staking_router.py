@@ -45,7 +45,7 @@ class StakingRouterContract(ContractInterface):
         """
         Returns node operator digests for each node operator in staking module
         """
-        response = []
+        response: list = []
         i = 0
 
         while True:
@@ -68,8 +68,7 @@ class StakingRouterContract(ContractInterface):
             if len(nos) != EL_REQUESTS_BATCH_SIZE:
                 break
 
-        response = [NodeOperator.from_response(no, module) for no in response]
-        return response
+        return [NodeOperator.from_response(no, module) for no in response]
 
 
 class StakingRouterContractV2(StakingRouterContract):
