@@ -20,7 +20,7 @@ from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_first_non_missed_slot
+from src.utils.slot import get_next_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -59,6 +59,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
+        self.state.clear()
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         collected = self.collect_data(last_finalized_blockstamp)
@@ -239,11 +240,10 @@ class CSOracle(BaseModule, ConsensusModule):
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         return self.w3.csm.get_csm_stuck_node_operators(
-            get_first_non_missed_slot(
+            get_next_non_missed_slot(
                 self.w3.cc,
                 l_ref_slot,
                 blockstamp.slot_number,
-                direction='forward',
             ).message.body.execution_payload.block_hash,
             blockstamp.block_hash,
         )
