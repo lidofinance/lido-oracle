@@ -131,7 +131,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return not self.is_main_data_submitted(blockstamp)
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        on_pause = self.report_contract.is_paused(blockstamp.block_hash)
+        on_pause = self.report_contract.is_paused('latest')
         CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
         return not on_pause
 
