@@ -15,8 +15,8 @@ from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_check_module(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_check_module", Mock())
+def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_get_module_id", Mock())
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +35,7 @@ def test_init(module: CSOracle):
 
 def test_stuck_operators(module: CSOracle, csm: CSM):
     module.module = Mock()
-    module.module.id = 1
+    module.module_id = 1
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
