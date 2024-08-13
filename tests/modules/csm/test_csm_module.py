@@ -6,7 +6,7 @@ import pytest
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAggregate, State
+from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.submodules.types import CurrentFrame
 from src.types import NodeOperatorId, SlotNumber, ValidatorIndex
 from src.web3py.extensions.csm import CSM
@@ -14,13 +14,18 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
-@pytest.fixture()
-def do_not_load_state(monkeypatch: pytest.MonkeyPatch):
+@pytest.fixture(autouse=True)
+def mock_check_module(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_check_module", Mock())
+
+
+@pytest.fixture(autouse=True)
+def mock_load_state(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(State, "load", Mock())
 
 
 @pytest.fixture()
-def module(web3, csm: CSM, do_not_load_state: NoReturn):
+def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 
@@ -97,16 +102,16 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
 
     module.state = State(
         {
-            ValidatorIndex(0): AttestationsAggregate(included=200, assigned=200),  # short on frame
-            ValidatorIndex(1): AttestationsAggregate(included=1000, assigned=1000),
-            ValidatorIndex(2): AttestationsAggregate(included=1000, assigned=1000),
-            ValidatorIndex(3): AttestationsAggregate(included=999, assigned=1000),
-            ValidatorIndex(4): AttestationsAggregate(included=900, assigned=1000),
-            ValidatorIndex(5): AttestationsAggregate(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(5): AttestationsAggregate(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(6): AttestationsAggregate(included=0, assigned=0),  # underperforming
-            ValidatorIndex(7): AttestationsAggregate(included=900, assigned=1000),
-            ValidatorIndex(8): AttestationsAggregate(included=500, assigned=1000),  # underperforming
+            ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
+            ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
+            ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
+            ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
+            ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
+            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+            ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
+            ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
+            ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
             # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
         }
     )

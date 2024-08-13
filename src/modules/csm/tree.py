@@ -1,21 +1,18 @@
 import json
 from dataclasses import dataclass
-from typing import Self, Sequence, TypeAlias
+from typing import Self, Sequence
 
 from hexbytes import HexBytes
 from oz_merkle_tree import StandardMerkleTree
 
-from src.web3py.extensions.lido_validators import NodeOperatorId
-
-Shares: TypeAlias = int
-Leaf: TypeAlias = tuple[NodeOperatorId, Shares]
+from src.modules.csm.types import RewardTreeLeaf
 
 
 @dataclass
 class Tree:
     """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
 
-    tree: StandardMerkleTree[Leaf]
+    tree: StandardMerkleTree[RewardTreeLeaf]
 
     @property
     def root(self) -> HexBytes:
@@ -41,6 +38,6 @@ class Tree:
         return json.dumps(self.tree.dump(), indent=2, default=default).encode()
 
     @classmethod
-    def new(cls, values: Sequence[Leaf]) -> Self:
+    def new(cls, values: Sequence[RewardTreeLeaf]) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
         return cls(StandardMerkleTree(values, ("uint256", "uint256")))

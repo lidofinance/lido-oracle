@@ -121,7 +121,7 @@ class ValidatorExitIteratorV2:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
             self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
-            self.exitable_validators[gid].sort(key=lambda val: val.index)
+            self.exitable_validators[gid].sort(key=lambda val: int(val.index))
 
     def _calculate_lido_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -172,15 +172,14 @@ class ValidatorExitIteratorV2:
 
     def _get_delayed_validators(self) -> dict[NodeOperatorGlobalIndex, int]:
         last_requested_to_exit = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
-
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         recent_requests = self.lvs.get_recently_requested_validators_by_operator(
             self.seconds_per_slot,
             self.blockstamp,
         )
 
         result = {}
-
-        for gid, validators_list in self.exitable_validators.items():
+        for gid, validators_list in lido_validators.items():
 
             def is_delayed(validator: LidoValidator) -> bool:
                 requested_to_exit = int(validator.index) <= last_requested_to_exit[gid]
