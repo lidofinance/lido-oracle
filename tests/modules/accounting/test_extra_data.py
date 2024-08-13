@@ -114,7 +114,7 @@ class TestBuildValidators:
             == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
         )
 
-    def test_max_items_count(self, extra_data_service):
+    def test_max_items_count_per_tx(self, extra_data_service):
         """
         nodeOpsCount must not be greater than maxAccountingExtraDataListItemsCount specified
         in OracleReportSanityChecker contract. If a staking module has more node operators
@@ -122,19 +122,19 @@ class TestBuildValidators:
         storage (as observed at the reference slot), reporting for that module should be split
         into multiple items.
         """
-        vals_max_items_count = {
+        vals_max_items_count_per_tx = {
             node_operator(1, 0): 1,
             node_operator(1, 1): 1,
             node_operator(1, 2): 1,
         }
 
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count, 3)
+        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 3)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count, 2)
+        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 2)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count, 1)
+        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 1)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x01'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count, 0)
+        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 0)
         assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
     def test_stuck_exited_validators_count_non_zero(self, extra_data_service):

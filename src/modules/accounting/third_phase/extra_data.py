@@ -84,7 +84,7 @@ class ExtraDataService:
             vals_count = []
 
             for ((_, no_id), validators_count) in list(operators_by_module)[:max_no_in_payload_count]:
-                operator_ids.append(no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_IDS))
+                operator_ids.append(no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID))
                 vals_count.append(validators_count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT))
 
             payloads.append(

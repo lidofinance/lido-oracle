@@ -5,6 +5,7 @@ from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
+from src.constants import UINT64_MAX
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
@@ -13,7 +14,6 @@ from ..base_interface import ContractInterface
 logger = logging.getLogger(__name__)
 
 
-# TODO: Move to types?
 class NodeOperatorSummary(NamedTuple):
     """getNodeOperatorSummary response, @see IStakingModule.sol"""
 
@@ -30,7 +30,7 @@ class NodeOperatorSummary(NamedTuple):
 class CSModuleContract(ContractInterface):
     abi_path = "./assets/CSModule.json"
 
-    MAX_OPERATORS_COUNT = 2**64
+    MAX_OPERATORS_COUNT = UINT64_MAX
 
     def accounting(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
         """Returns the address of the CSAccounting contract"""

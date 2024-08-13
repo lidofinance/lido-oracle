@@ -1,6 +1,7 @@
 import sys
 from typing import Iterable, cast
 
+from packaging.version import Version
 from prometheus_client import start_http_server
 from web3.middleware import simple_cache_middleware
 
@@ -15,6 +16,7 @@ from src.modules.csm.csm import CSOracle
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
+from src.utils.exception import IncompatibleException
 from src.web3py.extensions import (
     LidoContracts,
     TransactionUtils,
@@ -30,11 +32,7 @@ from src.web3py.types import Web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 
 
-logger = logging.getLogger()
-
-
-class IncompatibleException(Exception):
-    pass
+logger = logging.getLogger(__name__)
 
 
 def main(module_name: OracleModule):
@@ -48,6 +46,7 @@ def main(module_name: OracleModule):
             'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
             'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
             'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
+            'EL_REQUESTS_BATCH_SIZE': variables.EL_REQUESTS_BATCH_SIZE,
             'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
         },
     })
@@ -56,6 +55,7 @@ def main(module_name: OracleModule):
         "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
         "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
         "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
+        "EL_REQUESTS_BATCH_SIZE": str(variables.EL_REQUESTS_BATCH_SIZE),
         "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
     })
     BUILD_INFO.info(build_info)
@@ -88,7 +88,7 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if kac.get_status().appVersion < '1.5.0':
+    if Version(kac.get_status().appVersion) < Version('1.5.0'):
         raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
 
     check_providers_chain_ids(web3, cc, kac)

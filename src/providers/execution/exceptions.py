@@ -1,5 +1,9 @@
 """Module for exceptions caused by the execution provider"""
 
 
-class InconsistentEvents(ValueError):
-    ...
+class InconsistentEvents(Exception):
+    pass
+
+
+class InconsistentData(Exception):
+    pass
