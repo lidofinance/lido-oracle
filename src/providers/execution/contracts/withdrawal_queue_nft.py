@@ -23,6 +23,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `unfinalizedStETH()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return Wei(response)
 
@@ -39,6 +40,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `bunkerModeSinceTimestamp()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -54,6 +56,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `getLastFinalizedRequestId()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -70,6 +73,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': f'Call `getWithdrawalStatus({[request_id]})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -85,6 +89,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `getLastRequestId()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -98,6 +103,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `isPaused()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -112,6 +118,7 @@ class WithdrawalQueueNftContract(ContractInterface):
             'msg': 'Call `MAX_BATCHES_LENGTH()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -146,5 +153,6 @@ class WithdrawalQueueNftContract(ContractInterface):
             ),
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response

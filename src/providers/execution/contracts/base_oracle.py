@@ -24,6 +24,7 @@ class BaseOracleContract(ContractInterface):
             'msg': 'Call `getConsensusContract()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -37,6 +38,7 @@ class BaseOracleContract(ContractInterface):
             'msg': 'Call `SUBMIT_DATA_ROLE()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -50,6 +52,7 @@ class BaseOracleContract(ContractInterface):
             'msg': f'Call `hasRole({role.hex()}, {address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -63,6 +66,7 @@ class BaseOracleContract(ContractInterface):
             'msg': 'Call `getContractVersion().',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -78,6 +82,7 @@ class BaseOracleContract(ContractInterface):
             'msg': 'Call `getConsensusVersion().',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -113,5 +118,6 @@ class BaseOracleContract(ContractInterface):
             'msg': 'Call `getLastProcessingRefSlot().',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return SlotNumber(response)

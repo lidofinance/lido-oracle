@@ -22,6 +22,7 @@ class StakingRouterContract(ContractInterface):
                 'msg': 'Call `getContractVersion()`.',
                 'value': response,
                 'block_identifier': repr(block_identifier),
+                'to': self.address,
             }
         )
         return response
@@ -38,6 +39,7 @@ class StakingRouterContract(ContractInterface):
             'msg': 'Call `getStakingModules()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -60,6 +62,7 @@ class StakingRouterContract(ContractInterface):
                 # Too long response
                 'value': len(response),
                 'block_identifier': repr(block_identifier),
+                'to': self.address,
             })
 
             i += 1
@@ -99,5 +102,6 @@ class StakingRouterContractV2(StakingRouterContract):
             'msg': 'Call `getStakingModules()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response

@@ -26,5 +26,6 @@ class BurnerContract(ContractInterface):
             'msg': 'Call `getSharesRequestedToBurn()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response

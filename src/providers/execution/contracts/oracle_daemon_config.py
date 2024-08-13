@@ -21,6 +21,7 @@ class OracleDaemonConfigContract(ContractInterface):
             'msg': f'Call `get({param})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 

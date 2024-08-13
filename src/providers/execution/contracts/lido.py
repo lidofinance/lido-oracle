@@ -68,6 +68,7 @@ class LidoContract(ContractInterface):
             ),
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -85,6 +86,7 @@ class LidoContract(ContractInterface):
             'msg': 'Call `getBufferedEther()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return Wei(response)
 
@@ -102,6 +104,7 @@ class LidoContract(ContractInterface):
             'msg': 'Call `totalSupply()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return Wei(response)
 
@@ -121,5 +124,6 @@ class LidoContract(ContractInterface):
             'msg': 'Call `getBeaconStat()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response

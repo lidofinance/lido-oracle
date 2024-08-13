@@ -27,6 +27,7 @@ class ExitBusOracleContract(BaseOracleContract):
             'msg': 'Call `isPaused()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -41,6 +42,7 @@ class ExitBusOracleContract(BaseOracleContract):
             'msg': 'Call `getProcessingState()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -67,6 +69,7 @@ class ExitBusOracleContract(BaseOracleContract):
                 'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {no_list})`.',
                 'value': response,
                 'block_identifier': repr(block_identifier),
+                'to': self.address,
             })
 
             result.extend(response)

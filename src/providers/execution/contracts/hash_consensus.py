@@ -28,6 +28,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getMembers()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -45,6 +46,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getChainConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -69,6 +71,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getCurrentFrame()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -85,6 +88,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getInitialRefSlot()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -105,6 +109,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getFrameConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -122,6 +127,7 @@ class HashConsensusContract(ContractInterface):
             'msg': f'Call `getConsensusStateForMember({address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
