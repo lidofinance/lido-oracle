@@ -18,7 +18,16 @@ from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs.cid import CID
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
+from src.types import (
+    BlockStamp,
+    EpochNumber,
+    ReferenceBlockStamp,
+    SlotNumber,
+    StakingModuleAddress,
+    ValidatorIndex,
+    StakingModuleId,
+)
+from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_next_non_missed_slot
 from src.utils.web3converter import Web3Converter
@@ -51,12 +60,13 @@ class CSOracle(BaseModule, ConsensusModule):
     COMPATIBLE_CONSENSUS_VERSIONS = [1]
 
     report_contract: CSFeeOracleContract
+    module_id: StakingModuleId
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
-        self._check_module()
+        self.module_id = self._get_module_id()
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
@@ -155,12 +165,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
+            epoch = converter.get_epoch_by_slot(blockstamp.slot_number)
             logger.warning(
-                {
-                    "msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {
-                        converter.get_epoch_by_slot(blockstamp.slot_number)
-                    }"
-                }
+                {"msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {epoch}"}
             )
             return False
 
@@ -237,18 +244,29 @@ class CSOracle(BaseModule, ConsensusModule):
         return distributed, shares
 
     def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
+        stuck: set[NodeOperatorId] = set()
         l_epoch, _ = self.current_frame_range(blockstamp)
         l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
-        return self.w3.csm.get_csm_stuck_node_operators(
+        l_blockstamp = build_blockstamp(
             get_next_non_missed_slot(
                 self.w3.cc,
                 l_ref_slot,
                 blockstamp.slot_number,
-            ).message.body.execution_payload.block_hash,
-            blockstamp.block_hash,
+            )
         )
+        digests = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp).get(self.module_id)
+        if digests is None:
+            raise InconsistentData(f"No Node Operators digests found for {self.module_id=}")
+        stuck.update(no.id for no in digests if no.stuck_validators_count > 0)
+        stuck.update(
+            self.w3.csm.get_operators_with_stucks_in_range(
+                l_blockstamp.block_hash,
+                blockstamp.block_hash,
+            )
+        )
+        return stuck
 
     def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree | None:
         if not shares:
@@ -316,13 +334,13 @@ class CSOracle(BaseModule, ConsensusModule):
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-    def _check_module(self) -> None:
+    def _get_module_id(self) -> StakingModuleId:
         modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
             self._receive_last_finalized_slot().block_hash
         )
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:
-                return
+                return mod.id
 
         raise NoModuleFound

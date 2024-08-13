@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import NoReturn
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -15,8 +15,8 @@ from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_check_module(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_check_module", Mock())
+def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_get_module_id", Mock())
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +31,50 @@ def module(web3, csm: CSM):
 
 def test_init(module: CSOracle):
     assert module
+
+
+def test_stuck_operators(module: CSOracle, csm: CSM):
+    module.module = Mock()
+    module.module_id = 1
+    module.w3.cc = Mock()
+    module.w3.lido_validators = Mock()
+    module.w3.lido_contracts = Mock()
+    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
+        return_value={
+            1: {
+                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
+                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
+                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
+                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
+            },
+            2: {},
+            3: {},
+            4: {},
+        }
+    )
+
+    module.w3.csm.get_operators_with_stucks_in_range = Mock(
+        return_value=[NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(6), NodeOperatorId(1337)]
+    )
+
+    module.current_frame_range = Mock(return_value=(69, 100))
+    module.converter = Mock()
+    module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
+
+    l_blockstamp = Mock()
+    blockstamp = Mock()
+    l_blockstamp.block_hash = "0x01"
+    blockstamp.slot_number = "1"
+    blockstamp.block_hash = "0x02"
+
+    with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
+        with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
+            stuck = module.stuck_operators(blockstamp=blockstamp)
+
+    assert stuck == {NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(5), NodeOperatorId(6), NodeOperatorId(1337)}
 
 
 def test_calculate_distribution(module: CSOracle, csm: CSM):

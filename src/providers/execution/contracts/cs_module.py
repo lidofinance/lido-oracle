@@ -45,16 +45,6 @@ class CSModuleContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    @lru_cache(maxsize=1)
-    def get_stuck_operators_ids(self, block_identifier: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
-        if not self.is_deployed(block_identifier):
-            return
-
-        # TODO: Check performance on a large amount of node operators in a module.
-        for no_id in self.node_operators_ids(block_identifier):
-            if self.node_operator_summary(no_id, block_identifier).stuckValidatorsCount > 0:
-                yield no_id
-
     def is_paused(self, block: BlockIdentifier = "latest") -> bool:
         resp = self.functions.isPaused().call(block_identifier=block)
         logger.info(
