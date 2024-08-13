@@ -60,7 +60,7 @@ class StakingRouterContract(ContractInterface):
             logger.info({
                 'msg': f'Call `getNodeOperatorDigests({module.id}, {i * EL_REQUESTS_BATCH_SIZE}, {EL_REQUESTS_BATCH_SIZE})`.',
                 # Too long response
-                'value': len(response),
+                'len': len(nos),
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
             })

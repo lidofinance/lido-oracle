@@ -195,7 +195,7 @@ class Accounting(BaseModule, ConsensusModule):
         count = len(lido_validators)
         total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
 
-        logger.info({'msg': 'Calculate consensus lido state.', 'value': (count, total_balance)})
+        logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
         return ValidatorsCount(count), ValidatorsBalance(total_balance)
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:

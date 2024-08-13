@@ -143,7 +143,7 @@ class Ejector(BaseModule, ConsensusModule):
         if consensus_version != 1:
             forced_validators = validators_iterator.get_remaining_forced_validators()
             if forced_validators:
-                logger.info({'msg': 'Eject forced to exit validators.', 'value': len(forced_validators)})
+                logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
                 validators_to_eject.extend(forced_validators)
 
         return validators_to_eject
