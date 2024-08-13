@@ -200,6 +200,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`                              |
 | `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`                          |
 | `CSM_ORACLE_MAX_CONCURRENCY`                           | Max count of dedicated workers for CSM module                                                                                                                            | False    | `2`                                     |
+| `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                     |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb

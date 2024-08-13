@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Final
 
 from eth_account import Account
@@ -80,6 +81,8 @@ PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
 MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
+
+CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
 
 
 def check_all_required_variables():
