@@ -1,4 +1,5 @@
 import functools
+from inspect import signature
 from weakref import WeakKeyDictionary
 
 from src.providers.execution.base_interface import ContractInterface
@@ -14,12 +15,12 @@ def global_lru_cache(*args, **kwargs):
             # if lru_cache used for caching ContractInterface method
             # Do not cache any requests with relative blocks
             # Like 'latest', 'earliest', 'pending', 'safe', 'finalized' or if default ('latest') arg provided
-            var_names = func.__code__.co_varnames
+            args_list = signature(func).parameters
 
-            if issubclass(args[0].__class__, ContractInterface) and var_names[-1] == 'block_identifier':
+            if issubclass(args[0].__class__, ContractInterface) and args_list.get('block_identifier'):
                 block = kwargs.get('block_identifier', None)
                 if block is None:
-                    if len(args) == len(var_names):
+                    if len(args) == len(args_list):
                         # block_identifier provided via kwargs and args
                         block = args[-1]
                         # Move to kwarg

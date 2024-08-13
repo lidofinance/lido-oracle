@@ -1,6 +1,7 @@
 import logging
 from functools import reduce
 
+from more_itertools import ilen
 from web3.types import Wei
 
 from src.constants import (
@@ -290,10 +291,10 @@ class Ejector(BaseModule, ConsensusModule):
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     def _get_total_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> int:
-        total_withdrawable_validators = len(list(filter(lambda validator: (
+        total_withdrawable_validators = ilen(filter(lambda validator: (
             is_partially_withdrawable_validator(validator) or
             is_fully_withdrawable_validator(validator, blockstamp.ref_epoch)
-        ), self.w3.cc.get_validators(blockstamp))))
+        ), self.w3.cc.get_validators(blockstamp)))
 
         logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
         return total_withdrawable_validators
