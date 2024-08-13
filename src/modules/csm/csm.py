@@ -18,7 +18,15 @@ from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs.cid import CID
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StakingModuleAddress, ValidatorIndex
+from src.types import (
+    BlockStamp,
+    EpochNumber,
+    ReferenceBlockStamp,
+    SlotNumber,
+    StakingModuleAddress,
+    ValidatorIndex,
+    StakingModuleId,
+)
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_next_non_missed_slot
@@ -52,12 +60,13 @@ class CSOracle(BaseModule, ConsensusModule):
     COMPATIBLE_CONSENSUS_VERSIONS = [1]
 
     report_contract: CSFeeOracleContract
+    module_id: StakingModuleId
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
-        self._check_module()
+        self.module_id = self._get_module_id()
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
@@ -156,12 +165,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
+            epoch = converter.get_epoch_by_slot(blockstamp.slot_number)
             logger.warning(
-                {
-                    "msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {
-                        converter.get_epoch_by_slot(blockstamp.slot_number)
-                    }"
-                }
+                {"msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {epoch}"}
             )
             return False
 
@@ -251,7 +257,7 @@ class CSOracle(BaseModule, ConsensusModule):
             )
         )
         no_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
-        stuck.update(no.id for no in no_by_module.get(self.module.id) if no.stuck_validators_count > 0)
+        stuck.update(no.id for no in no_by_module.get(self.module_id) if no.stuck_validators_count > 0)
         stuck.update(
             self.w3.csm.get_operators_with_stucks_in_range(
                 l_blockstamp.block_hash,
@@ -326,13 +332,13 @@ class CSOracle(BaseModule, ConsensusModule):
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-    def _check_module(self) -> None:
+    def _get_module_id(self) -> StakingModuleId:
         modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
             self._receive_last_finalized_slot().block_hash
         )
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:
-                return
+                return mod.id
 
         raise NoModuleFound
