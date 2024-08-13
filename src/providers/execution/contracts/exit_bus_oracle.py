@@ -9,7 +9,7 @@ from web3.types import BlockIdentifier
 from src.modules.ejector.types import EjectorProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
-from variables import EL_REQUESTS_BATCH_SIZE
+from src.variables import EL_REQUESTS_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
