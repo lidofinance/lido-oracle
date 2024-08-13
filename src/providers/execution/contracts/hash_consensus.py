@@ -42,7 +42,7 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getChainConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, ChainConfig)
 
-        logger.info({
+        logger.debug({
             'msg': 'Call `getChainConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
@@ -105,7 +105,7 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getFrameConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, FrameConfig)
 
-        logger.info({
+        logger.debug({
             'msg': 'Call `getFrameConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),

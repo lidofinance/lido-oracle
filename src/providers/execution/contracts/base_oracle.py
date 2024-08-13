@@ -20,7 +20,7 @@ class BaseOracleContract(ContractInterface):
         Returns the address of the HashConsensus contract.
         """
         response = self.functions.getConsensusContract().call(block_identifier=block_identifier)
-        logger.info({
+        logger.debug({
             'msg': 'Call `getConsensusContract()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
@@ -62,7 +62,7 @@ class BaseOracleContract(ContractInterface):
         Returns the current contract version.
         """
         response = self.functions.getContractVersion().call(block_identifier=block_identifier)
-        logger.info({
+        logger.debug({
             'msg': 'Call `getContractVersion().',
             'value': response,
             'block_identifier': repr(block_identifier),
@@ -78,7 +78,7 @@ class BaseOracleContract(ContractInterface):
         an oracle looking at the same reference slot would calculate a different hash.
         """
         response = self.functions.getConsensusVersion().call(block_identifier=block_identifier)
-        logger.info({
+        logger.debug({
             'msg': 'Call `getConsensusVersion().',
             'value': response,
             'block_identifier': repr(block_identifier),

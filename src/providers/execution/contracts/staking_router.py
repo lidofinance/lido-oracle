@@ -17,7 +17,7 @@ class StakingRouterContract(ContractInterface):
     @lru_cache(maxsize=1)
     def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
         response = self.functions.getContractVersion().call(block_identifier=block_identifier)
-        logger.info(
+        logger.debug(
             {
                 'msg': 'Call `getContractVersion()`.',
                 'value': response,
