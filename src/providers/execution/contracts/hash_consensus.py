@@ -75,7 +75,10 @@ class HashConsensusContract(ContractInterface):
 
     @lru_cache(maxsize=1)
     def get_initial_ref_slot(self, block_identifier: BlockIdentifier = 'latest') -> SlotNumber:
-        """Returns the earliest possible reference slot, i.e. the reference slot of the reporting frame with zero index."""
+        """
+        Returns the earliest possible reference slot,
+        i.e. the reference slot of the reporting frame with zero index.
+        """
         response = self.functions.getInitialRefSlot().call(block_identifier=block_identifier)
 
         logger.info({
@@ -116,7 +119,7 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getConsensusStateForMember(address).call(block_identifier=block_identifier)
 
         logger.info({
-            'msg': 'Call `getConsensusStateForMember()`.',
+            'msg': f'Call `getConsensusStateForMember({address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
         })

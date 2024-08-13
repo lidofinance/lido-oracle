@@ -16,7 +16,7 @@ class CSFeeOracleContract(BaseOracleContract):
         resp = self.functions.isPaused().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call isPaused().",
+                "msg": "Call `isPaused()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
@@ -29,7 +29,7 @@ class CSFeeOracleContract(BaseOracleContract):
         resp = self.functions.avgPerfLeewayBP().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to avgPerfLeewayBP()",
+                "msg": "Call `avgPerfLeewayBP()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }

@@ -19,7 +19,7 @@ class CSFeeDistributorContract(ContractInterface):
         resp = self.functions.ORACLE().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to ORACLE()",
+                "msg": "Call `ORACLE()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
@@ -32,7 +32,7 @@ class CSFeeDistributorContract(ContractInterface):
         resp = self.functions.pendingSharesToDistribute().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to pendingSharesToDistribute()",
+                "msg": "Call `pendingSharesToDistribute()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
@@ -45,7 +45,7 @@ class CSFeeDistributorContract(ContractInterface):
         resp = self.functions.treeRoot().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to treeRoot()",
+                "msg": "Call `treeRoot()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
@@ -58,7 +58,7 @@ class CSFeeDistributorContract(ContractInterface):
         resp = self.functions.treeCid().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to treeCid()",
+                "msg": "Call `treeCid()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }

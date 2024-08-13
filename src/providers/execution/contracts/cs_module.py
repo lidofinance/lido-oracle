@@ -38,7 +38,7 @@ class CSModuleContract(ContractInterface):
         resp = self.functions.accounting().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to accounting()",
+                "msg": "Call `accounting()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
@@ -49,37 +49,9 @@ class CSModuleContract(ContractInterface):
         resp = self.functions.isPaused().call(block_identifier=block)
         logger.info(
             {
-                "msg": "Call to isPaused()",
+                "msg": "Call `isPaused()`.",
                 "value": resp,
                 "block_identifier": repr(block),
-            }
-        )
-        return resp
-
-    def node_operators_ids(self, block_identifier: BlockIdentifier = "latest") -> Iterable[NodeOperatorId]:
-        for no_id in range(self.node_operators_count(block_identifier)):
-            yield NodeOperatorId(no_id)
-
-    def node_operators_count(self, block_identifier: BlockIdentifier = "latest") -> int:
-        resp = self.functions.getNodeOperatorsCount().call(block_identifier=block_identifier)
-        logger.info(
-            {
-                "msg": "Call to getNodeOperatorsCount()",
-                "value": resp,
-                "block_identifier": repr(block_identifier),
-            }
-        )
-        return resp
-
-    def node_operator_summary(
-        self, no_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest"
-    ) -> NodeOperatorSummary:
-        resp = self.functions.getNodeOperatorSummary(no_id).call(block_identifier=block_identifier)
-        logger.info(
-            {
-                "msg": f"Call to getNodeOperatorSummary({no_id=})",
-                "value": resp,
-                "block_identifier": repr(block_identifier),
             }
         )
         return resp
