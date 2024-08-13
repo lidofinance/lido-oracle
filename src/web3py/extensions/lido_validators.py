@@ -107,7 +107,7 @@ class NodeOperator(Nested):
         # False == 0 == No priority ejections
         # True  == 1 == Soft priority ejections
         #          2 == Force priority ejections
-        is_target_limit_active = NodeOperatorLimitMode(is_target_limit_active)
+        is_target_limit_active = NodeOperatorLimitMode(min(is_target_limit_active, 2))
 
         return cls(
             _id,
