@@ -61,10 +61,10 @@ def test_get_delayed_validators(iterator):
         }
     )
 
-    iterator.exitable_validators = {
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={
         (1, 1): [LidoValidatorFactory.build(index="1"), LidoValidatorFactory.build(index="2")],
         (1, 2): [LidoValidatorFactory.build(index="3"), LidoValidatorFactory.build(index="4")],
-    }
+    })
 
     assert iterator._get_delayed_validators() == {(1, 1): 1, (1, 2): 0}
 
