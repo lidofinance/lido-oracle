@@ -18,7 +18,7 @@ class CSAccountingContract(ContractInterface):
         resp = self.functions.feeDistributor().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to feeDistributor()",
+                "msg": "Call `feeDistributor()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }

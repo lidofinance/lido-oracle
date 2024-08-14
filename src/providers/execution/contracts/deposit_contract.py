@@ -14,7 +14,7 @@ class DepositContract(ContractInterface):
         resp = self.functions.get_deposit_count().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call to get_deposit_count()",
+                "msg": "Call `get_deposit_count()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }

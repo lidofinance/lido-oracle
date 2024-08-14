@@ -1,4 +1,6 @@
 import logging
+from itertools import batched
+
 from src.utils.cache import global_lru_cache as lru_cache
 from typing import Sequence
 
@@ -7,7 +9,7 @@ from web3.types import BlockIdentifier
 from src.modules.ejector.types import EjectorProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
-
+from src.variables import EL_REQUESTS_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -53,14 +55,20 @@ class ExitBusOracleContract(BaseOracleContract):
         `nodeOpIds` in the given `moduleId`. For node operators that were never requested to exit
         any validator, index is set to -1.
         """
-        response = self.functions.getLastRequestedValidatorIndices(
-            module_id,
-            node_operators_ids_in_module,
-        ).call(block_identifier=block_identifier)
+        result = []
 
-        logger.info({
-            'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {node_operators_ids_in_module})`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-        })
-        return response
+        for no_list in batched(node_operators_ids_in_module, EL_REQUESTS_BATCH_SIZE):
+            response = self.functions.getLastRequestedValidatorIndices(
+                module_id,
+                no_list,
+            ).call(block_identifier=block_identifier)
+
+            logger.info({
+                'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {no_list})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+            })
+
+            result.extend(response)
+
+        return result
