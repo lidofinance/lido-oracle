@@ -28,6 +28,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getMembers()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -41,10 +42,11 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getChainConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, ChainConfig)
 
-        logger.info({
+        logger.debug({
             'msg': 'Call `getChainConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -69,6 +71,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getCurrentFrame()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -85,6 +88,7 @@ class HashConsensusContract(ContractInterface):
             'msg': 'Call `getInitialRefSlot()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -101,10 +105,11 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getFrameConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, FrameConfig)
 
-        logger.info({
+        logger.debug({
             'msg': 'Call `getFrameConfig()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response
@@ -122,6 +127,7 @@ class HashConsensusContract(ContractInterface):
             'msg': f'Call `getConsensusStateForMember({address})`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
 
         return response

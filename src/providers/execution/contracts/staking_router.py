@@ -17,11 +17,12 @@ class StakingRouterContract(ContractInterface):
     @lru_cache(maxsize=1)
     def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
         response = self.functions.getContractVersion().call(block_identifier=block_identifier)
-        logger.info(
+        logger.debug(
             {
                 'msg': 'Call `getContractVersion()`.',
                 'value': response,
                 'block_identifier': repr(block_identifier),
+                'to': self.address,
             }
         )
         return response
@@ -38,6 +39,7 @@ class StakingRouterContract(ContractInterface):
             'msg': 'Call `getStakingModules()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
 
@@ -58,8 +60,9 @@ class StakingRouterContract(ContractInterface):
             logger.info({
                 'msg': f'Call `getNodeOperatorDigests({module.id}, {i * EL_REQUESTS_BATCH_SIZE}, {EL_REQUESTS_BATCH_SIZE})`.',
                 # Too long response
-                'value': len(response),
+                'len': len(nos),
                 'block_identifier': repr(block_identifier),
+                'to': self.address,
             })
 
             i += 1
@@ -99,5 +102,6 @@ class StakingRouterContractV2(StakingRouterContract):
             'msg': 'Call `getStakingModules()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
+            'to': self.address,
         })
         return response
