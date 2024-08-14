@@ -14,7 +14,7 @@ def check_contract(
     functions_spec: list[tuple[str, tuple | None, Callable[[Any], None]]],
     caplog,
 ):
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
 
     for function in functions_spec:
         # get method

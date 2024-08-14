@@ -172,7 +172,7 @@ class LidoValidatorStateService:
             blockstamp,
         )
 
-        validators_recently_requested_to_exit = []
+        validators_recently_requested_to_exit: list[LidoValidator] = []
 
         for global_index, validators in lido_validators_by_operator.items():
 
