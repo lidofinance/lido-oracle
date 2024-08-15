@@ -1,4 +1,6 @@
 import logging
+from abc import abstractmethod
+
 from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import BlockIdentifier
@@ -12,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class StakingRouterContract(ContractInterface):
-    abi_path = './assets/StakingRouter.json'
-
     @lru_cache(maxsize=1)
     def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
         response = self.functions.getContractVersion().call(block_identifier=block_identifier)
@@ -25,22 +25,6 @@ class StakingRouterContract(ContractInterface):
                 'to': self.address,
             }
         )
-        return response
-
-    @lru_cache(maxsize=1)
-    @list_of_dataclasses(StakingModule.from_response)
-    def get_staking_modules(self, block_identifier: BlockIdentifier = 'latest') -> list[StakingModule]:
-        """
-        Returns all registered staking modules
-        """
-        response = self.functions.getStakingModules().call(block_identifier=block_identifier)
-
-        logger.info({
-            'msg': 'Call `getStakingModules()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
         return response
 
     def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
@@ -73,6 +57,30 @@ class StakingRouterContract(ContractInterface):
 
         return [NodeOperator.from_response(no, module) for no in response]
 
+    @abstractmethod
+    def get_staking_modules(self, block_identifier: BlockIdentifier = 'latest') -> list[StakingModule]:
+        ...
+
+
+class StakingRouterContractV1(StakingRouterContract):
+    abi_path = './assets/StakingRouterV1.json'
+
+    @lru_cache(maxsize=1)
+    @list_of_dataclasses(StakingModule.from_response)
+    def get_staking_modules(self, block_identifier: BlockIdentifier = 'latest') -> list[StakingModule]:
+        """
+        Returns all registered staking modules
+        """
+        response = self.functions.getStakingModules().call(block_identifier=block_identifier)
+
+        logger.info({
+            'msg': 'Call `getStakingModules()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+        return response
+
 
 class StakingRouterContractV2(StakingRouterContract):
     abi_path = './assets/StakingRouterV2.json'
@@ -88,7 +96,7 @@ class StakingRouterContractV2(StakingRouterContract):
         if contract_version == 1:
             # Backward compatibility in case if new oracle have to build report for old protocol version
             # But latest contracts has new version
-            logger.warning({'msg': 'Use StakingRouter.json abi (old one) to parse the response.'})
+            logger.warning({'msg': 'Use StakingRouterV1.json abi (old one) to parse the response.'})
             staking_router = self.w3.eth.contract(
                 address=self.address,
                 abi=self.load_abi(super().abi_path),
