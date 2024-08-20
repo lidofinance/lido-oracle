@@ -1,11 +1,27 @@
 import json
 from dataclasses import dataclass
-from typing import Self, Sequence
+from typing import Literal, Self, Sequence
 
 from hexbytes import HexBytes
-from oz_merkle_tree import StandardMerkleTree
+from oz_merkle_tree import Dump, StandardMerkleTree
 
 from src.modules.csm.types import RewardTreeLeaf
+from src.providers.ipfs.cid import CID
+
+type StateCID = CID | Literal[""]
+
+
+class TreeDump(Dump[RewardTreeLeaf]):
+    stateCID: StateCID
+
+
+class TreeJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, bytes):
+            return f"0x{o.hex()}"
+        if isinstance(o, CID):
+            return str(o)
+        return super().default(o)
 
 
 @dataclass
@@ -13,6 +29,7 @@ class Tree:
     """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
 
     tree: StandardMerkleTree[RewardTreeLeaf]
+    state_cid: StateCID = ""
 
     @property
     def root(self) -> HexBytes:
@@ -30,12 +47,10 @@ class Tree:
     def encode(self) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
 
-        def default(o):
-            if isinstance(o, bytes):
-                return f"0x{o.hex()}"
-            raise ValueError(f"Unexpected type for json encoding, got {repr(o)}")
+        return TreeJSONEncoder(indent=2).encode(self.dump()).encode()
 
-        return json.dumps(self.tree.dump(), indent=2, default=default).encode()
+    def dump(self) -> TreeDump:
+        return {**self.tree.dump(), "stateCID": self.state_cid}
 
     @classmethod
     def new(cls, values: Sequence[RewardTreeLeaf]) -> Self:

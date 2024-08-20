@@ -119,16 +119,20 @@ class CSOracle(BaseModule, ConsensusModule):
                 shares[no_id] += amount
 
         tree = self.make_tree(shares)
-        cid: CID | None = None
+        tree_cid: CID | None = None
 
         if tree:
-            cid = self.w3.ipfs.publish(tree.encode())
+            state_cid = self.w3.ipfs.publish(self.state.encode())
+            logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
+            tree.state_cid = state_cid
+            tree_cid = self.w3.ipfs.publish(tree.encode())
+            logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
             tree_root=tree.root if tree else prev_root,
-            tree_cid=cid or prev_cid,
+            tree_cid=tree_cid or prev_cid,
             distributed=distributed,
         ).as_tuple()
 
