@@ -43,8 +43,8 @@ class ConsensusModule(ABC):
     """
     report_contract: BaseOracleContract
 
-    COMPATIBLE_CONTRACT_VERSIONS: list[int]
-    COMPATIBLE_CONSENSUS_VERSIONS: list[int]
+    # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
+    COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -52,11 +52,8 @@ class ConsensusModule(ABC):
         if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-        if getattr(self, "COMPATIBLE_CONTRACT_VERSIONS", None) is None:
-            raise NotImplementedError('COMPATIBLE_CONTRACT_VERSIONS attribute should be set.')
-
-        if getattr(self, "COMPATIBLE_CONSENSUS_VERSIONS", None) is None:
-            raise NotImplementedError('COMPATIBLE_CONSENSUS_VERSIONS attribute should be set.')
+        if getattr(self, "COMPATIBLE_ONCHAIN_VERSIONS", None) is None:
+            raise NotImplementedError('COMPATIBLE_ONCHAIN_VERSIONS attribute should be set.')
 
     def check_contract_configs(self):
         root = self.w3.cc.get_block_root('head').root
@@ -225,16 +222,13 @@ class ConsensusModule(ABC):
         contract_version = self.report_contract.get_contract_version(block_tag)
         consensus_version = self.report_contract.get_consensus_version(block_tag)
 
-        compatibility = (
-            contract_version in self.COMPATIBLE_CONTRACT_VERSIONS
-            and consensus_version in self.COMPATIBLE_CONSENSUS_VERSIONS
-        )
+        compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
 
         if not compatibility:
             raise IncompatibleOracleVersion(
                 f'Incompatible Oracle version. Block tag: {repr(block_tag)}. '
-                f'Expected contract versions, one of: {self.COMPATIBLE_CONTRACT_VERSIONS} got {contract_version}. '
-                f'Expected consensus versions, one of: {self.COMPATIBLE_CONSENSUS_VERSIONS} got {consensus_version}.'
+                f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
+                f'Got ({contract_version}, {consensus_version})'
             )
 
     # ----- Working with report -----

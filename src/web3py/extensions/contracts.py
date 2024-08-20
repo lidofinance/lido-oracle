@@ -17,7 +17,12 @@ from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_router import StakingRouterContract, StakingRouterContractV2
+from src.providers.execution.contracts.staking_router import (
+    StakingRouterContract,
+    StakingRouterContractV1,
+    StakingRouterContractV2,
+)
+
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
@@ -140,10 +145,10 @@ class LidoContracts(Module):
         if self.staking_router.get_contract_version() == 1:
             logger.debug({'msg': 'Use staking router V1.'})
             self.staking_router = cast(
-                StakingRouterContract,
+                StakingRouterContractV1,
                 self.w3.eth.contract(
                     address=staking_router_address,
-                    ContractFactoryClass=StakingRouterContract,
+                    ContractFactoryClass=StakingRouterContractV1,
                     decode_tuples=True,
                 ),
             )

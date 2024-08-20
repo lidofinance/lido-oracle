@@ -124,14 +124,14 @@ def contracts(web3, provider):
     LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
 
     def _load_staking_router(self, lido_locator):
-        from src.providers.execution.contracts.staking_router import StakingRouterContract  # pylint: disable=C0415
+        from src.providers.execution.contracts.staking_router import StakingRouterContractV1  # pylint: disable=C0415
 
         staking_router_address = lido_locator.staking_router()
         self.staking_router = cast(
-            StakingRouterContract,
+            StakingRouterContractV1,
             self.w3.eth.contract(
                 address=staking_router_address,
-                ContractFactoryClass=StakingRouterContract,
+                ContractFactoryClass=StakingRouterContractV1,
                 decode_tuples=True,
             ),
         )
