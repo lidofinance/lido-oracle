@@ -55,6 +55,7 @@ class CSOracle(BaseModule, ConsensusModule):
         2. Calculate the performance of each validator based on the attestations.
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
+
     COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1)]
 
     report_contract: CSFeeOracleContract
@@ -218,6 +219,14 @@ class CSOracle(BaseModule, ConsensusModule):
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
+
+                if v.validator.slashed:
+                    # It means that validator was active during the frame
+                    # and got slashed and didn't meet the exit epoch,
+                    # so we should not count such operator in the distribution
+                    if distribution.get(no_id):
+                        del distribution[no_id]
+                    break
 
                 if aggr.perf > threshold:
                     # Count of assigned attestations used as a metrics of time
