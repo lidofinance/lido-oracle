@@ -1,0 +1,429 @@
+{
+  "24": {
+    "validators": 2,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 452,
+    "total_included": 0
+  },
+  "31": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "49": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "51": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "57": {
+    "validators": 10,
+    "unique_assigned": 226,
+    "total_perf": 0.4964601769911504,
+    "total_assigned": 2260,
+    "total_included": 1122
+  },
+  "58": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "61": {
+    "validators": 5,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 1130,
+    "total_included": 0
+  },
+  "67": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "82": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "102": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "105": {
+    "validators": 3,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 678,
+    "total_included": 0
+  },
+  "120": {
+    "validators": 2,
+    "unique_assigned": 226,
+    "total_perf": 0.6792035398230089,
+    "total_assigned": 452,
+    "total_included": 307
+  },
+  "136": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "139": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.827433628318584,
+    "total_assigned": 226,
+    "total_included": 187
+  },
+  "140": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7876106194690266,
+    "total_assigned": 226,
+    "total_included": 178
+  },
+  "141": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "144": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7831858407079646,
+    "total_assigned": 226,
+    "total_included": 177
+  },
+  "145": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "146": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7345132743362832,
+    "total_assigned": 226,
+    "total_included": 166
+  },
+  "147": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "148": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "150": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "151": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "152": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "153": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "154": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "155": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "156": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "157": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "158": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "159": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "160": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.8230088495575221,
+    "total_assigned": 226,
+    "total_included": 186
+  },
+  "161": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "162": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7433628318584071,
+    "total_assigned": 226,
+    "total_included": 168
+  },
+  "163": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "164": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.6902654867256637,
+    "total_assigned": 226,
+    "total_included": 156
+  },
+  "165": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.8539823008849557,
+    "total_assigned": 226,
+    "total_included": 193
+  },
+  "166": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.8097345132743363,
+    "total_assigned": 226,
+    "total_included": 183
+  },
+  "167": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "171": {
+    "validators": 5,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 1130,
+    "total_included": 0
+  },
+  "178": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "179": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.43805309734513276,
+    "total_assigned": 226,
+    "total_included": 99
+  },
+  "183": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "184": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "189": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "193": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "199": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "205": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.831858407079646,
+    "total_assigned": 226,
+    "total_included": 188
+  },
+  "206": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7654867256637168,
+    "total_assigned": 226,
+    "total_included": 173
+  },
+  "209": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "210": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "216": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.5575221238938053,
+    "total_assigned": 226,
+    "total_included": 126
+  },
+  "222": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "435": {
+    "validators": 10,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 2260,
+    "total_included": 0
+  },
+  "498": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.7035398230088495,
+    "total_assigned": 226,
+    "total_included": 159
+  },
+  "1407": {
+    "validators": 10,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 2260,
+    "total_included": 0
+  },
+  "1451": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "1511": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "1519": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "1525": {
+    "validators": 1,
+    "unique_assigned": 226,
+    "total_perf": 0.0,
+    "total_assigned": 226,
+    "total_included": 0
+  },
+  "2062": {
+    "validators": 10,
+    "unique_assigned": 226,
+    "total_perf": 0.03893805309734513,
+    "total_assigned": 2260,
+    "total_included": 88
+  }
+}

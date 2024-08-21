@@ -1,0 +1,744 @@
+{
+  "4": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "39": {
+    "validators": 10,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "50": {
+    "validators": 500,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "66": {
+    "validators": 1,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "69": {
+    "validators": 1,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "86": {
+    "validators": 2500,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "99": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "123": {
+    "validators": 10,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "195": {
+    "validators": 1,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "204": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "274": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "1340": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "1366": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "1510": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2426": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2427": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2428": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2429": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2430": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2431": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2432": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2433": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2434": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2435": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2436": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2437": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2438": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2439": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2440": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2441": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2442": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2443": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2444": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2445": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2446": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2447": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2448": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2449": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2450": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2451": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2452": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2453": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2454": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2455": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2456": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2457": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2458": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2459": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2460": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2461": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2462": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2463": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2464": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2465": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2466": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2467": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2468": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2469": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2470": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2471": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2472": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2473": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2474": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2475": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2476": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2477": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2478": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2479": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2480": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2481": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2482": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2483": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2484": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2485": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2486": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2487": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2488": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2489": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2490": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2491": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2492": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2493": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2494": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2495": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2496": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2497": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2498": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2499": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2500": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2501": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2502": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2503": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2504": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2505": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2506": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2507": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2508": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2509": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2510": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2511": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2512": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2513": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2514": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2515": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2516": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  },
+  "2517": {
+    "validators": 0,
+    "unique_assigned": 0,
+    "total_perf": 0,
+    "total_assigned": 0,
+    "total_included": 0
+  }
+}

@@ -10,6 +10,7 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
+from src.modules.csm_data_collect.collect import CSMDataCollect
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
@@ -119,6 +120,9 @@ def main(module_name: OracleModule):
     elif module_name == OracleModule.CSM:
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
         instance = CSOracle(web3)
+    elif module_name == OracleModule.CSM_DATA_COLLECT:
+        logger.info({'msg': 'Initialize CSM data collect module.'})
+        instance = CSMDataCollect(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 

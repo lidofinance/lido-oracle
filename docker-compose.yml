@@ -1,0 +1,15 @@
+services:
+  lido-oracle-csm-data-collect:
+    build:
+      context: .
+    command: csm_data_collect
+    environment:
+      - MAX_CYCLE_LIFETIME_IN_SECONDS=604800
+      - EXECUTION_CLIENT_URI=https://ethereum-holesky-rpc.publicnode.com
+      - CONSENSUS_CLIENT_URI=http://unstable.holesky.beacon-api.nimbus.team/
+      - KEYS_API_URI=http://keys-api-holesky.testnet.fi
+      - LIDO_LOCATOR_ADDRESS=0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8
+      - CSM_MODULE_ADDRESS=0x4562c3e63c2e586cD1651B958C22F88135aCAd4f
+      - CACHE_PATH=/app/out
+    volumes:
+      - ./out:/app/out

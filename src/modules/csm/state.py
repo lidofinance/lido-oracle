@@ -4,7 +4,7 @@ import pickle
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import Self, Optional
 
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
