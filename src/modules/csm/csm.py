@@ -219,14 +219,13 @@ class CSOracle(BaseModule, ConsensusModule):
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
-
-                if v.validator.slashed:
-                    # It means that validator was active during the frame
-                    # and got slashed and didn't meet the exit epoch,
-                    # so we should not count such operator in the distribution
-                    if distribution.get(no_id):
+                else:
+                    if v.validator.slashed:
+                        # It means that validator was active during the frame
+                        # and got slashed and didn't meet the exit epoch,
+                        # so we should not count such operator in the distribution
                         del distribution[no_id]
-                    break
+                        break
 
                 if aggr.perf > threshold:
                     # Count of assigned attestations used as a metrics of time
