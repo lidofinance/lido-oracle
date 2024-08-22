@@ -92,6 +92,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
             (None, NodeOperatorId(6)): [Mock(index=7), Mock(index=8)],
             (None, NodeOperatorId(7)): [Mock(index=9)],
             (None, NodeOperatorId(8)): [Mock(index=10), Mock(index=11, validator=Mock(slashed=True))],
+            (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
         }
     )
     module.stuck_operators = Mock(
@@ -116,6 +117,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
             # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
             ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
             ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
+            ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
         }
     )
     _, shares = module.calculate_distribution(blockstamp=Mock())
@@ -125,6 +127,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         (NodeOperatorId(1), 3125),
         (NodeOperatorId(3), 3125),
         (NodeOperatorId(6), 3125),
+        (NodeOperatorId(8), 3125),
     )
 
 

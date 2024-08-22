@@ -223,9 +223,8 @@ class CSOracle(BaseModule, ConsensusModule):
                     if v.validator.slashed:
                         # It means that validator was active during the frame
                         # and got slashed and didn't meet the exit epoch,
-                        # so we should not count such operator in the distribution
-                        del distribution[no_id]
-                        break
+                        # so we should not count such validator for operator's share.
+                        continue
 
                 if aggr.perf > threshold:
                     # Count of assigned attestations used as a metrics of time
