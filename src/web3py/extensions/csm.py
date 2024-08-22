@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from itertools import groupby
 from time import sleep
-from typing import Callable, Iterable, cast
+from typing import Callable, Iterable, Literal, cast
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
@@ -46,8 +46,10 @@ class CSM(Module):
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         return self.fee_distributor.tree_root(blockstamp.block_hash)
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
+    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1 | Literal[""]:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
+        if not result:
+            return ""
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_operators_with_stucks_in_range(

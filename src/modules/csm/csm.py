@@ -1,6 +1,8 @@
 import logging
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterable, Literal
+
+from hexbytes import HexBytes
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -17,15 +19,15 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
-from src.providers.ipfs.cid import CID
+from src.providers.ipfs.cid import CID, CIDv0, CIDv1
 from src.types import (
     BlockStamp,
     EpochNumber,
     ReferenceBlockStamp,
     SlotNumber,
     StakingModuleAddress,
-    ValidatorIndex,
     StakingModuleId,
+    ValidatorIndex,
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
@@ -55,6 +57,7 @@ class CSOracle(BaseModule, ConsensusModule):
         2. Calculate the performance of each validator based on the attestations.
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
+
     COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1)]
 
     report_contract: CSFeeOracleContract
@@ -89,13 +92,7 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
-        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
-        l_epoch, _ = self.current_frame_range(blockstamp)
-        r_epoch = blockstamp.ref_epoch
-
-        self.state.validate(l_epoch, r_epoch)
-        self.state.log_status()
+        self.validate_state(blockstamp)
 
         distributed, shares = self.calculate_distribution(blockstamp)
         if not distributed:
@@ -105,27 +102,12 @@ class CSOracle(BaseModule, ConsensusModule):
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if prev_cid:
-            logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(prev_cid)})
-            ipfs_tree = Tree.decode(self.w3.ipfs.fetch(prev_cid))
-
-            if ipfs_tree.root != prev_root:
-                raise ValueError("Unexpected tree root got from IPFS dump")
-
-            logger.info({"msg": "Restored tree from IPFS dump", "root": repr(prev_root)})
-            # Update cumulative amount of shares for all operators.
-            for v in ipfs_tree.tree.values:
-                no_id, amount = v["value"]
-                shares[no_id] += amount
+        # Update cumulative amount of shares for all operators.
+        for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
+            shares[no_id] += acc_shares
 
         tree = self.make_tree(shares)
-        tree_cid: CID | None = None
-
-        if tree:
-            state_cid = self.w3.ipfs.publish(self.state.encode())
-            logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
-            tree_cid = self.w3.ipfs.publish(tree.encode({"stateCID": state_cid}))
-            logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
+        tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
@@ -153,6 +135,15 @@ class CSOracle(BaseModule, ConsensusModule):
         return self.w3.lido_validators.get_module_validators_by_node_operators(
             StakingModuleAddress(self.w3.csm.module.address), blockstamp
         )
+
+    def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
+        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
+        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
+        l_epoch, _ = self.current_frame_range(blockstamp)
+        r_epoch = blockstamp.ref_epoch
+
+        self.state.validate(l_epoch, r_epoch)
+        self.state.log_status()
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
@@ -244,6 +235,24 @@ class CSOracle(BaseModule, ConsensusModule):
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares
 
+    def get_accumulated_shares(
+        self, cid: CIDv0 | CIDv1 | Literal[""], root: HexBytes
+    ) -> Iterable[tuple[NodeOperatorId, Shares]]:
+        if not cid:
+            logger.info({"msg": "No previous CID available"})
+            return
+
+        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
+        tree = Tree.decode(self.w3.ipfs.fetch(cid))
+
+        logger.info({"msg": "Restored tree from IPFS dump", "root": repr(tree.root)})
+
+        if tree.root != root:
+            raise ValueError("Unexpected tree root got from IPFS dump")
+
+        for v in tree.tree.values:
+            yield v["value"]
+
     def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
         stuck: set[NodeOperatorId] = set()
         l_epoch, _ = self.current_frame_range(blockstamp)
@@ -286,6 +295,16 @@ class CSOracle(BaseModule, ConsensusModule):
         tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
+
+    def publish_tree(self, tree: Tree | None) -> CID | None:
+        if tree is None:
+            return
+
+        state_cid = self.w3.ipfs.publish(self.state.encode())
+        logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
+        tree_cid = self.w3.ipfs.publish(tree.encode({"stateCID": state_cid}))
+        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
+        return tree_cid
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
