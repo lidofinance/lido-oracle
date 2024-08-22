@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Literal, Self, Sequence
+from typing import Self, Sequence, TypedDict
 
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
@@ -8,11 +8,13 @@ from oz_merkle_tree import Dump, StandardMerkleTree
 from src.modules.csm.types import RewardTreeLeaf
 from src.providers.ipfs.cid import CID
 
-type StateCID = CID | Literal[""]
+
+class TreeMeta(TypedDict):
+    stateCID: CID
 
 
 class TreeDump(Dump[RewardTreeLeaf]):
-    stateCID: StateCID
+    metadata: TreeMeta
 
 
 class TreeJSONEncoder(json.JSONEncoder):
@@ -29,7 +31,6 @@ class Tree:
     """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
 
     tree: StandardMerkleTree[RewardTreeLeaf]
-    state_cid: StateCID = ""
 
     @property
     def root(self) -> HexBytes:
@@ -44,13 +45,13 @@ class Tree:
         except json.JSONDecodeError as e:
             raise ValueError("Unsupported tree format") from e
 
-    def encode(self) -> bytes:
+    def encode(self, metadata: TreeMeta) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
 
-        return TreeJSONEncoder(indent=2).encode(self.dump()).encode()
+        return TreeJSONEncoder(indent=0).encode(self.dump(metadata)).encode()
 
-    def dump(self) -> TreeDump:
-        return {**self.tree.dump(), "stateCID": self.state_cid}
+    def dump(self, metadata: TreeMeta) -> TreeDump:
+        return {**self.tree.dump(), "metadata": metadata}
 
     @classmethod
     def new(cls, values: Sequence[RewardTreeLeaf]) -> Self:

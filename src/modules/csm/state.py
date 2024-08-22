@@ -37,6 +37,7 @@ class AttestationsAccumulator:
 class StateDump(TypedDict):
     attestationsOfValidators: dict[ValidatorIndex, AttestationsAccumulator]
     epochs: list[EpochNumber]
+    avgPerf: float
 
 
 class StateJSONEncoder(json.JSONEncoder):
@@ -181,7 +182,11 @@ class State:
         )
 
     def encode(self) -> bytes:
-        return StateJSONEncoder(indent=2).encode(self.dump()).encode()
+        return StateJSONEncoder(indent=0, sort_keys=True).encode(self.dump()).encode()
 
     def dump(self) -> StateDump:
-        return {"attestationsOfValidators": self.data, "epochs": list(sorted(self._epochs_to_process))}
+        return {
+            "attestationsOfValidators": self.data,
+            "epochs": list(sorted(self._epochs_to_process)),
+            "avgPerf": self.avg_perf,
+        }

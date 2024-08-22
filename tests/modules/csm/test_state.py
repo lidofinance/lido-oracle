@@ -127,7 +127,13 @@ def test_state_encode_empty():
     orig = State({})
 
     dump = orig.encode()
-    assert json.loads(dump) == StateDump({"attestationsOfValidators": {}, "epochs": []})
+    assert json.loads(dump) == StateDump(
+        {
+            "attestationsOfValidators": {},
+            "epochs": [],
+            "avgPerf": 0,
+        }
+    )
 
 
 def test_state_encode():

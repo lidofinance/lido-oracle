@@ -124,8 +124,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if tree:
             state_cid = self.w3.ipfs.publish(self.state.encode())
             logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
-            tree.state_cid = state_cid
-            tree_cid = self.w3.ipfs.publish(tree.encode())
+            tree_cid = self.w3.ipfs.publish(tree.encode({"stateCID": state_cid}))
             logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
 
         return ReportData(
