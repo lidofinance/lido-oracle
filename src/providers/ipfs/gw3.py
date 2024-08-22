@@ -1,16 +1,16 @@
 import base64
 import hashlib
 import hmac
-from json import JSONDecodeError
 import logging
 import time
+from json import JSONDecodeError
 from urllib.parse import urlencode, urlparse
 
 import requests
 
-from src.providers.ipfs.cid import CIDv0, CIDv1, is_cid_v0
+from src.providers.ipfs.cid import CID, CIDv0, CIDv1, is_cid_v0
 
-from .types import IPFSError, IPFSProvider, FetchError, PinError, UploadError
+from .types import FetchError, IPFSError, IPFSProvider, PinError, UploadError
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +26,14 @@ class GW3(IPFSProvider):
         self.access_secret = base64.urlsafe_b64decode(access_secret)
         self.timeout = timeout
 
-    def fetch(self, cid: CIDv0 | CIDv1):
+    def fetch(self, cid: CID):
         try:
             resp = self._send("GET", f"{self.ENDPOINT}/ipfs/{cid}")
         except IPFSError as ex:
             raise FetchError(cid) from ex
         return resp.content
 
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def upload(self, content: bytes, name: str | None = None) -> CID:
         url = self._auth_upload(len(content))
         try:
             response = requests.post(url, data=content, timeout=self.timeout)
@@ -46,7 +46,7 @@ class GW3(IPFSProvider):
 
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
 
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         try:
             self._send("POST", f"{self.ENDPOINT}/api/v0/pin/add", {"arg": str(cid)})
         except IPFSError as ex:

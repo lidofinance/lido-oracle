@@ -19,7 +19,7 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
+from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
 from src.web3py.extensions.lido_validators import NodeOperatorId
@@ -46,7 +46,7 @@ class CSM(Module):
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         return self.fee_distributor.tree_root(blockstamp.block_hash)
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1 | Literal[""]:
+    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | Literal[""]:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         if not result:
             return ""

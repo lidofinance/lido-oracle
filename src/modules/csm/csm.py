@@ -19,7 +19,7 @@ from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
-from src.providers.ipfs.cid import CID, CIDv0, CIDv1
+from src.providers.ipfs import CID
 from src.types import (
     BlockStamp,
     EpochNumber,
@@ -107,7 +107,10 @@ class CSOracle(BaseModule, ConsensusModule):
             shares[no_id] += acc_shares
 
         tree = self.make_tree(shares)
-        tree_cid = self.publish_tree(tree)
+        tree_cid: CID | None = None
+
+        if tree:
+            tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
@@ -235,9 +238,7 @@ class CSOracle(BaseModule, ConsensusModule):
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares
 
-    def get_accumulated_shares(
-        self, cid: CIDv0 | CIDv1 | Literal[""], root: HexBytes
-    ) -> Iterable[tuple[NodeOperatorId, Shares]]:
+    def get_accumulated_shares(self, cid: CID | Literal[""], root: HexBytes) -> Iterable[tuple[NodeOperatorId, Shares]]:
         if not cid:
             logger.info({"msg": "No previous CID available"})
             return
@@ -296,10 +297,7 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree | None) -> CID | None:
-        if tree is None:
-            return
-
+    def publish_tree(self, tree: Tree) -> CID:
         state_cid = self.w3.ipfs.publish(self.state.encode())
         logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
         tree_cid = self.w3.ipfs.publish(tree.encode({"stateCID": state_cid}))

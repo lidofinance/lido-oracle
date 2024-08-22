@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from .cid import CIDv0, CIDv1
+
+from .cid import CID
 
 
 class IPFSError(Exception):
@@ -9,9 +10,9 @@ class IPFSError(Exception):
 class FetchError(IPFSError):
     """Raised if no content found for the given CID"""
 
-    cid: CIDv0 | CIDv1
+    cid: CID
 
-    def __init__(self, cid: CIDv0 | CIDv1) -> None:
+    def __init__(self, cid: CID) -> None:
         super().__init__(self)
         self.cid = cid
 
@@ -20,14 +21,13 @@ class FetchError(IPFSError):
 
 
 class UploadError(IPFSError):
-    ...
+    pass
 
 
 class PinError(IPFSError):
+    cid: CID
 
-    cid: CIDv0 | CIDv1
-
-    def __init__(self, cid: CIDv0 | CIDv1) -> None:
+    def __init__(self, cid: CID) -> None:
         super().__init__(self)
         self.cid = cid
 
@@ -39,18 +39,18 @@ class IPFSProvider(ABC):
     """Interface for all implementations of an [IPFS](https://docs.ipfs.tech) provider"""
 
     @abstractmethod
-    def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
-        ...
+    def fetch(self, cid: CID) -> bytes:
+        pass
 
-    def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def publish(self, content: bytes, name: str | None = None) -> CID:
         cid = self.upload(content, name)
         self.pin(cid)
         return cid
 
     @abstractmethod
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
-        ...
+    def upload(self, content: bytes, name: str | None = None) -> CID:
+        pass
 
     @abstractmethod
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         """Pin the content, see https://docs.ipfs.tech/how-to/pin-files"""

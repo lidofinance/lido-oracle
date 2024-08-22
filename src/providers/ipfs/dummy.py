@@ -1,6 +1,7 @@
 import hashlib
 
-from .types import CIDv0, CIDv1, IPFSProvider, FetchError
+from .cid import CID, CIDv0
+from .types import FetchError, IPFSProvider
 
 
 class DummyIPFSProvider(IPFSProvider):
@@ -8,28 +9,27 @@ class DummyIPFSProvider(IPFSProvider):
 
     # pylint: disable=unreachable
 
-    mempool: dict[CIDv0 | CIDv1, bytes]
+    mempool: dict[CID, bytes]
 
     def __init__(self) -> None:
         self.mempool = {}
 
-    def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
+    def fetch(self, cid: CID) -> bytes:
         try:
             return self.mempool[cid]
         except KeyError:
             try:
-                with open(str(cid), mode="r")  as f:
+                with open(str(cid), mode="r") as f:
                     return f.read().encode("utf-8")
             except Exception as e:
                 raise FetchError(cid) from e
 
-
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def upload(self, content: bytes, name: str | None = None) -> CID:
         cid = CIDv0("Qm" + hashlib.sha256(content).hexdigest())  # XXX: Dummy.
         self.mempool[cid] = content
         return cid
 
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         content = self.fetch(cid)
 
         with open(str(cid), mode="w", encoding="utf-8") as f:
