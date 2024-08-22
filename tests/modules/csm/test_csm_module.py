@@ -83,15 +83,24 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
 
     module.module_validators_by_node_operators = Mock(
         return_value={
-            (None, NodeOperatorId(0)): [Mock(index=0)],
-            (None, NodeOperatorId(1)): [Mock(index=1)],
-            (None, NodeOperatorId(2)): [Mock(index=2)],  # stuck
-            (None, NodeOperatorId(3)): [Mock(index=3)],
-            (None, NodeOperatorId(4)): [Mock(index=4)],  # stuck
-            (None, NodeOperatorId(5)): [Mock(index=5), Mock(index=6)],
-            (None, NodeOperatorId(6)): [Mock(index=7), Mock(index=8)],
-            (None, NodeOperatorId(7)): [Mock(index=9)],
-            (None, NodeOperatorId(8)): [Mock(index=10), Mock(index=11, validator=Mock(slashed=True))],
+            (None, NodeOperatorId(0)): [Mock(index=0, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(1)): [Mock(index=1, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(2)): [Mock(index=2, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(3)): [Mock(index=3, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(4)): [Mock(index=4, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(5)): [
+                Mock(index=5, validator=Mock(slashed=False)),
+                Mock(index=6, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(6)): [
+                Mock(index=7, validator=Mock(slashed=False)),
+                Mock(index=8, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(7)): [Mock(index=9, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(8)): [
+                Mock(index=10, validator=Mock(slashed=False)),
+                Mock(index=11, validator=Mock(slashed=True)),
+            ],
             (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
         }
     )
@@ -123,11 +132,11 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     _, shares = module.calculate_distribution(blockstamp=Mock())
 
     assert tuple(shares.items()) == (
-        (NodeOperatorId(0), 625),
-        (NodeOperatorId(1), 3125),
-        (NodeOperatorId(3), 3125),
-        (NodeOperatorId(6), 3125),
-        (NodeOperatorId(8), 3125),
+        (NodeOperatorId(0), 476),
+        (NodeOperatorId(1), 2380),
+        (NodeOperatorId(3), 2380),
+        (NodeOperatorId(6), 2380),
+        (NodeOperatorId(8), 2380),
     )
 
 
