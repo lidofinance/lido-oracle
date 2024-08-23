@@ -10,7 +10,7 @@ from src.providers.ipfs.cid import CID
 
 
 class TreeMeta(TypedDict):
-    stateCID: CID
+    logCID: CID
 
 
 class TreeDump(Dump[RewardTreeLeaf]):

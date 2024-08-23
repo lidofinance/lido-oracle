@@ -1,11 +1,10 @@
-import json
 import logging
 import os
 import pickle
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Self, TypedDict
+from typing import Self
 
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
@@ -32,19 +31,6 @@ class AttestationsAccumulator:
     def add_duty(self, included: bool) -> None:
         self.assigned += 1
         self.included += 1 if included else 0
-
-
-class StateDump(TypedDict):
-    attestationsOfValidators: dict[ValidatorIndex, AttestationsAccumulator]
-    epochs: list[EpochNumber]
-    avgPerf: float
-
-
-class StateJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, AttestationsAccumulator):
-            return asdict(o)
-        return super().default(o)
 
 
 class State:
@@ -181,12 +167,8 @@ class State:
             assigned=assigned,
         )
 
-    def encode(self) -> bytes:
-        return StateJSONEncoder(indent=0, sort_keys=True).encode(self.dump()).encode()
-
-    def dump(self) -> StateDump:
-        return {
-            "attestationsOfValidators": self.data,
-            "epochs": list(sorted(self._epochs_to_process)),
-            "avgPerf": self.avg_perf,
-        }
+    @property
+    def frame(self) -> tuple[EpochNumber, EpochNumber]:
+        if not self._epochs_to_process:
+            raise ValueError("Epochs to process are not set")
+        return min(self._epochs_to_process), max(self._epochs_to_process)

@@ -12,6 +12,7 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
+from src.modules.csm.log import Log
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
@@ -94,7 +95,7 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        distributed, shares = self.calculate_distribution(blockstamp)
+        distributed, shares, log = self.calculate_distribution(blockstamp)
         if not distributed:
             logger.info({"msg": "No shares distributed in the current frame"})
 
@@ -110,7 +111,7 @@ class CSOracle(BaseModule, ConsensusModule):
         tree_cid: CID | None = None
 
         if tree:
-            tree_cid = self.publish_tree(tree)
+            tree_cid = self.publish_tree(tree, log)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
@@ -195,7 +196,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[int, defaultdict[NodeOperatorId, int]]:
+    def calculate_distribution(
+        self, blockstamp: ReferenceBlockStamp
+    ) -> tuple[int, defaultdict[NodeOperatorId, int], Log]:
         """Computes distribution of fee shares at the given timestamp"""
 
         threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
@@ -204,8 +207,11 @@ class CSOracle(BaseModule, ConsensusModule):
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
         stuck_operators = self.stuck_operators(blockstamp)
+        log = Log(self.state.frame, threshold)
+
         for (_, no_id), validators in operators_to_validators.items():
             if no_id in stuck_operators:
+                log.operators[no_id].stuck = True
                 continue
 
             for v in validators:
@@ -215,18 +221,26 @@ class CSOracle(BaseModule, ConsensusModule):
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
+                else:
+                    if v.validator.slashed:
+                        # It means that validator was active during the frame and got slashed and didn't meet the exit
+                        # epoch, so we should not count such validator for operator's share.
+                        log.operators[no_id].validators[v.index].slashed = True
+                        continue
 
                 if aggr.perf > threshold:
                     # Count of assigned attestations used as a metrics of time
                     # the validator was active in the current frame.
                     distribution[no_id] += aggr.assigned
 
+                log.operators[no_id].validators[v.index].perf = aggr
+
         # Calculate share of each CSM node operator.
         shares = defaultdict[NodeOperatorId, int](int)
         total = sum(p for p in distribution.values())
 
         if not total:
-            return 0, shares
+            return 0, shares, log
 
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
         for no_id, no_share in distribution.items():
@@ -236,7 +250,7 @@ class CSOracle(BaseModule, ConsensusModule):
         distributed = sum(s for s in shares.values())
         if distributed > to_distribute:
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
-        return distributed, shares
+        return distributed, shares, log
 
     def get_accumulated_shares(self, cid: CID | Literal[""], root: HexBytes) -> Iterable[tuple[NodeOperatorId, Shares]]:
         if not cid:
@@ -297,10 +311,10 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree) -> CID:
-        state_cid = self.w3.ipfs.publish(self.state.encode())
-        logger.info({"msg": "State dump uploaded to IPFS", "cid": repr(state_cid)})
-        tree_cid = self.w3.ipfs.publish(tree.encode({"stateCID": state_cid}))
+    def publish_tree(self, tree: Tree, log: Log) -> CID:
+        log_cid = self.w3.ipfs.publish(log.encode())
+        logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
+        tree_cid = self.w3.ipfs.publish(tree.encode({"logCID": log_cid}))
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 

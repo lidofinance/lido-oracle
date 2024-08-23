@@ -48,6 +48,21 @@ def test_state_avg_perf():
     assert state.avg_perf == 0.5
 
 
+def test_state_frame():
+    state = State()
+
+    state.migrate(EpochNumber(100), EpochNumber(500))
+    assert state.frame == (100, 500)
+
+    state.migrate(EpochNumber(300), EpochNumber(301))
+    assert state.frame == (300, 301)
+
+    state.clear()
+
+    with pytest.raises(ValueError, match="Epochs to process are not set"):
+        state.frame
+
+
 def test_state_attestations():
     state = State(
         {
