@@ -1,9 +1,9 @@
 import logging
+
 import requests
 
-from .types import FetchError, IPFSProvider, PinError, UploadError
 from .cid import CID
-
+from .types import FetchError, IPFSProvider, PinError, UploadError
 
 logger = logging.getLogger(__name__)
 
