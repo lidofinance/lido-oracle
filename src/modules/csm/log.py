@@ -1,7 +1,6 @@
 import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
-from typing import Callable
 
 from src.modules.csm.state import AttestationsAccumulator
 from src.types import EpochNumber, NodeOperatorId
@@ -14,10 +13,6 @@ class LogJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def dictfield[K, V](typ: Callable[[], V]):
-    return field(default_factory=lambda: defaultdict[K, V](typ))
-
-
 @dataclass
 class Validator:
     perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
@@ -27,7 +22,7 @@ class Validator:
 @dataclass
 class OperatorInfo:
     distributed: int = 0
-    validators: dict[str, Validator] = dictfield(Validator)
+    validators: dict[str, Validator] = field(default_factory=lambda: defaultdict(Validator))
     stuck: bool = False
 
 
@@ -35,7 +30,7 @@ class OperatorInfo:
 class Log:
     frame: tuple[EpochNumber, EpochNumber]
     threshold: float = 0.0
-    operators: dict[NodeOperatorId, OperatorInfo] = dictfield(OperatorInfo)
+    operators: dict[NodeOperatorId, OperatorInfo] = field(default_factory=lambda: defaultdict(OperatorInfo))
 
     def encode(self) -> bytes:
         return (
