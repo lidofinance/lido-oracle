@@ -26,6 +26,7 @@ class Validator:
 
 @dataclass
 class OperatorInfo:
+    distributed: int = 0
     validators: dict[str, Validator] = dictfield(Validator)
     stuck: bool = False
 

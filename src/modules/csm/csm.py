@@ -222,7 +222,7 @@ class CSOracle(BaseModule, ConsensusModule):
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
                 else:
-                    if v.validator.slashed:
+                    if v.validator.slashed is True:
                         # It means that validator was active during the frame and got slashed and didn't meet the exit
                         # epoch, so we should not count such validator for operator's share.
                         log.operators[no_id].validators[v.index].slashed = True
@@ -246,6 +246,7 @@ class CSOracle(BaseModule, ConsensusModule):
         for no_id, no_share in distribution.items():
             if no_share:
                 shares[no_id] = to_distribute * no_share // total
+                log.operators[no_id].distributed = shares[no_id]
 
         distributed = sum(s for s in shares.values())
         if distributed > to_distribute:

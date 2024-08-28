@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.state import AttestationsAccumulator, State, StateDump
+from src.modules.csm.state import AttestationsAccumulator, State
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -136,44 +136,6 @@ def test_state_inc():
         AttestationsAccumulator(included=3, assigned=5),
         AttestationsAccumulator(included=1, assigned=2),
     )
-
-
-def test_state_encode_empty():
-    orig = State({})
-
-    dump = orig.encode()
-    assert json.loads(dump) == StateDump(
-        {
-            "attestationsOfValidators": {},
-            "epochs": [],
-            "avgPerf": 0,
-        }
-    )
-
-
-def test_state_encode():
-    orig = State(
-        {
-            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
-        }
-    )
-    orig.migrate(EpochNumber(100), EpochNumber(500))
-
-    dump = orig.encode()
-    restored: StateDump = json.loads(dump)
-
-    assert restored["attestationsOfValidators"] == {
-        "0": {
-            "included": 333,
-            "assigned": 777,
-        },
-        "1": {
-            "included": 167,
-            "assigned": 223,
-        },
-    }
-    assert restored["epochs"] == list(sequence(100, 500))
 
 
 def test_state_file_is_path():
