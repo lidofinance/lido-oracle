@@ -48,7 +48,15 @@ class Tree:
     def encode(self, metadata: TreeMeta) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
 
-        return TreeJSONEncoder(indent=0).encode(self.dump(metadata)).encode()
+        return (
+            TreeJSONEncoder(
+                indent=None,
+                separators=(',', ':'),
+                sort_keys=True,
+            )
+            .encode(self.dump(metadata))
+            .encode()
+        )
 
     def dump(self, metadata: TreeMeta) -> TreeDump:
         return {**self.tree.dump(), "metadata": metadata}
