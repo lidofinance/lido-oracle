@@ -48,7 +48,9 @@ class CSM(Module):
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
-        return None if not result else CIDv0(result) if is_cid_v0(result) else CIDv1(result)
+        if not result:
+            return None
+        return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_operators_with_stucks_in_range(
         self,
