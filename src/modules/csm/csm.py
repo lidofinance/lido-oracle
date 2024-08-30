@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Iterable, Literal
+from typing import Iterable
 
 from hexbytes import HexBytes
 
@@ -103,9 +103,12 @@ class CSOracle(BaseModule, ConsensusModule):
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        # Update cumulative amount of shares for all operators.
-        for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
-            shares[no_id] += acc_shares
+        if prev_cid:
+            # Update cumulative amount of shares for all operators.
+            for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
+                shares[no_id] += acc_shares
+        else:
+            logger.info({"msg": "No previous CID available"})
 
         tree = self.make_tree(shares)
         tree_cid: CID | None = None
@@ -117,7 +120,7 @@ class CSOracle(BaseModule, ConsensusModule):
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
             tree_root=tree.root if tree else prev_root,
-            tree_cid=tree_cid or prev_cid,
+            tree_cid=tree_cid or prev_cid or "",
             distributed=distributed,
         ).as_tuple()
 
@@ -253,11 +256,7 @@ class CSOracle(BaseModule, ConsensusModule):
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares, log
 
-    def get_accumulated_shares(self, cid: CID | Literal[""], root: HexBytes) -> Iterable[tuple[NodeOperatorId, Shares]]:
-        if not cid:
-            logger.info({"msg": "No previous CID available"})
-            return
-
+    def get_accumulated_shares(self, cid: CID, root: HexBytes) -> Iterable[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
