@@ -1,4 +1,5 @@
 """Simple tests for the keys api client responses validity."""
+
 from unittest.mock import Mock
 
 import pytest

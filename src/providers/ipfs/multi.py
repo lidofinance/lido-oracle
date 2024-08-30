@@ -8,8 +8,7 @@ from .types import IPFSError, IPFSProvider
 logger = logging.getLogger(__name__)
 
 
-class MaxRetryError(IPFSError):
-    pass
+class MaxRetryError(IPFSError): ...
 
 
 class MultiIPFSProvider(IPFSProvider):

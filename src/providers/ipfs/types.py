@@ -20,8 +20,7 @@ class FetchError(IPFSError):
         return f"Unable to fetch {repr(self.cid)}"
 
 
-class UploadError(IPFSError):
-    pass
+class UploadError(IPFSError): ...
 
 
 class PinError(IPFSError):
@@ -39,8 +38,7 @@ class IPFSProvider(ABC):
     """Interface for all implementations of an [IPFS](https://docs.ipfs.tech) provider"""
 
     @abstractmethod
-    def fetch(self, cid: CID) -> bytes:
-        pass
+    def fetch(self, cid: CID) -> bytes: ...
 
     def publish(self, content: bytes, name: str | None = None) -> CID:
         cid = self.upload(content, name)
@@ -48,8 +46,7 @@ class IPFSProvider(ABC):
         return cid
 
     @abstractmethod
-    def upload(self, content: bytes, name: str | None = None) -> CID:
-        pass
+    def upload(self, content: bytes, name: str | None = None) -> CID: ...
 
     @abstractmethod
     def pin(self, cid: CID) -> None:
