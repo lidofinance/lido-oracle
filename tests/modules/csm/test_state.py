@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -27,7 +26,7 @@ def test_attestation_aggregate_perf():
 def test_state_avg_perf():
     state = State()
 
-    assert state.avg_perf == 0
+    assert state.get_network_aggr().perf == 0
 
     state = State(
         {
@@ -36,7 +35,7 @@ def test_state_avg_perf():
         }
     )
 
-    assert state.avg_perf == 0
+    assert state.get_network_aggr().perf == 0
 
     state = State(
         {
@@ -45,7 +44,7 @@ def test_state_avg_perf():
         }
     )
 
-    assert state.avg_perf == 0.5
+    assert state.get_network_aggr().perf == 0.5
 
 
 def test_state_frame():
@@ -71,7 +70,7 @@ def test_state_attestations():
         }
     )
 
-    network_aggr = state.network_aggr
+    network_aggr = state.get_network_aggr()
 
     assert network_aggr.assigned == 1000
     assert network_aggr.included == 500

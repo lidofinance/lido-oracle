@@ -8,7 +8,7 @@ from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.submodules.types import CurrentFrame
-from src.types import EpochNumber, NodeOperatorId, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -34,8 +34,8 @@ def test_init(module: CSOracle):
 
 
 def test_stuck_operators(module: CSOracle, csm: CSM):
-    module.module = Mock()
-    module.module_id = 1
+    module.module = Mock()  # type: ignore
+    module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
@@ -154,7 +154,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     assert log.operators[NodeOperatorId(6)].distributed == 3125
 
     assert log.frame == (100, 500)
-    assert log.threshold == module.state.avg_perf - 0.05
+    assert log.threshold == module.state.get_network_aggr().perf - 0.05
 
 
 # Static functions you were dreaming of for so long.

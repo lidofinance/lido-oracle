@@ -99,17 +99,8 @@ class State:
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
 
-    def log_status(self) -> None:
-        network_aggr = self.network_aggr
-
-        logger.info(
-            {
-                "msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs",
-                "assigned": network_aggr.assigned,
-                "included": network_aggr.included,
-                "avg_perf": self.avg_perf,
-            }
-        )
+    def log_progress(self) -> None:
+        logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
         for state_epochs in (self._epochs_to_process, self._processed_epochs):
@@ -150,25 +141,23 @@ class State:
         return not self.unprocessed_epochs
 
     @property
-    def avg_perf(self) -> float:
-        """Returns average performance of all validators in the cache"""
-        return self.network_aggr.perf
+    def frame(self) -> tuple[EpochNumber, EpochNumber]:
+        if not self._epochs_to_process:
+            raise ValueError("Epochs to process are not set")
+        return min(self._epochs_to_process), max(self._epochs_to_process)
 
-    @property
-    def network_aggr(self) -> AttestationsAccumulator:
+    def get_network_aggr(self) -> AttestationsAccumulator:
+        """Return `AttestationsAccumulator` over duties of all the network validators"""
+
         included = assigned = 0
         for validator, acc in self.data.items():
             if acc.included > acc.assigned:
                 raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
             included += acc.included
             assigned += acc.assigned
-        return AttestationsAccumulator(
+        aggr = AttestationsAccumulator(
             included=included,
             assigned=assigned,
         )
-
-    @property
-    def frame(self) -> tuple[EpochNumber, EpochNumber]:
-        if not self._epochs_to_process:
-            raise ValueError("Epochs to process are not set")
-        return min(self._epochs_to_process), max(self._epochs_to_process)
+        logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr

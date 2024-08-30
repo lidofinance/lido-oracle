@@ -147,7 +147,6 @@ class CSOracle(BaseModule, ConsensusModule):
         r_epoch = blockstamp.ref_epoch
 
         self.state.validate(l_epoch, r_epoch)
-        self.state.log_status()
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
@@ -173,11 +172,11 @@ class CSOracle(BaseModule, ConsensusModule):
             return False
 
         self.state.migrate(l_epoch, r_epoch)
-        self.state.log_status()
+        self.state.log_progress()
 
-        if done := self.state.is_fulfilled:
+        if self.state.is_fulfilled:
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
-            return done
+            return True
 
         try:
             checkpoints = FrameCheckpointsIterator(
@@ -201,7 +200,8 @@ class CSOracle(BaseModule, ConsensusModule):
     ) -> tuple[int, defaultdict[NodeOperatorId, int], Log]:
         """Computes distribution of fee shares at the given timestamp"""
 
-        threshold = self.state.avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
+        network_avg_perf = self.state.get_network_aggr().perf
+        threshold = network_avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
         # Build the map of the current distribution operators.
