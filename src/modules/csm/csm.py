@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Iterable
+from typing import Iterator
 
 from hexbytes import HexBytes
 
@@ -256,7 +256,7 @@ class CSOracle(BaseModule, ConsensusModule):
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares, log
 
-    def get_accumulated_shares(self, cid: CID, root: HexBytes) -> Iterable[tuple[NodeOperatorId, Shares]]:
+    def get_accumulated_shares(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
@@ -268,7 +268,7 @@ class CSOracle(BaseModule, ConsensusModule):
         for v in tree.tree.values:
             yield v["value"]
 
-    def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> Iterable[NodeOperatorId]:
+    def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
         stuck: set[NodeOperatorId] = set()
         l_epoch, _ = self.current_frame_range(blockstamp)
         l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)

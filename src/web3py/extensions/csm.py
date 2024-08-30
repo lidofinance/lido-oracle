@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from itertools import groupby
 from time import sleep
-from typing import Callable, Iterable, Literal, cast
+from typing import Callable, Iterator, cast
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
@@ -54,7 +54,7 @@ class CSM(Module):
         self,
         l_block: BlockIdentifier,
         r_block: BlockIdentifier,
-    ) -> Iterable[NodeOperatorId]:
+    ) -> Iterator[NodeOperatorId]:
         """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
 
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
