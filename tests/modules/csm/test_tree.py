@@ -20,7 +20,7 @@ def tree():
 
 @pytest.fixture()
 def meta() -> TreeMeta:
-    return {"stateCID": CIDv0("Qm...")}
+    return {"logCID": CIDv0("Qm...")}
 
 
 def test_non_null_root(tree: Tree):
