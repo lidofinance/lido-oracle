@@ -14,23 +14,27 @@ class LogJSONEncoder(json.JSONEncoder):
 
 
 @dataclass
-class Validator:
+class ValidatorFrameSummary:
     perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
     slashed: bool = False
 
 
 @dataclass
-class OperatorInfo:
+class OperatorFrameSummary:
     distributed: int = 0
-    validators: dict[str, Validator] = field(default_factory=lambda: defaultdict(Validator))
+    validators: dict[str, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
     stuck: bool = False
 
 
 @dataclass
-class Log:
+class FramePerfLog:
+    """A log of performance assessed per operator in the given frame"""
+
     frame: tuple[EpochNumber, EpochNumber]
     threshold: float = 0.0
-    operators: dict[NodeOperatorId, OperatorInfo] = field(default_factory=lambda: defaultdict(OperatorInfo))
+    operators: dict[NodeOperatorId, OperatorFrameSummary] = field(
+        default_factory=lambda: defaultdict(OperatorFrameSummary)
+    )
 
     def encode(self) -> bytes:
         return (

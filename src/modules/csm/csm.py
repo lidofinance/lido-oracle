@@ -12,7 +12,7 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.log import Log
+from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
@@ -200,7 +200,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def calculate_distribution(
         self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[int, defaultdict[NodeOperatorId, int], Log]:
+    ) -> tuple[int, defaultdict[NodeOperatorId, int], FramePerfLog]:
         """Computes distribution of fee shares at the given timestamp"""
 
         network_avg_perf = self.state.get_network_aggr().perf
@@ -210,7 +210,7 @@ class CSOracle(BaseModule, ConsensusModule):
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
         stuck_operators = self.stuck_operators(blockstamp)
-        log = Log(self.state.frame, threshold)
+        log = FramePerfLog(self.state.frame, threshold)
 
         for (_, no_id), validators in operators_to_validators.items():
             if no_id in stuck_operators:
@@ -311,7 +311,7 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree, log: Log) -> CID:
+    def publish_tree(self, tree: Tree, log: FramePerfLog) -> CID:
         log_cid = self.w3.ipfs.publish(log.encode())
         logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
         tree_cid = self.w3.ipfs.publish(tree.encode({"logCID": log_cid}))
