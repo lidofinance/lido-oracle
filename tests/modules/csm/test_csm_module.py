@@ -149,6 +149,8 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         NodeOperatorId(5),
         NodeOperatorId(6),
         NodeOperatorId(7),
+        NodeOperatorId(8),
+        NodeOperatorId(9),
     )
 
     assert not log.operators[NodeOperatorId(1)].stuck
@@ -162,11 +164,11 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     assert 6 in log.operators[NodeOperatorId(5)].validators
     assert 7 in log.operators[NodeOperatorId(6)].validators
 
-    assert log.operators[NodeOperatorId(0)].distributed == 625
-    assert log.operators[NodeOperatorId(1)].distributed == 3125
+    assert log.operators[NodeOperatorId(0)].distributed == 476
+    assert log.operators[NodeOperatorId(1)].distributed == 2380
     assert log.operators[NodeOperatorId(2)].distributed == 0
-    assert log.operators[NodeOperatorId(3)].distributed == 3125
-    assert log.operators[NodeOperatorId(6)].distributed == 3125
+    assert log.operators[NodeOperatorId(3)].distributed == 2380
+    assert log.operators[NodeOperatorId(6)].distributed == 2380
 
     assert log.frame == (100, 500)
     assert log.threshold == module.state.get_network_aggr().perf - 0.05
