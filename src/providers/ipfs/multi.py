@@ -2,14 +2,13 @@ import logging
 from functools import wraps
 from typing import Iterable
 
-from .cid import CIDv0, CIDv1
+from .cid import CID
 from .types import IPFSError, IPFSProvider
 
 logger = logging.getLogger(__name__)
 
 
-class MaxRetryError(IPFSError):
-    ...
+class MaxRetryError(IPFSError): ...
 
 
 class MultiIPFSProvider(IPFSProvider):
@@ -72,21 +71,21 @@ class MultiIPFSProvider(IPFSProvider):
 
     @with_fallback
     @retry
-    def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
+    def fetch(self, cid: CID) -> bytes:
         return self.provider.fetch(cid)
 
     @with_fallback
     @retry
-    def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def publish(self, content: bytes, name: str | None = None) -> CID:
         # If the current provider fails to upload or pin a file, it makes sense
         # to try to both upload and to pin via a different provider.
         return self.provider.publish(content, name)
 
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def upload(self, content: bytes, name: str | None = None) -> CID:
         # It doesn't make sense to upload a file to a different providers networks
         # without a guarantee the file will be available via another one.
         raise NotImplementedError
 
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         # CID can be unavailable for the next provider in the providers list.
         raise NotImplementedError

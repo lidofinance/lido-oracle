@@ -203,7 +203,7 @@ class FrameCheckpointProcessor:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
             self.state.add_processed_epoch(duty_epoch)
             self.state.commit()
-            self.state.log_status()
+            self.state.log_progress()
             unprocessed_epochs = self.state.unprocessed_epochs
             CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))
             CSM_MIN_UNPROCESSED_EPOCH.set(min(unprocessed_epochs or {EpochNumber(-1)}))

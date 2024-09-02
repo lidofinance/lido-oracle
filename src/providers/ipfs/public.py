@@ -1,9 +1,9 @@
 import logging
+
 import requests
 
+from .cid import CID
 from .types import FetchError, IPFSProvider, PinError, UploadError
-from .cid import CIDv0, CIDv1
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class PublicIPFS(IPFSProvider):
         super().__init__()
         self.timeout = timeout
 
-    def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
+    def fetch(self, cid: CID) -> bytes:
         url = f"{self.GATEWAY}/ipfs/{cid}"
         try:
             resp = requests.get(url, timeout=self.timeout)
@@ -29,8 +29,8 @@ class PublicIPFS(IPFSProvider):
             raise FetchError(cid) from ex
         return resp.content
 
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def upload(self, content: bytes, name: str | None = None) -> CID:
         raise UploadError
 
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         raise PinError(cid)

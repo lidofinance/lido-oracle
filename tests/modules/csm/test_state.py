@@ -26,7 +26,7 @@ def test_attestation_aggregate_perf():
 def test_state_avg_perf():
     state = State()
 
-    assert state.avg_perf == 0
+    assert state.get_network_aggr().perf == 0
 
     state = State(
         {
@@ -35,7 +35,7 @@ def test_state_avg_perf():
         }
     )
 
-    assert state.avg_perf == 0
+    assert state.get_network_aggr().perf == 0
 
     state = State(
         {
@@ -44,7 +44,22 @@ def test_state_avg_perf():
         }
     )
 
-    assert state.avg_perf == 0.5
+    assert state.get_network_aggr().perf == 0.5
+
+
+def test_state_frame():
+    state = State()
+
+    state.migrate(EpochNumber(100), EpochNumber(500))
+    assert state.frame == (100, 500)
+
+    state.migrate(EpochNumber(300), EpochNumber(301))
+    assert state.frame == (300, 301)
+
+    state.clear()
+
+    with pytest.raises(ValueError, match="Epochs to process are not set"):
+        state.frame
 
 
 def test_state_attestations():
@@ -55,7 +70,7 @@ def test_state_attestations():
         }
     )
 
-    network_aggr = state.network_aggr
+    network_aggr = state.get_network_aggr()
 
     assert network_aggr.assigned == 1000
     assert network_aggr.included == 500
