@@ -161,23 +161,24 @@ class CSOracle(BaseModule, ConsensusModule):
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
 
+        # Finalized slot is the first slot of justifying epoch, so we need to take the previous
+        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
+
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
-            epoch = converter.get_epoch_by_slot(blockstamp.slot_number)
             logger.warning(
-                {"msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {epoch}"}
+                {"msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"}
             )
             return False
 
-        # Finalized slot is the first slot of justifying epoch, so we need to take the previous
-        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
         if l_epoch > finalized_epoch:
+            logger.info({"msg": "The starting epoch of the frame is not finalized yet"})
             return False
 
         self.state.migrate(l_epoch, r_epoch)
         self.state.log_progress()
 
-        if self.state.is_fulfilled:
+        if self.state.is_fulfilled is True:
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
             return True
 
