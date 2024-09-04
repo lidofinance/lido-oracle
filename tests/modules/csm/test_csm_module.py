@@ -332,11 +332,13 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
 
 @pytest.fixture()
 def mock_frame_config(module: CSOracle):
-    module.get_frame_config = Mock(return_value=FrameConfigFactory.build(
-        initial_epoch=0,
-        epochs_per_frame=32,
-        fast_lane_length_slots=...,
-    ))
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            initial_epoch=0,
+            epochs_per_frame=32,
+            fast_lane_length_slots=...,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -416,10 +418,17 @@ class CollectDataTestParam:
             ),
             id="min_step_not_reached",
         ),
-    ]
+    ],
 )
-def test_collect_data(module: CSOracle, csm: CSM, param: CollectDataTestParam, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog,
-                      monkeypatch):
+def test_collect_data(
+    module: CSOracle,
+    csm: CSM,
+    param: CollectDataTestParam,
+    mock_chain_config: NoReturn,
+    mock_frame_config: NoReturn,
+    caplog,
+    monkeypatch,
+):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = param.state
@@ -438,7 +447,9 @@ def test_collect_data(module: CSOracle, csm: CSM, param: CollectDataTestParam, m
     assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
 
 
-def test_collect_data_outdated_checkpoint(module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog):
+def test_collect_data_outdated_checkpoint(
+    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = Mock(
@@ -454,11 +465,15 @@ def test_collect_data_outdated_checkpoint(module: CSOracle, csm: CSM, mock_chain
         with pytest.raises(ValueError):
             module.collect_data(blockstamp=Mock(slot_number=640))
 
-    msg = list(filter(lambda log: "Checkpoints were prepared for an outdated frame, stop processing" in log, caplog.messages))
+    msg = list(
+        filter(lambda log: "Checkpoints were prepared for an outdated frame, stop processing" in log, caplog.messages)
+    )
     assert len(msg), "Expected message not found in logs"
 
 
-def test_collect_data_fulfilled_state(module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog):
+def test_collect_data_fulfilled_state(
+    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = Mock(
