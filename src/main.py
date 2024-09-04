@@ -1,5 +1,5 @@
 import sys
-from typing import Iterable, cast
+from typing import Iterator, cast
 
 from packaging.version import Version
 from prometheus_client import start_http_server
@@ -152,7 +152,7 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
     )
 
 
-def ipfs_providers() -> Iterable[IPFSProvider]:
+def ipfs_providers() -> Iterator[IPFSProvider]:
     if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
         yield GW3(
             variables.GW3_ACCESS_KEY,

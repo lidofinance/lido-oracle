@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from itertools import groupby
 from time import sleep
-from typing import Callable, Iterable, cast
+from typing import Callable, Iterator, cast
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
@@ -19,7 +19,7 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.ipfs import CIDv0, CIDv1, is_cid_v0
+from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
 from src.web3py.extensions.lido_validators import NodeOperatorId
@@ -46,15 +46,17 @@ class CSM(Module):
     def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         return self.fee_distributor.tree_root(blockstamp.block_hash)
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CIDv0 | CIDv1:
+    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
+        if not result:
+            return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_operators_with_stucks_in_range(
         self,
         l_block: BlockIdentifier,
         r_block: BlockIdentifier,
-    ) -> Iterable[NodeOperatorId]:
+    ) -> Iterator[NodeOperatorId]:
         """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
 
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))

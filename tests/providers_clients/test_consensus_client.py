@@ -1,4 +1,5 @@
 """Simple tests for the consensus client responses validity."""
+
 from unittest.mock import Mock
 
 import pytest

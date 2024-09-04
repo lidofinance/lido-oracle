@@ -8,7 +8,7 @@ from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.submodules.types import CurrentFrame
-from src.types import NodeOperatorId, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -34,8 +34,8 @@ def test_init(module: CSOracle):
 
 
 def test_stuck_operators(module: CSOracle, csm: CSM):
-    module.module = Mock()
-    module.module_id = 1
+    module.module = Mock()  # type: ignore
+    module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
@@ -83,14 +83,25 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
 
     module.module_validators_by_node_operators = Mock(
         return_value={
-            (None, NodeOperatorId(0)): [Mock(index=0)],
-            (None, NodeOperatorId(1)): [Mock(index=1)],
-            (None, NodeOperatorId(2)): [Mock(index=2)],  # stuck
-            (None, NodeOperatorId(3)): [Mock(index=3)],
-            (None, NodeOperatorId(4)): [Mock(index=4)],  # stuck
-            (None, NodeOperatorId(5)): [Mock(index=5), Mock(index=6)],
-            (None, NodeOperatorId(6)): [Mock(index=7), Mock(index=8)],
-            (None, NodeOperatorId(7)): [Mock(index=9)],
+            (None, NodeOperatorId(0)): [Mock(index=0, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(1)): [Mock(index=1, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(2)): [Mock(index=2, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(3)): [Mock(index=3, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(4)): [Mock(index=4, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(5)): [
+                Mock(index=5, validator=Mock(slashed=False)),
+                Mock(index=6, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(6)): [
+                Mock(index=7, validator=Mock(slashed=False)),
+                Mock(index=8, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(7)): [Mock(index=9, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(8)): [
+                Mock(index=10, validator=Mock(slashed=False)),
+                Mock(index=11, validator=Mock(slashed=True)),
+            ],
+            (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
         }
     )
     module.stuck_operators = Mock(
@@ -108,21 +119,59 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
             ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
             ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
             ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
             ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
             ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
             ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
             # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
+            ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
+            ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
+            ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
         }
     )
-    _, shares = module.calculate_distribution(blockstamp=Mock())
+    module.state.migrate(EpochNumber(100), EpochNumber(500))
+
+    _, shares, log = module.calculate_distribution(blockstamp=Mock())
 
     assert tuple(shares.items()) == (
-        (NodeOperatorId(0), 625),
-        (NodeOperatorId(1), 3125),
-        (NodeOperatorId(3), 3125),
-        (NodeOperatorId(6), 3125),
+        (NodeOperatorId(0), 476),
+        (NodeOperatorId(1), 2380),
+        (NodeOperatorId(3), 2380),
+        (NodeOperatorId(6), 2380),
+        (NodeOperatorId(8), 2380),
     )
+
+    assert tuple(log.operators.keys()) == (
+        NodeOperatorId(0),
+        NodeOperatorId(1),
+        NodeOperatorId(2),
+        NodeOperatorId(3),
+        NodeOperatorId(4),
+        NodeOperatorId(5),
+        NodeOperatorId(6),
+        NodeOperatorId(7),
+        NodeOperatorId(8),
+        NodeOperatorId(9),
+    )
+
+    assert not log.operators[NodeOperatorId(1)].stuck
+
+    assert log.operators[NodeOperatorId(2)].validators == {}
+    assert log.operators[NodeOperatorId(2)].stuck
+    assert log.operators[NodeOperatorId(4)].validators == {}
+    assert log.operators[NodeOperatorId(4)].stuck
+
+    assert 5 in log.operators[NodeOperatorId(5)].validators
+    assert 6 in log.operators[NodeOperatorId(5)].validators
+    assert 7 in log.operators[NodeOperatorId(6)].validators
+
+    assert log.operators[NodeOperatorId(0)].distributed == 476
+    assert log.operators[NodeOperatorId(1)].distributed == 2380
+    assert log.operators[NodeOperatorId(2)].distributed == 0
+    assert log.operators[NodeOperatorId(3)].distributed == 2380
+    assert log.operators[NodeOperatorId(6)].distributed == 2380
+
+    assert log.frame == (100, 500)
+    assert log.threshold == module.state.get_network_aggr().perf - 0.05
 
 
 # Static functions you were dreaming of for so long.

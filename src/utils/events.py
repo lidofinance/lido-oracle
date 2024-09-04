@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable
+from typing import Iterator
 from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
@@ -63,7 +63,7 @@ def get_events_in_past(
     return [event for event in events if event['args'][timestamp_field_name] > from_timestamp]
 
 
-def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: BlockNumber) -> Iterable[EventData]:
+def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: BlockNumber) -> Iterator[EventData]:
     """Fetch all the events in the given blocks range (closed interval)"""
 
     if l_block > r_block:

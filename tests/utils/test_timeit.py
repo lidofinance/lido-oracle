@@ -10,8 +10,7 @@ def test_timeit_log_fn_no_args():
     log_fn = Mock()
 
     @timeit(log_fn)
-    def fn():
-        ...
+    def fn(): ...
 
     fn()
     log_fn.assert_called_once()
@@ -22,8 +21,7 @@ def test_timeit_log_fn_args():
     log_fn = Mock()
 
     @timeit(log_fn)
-    def fn(a, b, k):
-        ...
+    def fn(a, b, k): ...
 
     fn(2, 0, k="any")
     log_fn.assert_called_once()
@@ -35,8 +33,7 @@ def test_timeit_log_fn_args_method():
 
     class Some:
         @timeit(log_fn)
-        def fn(self, a, b):
-            ...
+        def fn(self, a, b): ...
 
     some = Some()
     some.fn(42, b="any")
@@ -62,8 +59,7 @@ def test_timeit_duration(monkeypatch: pytest.MonkeyPatch):
     log_fn = Mock()
 
     @timeit(log_fn)
-    def fn():
-        ...
+    def fn(): ...
 
     time = Mock(side_effect=[1, 12.34])
     with monkeypatch.context() as m:

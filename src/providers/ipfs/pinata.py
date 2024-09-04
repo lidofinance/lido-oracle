@@ -1,10 +1,10 @@
-from json import JSONDecodeError
 import logging
+from json import JSONDecodeError
+
 import requests
 
-from .cid import CIDv0, CIDv1, is_cid_v0
+from .cid import CID, CIDv0, CIDv1, is_cid_v0
 from .types import FetchError, IPFSProvider, PinError, UploadError
-
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class Pinata(IPFSProvider):
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
 
-    def fetch(self, cid: CIDv0 | CIDv1) -> bytes:
+    def fetch(self, cid: CID) -> bytes:
         url = f"{self.GATEWAY}/ipfs/{cid}"
         try:
             resp = requests.get(url, timeout=self.timeout)
@@ -31,11 +31,11 @@ class Pinata(IPFSProvider):
             raise FetchError(cid) from ex
         return resp.content
 
-    def publish(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def publish(self, content: bytes, name: str | None = None) -> CID:
         # NOTE: The content is pinned by the `upload` method.
         return self.upload(content)
 
-    def upload(self, content: bytes, name: str | None = None) -> CIDv0 | CIDv1:
+    def upload(self, content: bytes, name: str | None = None) -> CID:
         """Pinata has no dedicated endpoint for uploading, so pinFileToIPFS is used"""
 
         url = f"{self.API_ENDPOINT}/pinning/pinFileToIPFS"
@@ -54,6 +54,6 @@ class Pinata(IPFSProvider):
             raise UploadError from ex
         return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
 
-    def pin(self, cid: CIDv0 | CIDv1) -> None:
+    def pin(self, cid: CID) -> None:
         """pinByHash is a paid feature"""
         raise PinError(cid)
