@@ -148,7 +148,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         NodeOperatorId(4),
         NodeOperatorId(5),
         NodeOperatorId(6),
-        NodeOperatorId(7),
+        # NodeOperatorId(7), # Missing in state
         NodeOperatorId(8),
         NodeOperatorId(9),
     )

@@ -218,18 +218,18 @@ class CSOracle(BaseModule, ConsensusModule):
                 continue
 
             for v in validators:
-                try:
-                    aggr = self.state.data[ValidatorIndex(int(v.index))]
-                except KeyError:
+                aggr = self.state.data.get(ValidatorIndex(int(v.index)))
+
+                if aggr is None:
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
-                else:
-                    if v.validator.slashed is True:
-                        # It means that validator was active during the frame and got slashed and didn't meet the exit
-                        # epoch, so we should not count such validator for operator's share.
-                        log.operators[no_id].validators[v.index].slashed = True
-                        continue
+
+                if v.validator.slashed is True:
+                    # It means that validator was active during the frame and got slashed and didn't meet the exit
+                    # epoch, so we should not count such validator for operator's share.
+                    log.operators[no_id].validators[v.index].slashed = True
+                    continue
 
                 if aggr.perf > threshold:
                     # Count of assigned attestations used as a metrics of time
