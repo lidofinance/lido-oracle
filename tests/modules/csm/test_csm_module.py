@@ -562,19 +562,19 @@ class BuildReportTestParam:
                 prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                 curr_distribution=Mock(
                     return_value=(
-                            # distributed
-                            6,
-                            # shares
-                            defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
-                            # log
-                            Mock(),
+                        # distributed
+                        6,
+                        # shares
+                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
+                        # log
+                        Mock(),
                     )
                 ),
                 curr_root="0x101e",
                 curr_cid="0x101c",
-                expected_make_tree_call_args=(({
-                    NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3
-                },),),
+                expected_make_tree_call_args=(
+                    ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
+                ),
                 expected_func_result=(1, 100500, "0x101e", "0x101c", 6),
             ),
             id="non_empty_prev_report_and_new_distribution",
@@ -600,7 +600,7 @@ class BuildReportTestParam:
                 expected_func_result=(1, 100500, "0x100e", "0x100c", 0),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
-        )
+        ),
     ],
 )
 def test_build_report(module: CSOracle, param: BuildReportTestParam):
