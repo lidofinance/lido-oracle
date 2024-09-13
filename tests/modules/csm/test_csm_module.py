@@ -1,6 +1,7 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import NoReturn
+from typing import NoReturn, Iterable
 from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
@@ -493,3 +494,128 @@ def test_collect_data_fulfilled_state(
     # assert that it is not early return from function
     msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
     assert len(msg) == 0, "Unexpected message found in logs"
+
+
+@dataclass(frozen=True)
+class BuildReportTestParam:
+    prev_root: str
+    prev_cid: str
+    prev_acc_shares: Iterable[tuple[NodeOperatorId, int]]
+    curr_distribution: Mock
+    curr_root: str
+    curr_cid: str
+    expected_make_tree_call_args: tuple | None
+    expected_func_result: tuple
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(
+            BuildReportTestParam(
+                prev_root="",
+                prev_cid="",
+                prev_acc_shares=[],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        0,
+                        # shares
+                        defaultdict(int),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_root="",
+                curr_cid="",
+                expected_make_tree_call_args=None,
+                expected_func_result=(1, 100500, "", "", 0),
+            ),
+            id="empty_prev_report_and_no_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_root="",
+                prev_cid="",
+                prev_acc_shares=[],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        6,
+                        # shares
+                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_root="0x100e",
+                curr_cid="0x100c",
+                expected_make_tree_call_args=(({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),),
+                expected_func_result=(1, 100500, "0x100e", "0x100c", 6),
+            ),
+            id="empty_prev_report_and_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_root="0x100e",
+                prev_cid="0x100c",
+                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                curr_distribution=Mock(
+                    return_value=(
+                            # distributed
+                            6,
+                            # shares
+                            defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
+                            # log
+                            Mock(),
+                    )
+                ),
+                curr_root="0x101e",
+                curr_cid="0x101c",
+                expected_make_tree_call_args=(({
+                    NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3
+                },),),
+                expected_func_result=(1, 100500, "0x101e", "0x101c", 6),
+            ),
+            id="non_empty_prev_report_and_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_root="0x100e",
+                prev_cid="0x100c",
+                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        0,
+                        # shares
+                        defaultdict(int),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_root="",
+                curr_cid="",
+                expected_make_tree_call_args=None,
+                expected_func_result=(1, 100500, "0x100e", "0x100c", 0),
+            ),
+            id="non_empty_prev_report_and_no_new_distribution",
+        )
+    ],
+)
+def test_build_report(module: CSOracle, param: BuildReportTestParam):
+    module.validate_state = Mock()
+    module.report_contract.get_consensus_version = Mock(return_value=1)
+    # mock previous report
+    module.w3.csm.get_csm_tree_root = Mock(return_value=param.prev_root)
+    module.w3.csm.get_csm_tree_cid = Mock(return_value=param.prev_cid)
+    module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
+    # mock current frame
+    module.calculate_distribution = param.curr_distribution
+    module.make_tree = Mock(return_value=Mock(root=param.curr_root))
+    module.publish_tree = Mock(return_value=param.curr_cid)
+
+    report = module.build_report(blockstamp=Mock(ref_slot=100500))
+
+    assert module.make_tree.call_args == param.expected_make_tree_call_args
+    assert report == param.expected_func_result

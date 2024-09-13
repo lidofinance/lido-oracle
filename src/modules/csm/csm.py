@@ -96,8 +96,6 @@ class CSOracle(BaseModule, ConsensusModule):
         self.validate_state(blockstamp)
 
         distributed, shares, log = self.calculate_distribution(blockstamp)
-        if not distributed:
-            logger.info({"msg": "No shares distributed in the current frame"})
 
         # Load the previous tree if any.
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
@@ -110,18 +108,22 @@ class CSOracle(BaseModule, ConsensusModule):
         else:
             logger.info({"msg": "No previous CID available"})
 
-        tree = self.make_tree(shares)
-        tree_cid: CID | None = None
+        if distributed > 0:
+            curr_tree = self.make_tree(shares)
+            report_tree_root = curr_tree.root
+            report_tree_cid = self.publish_tree(curr_tree, log)
+        else:
+            logger.info({"msg": "No shares distributed in the current frame"})
+            report_tree_root = prev_root or ""
+            report_tree_cid = prev_cid or ""
 
         log_cid = self.publish_log(log)
-        if tree:
-            tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
-            tree_root=tree.root if tree else prev_root,
-            tree_cid=tree_cid or prev_cid or "",
+            tree_root=report_tree_root,
+            tree_cid=report_tree_cid,
             log_cid=log_cid,
             distributed=distributed,
         ).as_tuple()
