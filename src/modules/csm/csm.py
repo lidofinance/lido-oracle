@@ -178,7 +178,7 @@ class CSOracle(BaseModule, ConsensusModule):
         self.state.migrate(l_epoch, r_epoch)
         self.state.log_progress()
 
-        if self.state.is_fulfilled is True:
+        if self.state.is_fulfilled:
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
             return True
 

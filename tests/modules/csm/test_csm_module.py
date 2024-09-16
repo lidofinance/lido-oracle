@@ -480,15 +480,15 @@ def test_collect_data_fulfilled_state(
         migrate=Mock(),
         log_status=Mock(),
         unprocessed_epochs=list(range(0, 101)),
-        is_fulfilled=PropertyMock(side_effect=[False, True]),
     )
+    type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
     module.current_frame_range = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
     with caplog.at_level(logging.DEBUG):
         with patch('src.modules.csm.csm.FrameCheckpointProcessor.exec', return_value=None):
             collected = module.collect_data(blockstamp=Mock(slot_number=640))
-            assert collected
+            assert collected is True
 
     # assert that it is not early return from function
     msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
