@@ -19,7 +19,7 @@ class ReportData:
     consensusVersion: int
     ref_slot: SlotNumber
     tree_root: HexBytes
-    tree_cid: CID | Literal[""]
+    tree_cid: CID
     log_cid: CID
     distributed: int
 
