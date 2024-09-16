@@ -20,6 +20,7 @@ class ReportData:
     ref_slot: SlotNumber
     tree_root: HexBytes
     tree_cid: CID | Literal[""]
+    log_cid: CID
     distributed: int
 
     def as_tuple(self):
@@ -29,5 +30,6 @@ class ReportData:
             self.ref_slot,
             self.tree_root,
             str(self.tree_cid),
+            str(self.log_cid),
             self.distributed,
         )

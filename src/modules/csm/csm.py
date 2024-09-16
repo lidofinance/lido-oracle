@@ -113,14 +113,16 @@ class CSOracle(BaseModule, ConsensusModule):
         tree = self.make_tree(shares)
         tree_cid: CID | None = None
 
+        log_cid = self.publish_log(log)
         if tree:
-            tree_cid = self.publish_tree(tree, log)
+            tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
             tree_root=tree.root if tree else prev_root,
             tree_cid=tree_cid or prev_cid or "",
+            log_cid=log_cid,
             distributed=distributed,
         ).as_tuple()
 
@@ -312,12 +314,15 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree, log: FramePerfLog) -> CID:
-        log_cid = self.w3.ipfs.publish(log.encode())
-        logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
-        tree_cid = self.w3.ipfs.publish(tree.encode({"logCID": log_cid}))
+    def publish_tree(self, tree: Tree) -> CID:
+        tree_cid = self.w3.ipfs.publish(tree.encode())
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
+
+    def publish_log(self, log: FramePerfLog) -> CID:
+        log_cid = self.w3.ipfs.publish(log.encode())
+        logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
+        return log_cid
 
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:

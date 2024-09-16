@@ -1,20 +1,12 @@
 import json
 from dataclasses import dataclass
-from typing import Self, Sequence, TypedDict
+from typing import Self, Sequence
 
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
 from src.modules.csm.types import RewardTreeLeaf
 from src.providers.ipfs.cid import CID
-
-
-class TreeMeta(TypedDict):
-    logCID: CID
-
-
-class TreeDump(Dump[RewardTreeLeaf]):
-    metadata: TreeMeta
 
 
 class TreeJSONEncoder(json.JSONEncoder):
@@ -45,7 +37,7 @@ class Tree:
         except json.JSONDecodeError as e:
             raise ValueError("Unsupported tree format") from e
 
-    def encode(self, metadata: TreeMeta) -> bytes:
+    def encode(self) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
 
         return (
@@ -54,12 +46,12 @@ class Tree:
                 separators=(',', ':'),
                 sort_keys=True,
             )
-            .encode(self.dump(metadata))
+            .encode(self.dump())
             .encode()
         )
 
-    def dump(self, metadata: TreeMeta) -> TreeDump:
-        return {**self.tree.dump(), "metadata": metadata}
+    def dump(self) -> Dump[RewardTreeLeaf]:
+        return self.tree.dump()
 
     @classmethod
     def new(cls, values: Sequence[RewardTreeLeaf]) -> Self:
