@@ -5,11 +5,15 @@ from typing import NoReturn, Iterable
 from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
+from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.tree import Tree
+from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame
+from src.providers.ipfs import CIDv0
 from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -504,6 +508,7 @@ class BuildReportTestParam:
     curr_distribution: Mock
     curr_root: str
     curr_cid: str
+    curr_log: str
     expected_make_tree_call_args: tuple | None
     expected_func_result: tuple
 
@@ -528,8 +533,9 @@ class BuildReportTestParam:
                 ),
                 curr_root="",
                 curr_cid="",
+                curr_log="Qm1337",
                 expected_make_tree_call_args=None,
-                expected_func_result=(1, 100500, "", "", 0),
+                expected_func_result=(1, 100500, "", "", "Qm1337", 0),
             ),
             id="empty_prev_report_and_no_new_distribution",
         ),
@@ -550,8 +556,9 @@ class BuildReportTestParam:
                 ),
                 curr_root="0x100e",
                 curr_cid="0x100c",
+                curr_log="Qm1337",
                 expected_make_tree_call_args=(({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),),
-                expected_func_result=(1, 100500, "0x100e", "0x100c", 6),
+                expected_func_result=(1, 100500, "0x100e", "0x100c", "Qm1337", 6),
             ),
             id="empty_prev_report_and_new_distribution",
         ),
@@ -572,10 +579,11 @@ class BuildReportTestParam:
                 ),
                 curr_root="0x101e",
                 curr_cid="0x101c",
+                curr_log="Qm1337",
                 expected_make_tree_call_args=(
                     ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
                 ),
-                expected_func_result=(1, 100500, "0x101e", "0x101c", 6),
+                expected_func_result=(1, 100500, "0x101e", "0x101c", "Qm1337", 6),
             ),
             id="non_empty_prev_report_and_new_distribution",
         ),
@@ -596,8 +604,9 @@ class BuildReportTestParam:
                 ),
                 curr_root="",
                 curr_cid="",
+                curr_log="Qm1337",
                 expected_make_tree_call_args=None,
-                expected_func_result=(1, 100500, "0x100e", "0x100c", 0),
+                expected_func_result=(1, 100500, "0x100e", "0x100c", "Qm1337", 0),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
         ),
@@ -614,8 +623,124 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
     module.calculate_distribution = param.curr_distribution
     module.make_tree = Mock(return_value=Mock(root=param.curr_root))
     module.publish_tree = Mock(return_value=param.curr_cid)
+    module.publish_log = Mock(return_value=param.curr_log)
 
     report = module.build_report(blockstamp=Mock(ref_slot=100500))
 
     assert module.make_tree.call_args == param.expected_make_tree_call_args
     assert report == param.expected_func_result
+
+
+def test_execute_module_not_collected(module: CSOracle):
+    module.collect_data = Mock(return_value=False)
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+
+def test_execute_module_no_report_blockstamp(module: CSOracle):
+    module.collect_data = Mock(return_value=True)
+    module.get_blockstamp_for_report = Mock(return_value=None)
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+
+def test_execute_module_processed(module: CSOracle):
+    module.collect_data = Mock(return_value=True)
+    module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
+    module.process_report = Mock()
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
+
+
+@pytest.fixture()
+def tree():
+    return Tree.new(
+        [
+            (NodeOperatorId(0), 0),
+            (NodeOperatorId(1), 1),
+            (NodeOperatorId(2), 42),
+            (NodeOperatorId(UINT64_MAX), 0),
+        ]
+    )
+
+
+def test_get_accumulated_shares(module: CSOracle, tree: Tree):
+    encoded_tree = tree.encode()
+    module.w3.ipfs.fetch = Mock(return_value=encoded_tree)
+
+    for i, leaf in enumerate(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=tree.root)):
+        assert tuple(leaf) == tree.tree.values[i]["value"]
+
+
+def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
+    encoded_tree = tree.encode()
+    module.w3.ipfs.fetch = Mock(return_value=encoded_tree)
+
+    with pytest.raises(ValueError):
+        next(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
+
+
+@dataclass(frozen=True)
+class MakeTreeTestParam:
+    shares: dict[NodeOperatorId, int]
+    expected_tree_values: tuple | None
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(MakeTreeTestParam(shares={}, expected_tree_values=None), id="empty"),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},
+                expected_tree_values=(
+                    {'treeIndex': 4, 'value': (0, 1)},
+                    {'treeIndex': 2, 'value': (1, 2)},
+                    {'treeIndex': 3, 'value': (2, 3)},
+                ),
+            ),
+            id="normal_tree",
+        ),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={NodeOperatorId(0): 1},
+                expected_tree_values=(
+                    {'treeIndex': 2, 'value': (0, 1)},
+                    {'treeIndex': 1, 'value': (18446744073709551615, 0)},
+                ),
+            ),
+            id="put_stone",
+        ),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={
+                    NodeOperatorId(0): 1,
+                    NodeOperatorId(1): 2,
+                    NodeOperatorId(2): 3,
+                    NodeOperatorId(18446744073709551615): 0,
+                },
+                expected_tree_values=(
+                    {'treeIndex': 4, 'value': (0, 1)},
+                    {'treeIndex': 2, 'value': (1, 2)},
+                    {'treeIndex': 3, 'value': (2, 3)},
+                ),
+            ),
+            id="remove_stone",
+        ),
+    ],
+)
+def test_make_tree(module: CSOracle, param: MakeTreeTestParam):
+    tree = module.make_tree(param.shares)
+    if param.expected_tree_values is not None:
+        assert tree.tree.values == param.expected_tree_values
+    else:
+        assert not tree

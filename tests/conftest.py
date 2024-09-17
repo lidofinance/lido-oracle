@@ -11,6 +11,7 @@ from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
+from src.constants import UINT64_MAX
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -113,6 +114,9 @@ def keys_api_client(request, responses_path, web3):
 @pytest.fixture()
 def csm(web3):
     mock = Mock()
+    mock.module.MAX_OPERATORS_COUNT = UINT64_MAX
+    web3.ipfs = Mock()
+    web3.lido_contracts = Mock()
     web3.attach_modules({"csm": lambda: mock})
     return mock
 
