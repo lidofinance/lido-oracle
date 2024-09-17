@@ -113,7 +113,7 @@ class CSOracle(BaseModule, ConsensusModule):
             if not curr_tree:
                 raise InconsistentData("No tree to publish but shares are distributed")
             report_tree_root = curr_tree.root
-            report_tree_cid = self.publish_tree(curr_tree, log)
+            report_tree_cid = self.publish_tree(curr_tree)
         else:
             logger.info({"msg": "No shares distributed in the current frame"})
             report_tree_root = prev_root
