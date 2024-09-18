@@ -131,7 +131,7 @@ def test_eject_validator(iterator):
     )
 
     def generate_validator_state_with_activation_epoch_bound():
-        return ValidatorStateFactory.build(activation_epoch=faker.pyint(max_value=iterator.blockstamp.ref_epoch - 1))
+        return ValidatorStateFactory.build(activation_epoch=str(faker.pyint(max_value=iterator.blockstamp.ref_epoch - 1)))
 
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
