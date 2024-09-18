@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TypeAlias
+from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
 
@@ -19,7 +19,7 @@ class ReportData:
     consensusVersion: int
     ref_slot: SlotNumber
     tree_root: HexBytes
-    tree_cid: CID
+    tree_cid: CID | Literal[""]
     log_cid: CID
     distributed: int
 

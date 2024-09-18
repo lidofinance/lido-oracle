@@ -43,11 +43,16 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
-    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
-        return self.fee_distributor.tree_root(blockstamp.block_hash)
+    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes | None:
+        result = self.fee_distributor.tree_root(blockstamp.block_hash)
+        if result == HexBytes(32):
+            return None
+        return result
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID:
+    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
+        if result == "":
+            return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
     def get_operators_with_stucks_in_range(
