@@ -6,7 +6,11 @@ import pytest
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2, NodeOperatorStats, StakingModuleStats
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import NodeOperatorFactory, StakingModuleFactory, LidoValidatorFactory
+from tests.factory.no_registry import (
+    NodeOperatorFactory,
+    StakingModuleFactory,
+    LidoValidatorFactory,
+)
 from tests.factory.web3_factory import Web3Factory
 
 
@@ -95,12 +99,14 @@ def test_eject_validator(iterator):
     )
 
     no_1 = NodeOperatorFactory.build(
+        id=1,
         staking_module=sk_1,
         total_deposited_validators=3,
         target_validators_count=1,
         is_target_limit_active=NodeOperatorLimitMode.FORCE,
     )
     no_2 = NodeOperatorFactory.build(
+        id=2,
         staking_module=sk_1,
         total_deposited_validators=2,
         is_target_limit_active=NodeOperatorLimitMode.SOFT,
@@ -122,12 +128,19 @@ def test_eject_validator(iterator):
 
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
-            (1, 1): [LidoValidatorFactory.build(), LidoValidatorFactory.build(), LidoValidatorFactory.build()],
-            (1, 2): [LidoValidatorFactory.build(), LidoValidatorFactory.build()],
+            (1, 1): [
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch),
+            ],
+            (1, 2): [
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch),
+            ],
             (2, 1): [
-                LidoValidatorFactory.build(index='8'),
-                LidoValidatorFactory.build(index='7'),
-                LidoValidatorFactory.build(index='6'),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch, index='8'),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch, index='7'),
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch, index='6'),
             ],
         }
     )
