@@ -12,7 +12,7 @@ from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import CurrentFrame
+from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
 from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
@@ -506,7 +506,7 @@ def test_collect_data_fulfilled_state(
 
 @dataclass(frozen=True)
 class BuildReportTestParam:
-    prev_tree_root: HexBytes | None
+    prev_tree_root: HexBytes
     prev_tree_cid: CID | None
     prev_acc_shares: Iterable[tuple[NodeOperatorId, int]]
     curr_distribution: Mock
@@ -522,7 +522,7 @@ class BuildReportTestParam:
     [
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=None,
+                prev_tree_root=HexBytes(ZERO_HASH),
                 prev_tree_cid=None,
                 prev_acc_shares=[],
                 curr_distribution=Mock(
@@ -535,17 +535,17 @@ class BuildReportTestParam:
                         Mock(),
                     )
                 ),
-                curr_tree_root=HexBytes(32),
+                curr_tree_root=HexBytes(ZERO_HASH),
                 curr_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=None,
-                expected_func_result=(1, 100500, HexBytes(32), "", CID("QmLOG"), 0),
+                expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
             ),
             id="empty_prev_report_and_no_new_distribution",
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=None,
+                prev_tree_root=HexBytes(ZERO_HASH),
                 prev_tree_cid=None,
                 prev_acc_shares=[],
                 curr_distribution=Mock(

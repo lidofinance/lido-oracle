@@ -43,11 +43,8 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
-    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes | None:
-        result = self.fee_distributor.tree_root(blockstamp.block_hash)
-        if result == HexBytes(32):
-            return None
-        return result
+    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+        return self.fee_distributor.tree_root(blockstamp.block_hash)
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)

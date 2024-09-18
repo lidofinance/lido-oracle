@@ -18,6 +18,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -98,7 +99,7 @@ class CSOracle(BaseModule, ConsensusModule):
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if bool(prev_root) != bool(prev_cid):
+        if bool(prev_root) != (prev_root is not ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
         distributed, shares, log = self.calculate_distribution(blockstamp)
@@ -110,13 +111,13 @@ class CSOracle(BaseModule, ConsensusModule):
             return ReportData(
                 self.report_contract.get_consensus_version(blockstamp.block_hash),
                 blockstamp.ref_slot,
-                tree_root=prev_root or HexBytes(32),
+                tree_root=prev_root,
                 tree_cid=prev_cid or "",
                 log_cid=log_cid,
                 distributed=0,
             ).as_tuple()
 
-        if prev_cid and prev_root:
+        if prev_cid and prev_root is not ZERO_HASH:
             # Update cumulative amount of shares for all operators.
             for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
                 shares[no_id] += acc_shares
