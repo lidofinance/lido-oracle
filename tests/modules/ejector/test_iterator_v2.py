@@ -2,7 +2,6 @@ from types import MethodType
 from unittest.mock import Mock
 
 import pytest
-from faker import Faker
 
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2, NodeOperatorStats, StakingModuleStats
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
@@ -11,11 +10,8 @@ from tests.factory.no_registry import (
     NodeOperatorFactory,
     StakingModuleFactory,
     LidoValidatorFactory,
-    ValidatorStateFactory,
 )
 from tests.factory.web3_factory import Web3Factory
-
-faker = Faker()
 
 
 class ModuleStatsFactory(Web3Factory):
