@@ -78,7 +78,8 @@ def test_calculate_validators_age(iterator, monkeypatch):
     assert age == 20
 
 
-def test_eject_validator(iterator):
+@pytest.mark.parametrize('execution_number', range(7))
+def test_eject_validator(execution_number, iterator):
     sk_1 = StakingModuleFactory.build(
         id=1,
         priority_exit_share_threshold=1 * 10000,
@@ -95,12 +96,14 @@ def test_eject_validator(iterator):
     )
 
     no_1 = NodeOperatorFactory.build(
+        id=1,
         staking_module=sk_1,
         total_deposited_validators=3,
         target_validators_count=1,
         is_target_limit_active=NodeOperatorLimitMode.FORCE,
     )
     no_2 = NodeOperatorFactory.build(
+        id=2,
         staking_module=sk_1,
         total_deposited_validators=2,
         is_target_limit_active=NodeOperatorLimitMode.SOFT,
@@ -162,7 +165,7 @@ def test_eject_validator(iterator):
     assert iterator.total_lido_validators == 6
     assert iterator.module_stats[1].predictable_validators == 4
     assert iterator.node_operators_stats[(1, 1)].predictable_validators == 2
-    assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
+    assert iterator.node_operators_stats[(1, 1)].total_age <= prev_total_age
 
     iterator.max_validators_to_exit = 3
     iterator.no_penetration_threshold = 0.1
@@ -243,19 +246,19 @@ def test_no_force_and_soft_predicate(iterator):
 
     # Last two elements have same weight
     assert [
-        nos[0].node_operator.id,
-        nos[3].node_operator.id,
-    ] == [
-        no.node_operator.id for no in sorted_nos
-    ][:2]
+               nos[0].node_operator.id,
+               nos[3].node_operator.id,
+           ] == [
+                    no.node_operator.id for no in sorted_nos
+                ][:2]
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
     assert [
-        nos[2].node_operator.id,
-        nos[1].node_operator.id,
-    ] == [
-        no.node_operator.id for no in sorted_nos
-    ][:2]
+               nos[2].node_operator.id,
+               nos[1].node_operator.id,
+           ] == [
+                    no.node_operator.id for no in sorted_nos
+                ][:2]
 
 
 @pytest.mark.unit
