@@ -7,7 +7,12 @@ from faker import Faker
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2, NodeOperatorStats, StakingModuleStats
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import NodeOperatorFactory, StakingModuleFactory, LidoValidatorFactory, ValidatorStateFactory
+from tests.factory.no_registry import (
+    NodeOperatorFactory,
+    StakingModuleFactory,
+    LidoValidatorFactory,
+    ValidatorStateFactory,
+)
 from tests.factory.web3_factory import Web3Factory
 
 faker = Faker()
@@ -130,11 +135,15 @@ def test_eject_validator(iterator):
 
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
-            (1, 1): [LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
-                     LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
-                     LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound())],
-            (1, 2): [LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
-                     LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound())],
+            (1, 1): [
+                LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
+                LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
+                LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
+            ],
+            (1, 2): [
+                LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
+                LidoValidatorFactory.build(validator=generate_validator_state_with_activation_epoch_bound()),
+            ],
             (2, 1): [
                 LidoValidatorFactory.build(index='8', validator=generate_validator_state_with_activation_epoch_bound()),
                 LidoValidatorFactory.build(index='7', validator=generate_validator_state_with_activation_epoch_bound()),
@@ -254,19 +263,19 @@ def test_no_force_and_soft_predicate(iterator):
 
     # Last two elements have same weight
     assert [
-               nos[0].node_operator.id,
-               nos[3].node_operator.id,
-           ] == [
-                    no.node_operator.id for no in sorted_nos
-                ][:2]
+        nos[0].node_operator.id,
+        nos[3].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
     assert [
-               nos[2].node_operator.id,
-               nos[1].node_operator.id,
-           ] == [
-                    no.node_operator.id for no in sorted_nos
-                ][:2]
+        nos[2].node_operator.id,
+        nos[1].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
 
 @pytest.mark.unit
