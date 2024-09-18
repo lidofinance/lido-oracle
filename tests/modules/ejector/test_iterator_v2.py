@@ -246,19 +246,19 @@ def test_no_force_and_soft_predicate(iterator):
 
     # Last two elements have same weight
     assert [
-               nos[0].node_operator.id,
-               nos[3].node_operator.id,
-           ] == [
-                    no.node_operator.id for no in sorted_nos
-                ][:2]
+        nos[0].node_operator.id,
+        nos[3].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
     assert [
-               nos[2].node_operator.id,
-               nos[1].node_operator.id,
-           ] == [
-                    no.node_operator.id for no in sorted_nos
-                ][:2]
+        nos[2].node_operator.id,
+        nos[1].node_operator.id,
+    ] == [
+        no.node_operator.id for no in sorted_nos
+    ][:2]
 
 
 @pytest.mark.unit
