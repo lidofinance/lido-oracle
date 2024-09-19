@@ -5,9 +5,9 @@ from web3.types import Wei, BlockIdentifier
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
+from src.types import SlotNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class LidoContract(ContractInterface):
         el_rewards: Wei,
         shares_to_burn: int,
         accounting_oracle_address: ChecksumAddress,
+        ref_slot: SlotNumber,
         block_identifier: BlockIdentifier = 'latest',
     ) -> LidoReportRebase:
         """
@@ -36,6 +37,17 @@ class LidoContract(ContractInterface):
         while passing empty `_withdrawalFinalizationBatches` and `_simulatedShareRate` == 0, plugging the returned values
         to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
+        state_override = {
+            accounting_oracle_address: {
+                # Fix: insufficient funds for gas * price + value
+                'balance': Wei(10**18),
+                # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
+                # properly process negative rebase sanity checks. Since current simulation skips call to AO,
+                # setting up `lastProcessingRefSlot` directly.
+                self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex(): ref_slot,
+            },
+        }
+
         response = self.functions.handleOracleReport(
             timestamp,
             time_elapsed,
@@ -49,8 +61,7 @@ class LidoContract(ContractInterface):
         ).call(
             transaction={'from': accounting_oracle_address},
             block_identifier=block_identifier,
-            # Fix: insufficient funds for gas * price + value
-            state_override={accounting_oracle_address: {'balance': Wei(10**18)}},
+            state_override=state_override,
         )
 
         response = LidoReportRebase(*response)
@@ -67,6 +78,7 @@ class LidoContract(ContractInterface):
                 [],
                 0,
             ),
+            'state_override': repr(state_override),
             'value': response,
             'block_identifier': repr(block_identifier),
             'to': self.address,
