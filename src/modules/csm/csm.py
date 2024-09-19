@@ -18,6 +18,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -95,33 +96,42 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        distributed, shares, log = self.calculate_distribution(blockstamp)
-        if not distributed:
-            logger.info({"msg": "No shares distributed in the current frame"})
-
-        # Load the previous tree if any.
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if prev_cid:
+        if bool(prev_cid) != (prev_root != ZERO_HASH):
+            raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
+
+        distributed, shares, log = self.calculate_distribution(blockstamp)
+
+        log_cid = self.publish_log(log)
+
+        if not distributed:
+            logger.info({"msg": "No shares distributed in the current frame"})
+            return ReportData(
+                self.report_contract.get_consensus_version(blockstamp.block_hash),
+                blockstamp.ref_slot,
+                tree_root=prev_root,
+                tree_cid=prev_cid or "",
+                log_cid=log_cid,
+                distributed=0,
+            ).as_tuple()
+
+        if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of shares for all operators.
             for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
                 shares[no_id] += acc_shares
         else:
-            logger.info({"msg": "No previous CID available"})
+            logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
         tree = self.make_tree(shares)
-        tree_cid: CID | None = None
-
-        log_cid = self.publish_log(log)
-        if tree:
-            tree_cid = self.publish_tree(tree)
+        tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
-            tree_root=tree.root if tree else prev_root,
-            tree_cid=tree_cid or prev_cid or "",
+            tree_root=tree.root,
+            tree_cid=tree_cid,
             log_cid=log_cid,
             distributed=distributed,
         ).as_tuple()
@@ -169,7 +179,9 @@ class CSOracle(BaseModule, ConsensusModule):
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
             logger.warning(
-                {"msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"}
+                {
+                    "msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"
+                }
             )
             return False
 
@@ -296,9 +308,9 @@ class CSOracle(BaseModule, ConsensusModule):
         )
         return stuck
 
-    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree | None:
+    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree:
         if not shares:
-            return None
+            raise ValueError("No shares to build a tree")
 
         # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
         # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
