@@ -1,13 +1,19 @@
+import logging
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import NoReturn
-from unittest.mock import Mock, patch
+from typing import NoReturn, Iterable, Literal, Type
+from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
+from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
-from src.modules.submodules.types import CurrentFrame
+from src.modules.csm.tree import Tree
+from src.modules.submodules.oracle_module import ModuleExecuteDelay
+from src.modules.submodules.types import CurrentFrame, ZERO_HASH
+from src.providers.ipfs import CIDv0, CID
 from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -209,7 +215,7 @@ class FrameTestParam:
     last_processing_ref_slot: int
     current_ref_slot: int
     finalized_slot: int
-    expected_frame: tuple[int, int]
+    expected_frame: tuple[int, int] | Type[ValueError]
 
 
 @pytest.mark.parametrize(
@@ -222,10 +228,9 @@ class FrameTestParam:
                 last_processing_ref_slot=0,
                 current_ref_slot=0,
                 finalized_slot=0,
-                expected_frame=(0, 0),
+                expected_frame=ValueError,
             ),
             id="initial_epoch_not_set",
-            marks=pytest.mark.xfail(raises=ValueError),
         ),
         pytest.param(
             FrameTestParam(
@@ -323,7 +328,447 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
         )
     )
     module.get_initial_ref_slot = Mock(return_value=param.initial_ref_slot)
-    bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
 
-    l_epoch, r_epoch = module.current_frame_range(bs)
-    assert (l_epoch, r_epoch) == param.expected_frame
+    if param.expected_frame is ValueError:
+        with pytest.raises(ValueError):
+            module.current_frame_range(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
+    else:
+        bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
+
+        l_epoch, r_epoch = module.current_frame_range(bs)
+        assert (l_epoch, r_epoch) == param.expected_frame
+
+
+@pytest.fixture()
+def mock_frame_config(module: CSOracle):
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            initial_epoch=0,
+            epochs_per_frame=32,
+            fast_lane_length_slots=...,
+        )
+    )
+
+
+@dataclass(frozen=True)
+class CollectDataTestParam:
+    collect_blockstamp: Mock
+    collect_frame_range: Mock
+    report_blockstamp: Mock
+    state: Mock
+    expected_msg: str
+    expected_result: bool | Exception
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=64),
+                collect_frame_range=Mock(return_value=(0, 1)),
+                report_blockstamp=Mock(ref_epoch=3),
+                state=Mock(),
+                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_result=False,
+            ),
+            id="frame_changed_forward",
+        ),
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=64),
+                collect_frame_range=Mock(return_value=(0, 2)),
+                report_blockstamp=Mock(ref_epoch=1),
+                state=Mock(),
+                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_result=False,
+            ),
+            id="frame_changed_backward",
+        ),
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=32),
+                collect_frame_range=Mock(return_value=(1, 2)),
+                report_blockstamp=Mock(ref_epoch=2),
+                state=Mock(),
+                expected_msg="The starting epoch of the frame is not finalized yet",
+                expected_result=False,
+            ),
+            id="starting_epoch_not_finalized",
+        ),
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=32),
+                collect_frame_range=Mock(return_value=(0, 2)),
+                report_blockstamp=Mock(ref_epoch=2),
+                state=Mock(
+                    migrate=Mock(),
+                    log_status=Mock(),
+                    is_fulfilled=True,
+                ),
+                expected_msg="All epochs are already processed. Nothing to collect",
+                expected_result=True,
+            ),
+            id="state_fulfilled",
+        ),
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=320),
+                collect_frame_range=Mock(return_value=(0, 100)),
+                report_blockstamp=Mock(ref_epoch=100),
+                state=Mock(
+                    migrate=Mock(),
+                    log_status=Mock(),
+                    unprocessed_epochs=[5],
+                    is_fulfilled=False,
+                ),
+                expected_msg="Minimum checkpoint step is not reached, current delay is 2 epochs",
+                expected_result=False,
+            ),
+            id="min_step_not_reached",
+        ),
+    ],
+)
+def test_collect_data(
+    module: CSOracle,
+    csm: CSM,
+    param: CollectDataTestParam,
+    mock_chain_config: NoReturn,
+    mock_frame_config: NoReturn,
+    caplog,
+    monkeypatch,
+):
+    module.w3 = Mock()
+    module._receive_last_finalized_slot = Mock()
+    module.state = param.state
+    module.current_frame_range = param.collect_frame_range
+    module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
+
+    with caplog.at_level(logging.DEBUG):
+        if isinstance(param.expected_result, Exception):
+            with pytest.raises(type(param.expected_result)):
+                module.collect_data(blockstamp=param.collect_blockstamp)
+        else:
+            collected = module.collect_data(blockstamp=param.collect_blockstamp)
+            assert collected == param.expected_result
+
+    msg = list(filter(lambda log: param.expected_msg in log, caplog.messages))
+    assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
+
+
+def test_collect_data_outdated_checkpoint(
+    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+):
+    module.w3 = Mock()
+    module._receive_last_finalized_slot = Mock()
+    module.state = Mock(
+        migrate=Mock(),
+        log_status=Mock(),
+        unprocessed_epochs=list(range(0, 101)),
+        is_fulfilled=False,
+    )
+    module.current_frame_range = Mock(side_effect=[(0, 100), (50, 150)])
+    module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
+
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(ValueError):
+            module.collect_data(blockstamp=Mock(slot_number=640))
+
+    msg = list(
+        filter(lambda log: "Checkpoints were prepared for an outdated frame, stop processing" in log, caplog.messages)
+    )
+    assert len(msg), "Expected message not found in logs"
+
+
+def test_collect_data_fulfilled_state(
+    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+):
+    module.w3 = Mock()
+    module._receive_last_finalized_slot = Mock()
+    module.state = Mock(
+        migrate=Mock(),
+        log_status=Mock(),
+        unprocessed_epochs=list(range(0, 101)),
+    )
+    type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
+    module.current_frame_range = Mock(return_value=(0, 100))
+    module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
+
+    with caplog.at_level(logging.DEBUG):
+        with patch('src.modules.csm.csm.FrameCheckpointProcessor.exec', return_value=None):
+            collected = module.collect_data(blockstamp=Mock(slot_number=640))
+            assert collected is True
+
+    # assert that it is not early return from function
+    msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
+    assert len(msg) == 0, "Unexpected message found in logs"
+
+
+@dataclass(frozen=True)
+class BuildReportTestParam:
+    prev_tree_root: HexBytes
+    prev_tree_cid: CID | None
+    prev_acc_shares: Iterable[tuple[NodeOperatorId, int]]
+    curr_distribution: Mock
+    curr_tree_root: HexBytes
+    curr_tree_cid: CID | Literal[""]
+    curr_log_cid: CID
+    expected_make_tree_call_args: tuple | None
+    expected_func_result: tuple
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(
+            BuildReportTestParam(
+                prev_tree_root=HexBytes(ZERO_HASH),
+                prev_tree_cid=None,
+                prev_acc_shares=[],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        0,
+                        # shares
+                        defaultdict(int),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_tree_root=HexBytes(ZERO_HASH),
+                curr_tree_cid="",
+                curr_log_cid=CID("QmLOG"),
+                expected_make_tree_call_args=None,
+                expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
+            ),
+            id="empty_prev_report_and_no_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_tree_root=HexBytes(ZERO_HASH),
+                prev_tree_cid=None,
+                prev_acc_shares=[],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        6,
+                        # shares
+                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_tree_cid=CID("QmNEW_TREE"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_tree_call_args=(({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes("NEW_TREE_ROOT".encode()),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    6,
+                ),
+            ),
+            id="empty_prev_report_and_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                prev_tree_cid=CID("QmOLD_TREE"),
+                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        6,
+                        # shares
+                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_tree_cid=CID("QmNEW_TREE"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_tree_call_args=(
+                    ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
+                ),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes("NEW_TREE_ROOT".encode()),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    6,
+                ),
+            ),
+            id="non_empty_prev_report_and_new_distribution",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                prev_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                prev_tree_cid=CID("QmOLD_TREE"),
+                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                curr_distribution=Mock(
+                    return_value=(
+                        # distributed
+                        0,
+                        # shares
+                        defaultdict(int),
+                        # log
+                        Mock(),
+                    )
+                ),
+                curr_tree_root=HexBytes(32),
+                curr_tree_cid="",
+                curr_log_cid=CID("QmLOG"),
+                expected_make_tree_call_args=None,
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes("OLD_TREE_ROOT".encode()),
+                    CID("QmOLD_TREE"),
+                    CID("QmLOG"),
+                    0,
+                ),
+            ),
+            id="non_empty_prev_report_and_no_new_distribution",
+        ),
+    ],
+)
+def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
+    module.validate_state = Mock()
+    module.report_contract.get_consensus_version = Mock(return_value=1)
+    # mock previous report
+    module.w3.csm.get_csm_tree_root = Mock(return_value=param.prev_tree_root)
+    module.w3.csm.get_csm_tree_cid = Mock(return_value=param.prev_tree_cid)
+    module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
+    # mock current frame
+    module.calculate_distribution = param.curr_distribution
+    module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root))
+    module.publish_tree = Mock(return_value=param.curr_tree_cid)
+    module.publish_log = Mock(return_value=param.curr_log_cid)
+
+    report = module.build_report(blockstamp=Mock(ref_slot=100500))
+
+    assert module.make_tree.call_args == param.expected_make_tree_call_args
+    assert report == param.expected_func_result
+
+
+def test_execute_module_not_collected(module: CSOracle):
+    module.collect_data = Mock(return_value=False)
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+
+def test_execute_module_no_report_blockstamp(module: CSOracle):
+    module.collect_data = Mock(return_value=True)
+    module.get_blockstamp_for_report = Mock(return_value=None)
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+
+def test_execute_module_processed(module: CSOracle):
+    module.collect_data = Mock(return_value=True)
+    module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
+    module.process_report = Mock()
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
+
+
+@pytest.fixture()
+def tree():
+    return Tree.new(
+        [
+            (NodeOperatorId(0), 0),
+            (NodeOperatorId(1), 1),
+            (NodeOperatorId(2), 42),
+            (NodeOperatorId(UINT64_MAX), 0),
+        ]
+    )
+
+
+def test_get_accumulated_shares(module: CSOracle, tree: Tree):
+    encoded_tree = tree.encode()
+    module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+    for i, leaf in enumerate(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=tree.root)):
+        assert tuple(leaf) == tree.tree.values[i]["value"]
+
+
+def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
+    encoded_tree = tree.encode()
+    module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+    with pytest.raises(ValueError):
+        next(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
+
+
+@dataclass(frozen=True)
+class MakeTreeTestParam:
+    shares: dict[NodeOperatorId, int]
+    expected_tree_values: tuple | Type[ValueError]
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(MakeTreeTestParam(shares={}, expected_tree_values=ValueError), id="empty"),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},
+                expected_tree_values=(
+                    {'treeIndex': 4, 'value': (0, 1)},
+                    {'treeIndex': 2, 'value': (1, 2)},
+                    {'treeIndex': 3, 'value': (2, 3)},
+                ),
+            ),
+            id="normal_tree",
+        ),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={NodeOperatorId(0): 1},
+                expected_tree_values=(
+                    {'treeIndex': 2, 'value': (0, 1)},
+                    {'treeIndex': 1, 'value': (18446744073709551615, 0)},
+                ),
+            ),
+            id="put_stone",
+        ),
+        pytest.param(
+            MakeTreeTestParam(
+                shares={
+                    NodeOperatorId(0): 1,
+                    NodeOperatorId(1): 2,
+                    NodeOperatorId(2): 3,
+                    NodeOperatorId(18446744073709551615): 0,
+                },
+                expected_tree_values=(
+                    {'treeIndex': 4, 'value': (0, 1)},
+                    {'treeIndex': 2, 'value': (1, 2)},
+                    {'treeIndex': 3, 'value': (2, 3)},
+                ),
+            ),
+            id="remove_stone",
+        ),
+    ],
+)
+def test_make_tree(module: CSOracle, param: MakeTreeTestParam):
+    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+
+    if param.expected_tree_values is ValueError:
+        with pytest.raises(ValueError):
+            module.make_tree(param.shares)
+    else:
+        tree = module.make_tree(param.shares)
+        assert tree.tree.values == param.expected_tree_values

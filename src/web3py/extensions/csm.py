@@ -48,7 +48,7 @@ class CSM(Module):
 
     def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
-        if not result:
+        if result == "":
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 

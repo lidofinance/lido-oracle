@@ -51,7 +51,10 @@ class FrameCheckpointsIterator:
     # to check duty of every epoch, we need to check 64 slots (32 slots of duty epoch + 32 slots of next epoch).
     # In the end we got 255 committees and 8192 block_roots to check them for every checkpoint.
     MAX_CHECKPOINT_STEP = 255
-    # Delay from last duty epoch to get checkpoint slot
+    # Delay from last duty epoch to get checkpoint slot.
+    # Regard to EIP-7045 if we want to process epoch N, we need to get attestation data from epoch N and N + 1.
+    # To get attestation data block roots for epoch N and N + 1 we need to
+    # get roots from state checkpoint slot for epoch N + 2. That's why we need the delay from epoch N.
     CHECKPOINT_SLOT_DELAY_EPOCHS = 2
 
     def __init__(
