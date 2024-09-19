@@ -11,8 +11,8 @@ from web3 import Web3, HTTPProvider
 
 from src import variables
 from src.providers.consensus.client import LiteralState
-from src.providers.consensus.typings import BlockDetailsResponse, BlockRootResponse
-from src.typings import SlotNumber, BlockRoot
+from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
+from src.types import SlotNumber, BlockRoot
 from src.web3py.extensions import (
     LidoContracts,
     LidoValidatorsProvider,
