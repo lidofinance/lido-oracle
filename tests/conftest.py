@@ -188,6 +188,7 @@ class Account:
     address: ChecksumAddress
     _private_key: HexBytes
 
+
 # Utils
 @pytest.fixture
 def remove_sleep():
