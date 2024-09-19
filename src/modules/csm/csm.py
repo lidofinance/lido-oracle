@@ -99,7 +99,7 @@ class CSOracle(BaseModule, ConsensusModule):
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if bool(prev_cid) != (prev_root is not ZERO_HASH):
+        if bool(prev_cid) != (prev_root != ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
         distributed, shares, log = self.calculate_distribution(blockstamp)
@@ -117,7 +117,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 distributed=0,
             ).as_tuple()
 
-        if prev_cid and prev_root is not ZERO_HASH:
+        if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of shares for all operators.
             for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
                 shares[no_id] += acc_shares
