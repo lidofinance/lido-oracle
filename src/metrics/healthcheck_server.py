@@ -11,6 +11,7 @@ from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
 
 _last_pulse = datetime.now()
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 

@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Setup poetry
         run: >
@@ -31,7 +31,11 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Test with pytest
-        run: poetry run pytest -m "not integration and not e2e" --cov=src tests
+        run: poetry run pytest --cov=src tests
+        env:
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
 
   linters:
     runs-on: ubuntu-latest
@@ -39,10 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Setup poetry
         run: >
@@ -64,15 +68,3 @@ jobs:
 
       - name: Lint mypy
         run: poetry run mypy src
-
-  security:
-    uses: lidofinance/linters/.github/workflows/security.yml@master
-    permissions:
-      security-events: write
-      contents: read
-
-  docker:
-    uses: lidofinance/linters/.github/workflows/docker.yml@master
-
-  actions:
-    uses: lidofinance/linters/.github/workflows/actions.yml@master

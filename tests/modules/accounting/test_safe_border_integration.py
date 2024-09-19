@@ -1,8 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 
 import pytest
 
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory, OracleReportLimitsFactory
@@ -31,21 +31,18 @@ def subject(
     lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):
-    with patch.object(
-        SafeBorder,
-        '_fetch_oracle_report_limits_list',
-        return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32),
-    ), patch.object(
-        SafeBorder,
-        '_fetch_finalization_max_negative_rebase_epoch_shift',
-        return_value=finalization_max_negative_rebase_epoch_shift,
-    ):
-        safe_border = SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build(request_timestamp_margin=8 * 12 * 32)
+    )
 
-    return safe_border
+    web3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift = Mock(
+        return_value=finalization_max_negative_rebase_epoch_shift
+    )
+
+    return SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
 
-@pytest.mark.unit
+@pytest.mark.possible_integration
 def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = False
 
@@ -54,7 +51,7 @@ def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     )
 
 
-@pytest.mark.unit
+@pytest.mark.possible_integration
 def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = True
 
@@ -66,7 +63,7 @@ def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockSta
     )
 
 
-@pytest.mark.unit
+@pytest.mark.possible_integration
 def test_bunker_mode_associated_slashing_predicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
@@ -93,7 +90,7 @@ def test_bunker_mode_associated_slashing_predicted(
     )
 
 
-@pytest.mark.unit
+@pytest.mark.possible_integration
 def test_bunker_mode_associated_slashing_unpredicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):

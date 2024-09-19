@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 from abc import abstractmethod, ABC
 
 
@@ -19,7 +19,7 @@ class ProviderConsistencyModule(ABC):
     def get_all_providers(self) -> [any]:
     def _get_chain_id_with_provider(self, int) -> int:
     """
-    def check_providers_consistency(self) -> Optional[int]:
+    def check_providers_consistency(self) -> int | None:
         chain_id = None
 
         for provider_index in range(len(self.get_all_providers())):

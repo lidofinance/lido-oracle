@@ -1,5 +1,5 @@
-from src.typings import SlotNumber, EpochNumber, FrameNumber
-from src.modules.submodules.typings import ChainConfig, FrameConfig
+from src.types import SlotNumber, EpochNumber, FrameNumber
+from src.modules.submodules.types import ChainConfig, FrameConfig
 
 
 class Web3Converter:
@@ -17,8 +17,15 @@ class Web3Converter:
         self.chain_config = chain_config
         self.frame_config = frame_config
 
+    @property
+    def slots_per_frame(self) -> int:
+        return self.frame_config.epochs_per_frame * self.chain_config.slots_per_epoch
+
     def get_epoch_first_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber(epoch * self.chain_config.slots_per_epoch)
+
+    def get_epoch_last_slot(self, epoch: EpochNumber) -> SlotNumber:
+        return SlotNumber((epoch + 1) * self.chain_config.slots_per_epoch - 1)
 
     def get_frame_last_slot(self, frame: FrameNumber) -> SlotNumber:
         return SlotNumber(self.get_frame_first_slot(FrameNumber(frame + 1)) - 1)

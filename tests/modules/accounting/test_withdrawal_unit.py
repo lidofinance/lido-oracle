@@ -5,7 +5,8 @@ from src.services.withdrawal import Withdrawal
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.conftest import get_blockstamp_by_state
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.accounting.typings import BatchState
+from src.modules.accounting.types import BatchState
+from tests.factory.configs import OracleReportLimitsFactory
 
 
 @pytest.fixture()
@@ -25,7 +26,9 @@ def past_blockstamp(web3, consensus_client):
 
 @pytest.fixture()
 def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
-    # web3.lido_contracts.oracle_report_sanity_checker.functions.getOracleReportLimits().call = Mock(return_value=0)
+    web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+        return_value=OracleReportLimitsFactory.build()
+    )
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
@@ -39,7 +42,7 @@ def test_returns_empty_batch_if_there_is_no_requests(subject: Withdrawal):
 
 @pytest.mark.unit
 def test_returns_empty_batch_if_paused(subject: Withdrawal):
-    subject._is_requests_finalization_paused = Mock(return_value=True)
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused = Mock(return_value=True)
     result = subject.get_finalization_batches(True, 100, 0, 0)
 
     assert result == []
@@ -60,8 +63,10 @@ def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
 def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
     state_initial = BatchState(remaining_eth_budget=100, finished=False, batches=[1] + [0] * 35, batches_length=1)
     state_final = BatchState(remaining_eth_budget=100, finished=True, batches=[2] + [0] * 35, batches_length=2)
-    subject._fetch_finalization_batches = Mock(side_effect=[state_initial, state_final])
-    subject._fetch_max_batches_length = Mock(return_value=36)
+    subject.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches = Mock(
+        side_effect=[state_initial, state_final]
+    )
+    subject.w3.lido_contracts.withdrawal_queue_nft.max_batches_length = Mock(return_value=36)
 
     result = subject._calculate_finalization_batches(1, SHARE_RATE_PRECISION_E27, past_blockstamp.block_timestamp)
 

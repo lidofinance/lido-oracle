@@ -1,4 +1,4 @@
-from src.modules.accounting.typings import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase
 from tests.factory.web3_factory import Web3Factory
 
 

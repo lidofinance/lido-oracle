@@ -18,10 +18,14 @@ ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT = 2 ** 2
 CHURN_LIMIT_QUOTIENT = 2 ** 16
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
+SLOTS_PER_HISTORICAL_ROOT = 8192
 
 # Local constants
 GWEI_TO_WEI = 10 ** 9
-SHARE_RATE_PRECISION_E27 = 10**27
+SHARE_RATE_PRECISION_E27 = 10 ** 27
 TOTAL_BASIS_POINTS = 10000
 
 MAX_BLOCK_GAS_LIMIT = 30_000_000
+
+UINT64_MAX = 2 ** 64 - 1

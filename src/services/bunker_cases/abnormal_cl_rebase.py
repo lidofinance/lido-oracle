@@ -1,27 +1,28 @@
 import logging
 import math
 
-from typing import Sequence
+from typing import Sequence, cast
 
+from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
 from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import Validator
-from src.providers.keys.typings import LidoKey
-from src.services.bunker_cases.typings import BunkerConfig
-from src.typings import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import Validator
+from src.providers.keys.types import LidoKey
+from src.services.bunker_cases.types import BunkerConfig
+from src.types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
+from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
 
 
 class AbnormalClRebase:
-
     all_validators: list[Validator]
     lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
@@ -36,7 +37,7 @@ class AbnormalClRebase:
         blockstamp: ReferenceBlockStamp,
         all_validators: list[Validator],
         lido_validators: list[LidoValidator],
-        current_report_cl_rebase: Gwei
+        current_report_cl_rebase: Gwei,
     ) -> bool:
         """
         First of all, we should calculate the normal CL rebase for this report
@@ -66,8 +67,8 @@ class AbnormalClRebase:
             logger.info({"msg": "CL rebase in frame is abnormal"})
 
             no_need_intraframe_sampled_cl_rebase_check = (
-                self.b_conf.rebase_check_nearest_epoch_distance == 0 and
-                self.b_conf.rebase_check_distant_epoch_distance == 0
+                self.b_conf.rebase_check_nearest_epoch_distance == 0
+                and self.b_conf.rebase_check_distant_epoch_distance == 0
             )
             if no_need_intraframe_sampled_cl_rebase_check:
                 logger.info({"msg": "Intraframe sampled CL rebase calculation are disabled. Cl rebase is abnormal"})
@@ -103,7 +104,7 @@ class AbnormalClRebase:
             self.b_conf,
             mean_sum_of_all_effective_balance,
             mean_sum_of_lido_effective_balance,
-            epochs_passed_since_last_report
+            epochs_passed_since_last_report,
         )
 
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
@@ -148,9 +149,7 @@ class AbnormalClRebase:
             ref_blockstamp.ref_slot - self.b_conf.rebase_check_distant_epoch_distance * self.c_conf.slots_per_epoch
         )
 
-        AbnormalClRebase.validate_slot_distance(
-            distant_slot, nearest_slot, ref_blockstamp.slot_number
-        )
+        AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
         nearest_blockstamp = get_blockstamp(
             self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
@@ -183,9 +182,7 @@ class AbnormalClRebase:
         )
 
         # Get Lido validators' balances with WithdrawalVault balance
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
-            ref_blockstamp, self.lido_validators
-        )
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
         prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
             prev_blockstamp, prev_lido_validators
         )
@@ -204,9 +201,11 @@ class AbnormalClRebase:
         # Finally, we can calculate corrected CL rebase
         cl_rebase = Gwei(raw_cl_rebase + validators_count_diff_in_gwei + withdrawn_from_vault)
 
-        logger.info({
-            "msg": f"CL rebase between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks: {cl_rebase} Gwei"
-        })
+        logger.info(
+            {
+                "msg": f"CL rebase between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks: {cl_rebase} Gwei"
+            }
+        )
 
         return cl_rebase
 
@@ -231,7 +230,9 @@ class AbnormalClRebase:
         """
 
         logger.info(
-            {"msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"}
+            {
+                "msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"
+            }
         )
 
         events = self._get_eth_distributed_events(
@@ -255,9 +256,12 @@ class AbnormalClRebase:
 
     def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
         """Get ETHDistributed events between blocks"""
-        return self.w3.lido_contracts.lido.events.ETHDistributed.get_logs(  # type: ignore[attr-defined]
-            fromBlock=from_block,
-            toBlock=to_block,
+        return list(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.lido_contracts.lido.events.ETHDistributed),
+                from_block,
+                to_block,
+            )
         )
 
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
@@ -267,7 +271,7 @@ class AbnormalClRebase:
             self.w3.cc,
             last_report_ref_slot,
             ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
-            last_finalized_slot_number=ref_blockstamp.slot_number
+            last_finalized_slot_number=ref_blockstamp.slot_number,
         )
 
     @staticmethod
@@ -300,9 +304,7 @@ class AbnormalClRebase:
         last_report_effective_balance_sum = calculate_active_effective_balance_sum(
             last_report_validators, last_report_blockstamp.ref_epoch
         )
-        ref_effective_balance_sum = calculate_active_effective_balance_sum(
-            ref_validators, ref_blockstamp.ref_epoch
-        )
+        ref_effective_balance_sum = calculate_active_effective_balance_sum(ref_validators, ref_blockstamp.ref_epoch)
         return Gwei((ref_effective_balance_sum + last_report_effective_balance_sum) // 2)
 
     @staticmethod

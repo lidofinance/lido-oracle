@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.accounting.typings import LidoReportRebase
+from src.modules.accounting.types import LidoReportRebase
 from src.services.bunker import BunkerService
-from src.typings import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
@@ -199,10 +199,12 @@ class TestIsBunkerMode:
 )
 def test_get_cl_rebase_for_frame(
     bunker,
-    mock_get_total_supply,
+    contracts,
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):
+    bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10**18)
+
     blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = LidoReportRebase(
         post_total_pooled_ether=simulated_post_total_pooled_ether,

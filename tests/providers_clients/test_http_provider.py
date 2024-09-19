@@ -1,9 +1,9 @@
 # pylint: disable=protected-access
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
-from src.providers.http_provider import HTTPProvider, NoHostsProvided
+from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse
 
 
 def test_urljoin():
@@ -25,7 +25,7 @@ def test_no_providers():
 
 def test_all_fallbacks_ok():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
-    provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params: (host, endpoint)
+    provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params, stream: (host, endpoint)
     assert provider._get('test') == ('http://localhost:1', 'test')
     assert len(provider.get_all_providers()) == 2
 
@@ -60,4 +60,22 @@ def test_force_raise():
     provider._get_without_fallbacks = Mock(side_effect=_simple_get)
     with pytest.raises(CustomError):
         provider._get('test', force_raise=lambda _: CustomError())
-    provider._get_without_fallbacks.assert_called_once_with('http://localhost:1', 'test', None, None)
+    provider._get_without_fallbacks.assert_called_once_with('http://localhost:1', 'test', None, None, False)
+
+
+@pytest.mark.unit
+def test_custom_error_provided():
+    class CustomError(NotOkResponse):
+        pass
+
+    class TestProvider(HTTPProvider):
+        PROVIDER_EXCEPTION = CustomError
+        PROMETHEUS_HISTOGRAM = MagicMock()
+
+        def call(self):
+            return self._get('invalid_url')
+
+    provider = TestProvider('http://example.com/', 1, 1, 1)
+
+    with pytest.raises(CustomError):
+        provider.call()
