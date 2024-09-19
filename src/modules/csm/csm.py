@@ -99,7 +99,7 @@ class CSOracle(BaseModule, ConsensusModule):
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
         prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
 
-        if prev_cid is None != (prev_root == ZERO_HASH):
+        if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
         distributed, shares, log = self.calculate_distribution(blockstamp)
