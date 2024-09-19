@@ -1,6 +1,6 @@
 import logging
 
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, HexStr
 from web3.types import Wei, BlockIdentifier, CallOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
@@ -37,7 +37,7 @@ class LidoContract(ContractInterface):
         while passing empty `_withdrawalFinalizationBatches` and `_simulatedShareRate` == 0, plugging the returned values
         to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
-        state_override = {
+        state_override: dict[ChecksumAddress, CallOverrideParams] = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value
                 'balance': Wei(10**18),
@@ -45,7 +45,7 @@ class LidoContract(ContractInterface):
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
                 'stateDiff': {
-                    self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex(): '0x' + ref_slot.to_bytes(32).hex(),
+                    HexStr(self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): HexStr('0x' + ref_slot.to_bytes(32).hex()),
                 },
             },
         }
