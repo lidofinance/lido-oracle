@@ -1,7 +1,7 @@
 import logging
 
 from eth_typing import ChecksumAddress
-from web3.types import Wei, BlockIdentifier
+from web3.types import Wei, BlockIdentifier, CallOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
@@ -44,7 +44,9 @@ class LidoContract(ContractInterface):
                 # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
-                self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex(): ref_slot,
+                'stateDiff': {
+                    self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex(): '0x' + ref_slot.to_bytes(32).hex(),
+                },
             },
         }
 
