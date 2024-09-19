@@ -104,9 +104,12 @@ class CSOracle(BaseModule, ConsensusModule):
 
         distributed, shares, log = self.calculate_distribution(blockstamp)
 
+        if distributed != sum(shares.values()):
+            raise InconsistentData(f"Invalid distribution: {sum(shares.values())=} != {distributed=}")
+
         log_cid = self.publish_log(log)
 
-        if not distributed:
+        if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
             return ReportData(
                 self.report_contract.get_consensus_version(blockstamp.block_hash),
