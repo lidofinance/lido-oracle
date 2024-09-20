@@ -22,7 +22,7 @@ from src.types import BlockStamp, NodeOperatorId, ValidatorIndex, EpochNumber
 logger = logging.getLogger(__name__)
 
 START_EPOCH = EpochNumber(62213)  # beginning of 1 July
-END_EPOCH = EpochNumber(82913)    # beginning of 1 October
+END_EPOCH = EpochNumber(82913)  # beginning of 1 October
 MIN_ACTIVE_EPOCHS = 6750  # 1 month
 PERFORMANCE_LEEWAY_BP = 500  # 5%
 
@@ -55,11 +55,11 @@ class CSMDataCollect(CSOracle):
             return False
 
         self.state.migrate(l_epoch, r_epoch)
-        self.state.log_status()
+        self.state.log_progress()
 
-        if done := self.state.is_fulfilled:
+        if self.state.is_fulfilled:
             logger.info({"msg": "All epochs are already processed. Nothing to collect"})
-            return done
+            return True
 
         try:
             checkpoints = FrameCheckpointsIterator(
@@ -72,6 +72,8 @@ class CSMDataCollect(CSOracle):
 
         for checkpoint in checkpoints:
             processor.exec(checkpoint)
+            # Recalculate performance after processing each checkpoint
+            self.calculate_performance(blockstamp)
 
         return self.state.is_fulfilled
 
@@ -80,31 +82,39 @@ class CSMDataCollect(CSOracle):
 
         logger.info({"msg": "Calculating performance"})
 
-        threshold = self.state.avg_perf - PERFORMANCE_LEEWAY_BP / TOTAL_BASIS_POINTS
+        network_avg_perf = self.state.get_network_aggr().perf
+        threshold = network_avg_perf - PERFORMANCE_LEEWAY_BP / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
-        # Build the map of the current distribution operators.
         good_performers: dict[NodeOperatorId, dict] = defaultdict(dict)
         bad_performers: dict[NodeOperatorId, dict] = defaultdict(dict)
         not_enough_participation: dict[NodeOperatorId, dict] = defaultdict(dict)
+
         for (_, no_id), validators in operators_to_validators.items():
             unique_assigned = set()
             total_assigned = 0
             total_included = 0
             for v in validators:
-                try:
-                    aggr = self.state.data[ValidatorIndex(int(v.index))]
-                except KeyError:
+                aggr = self.state.data.get(ValidatorIndex(int(v.index)))
+
+                if aggr is None:
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
-                else:
-                    if v.validator.slashed:
-                        continue
-                    unique_assigned.update(set(range(
-                        max(int(v.validator.activation_epoch), START_EPOCH),
-                        min(int(v.validator.exit_epoch), END_EPOCH) + 1
-                    )))
+
+                if v.validator.slashed is True:
+                    # It means that validator was active during the frame and got slashed and didn't meet the exit
+                    # epoch, so we should not count such validator for operator's share.
+                    continue
+
+                unique_assigned.update(
+                    set(
+                        range(
+                            max(int(v.validator.activation_epoch), START_EPOCH),
+                            min(int(v.validator.exit_epoch), END_EPOCH) + 1,
+                        )
+                    )
+                )
 
                 total_assigned += aggr.assigned
                 total_included += aggr.included
