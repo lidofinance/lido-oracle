@@ -9,6 +9,9 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
     check_contract(
         lido_contract,
         [
+            ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
+            ('total_supply', None, lambda response: check_value_type(response, int)),
+            ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
             (
                 'handle_oracle_report',
                 (
@@ -26,9 +29,6 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
                 ),
                 lambda response: check_value_type(response, LidoReportRebase),
             ),
-            ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
-            ('total_supply', None, lambda response: check_value_type(response, int)),
-            ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
         ],
         caplog,
     )
