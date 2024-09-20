@@ -37,6 +37,54 @@ class LidoContract(ContractInterface):
         while passing empty `_withdrawalFinalizationBatches` and `_simulatedShareRate` == 0, plugging the returned values
         to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
+        try:
+            return self._handle_oracle_report(
+                timestamp,
+                time_elapsed,
+                validators_count,
+                cl_balance,
+                withdrawal_vault_balance,
+                el_rewards,
+                shares_to_burn,
+                accounting_oracle_address,
+                HexStr('0x' + ref_slot.to_bytes(32).hex()),
+                block_identifier,
+            )
+        except ValueError as error:
+            # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
+            logger.info({
+                'msg': 'Expected behaviour for Erigon nodes. Try another request format.',
+                'error': repr(error),
+            })
+            return self._handle_oracle_report(
+                timestamp,
+                time_elapsed,
+                validators_count,
+                cl_balance,
+                withdrawal_vault_balance,
+                el_rewards,
+                shares_to_burn,
+                accounting_oracle_address,
+                HexStr(hex(ref_slot)),
+                block_identifier,
+            )
+
+    def _handle_oracle_report(
+        self,
+        timestamp: int,
+        time_elapsed: int,
+        validators_count: int,
+        cl_balance: Wei,
+        withdrawal_vault_balance: Wei,
+        el_rewards: Wei,
+        shares_to_burn: int,
+        accounting_oracle_address: ChecksumAddress,
+        ref_slot: HexStr,
+        block_identifier: BlockIdentifier = 'latest',
+    ) -> LidoReportRebase:
+        """
+        Erigon should recieve ref_slot
+        """
         state_override: dict[ChecksumAddress, CallOverrideParams] = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value
@@ -45,7 +93,7 @@ class LidoContract(ContractInterface):
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
                 'stateDiff': {
-                    HexStr(self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): HexStr('0x' + ref_slot.to_bytes(32).hex()),
+                    HexStr(self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): ref_slot,
                 },
             },
         }
