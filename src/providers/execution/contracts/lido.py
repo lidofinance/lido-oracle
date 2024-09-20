@@ -54,8 +54,8 @@ class LidoContract(ContractInterface):
             return self._handle_oracle_report(**kwargs)
         except ValueError as error:
             # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
-            logger.info({
-                'msg': 'Expected behaviour for Erigon nodes. Try another request format.',
+            logger.warning({
+                'msg': 'Request response failed. Expected behaviour for Erigon nodes. Try another request format.',
                 'error': repr(error),
             })
             kwargs['ref_slot'] = HexStr(hex(ref_slot))
