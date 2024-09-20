@@ -180,6 +180,10 @@ class CSOracle(BaseModule, ConsensusModule):
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+
+        if not report_blockstamp:
+            logger.info({"msg": "No report blockstamp available, using pre-computed one for collecting data"})
+
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
             logger.warning(
                 {
