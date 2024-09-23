@@ -17,6 +17,11 @@ class KAPIClientError(NotOkResponse):
     pass
 
 
+def _transform_keys_response(data: list[dict]) -> list[dict]:
+    # make keys in lowercase
+    return [{**v, 'key': str(v['key']).lower()} if 'key' in v else v for v in data]
+
+
 class KeysAPIClient(HTTPProvider):
     """
     Lido Keys are stored in different modules in on-chain and off-chain format.
@@ -54,14 +59,16 @@ class KeysAPIClient(HTTPProvider):
     @list_of_dataclasses(LidoKey.from_response)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        return cast(list[dict], self._get_with_blockstamp(self.USED_KEYS, blockstamp))
+        return cast(list[dict], _transform_keys_response(self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
 
     @lru_cache(maxsize=1)
     def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> dict:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
-        return cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
+        data = self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp)
+        data['keys'] = [_transform_keys_response(key) for key in data['keys']]
+        return cast(dict, data)
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
