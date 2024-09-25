@@ -3,14 +3,11 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
 from src.modules.csm.state import AttestationsAccumulator
-from src.types import EpochNumber, NodeOperatorId
+from src.modules.csm.types import Shares
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 
 
-class LogJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, AttestationsAccumulator):
-            return asdict(o)
-        return super().default(o)
+class LogJSONEncoder(json.JSONEncoder): ...
 
 
 @dataclass
@@ -30,8 +27,10 @@ class OperatorFrameSummary:
 class FramePerfLog:
     """A log of performance assessed per operator in the given frame"""
 
+    blockstamp: ReferenceBlockStamp
     frame: tuple[EpochNumber, EpochNumber]
     threshold: float = 0.0
+    distributable: Shares = 0
     operators: dict[NodeOperatorId, OperatorFrameSummary] = field(
         default_factory=lambda: defaultdict(OperatorFrameSummary)
     )
