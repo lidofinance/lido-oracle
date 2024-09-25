@@ -8,16 +8,25 @@ Prepares lists:
     - Bad-performers
     - Not enough participation
 """
+
 import json
 import logging
 import sys
 from collections import defaultdict
+from typing import Callable, cast
+
+from eth_typing import BlockNumber
+from web3.contract.contract import ContractEvent
+from web3.types import EventData
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.csm.checkpoint import FrameCheckpointsIterator, MinStepIsNotReached, FrameCheckpointProcessor
 from src.modules.csm.csm import CSOracle
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.types import BlockStamp, NodeOperatorId, ValidatorIndex, EpochNumber
+from src.utils.blockstamp import build_blockstamp
+from src.utils.events import get_events_in_range
+from src.utils.slot import get_next_non_missed_slot
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +47,7 @@ class CSMDataCollect(CSOracle):
 
         self.calculate_performance(last_finalized_blockstamp)
         logger.info({"msg": "Data collected. Performance report is ready"})
+        self.fetch_addresses(last_finalized_blockstamp)
         sys.exit(0)
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
@@ -137,6 +147,20 @@ class CSMDataCollect(CSOracle):
             else:
                 not_enough_participation[no_id] = data
 
+        with open('out/threshold_info.json', 'w') as f:
+            json.dump(
+                {
+                    "from_epoch": START_EPOCH,
+                    "to_epoch": END_EPOCH,
+                    "network_validators": len(self.state.data),
+                    "network_avg_perf": network_avg_perf,
+                    "perf_leeway": PERFORMANCE_LEEWAY_BP / TOTAL_BASIS_POINTS,
+                    "perf_threshold": threshold,
+                },
+                f,
+                indent=2,
+            )
+
         with open('out/good_performers.json', 'w') as f:
             json.dump(good_performers, f, indent=2)
 
@@ -145,3 +169,130 @@ class CSMDataCollect(CSOracle):
 
         with open(f'out/less_than_{MIN_ACTIVE_EPOCHS}_assigned.json', 'w') as f:
             json.dump(not_enough_participation, f, indent=2)
+
+    def fetch_addresses(self, blockstamp: BlockStamp):
+        logger.info({"msg": "Fetching addresses"})
+
+        good_performers = json.load(open("out/good_performers.json", "r"))
+        bad_performers = json.load(open("out/bad_performers.json", "r"))
+        not_enough_participation = json.load(open(f"out/less_than_{MIN_ACTIVE_EPOCHS}_assigned.json", "r"))
+
+        l_epoch = EpochNumber(59884)  # deploy date to fetch all needed events
+        r_epoch = END_EPOCH
+        converter = self.converter(blockstamp)
+
+        l_slot = converter.get_epoch_first_slot(l_epoch)
+        r_slot = converter.get_epoch_last_slot(r_epoch)
+
+        l_blockstamp = build_blockstamp(
+            get_next_non_missed_slot(
+                self.w3.cc,
+                l_slot,
+                blockstamp.slot_number,
+            )
+        )
+
+        r_blockstamp = build_blockstamp(
+            get_next_non_missed_slot(
+                self.w3.cc,
+                # TODO: CHANGE TO r_slot
+                min(r_slot, blockstamp.slot_number),
+                blockstamp.slot_number,
+            )
+        )
+
+        l_block_number = self.w3.eth.get_block(l_blockstamp.block_hash).get("number", BlockNumber(0))
+        r_block_number = self.w3.eth.get_block(r_blockstamp.block_hash).get("number", BlockNumber(0))
+
+        by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
+
+        node_operator_added_events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.csm.module.events.NodeOperatorAdded),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
+
+        for e in node_operator_added_events:
+            no_id = str(e["args"]["nodeOperatorId"])
+            for operators in [good_performers, bad_performers, not_enough_participation]:
+                if no_id in operators:
+                    operators[no_id]["manager_address"] = e["args"]["managerAddress"]
+                    operators[no_id]["used_addresses"] = list({e["args"]["managerAddress"], e["args"]["rewardAddress"]})
+
+        bond_curve_events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.csm.accounting.events.BondCurveSet),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
+
+        for e in bond_curve_events:
+            no_id = str(e["args"]["nodeOperatorId"])
+            for operators in [good_performers, bad_performers, not_enough_participation]:
+                if no_id in operators:
+                    operators[no_id]["testnet_ea_member"] = True
+
+        settled_events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.csm.module.events.ELRewardsStealingPenaltySettled),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
+
+        for e in settled_events:
+            no_id = str(e["args"]["nodeOperatorId"])
+            for operators in [good_performers, bad_performers, not_enough_participation]:
+                if no_id in operators:
+                    operators[no_id]["el_rewards_stealer"] = True
+
+        manager_changed_events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.csm.module.events.NodeOperatorManagerAddressChanged),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
+
+        for e in manager_changed_events:
+            no_id = str(e["args"]["nodeOperatorId"])
+            addr = e["args"]["newAddress"]
+            for operators in [good_performers, bad_performers, not_enough_participation]:
+                if no_id in operators:
+                    operators[no_id]["used_addresses"] = list(set(operators[no_id]["used_addresses"]).union([addr]))
+                    if not operators[no_id].get("testnet_ea_member", False):
+                        operators[no_id]["manager_address"] = addr
+
+        reward_changed_events = sorted(
+            get_events_in_range(
+                cast(ContractEvent, self.w3.csm.module.events.NodeOperatorRewardAddressChanged),
+                l_block_number,
+                r_block_number,
+            ),
+            key=by_no_id,
+        )
+
+        for e in reward_changed_events:
+            no_id = str(e["args"]["nodeOperatorId"])
+            addr = e["args"]["newAddress"]
+            for operators in [good_performers, bad_performers, not_enough_participation]:
+                if no_id in operators:
+                    operators[no_id]["used_addresses"] = list(set(operators[no_id]["used_addresses"]).union([addr]))
+
+        with open('out/good_performers.json', 'w') as f:
+            json.dump(good_performers, f, indent=2)
+
+        with open('out/bad_performers.json', 'w') as f:
+            json.dump(bad_performers, f, indent=2)
+
+        with open(f'out/less_than_{MIN_ACTIVE_EPOCHS}_assigned.json', 'w') as f:
+            json.dump(not_enough_participation, f, indent=2)
+
+        logger.info({"msg": "Addresses fetched"})

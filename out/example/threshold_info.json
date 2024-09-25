@@ -1,0 +1,8 @@
+{
+  "from_epoch": 62213,
+  "to_epoch": 82913,
+  "network_validators": 1714222,
+  "network_avg_perf": 0.9155813771625513,
+  "perf_leeway": 0.05,
+  "perf_threshold": 0.8655813771625512
+}

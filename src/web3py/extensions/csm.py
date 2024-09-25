@@ -88,7 +88,7 @@ class CSM(Module):
                 ),
             )
 
-            accounting = cast(
+            self.accounting = cast(
                 CSAccountingContract,
                 self.w3.eth.contract(
                     address=self.module.accounting(),
@@ -100,7 +100,7 @@ class CSM(Module):
             self.fee_distributor = cast(
                 CSFeeDistributorContract,
                 self.w3.eth.contract(
-                    address=accounting.fee_distributor(),
+                    address=self.accounting.fee_distributor(),
                     ContractFactoryClass=CSFeeDistributorContract,
                     decode_tuples=True,
                 ),
