@@ -82,8 +82,6 @@ class CSMDataCollect(CSOracle):
 
         for checkpoint in checkpoints:
             processor.exec(checkpoint)
-            # Recalculate performance after processing each checkpoint
-            self.calculate_performance(blockstamp)
 
         return self.state.is_fulfilled
 
