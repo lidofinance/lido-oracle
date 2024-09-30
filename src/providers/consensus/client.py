@@ -58,7 +58,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getSpec")
         return BeaconSpecResponse.from_response(**data)
 
-    def get_genesis(self):
+    def get_genesis(self) -> GenesisResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """
@@ -78,22 +78,26 @@ class ConsensusClient(HTTPProvider):
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
         )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockRoot")
         return BlockRootResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
-        data, meta_data = cast(tuple[dict, dict], self._get(
-            self.API_GET_BLOCK_HEADER,
-            path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
-        ))
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
+        """
+        data, meta_data = cast(
+            tuple[dict, dict],
+            self._get(
+                self.API_GET_BLOCK_HEADER,
+                path_params=(state_id,),
+                force_raise=self.__raise_last_missed_slot_error,
+            ),
+        )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
-        resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
-        return resp
+        return BlockHeaderFullResponse.from_response(
+            data=BlockHeaderResponseData.from_response(**data), **meta_data
+        )
 
     @lru_cache(maxsize=1)
     def get_block_details(self, state_id: SlotNumber | BlockRoot) -> BlockDetailsResponse:
@@ -127,13 +131,15 @@ class ConsensusClient(HTTPProvider):
         index: int | None = None,
         slot: SlotNumber | None = None
     ) -> list[SlotAttestationCommittee]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
+        """
         try:
             data, _ = self._get(
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': index, 'slot': slot},
-                force_raise=self.__raise_on_prysm_error
+                force_raise=self.__raise_on_prysm_error,
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
@@ -144,27 +150,31 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
-        streamed_json = cast(TransientStreamingJSONObject, self._get(
-                self.API_GET_STATE,
-                path_params=(state_id,),
-                stream=True,
-            ))
+        """Fetches block roots for a given state."""
+        streamed_json = cast(
+            TransientStreamingJSONObject,
+            self._get(self.API_GET_STATE, path_params=(state_id,), stream=True),
+        )
         return list(streamed_json['data']['block_roots'])
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+        """
         return self.get_validators_no_cache(blockstamp)
 
     @list_of_dataclasses(Validator.from_response)
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+        """
         try:
             data, _ = self._get(
                 self.API_GET_VALIDATORS,
                 path_params=(blockstamp.state_root,),
                 query_params={'id': pub_keys},
-                force_raise=self.__raise_on_prysm_error
+                force_raise=self.__raise_on_prysm_error,
             )
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getStateValidators")
@@ -172,7 +182,6 @@ class ConsensusClient(HTTPProvider):
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 return self._get_validators_with_prysm(blockstamp, pub_keys)
-
             raise error
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found: state not found in the last'
@@ -212,7 +221,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_VALIDATORS,
             path_params=(blockstamp.slot_number,),
-            query_params={'id': pub_keys}
+            query_params={'id': pub_keys},
         )
         if not isinstance(data, list):
             raise ValueError("Expected list response from getStateValidators")
