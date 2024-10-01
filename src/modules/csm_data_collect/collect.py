@@ -218,7 +218,7 @@ class CSMDataCollect(CSOracle):
             for operators in [good_performers, bad_performers, not_enough_participation]:
                 if no_id in operators:
                     operators[no_id]["manager_address"] = e["args"]["managerAddress"]
-                    operators[no_id]["used_addresses"] = list({e["args"]["managerAddress"], e["args"]["rewardAddress"]})
+                    operators[no_id]["used_addresses"] = sorted({e["args"]["managerAddress"], e["args"]["rewardAddress"]})
 
         bond_curve_events = sorted(
             get_events_in_range(
@@ -264,7 +264,7 @@ class CSMDataCollect(CSOracle):
             addr = e["args"]["newAddress"]
             for operators in [good_performers, bad_performers, not_enough_participation]:
                 if no_id in operators:
-                    operators[no_id]["used_addresses"] = list(set(operators[no_id]["used_addresses"]).union([addr]))
+                    operators[no_id]["used_addresses"] = sorted(set(operators[no_id]["used_addresses"]).union([addr]))
                     if not operators[no_id].get("testnet_ea_member", False):
                         operators[no_id]["manager_address"] = addr
 
@@ -282,7 +282,7 @@ class CSMDataCollect(CSOracle):
             addr = e["args"]["newAddress"]
             for operators in [good_performers, bad_performers, not_enough_participation]:
                 if no_id in operators:
-                    operators[no_id]["used_addresses"] = list(set(operators[no_id]["used_addresses"]).union([addr]))
+                    operators[no_id]["used_addresses"] = sorted(set(operators[no_id]["used_addresses"]).union([addr]))
 
         with open('out/good_performers.json', 'w') as f:
             json.dump(good_performers, f, indent=2)
