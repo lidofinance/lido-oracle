@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from src.modules.csm.log import FramePerfLog
@@ -32,4 +33,16 @@ def test_log_encode(log: FramePerfLog):
     log.operators[NodeOperatorId(42)].distributed = 17
     log.operators[NodeOperatorId(0)].distributed = 0
 
-    log.encode()
+    encoded = log.encode()
+    decoded = json.loads(encoded)
+
+    assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["assigned"] == 220
+    assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["included"] == 119
+    assert decoded["operators"]["42"]["distributed"] == 17
+    assert decoded["operators"]["0"]["distributed"] == 0
+
+    assert decoded["blockstamp"]["block_hash"] == log.blockstamp.block_hash
+    assert decoded["blockstamp"]["ref_slot"] == log.blockstamp.ref_slot
+
+    assert decoded["threshold"] == log.threshold
+    assert decoded["frame"] == list(log.frame)
