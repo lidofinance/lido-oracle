@@ -9,22 +9,22 @@ from src.modules.accounting.types import BatchState
 from tests.factory.configs import OracleReportLimitsFactory
 
 
-@pytest.fixture()
+@pytest.fixture
 def chain_config():
     return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
 
 
-@pytest.fixture()
+@pytest.fixture
 def frame_config():
     return FrameConfig(initial_epoch=0, epochs_per_frame=10, fast_lane_length_slots=0)
 
 
-@pytest.fixture()
+@pytest.fixture
 def past_blockstamp(web3, consensus_client):
     return get_blockstamp_by_state(web3, 'finalized')
 
 
-@pytest.fixture()
+@pytest.fixture
 def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
@@ -57,6 +57,17 @@ def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
     subject._calculate_finalization_batches = Mock(return_value=[1, 2, 3])
 
     assert subject.get_finalization_batches(True, 100, 0, 0) == [1, 2, 3]
+
+
+@pytest.mark.unit
+def test_no_available_eth_to_cover_wc(subject: Withdrawal):
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused = Mock(return_value=False)
+    subject._has_unfinalized_requests = Mock(return_value=True)
+    subject._get_available_eth = Mock(return_value=0)
+
+    result = subject.get_finalization_batches(False, 100, 0, 0)
+
+    assert result == []
 
 
 @pytest.mark.unit
