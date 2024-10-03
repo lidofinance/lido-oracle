@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
-from ipfs_cid import cid_sha256_hash
+from ipfs_cid import cid_sha256_hash  # type: ignore
 
 from src.providers.ipfs import CID
 from src.providers.ipfs import CIDv1

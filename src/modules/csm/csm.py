@@ -118,7 +118,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
-                log_cid=log.get_cid(),
+                log_cid=log_cid,
                 distributed=0,
             ).as_tuple()
 
