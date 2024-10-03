@@ -93,8 +93,9 @@ def web3_anvil(request):
                 'kac': lambda: kac,  # type: ignore[dict-item]
             }
         )
-
+        #w3.provider.make_request('evm_setAutomine', [1])
         yield w3
+
 
 
 SYNC_CONFIGS = {
@@ -184,7 +185,7 @@ def upgrade_contracts(web3_anvil):
             # upgrade_contract(web3_accounting, contract['eth_address'][chain_id], result['<stdin>:MyContract']['bin'], result['<stdin>:MyContract']['abi'])
 
 
-def set_only_guardian(consensus, address, admin):
+def set_only_guardian(w3, consensus, address, admin):
     oracles = consensus.functions.getMembers().call()
     quorum_size = consensus.functions.getQuorum().call()
 
@@ -194,6 +195,7 @@ def set_only_guardian(consensus, address, admin):
     ).transact({'from': admin})
 
     for index, guardian in enumerate(oracles.addresses):
-        consensus.functions.removeMember(guardian, quorum_size).transact({"from": admin})
+        h = consensus.functions.removeMember(guardian, quorum_size).transact({"from": admin})
+        #w3.eth.wait_for_transaction_receipt(h)
 
     consensus.functions.addMember(address, 1).transact({"from": admin})

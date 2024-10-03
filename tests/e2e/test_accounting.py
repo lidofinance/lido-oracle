@@ -7,14 +7,12 @@ from src.modules.accounting.accounting import Accounting
 from tests.e2e.conftest import set_only_guardian, ADMIN, increase_balance
 
 
-REF_SLOT = 8783999
-REF_BLOCK = 20877818
+REF_SLOT = 10080104
+REF_BLOCK = 20870610
 
 
 @pytest.mark.parametrize("web3_anvil", [(REF_SLOT, REF_BLOCK)], indirect=["web3_anvil"])
 def test_accounting_report(web3_anvil, caplog):
-    web3 = Web3(HTTPProvider(variables.EXECUTION_CLIENT_URI[0]))
-
     a = Accounting(web3_anvil)
 
     latest = a._get_latest_blockstamp()
@@ -25,7 +23,7 @@ def test_accounting_report(web3_anvil, caplog):
     variables.ACCOUNT = Account.from_key('0x66a484cf1a3c6ef8dfd59d24824943d2853a29d96f34a01271efc55774452a51')
     increase_balance(web3_anvil, variables.ACCOUNT.address, 10**18)
 
-    set_only_guardian(consensus, variables.ACCOUNT.address, ADMIN)
+    set_only_guardian(web3_anvil, consensus, variables.ACCOUNT.address, ADMIN)
     reportable = a.is_contract_reportable(a._get_latest_blockstamp())
 
     assert reportable

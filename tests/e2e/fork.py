@@ -29,8 +29,6 @@ class anvil_fork:
                 '-p',
                 self.port,
                 *block_command,
-                '--block-time',
-                '12',
                 '--auto-impersonate',
             ],
         )
