@@ -16,7 +16,7 @@ from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_U
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
 from src.web3py.types import Web3
-from tests.providers import (
+from tests.providers_utils import (
     ResponseFromFile,
     ResponseFromFileConsensusClientModule,
     ResponseFromFileKeysAPIClientModule,
