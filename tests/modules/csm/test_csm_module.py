@@ -641,7 +641,9 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
-    module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root, get_cid=Mock(return_value=param.curr_tree_cid)))
+    module.make_tree = Mock(
+        return_value=Mock(root=param.curr_tree_root, get_cid=Mock(return_value=param.curr_tree_cid))
+    )
 
     report = module.build_report(blockstamp=Mock(ref_slot=100500))
 
