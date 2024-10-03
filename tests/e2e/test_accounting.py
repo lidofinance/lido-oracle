@@ -10,6 +10,7 @@ REF_SLOT = 10080104
 REF_BLOCK = 20870610
 
 
+@pytest.mark.e2e
 @pytest.mark.parametrize("web3_anvil", [(REF_SLOT, REF_BLOCK)], indirect=["web3_anvil"])
 def test_accounting_report(web3_anvil, caplog):
     a = Accounting(web3_anvil)
