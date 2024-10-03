@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import unittest
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -18,7 +19,7 @@ class TestPulseFunction(unittest.TestCase):
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_success(self, mock_request):
         """Test that pulse successfully pings the healthcheck server."""
-        mock_request.get(f'http://localhost:8000/pulse/', status_code=HTTPStatus.OK)
+        mock_request.get('http://localhost:8000/pulse/', status_code=HTTPStatus.OK)
 
         with patch('logging.Logger.warning') as mock_warning:
             pulse()
@@ -28,7 +29,7 @@ class TestPulseFunction(unittest.TestCase):
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_server_not_responding(self, mock_request):
         """Test that pulse logs a warning when the server is not responding."""
-        mock_request.get(f'http://localhost:8000/pulse/', exc=requests.ConnectionError)
+        mock_request.get('http://localhost:8000/pulse/', exc=requests.ConnectionError)
 
         with patch('logging.Logger.warning') as mock_warning:
             pulse()
