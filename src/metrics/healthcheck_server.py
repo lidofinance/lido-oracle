@@ -9,6 +9,8 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from src import variables
 from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
+
+_last_pulse = datetime.now()
 logger = logging.getLogger(__name__)
 
 
@@ -22,26 +24,13 @@ def pulse():
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
     """Request handler for Docker HEALTHCHECK"""
-
-    # Encapsulate last pulse as a class variable
-    _last_pulse = datetime.now()
-
-    @classmethod
-    def update_last_pulse(cls):
-        """Update the last pulse time to the current time."""
-        cls._last_pulse = datetime.now()
-
-    @classmethod
-    def get_last_pulse(cls) -> datetime:
-        """Get the current last pulse time."""
-        return cls._last_pulse
-
     def do_GET(self):
-        """Handle GET requests for pulse checking."""
-        if self.path == '/pulse/':
-            self.update_last_pulse()
+        global _last_pulse
 
-        if datetime.now() - self.get_last_pulse() > timedelta(seconds=MAX_CYCLE_LIFETIME_IN_SECONDS):
+        if self.path == '/pulse/':
+            _last_pulse = datetime.now()
+
+        if datetime.now() - _last_pulse > timedelta(seconds=MAX_CYCLE_LIFETIME_IN_SECONDS):
             self.send_response(503)
             self.end_headers()
             self.wfile.write(b'{"metrics": "fail", "reason": "timeout exceeded"}\n')
@@ -55,7 +44,7 @@ class PulseRequestHandler(SimpleHTTPRequestHandler):
         pass
 
 
-def start_pulse_server():  # pragma: no cover
+def start_pulse_server():
     """
     This is simple server for bots without any API.
     If bot didn't call pulse for a while (5 minutes but should be changed individually)

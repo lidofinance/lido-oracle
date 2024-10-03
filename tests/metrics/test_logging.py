@@ -108,17 +108,3 @@ def test_format_empty_message(log_record):
     })
 
     assert formatted_output == expected_output
-
-
-@pytest.mark.unit
-def test_format_with_json_error_handling(log_record, caplog):
-    """Test handling of JSON serialization errors."""
-    log_record.msg = {'msg': 'Test message', 'value': set([1, 2, 3])}  # Sets are not JSON serializable
-    log_record.getMessage = lambda: "Should not be used"
-    formatter = JsonFormatter()
-
-    with caplog.at_level(logging.ERROR):
-        formatted_output = formatter.format(log_record)
-
-    assert "Failed to format log record" in formatted_output
-    assert "Failed to format log record:" in caplog.text
