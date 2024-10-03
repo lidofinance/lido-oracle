@@ -55,7 +55,7 @@ class LidoContract(ContractInterface):
         except ValueError as error:
             # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
             logger.warning({
-                'msg': 'Request response failed. Expected behaviour for Erigon nodes. Try another request format.',
+                'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
                 'error': repr(error),
             })
             hex_ref_slot = HexStr(hex(ref_slot))
@@ -86,9 +86,6 @@ class LidoContract(ContractInterface):
         ref_slot: HexStr,
         block_identifier: BlockIdentifier = 'latest',
     ) -> LidoReportRebase:
-        """
-        Erigon should recieve ref_slot
-        """
         state_override: dict[ChecksumAddress, CallOverrideParams] = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value

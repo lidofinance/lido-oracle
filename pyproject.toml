@@ -45,6 +45,7 @@ hypothesis = "^6.68.2"
 black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
+requests-mock = "^1.12.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
