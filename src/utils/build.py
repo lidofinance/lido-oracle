@@ -1,5 +1,4 @@
 import json
-import os
 
 UNKNOWN_BUILD_INFO = {"version": "unknown", "branch": "unknown", "commit": "unknown"}
 
