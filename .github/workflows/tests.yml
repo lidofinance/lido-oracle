@@ -30,6 +30,9 @@ jobs:
         run: |
           poetry install --no-interaction --with=dev
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Test with pytest
         run: poetry run pytest --cov=src tests
         env:
