@@ -29,7 +29,9 @@ def test_ejector_report(web3_anvil, caplog):
 
     e.cycle_handler()
 
-    sent_tx = list(filter(lambda msg: 'msg' in msg.msg and 'Transaction is in blockchain.' in msg.msg['msg'], caplog.records))
+    sent_tx = list(
+        filter(lambda msg: 'msg' in msg.msg and 'Transaction is in blockchain.' in msg.msg['msg'], caplog.records)
+    )
 
     assert len(sent_tx) == 2
     tx_2 = web3_anvil.eth.get_transaction(sent_tx[1].msg['transactionHash'])

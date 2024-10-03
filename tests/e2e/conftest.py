@@ -93,9 +93,8 @@ def web3_anvil(request):
                 'kac': lambda: kac,  # type: ignore[dict-item]
             }
         )
-        #w3.provider.make_request('evm_setAutomine', [1])
+        # w3.provider.make_request('evm_setAutomine', [1])
         yield w3
-
 
 
 SYNC_CONFIGS = {
@@ -146,7 +145,7 @@ def upgrade_contract(web3, proxy_address, contract_bytecode, contract_abi):
 
     admin = proxy.functions.proxy__getAdmin().call()
 
-    increase_balance(web3, admin, 10 ** 18)
+    increase_balance(web3, admin, 10**18)
 
     proxy.functions.proxy__upgradeTo(contract_address).transact({"from": admin})
 
