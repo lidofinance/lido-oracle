@@ -41,6 +41,14 @@ jobs:
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
           LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
 
+      - name: e2e tests
+        run: poetry run pytest --cov=src tests
+        env:
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+
   linters:
     runs-on: ubuntu-latest
 
