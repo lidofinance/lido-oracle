@@ -8,7 +8,9 @@ from src.utils.build import get_build_info, UNKNOWN_BUILD_INFO
 class TestGetBuildInfo(unittest.TestCase):
 
     @patch('os.path.exists', return_value=True)
-    @patch('builtins.open', new_callable=mock_open, read_data='{"version": "1.0.0", "branch": "main", "commit": "abc123"}')
+    @patch(
+        'builtins.open', new_callable=mock_open, read_data='{"version": "1.0.0", "branch": "main", "commit": "abc123"}'
+    )
     def test_get_build_info_success(self, mock_open_file, mock_exists):
         """Test that get_build_info successfully reads from the JSON file."""
         expected_build_info = {"version": "1.0.0", "branch": "main", "commit": "abc123"}
