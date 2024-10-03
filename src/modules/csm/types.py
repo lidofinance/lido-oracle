@@ -1,11 +1,15 @@
 import logging
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
+from ipfs_cid import cid_sha256_hash
 
 from src.providers.ipfs import CID
+from src.providers.ipfs import CIDv1
 from src.types import NodeOperatorId, SlotNumber
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,3 +37,12 @@ class ReportData:
             str(self.log_cid),
             self.distributed,
         )
+
+
+class CIDv1Serializable(ABC):
+    @abstractmethod
+    def encode(self) -> bytes:
+        ...
+
+    def get_cid(self) -> CIDv1:
+        return CIDv1(cid_sha256_hash(self.encode()))

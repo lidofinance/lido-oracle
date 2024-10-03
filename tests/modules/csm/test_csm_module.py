@@ -512,7 +512,6 @@ class BuildReportTestParam:
     curr_distribution: Mock
     curr_tree_root: HexBytes
     curr_tree_cid: CID | Literal[""]
-    curr_log_cid: CID
     expected_make_tree_call_args: tuple | None
     expected_func_result: tuple
 
@@ -532,12 +531,11 @@ class BuildReportTestParam:
                         # shares
                         defaultdict(int),
                         # log
-                        Mock(),
+                        Mock(get_cid=Mock(return_value="QmLOG")),
                     )
                 ),
                 curr_tree_root=HexBytes(ZERO_HASH),
                 curr_tree_cid="",
-                curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=None,
                 expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
             ),
@@ -555,12 +553,11 @@ class BuildReportTestParam:
                         # shares
                         defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
                         # log
-                        Mock(),
+                        Mock(get_cid=Mock(return_value="QmLOG")),
                     )
                 ),
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
                 curr_tree_cid=CID("QmNEW_TREE"),
-                curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=(({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),),
                 expected_func_result=(
                     1,
@@ -585,12 +582,11 @@ class BuildReportTestParam:
                         # shares
                         defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
                         # log
-                        Mock(),
+                        Mock(get_cid=Mock(return_value="QmLOG")),
                     )
                 ),
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
                 curr_tree_cid=CID("QmNEW_TREE"),
-                curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=(
                     ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
                 ),
@@ -617,12 +613,11 @@ class BuildReportTestParam:
                         # shares
                         defaultdict(int),
                         # log
-                        Mock(),
+                        Mock(get_cid=Mock(return_value="QmLOG")),
                     )
                 ),
                 curr_tree_root=HexBytes(32),
                 curr_tree_cid="",
-                curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=None,
                 expected_func_result=(
                     1,
@@ -646,9 +641,7 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
-    module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root))
-    module.publish_tree = Mock(return_value=param.curr_tree_cid)
-    module.publish_log = Mock(return_value=param.curr_log_cid)
+    module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root, get_cid=Mock(return_value=param.curr_tree_cid)))
 
     report = module.build_report(blockstamp=Mock(ref_slot=100500))
 
@@ -679,6 +672,7 @@ def test_execute_module_processed(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
+    module.upload_report_artifacts_to_ipfs = Mock()
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),
@@ -772,3 +766,35 @@ def test_make_tree(module: CSOracle, param: MakeTreeTestParam):
     else:
         tree = module.make_tree(param.shares)
         assert tree.tree.values == param.expected_tree_values
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param((0, {}, Mock(encode=Mock(return_value=b'log'))), id='only-log'),
+        pytest.param((1, {}, Mock(encode=Mock(return_value=b'log'))), id='log-and-tree'),
+    ],
+)
+def test_upload_artifacts_to_ipfs(module: CSOracle, param, caplog):
+    caplog.set_level(logging.INFO)
+
+    module.w3.ipfs = Mock(publish=Mock(side_effect=lambda x: 'cid' + x.decode()))
+    module.make_tree = Mock(return_value=Mock(encode=Mock(return_value=b'tree')))
+    module.calculate_distribution = Mock(return_value=param)
+
+    module.upload_report_artifacts_to_ipfs(None)
+
+    assert "{'msg': '`frame log` uploaded to IPFS', 'cid': 'cidlog'}" == caplog.messages[0]
+
+    if param[0] or param[1]:
+        assert "{'msg': '`tree` uploaded to IPFS', 'cid': 'cidtree'}" == caplog.messages[1]
+
+
+def test_failed_upload(module: CSOracle, caplog):
+    caplog.set_level(logging.WARNING)
+
+    module.w3.ipfs = Mock(publish=Mock(side_effect=ConnectionError))
+
+    module.upload_bytes_to_ipfs(b'', 'test')
+
+    assert "{'msg': 'Failed to upload `test` to IPFS', 'error': 'ConnectionError()'}" == caplog.messages[0]

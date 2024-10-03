@@ -5,7 +5,7 @@ from typing import Self, Sequence
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.csm.types import RewardTreeLeaf
+from src.modules.csm.types import RewardTreeLeaf, CIDv1Serializable
 from src.providers.ipfs.cid import CID
 
 
@@ -19,7 +19,7 @@ class TreeJSONEncoder(json.JSONEncoder):
 
 
 @dataclass
-class Tree:
+class Tree(CIDv1Serializable):
     """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
 
     tree: StandardMerkleTree[RewardTreeLeaf]

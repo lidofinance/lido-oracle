@@ -89,6 +89,8 @@ class CSOracle(BaseModule, ConsensusModule):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
+        self.upload_report_artifacts_to_ipfs(report_blockstamp)
+
         return ModuleExecuteDelay.NEXT_SLOT
 
     @lru_cache(maxsize=1)
@@ -107,7 +109,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if distributed != sum(shares.values()):
             raise InconsistentData(f"Invalid distribution: {sum(shares.values())=} != {distributed=}")
 
-        log_cid = self.publish_log(log)
+        log_cid = log.get_cid()
 
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
@@ -116,7 +118,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
-                log_cid=log_cid,
+                log_cid=log.get_cid(),
                 distributed=0,
             ).as_tuple()
 
@@ -128,13 +130,12 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
         tree = self.make_tree(shares)
-        tree_cid = self.publish_tree(tree)
 
         return ReportData(
             self.report_contract.get_consensus_version(blockstamp.block_hash),
             blockstamp.ref_slot,
             tree_root=tree.root,
-            tree_cid=tree_cid,
+            tree_cid=tree.get_cid(),
             log_cid=log_cid,
             distributed=distributed,
         ).as_tuple()
@@ -220,6 +221,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
+    @lru_cache(maxsize=1)
     def calculate_distribution(
         self, blockstamp: ReferenceBlockStamp
     ) -> tuple[int, defaultdict[NodeOperatorId, int], FramePerfLog]:
@@ -333,16 +335,6 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree) -> CID:
-        tree_cid = self.w3.ipfs.publish(tree.encode())
-        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
-        return tree_cid
-
-    def publish_log(self, log: FramePerfLog) -> CID:
-        log_cid = self.w3.ipfs.publish(log.encode())
-        logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
-        return log_cid
-
     @lru_cache(maxsize=1)
     def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         converter = self.converter(blockstamp)
@@ -401,3 +393,22 @@ class CSOracle(BaseModule, ConsensusModule):
                 return mod.id
 
         raise NoModuleFound
+
+    def upload_report_artifacts_to_ipfs(self, blockstamp: ReferenceBlockStamp):
+        distributed, shares, log = self.calculate_distribution(blockstamp)
+
+        self.upload_bytes_to_ipfs(log.encode(), 'frame log')
+
+        if not distributed and not shares:
+            return
+
+        tree = self.make_tree(shares)
+        self.upload_bytes_to_ipfs(tree.encode(), 'tree')
+
+    def upload_bytes_to_ipfs(self, data: bytes, name: str):
+        try:
+            cid = self.w3.ipfs.publish(data)
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            logger.warning({'msg': f'Failed to upload `{name}` to IPFS', 'error': repr(error)})
+        else:
+            logger.info({'msg': f'`{name}` uploaded to IPFS', 'cid': str(cid)})

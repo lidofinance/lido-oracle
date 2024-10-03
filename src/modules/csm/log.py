@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
+from src.modules.csm.types import CIDv1Serializable
 from src.modules.csm.state import AttestationsAccumulator
 from src.types import EpochNumber, NodeOperatorId
 
@@ -27,7 +28,7 @@ class OperatorFrameSummary:
 
 
 @dataclass
-class FramePerfLog:
+class FramePerfLog(CIDv1Serializable):
     """A log of performance assessed per operator in the given frame"""
 
     frame: tuple[EpochNumber, EpochNumber]
