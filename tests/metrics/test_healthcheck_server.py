@@ -73,7 +73,9 @@ class TestPulseRequestHandler(unittest.TestCase):
     def test_handler_response_fail(self):
         """Test that the handler responds with 503 when the last pulse is outdated."""
         # Set the last pulse to an outdated time
-        src.metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(seconds=MAX_CYCLE_LIFETIME_IN_SECONDS + 1)
+        src.metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(
+            seconds=MAX_CYCLE_LIFETIME_IN_SECONDS + 1
+        )
 
         handler = _create_mock_request_handler('/smth/')
         handler.do_GET()

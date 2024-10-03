@@ -28,16 +28,18 @@ def test_format_regular_message(log_record):
     formatter = JsonFormatter()
 
     formatted_output = formatter.format(log_record)
-    expected_output = json.dumps({
-        'timestamp': int(log_record.created),
-        'name': log_record.name,
-        'levelname': log_record.levelname,
-        'funcName': log_record.funcName,
-        'lineno': log_record.lineno,
-        'module': log_record.module,
-        'pathname': log_record.pathname,
-        'msg': log_record.getMessage(),
-    })
+    expected_output = json.dumps(
+        {
+            'timestamp': int(log_record.created),
+            'name': log_record.name,
+            'levelname': log_record.levelname,
+            'funcName': log_record.funcName,
+            'lineno': log_record.lineno,
+            'module': log_record.module,
+            'pathname': log_record.pathname,
+            'msg': log_record.getMessage(),
+        }
+    )
 
     assert formatted_output == expected_output
 
@@ -50,17 +52,19 @@ def test_format_dict_message(log_record):
     formatter = JsonFormatter()
 
     formatted_output = formatter.format(log_record)
-    expected_output = json.dumps({
-        'timestamp': int(log_record.created),
-        'name': log_record.name,
-        'levelname': log_record.levelname,
-        'funcName': log_record.funcName,
-        'lineno': log_record.lineno,
-        'module': log_record.module,
-        'pathname': log_record.pathname,
-        'key': 'value',
-        'another_key': 123,
-    })
+    expected_output = json.dumps(
+        {
+            'timestamp': int(log_record.created),
+            'name': log_record.name,
+            'levelname': log_record.levelname,
+            'funcName': log_record.funcName,
+            'lineno': log_record.lineno,
+            'module': log_record.module,
+            'pathname': log_record.pathname,
+            'key': 'value',
+            'another_key': 123,
+        }
+    )
 
     assert formatted_output == expected_output
 
@@ -73,17 +77,19 @@ def test_format_message_with_value_field(log_record):
     formatter = JsonFormatter()
 
     formatted_output = formatter.format(log_record)
-    expected_output = json.dumps({
-        'timestamp': int(log_record.created),
-        'name': log_record.name,
-        'levelname': log_record.levelname,
-        'funcName': log_record.funcName,
-        'lineno': log_record.lineno,
-        'module': log_record.module,
-        'pathname': log_record.pathname,
-        'msg': 'Test message',
-        'value': '456',  # 'value' field should be converted to string
-    })
+    expected_output = json.dumps(
+        {
+            'timestamp': int(log_record.created),
+            'name': log_record.name,
+            'levelname': log_record.levelname,
+            'funcName': log_record.funcName,
+            'lineno': log_record.lineno,
+            'module': log_record.module,
+            'pathname': log_record.pathname,
+            'msg': 'Test message',
+            'value': '456',  # 'value' field should be converted to string
+        }
+    )
 
     assert formatted_output == expected_output
 
@@ -96,15 +102,17 @@ def test_format_empty_message(log_record):
     formatter = JsonFormatter()
 
     formatted_output = formatter.format(log_record)
-    expected_output = json.dumps({
-        'timestamp': int(log_record.created),
-        'name': log_record.name,
-        'levelname': log_record.levelname,
-        'funcName': log_record.funcName,
-        'lineno': log_record.lineno,
-        'module': log_record.module,
-        'pathname': log_record.pathname,
-        'msg': '',
-    })
+    expected_output = json.dumps(
+        {
+            'timestamp': int(log_record.created),
+            'name': log_record.name,
+            'levelname': log_record.levelname,
+            'funcName': log_record.funcName,
+            'lineno': log_record.lineno,
+            'module': log_record.module,
+            'pathname': log_record.pathname,
+            'msg': '',
+        }
+    )
 
     assert formatted_output == expected_output
