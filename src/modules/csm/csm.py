@@ -395,6 +395,7 @@ class CSOracle(BaseModule, ConsensusModule):
         raise NoModuleFound
 
     def upload_report_artifacts_to_ipfs(self, blockstamp: ReferenceBlockStamp):
+        """This function doesn't guaranty that artifacts will be uploaded to the IPFS"""
         distributed, shares, log = self.calculate_distribution(blockstamp)
 
         self.upload_bytes_to_ipfs(log.encode(), 'frame log')

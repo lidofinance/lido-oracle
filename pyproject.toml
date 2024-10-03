@@ -28,7 +28,8 @@ web3-multi-provider = "^0.6.0"
 json-stream = "^2.3.2"
 lazy-object-proxy = "^1.9.0"
 oz-merkle-tree = {git = "https://github.com/lidofinance/oz-merkle-tree"}
-ipfs-cid = "^1.0.0"
+py-multiformats-cid = "^0.4.4"
+multihash = "^0.1.1"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"

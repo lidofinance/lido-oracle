@@ -1,10 +1,12 @@
+import hashlib
 import logging
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
-from ipfs_cid import cid_sha256_hash  # type: ignore
+from multiformats_cid import make_cid
+from multihash import multihash
 
 from src.providers.ipfs import CID
 from src.providers.ipfs import CIDv1
@@ -45,4 +47,9 @@ class CIDv1Serializable(ABC):
         ...
 
     def get_cid(self) -> CIDv1:
-        return CIDv1(cid_sha256_hash(self.encode()))
+        hash_function = hashlib.sha256()
+        hash_function.update(self.encode())
+        hashed_data = hash_function.digest()
+
+        multihash_value = multihash.encode(hashed_data, "sha2-256")
+        return CIDv1(make_cid(1, 'dag-pb', multihash_value))
