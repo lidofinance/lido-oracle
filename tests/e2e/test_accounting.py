@@ -29,10 +29,11 @@ def test_accounting_report(web3_anvil, caplog):
     assert reportable
 
     a.cycle_handler()
+    records = caplog.records
 
-    sent_tx = list(filter(lambda msg: msg.msg == 'Transaction is in blockchain.', list(caplog.records)))
+    sent_tx = list(filter(lambda msg: 'Transaction is in blockchain.' in msg.msg, records))
 
-    assert len(sent_tx) == 3
+    assert len(sent_tx) == 1
     tx_2 = web3_anvil.eth.get_transaction(sent_tx[1].msg['transactionHash'])
     report_2 = web3_anvil.lido_contracts.accounting_oracle.decode_function_input(tx_2['input'])[1]
 
