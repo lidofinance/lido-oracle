@@ -132,7 +132,9 @@ class TestMetricsCollectorUnit:
             domain='localhost:8545',
         )
 
-    def test_metrics_collector_eth_getBalance(self, mock_web3, mock_make_request, mock_metrics_duration, load_abi_files):
+    def test_metrics_collector_eth_getBalance(
+        self, mock_web3, mock_make_request, mock_metrics_duration, load_abi_files
+    ):
         """
         Test the metrics collector for an `eth_getBalance` method.
         """
