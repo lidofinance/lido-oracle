@@ -75,8 +75,8 @@ def encode_large_filenode(data: bytes) -> bytes:
 
     body = b""
 
-    for encoded, size in childs:
-        body += encode_link(encoded, size)
+    for encoded, _ in childs:
+        body += encode_link(encoded)
 
     body = body + b"\x0a\x0e" + b"\x08\x02" + b"\x18" + encode_varint(len(data))
 
@@ -86,9 +86,9 @@ def encode_large_filenode(data: bytes) -> bytes:
     return body
 
 
-def encode_link(encoded: bytes, size: int):
+def encode_link(encoded: bytes):
     hash = hashlib.sha256(encoded).digest()
-    body = b"\x0a\x22" + b"\x12\x20" + hash + b"\x12\x00" + b"\x18" + encode_varint(size + 14)  # TODO: Why 14?
+    body = b"\x0a\x22" + b"\x12\x20" + hash + b"\x12\x00" + b"\x18" + encode_varint(len(encoded))
     return b"\x12" + len(body).to_bytes() + body
 
 
