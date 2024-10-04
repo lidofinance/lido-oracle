@@ -42,7 +42,7 @@ jobs:
           LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
 
       - name: e2e tests
-        run: poetry run pytest --cov=src tests
+        run: poetry run pytest -m e2e
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
