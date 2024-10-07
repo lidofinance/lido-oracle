@@ -26,8 +26,8 @@ class MinStepIsNotReached(Exception):
 
 @dataclass
 class FrameCheckpoint:
-    slot: SlotNumber  # last slot of the epoch
-    duty_epochs: Sequence[EpochNumber]  # max 255 elements
+    slot: SlotNumber  # Slot for the state to get the trusted block roots from.
+    duty_epochs: Sequence[EpochNumber]  # NOTE: max 255 elements.
 
 
 @dataclass
