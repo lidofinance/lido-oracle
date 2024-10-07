@@ -176,7 +176,10 @@ class CSOracle(BaseModule, ConsensusModule):
         l_epoch, r_epoch = self.current_frame_range(blockstamp)
         logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
 
-        # Finalized slot is the first slot of justifying epoch, so we need to take the previous
+        # NOTE: Finalized slot is the first slot of justifying epoch, so we need to take the previous. But if the first
+        # slot of the justifying epoch is empty, blockstamp.slot_number will point to the slot where the last finalized
+        # block was created. As a result, finalized_epoch in this case will be less than the actual number of the last
+        # finalized epoch. As a result we can have a delay in frame finalization.
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
         report_blockstamp = self.get_blockstamp_for_report(blockstamp)
