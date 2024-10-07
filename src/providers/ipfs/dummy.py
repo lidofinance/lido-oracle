@@ -1,6 +1,6 @@
 import hashlib
 
-from .cid import CID
+from .cid import CID, CIDv0
 from .types import FetchError, IPFSProvider
 
 
@@ -26,7 +26,7 @@ class DummyIPFSProvider(IPFSProvider):
 
     def _upload(self, content: bytes, name: str | None = None) -> str:
         cid = "Qm" + hashlib.sha256(content).hexdigest()  # XXX: Dummy.
-        self.mempool[cid] = content
+        self.mempool[CIDv0(cid)] = content
         return cid
 
     def pin(self, cid: CID) -> None:

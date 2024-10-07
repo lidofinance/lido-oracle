@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from ctypes import cast
 
-from multiformats_cid import make_cid, CIDv1
+from multiformats_cid import make_cid, CIDv1 as MultiCIDv1
 
-from .cid import CID, CIDv0, is_cid_v0
+from .cid import CID, CIDv0
 
 
 class IPFSError(Exception):
@@ -52,12 +51,14 @@ class IPFSProvider(ABC):
     def _upload(self, content: bytes, name: str | None = None) -> str: ...
 
     def upload(self, content: bytes, name: str | None = None) -> CIDv0:
-        cid = self._upload(content, name)
+        cid_str = self._upload(content, name)
 
-        if is_cid_v0(cid):
-            return CIDv0(cid)
+        cid = make_cid(cid_str)
 
-        return CIDv0(cast(make_cid(cid), CIDv1).to_v0())
+        if isinstance(cid, MultiCIDv1):
+            cid = cid.to_v0()
+
+        return CIDv0(cid)
 
     @abstractmethod
     def pin(self, cid: CID) -> None:
