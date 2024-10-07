@@ -235,7 +235,7 @@ class CSOracle(BaseModule, ConsensusModule):
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
         stuck_operators = self.stuck_operators(blockstamp)
-        log = FramePerfLog(self.state.frame, threshold)
+        log = FramePerfLog(blockstamp, self.state.frame, threshold)
 
         for (_, no_id), validators in operators_to_validators.items():
             if no_id in stuck_operators:
@@ -271,6 +271,8 @@ class CSOracle(BaseModule, ConsensusModule):
             return 0, shares, log
 
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
+        log.distributable = to_distribute
+
         for no_id, no_share in distribution.items():
             if no_share:
                 shares[no_id] = to_distribute * no_share // total
