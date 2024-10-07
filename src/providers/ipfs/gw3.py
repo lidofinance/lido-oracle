@@ -33,7 +33,7 @@ class GW3(IPFSProvider):
             raise FetchError(cid) from ex
         return resp.content
 
-    def upload(self, content: bytes, name: str | None = None) -> CID:
+    def _upload(self, content: bytes, name: str | None = None) -> str:
         url = self._auth_upload(len(content))
         try:
             response = requests.post(url, data=content, timeout=self.timeout)
@@ -44,7 +44,7 @@ class GW3(IPFSProvider):
         except KeyError as ex:
             raise UploadError from ex
 
-        return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
+        return cid
 
     def pin(self, cid: CID) -> None:
         try:
