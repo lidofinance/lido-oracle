@@ -1,6 +1,6 @@
 import hashlib
 
-from .cid import CID, CIDv0
+from .cid import CID
 from .types import FetchError, IPFSProvider
 
 

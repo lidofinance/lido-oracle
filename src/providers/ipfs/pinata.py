@@ -3,7 +3,7 @@ from json import JSONDecodeError
 
 import requests
 
-from .cid import CID, CIDv0, CIDv1, is_cid_v0
+from .cid import CID
 from .types import FetchError, IPFSProvider, PinError, UploadError
 
 logger = logging.getLogger(__name__)

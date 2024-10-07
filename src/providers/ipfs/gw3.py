@@ -8,7 +8,7 @@ from urllib.parse import urlencode, urlparse
 
 import requests
 
-from src.providers.ipfs.cid import CID, CIDv0, CIDv1, is_cid_v0
+from src.providers.ipfs.cid import CID
 
 from .types import FetchError, IPFSError, IPFSProvider, PinError, UploadError
 
