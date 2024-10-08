@@ -3,7 +3,7 @@ from json import JSONDecodeError
 
 import requests
 
-from .cid import CID, CIDv0, CIDv1, is_cid_v0
+from .cid import CID
 from .types import FetchError, IPFSProvider, PinError, UploadError
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class Pinata(IPFSProvider):
         # NOTE: The content is pinned by the `upload` method.
         return self.upload(content)
 
-    def upload(self, content: bytes, name: str | None = None) -> CID:
+    def _upload(self, content: bytes, name: str | None = None) -> str:
         """Pinata has no dedicated endpoint for uploading, so pinFileToIPFS is used"""
 
         url = f"{self.API_ENDPOINT}/pinning/pinFileToIPFS"
@@ -52,7 +52,8 @@ class Pinata(IPFSProvider):
             raise UploadError from ex
         except KeyError as ex:
             raise UploadError from ex
-        return CIDv0(cid) if is_cid_v0(cid) else CIDv1(cid)
+
+        return cid
 
     def pin(self, cid: CID) -> None:
         """pinByHash is a paid feature"""
