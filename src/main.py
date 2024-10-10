@@ -88,8 +88,9 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < Version('1.5.0'):
-        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
+    version = Version(kac.get_status().appVersion)
+    if version < Version('1.5.0'):
+        raise IncompatibleException(f'Incompatible KAPI version {version}. Required >= 1.5.0.')
 
     check_providers_chain_ids(web3, cc, kac)
 
