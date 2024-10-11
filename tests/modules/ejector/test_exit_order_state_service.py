@@ -2,10 +2,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.typings import ChainConfig
-from src.providers.consensus.typings import ValidatorState, Validator, ValidatorStatus
-from src.services.exit_order_iterator import NodeOperatorPredictableState
-from src.services.exit_order_iterator_state import ExitOrderIteratorStateService
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import ValidatorState, Validator, ValidatorStatus
+from src.services.exit_order.iterator import NodeOperatorPredictableState
+from src.services.exit_order.iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -99,7 +99,7 @@ def mock_get_lido_validators(exit_order_state):
 
 @pytest.fixture
 def mock_get_recently_requests_to_exit_indexes(exit_order_state):
-    def _get_recently_requests_to_exit_indexes(blockstamp, *_):
+    def _get_recently_requests_to_exit_indexes(_, blockstamp):
         responses = {
             100: {
                 (0, 0): [8, 9],
@@ -117,7 +117,7 @@ def mock_get_recently_requests_to_exit_indexes(exit_order_state):
 
         return responses[blockstamp.slot_number]
 
-    exit_order_state.get_recently_requests_to_exit_indexes_by_operators = Mock(
+    exit_order_state.get_recently_requested_validators_by_operator = Mock(
         side_effect=_get_recently_requests_to_exit_indexes
     )
 

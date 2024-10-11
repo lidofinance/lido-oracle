@@ -11,6 +11,9 @@ class ChecksModule:
         - Keys API service
     if LIDO_LOCATOR address provided
         - Checks configs in Accounting module and Ejector module
+    if CSM_MODULE_ADDRESS provided
+        - Checks configs in CSM oracle module
+        - Checks with special blockstamp value (6300 slots in the past)
     """
     def execute_module(self):
         return pytest.main([

@@ -1,25 +1,29 @@
 import logging
 import time
+import traceback
 from abc import abstractmethod, ABC
 from dataclasses import asdict
 from enum import Enum
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
+from web3.exceptions import Web3Exception
 
+from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleContractVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
 from src.providers.http_provider import NotOkResponse
+from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.typings import Web3
+from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.typings import SlotNumber, BlockStamp, BlockRoot
+from src.types import SlotNumber, BlockStamp, BlockRoot
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +54,7 @@ class BaseModule(ABC):
     def run_as_daemon(self):
         logger.info({'msg': 'Run module as daemon.'})
         while True:
-            logger.info({'msg': 'Startup new cycle.'})
+            logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
@@ -84,32 +88,41 @@ class BaseModule(ABC):
         return bs
 
     def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        # pylint: disable=too-many-branches
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
 
         try:
-            return self.execute_module(blockstamp)
+            result = self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
-        except IncompatibleContractVersion as exception:
+        except IncompatibleOracleVersion as exception:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise exception
         except DecoratorTimeoutError as exception:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
-        except NoActiveProviderError as exception:
-            logger.error({'msg': 'No active node available.', 'error': str(exception)})
+        except NoActiveProviderError as error:
+            logger.error({'msg': ''.join(traceback.format_exception(error))})
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
         except NotOkResponse as error:
-            logger.error({'msg': 'Received non-ok response.', 'error': str(error)})
+            logger.error({'msg': ''.join(traceback.format_exception(error))})
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except CountOfKeysDiffersException as error:
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
+        except Web3Exception as error:
+            logger.error({'msg': 'Web3py exception.', 'error': str(error)})
+        except IPFSError as error:
+            logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+        else:
+            # if there are no exceptions, then pulse
+            pulse()
+            return result
 
         return ModuleExecuteDelay.NEXT_SLOT
 

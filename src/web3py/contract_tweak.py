@@ -1,5 +1,5 @@
 import itertools
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Tuple
 
 from eth_abi.exceptions import DecodingError
 from eth_typing import ChecksumAddress
@@ -33,12 +33,12 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     normalizers: Tuple[Callable[..., Any], ...],
     function_identifier: FunctionIdentifier,
     transaction: TxParams,
-    block_id: Optional[BlockIdentifier] = None,
-    contract_abi: Optional[ABI] = None,
-    fn_abi: Optional[ABIFunction] = None,
-    state_override: Optional[CallOverride] = None,
-    ccip_read_enabled: Optional[bool] = None,
-    decode_tuples: Optional[bool] = False,
+    block_id: BlockIdentifier | None = None,
+    contract_abi: ABI | None = None,
+    fn_abi: ABIFunction | None = None,
+    state_override: CallOverride | None = None,
+    ccip_read_enabled: bool | None = None,
+    decode_tuples: bool | None = False,
     *args: Any,
     **kwargs: Any,
 ) -> Any:
@@ -112,10 +112,10 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
 class ContractFunction(_ContractFunction):
     def call(
         self,
-        transaction: Optional[TxParams] = None,
+        transaction: TxParams | None = None,
         block_identifier: BlockIdentifier = "latest",
-        state_override: Optional[CallOverride] = None,
-        ccip_read_enabled: Optional[bool] = None,
+        state_override: CallOverride | None = None,
+        ccip_read_enabled: bool | None = None,
     ) -> Any:
         call_transaction = self._get_call_txparams(transaction)
 
@@ -141,8 +141,8 @@ class ContractFunctions(_ContractFunctions):
         self,
         abi: ABI,
         w3: Web3,
-        address: Optional[ChecksumAddress] = None,
-        decode_tuples: Optional[bool] = False,
+        address: ChecksumAddress | None = None,
+        decode_tuples: bool | None = False,
     ) -> None:
         # skip init for class _ContractFunctions
         super(_ContractFunctions, self).__init__(abi, w3, ContractFunction, address, decode_tuples)

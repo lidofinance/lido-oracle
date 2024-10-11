@@ -1,9 +1,10 @@
 import logging
-from typing import Optional
 
 from eth_account.signers.local import LocalAccount
+from web3 import Web3
+from hexbytes import HexBytes
 from web3.contract.contract import ContractFunction
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
 from web3.types import TxReceipt, Wei, TxParams, BlockData
 
@@ -11,11 +12,14 @@ from src import variables, constants
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 
+
 logger = logging.getLogger(__name__)
 
 
 class TransactionUtils(Module):
-    def check_and_send_transaction(self, transaction, account: Optional[LocalAccount] = None) -> Optional[TxReceipt]:
+    w3: Web3
+
+    def check_and_send_transaction(self, transaction, account: LocalAccount | None = None) -> TxReceipt | None:
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
             return None
@@ -87,7 +91,7 @@ class TransactionUtils(Module):
         return params
 
     @staticmethod
-    def _estimate_gas(transaction: ContractFunction, account: LocalAccount) -> Optional[int]:
+    def _estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | None:
         """If transaction throws exception return None"""
         try:
             gas = transaction.estimate_gas({'from': account.address})
@@ -106,18 +110,21 @@ class TransactionUtils(Module):
     def _sign_and_send_transaction(
         self,
         transaction: ContractFunction,
-        params: Optional[TxParams],
+        params: TxParams | None,
         account: LocalAccount,
-    ) -> Optional[TxReceipt]:
+    ) -> TxReceipt | None:
         tx = transaction.build_transaction(params)
         signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
 
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         logger.info({"msg": "Transaction sent.", "value": tx_hash.hex()})
 
-        tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        return self._handle_sent_transaction(tx_hash)
 
-        if not tx_receipt:
+    def _handle_sent_transaction(self, transaction_hash: HexBytes) -> TxReceipt | None:
+        try:
+            tx_receipt = self.w3.eth.wait_for_transaction_receipt(transaction_hash)
+        except TimeExhausted:
             TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
             logger.warning({"msg": "Transaction was not found in blockchain after 120 seconds."})
             return None

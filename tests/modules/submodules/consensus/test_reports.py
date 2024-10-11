@@ -3,8 +3,9 @@ from unittest.mock import Mock
 import pytest
 from hexbytes import HexBytes
 from src import variables
-from src.modules.accounting.typings import Account, ReportData
-from src.modules.submodules.typings import ChainConfig, FrameConfig, ZERO_HASH
+from src.modules.accounting.types import ReportData
+from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
+from tests.conftest import Account
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
@@ -33,7 +34,10 @@ def mock_latest_data(consensus):
 
 
 # ----- Process report main ----------
+@pytest.mark.unit
 def test_process_report_main(consensus, tx_utils, caplog):
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(is_report_member=True, current_frame_consensus_report=ZERO_HASH)
@@ -52,6 +56,7 @@ def test_process_report_main(consensus, tx_utils, caplog):
 
 
 # ----- Hash calculations ----------
+@pytest.mark.unit
 def test_hash_calculations(consensus):
     rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
     report_hash = consensus._encode_data_hash(rd.as_tuple())
@@ -60,7 +65,9 @@ def test_hash_calculations(consensus):
 
 
 # ------ Process report hash -----------
+@pytest.mark.unit
 def test_report_hash(web3, consensus, tx_utils, set_report_account):
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
     member_info = MemberInfoFactory.build(is_report_member=True)
@@ -70,6 +77,7 @@ def test_report_hash(web3, consensus, tx_utils, set_report_account):
     consensus._send_report_hash.assert_called_once()
 
 
+@pytest.mark.unit
 def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
@@ -84,6 +92,7 @@ def test_report_hash_member_not_in_fast_lane(web3, consensus, caplog):
     assert "report will be postponed" in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_report_hash_member_is_not_report_member(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
@@ -96,6 +105,7 @@ def test_report_hash_member_is_not_report_member(consensus, caplog):
     assert "Account can`t submit report hash" in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_do_not_report_same_hash(consensus, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
@@ -110,6 +120,7 @@ def test_do_not_report_same_hash(consensus, caplog, mock_latest_data):
 
 
 # -------- Process report data ---------
+@pytest.mark.unit
 def test_quorum_is_no_ready(consensus, caplog):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
@@ -122,6 +133,7 @@ def test_quorum_is_no_ready(consensus, caplog):
     assert "Quorum is not ready." in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_process_report_data_hash_differs_from_quorums(consensus, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = tuple()
@@ -131,6 +143,7 @@ def test_process_report_data_hash_differs_from_quorums(consensus, caplog, mock_l
     assert "Oracle`s hash differs from consensus report hash." in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_process_report_data_already_submitted(consensus, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = tuple()
@@ -140,6 +153,7 @@ def test_process_report_data_already_submitted(consensus, caplog, mock_latest_da
     assert "Main data already submitted." in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_data):
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = tuple()
@@ -153,7 +167,10 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
     assert "Sleep for" not in caplog.text
 
 
+@pytest.mark.unit
 def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, tx_utils, mock_latest_data):
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     consensus.get_chain_config = Mock(
         return_value=ChainConfig(
             slots_per_epoch=32,
@@ -176,6 +193,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     assert "Send report data. Contract version: [1]" in caplog.text
 
 
+@pytest.mark.unit
 def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
     consensus.get_chain_config = Mock(
         return_value=ChainConfig(
@@ -198,7 +216,10 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
     assert "Main data already submitted." in caplog.text
 
 
+@pytest.mark.unit
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
         1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
@@ -216,8 +237,6 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
 
 
 # ----- Test sleep calculations
-
-
 @pytest.fixture
 def mock_configs(consensus):
     consensus.get_chain_config = Mock(
@@ -237,6 +256,7 @@ def mock_configs(consensus):
     consensus.get_member_info = Mock(return_value=MemberInfoFactory.build(is_submit_member=False))
 
 
+@pytest.mark.unit
 def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account, mock_configs):
     consensus._get_consensus_contract_members = Mock(return_value=([variables.ACCOUNT.address], None))
     delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
@@ -244,6 +264,7 @@ def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account
     assert "Calculate slots delay." in caplog.messages[-1]
 
 
+@pytest.mark.unit
 def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_report_account, mock_configs):
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_consensus_contract_members = Mock(return_value=[[variables.ACCOUNT.address, '0x1', '0x2'], None])

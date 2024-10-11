@@ -1,7 +1,7 @@
 from web3.types import Timestamp
 
-from src.providers.consensus.typings import BlockDetailsResponse
-from src.typings import SlotNumber, EpochNumber, ReferenceBlockStamp, BlockStamp, BlockNumber
+from src.providers.consensus.types import BlockDetailsResponse
+from src.types import SlotNumber, EpochNumber, ReferenceBlockStamp, BlockStamp, BlockNumber
 
 
 def build_reference_blockstamp(
@@ -16,21 +16,20 @@ def build_reference_blockstamp(
     )
 
 
-def build_blockstamp(
-    slot_details: BlockDetailsResponse,
-):
+def build_blockstamp(slot_details: BlockDetailsResponse):
     return BlockStamp(**_build_blockstamp_data(slot_details))
 
 
 def _build_blockstamp_data(
     slot_details: BlockDetailsResponse,
 ) -> dict:
-    execution_data = slot_details.message.body['execution_payload']
+
+    execution_payload = slot_details.message.body.execution_payload
 
     return {
-        'slot_number': SlotNumber(int(slot_details.message.slot)),
-        'state_root': slot_details.message.state_root,
-        'block_number': BlockNumber(int(execution_data['block_number'])),
-        'block_hash': execution_data['block_hash'],
-        'block_timestamp': Timestamp(int(execution_data['timestamp']))
+        "slot_number": SlotNumber(int(slot_details.message.slot)),
+        "state_root": slot_details.message.state_root,
+        "block_number": BlockNumber(int(execution_payload.block_number)),
+        "block_hash": execution_payload.block_hash,
+        "block_timestamp": Timestamp(int(execution_payload.timestamp))
     }

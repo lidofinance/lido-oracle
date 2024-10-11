@@ -1,15 +1,19 @@
 from time import sleep
-from typing import Optional, cast
+from typing import cast
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
-from src.providers.http_provider import HTTPProvider
-from src.providers.keys.typings import LidoKey, KeysApiStatus
-from src.typings import BlockStamp
+from src.providers.http_provider import HTTPProvider, NotOkResponse
+from src.providers.keys.types import LidoKey, KeysApiStatus
+from src.types import BlockStamp, StakingModuleAddress
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
 
 class KeysOutdatedException(Exception):
+    pass
+
+
+class KAPIClientError(NotOkResponse):
     pass
 
 
@@ -24,11 +28,13 @@ class KeysAPIClient(HTTPProvider):
     Keys API specification can be found here https://keys-api.lido.fi/api/static/index.html
     """
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
+    PROVIDER_EXCEPTION = KAPIClientError
 
+    MODULE_OPERATORS_KEYS = 'v1/modules/{}/operators/keys'
     USED_KEYS = 'v1/keys?used=true'
     STATUS = 'v1/status'
 
-    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: Optional[dict] = None) -> dict | list:
+    def _get_with_blockstamp(self, url: str, blockstamp: BlockStamp, params: dict | None = None) -> dict | list:
         """
         Returns response if blockstamp < blockNumber from response
         """
@@ -49,6 +55,13 @@ class KeysAPIClient(HTTPProvider):
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         return cast(list[dict], self._get_with_blockstamp(self.USED_KEYS, blockstamp))
+
+    @lru_cache(maxsize=1)
+    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> dict:
+        """
+        Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
+        """
+        return cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
