@@ -59,7 +59,7 @@ class LidoContract(ContractInterface):
                 'error': repr(error),
             })
             hex_ref_slot = HexStr(hex(ref_slot))
-            
+
             return self._handle_oracle_report(
                 timestamp,
                 time_elapsed,
