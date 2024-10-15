@@ -243,9 +243,9 @@ class Ejector(BaseModule, ConsensusModule):
             max_exit_epoch_number = activation_exit_epoch
             latest_to_exit_validators_count = 0
 
-        churn_limit = self._get_churn_limit(blockstamp)
+        exit_churn_limit = self._get_exit_churn_limit(blockstamp)
 
-        epochs_required_to_exit_validators = (validators_to_eject_count + latest_to_exit_validators_count) // churn_limit
+        epochs_required_to_exit_validators = (validators_to_eject_count + latest_to_exit_validators_count) // exit_churn_limit
 
         return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
@@ -299,11 +299,11 @@ class Ejector(BaseModule, ConsensusModule):
         return total_withdrawable_validators
 
     @lru_cache(maxsize=1)
-    def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
+    def _get_exit_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
         total_active_validators = self._get_total_active_validators(blockstamp)
-        churn_limit = compute_exit_churn_limit(total_active_validators)
-        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
-        return churn_limit
+        exit_churn_limit = compute_exit_churn_limit(total_active_validators)
+        logger.info({'msg': 'Calculate exit churn limit.', 'value': exit_churn_limit})
+        return exit_churn_limit
 
     def _get_total_active_validators(self, blockstamp: ReferenceBlockStamp) -> int:
         total_active_validators = len([
