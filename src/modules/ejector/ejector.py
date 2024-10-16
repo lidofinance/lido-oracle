@@ -306,10 +306,11 @@ class Ejector(BaseModule, ConsensusModule):
         return churn_limit
 
     def _get_total_active_validators(self, blockstamp: ReferenceBlockStamp) -> int:
-        total_active_validators = len([
-            is_active_validator(val, blockstamp.ref_epoch)
-            for val in self.w3.cc.get_validators(blockstamp)
-        ])
+        total_active_validators = reduce(
+            lambda total, validator: total + int(is_active_validator(validator, blockstamp.ref_epoch)),
+            self.w3.cc.get_validators(blockstamp),
+            0,
+        )
         logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
         return total_active_validators
 
