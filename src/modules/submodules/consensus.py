@@ -179,22 +179,22 @@ class ConsensusModule(ABC):
         latest_blockstamp = self._get_latest_blockstamp()
 
         # Check if contract is currently reportable
-        if not self.is_contract_reportable(latest_blockstamp):
-            logger.info({'msg': 'Contract is not reportable.'})
-            return None
+        # if not self.is_contract_reportable(latest_blockstamp):
+        #     logger.info({'msg': 'Contract is not reportable.'})
+        #     return None
 
         member_info = self.get_member_info(latest_blockstamp)
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if current slot is higher than member slot
-        if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
-            logger.info({'msg': 'Reference slot is not yet finalized.'})
-            return None
+        # if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
+        #     logger.info({'msg': 'Reference slot is not yet finalized.'})
+        #     return None
 
         # Check latest block didn't miss the deadline.
-        if latest_blockstamp.slot_number >= member_info.deadline_slot:
-            logger.info({'msg': 'Deadline missed.'})
-            return None
+        # if latest_blockstamp.slot_number >= member_info.deadline_slot:
+        #     logger.info({'msg': 'Deadline missed.'})
+        #     return None
 
         chain_config = self.get_chain_config(last_finalized_blockstamp)
         frame_config = self.get_frame_config(last_finalized_blockstamp)
@@ -203,8 +203,10 @@ class ConsensusModule(ABC):
 
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+            # ref_slot=10123199,
+            # ref_epoch=converter.get_epoch_by_slot(10123199),
+            ref_slot=10187999,
+            ref_epoch=converter.get_epoch_by_slot(10187999),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
