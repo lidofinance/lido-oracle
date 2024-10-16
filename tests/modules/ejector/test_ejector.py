@@ -235,6 +235,19 @@ def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
+def test_get_total_active_validators(ejector: Ejector) -> None:
+    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
+    ejector.w3 = Mock()
+    ejector.w3.cc.get_validators = Mock(return_value=[
+        *[LidoValidatorFactory.build_not_active_vals(ref_blockstamp.ref_epoch) for _ in range(100)],
+        *[LidoValidatorFactory.build_active_vals(ref_blockstamp.ref_epoch) for _ in range(100)],
+        *[LidoValidatorFactory.build_exit_vals(ref_blockstamp.ref_epoch) for _ in range(100)],
+    ])
+
+    assert ejector._get_total_active_validators(ref_blockstamp) == 100
+
+
+@pytest.mark.unit
 @pytest.mark.usefixtures("consensus_client", "lido_validators")
 def test_get_withdrawable_lido_validators(
     ejector: Ejector,

@@ -53,6 +53,33 @@ class LidoValidatorFactory(Web3Factory):
             validator=ValidatorStateFactory.build(activation_epoch=str(faker.pyint(max_value=max_value - 1))), **kwargs
         )
 
+    @classmethod
+    def build_not_active_vals(cls, epoch, **kwargs: Any):
+        return cls.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=str(faker.pyint(min_value=epoch, max_value=FAR_FUTURE_EPOCH)),
+                exit_epoch=str(faker.pyint(min_value=FAR_FUTURE_EPOCH, max_value=FAR_FUTURE_EPOCH)),
+            ), **kwargs
+        )
+
+    @classmethod
+    def build_active_vals(cls, epoch, **kwargs: Any):
+        return cls.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=str(faker.pyint(min_value=0, max_value=epoch - 1)),
+                exit_epoch=str(faker.pyint(min_value=epoch + 1, max_value=FAR_FUTURE_EPOCH)),
+            ), **kwargs
+        )
+
+    @classmethod
+    def build_exit_vals(cls, epoch, **kwargs: Any):
+        return cls.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=str(faker.pyint(min_value=0, max_value=epoch - 1)),
+                exit_epoch=str(faker.pyint(min_value=0, max_value=epoch)),
+            ), **kwargs
+        )
+
 
 class NodeOperatorFactory(Web3Factory):
     __model__ = NodeOperator
