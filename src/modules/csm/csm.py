@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Iterator
 
 from hexbytes import HexBytes
+from web3.exceptions import ContractCustomError
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -18,7 +19,7 @@ from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH
+from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -47,6 +48,10 @@ class NoModuleFound(Exception):
 
 class CSMError(Exception):
     """Unrecoverable error in CSM module"""
+
+
+class InitialEpochIsYetToArrive(Exception):
+    """Raised if the initial epoch is not yet arrived"""
 
 
 class CSOracle(BaseModule, ConsensusModule):
@@ -139,6 +144,15 @@ class CSOracle(BaseModule, ConsensusModule):
             distributed=distributed,
         ).as_tuple()
 
+    def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
+        try:
+            current_frame = super().get_current_frame(blockstamp)
+        except ContractCustomError as e:
+            if e.message == self.w3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex():
+                raise InitialEpochIsYetToArrive()
+            raise e
+        return current_frame
+
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
         ref_slot = self.get_current_frame(blockstamp).ref_slot
@@ -182,7 +196,12 @@ class CSOracle(BaseModule, ConsensusModule):
         # finalized epoch. As a result we can have a delay in frame finalization.
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
 
-        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        report_blockstamp = None
+
+        try:
+            report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+        except InitialEpochIsYetToArrive:
+            pass
 
         if not report_blockstamp:
             logger.info({"msg": "No report blockstamp available, using pre-computed one for collecting data"})
