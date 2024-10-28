@@ -2,6 +2,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.modules.submodules import consensus as consensus_module
@@ -11,8 +12,9 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
-from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
+from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
+from tests.web3_extentions.test_lido_validators import blockstamp
 
 
 @pytest.fixture()
@@ -128,6 +130,32 @@ def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, s
 
     consensus.get_blockstamp_for_report(previous_blockstamp)
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
+
+
+@pytest.mark.unit
+def test_get_frame_custom_exception(web3, consensus):
+    bs = ReferenceBlockStampFactory.build()
+
+    consensus_contract = Mock(get_current_frame=Mock(side_effect=ContractCustomError('0x12345678', '0x12345678')))
+    consensus._get_consensus_contract = Mock(return_value=consensus_contract)
+
+    with pytest.raises(ContractCustomError):
+        consensus.get_current_frame(bs)
+
+
+@pytest.mark.unit
+def test_first_frame_is_not_yet_started(web3, consensus, caplog, set_no_account):
+    bs = ReferenceBlockStampFactory.build()
+
+    consensus_contract = Mock(get_current_frame=Mock(side_effect=ContractCustomError('0xcd0883ea', '0xcd0883ea')))
+    consensus._get_consensus_contract = Mock(return_value=consensus_contract)
+    consensus.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=5, epochs_per_frame=10))
+    consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
+
+    first_frame = consensus.get_current_frame(bs)
+
+    assert first_frame.ref_slot == 5 * 32
+    assert first_frame.report_processing_deadline_slot == (5 + 10) * 32 - 1
 
 
 @pytest.mark.unit
@@ -267,3 +295,21 @@ def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.M
         consensus.get_chain_config = Mock(return_value=chain_config)
         with pytest.raises(ValueError):
             consensus.check_contract_configs()
+
+
+def test_get_web3_converter(consensus):
+    blockstamp = BlockStampFactory.build()
+
+    fc = FrameConfigFactory.build()
+    cc = ChainConfigFactory.build()
+
+    consensus.get_frame_config = Mock(return_value=fc)
+    consensus.get_chain_config = Mock(return_value=cc)
+
+    converter = consensus._get_web3_converter(blockstamp)
+
+    consensus.get_frame_config.assert_called_once_with(blockstamp)
+    consensus.get_chain_config.assert_called_once_with(blockstamp)
+
+    assert converter.frame_config == fc
+    assert converter.chain_config == cc
