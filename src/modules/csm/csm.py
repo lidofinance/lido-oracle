@@ -151,7 +151,6 @@ class CSOracle(BaseModule, ConsensusModule):
             if e.message == self.w3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex():
                 raise InitialEpochIsYetToArrive() from e
             raise e
-        return current_frame
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
