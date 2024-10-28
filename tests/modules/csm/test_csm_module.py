@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSOracle
+from src.modules.csm.csm import CSOracle, InitialEpochIsYetToArrive
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
@@ -367,7 +367,7 @@ class CollectDataTestParam:
             CollectDataTestParam(
                 collect_blockstamp=Mock(slot_number=64),
                 collect_frame_range=Mock(return_value=(0, 1)),
-                report_blockstamp=Mock(ref_epoch=3),
+                report_blockstamp=Mock(return_value=Mock(ref_epoch=3)),
                 state=Mock(),
                 expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
@@ -378,7 +378,7 @@ class CollectDataTestParam:
             CollectDataTestParam(
                 collect_blockstamp=Mock(slot_number=64),
                 collect_frame_range=Mock(return_value=(0, 2)),
-                report_blockstamp=Mock(ref_epoch=1),
+                report_blockstamp=Mock(return_value=Mock(ref_epoch=1)),
                 state=Mock(),
                 expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
@@ -389,7 +389,7 @@ class CollectDataTestParam:
             CollectDataTestParam(
                 collect_blockstamp=Mock(slot_number=32),
                 collect_frame_range=Mock(return_value=(1, 2)),
-                report_blockstamp=Mock(ref_epoch=2),
+                report_blockstamp=Mock(return_value=Mock(ref_epoch=2)),
                 state=Mock(),
                 expected_msg="The starting epoch of the frame is not finalized yet",
                 expected_result=False,
@@ -400,7 +400,7 @@ class CollectDataTestParam:
             CollectDataTestParam(
                 collect_blockstamp=Mock(slot_number=32),
                 collect_frame_range=Mock(return_value=(0, 2)),
-                report_blockstamp=Mock(ref_epoch=2),
+                report_blockstamp=Mock(return_value=Mock(ref_epoch=2)),
                 state=Mock(
                     migrate=Mock(),
                     log_status=Mock(),
@@ -415,7 +415,7 @@ class CollectDataTestParam:
             CollectDataTestParam(
                 collect_blockstamp=Mock(slot_number=320),
                 collect_frame_range=Mock(return_value=(0, 100)),
-                report_blockstamp=Mock(ref_epoch=100),
+                report_blockstamp=Mock(return_value=Mock(ref_epoch=100)),
                 state=Mock(
                     migrate=Mock(),
                     log_status=Mock(),
@@ -426,6 +426,22 @@ class CollectDataTestParam:
                 expected_result=False,
             ),
             id="min_step_not_reached",
+        ),
+        # with InitialEpochIsYetToArrive
+        pytest.param(
+            CollectDataTestParam(
+                collect_blockstamp=Mock(slot_number=32),
+                collect_frame_range=Mock(return_value=(0, 2)),
+                report_blockstamp=Mock(side_effect=InitialEpochIsYetToArrive),
+                state=Mock(
+                    migrate=Mock(),
+                    log_status=Mock(),
+                    is_fulfilled=True,
+                ),
+                expected_msg="No report blockstamp available, using pre-computed one for collecting data",
+                expected_result=True,
+            ),
+            id="pre_computed_report_blockstamp",
         ),
     ],
 )
@@ -442,7 +458,7 @@ def test_collect_data(
     module._receive_last_finalized_slot = Mock()
     module.state = param.state
     module.current_frame_range = param.collect_frame_range
-    module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
+    module.get_blockstamp_for_report = param.report_blockstamp
 
     with caplog.at_level(logging.DEBUG):
         if isinstance(param.expected_result, Exception):
