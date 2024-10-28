@@ -146,7 +146,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         try:
-            current_frame = super().get_current_frame(blockstamp)
+            return super().get_current_frame(blockstamp)
         except ContractCustomError as e:
             if e.message == self.w3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex():
                 raise InitialEpochIsYetToArrive() from e
