@@ -124,7 +124,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
-    current_frame = consensus.get_current_frame(bs)
+    current_frame = consensus.get_initial_or_current_frame(bs)
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
     consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
 
@@ -140,7 +140,7 @@ def test_get_frame_custom_exception(web3, consensus):
     consensus._get_consensus_contract = Mock(return_value=consensus_contract)
 
     with pytest.raises(ContractCustomError):
-        consensus.get_current_frame(bs)
+        consensus.get_initial_or_current_frame(bs)
 
 
 @pytest.mark.unit
@@ -152,9 +152,9 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, set_no_account)
     consensus.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=5, epochs_per_frame=10))
     consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
 
-    first_frame = consensus.get_current_frame(bs)
+    first_frame = consensus.get_initial_or_current_frame(bs)
 
-    assert first_frame.ref_slot == 5 * 32
+    assert first_frame.ref_slot == 5 * 32 - 1
     assert first_frame.report_processing_deadline_slot == (5 + 10) * 32 - 1
 
 
