@@ -2,6 +2,7 @@ import logging
 from functools import reduce
 
 from more_itertools import ilen
+from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src.constants import (
@@ -18,9 +19,10 @@ from src.metrics.prometheus.ejector import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.types import ReportData
-from src.modules.submodules.consensus import ConsensusModule
+from src.modules.ejector.types import ReportData, EjectorProcessingState
+from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.submodules.types import ZERO_HASH
 from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order.iterator import ExitOrderIterator
@@ -315,8 +317,27 @@ class Ejector(BaseModule, ConsensusModule):
         return total_active_validators
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
+        processing_state = self._get_processing_state(blockstamp)
         return processing_state.data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
         return not self.is_main_data_submitted(blockstamp)
+
+    def _get_processing_state(self, blockstamp: BlockStamp) -> EjectorProcessingState:
+        try:
+            return self.report_contract.get_processing_state(blockstamp.block_hash)
+        except ContractCustomError as revert:
+            if revert.data != InitialEpochIsYetToArriveRevert:
+                raise revert
+
+        frame = self.get_initial_or_current_frame(blockstamp)
+
+        return EjectorProcessingState(
+            current_frame_ref_slot=frame.ref_slot,
+            processing_deadline_time=frame.report_processing_deadline_slot,
+            data_hash=ZERO_HASH,
+            data_submitted=False,
+            data_format=0,
+            requests_count=0,
+            requests_submitted=0,
+        )

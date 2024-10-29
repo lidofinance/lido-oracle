@@ -31,6 +31,10 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
+# Initial epoch is in the future. Revert signature: '0xcd0883ea'
+InitialEpochIsYetToArriveRevert = Web3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
+
+
 class ConsensusModule(ABC):
     """
     Module that works with Hash Consensus Contract.
@@ -91,23 +95,22 @@ class ConsensusModule(ABC):
         return consensus_contract.get_chain_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
+    def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame | None:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         try:
             return consensus_contract.get_current_frame(blockstamp.block_hash)
         except ContractCustomError as revert:
-            pre_initial_epoch_revert = self.w3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
-
-            if revert.data != pre_initial_epoch_revert:
+            if revert.data != InitialEpochIsYetToArriveRevert:
                 raise revert
 
         converter = self._get_web3_converter(blockstamp)
 
-        # If initial epoch is not yet arrived then current frame is the first frame, event it's in future
+        # If initial epoch is not yet arrived then current frame is the first frame
+        # ref_slot is last slot of previous frame
         return CurrentFrame(
-            ref_slot=converter.get_frame_first_slot(FrameNumber(0)),
-            report_processing_deadline_slot=converter.get_frame_last_slot(FrameNumber(0))
+            ref_slot=converter.get_frame_last_slot(FrameNumber(0 - 1)),
+            report_processing_deadline_slot=converter.get_frame_last_slot(FrameNumber(0)),
         )
 
     @lru_cache(maxsize=1)
@@ -125,7 +128,7 @@ class ConsensusModule(ABC):
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         # Defaults for dry mode
-        current_frame = self.get_current_frame(blockstamp)
+        current_frame = self.get_initial_or_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
         last_member_report_ref_slot = SlotNumber(0)
