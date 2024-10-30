@@ -6,12 +6,13 @@ from typing import cast
 from eth_abi import encode
 from eth_typing import BlockIdentifier
 from hexbytes import HexBytes
+from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -28,6 +29,10 @@ from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
+
+
+# Initial epoch is in the future. Revert signature: '0xcd0883ea'
+InitialEpochIsYetToArriveRevert = Web3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
 
 
 class ConsensusModule(ABC):
@@ -90,9 +95,23 @@ class ConsensusModule(ABC):
         return consensus_contract.get_chain_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def get_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
+    def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.get_current_frame(blockstamp.block_hash)
+
+        try:
+            return consensus_contract.get_current_frame(blockstamp.block_hash)
+        except ContractCustomError as revert:
+            if revert.data != InitialEpochIsYetToArriveRevert:
+                raise revert
+
+        converter = self._get_web3_converter(blockstamp)
+
+        # If initial epoch is not yet arrived then current frame is the first frame
+        # ref_slot is last slot of previous frame
+        return CurrentFrame(
+            ref_slot=converter.get_frame_last_slot(FrameNumber(0 - 1)),
+            report_processing_deadline_slot=converter.get_frame_last_slot(FrameNumber(0)),
+        )
 
     @lru_cache(maxsize=1)
     def get_initial_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
@@ -109,7 +128,7 @@ class ConsensusModule(ABC):
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         # Defaults for dry mode
-        current_frame = self.get_current_frame(blockstamp)
+        current_frame = self.get_initial_or_current_frame(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_member = is_submit_member = is_fast_lane = True
         last_member_report_ref_slot = SlotNumber(0)
@@ -196,10 +215,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return None
 
-        chain_config = self.get_chain_config(last_finalized_blockstamp)
-        frame_config = self.get_frame_config(last_finalized_blockstamp)
-
-        converter = Web3Converter(chain_config, frame_config)
+        converter = self._get_web3_converter(last_finalized_blockstamp)
 
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
@@ -411,10 +427,7 @@ class ConsensusModule(ABC):
 
         mem_position = members.index(variables.ACCOUNT.address)
 
-        frame_config = self.get_frame_config(blockstamp)
-        chain_config = self.get_chain_config(blockstamp)
-
-        converter = Web3Converter(chain_config, frame_config)
+        converter = self._get_web3_converter(blockstamp)
 
         current_frame_number = converter.get_frame_by_slot(blockstamp.slot_number)
         current_position = current_frame_number % len(members)
@@ -428,6 +441,11 @@ class ConsensusModule(ABC):
 
         logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
         return total_delay
+
+    def _get_web3_converter(self, blockstamp: BlockStamp) -> Web3Converter:
+        chain_config = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
+        return Web3Converter(chain_config, frame_config)
 
     @abstractmethod
     @lru_cache(maxsize=1)
