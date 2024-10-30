@@ -95,7 +95,7 @@ class ConsensusModule(ABC):
         return consensus_contract.get_chain_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
+    def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame | None:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
         try:
