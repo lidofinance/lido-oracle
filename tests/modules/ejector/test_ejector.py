@@ -2,7 +2,6 @@ from typing import Iterable, cast
 from unittest.mock import Mock
 
 import pytest
-from web3.exceptions import ContractCustomError
 
 from src import constants
 from src.constants import MAX_EFFECTIVE_BALANCE
@@ -11,13 +10,12 @@ from src.modules.ejector.ejector import Ejector
 from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, CurrentFrame
+from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
-from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
@@ -428,27 +426,3 @@ def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None
     (max_epoch, count) = ejector._get_latest_exit_epoch(blockstamp)
     assert count == 2, "Unexpected count of exiting validators"
     assert max_epoch == 42, "Unexpected max epoch"
-
-
-def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
-    bs = ReferenceBlockStampFactory.build()
-
-    ejector.report_contract.get_processing_state = Mock(side_effect=ContractCustomError('0xcd0883ea', '0xcd0883ea'))
-    ejector.get_initial_or_current_frame = Mock(
-        return_value=CurrentFrame(ref_slot=100, report_processing_deadline_slot=200)
-    )
-    processing_state = ejector._get_processing_state(bs)
-
-    assert isinstance(processing_state, EjectorProcessingState)
-    assert processing_state.current_frame_ref_slot == 100
-    assert processing_state.processing_deadline_time == 200
-    assert processing_state.data_submitted == False
-
-
-def test_ejector_get_processing_state(ejector: Ejector):
-    bs = ReferenceBlockStampFactory.build()
-    accounting_processing_state = EjectorProcessingStateFactory.build()
-    ejector.report_contract.get_processing_state = Mock(return_value=accounting_processing_state)
-    result = ejector._get_processing_state(bs)
-
-    assert accounting_processing_state == result

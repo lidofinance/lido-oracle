@@ -1,3 +1,4 @@
+from typing import overload
 from src.modules.accounting.types import OracleReportLimits
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (

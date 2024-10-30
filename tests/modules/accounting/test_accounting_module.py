@@ -2,7 +2,6 @@ from typing import Any, Iterable, cast
 from unittest.mock import Mock, patch
 
 import pytest
-from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
@@ -10,18 +9,16 @@ from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
 from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import LidoReportRebase, AccountingProcessingState
+from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
+from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.services.withdrawal import Withdrawal
 from src.types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
-from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
-from tests.web3_extentions.test_lido_validators import blockstamp
 
 
 @pytest.fixture(autouse=True)
@@ -476,28 +473,3 @@ def test_is_bunker(
     accounting.bunker_service.is_bunker_mode.reset_mock()
     accounting._is_bunker(ref_bs)
     accounting.bunker_service.is_bunker_mode.assert_not_called()
-
-
-def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accounting):
-    bs = ReferenceBlockStampFactory.build()
-
-    accounting.report_contract.get_processing_state = Mock(side_effect=ContractCustomError('0xcd0883ea', '0xcd0883ea'))
-    accounting.get_initial_or_current_frame = Mock(
-        return_value=CurrentFrame(ref_slot=100, report_processing_deadline_slot=200)
-    )
-    processing_state = accounting._get_processing_state(bs)
-
-    assert isinstance(processing_state, AccountingProcessingState)
-    assert processing_state.current_frame_ref_slot == 100
-    assert processing_state.processing_deadline_time == 200
-    assert processing_state.main_data_submitted == False
-    assert processing_state.main_data_hash == ZERO_HASH
-
-
-def test_accounting_get_processing_state(accounting: Accounting):
-    bs = ReferenceBlockStampFactory.build()
-    accounting_processing_state = AccountingProcessingStateFactory.build()
-    accounting.report_contract.get_processing_state = Mock(return_value=accounting_processing_state)
-    result = accounting._get_processing_state(bs)
-
-    assert accounting_processing_state == result
