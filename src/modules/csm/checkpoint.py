@@ -143,6 +143,7 @@ class FrameCheckpointProcessor:
             for duty_epoch in unprocessed_epochs
         }
         self._process(unprocessed_epochs, duty_epochs_roots)
+        self.state.commit()
         return len(unprocessed_epochs)
 
     def _get_block_roots(self, checkpoint_slot: SlotNumber):
@@ -208,14 +209,14 @@ class FrameCheckpointProcessor:
         with lock:
             for committee in committees.values():
                 for validator_duty in committee:
-                    self.state.inc(
+                    self.state.increment_duty(
+                        duty_epoch,
                         validator_duty.index,
                         included=validator_duty.included,
                     )
             if duty_epoch not in self.state.unprocessed_epochs:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
             self.state.add_processed_epoch(duty_epoch)
-            self.state.commit()
             self.state.log_progress()
             unprocessed_epochs = self.state.unprocessed_epochs
             CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))

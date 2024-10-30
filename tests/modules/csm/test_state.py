@@ -26,51 +26,43 @@ def test_attestation_aggregate_perf():
 def test_state_avg_perf():
     state = State()
 
-    assert state.get_network_aggr().perf == 0
+    frame = (0, 999)
 
-    state = State(
-        {
+    with pytest.raises(ValueError):
+        state.get_network_aggr(frame)
+
+    state = State()
+    state.init_or_migrate(*frame, 1000, 1)
+    state.data = {
+        frame: {
             ValidatorIndex(0): AttestationsAccumulator(included=0, assigned=0),
             ValidatorIndex(1): AttestationsAccumulator(included=0, assigned=0),
         }
-    )
+    }
 
-    assert state.get_network_aggr().perf == 0
+    assert state.get_network_aggr(frame).perf == 0
 
-    state = State(
-        {
+    state.data = {
+        frame: {
             ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
             ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
         }
-    )
+    }
 
-    assert state.get_network_aggr().perf == 0.5
-
-
-def test_state_frame():
-    state = State()
-
-    state.migrate(EpochNumber(100), EpochNumber(500), 1)
-    assert state.frame == (100, 500)
-
-    state.migrate(EpochNumber(300), EpochNumber(301), 1)
-    assert state.frame == (300, 301)
-
-    state.clear()
-
-    with pytest.raises(ValueError, match="Epochs to process are not set"):
-        state.frame
+    assert state.get_network_aggr(frame).perf == 0.5
 
 
 def test_state_attestations():
     state = State(
         {
-            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            (0, 999): {
+                ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+                ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            }
         }
     )
 
-    network_aggr = state.get_network_aggr()
+    network_aggr = state.get_network_aggr((0, 999))
 
     assert network_aggr.assigned == 1000
     assert network_aggr.included == 500
@@ -79,8 +71,10 @@ def test_state_attestations():
 def test_state_load():
     orig = State(
         {
-            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            (0, 999): {
+                ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+                ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            }
         }
     )
 
@@ -92,8 +86,10 @@ def test_state_load():
 def test_state_clear():
     state = State(
         {
-            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
-            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            (0, 999): {
+                ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+                ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            }
         }
     )
 
@@ -113,27 +109,42 @@ def test_state_add_processed_epoch():
 
 
 def test_state_inc():
+
+    frame_0 = (0, 999)
+    frame_1 = (1000, 1999)
+
     state = State(
         {
-            ValidatorIndex(0): AttestationsAccumulator(included=0, assigned=0),
-            ValidatorIndex(1): AttestationsAccumulator(included=1, assigned=2),
+            frame_0: {
+                ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+                ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+            },
+            frame_1: {
+                ValidatorIndex(0): AttestationsAccumulator(included=1, assigned=1),
+                ValidatorIndex(1): AttestationsAccumulator(included=0, assigned=1),
+            },
         }
     )
 
-    state.inc(ValidatorIndex(0), True)
-    state.inc(ValidatorIndex(0), False)
+    state.increment_duty(999, ValidatorIndex(0), True)
+    state.increment_duty(999, ValidatorIndex(0), False)
+    state.increment_duty(999, ValidatorIndex(1), True)
+    state.increment_duty(999, ValidatorIndex(1), True)
+    state.increment_duty(999, ValidatorIndex(1), False)
+    state.increment_duty(999, ValidatorIndex(2), True)
 
-    state.inc(ValidatorIndex(1), True)
-    state.inc(ValidatorIndex(1), True)
-    state.inc(ValidatorIndex(1), False)
+    state.increment_duty(1000, ValidatorIndex(2), False)
 
-    state.inc(ValidatorIndex(2), True)
-    state.inc(ValidatorIndex(2), False)
+    assert tuple(state.data[frame_0].values()) == (
+        AttestationsAccumulator(included=334, assigned=779),
+        AttestationsAccumulator(included=169, assigned=226),
+        AttestationsAccumulator(included=1, assigned=1),
+    )
 
-    assert tuple(state.data.values()) == (
-        AttestationsAccumulator(included=1, assigned=2),
-        AttestationsAccumulator(included=3, assigned=5),
-        AttestationsAccumulator(included=1, assigned=2),
+    assert tuple(state.data[frame_1].values()) == (
+        AttestationsAccumulator(included=1, assigned=1),
+        AttestationsAccumulator(included=0, assigned=1),
+        AttestationsAccumulator(included=0, assigned=1),
     )
 
 
@@ -155,7 +166,7 @@ class TestStateTransition:
         l_epoch = EpochNumber(1)
         r_epoch = EpochNumber(255)
 
-        state.migrate(l_epoch, r_epoch, 1)
+        state.init_or_migrate(l_epoch, r_epoch, 255, 1)
 
         assert not state.is_empty
         assert state.unprocessed_epochs == set(sequence(l_epoch, r_epoch))
@@ -171,32 +182,60 @@ class TestStateTransition:
     def test_new_frame_requires_discarding_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
         state = State()
         state.clear = Mock(side_effect=state.clear)
-        state.migrate(l_epoch_old, r_epoch_old, 1)
+        state.init_or_migrate(l_epoch_old, r_epoch_old, r_epoch_old - l_epoch_old + 1, 1)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new, 1)
+        state.init_or_migrate(l_epoch_new, r_epoch_new, r_epoch_new - l_epoch_new + 1, 1)
         state.clear.assert_called_once()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
 
     @pytest.mark.parametrize(
-        ("l_epoch_old", "r_epoch_old", "l_epoch_new", "r_epoch_new"),
+        ("l_epoch_old", "r_epoch_old", "l_epoch_new", "r_epoch_new", "epochs_per_frame"),
         [
-            pytest.param(1, 255, 1, 510, id="Migrate Aa..b..B"),
-            pytest.param(32, 510, 1, 510, id="Migrate: A..a..b..B"),
+            pytest.param(1, 255, 1, 510, 255, id="Migrate Aa..b..B"),
         ],
     )
-    def test_new_frame_extends_old_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
+    def test_new_frame_extends_old_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new, epochs_per_frame):
         state = State()
         state.clear = Mock(side_effect=state.clear)
 
-        state.migrate(l_epoch_old, r_epoch_old, 1)
+        state.init_or_migrate(l_epoch_old, r_epoch_old, epochs_per_frame, 1)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new, 1)
+        state.init_or_migrate(l_epoch_new, r_epoch_new, epochs_per_frame, 1)
         state.clear.assert_not_called()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
+        assert len(state.data) == 2
+        assert list(state.data.keys()) == [(l_epoch_old, r_epoch_old), (r_epoch_old + 1, r_epoch_new)]
+        assert state.calculate_frames(state._epochs_to_process, epochs_per_frame) == [
+            (l_epoch_old, r_epoch_old),
+            (r_epoch_old + 1, r_epoch_new),
+        ]
+
+    @pytest.mark.parametrize(
+        ("l_epoch_old", "r_epoch_old", "epochs_per_frame_old", "l_epoch_new", "r_epoch_new", "epochs_per_frame_new"),
+        [
+            pytest.param(32, 510, 479, 1, 510, 510, id="Migrate: A..a..b..B"),
+        ],
+    )
+    def test_new_frame_extends_old_state_with_single_frame(
+        self, l_epoch_old, r_epoch_old, epochs_per_frame_old, l_epoch_new, r_epoch_new, epochs_per_frame_new
+    ):
+        state = State()
+        state.clear = Mock(side_effect=state.clear)
+
+        state.init_or_migrate(l_epoch_old, r_epoch_old, epochs_per_frame_old, 1)
+        state.clear.assert_not_called()
+
+        state.init_or_migrate(l_epoch_new, r_epoch_new, epochs_per_frame_new, 1)
+        state.clear.assert_not_called()
+
+        assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
+        assert len(state.data) == 1
+        assert list(state.data.keys())[0] == (l_epoch_new, r_epoch_new)
+        assert state.calculate_frames(state._epochs_to_process, epochs_per_frame_new) == [(l_epoch_new, r_epoch_new)]
 
     @pytest.mark.parametrize(
         ("old_version", "new_version"),
@@ -212,8 +251,8 @@ class TestStateTransition:
 
         l_epoch = r_epoch = EpochNumber(255)
 
-        state.migrate(l_epoch, r_epoch, old_version)
+        state.init_or_migrate(l_epoch, r_epoch, 1, old_version)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch, r_epoch, new_version)
+        state.init_or_migrate(l_epoch, r_epoch, 1, new_version)
         state.clear.assert_called_once()

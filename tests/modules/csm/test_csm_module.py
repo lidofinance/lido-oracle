@@ -9,7 +9,7 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.state import AttestationsAccumulator, State, Frame
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
@@ -166,26 +166,37 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         ]
     )
 
+    frame_0: Frame = (EpochNumber(0), EpochNumber(999))
+
+    module.state.init_or_migrate(*frame_0, epochs_per_frame=1000, consensus_version=1)
     module.state = State(
         {
-            ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-            ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-            ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-            ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-            ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+            frame_0: {
+                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
+                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+            }
         }
     )
-    module.state.migrate(EpochNumber(100), EpochNumber(500), 1)
 
-    _, shares, log = module.calculate_distribution(blockstamp=Mock())
+    l_epoch, r_epoch = frame_0
+
+    frame_0_network_aggr = module.state.get_network_aggr(frame_0)
+
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=r_epoch * 32, ref_epoch=r_epoch, ref_slot=r_epoch * 32)
+    _, shares, logs = module.calculate_distribution(blockstamp=blockstamp)
+
+    log, *_ = logs
 
     assert tuple(shares.items()) == (
         (NodeOperatorId(0), 476),
@@ -225,8 +236,157 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     assert log.operators[NodeOperatorId(3)].distributed == 2380
     assert log.operators[NodeOperatorId(6)].distributed == 2380
 
-    assert log.frame == (100, 500)
-    assert log.threshold == module.state.get_network_aggr().perf - 0.05
+    assert log.frame == frame_0
+    assert log.threshold == frame_0_network_aggr.perf - 0.05
+
+
+def test_calculate_distribution_with_missed_with_two_frames(module: CSOracle, csm: CSM):
+    csm.oracle.perf_leeway_bp = Mock(return_value=500)
+    csm.fee_distributor.shares_to_distribute = Mock(side_effect=[10000, 20000])
+
+    module.module_validators_by_node_operators = Mock(
+        return_value={
+            (None, NodeOperatorId(0)): [Mock(index=0, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(1)): [Mock(index=1, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(2)): [Mock(index=2, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(3)): [Mock(index=3, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(4)): [Mock(index=4, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(5)): [
+                Mock(index=5, validator=Mock(slashed=False)),
+                Mock(index=6, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(6)): [
+                Mock(index=7, validator=Mock(slashed=False)),
+                Mock(index=8, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(7)): [Mock(index=9, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(8)): [
+                Mock(index=10, validator=Mock(slashed=False)),
+                Mock(index=11, validator=Mock(slashed=True)),
+            ],
+            (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
+        }
+    )
+
+    module.stuck_operators = Mock(
+        side_effect=[
+            [
+                NodeOperatorId(2),
+                NodeOperatorId(4),
+            ],
+            [
+                NodeOperatorId(2),
+                NodeOperatorId(4),
+            ],
+        ]
+    )
+
+    module.state = State()
+    l_epoch, r_epoch = EpochNumber(0), EpochNumber(1999)
+    frame_0 = (0, 999)
+    frame_1 = (1000, 1999)
+    module.state.init_or_migrate(l_epoch, r_epoch, epochs_per_frame=1000, consensus_version=1)
+    module.state = State(
+        {
+            frame_0: {
+                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
+                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+            },
+            frame_1: {
+                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
+                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+            },
+        }
+    )
+    module.w3.cc = Mock()
+
+    module.converter = Mock(
+        side_effect=lambda _: Mock(
+            frame_config=FrameConfigFactory.build(epochs_per_frame=1000),
+            get_epoch_last_slot=lambda epoch: epoch * 32 + 31,
+        )
+    )
+
+    module._get_ref_blockstamp_for_frame = Mock(
+        side_effect=[
+            ReferenceBlockStampFactory.build(
+                slot_number=frame_0[1] * 32, ref_epoch=frame_0[1], ref_slot=frame_0[1] * 32
+            ),
+            ReferenceBlockStampFactory.build(slot_number=r_epoch * 32, ref_epoch=r_epoch, ref_slot=r_epoch * 32),
+        ]
+    )
+
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=r_epoch * 32, ref_epoch=r_epoch, ref_slot=r_epoch * 32)
+    distributed, shares, logs = module.calculate_distribution(blockstamp=blockstamp)
+
+    assert distributed == 2 * 9_998  # because of the rounding
+
+    assert tuple(shares.items()) == (
+        (NodeOperatorId(0), 952),
+        (NodeOperatorId(1), 4761),
+        (NodeOperatorId(3), 4761),
+        (NodeOperatorId(6), 4761),
+        (NodeOperatorId(8), 4761),
+    )
+
+    assert len(logs) == 2
+
+    for log in logs:
+
+        assert log.frame in module.state.data.keys()
+        assert log.threshold == module.state.get_network_aggr(log.frame).perf - 0.05
+
+        assert tuple(log.operators.keys()) == (
+            NodeOperatorId(0),
+            NodeOperatorId(1),
+            NodeOperatorId(2),
+            NodeOperatorId(3),
+            NodeOperatorId(4),
+            NodeOperatorId(5),
+            NodeOperatorId(6),
+            # NodeOperatorId(7), # Missing in state
+            NodeOperatorId(8),
+            NodeOperatorId(9),
+        )
+
+        assert not log.operators[NodeOperatorId(1)].stuck
+
+        assert log.operators[NodeOperatorId(2)].validators == {}
+        assert log.operators[NodeOperatorId(2)].stuck
+        assert log.operators[NodeOperatorId(4)].validators == {}
+        assert log.operators[NodeOperatorId(4)].stuck
+
+        assert 5 in log.operators[NodeOperatorId(5)].validators
+        assert 6 in log.operators[NodeOperatorId(5)].validators
+        assert 7 in log.operators[NodeOperatorId(6)].validators
+
+        assert log.operators[NodeOperatorId(0)].distributed == 476
+        assert log.operators[NodeOperatorId(1)].distributed in [2380, 2381]
+        assert log.operators[NodeOperatorId(2)].distributed == 0
+        assert log.operators[NodeOperatorId(3)].distributed in [2380, 2381]
+        assert log.operators[NodeOperatorId(6)].distributed in [2380, 2381]
 
 
 # Static functions you were dreaming of for so long.

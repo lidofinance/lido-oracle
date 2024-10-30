@@ -326,7 +326,7 @@ def test_checkpoints_processor_no_eip7549_support(
     monkeypatch: pytest.MonkeyPatch,
 ):
     state = State()
-    state.migrate(EpochNumber(0), EpochNumber(255), 1)
+    state.init_or_migrate(EpochNumber(0), EpochNumber(255), 256, 1)
     processor = FrameCheckpointProcessor(
         consensus_client,
         state,
@@ -354,7 +354,7 @@ def test_checkpoints_processor_check_duty(
     converter,
 ):
     state = State()
-    state.migrate(0, 255, 1)
+    state.init_or_migrate(0, 255, 256, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -367,7 +367,7 @@ def test_checkpoints_processor_check_duty(
     assert len(state._processed_epochs) == 1
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 255
-    assert len(state.data) == 2048 * 32
+    assert len(state.data[(0, 255)]) == 2048 * 32
 
 
 def test_checkpoints_processor_process(
@@ -379,7 +379,7 @@ def test_checkpoints_processor_process(
     converter,
 ):
     state = State()
-    state.migrate(0, 255, 1)
+    state.init_or_migrate(0, 255, 256, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -392,7 +392,7 @@ def test_checkpoints_processor_process(
     assert len(state._processed_epochs) == 2
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 254
-    assert len(state.data) == 2048 * 32
+    assert len(state.data[(0, 255)]) == 2048 * 32
 
 
 def test_checkpoints_processor_exec(
@@ -404,7 +404,7 @@ def test_checkpoints_processor_exec(
     converter,
 ):
     state = State()
-    state.migrate(0, 255, 1)
+    state.init_or_migrate(0, 255, 256, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -418,4 +418,4 @@ def test_checkpoints_processor_exec(
     assert len(state._processed_epochs) == 2
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 254
-    assert len(state.data) == 2048 * 32
+    assert len(state.data[(0, 255)]) == 2048 * 32
