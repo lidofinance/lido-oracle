@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from time import sleep
 
-from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
@@ -156,9 +155,9 @@ class Accounting(BaseModule, ConsensusModule):
         return AccountingProcessingState(
             current_frame_ref_slot=frame.ref_slot,
             processing_deadline_time=frame.report_processing_deadline_slot,
-            main_data_hash=HexBytes(ZERO_HASH),
+            main_data_hash=ZERO_HASH,
             main_data_submitted=False,
-            extra_data_hash=HexBytes(ZERO_HASH),
+            extra_data_hash=ZERO_HASH,
             extra_data_format=0,
             extra_data_submitted=False,
             extra_data_items_count=0,
