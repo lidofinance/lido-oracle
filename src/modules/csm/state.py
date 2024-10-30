@@ -46,12 +46,12 @@ class State:
 
     data: defaultdict[ValidatorIndex, AttestationsAccumulator]
 
-    _epochs_to_process: tuple[EpochNumber, ...]
+    _epochs_to_process: set[EpochNumber]
     _processed_epochs: set[EpochNumber]
 
     def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
         self.data = defaultdict(AttestationsAccumulator, data or {})
-        self._epochs_to_process = tuple()
+        self._epochs_to_process = set()
         self._processed_epochs = set()
 
     EXTENSION = ".pkl"
@@ -89,7 +89,7 @@ class State:
 
     def clear(self) -> None:
         self.data = defaultdict(AttestationsAccumulator)
-        self._epochs_to_process = tuple()
+        self._epochs_to_process.clear()
         self._processed_epochs.clear()
         assert self.is_empty
 
@@ -110,7 +110,7 @@ class State:
                     self.clear()
                     break
 
-        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+        self._epochs_to_process = set(sequence(l_epoch, r_epoch))
         self.commit()
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
@@ -133,7 +133,7 @@ class State:
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise ValueError("Epochs to process are not set")
-        diff = set(self._epochs_to_process) - self._processed_epochs
+        diff = self._epochs_to_process - self._processed_epochs
         return diff
 
     @property
