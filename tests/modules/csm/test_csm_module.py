@@ -321,7 +321,7 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
     )
 
     csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
-    module.get_initial_or_current_frame = Mock(
+    module.get_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(param.current_ref_slot),
             report_processing_deadline_slot=SlotNumber(0),

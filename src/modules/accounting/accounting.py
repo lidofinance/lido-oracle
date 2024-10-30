@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from time import sleep
 
-from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
@@ -20,7 +19,6 @@ from src.modules.accounting.types import (
     FinalizationShareRate,
     ValidatorsCount,
     ValidatorsBalance,
-    AccountingProcessingState,
 )
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
@@ -29,10 +27,9 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.validator_state import LidoValidatorStateService
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
@@ -119,13 +116,13 @@ class Accounting(BaseModule, ConsensusModule):
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract got report data (second phase)
-        processing_state = self._get_processing_state(blockstamp)
+        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
         logger.debug({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
         return processing_state.main_data_submitted
 
     def can_submit_extra_data(self, blockstamp: BlockStamp) -> bool:
         """Check if Oracle can submit extra data. Can only be submitted after second phase."""
-        processing_state = self._get_processing_state(blockstamp)
+        processing_state = self.report_contract.get_processing_state(blockstamp.block_hash)
         return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
@@ -142,27 +139,6 @@ class Accounting(BaseModule, ConsensusModule):
         logger.warning({'msg': f'Bunker mode is active. {ALLOW_REPORTING_IN_BUNKER_MODE=}'})
         logger.warning({'msg': '!' * 50})
         return ALLOW_REPORTING_IN_BUNKER_MODE
-
-    def _get_processing_state(self, blockstamp: BlockStamp) -> AccountingProcessingState:
-        try:
-            return self.report_contract.get_processing_state(blockstamp.block_hash)
-        except ContractCustomError as revert:
-            if revert.data != InitialEpochIsYetToArriveRevert:
-                raise revert
-
-        frame = self.get_initial_or_current_frame(blockstamp)
-
-        return AccountingProcessingState(
-            current_frame_ref_slot=frame.ref_slot,
-            processing_deadline_time=frame.report_processing_deadline_slot,
-            main_data_hash=ZERO_HASH,
-            main_data_submitted=False,
-            extra_data_hash=ZERO_HASH,
-            extra_data_format=0,
-            extra_data_submitted=False,
-            extra_data_items_count=0,
-            extra_data_items_submitted=0,
-        )
 
     # ---------------------------------------- Build report ----------------------------------------
     def _calculate_report(self, blockstamp: ReferenceBlockStamp):
