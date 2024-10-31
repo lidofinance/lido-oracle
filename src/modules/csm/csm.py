@@ -12,7 +12,8 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.log import FramePerfLog
+from src.modules.csm.duties.attestation import calc_performance
+from src.modules.csm.log import FramePerfLog, AttestationsAccumulatorLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
@@ -33,7 +34,7 @@ from src.types import (
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_next_non_missed_slot
+from src.utils.slot import get_next_non_missed_slot, get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -102,12 +103,12 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
-        distributed, shares, log = self.calculate_distribution(blockstamp)
+        distributed, shares, logs = self.calculate_distribution(blockstamp)
 
         if distributed != sum(shares.values()):
             raise InconsistentData(f"Invalid distribution: {sum(shares.values())=} != {distributed=}")
 
-        log_cid = self.publish_log(log)
+        log_cid = self.publish_log(logs)
 
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
@@ -225,17 +226,52 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def calculate_distribution(
         self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[int, defaultdict[NodeOperatorId, int], FramePerfLog]:
+    ) -> tuple[int, defaultdict[NodeOperatorId, int], list[FramePerfLog]]:
         """Computes distribution of fee shares at the given timestamp"""
-
-        network_avg_perf = self.state.get_network_aggr().perf
-        threshold = network_avg_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
+
+        distributed = 0
+        # Calculate share of each CSM node operator.
+        shares = defaultdict[NodeOperatorId, int](int)
+        logs: list[FramePerfLog] = []
+
+        converter = self.converter(blockstamp)
+        frames = self.state.calc_frames(converter.frame_config.epochs_per_frame)
+        for from_epoch, to_epoch in frames:
+            frame_blockstamp = blockstamp
+            frame_ref_slot = converter.get_epoch_first_slot(to_epoch)
+            if blockstamp.slot_number != frame_ref_slot:
+                frame_blockstamp = get_reference_blockstamp(
+                    cc=self.w3.cc,
+                    ref_slot=converter.get_epoch_first_slot(to_epoch),
+                    ref_epoch=to_epoch,
+                    last_finalized_slot_number=blockstamp.slot_number,
+                )
+            distributed_in_frame, shares_in_frame, log = self._calculate_distribution_in_frame(
+                frame_blockstamp, operators_to_validators, from_epoch, to_epoch, distributed
+            )
+            distributed += distributed_in_frame
+            for no_id, share in shares_in_frame.items():
+                shares[no_id] += share
+            logs.append(log)
+
+        return distributed, shares, logs
+
+    def _calculate_distribution_in_frame(
+        self,
+        blockstamp: ReferenceBlockStamp,
+        operators_to_validators: ValidatorsByNodeOperator,
+        from_epoch: EpochNumber,
+        to_epoch: EpochNumber,
+        distributed: int,
+    ):
+        network_perf = self.state.calc_network_perf(from_epoch, to_epoch)
+        threshold = network_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
 
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
         stuck_operators = self.stuck_operators(blockstamp)
-        log = FramePerfLog(blockstamp, self.state.frame, threshold)
+        log = FramePerfLog(blockstamp, (from_epoch, to_epoch), threshold)
 
         for (_, no_id), validators in operators_to_validators.items():
             if no_id in stuck_operators:
@@ -243,9 +279,11 @@ class CSOracle(BaseModule, ConsensusModule):
                 continue
 
             for v in validators:
-                aggr = self.state.data.get(ValidatorIndex(int(v.index)))
+                missed = self.state.count_missed(ValidatorIndex(int(v.index)), from_epoch, to_epoch)
+                included = self.state.count_included(ValidatorIndex(int(v.index)), from_epoch, to_epoch)
+                assigned = missed + included
 
-                if aggr is None:
+                if not assigned:
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
                     continue
@@ -256,22 +294,22 @@ class CSOracle(BaseModule, ConsensusModule):
                     log.operators[no_id].validators[v.index].slashed = True
                     continue
 
-                if aggr.perf > threshold:
+                perf = calc_performance(included, missed)
+                if perf > threshold:
                     # Count of assigned attestations used as a metrics of time
                     # the validator was active in the current frame.
-                    distribution[no_id] += aggr.assigned
+                    distribution[no_id] += assigned
 
-                log.operators[no_id].validators[v.index].perf = aggr
+                log.operators[no_id].validators[v.index].perf = AttestationsAccumulatorLog(assigned, included)
 
         # Calculate share of each CSM node operator.
         shares = defaultdict[NodeOperatorId, int](int)
         total = sum(p for p in distribution.values())
+        to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash) - distributed
+        log.distributable = to_distribute
 
         if not total:
             return 0, shares, log
-
-        to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash)
-        log.distributable = to_distribute
 
         for no_id, no_share in distribution.items():
             if no_share:
@@ -343,9 +381,9 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 
-    def publish_log(self, log: FramePerfLog) -> CID:
-        log_cid = self.w3.ipfs.publish(log.encode())
-        logger.info({"msg": "Frame log uploaded to IPFS", "cid": repr(log_cid)})
+    def publish_log(self, logs: list[FramePerfLog]) -> CID:
+        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs))
+        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
         return log_cid
 
     @lru_cache(maxsize=1)

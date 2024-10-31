@@ -9,12 +9,13 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.state import State
+from src.modules.csm.duties.attestation import AttestationSequence, AttestationStatus
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
-from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -117,26 +118,46 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         ]
     )
 
-    module.state = State(
-        {
-            ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-            ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-            ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-            ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-            ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
-        }
-    )
-    module.state.migrate(EpochNumber(100), EpochNumber(500))
+    validators = [
+        AttestationSequence(1000) for _ in range(13)
+    ]
+    for i in range(200):
+        validators[0].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(1000):
+        validators[1].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[2].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[6].set_duty_status(i, AttestationStatus.MISSED)
+        validators[10].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[11].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[12].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(999):
+        validators[3].set_duty_status(i, AttestationStatus.INCLUDED)
+    validators[3].set_duty_status(999, AttestationStatus.MISSED)
+    for i in range(900):
+        validators[4].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(900, 1000):
+        validators[4].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(500):
+        validators[5].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(500, 1000):
+        validators[5].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(900):
+        validators[7].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(900, 1000):
+        validators[7].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(500):
+        validators[8].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(500, 1000):
+        validators[8].set_duty_status(i, AttestationStatus.MISSED)
 
-    _, shares, log = module.calculate_distribution(blockstamp=Mock())
+    module.state = State()
+    l_epoch, r_epoch = EpochNumber(0), EpochNumber(999)
+    module.state.migrate(l_epoch, r_epoch)
+    module.state.data = validators
+
+    module.converter = Mock(side_effect=lambda _: Mock(frame_config=FrameConfigFactory.build(epochs_per_frame=1000), get_epoch_first_slot=lambda epoch: epoch * 32))
+
+    _, shares, logs = module.calculate_distribution(blockstamp=Mock(slot_number=r_epoch * 32))
 
     assert tuple(shares.items()) == (
         (NodeOperatorId(0), 476),
@@ -145,6 +166,8 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         (NodeOperatorId(6), 2380),
         (NodeOperatorId(8), 2380),
     )
+
+    log, *_ = logs
 
     assert tuple(log.operators.keys()) == (
         NodeOperatorId(0),
@@ -176,8 +199,8 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     assert log.operators[NodeOperatorId(3)].distributed == 2380
     assert log.operators[NodeOperatorId(6)].distributed == 2380
 
-    assert log.frame == (100, 500)
-    assert log.threshold == module.state.get_network_aggr().perf - 0.05
+    assert log.frame == (0, 999)
+    assert log.threshold == module.state.calc_network_perf(l_epoch, r_epoch) - 0.05
 
 
 # Static functions you were dreaming of for so long.

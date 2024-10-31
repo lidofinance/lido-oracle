@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
-from src.modules.csm.state import AttestationsAccumulator
 from src.modules.csm.types import Shares
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 
@@ -11,8 +10,15 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 
 @dataclass
+class AttestationsAccumulatorLog:
+    assigned: int = 0
+    included: int = 0
+
+
+@dataclass
 class ValidatorFrameSummary:
-    perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
+    # TODO: Should be renamed. Perf means different things in different contexts
+    perf: AttestationsAccumulatorLog = field(default_factory=AttestationsAccumulatorLog)
     slashed: bool = False
 
 
@@ -35,13 +41,14 @@ class FramePerfLog:
         default_factory=lambda: defaultdict(OperatorFrameSummary)
     )
 
-    def encode(self) -> bytes:
+    @staticmethod
+    def encode(logs: list['FramePerfLog']) -> bytes:
         return (
             LogJSONEncoder(
                 indent=None,
                 separators=(',', ':'),
                 sort_keys=True,
             )
-            .encode(asdict(self))
+            .encode([asdict(log) for log in logs])
             .encode()
         )
