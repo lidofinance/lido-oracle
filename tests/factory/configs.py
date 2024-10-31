@@ -64,6 +64,7 @@ class BlockAttestationFactory(Web3Factory):
     __model__ = BlockAttestation
 
     aggregation_bits = "0x"
+    committee_bits = None
     data = AttestationData(
         slot="0",
         index="0",

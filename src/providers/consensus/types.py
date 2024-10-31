@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal, Protocol
 
 from src.types import BlockHash, BlockRoot, StateRoot
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
 
 
 @dataclass
@@ -75,7 +76,7 @@ class Checkpoint:
 @dataclass
 class AttestationData(Nested, FromResponse):
     slot: str
-    index: str
+    index: str | Literal["0"]
     beacon_block_root: BlockRoot
     source: Checkpoint
     target: Checkpoint
@@ -85,6 +86,16 @@ class AttestationData(Nested, FromResponse):
 class BlockAttestation(Nested, FromResponse):
     aggregation_bits: str
     data: AttestationData
+    committee_bits: str | None = None
+
+
+class BlockAttestationPhase0(Protocol):
+    aggregation_bits: str
+    data: AttestationData
+
+
+class BlockAttestationElectra(BlockAttestationPhase0):
+    committee_bits: str
 
 
 @dataclass

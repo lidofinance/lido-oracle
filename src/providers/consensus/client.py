@@ -6,6 +6,8 @@ from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
+    BlockAttestationElectra,
+    BlockAttestationPhase0,
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
@@ -108,7 +110,9 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse.from_response(**data)
 
     @lru_cache(maxsize=256)
-    def get_block_attestations(self, state_id: SlotNumber | BlockRoot) -> list[BlockAttestation]:
+    def get_block_attestations(
+        self, state_id: SlotNumber | BlockRoot
+    ) -> list[BlockAttestationPhase0 | BlockAttestationElectra]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
         data, _ = self._get(
             self.API_GET_BLOCK_ATTESTATIONS,
@@ -124,7 +128,7 @@ class ConsensusClient(HTTPProvider):
         self,
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
-        index: int | None = None,
+        committee_index: int | None = None,
         slot: SlotNumber | None = None
     ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
@@ -132,12 +136,17 @@ class ConsensusClient(HTTPProvider):
             data, _ = self._get(
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
-                query_params={'epoch': epoch, 'index': index, 'slot': slot},
+                query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                data = self._get_attestation_committees_with_prysm(blockstamp, epoch, index, slot)
+                data = self._get_attestation_committees_with_prysm(
+                    blockstamp,
+                    epoch,
+                    committee_index,
+                    slot,
+                )
             else:
                 raise error
         return cast(list[SlotAttestationCommittee], data)
