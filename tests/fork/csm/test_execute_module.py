@@ -397,7 +397,7 @@ def test_execute_module(
                     "ACCOUNT",
                     Account.from_key(pk),
                 )
-                module.execute_module(last_finalized_blockstamp=bs)
+                module.run_cycle(blockstamp=bs)
 
     last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
     assert last_processing_after_report == initial_ref_slot, "Last processing ref slot should equal to initial ref slot"
