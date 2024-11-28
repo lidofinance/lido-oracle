@@ -81,7 +81,7 @@ class MultiIPFSProvider(IPFSProvider):
         # to try to both upload and to pin via a different provider.
         return self.provider.publish(content, name)
 
-    def upload(self, content: bytes, name: str | None = None) -> CID:
+    def _upload(self, content: bytes, name: str | None = None) -> str:
         # It doesn't make sense to upload a file to a different providers networks
         # without a guarantee the file will be available via another one.
         raise NotImplementedError

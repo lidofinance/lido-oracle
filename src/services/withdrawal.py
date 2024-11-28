@@ -39,10 +39,16 @@ class Withdrawal:
     ) -> FinalizationBatches:
         on_pause = self.w3.lido_contracts.withdrawal_queue_nft.is_paused(self.blockstamp.block_hash)
         CONTRACT_ON_PAUSE.labels('finalization').set(on_pause)
+
         if on_pause:
             return FinalizationBatches([])
 
         if not self._has_unfinalized_requests():
+            return FinalizationBatches([])
+
+        available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance)
+
+        if not available_eth:
             return FinalizationBatches([])
 
         withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode)
@@ -51,7 +57,6 @@ class Withdrawal:
                     withdrawable_until_epoch * self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot
             )
         )
-        available_eth = self._get_available_eth(withdrawal_vault_balance, el_rewards_vault_balance)
 
         return FinalizationBatches(self._calculate_finalization_batches(share_rate, available_eth, withdrawable_until_timestamp))
 

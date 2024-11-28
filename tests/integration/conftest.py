@@ -11,7 +11,7 @@ from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_router import StakingRouterContractV1
+from src.providers.execution.contracts.staking_router import StakingRouterContractV1, StakingRouterContractV2
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 
 
@@ -70,6 +70,15 @@ def staking_router_contract(web3_provider_integration, lido_locator_contract) ->
     return get_contract(
         web3_provider_integration,
         StakingRouterContractV1,
+        lido_locator_contract.staking_router(),
+    )
+
+
+@pytest.fixture
+def staking_router_contract_v2(web3_provider_integration, lido_locator_contract) -> StakingRouterContractV2:
+    return get_contract(
+        web3_provider_integration,
+        StakingRouterContractV2,
         lido_locator_contract.staking_router(),
     )
 
