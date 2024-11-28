@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 from dataclasses import asdict
 from enum import Enum
 
-from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import ConnectionError as RequestsConnectionError, ChunkedEncodingError
 from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
 
@@ -117,6 +117,8 @@ class BaseModule(ABC):
             logger.error({'msg': 'Web3py exception.', 'error': str(error)})
         except IPFSError as error:
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
+        except ChunkedEncodingError as error:
+            logger.error({'msg': 'Encoding error', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         else:
