@@ -7,8 +7,8 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     EFFECTIVE_BALANCE_INCREMENT,
     MAX_SEED_LOOKAHEAD,
-    MIN_PER_EPOCH_EXIT_CHURN_LIMIT,
-    EXIT_CHURN_LIMIT_QUOTIENT,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    CHURN_LIMIT_QUOTIENT,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, Gwei
@@ -113,4 +113,4 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
 
 
 def compute_exit_churn_limit(active_validators_count: int):
-    return max(MIN_PER_EPOCH_EXIT_CHURN_LIMIT, active_validators_count // EXIT_CHURN_LIMIT_QUOTIENT)
+    return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)

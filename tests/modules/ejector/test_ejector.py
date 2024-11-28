@@ -355,7 +355,7 @@ class TestChurnLimit:
     def test_get_exit_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_exit_churn_limit(ref_blockstamp)
-        assert result == constants.MIN_PER_EPOCH_EXIT_CHURN_LIMIT, "Unexpected churn limit"
+        assert result == constants.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
@@ -382,8 +382,8 @@ class TestChurnLimit:
     ) -> None:
         with monkeypatch.context() as m:
             ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
-            m.setattr(validator_state, "MIN_PER_EPOCH_EXIT_CHURN_LIMIT", 0)
-            m.setattr(validator_state, "EXIT_CHURN_LIMIT_QUOTIENT", 2)
+            m.setattr(validator_state, "MIN_PER_EPOCH_CHURN_LIMIT", 0)
+            m.setattr(validator_state, "CHURN_LIMIT_QUOTIENT", 2)
             result = ejector._get_exit_churn_limit(ref_blockstamp)
             assert result == 49, "Unexpected churn limit"
             ejector._get_exit_churn_limit(ref_blockstamp)
