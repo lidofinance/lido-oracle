@@ -141,7 +141,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
-        ref_slot = self.get_current_frame(blockstamp).ref_slot
+        ref_slot = self.get_initial_or_current_frame(blockstamp).ref_slot
         return last_ref_slot == ref_slot
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
@@ -308,10 +308,13 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.slot_number,
             )
         )
-        digests = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp).get(self.module_id)
-        if digests is None:
-            raise InconsistentData(f"No Node Operators digests found for {self.module_id=}")
-        stuck.update(no.id for no in digests if no.stuck_validators_count > 0)
+
+        nos_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
+        if self.module_id in nos_by_module:
+            stuck.update(no.id for no in nos_by_module[self.module_id] if no.stuck_validators_count > 0)
+        else:
+            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
+
         stuck.update(
             self.w3.csm.get_operators_with_stucks_in_range(
                 l_blockstamp.block_hash,
@@ -370,7 +373,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         # NOTE: before the initial slot the contract can't return current frame
         if blockstamp.slot_number > initial_ref_slot:
-            r_ref_slot = self.get_current_frame(blockstamp).ref_slot
+            r_ref_slot = self.get_initial_or_current_frame(blockstamp).ref_slot
 
         # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
         # to calculate epochs range to collect the data.
