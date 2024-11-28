@@ -25,7 +25,6 @@ from web3_multi_provider import NoActiveProviderError
 from src import variables
 from src.types import SlotNumber, BlockStamp, BlockRoot
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,25 +56,37 @@ class BaseModule(ABC):
             logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
-    @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
     def cycle_handler(self):
+        self._cycle()
+        self._sleep_cycle()
+
+    @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
+    def _cycle(self):
         blockstamp = self._receive_last_finalized_slot()
 
-        if blockstamp.slot_number > self._slot_threshold:
-            if self.w3.lido_contracts.has_contract_address_changed():
-                clear_global_cache()
-                self.refresh_contracts()
-            result = self.run_cycle(blockstamp)
-
-            if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-                self._slot_threshold = blockstamp.slot_number
-        else:
+        # Check if the blockstamp is below the threshold and exit early
+        if blockstamp.slot_number <= self._slot_threshold:
             logger.info({
-                'msg': 'Skipping the report. Wait for new finalized slot.',
+                'msg': 'Skipping the report. Waiting for new finalized slot.',
                 'slot_threshold': self._slot_threshold,
             })
+            self._sleep_cycle()
+            return
 
-        logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
+        # Refresh contracts if the address has changed
+        if self.w3.lido_contracts.has_contract_address_changed():
+            clear_global_cache()
+            self.refresh_contracts()
+
+        result = self.run_cycle(blockstamp)
+        if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
+            self._slot_threshold = blockstamp.slot_number
+
+        logger.info({'msg': f'Cycle end. Sleeping for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
+
+    @staticmethod
+    def _sleep_cycle():
+        """Handles sleeping between cycles based on the configured cycle sleep time."""
         time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
