@@ -29,7 +29,7 @@ class PublicIPFS(IPFSProvider):
             raise FetchError(cid) from ex
         return resp.content
 
-    def upload(self, content: bytes, name: str | None = None) -> CID:
+    def _upload(self, content: bytes, name: str | None = None) -> str:
         raise UploadError
 
     def pin(self, cid: CID) -> None:

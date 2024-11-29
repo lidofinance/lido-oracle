@@ -31,7 +31,7 @@ def metrics_collector(
         with open(os.path.join(abi_dir, filename), 'r') as f:
             try:
                 contracts.append(w3.eth.contract(abi=json.load(f)))
-            except json.JSONDecodeError:
+            except json.JSONDecodeError:  # pragma: no cover
                 pass
 
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -49,7 +49,7 @@ def metrics_collector(
             for contract in contracts:
                 try:
                     call_method = contract.get_function_by_selector(args['data']).fn_name
-                except ValueError:
+                except ValueError:  # pragma: no cover
                     pass
                 if call_method:
                     break

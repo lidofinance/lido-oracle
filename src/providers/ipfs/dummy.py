@@ -24,9 +24,9 @@ class DummyIPFSProvider(IPFSProvider):
             except Exception as e:
                 raise FetchError(cid) from e
 
-    def upload(self, content: bytes, name: str | None = None) -> CID:
-        cid = CIDv0("Qm" + hashlib.sha256(content).hexdigest())  # XXX: Dummy.
-        self.mempool[cid] = content
+    def _upload(self, content: bytes, name: str | None = None) -> str:
+        cid = "Qm" + hashlib.sha256(content).hexdigest()  # XXX: Dummy.
+        self.mempool[CIDv0(cid)] = content
         return cid
 
     def pin(self, cid: CID) -> None:
