@@ -233,7 +233,9 @@ class TestStateTransition:
         state.migrate(l_epoch_new, r_epoch_new)
         state.clear.assert_not_called()
 
-        assert state.unprocessed_epochs == (set(sequence(l_epoch_new, r_epoch_new)) - set(sequence(l_epoch_old, r_epoch_old)))
+        assert state.unprocessed_epochs == (
+            set(sequence(l_epoch_new, r_epoch_new)) - set(sequence(l_epoch_old, r_epoch_old))
+        )
         for epoch in sequence(l_epoch_old, r_epoch_old):
             for i in range(3):
                 assert state.get_duty_status(epoch, ValidatorIndex(i)) == AttestationStatus.INCLUDED

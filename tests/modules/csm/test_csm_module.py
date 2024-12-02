@@ -118,9 +118,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
         ]
     )
 
-    validators = [
-        AttestationSequence(1000) for _ in range(13)
-    ]
+    validators = [AttestationSequence(1000) for _ in range(13)]
     for i in range(200):
         validators[0].set_duty_status(i, AttestationStatus.INCLUDED)
     for i in range(1000):
@@ -155,7 +153,11 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     module.state.migrate(l_epoch, r_epoch)
     module.state.data = validators
 
-    module.converter = Mock(side_effect=lambda _: Mock(frame_config=FrameConfigFactory.build(epochs_per_frame=1000), get_epoch_first_slot=lambda epoch: epoch * 32))
+    module.converter = Mock(
+        side_effect=lambda _: Mock(
+            frame_config=FrameConfigFactory.build(epochs_per_frame=1000), get_epoch_first_slot=lambda epoch: epoch * 32
+        )
+    )
 
     _, shares, logs = module.calculate_distribution(blockstamp=Mock(slot_number=r_epoch * 32))
 
