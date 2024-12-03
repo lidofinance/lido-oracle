@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 lock = Lock()
 
 
-class MinStepIsNotReached(Exception):
-    ...
+class MinStepIsNotReached(Exception): ...
 
 
 @dataclass
@@ -198,7 +197,8 @@ class FrameCheckpointProcessor:
         with lock:
             for committee in committees.values():
                 for validator_duty in committee:
-                    self.state.inc(
+                    self.state.set_duty_status(
+                        duty_epoch,
                         validator_duty.index,
                         included=validator_duty.included,
                     )

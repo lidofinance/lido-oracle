@@ -1,8 +1,7 @@
 import json
 import pytest
 
-from src.modules.csm.log import FramePerfLog
-from src.modules.csm.state import AttestationsAccumulator
+from src.modules.csm.log import FramePerfLog, AttestationsAccumulatorLog
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -29,20 +28,22 @@ def test_fields_access(log: FramePerfLog):
 
 def test_log_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
-    log.operators[NodeOperatorId(42)].validators["41337"].perf = AttestationsAccumulator(220, 119)
+    log.operators[NodeOperatorId(42)].validators["41337"].perf = AttestationsAccumulatorLog(220, 119)
     log.operators[NodeOperatorId(42)].distributed = 17
     log.operators[NodeOperatorId(0)].distributed = 0
 
-    encoded = log.encode()
-    decoded = json.loads(encoded)
+    logs = [log]
 
-    assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["assigned"] == 220
-    assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["included"] == 119
-    assert decoded["operators"]["42"]["distributed"] == 17
-    assert decoded["operators"]["0"]["distributed"] == 0
+    encoded = FramePerfLog.encode(logs)
 
-    assert decoded["blockstamp"]["block_hash"] == log.blockstamp.block_hash
-    assert decoded["blockstamp"]["ref_slot"] == log.blockstamp.ref_slot
+    for decoded in json.loads(encoded):
+        assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["assigned"] == 220
+        assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["included"] == 119
+        assert decoded["operators"]["42"]["distributed"] == 17
+        assert decoded["operators"]["0"]["distributed"] == 0
 
-    assert decoded["threshold"] == log.threshold
-    assert decoded["frame"] == list(log.frame)
+        assert decoded["blockstamp"]["block_hash"] == log.blockstamp.block_hash
+        assert decoded["blockstamp"]["ref_slot"] == log.blockstamp.ref_slot
+
+        assert decoded["threshold"] == log.threshold
+        assert decoded["frame"] == list(log.frame)
