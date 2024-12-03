@@ -240,13 +240,8 @@ class CSOracle(BaseModule, ConsensusModule):
         for from_epoch, to_epoch in frames:
             frame_blockstamp = blockstamp
             frame_ref_slot = converter.get_epoch_first_slot(to_epoch)
-            if blockstamp.slot_number != frame_ref_slot:
-                frame_blockstamp = get_reference_blockstamp(
-                    cc=self.w3.cc,
-                    ref_slot=converter.get_epoch_first_slot(to_epoch),
-                    ref_epoch=to_epoch,
-                    last_finalized_slot_number=blockstamp.slot_number,
-                )
+            if frame_ref_slot != blockstamp.slot_number:
+                frame_blockstamp = self._get_ref_blockstamp_for_frame(blockstamp, to_epoch)
             distributed_in_frame, shares_in_frame, log = self._calculate_distribution_in_frame(
                 frame_blockstamp, operators_to_validators, from_epoch, to_epoch, distributed
             )
@@ -256,6 +251,17 @@ class CSOracle(BaseModule, ConsensusModule):
             logs.append(log)
 
         return distributed, shares, logs
+
+    def _get_ref_blockstamp_for_frame(
+        self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
+    ) -> ReferenceBlockStamp:
+        converter = self.converter(blockstamp)
+        return get_reference_blockstamp(
+            cc=self.w3.cc,
+            ref_slot=converter.get_epoch_first_slot(frame_ref_epoch),
+            ref_epoch=frame_ref_epoch,
+            last_finalized_slot_number=blockstamp.slot_number,
+        )
 
     def _calculate_distribution_in_frame(
         self,

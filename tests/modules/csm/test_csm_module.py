@@ -205,6 +205,201 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     assert log.threshold == module.state.calc_network_perf(l_epoch, r_epoch) - 0.05
 
 
+def test_calculate_distribution_with_two_frames(module: CSOracle, csm: CSM):
+    csm.oracle.perf_leeway_bp = Mock(return_value=500)
+    csm.fee_distributor.shares_to_distribute = Mock(side_effect=[5_000, 10_000])
+
+    module.module_validators_by_node_operators = Mock(
+        return_value={
+            (None, NodeOperatorId(0)): [Mock(index=0, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(1)): [Mock(index=1, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(2)): [Mock(index=2, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(3)): [Mock(index=3, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(4)): [Mock(index=4, validator=Mock(slashed=False))],  # stuck
+            (None, NodeOperatorId(5)): [
+                Mock(index=5, validator=Mock(slashed=False)),
+                Mock(index=6, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(6)): [
+                Mock(index=7, validator=Mock(slashed=False)),
+                Mock(index=8, validator=Mock(slashed=False)),
+            ],
+            (None, NodeOperatorId(7)): [Mock(index=9, validator=Mock(slashed=False))],
+            (None, NodeOperatorId(8)): [
+                Mock(index=10, validator=Mock(slashed=False)),
+                Mock(index=11, validator=Mock(slashed=True)),
+            ],
+            (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
+        }
+    )
+
+    module.stuck_operators = Mock(
+        side_effect=[
+            [],
+            [
+                NodeOperatorId(2),
+                NodeOperatorId(4),
+            ],
+        ]
+    )
+
+    validators = [AttestationSequence(1000) for _ in range(13)]
+    for i in range(200):
+        validators[0].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(1000):
+        validators[1].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[2].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[6].set_duty_status(i, AttestationStatus.MISSED)
+        validators[10].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[11].set_duty_status(i, AttestationStatus.INCLUDED)
+        validators[12].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(999):
+        validators[3].set_duty_status(i, AttestationStatus.INCLUDED)
+    validators[3].set_duty_status(999, AttestationStatus.MISSED)
+    for i in range(900):
+        validators[4].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(900, 1000):
+        validators[4].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(500):
+        validators[5].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(500, 1000):
+        validators[5].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(900):
+        validators[7].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(900, 1000):
+        validators[7].set_duty_status(i, AttestationStatus.MISSED)
+    for i in range(500):
+        validators[8].set_duty_status(i, AttestationStatus.INCLUDED)
+    for i in range(500, 1000):
+        validators[8].set_duty_status(i, AttestationStatus.MISSED)
+
+    module.state = State()
+    l_epoch, r_epoch = EpochNumber(0), EpochNumber(999)
+    module.state.migrate(l_epoch, r_epoch)
+    module.state.data = validators
+    module.w3.cc = Mock()
+
+    module.converter = Mock(
+        side_effect=lambda _: Mock(
+            frame_config=FrameConfigFactory.build(epochs_per_frame=500), get_epoch_first_slot=lambda epoch: epoch * 32
+        )
+    )
+
+    module._get_ref_blockstamp_for_frame = Mock(
+        side_effect=[
+            ReferenceBlockStampFactory.build(slot_number=499 * 32),
+            ReferenceBlockStampFactory.build(slot_number=999 * 32),
+        ]
+    )
+
+    distributed, shares, logs = module.calculate_distribution(blockstamp=Mock(slot_number=r_epoch * 32))
+
+    assert distributed == 9_998  # because of the rounding
+
+    assert tuple(shares.items()) == (
+        (NodeOperatorId(0), 238),
+        (NodeOperatorId(1), 1845),
+        (NodeOperatorId(2), 595),
+        (NodeOperatorId(3), 1845),
+        (NodeOperatorId(4), 595),
+        (NodeOperatorId(5), 595),
+        (NodeOperatorId(6), 2440),
+        (NodeOperatorId(8), 1845),
+    )
+
+    assert len(logs) == 2
+
+    # Check FIRST frame values
+
+    log_1 = logs[0]
+
+    assert tuple(log_1.operators.keys()) == (
+        NodeOperatorId(0),
+        NodeOperatorId(1),
+        NodeOperatorId(2),
+        NodeOperatorId(3),
+        NodeOperatorId(4),
+        NodeOperatorId(5),
+        NodeOperatorId(6),
+        # NodeOperatorId(7), # Missing in state
+        NodeOperatorId(8),
+        NodeOperatorId(9),
+    )
+
+    assert 0 in log_1.operators[NodeOperatorId(0)].validators
+
+    assert 1 in log_1.operators[NodeOperatorId(1)].validators
+    assert not log_1.operators[NodeOperatorId(1)].stuck
+
+    assert 2 in log_1.operators[NodeOperatorId(2)].validators
+    assert not log_1.operators[NodeOperatorId(2)].stuck
+
+    assert 3 in log_1.operators[NodeOperatorId(3)].validators
+
+    assert 4 in log_1.operators[NodeOperatorId(4)].validators
+    assert not log_1.operators[NodeOperatorId(4)].stuck
+
+    assert 5 in log_1.operators[NodeOperatorId(5)].validators
+    assert 6 in log_1.operators[NodeOperatorId(5)].validators
+
+    assert 7 in log_1.operators[NodeOperatorId(6)].validators
+    assert 8 in log_1.operators[NodeOperatorId(6)].validators
+
+    assert 10 in log_1.operators[NodeOperatorId(8)].validators
+    assert not log_1.operators[NodeOperatorId(8)].validators[10].slashed
+    assert 11 in log_1.operators[NodeOperatorId(8)].validators
+    assert log_1.operators[NodeOperatorId(8)].validators[11].slashed
+
+    assert 12 in log_1.operators[NodeOperatorId(9)].validators
+    assert log_1.operators[NodeOperatorId(9)].validators[12].slashed
+
+    assert log_1.frame == (0, 499)
+    assert log_1.threshold == module.state.calc_network_perf(log_1.frame[0], log_1.frame[1]) - 0.05
+
+    # Check SECOND frame values
+
+    log_2 = logs[1]
+
+    assert tuple(log_2.operators.keys()) == (
+        NodeOperatorId(1),
+        NodeOperatorId(2),
+        NodeOperatorId(3),
+        NodeOperatorId(4),
+        NodeOperatorId(5),
+        NodeOperatorId(6),
+        # NodeOperatorId(7), # Missing in state
+        NodeOperatorId(8),
+        NodeOperatorId(9),
+    )
+
+    assert 1 in log_2.operators[NodeOperatorId(1)].validators
+
+    assert log_2.operators[NodeOperatorId(2)].validators == {}
+    assert log_2.operators[NodeOperatorId(2)].stuck
+
+    assert 3 in log_2.operators[NodeOperatorId(3)].validators
+
+    assert log_2.operators[NodeOperatorId(4)].validators == {}
+    assert log_2.operators[NodeOperatorId(4)].stuck
+
+    assert 5 in log_2.operators[NodeOperatorId(5)].validators
+    assert 6 in log_2.operators[NodeOperatorId(5)].validators
+
+    assert 7 in log_2.operators[NodeOperatorId(6)].validators
+    assert 8 in log_2.operators[NodeOperatorId(6)].validators
+
+    assert 10 in log_2.operators[NodeOperatorId(8)].validators
+    assert not log_2.operators[NodeOperatorId(8)].validators[10].slashed
+    assert 11 in log_2.operators[NodeOperatorId(8)].validators
+    assert log_2.operators[NodeOperatorId(8)].validators[11].slashed
+
+    assert 12 in log_2.operators[NodeOperatorId(9)].validators
+    assert log_2.operators[NodeOperatorId(9)].validators[12].slashed
+
+    assert log_2.frame == (500, 999)
+    assert log_2.threshold == module.state.calc_network_perf(log_2.frame[0], log_2.frame[1]) - 0.05
+
+
 # Static functions you were dreaming of for so long.
 
 
