@@ -39,7 +39,7 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    def __init__(self, data: list[AttestationSequence | None] | None = None) -> None:
+    def __init__(self, data: list[AttestationSequence] | None = None) -> None:
         self.data = data or []
         self._epochs_to_process = tuple()
         self._processed_epochs = set()

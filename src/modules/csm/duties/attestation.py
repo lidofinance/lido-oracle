@@ -41,15 +41,15 @@ class AttestationSequence(list):
         if from_index < 0 or to_index > len(self) or from_index >= to_index:
             raise ValueError("Invalid range for from_index and to_index")
 
-    def count_missed(self, from_index: EpochIndexInFrame = 0, to_index: EpochIndexInFrame = None):
+    def count_missed(self, from_index: EpochIndexInFrame = EpochIndexInFrame(0), to_index: EpochIndexInFrame | None = None):
         if to_index is None:
-            to_index = len(self)
+            to_index = EpochIndexInFrame(len(self))
         self._validate_range(from_index, to_index)
         return self[from_index:to_index].count(AttestationStatus.MISSED)
 
-    def count_included(self, from_index: EpochIndexInFrame = 0, to_index: EpochIndexInFrame = None):
+    def count_included(self, from_index: EpochIndexInFrame = EpochIndexInFrame(0), to_index: EpochIndexInFrame | None = None):
         if to_index is None:
-            to_index = len(self)
+            to_index = EpochIndexInFrame(len(self))
         self._validate_range(from_index, to_index)
         return self[from_index:to_index].count(AttestationStatus.INCLUDED)
 
