@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress
 from web3.module import Module
 
+from src.constants import FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
@@ -147,6 +148,17 @@ class LidoValidatorsProvider(Module):
         self._kapi_sanity_check(len(lido_keys), blockstamp)
 
         return self.merge_validators_with_keys(lido_keys, validators)
+
+    @lru_cache(maxsize=1)
+    def get_lido_validators_pending_deposits_sum(self, blockstamp: BlockStamp) -> int:
+        lido_validators = self.get_lido_validators(blockstamp)
+
+        pending_deposits_sum = 0
+        for validator in lido_validators:
+            if int(validator.balance) == 0 and int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH:
+                pending_deposits_sum += MIN_ACTIVATION_BALANCE
+
+        return pending_deposits_sum
 
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
