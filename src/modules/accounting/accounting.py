@@ -217,7 +217,7 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         count = len(lido_validators)
-        pending_deposits_sum = self.w3.lido_validators.get_lido_validators_pending_deposits_sum(blockstamp)
+        pending_deposits_sum = self.w3.lido_validators.calculate_pending_deposits_sum(lido_validators)
         total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators) + pending_deposits_sum)
 
         logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
