@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress
 from web3.module import Module
 
+from src.constants import FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
@@ -171,6 +172,14 @@ class LidoValidatorsProvider(Module):
                 ))
 
         return lido_validators
+
+    @staticmethod
+    def calculate_pending_deposits_sum(lido_validators: list[LidoValidator]) -> int:
+        return sum(
+            MIN_ACTIVATION_BALANCE
+            for validator in lido_validators
+            if int(validator.balance) == 0 and int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH
+        )
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
