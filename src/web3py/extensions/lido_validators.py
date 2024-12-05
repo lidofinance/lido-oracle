@@ -149,17 +149,6 @@ class LidoValidatorsProvider(Module):
 
         return self.merge_validators_with_keys(lido_keys, validators)
 
-    @lru_cache(maxsize=1)
-    def get_lido_validators_pending_deposits_sum(self, blockstamp: BlockStamp) -> int:
-        lido_validators = self.get_lido_validators(blockstamp)
-
-        pending_deposits_sum = 0
-        for validator in lido_validators:
-            if int(validator.balance) == 0 and int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH:
-                pending_deposits_sum += MIN_ACTIVATION_BALANCE
-
-        return pending_deposits_sum
-
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
 
@@ -183,6 +172,14 @@ class LidoValidatorsProvider(Module):
                 ))
 
         return lido_validators
+
+    @staticmethod
+    def calculate_pending_deposits_sum(lido_validators: list[LidoValidator]) -> int:
+        return sum(
+            MIN_ACTIVATION_BALANCE
+            for validator in lido_validators
+            if int(validator.balance) == 0 and int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH
+        )
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
