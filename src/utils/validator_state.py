@@ -1,7 +1,6 @@
 from typing import Sequence
 
 from src.constants import (
-    MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     SHARD_COMMITTEE_PERIOD,
     FAR_FUTURE_EPOCH,
@@ -140,5 +139,4 @@ def get_max_effective_balance(validator: Validator) -> Gwei:
     """
     if has_compounding_withdrawal_credential(validator):
         return MAX_EFFECTIVE_BALANCE_ELECTRA
-    else:
-        return MIN_ACTIVATION_BALANCE
+    return MIN_ACTIVATION_BALANCE
