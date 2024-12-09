@@ -160,6 +160,7 @@ class ConsensusClient(HTTPProvider):
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
         try:
+            logger.info({'msg': 'Getting validators...'})
             data, _ = self._get(
                 self.API_GET_VALIDATORS,
                 path_params=(blockstamp.state_root,),
