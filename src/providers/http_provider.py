@@ -93,14 +93,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                data = self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
-                logger.debug({
-                    'msg': 'Get request',
-                    'url': endpoint,
-                    'data': f'{data}',
-                    'host': f'{urlparse(host).netloc}',
-                })
-                return data
+                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
