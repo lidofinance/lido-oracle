@@ -1,7 +1,7 @@
 from pydantic.class_validators import validator
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
@@ -16,6 +16,8 @@ from src.utils.validator_state import (
     is_exited_validator,
     is_active_validator,
     compute_activation_exit_epoch,
+    has_compounding_withdrawal_credential,
+    has_execution_withdrawal_credential,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -148,6 +150,24 @@ def test_is_on_exit(exit_epoch, expected):
 @pytest.mark.parametrize(
     "withdrawal_credentials, expected",
     [
+        ('0x02ba', True),
+        ('02ab', False),
+        ('0x00ba', False),
+        ('00ba', False),
+    ],
+)
+def test_has_compounding_withdrawal_credential(withdrawal_credentials, expected):
+    validator = ValidatorFactory.build()
+    validator.validator.withdrawal_credentials = withdrawal_credentials
+
+    actual = has_compounding_withdrawal_credential(validator)
+    assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "withdrawal_credentials, expected",
+    [
         ('0x01ba', True),
         ('01ab', False),
         ('0x00ba', False),
@@ -164,18 +184,44 @@ def test_has_eth1_withdrawal_credential(withdrawal_credentials, expected):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "withdrawable_epoch, balance, epoch, expected",
+    "wc, expected",
     [
-        (176720, 32 * (10**10), 176722, True),
-        (176722, 32 * (10**10), 176722, True),
-        (176723, 32 * (10**10), 176722, False),
-        (176722, 0, 176722, False),
+        ('0x01ba', True),
+        ('01ab', False),
+        ('0x00ba', False),
+        ('00ba', False),
+        ('0x02ba', True),
+        ('02ab', False),
+        ('0x00ba', False),
+        ('00ba', False),
     ],
 )
-def test_is_fully_withdrawable_validator(withdrawable_epoch, balance, epoch, expected):
+def test_has_execution_withdrawal_credential(wc, expected):
+    validator = ValidatorFactory.build()
+    validator.validator.withdrawal_credentials = wc
+
+    actual = has_execution_withdrawal_credential(validator)
+    assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "withdrawable_epoch, wc, balance, epoch, expected",
+    [
+        (176720, '0x01ba', 32 * (10**10), 176722, True),
+        (176722, '0x01ba', 32 * (10**10), 176722, True),
+        (176723, '0x01ba', 32 * (10**10), 176722, False),
+        (176722, '0x01ba', 0, 176722, False),
+        (176720, '0x02ba', 32 * (10**10), 176722, True),
+        (176722, '0x02ba', 32 * (10**10), 176722, True),
+        (176723, '0x02ba', 32 * (10**10), 176722, False),
+        (176722, '0x02ba', 0, 176722, False),
+    ],
+)
+def test_is_fully_withdrawable_validator(withdrawable_epoch, wc, balance, epoch, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawable_epoch = withdrawable_epoch
-    validator.validator.withdrawal_credentials = '0x01ba'
+    validator.validator.withdrawal_credentials = wc
     validator.balance = balance
 
     actual = is_fully_withdrawable_validator(validator, EpochNumber(epoch))
@@ -187,10 +233,13 @@ def test_is_fully_withdrawable_validator(withdrawable_epoch, balance, epoch, exp
     "effective_balance, add_balance, withdrawal_credentials, expected",
     [
         (32 * 10**9, 1, '0x01ba', True),
+        (MAX_EFFECTIVE_BALANCE_ELECTRA, 1, '0x02ba', True),
         (32 * 10**9, 1, '0x0', False),
         (32 * 10**8, 0, '0x01ba', False),
+        (MAX_EFFECTIVE_BALANCE_ELECTRA, 0, '0x02ba', False),
         (32 * 10**9, 0, '0x', False),
         (0, 0, '0x01ba', False),
+        (0, 0, '0x02ba', False),
     ],
 )
 def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_credentials, expected):
