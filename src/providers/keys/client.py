@@ -1,4 +1,3 @@
-import logging
 from time import sleep
 from typing import cast
 
@@ -8,8 +7,6 @@ from src.providers.keys.types import LidoKey, KeysApiStatus
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
-
-logger = logging.getLogger(__name__)
 
 
 class KeysOutdatedException(Exception):
