@@ -36,6 +36,22 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_firstArrayLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_secondArrayLength",
+        "type": "uint256"
+      }
+    ],
+    "name": "ArraysLengthMismatch",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "BatchesAreNotSorted",
     "type": "error"
@@ -406,6 +422,25 @@
   },
   {
     "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "_fromTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "_toTokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "BatchMetadataUpdate",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
     "inputs": [],
     "name": "BunkerModeDisabled",
     "type": "event"
@@ -447,6 +482,19 @@
       }
     ],
     "name": "InitializedV1",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "MetadataUpdate",
     "type": "event"
   },
   {
@@ -587,43 +635,6 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "from",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "to",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfETHLocked",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "sharesToBurn",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "WithdrawalBatchFinalized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
         "name": "requestId",
         "type": "uint256"
       },
@@ -684,6 +695,43 @@
       }
     ],
     "name": "WithdrawalRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "from",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "to",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amountOfETHLocked",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sharesToBurn",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "WithdrawalsFinalized",
     "type": "event"
   },
   {
@@ -1040,9 +1088,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256[]",
-        "name": "_batches",
-        "type": "uint256[]"
+        "internalType": "uint256",
+        "name": "_lastRequestIdToBeFinalized",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -1600,7 +1648,7 @@
     "inputs": [
       {
         "internalType": "uint256[]",
-        "name": "amounts",
+        "name": "_amounts",
         "type": "uint256[]"
       },
       {
@@ -1680,7 +1728,7 @@
     "inputs": [
       {
         "internalType": "uint256[]",
-        "name": "amounts",
+        "name": "_amounts",
         "type": "uint256[]"
       },
       {

@@ -97,6 +97,11 @@
   },
   {
     "inputs": [],
+    "name": "InvalidChainConfig",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidSlot",
     "type": "error"
   },
@@ -161,6 +166,19 @@
     ],
     "name": "UnexpectedConsensusVersion",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "refSlot",
+        "type": "uint256"
+      }
+    ],
+    "name": "ConsensusLost",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -754,6 +772,19 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getReportProcessor",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",

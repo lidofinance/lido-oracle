@@ -72,6 +72,11 @@
             "internalType": "address",
             "name": "oracleDaemonConfig",
             "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "accounting",
+            "type": "address"
           }
         ],
         "internalType": "struct LidoLocator.Config",
@@ -86,6 +91,19 @@
     "inputs": [],
     "name": "ZeroAddress",
     "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "accounting",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -218,13 +236,8 @@
   },
   {
     "inputs": [],
-    "name": "oracleReportComponentsForLido",
+    "name": "oracleReportComponents",
     "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
       {
         "internalType": "address",
         "name": "",

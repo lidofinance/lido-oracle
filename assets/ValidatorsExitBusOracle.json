@@ -41,6 +41,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "HashCannotBeZero",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -77,6 +82,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "NoConsensusReportToProcess",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -105,11 +115,6 @@
   {
     "inputs": [],
     "name": "NonZeroContractVersionOnInit",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlyConsensusContractCanSubmitReport",
     "type": "error"
   },
   {
@@ -173,6 +178,16 @@
   {
     "inputs": [],
     "name": "ResumedExpected",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SecondsPerSlotCannotBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SenderIsNotTheConsensusContract",
     "type": "error"
   },
   {
@@ -356,6 +371,25 @@
       }
     ],
     "name": "ProcessingStarted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "refSlot",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "hash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ReportDiscarded",
     "type": "event"
   },
   {
@@ -667,6 +701,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "refSlot",
+        "type": "uint256"
+      }
+    ],
+    "name": "discardConsensusReport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

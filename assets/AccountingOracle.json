@@ -8,11 +8,6 @@
       },
       {
         "internalType": "address",
-        "name": "lido",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "legacyOracle",
         "type": "address"
       },
@@ -67,7 +62,7 @@
   },
   {
     "inputs": [],
-    "name": "ExtraDataListOnlySupportsSingleTx",
+    "name": "HashCannotBeZero",
     "type": "error"
   },
   {
@@ -136,22 +131,22 @@
   },
   {
     "inputs": [],
+    "name": "LidoCannotBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "LidoLocatorCannotBeZero",
     "type": "error"
   },
   {
     "inputs": [],
+    "name": "NoConsensusReportToProcess",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NonZeroContractVersionOnInit",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NumExitedValidatorsCannotDecrease",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlyConsensusContractCanSubmitReport",
     "type": "error"
   },
   {
@@ -200,6 +195,16 @@
       }
     ],
     "name": "RefSlotMustBeGreaterThanProcessingOne",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SecondsPerSlotCannotBeZero",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SenderIsNotTheConsensusContract",
     "type": "error"
   },
   {
@@ -481,6 +486,25 @@
         "internalType": "bytes32",
         "name": "hash",
         "type": "bytes32"
+      }
+    ],
+    "name": "ReportDiscarded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "refSlot",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "hash",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -688,20 +712,7 @@
     "name": "LEGACY_ORACLE",
     "outputs": [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "LIDO",
-    "outputs": [
-      {
-        "internalType": "address",
+        "internalType": "contract ILegacyOracle",
         "name": "",
         "type": "address"
       }
@@ -772,6 +783,32 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "refSlot",
+        "type": "uint256"
+      }
+    ],
+    "name": "discardConsensusReport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "consensusVersion",
+        "type": "uint256"
+      }
+    ],
+    "name": "finalizeUpgrade_v2",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1209,14 +1246,19 @@
             "type": "uint256[]"
           },
           {
-            "internalType": "uint256",
-            "name": "simulatedShareRate",
-            "type": "uint256"
-          },
-          {
             "internalType": "bool",
             "name": "isBunkerMode",
             "type": "bool"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "vaultsValues",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "int256[]",
+            "name": "vaultsNetCashFlows",
+            "type": "int256[]"
           },
           {
             "internalType": "uint256",
@@ -1260,7 +1302,7 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "items",
+        "name": "data",
         "type": "bytes"
       }
     ],

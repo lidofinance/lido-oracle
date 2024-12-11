@@ -8,7 +8,7 @@
       },
       {
         "internalType": "address",
-        "name": "_treasury",
+        "name": "_locator",
         "type": "address"
       },
       {
@@ -32,7 +32,7 @@
   },
   {
     "inputs": [],
-    "name": "AppAuthLidoFailed",
+    "name": "AppAuthFailed",
     "type": "error"
   },
   {
@@ -303,12 +303,25 @@
   },
   {
     "inputs": [],
-    "name": "RECOVER_ASSETS_ROLE",
+    "name": "LIDO",
     "outputs": [
       {
-        "internalType": "bytes32",
+        "internalType": "contract ILido",
         "name": "",
-        "type": "bytes32"
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "LOCATOR",
+    "outputs": [
+      {
+        "internalType": "contract ILidoLocator",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -335,32 +348,6 @@
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "STETH",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "TREASURY",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
