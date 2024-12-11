@@ -44,7 +44,7 @@ def test_process_report_main(consensus, tx_utils, caplog):
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17
     ).as_tuple()
     consensus.build_report = Mock(return_value=report_data)
 
@@ -58,10 +58,10 @@ def test_process_report_main(consensus, tx_utils, caplog):
 # ----- Hash calculations ----------
 @pytest.mark.unit
 def test_hash_calculations(consensus):
-    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17)
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
+    assert report_hash == HexBytes('0x227d585fc9d342313af84ae0bd07a40caa2419a769c04d45ae24a5e17ba2017c')
 
 
 # ------ Process report hash -----------
@@ -180,7 +180,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
@@ -222,7 +222,7 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 

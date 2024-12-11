@@ -28,8 +28,9 @@ class ReportData:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
-    finalization_share_rate: int
     is_bunker: bool
+    vaultsValues: list[int]
+    vaultsNetCashFlows: list[int]
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -47,8 +48,9 @@ class ReportData:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
-            self.finalization_share_rate,
             self.is_bunker,
+            self.vaultsValues,
+            self.vaultsNetCashFlows,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,
