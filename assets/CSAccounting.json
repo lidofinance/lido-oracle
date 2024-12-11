@@ -1,1 +1,851 @@
-[{"type":"function","name":"chargeFee","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"chargeRecipient","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"claimRewardsStETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"stETHAmount","type":"uint256","internalType":"uint256"},{"name":"rewardAddress","type":"address","internalType":"address"},{"name":"cumulativeFeeShares","type":"uint256","internalType":"uint256"},{"name":"rewardsProof","type":"bytes32[]","internalType":"bytes32[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"claimRewardsUnstETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"stEthAmount","type":"uint256","internalType":"uint256"},{"name":"rewardAddress","type":"address","internalType":"address"},{"name":"cumulativeFeeShares","type":"uint256","internalType":"uint256"},{"name":"rewardsProof","type":"bytes32[]","internalType":"bytes32[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"claimRewardsWstETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"wstETHAmount","type":"uint256","internalType":"uint256"},{"name":"rewardAddress","type":"address","internalType":"address"},{"name":"cumulativeFeeShares","type":"uint256","internalType":"uint256"},{"name":"rewardsProof","type":"bytes32[]","internalType":"bytes32[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"compensateLockedBondETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"depositETH","inputs":[{"name":"from","type":"address","internalType":"address"},{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"depositStETH","inputs":[{"name":"from","type":"address","internalType":"address"},{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"stETHAmount","type":"uint256","internalType":"uint256"},{"name":"permit","type":"tuple","internalType":"struct ICSAccounting.PermitInput","components":[{"name":"value","type":"uint256","internalType":"uint256"},{"name":"deadline","type":"uint256","internalType":"uint256"},{"name":"v","type":"uint8","internalType":"uint8"},{"name":"r","type":"bytes32","internalType":"bytes32"},{"name":"s","type":"bytes32","internalType":"bytes32"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"depositWstETH","inputs":[{"name":"from","type":"address","internalType":"address"},{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"wstETHAmount","type":"uint256","internalType":"uint256"},{"name":"permit","type":"tuple","internalType":"struct ICSAccounting.PermitInput","components":[{"name":"value","type":"uint256","internalType":"uint256"},{"name":"deadline","type":"uint256","internalType":"uint256"},{"name":"v","type":"uint8","internalType":"uint8"},{"name":"r","type":"bytes32","internalType":"bytes32"},{"name":"s","type":"bytes32","internalType":"bytes32"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"feeDistributor","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ICSFeeDistributor"}],"stateMutability":"view"},{"type":"function","name":"getActualLockedBond","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBond","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondAmountByKeysCount","inputs":[{"name":"keys","type":"uint256","internalType":"uint256"},{"name":"curve","type":"tuple","internalType":"struct ICSBondCurve.BondCurve","components":[{"name":"points","type":"uint256[]","internalType":"uint256[]"},{"name":"trend","type":"uint256","internalType":"uint256"}]}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondAmountByKeysCount","inputs":[{"name":"keys","type":"uint256","internalType":"uint256"},{"name":"curveId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondAmountByKeysCountWstETH","inputs":[{"name":"keysCount","type":"uint256","internalType":"uint256"},{"name":"curveId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondAmountByKeysCountWstETH","inputs":[{"name":"keysCount","type":"uint256","internalType":"uint256"},{"name":"curve","type":"tuple","internalType":"struct ICSBondCurve.BondCurve","components":[{"name":"points","type":"uint256[]","internalType":"uint256[]"},{"name":"trend","type":"uint256","internalType":"uint256"}]}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondCurve","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"tuple","internalType":"struct ICSBondCurve.BondCurve","components":[{"name":"points","type":"uint256[]","internalType":"uint256[]"},{"name":"trend","type":"uint256","internalType":"uint256"}]}],"stateMutability":"view"},{"type":"function","name":"getBondCurveId","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondLockRetentionPeriod","inputs":[],"outputs":[{"name":"retention","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBondShares","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getCurveInfo","inputs":[{"name":"curveId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"tuple","internalType":"struct ICSBondCurve.BondCurve","components":[{"name":"points","type":"uint256[]","internalType":"uint256[]"},{"name":"trend","type":"uint256","internalType":"uint256"}]}],"stateMutability":"view"},{"type":"function","name":"getKeysCountByBondAmount","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"curve","type":"tuple","internalType":"struct ICSBondCurve.BondCurve","components":[{"name":"points","type":"uint256[]","internalType":"uint256[]"},{"name":"trend","type":"uint256","internalType":"uint256"}]}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getKeysCountByBondAmount","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"curveId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getLockedBondInfo","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"tuple","internalType":"struct ICSBondLock.BondLock","components":[{"name":"amount","type":"uint128","internalType":"uint128"},{"name":"retentionUntil","type":"uint128","internalType":"uint128"}]}],"stateMutability":"view"},{"type":"function","name":"getRequiredBondForNextKeys","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"additionalKeys","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getRequiredBondForNextKeysWstETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"additionalKeys","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getUnbondedKeysCount","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getUnbondedKeysCountToEject","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"lockBondETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"penalize","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"releaseLockedBondETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"resetBondCurve","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setBondCurve","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"},{"name":"curveId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"settleLockedBondETH","inputs":[{"name":"nodeOperatorId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"totalBondShares","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"}]
+[
+  {
+    "type": "function",
+    "name": "chargeFee",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "chargeRecipient",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claimRewardsStETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stETHAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cumulativeFeeShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardsProof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimRewardsUnstETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stEthAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cumulativeFeeShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardsProof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimRewardsWstETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "wstETHAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "cumulativeFeeShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rewardsProof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "compensateLockedBondETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositETH",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositStETH",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stETHAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct ICSAccounting.PermitInput",
+        "components": [
+          {
+            "name": "value",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "depositWstETH",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "wstETHAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct ICSAccounting.PermitInput",
+        "components": [
+          {
+            "name": "value",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "feeDistributor",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICSFeeDistributor"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getActualLockedBond",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBond",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondAmountByKeysCount",
+    "inputs": [
+      {
+        "name": "keys",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curve",
+        "type": "tuple",
+        "internalType": "struct ICSBondCurve.BondCurve",
+        "components": [
+          {
+            "name": "points",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "trend",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondAmountByKeysCount",
+    "inputs": [
+      {
+        "name": "keys",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curveId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondAmountByKeysCountWstETH",
+    "inputs": [
+      {
+        "name": "keysCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curveId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondAmountByKeysCountWstETH",
+    "inputs": [
+      {
+        "name": "keysCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curve",
+        "type": "tuple",
+        "internalType": "struct ICSBondCurve.BondCurve",
+        "components": [
+          {
+            "name": "points",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "trend",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondCurve",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ICSBondCurve.BondCurve",
+        "components": [
+          {
+            "name": "points",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "trend",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondCurveId",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondLockRetentionPeriod",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "retention",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBondShares",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurveInfo",
+    "inputs": [
+      {
+        "name": "curveId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ICSBondCurve.BondCurve",
+        "components": [
+          {
+            "name": "points",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "trend",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getKeysCountByBondAmount",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curve",
+        "type": "tuple",
+        "internalType": "struct ICSBondCurve.BondCurve",
+        "components": [
+          {
+            "name": "points",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "trend",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getKeysCountByBondAmount",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curveId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLockedBondInfo",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ICSBondLock.BondLock",
+        "components": [
+          {
+            "name": "amount",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "retentionUntil",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRequiredBondForNextKeys",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "additionalKeys",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRequiredBondForNextKeysWstETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "additionalKeys",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUnbondedKeysCount",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUnbondedKeysCountToEject",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lockBondETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "penalize",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "releaseLockedBondETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resetBondCurve",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setBondCurve",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "curveId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleLockedBondETH",
+    "inputs": [
+      {
+        "name": "nodeOperatorId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalBondShares",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]
