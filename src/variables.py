@@ -15,6 +15,8 @@ GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
 GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
 
+CHAIN_ID: Final = int(os.getenv('CHAIN_ID', 1))
+
 # - Account -
 ACCOUNT = None
 MEMBER_PRIV_KEY = from_file_or_env('MEMBER_PRIV_KEY')

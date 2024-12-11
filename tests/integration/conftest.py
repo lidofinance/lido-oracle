@@ -4,6 +4,7 @@ import pytest
 from web3 import Web3, HTTPProvider
 
 from src import variables
+from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
@@ -22,7 +23,7 @@ def web3_provider_integration(request):
 
     w3 = Web3(HTTPProvider(variables.EXECUTION_CLIENT_URI[0], request_kwargs={'timeout': 3600}))
 
-    assert w3.eth.chain_id == 1
+    assert w3.eth.chain_id == variables.CHAIN_ID
 
     return w3
 
@@ -55,6 +56,13 @@ def lido_contract(web3_provider_integration, lido_locator_contract) -> LidoContr
         lido_locator_contract.lido(),
     )
 
+@pytest.fixture
+def accounting_contract(web3_provider_integration, lido_locator_contract) -> LidoContract:
+    return get_contract(
+        web3_provider_integration,
+        AccountingContract,
+        lido_locator_contract.accounting(),
+    )
 
 @pytest.fixture
 def accounting_oracle_contract(web3_provider_integration, lido_locator_contract) -> AccountingOracleContract:
