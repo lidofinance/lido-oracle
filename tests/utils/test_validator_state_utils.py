@@ -1,7 +1,12 @@
 from pydantic.class_validators import validator
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    FAR_FUTURE_EPOCH,
+    EFFECTIVE_BALANCE_INCREMENT,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+)
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
@@ -35,22 +40,22 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                     '0',
                     '1',
                     ValidatorStatus.ACTIVE_ONGOING,
-                    ValidatorState('0x0', '', str(32 * 10 ** 9), False, '', '15000', '15001', ''),
+                    ValidatorState('0x0', '', str(32 * 10**9), False, '', '15000', '15001', ''),
                 ),
                 Validator(
                     '1',
                     '1',
                     ValidatorStatus.ACTIVE_EXITING,
-                    ValidatorState('0x1', '', str(31 * 10 ** 9), False, '', '14999', '15000', ''),
+                    ValidatorState('0x1', '', str(31 * 10**9), False, '', '14999', '15000', ''),
                 ),
                 Validator(
                     '2',
                     '1',
                     ValidatorStatus.ACTIVE_SLASHED,
-                    ValidatorState('0x2', '', str(31 * 10 ** 9), True, '', '15000', '15001', ''),
+                    ValidatorState('0x2', '', str(31 * 10**9), True, '', '15000', '15001', ''),
                 ),
             ],
-            63 * 10 ** 9,
+            63 * 10**9,
         ),
         (
             [
@@ -58,13 +63,13 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                     '0',
                     '1',
                     ValidatorStatus.ACTIVE_ONGOING,
-                    ValidatorState('0x0', '', str(32 * 10 ** 9), False, '', '14000', '14999', ''),
+                    ValidatorState('0x0', '', str(32 * 10**9), False, '', '14000', '14999', ''),
                 ),
                 Validator(
                     '1',
                     '1',
                     ValidatorStatus.EXITED_SLASHED,
-                    ValidatorState('0x1', '', str(32 * 10 ** 9), True, '', '15000', '15000', ''),
+                    ValidatorState('0x1', '', str(32 * 10**9), True, '', '15000', '15000', ''),
                 ),
             ],
             0,
@@ -98,8 +103,8 @@ def test_get_validator_age(validator_activation_epoch, ref_epoch, expected_resul
     [
         (176720, 176720, 176722, True),
         (176720, 176721, 176722, True),
-        (176900, 176900, 2 ** 64 - 1, True),
-        (176901, 176900, 2 ** 64 - 1, False),
+        (176900, 176900, 2**64 - 1, True),
+        (176901, 176900, 2**64 - 1, False),
         (176720, 176720, 176720, False),
         (176900, 176720, 176720, False),
         (176900, 176720, 176750, False),
@@ -120,7 +125,7 @@ def test_is_active_validator(activation_epoch, epoch, exit_epoch, expected):
     [
         (176720, 176722, True),
         (176730, 176722, False),
-        (2 ** 64 - 1, 176722, False),
+        (2**64 - 1, 176722, False),
     ],
 )
 def test_is_exited_validator(exit_epoch, epoch, expected):
@@ -209,13 +214,13 @@ def test_has_execution_withdrawal_credential(wc, expected):
 @pytest.mark.parametrize(
     "withdrawable_epoch, wc, balance, epoch, expected",
     [
-        (176720, '0x01ba', 32 * (10 ** 10), 176722, True),
-        (176722, '0x01ba', 32 * (10 ** 10), 176722, True),
-        (176723, '0x01ba', 32 * (10 ** 10), 176722, False),
+        (176720, '0x01ba', 32 * (10**10), 176722, True),
+        (176722, '0x01ba', 32 * (10**10), 176722, True),
+        (176723, '0x01ba', 32 * (10**10), 176722, False),
         (176722, '0x01ba', 0, 176722, False),
-        (176720, '0x02ba', 32 * (10 ** 10), 176722, True),
-        (176722, '0x02ba', 32 * (10 ** 10), 176722, True),
-        (176723, '0x02ba', 32 * (10 ** 10), 176722, False),
+        (176720, '0x02ba', 32 * (10**10), 176722, True),
+        (176722, '0x02ba', 32 * (10**10), 176722, True),
+        (176723, '0x02ba', 32 * (10**10), 176722, False),
         (176722, '0x02ba', 0, 176722, False),
     ],
 )
@@ -233,12 +238,12 @@ def test_is_fully_withdrawable_validator(withdrawable_epoch, wc, balance, epoch,
 @pytest.mark.parametrize(
     "effective_balance, add_balance, withdrawal_credentials, expected",
     [
-        (32 * 10 ** 9, 1, '0x01ba', True),
+        (32 * 10**9, 1, '0x01ba', True),
         (MAX_EFFECTIVE_BALANCE_ELECTRA, 1, '0x02ba', True),
-        (32 * 10 ** 9, 1, '0x0', False),
-        (32 * 10 ** 8, 0, '0x01ba', False),
+        (32 * 10**9, 1, '0x0', False),
+        (32 * 10**8, 0, '0x01ba', False),
         (MAX_EFFECTIVE_BALANCE_ELECTRA, 0, '0x02ba', False),
-        (32 * 10 ** 9, 0, '0x', False),
+        (32 * 10**9, 0, '0x', False),
         (0, 0, '0x01ba', False),
         (0, 0, '0x02ba', False),
     ],
@@ -257,9 +262,9 @@ def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_cr
 @pytest.mark.parametrize(
     "activation_epoch, exit_epoch, epoch, expected",
     [
-        (170000, 2 ** 64 - 1, 170256, True),
+        (170000, 2**64 - 1, 170256, True),
         (170000, 170200, 170256, False),
-        (170000, 2 ** 64 - 1, 170255, False),
+        (170000, 2**64 - 1, 170255, False),
     ],
 )
 def test_is_validator_eligible_to_exit(activation_epoch, exit_epoch, epoch, expected):
@@ -293,12 +298,12 @@ class TestCalculateTotalEffectiveBalance:
         validators = ValidatorFactory.batch(2)
 
         validators[0].validator.activation_epoch = 170000
-        validators[0].validator.exit_epoch = 2 ** 64 - 1
+        validators[0].validator.exit_epoch = 2**64 - 1
         validators[0].validator.effective_balance = 1000000000
         validators[0].validator.withdrawal_credentials = '0x01ba'
 
         validators[1].validator.activation_epoch = 170001
-        validators[1].validator.exit_epoch = 2 ** 64 - 1
+        validators[1].validator.exit_epoch = 2**64 - 1
         validators[1].validator.effective_balance = 2000000000
         validators[1].validator.withdrawal_credentials = '0x01ba'
 
@@ -307,7 +312,7 @@ class TestCalculateTotalEffectiveBalance:
     @pytest.mark.unit
     def test_no_validators(self):
         actual = calculate_total_active_effective_balance([], EpochNumber(170256))
-        assert actual == Gwei(1 * 10 ** 9)
+        assert actual == Gwei(1 * 10**9)
 
     @pytest.mark.unit
     def test_all_active(self, validators: list[Validator]):
