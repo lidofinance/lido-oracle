@@ -7,21 +7,19 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     ReportData,
-    LidoReportRebase,
+    ReportValues,
     GenericExtraData,
     WqReport,
     RebaseReport,
     BunkerMode,
-    FinalizationShareRate,
     ValidatorsCount,
     ValidatorsBalance,
-    AccountingProcessingState,
+    AccountingProcessingState, CalculatedReportResults,
 )
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
@@ -222,36 +220,36 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
         return ValidatorsCount(count), ValidatorsBalance(total_balance)
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
+    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         is_bunker = self._is_bunker(blockstamp)
 
-        share_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+        share_rate = simulation.withdrawals_share_rate()
         logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
-            share_rate,
+            simulation.withdrawals_share_rate(),
             simulation.withdrawals,
-            simulation.el_reward,
+            simulation.el_rewards,
         )
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return FinalizationShareRate(share_rate), batches
+        return batches
 
     @lru_cache(maxsize=1)
-    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> CalculatedReportResults:
         """
         Simulate rebase excluding any execution rewards.
         This used to check worst scenarios in bunker service.
         """
         return self.simulate_rebase_after_report(blockstamp, el_rewards=Wei(0))
 
-    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> CalculatedReportResults:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
@@ -259,7 +257,7 @@ class Accounting(BaseModule, ConsensusModule):
         self,
         blockstamp: ReferenceBlockStamp,
         el_rewards: Wei,
-    ) -> LidoReportRebase:
+    ) -> CalculatedReportResults:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
@@ -267,21 +265,28 @@ class Accounting(BaseModule, ConsensusModule):
 
         chain_conf = self.get_chain_config(blockstamp)
 
-        return self.w3.lido_contracts.lido.handle_oracle_report(
-            # Lido contract has sanity check that timestamp is not in the future.
-            # That's why we get revert if timestamp in args > call block timestamp.
-            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
-            blockstamp.block_timestamp,  # _reportTimestamp
-            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
-            # CL values
-            validators_count,  # _clValidators
-            Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
-            # EL values
-            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            el_rewards,  # _elRewardsVaultBalance
-            self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
-            self.w3.lido_contracts.accounting_oracle.address,
-            blockstamp.ref_slot,
+        report = ReportValues(
+            blockstamp.block_timestamp,  # timestamp
+            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # time_elapsed
+            validators_count,  # cl_validators
+            Web3.to_wei(cl_balance, 'gwei'),  # cl_balance
+            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # withdrawal_vault_balance
+            el_rewards,  # el_rewards_vault_balance
+            self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
+            [],  # withdrawal_finalization_batches
+            # TODO: add real values for vaults accounting
+            [],  # vault_values
+            [],  # net_cash_flows
+        )
+
+        withdrawal_share_rate = 0 # For initial calculation we assume 0 share rate
+
+        # Accounting contract has sanity check that timestamp is not in the future.
+        # That's why we get revert if timestamp in args > call block timestamp.
+        # In normal case, we call handleOracleReport with timestamp == call block timestamp.
+        return self.w3.lido_contracts.accounting.simulate_oracle_report(
+            report,
+            withdrawal_share_rate,
             blockstamp.block_hash,
         )
 
@@ -320,13 +325,7 @@ class Accounting(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
-
-        chain_config = self.get_chain_config(blockstamp)
-        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
-        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
-        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
 
         if consensus_version == 1:
             return ExtraDataService.collect(
@@ -385,8 +384,8 @@ class Accounting(BaseModule, ConsensusModule):
     # calculates is_bunker, finalization_share_rate, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
         is_bunker = self._is_bunker(blockstamp)
-        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
-        return is_bunker, finalization_share_rate, finalization_batches
+        finalization_batches = self._get_finalization_data(blockstamp)
+        return is_bunker, finalization_batches
 
     def _calculate_extra_data_report_v1(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -424,7 +423,7 @@ class Accounting(BaseModule, ConsensusModule):
     ) -> ReportData:
         validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
         staking_module_ids_list, exit_validators_count_list = report_modules_part
-        is_bunker, finalization_share_rate, finalization_batches = report_wq_part
+        is_bunker, finalization_batches = report_wq_part
         return ReportData(
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,

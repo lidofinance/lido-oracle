@@ -4,8 +4,9 @@ from eth_typing import ChecksumAddress
 from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
 
+from src.modules.accounting.types import ReportValues, CalculatedReportResults
 from src.providers.execution.base_interface import ContractInterface
-from src.types import ReportValues
+from src.utils.abi import named_tuple_to_dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -25,31 +26,6 @@ class AccountingContract(ContractInterface):
         periodically called by the AccountingOracle contract
         """
 
-        try:
-            return self._handle_oracle_report(
-                report,
-                accounting_oracle_address,
-                block_identifier,
-            )
-        except ValueError as error:
-            logger.warning({
-                'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
-                'error': repr(error),
-            })
-
-            return self._handle_oracle_report(
-                report,
-                accounting_oracle_address,
-                block_identifier,
-            )
-
-    def _handle_oracle_report(
-        self,
-        report: ReportValues,
-        accounting_oracle_address: ChecksumAddress,
-        block_identifier: BlockIdentifier = 'latest',
-    ) -> ContractFunction:
-        # Pack the report values into a tuple to match Solidity struct
         report = (
             report.timestamp,
             report.time_elapsed,
@@ -76,3 +52,39 @@ class AccountingContract(ContractInterface):
         })
 
         return response
+
+    def simulate_oracle_report(
+        self,
+        report: ReportValues,
+        withdrawal_share_rate: int = 0,
+        block_identifier: BlockIdentifier = 'latest',
+    ) -> CalculatedReportResults:
+        """
+        Simulates the effects of the `handleOracleReport` function without actually updating the contract state.
+        """
+
+        report = (
+            report.timestamp,
+            report.time_elapsed,
+            report.cl_validators,
+            report.cl_balance,
+            report.withdrawal_vault_balance,
+            report.el_rewards_vault_balance,
+            report.shares_requested_to_burn,
+            report.withdrawal_finalization_batches,
+            report.vault_values,
+            report.net_cash_flows,
+        )
+
+        response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(block_identifier=block_identifier)
+        response = named_tuple_to_dataclass(response, CalculatedReportResults)
+
+        logger.info({
+            'msg': f'Call `simulateOracleReport({report}, {withdrawal_share_rate}).',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+
+        return response
+

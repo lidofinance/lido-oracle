@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import Self, NewType
+from typing import Self, NewType, List
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
+from src.constants import SHARE_RATE_PRECISION_E27
 from src.types import (
     SlotNumber,
     Gwei,
@@ -134,14 +135,13 @@ class WithdrawalRequestStatus:
 
 
 BunkerMode = NewType('BunkerMode', bool)
-FinalizationShareRate = NewType('FinalizationShareRate', int)
 ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
 type SharesToBurn = int
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
+type WqReport = tuple[BunkerMode, FinalizationBatches]
 
 
 @dataclass
@@ -149,3 +149,47 @@ class BeaconStat:
     deposited_validators: int
     beacon_validators: int
     beacon_balance: int
+
+
+@dataclass(frozen=True)
+class ReportValues:
+    timestamp: int
+    time_elapsed: int
+    cl_validators: int
+    cl_balance: int
+    withdrawal_vault_balance: int
+    el_rewards_vault_balance: int
+    shares_requested_to_burn: int
+    withdrawal_finalization_batches: List[int]
+    vault_values: List[int]
+    net_cash_flows: List[int]
+
+
+@dataclass(frozen=True)
+class StakingRewardsDistribution:
+    recipients: List[ChecksumAddress]
+    module_ids: List[int]
+    modules_fees: List[int]
+    total_fee: int
+    precision_points: int
+
+
+@dataclass(frozen=True)
+class CalculatedReportResults:
+    withdrawals: Wei
+    el_rewards: Wei
+    ether_to_finalize_wq: int
+    shares_to_finalize_wq: int
+    shares_to_burn_for_withdrawals: int
+    total_shares_to_burn: int
+    shares_to_mint_as_fees: int
+    reward_distribution: StakingRewardsDistribution
+    principal_cl_balance: int
+    post_total_shares: int
+    post_total_pooled_ether: int
+    external_ether: int
+    vaults_locked_ether: List[int]
+    vaults_treasury_fee_shares: List[int]
+
+    def withdrawals_share_rate(self):
+        return self.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // self.post_total_shares
