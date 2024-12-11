@@ -27,9 +27,7 @@ from src.utils.slot import get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.types import Web3
 
-
 logger = logging.getLogger(__name__)
-
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
 InitialEpochIsYetToArriveRevert = Web3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
@@ -135,25 +133,29 @@ class ConsensusModule(ABC):
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
-            (
-                # Current frame's reference slot.
-                _,  # current_frame_ref_slot
-                # Consensus report for the current frame, if any. Zero bytes otherwise.
-                current_frame_consensus_report,
-                # Whether the provided address is a member of the oracle committee.
-                is_member,
-                # Whether the oracle committee member is in the fast line members subset of the current reporting frame.
-                is_fast_lane,
-                # Whether the oracle committee member is allowed to submit a report at the moment of the call.
-                _,  # can_report
-                # The last reference slot for which the member submitted a report.
-                last_member_report_ref_slot,
-                # The hash reported by the member for the current frame, if any.
-                current_frame_member_report,
-            ) = consensus_contract.get_consensus_state_for_member(
-                variables.ACCOUNT.address,
-                blockstamp.block_hash,
-            )
+            try:
+                (
+                    # Current frame's reference slot.
+                    _,  # current_frame_ref_slot
+                    # Consensus report for the current frame, if any. Zero bytes otherwise.
+                    current_frame_consensus_report,
+                    # Whether the provided address is a member of the oracle committee.
+                    is_member,
+                    # Whether the oracle committee member is in the fast line members subset of the current reporting frame.
+                    is_fast_lane,
+                    # Whether the oracle committee member is allowed to submit a report at the moment of the call.
+                    _,  # can_report
+                    # The last reference slot for which the member submitted a report.
+                    last_member_report_ref_slot,
+                    # The hash reported by the member for the current frame, if any.
+                    current_frame_member_report,
+                ) = consensus_contract.get_consensus_state_for_member(
+                    variables.ACCOUNT.address,
+                    blockstamp.block_hash,
+                )
+            except ContractCustomError as revert:
+                if revert.data != InitialEpochIsYetToArriveRevert:
+                    raise revert
 
             is_submit_member = self._is_submit_member(blockstamp)
 

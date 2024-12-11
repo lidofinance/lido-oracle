@@ -308,10 +308,13 @@ class CSOracle(BaseModule, ConsensusModule):
                 blockstamp.slot_number,
             )
         )
-        digests = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp).get(self.module_id)
-        if digests is None:
-            raise InconsistentData(f"No Node Operators digests found for {self.module_id=}")
-        stuck.update(no.id for no in digests if no.stuck_validators_count > 0)
+
+        nos_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
+        if self.module_id in nos_by_module:
+            stuck.update(no.id for no in nos_by_module[self.module_id] if no.stuck_validators_count > 0)
+        else:
+            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
+
         stuck.update(
             self.w3.csm.get_operators_with_stucks_in_range(
                 l_blockstamp.block_hash,
