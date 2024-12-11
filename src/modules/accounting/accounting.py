@@ -436,7 +436,9 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            finalization_share_rate=finalization_share_rate,
+            # TODO: Add rebasable vaults values and net cash flows
+            vaultsValues=[],
+            vaultsNetCashFlows=[],
             is_bunker=is_bunker,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
