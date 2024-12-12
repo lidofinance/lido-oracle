@@ -7,8 +7,8 @@ from web3.types import Wei
 
 from src.constants import (
     FAR_FUTURE_EPOCH,
-    MAX_EFFECTIVE_BALANCE,
     MAX_WITHDRAWALS_PER_PAYLOAD,
+    MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -219,7 +219,7 @@ class Ejector(BaseModule, ConsensusModule):
         return result
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
-        return self.w3.to_wei(min(int(validator.balance), MAX_EFFECTIVE_BALANCE), 'gwei')
+        return self.w3.to_wei(min(int(validator.balance), MIN_ACTIVATION_BALANCE), 'gwei')
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
