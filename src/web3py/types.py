@@ -1,14 +1,14 @@
 from web3 import Web3 as _Web3
 
-
 from src.providers.ipfs import IPFSProvider
 from src.web3py.extensions import (
-    LidoContracts,
-    TransactionUtils,
+    CSM,
     ConsensusClientModule,
     KeysAPIClientModule,
+    LidoContracts,
     LidoValidatorsProvider,
-    CSM
+    TransactionUtils,
+    WithdrawalRequests,
 )
 
 
@@ -20,3 +20,4 @@ class Web3(_Web3):
     kac: KeysAPIClientModule
     csm: CSM
     ipfs: IPFSProvider
+    withdrawal_requests: WithdrawalRequests

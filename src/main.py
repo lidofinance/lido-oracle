@@ -24,7 +24,8 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoValidatorsProvider,
     FallbackProviderModule,
-    LazyCSM
+    LazyCSM,
+    WithdrawalRequests
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.types import Web3
@@ -101,6 +102,7 @@ def main(module_name: OracleModule):
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
+        'withdrawal_requests': WithdrawalRequests,
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
