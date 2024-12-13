@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 
@@ -150,3 +151,23 @@ class SlotAttestationCommittee(FromResponse):
     index: str
     slot: str
     validators: list[str]
+
+
+@dataclass
+class PendingPartialWithdrawal:
+    index: str # ValidatorIndex
+    amount: str
+    withdrawable_epoch: str
+
+
+@dataclass
+class BeaconStateView(Nested, FromResponse):
+    """A view to BeaconState with only the required keys presented"""
+
+    slot: str
+    next_withdrawal_validator_index: str
+    # This fields are new in Electra, so here are default values for backward compatibility.
+    deposit_balance_to_consume: str = "0"
+    exit_balance_to_consume: str = "0"
+    earliest_exit_epoch: str = str(FAR_FUTURE_EPOCH) # XXX: Maybe we need something else here.
+    pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
