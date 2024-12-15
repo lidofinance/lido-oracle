@@ -16,7 +16,7 @@ from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
 from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
-from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
@@ -81,6 +81,55 @@ def test_stuck_operators(module: CSOracle, csm: CSM):
             stuck = module.stuck_operators(blockstamp=blockstamp)
 
     assert stuck == {NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(5), NodeOperatorId(6), NodeOperatorId(1337)}
+
+
+def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
+    module.module = Mock()  # type: ignore
+    module.module_id = StakingModuleId(3)
+    module.w3.cc = Mock()
+    module.w3.lido_validators = Mock()
+    module.w3.lido_contracts = Mock()
+    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
+        return_value={
+            1: {
+                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
+                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
+                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
+                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
+                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
+            },
+            2: {},
+        }
+    )
+
+    module.w3.csm.get_operators_with_stucks_in_range = Mock(
+        return_value=[
+            NodeOperatorId(2),
+            NodeOperatorId(4),
+            NodeOperatorId(6),
+        ]
+    )
+
+    module.current_frame_range = Mock(return_value=(69, 100))
+    module.converter = Mock()
+    module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
+
+    l_blockstamp = BlockStampFactory.build()
+    blockstamp = BlockStampFactory.build()
+
+    with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
+        with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
+            stuck = module.stuck_operators(blockstamp=blockstamp)
+
+    assert stuck == {
+        NodeOperatorId(2),
+        NodeOperatorId(4),
+        NodeOperatorId(6),
+    }
+
+    assert caplog.messages[0].startswith("No CSM digest at blockstamp")
 
 
 def test_calculate_distribution(module: CSOracle, csm: CSM):
@@ -321,7 +370,7 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
     )
 
     csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
-    module.get_current_frame = Mock(
+    module.get_initial_or_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(param.current_ref_slot),
             report_processing_deadline_slot=SlotNumber(0),

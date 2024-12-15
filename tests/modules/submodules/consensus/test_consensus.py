@@ -2,6 +2,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.modules.submodules import consensus as consensus_module
@@ -11,8 +12,9 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
-from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
+from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
+from tests.web3_extentions.test_lido_validators import blockstamp
 
 
 @pytest.fixture()
@@ -122,12 +124,60 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 @pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     bs = ReferenceBlockStampFactory.build()
-    current_frame = consensus.get_current_frame(bs)
+    current_frame = consensus.get_initial_or_current_frame(bs)
     previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
     consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
 
     consensus.get_blockstamp_for_report(previous_blockstamp)
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
+
+
+@pytest.mark.unit
+def test_get_frame_custom_exception(web3, consensus):
+    bs = ReferenceBlockStampFactory.build()
+
+    consensus_contract = Mock(get_current_frame=Mock(side_effect=ContractCustomError('0x12345678', '0x12345678')))
+    consensus._get_consensus_contract = Mock(return_value=consensus_contract)
+
+    with pytest.raises(ContractCustomError):
+        consensus.get_initial_or_current_frame(bs)
+
+
+@pytest.fixture()
+def use_account(request):
+    if request.param:
+        request.getfixturevalue("set_submit_account")
+    else:
+        request.getfixturevalue("set_no_account")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "use_account", [True, False], ids=['with_account', "without_account"], indirect=["use_account"]
+)
+def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
+    bs = ReferenceBlockStampFactory.build()
+    err = ContractCustomError('0xcd0883ea', '0xcd0883ea')
+    consensus_contract = Mock(
+        get_current_frame=Mock(side_effect=err), get_consensus_state_for_member=Mock(side_effect=err)
+    )
+    consensus._get_consensus_contract = Mock(return_value=consensus_contract)
+    consensus._is_submit_member = Mock(return_value=True)
+    consensus.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=5, epochs_per_frame=10))
+    consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
+
+    first_frame = consensus.get_initial_or_current_frame(bs)
+    member_info = consensus.get_member_info(bs)
+
+    assert first_frame.ref_slot == 5 * 32 - 1
+    assert first_frame.report_processing_deadline_slot == (5 + 10) * 32 - 1
+    assert member_info.is_submit_member
+    assert member_info.is_report_member
+    assert member_info.is_fast_lane
+    assert member_info.current_frame_consensus_report == ZERO_HASH
+    assert member_info.current_frame_member_report == ZERO_HASH
+    assert member_info.current_frame_ref_slot == first_frame.ref_slot
+    assert member_info.deadline_slot == first_frame.report_processing_deadline_slot
 
 
 @pytest.mark.unit
@@ -267,3 +317,21 @@ def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.M
         consensus.get_chain_config = Mock(return_value=chain_config)
         with pytest.raises(ValueError):
             consensus.check_contract_configs()
+
+
+def test_get_web3_converter(consensus):
+    blockstamp = BlockStampFactory.build()
+
+    fc = FrameConfigFactory.build()
+    cc = ChainConfigFactory.build()
+
+    consensus.get_frame_config = Mock(return_value=fc)
+    consensus.get_chain_config = Mock(return_value=cc)
+
+    converter = consensus._get_web3_converter(blockstamp)
+
+    consensus.get_frame_config.assert_called_once_with(blockstamp)
+    consensus.get_chain_config.assert_called_once_with(blockstamp)
+
+    assert converter.frame_config == fc
+    assert converter.chain_config == cc
