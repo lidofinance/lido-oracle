@@ -1,6 +1,6 @@
 import pytest
 
-from src.types import ReportValues
+from src.modules.accounting.types import ReportValues, CalculatedReportResults
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
@@ -22,14 +22,10 @@ def test_accounting_contract_call(accounting_contract, accounting_oracle_contrac
     check_contract(
         accounting_contract,
         [
-            (
-                'handle_oracle_report',
-                (
-                    report,
-                    accounting_oracle_contract.address,
-                ),
-                lambda response: check_value_type(response, list),
-            ),
+            ('handle_oracle_report', (report, accounting_oracle_contract.address),
+             lambda response: check_value_type(response, list),),
+            ('simulate_oracle_report', (report, 0),
+             lambda response: check_value_type(response, CalculatedReportResults),)
         ],
         caplog,
     )
