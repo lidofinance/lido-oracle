@@ -265,14 +265,16 @@ def hex_bitvector_to_list(bitvector: str) -> list[bool]:
     bytes_ = hex_str_to_bytes(bitvector)
     return _bytes_to_bool_list(bytes_)
 
+
 def hex_bitlist_to_list(bitlist: str) -> list[bool]:
     bytes_ = hex_str_to_bytes(bitlist)
-    if not len(bytes_) or bytes_[-1] == 0:
+    if not bytes_ or bytes_[-1] == 0:
         raise ValueError(f"Got invalid {bitlist=}")
     bitlist_len = int.from_bytes(bytes_, "little").bit_length() - 1
     return _bytes_to_bool_list(bytes_, count=bitlist_len)
 
+
 def _bytes_to_bool_list(bytes_: bytes, count: int | None = None) -> list[bool]:
-    count = count if count is not None else  len(bytes_) * 8
+    count = count if count is not None else len(bytes_) * 8
     # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
     return [bool((bytes_[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(count)]
