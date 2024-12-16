@@ -259,7 +259,7 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
     attestation2 = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation2.data.slot = 0
     attestation2.data.index = 0
-    attestation2.aggregation_bits = '0x' + '0' * 32
+    attestation2.aggregation_bits = '0x02'
     process_attestations([attestation, attestation2], committees)
     for index, validators in enumerate(committees.values()):
         for validator in validators:
