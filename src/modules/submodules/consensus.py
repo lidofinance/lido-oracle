@@ -199,8 +199,10 @@ class ConsensusModule(ABC):
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
+        force_report = variables.FORCE_REPORTING
+
         # Check if contract is currently reportable
-        if not self.is_contract_reportable(latest_blockstamp):
+        if not self.is_contract_reportable(latest_blockstamp) and not force_report:
             logger.info({'msg': 'Contract is not reportable.'})
             return None
 

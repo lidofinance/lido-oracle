@@ -58,6 +58,8 @@ else:
     SUBMIT_DATA_DELAY_IN_SLOTS = 0
     CYCLE_SLEEP_IN_SECONDS = 0
 
+FORCE_REPORTING: Final = os.getenv('FORCE_REPORTING', 'False').lower() == 'true'
+
 # HTTP variables
 HTTP_REQUEST_TIMEOUT_EXECUTION: Final = int(os.getenv('HTTP_REQUEST_TIMEOUT_EXECUTION', 2 * 60))
 
