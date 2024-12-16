@@ -1,12 +1,18 @@
 from collections import defaultdict
 from itertools import chain
 from types import SimpleNamespace
-from typing import Protocol
+from typing import Protocol, Sequence
 from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.checkpoint import get_committee_indices, is_electra_attestation, process_attestations
+from src.modules.csm.checkpoint import (
+    get_committee_indices,
+    hex_bitlist_to_list,
+    hex_bitvector_to_list,
+    is_electra_attestation,
+    process_attestations,
+)
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation
 from src.types import BlockStamp
@@ -96,9 +102,64 @@ def test_processing_attestation_after_electra(blockstamp: BlockStamp, web3: Web3
 
 
 @pytest.mark.unit
-def test_attested_indices_post_electra():
-    # Test is based on mekong slot 294664 and attestation for slot 294656.
+def test_hex_bitvector_to_list():
+    bits = hex_bitvector_to_list("0x00")
+    assert bits == [False] * 8
 
+    bits = hex_bitvector_to_list("00")
+    assert bits == [False] * 8
+
+    bits = hex_bitvector_to_list("50")
+    assert bits == [
+        # 0
+        False,
+        False,
+        False,
+        False,
+        # 5 little-endian
+        True,
+        False,
+        True,
+        False,
+    ]
+
+    bits = hex_bitvector_to_list("0x3174")
+    assert bits == [
+        # 1 little-endian
+        True,
+        False,
+        False,
+        False,
+        # 3 little-endian
+        True,
+        True,
+        False,
+        False,
+        # 4 little-endian
+        False,
+        False,
+        True,
+        False,
+        # 7 little-endian
+        True,
+        True,
+        True,
+        False,
+    ]
+
+
+@pytest.mark.unit
+def test_hex_bitlist_to_list():
+    bits = hex_bitlist_to_list("0x000000000000000000001000000000000010001000000000000000000000000020")
+    assert len(bits) == 261
+    assert [i for (i, v) in enumerate(bits) if v] == [84, 140, 156]
+
+    with pytest.raises(ValueError, match="invalid bitlist"):
+        hex_bitlist_to_list("0x000000000000000000001000000000000010001000000000000000000000000000")
+
+
+@pytest.mark.unit
+def test_attested_indices_pre_electra():
     committees = {
         ("42", "20"): [Mock(index=20000 + i) for i in range(130)],
         ("42", "22"): [Mock(index=22000 + i) for i in range(131)],
@@ -106,15 +167,46 @@ def test_attested_indices_post_electra():
     process_attestations(
         [
             Mock(
-                data=Mock(slot="42", index="0"),
-                aggregation_bits="0x000000000000000000001000000000000010001000000000000000000000000020",
-                committee_bits="0x0000500000000000",
-            )
+                data=Mock(slot="42", index="20"),
+                aggregation_bits="0000000000000000000030",
+                committee_bits=None,
+            ),
+            Mock(
+                data=Mock(slot="42", index="22"),
+                aggregation_bits="0004000c",
+                committee_bits=None,
+            ),
         ],
         committees,  # type: ignore
     )
     vals = [v for v in chain(*committees.values()) if v.included is True]
     assert [v.index for v in vals] == [20084, 22010, 22026]
+
+
+@pytest.mark.unit
+def test_attested_indices_post_electra():
+    committees = {
+        ("42", "20"): [Mock(index=20000 + i) for i in range(130)],
+        ("42", "22"): [Mock(index=22000 + i) for i in range(131)],
+        ("17", "12"): [Mock(index=12000 + i) for i in range(999)],
+    }
+    process_attestations(
+        [
+            Mock(
+                data=Mock(slot="42", index="0"),
+                aggregation_bits="0x000000000000000000001000000000000010001000000000000000000000000020",
+                committee_bits="0x0000500000000000",
+            ),
+            Mock(
+                data=Mock(slot="17", index="0"),
+                aggregation_bits="0x0000000000000000000030",
+                committee_bits="0x0010",
+            ),
+        ],
+        committees,  # type: ignore
+    )
+    vals = [v for v in chain(*committees.values()) if v.included is True]
+    assert [v.index for v in vals] == [20084, 22010, 22026, 12084]
 
 
 @pytest.mark.unit
@@ -151,12 +243,16 @@ def test_get_committee_indices_pre_electra():
         aggregation_bits="",
         committee_bits="0xff",
     )
-    assert get_committee_indices(att) == ["42"]
+    with pytest.raises(ValueError, match="invalid attestation"):
+        get_committee_indices(att)
 
 
 @pytest.mark.unit
 def test_get_committee_indices_post_electra():
     att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="")
+    assert get_committee_indices(att) == []
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0x0000000000000000")
     assert get_committee_indices(att) == []
 
     att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0x0100000000000000")
@@ -186,3 +282,25 @@ def test_get_committee_indices_post_electra():
         "20",
         "23",
     ]
+
+
+def get_serialized_bytearray(value: Sequence[bool], bit_count: int, extra_byte: bool) -> bytearray:
+    """
+    Serialize a sequence either into a Bitlist or a Bitvector
+    @see https://github.com/ethereum/py-ssz/blob/main/ssz/utils.py#L223
+    """
+
+    if extra_byte:
+        # Serialize Bitlist
+        as_bytearray = bytearray(bit_count // 8 + 1)
+    else:
+        # Serialize Bitvector
+        as_bytearray = bytearray((bit_count + 7) // 8)
+
+    for i in range(bit_count):
+        as_bytearray[i // 8] |= value[i] << (i % 8)
+
+    if extra_byte:
+        as_bytearray[bit_count // 8] |= 1 << (bit_count % 8)
+
+    return as_bytearray

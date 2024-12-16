@@ -14,6 +14,7 @@ from src.providers.consensus.types import BlockAttestationElectra, BlockAttestat
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
+from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import Web3Converter
 
 logger = logging.getLogger(__name__)
@@ -236,7 +237,7 @@ def process_attestations(attestations: Iterable[BlockAttestation], committees: C
         committee_offset = 0
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
-            att_bits = hex_bitvector_to_list(attestation.aggregation_bits)[committee_offset:][: len(committee)]
+            att_bits = hex_bitlist_to_list(attestation.aggregation_bits)[committee_offset:][: len(committee)]
             for index_in_committee in get_set_indices(att_bits):
                 committee[index_in_committee].included = True
             committee_offset += len(committee)
@@ -261,6 +262,17 @@ def get_set_indices(bits: Sequence[bool]) -> list[int]:
 
 
 def hex_bitvector_to_list(bitvector: str) -> list[bool]:
+    bytes_ = hex_str_to_bytes(bitvector)
+    return _bytes_to_bool_list(bytes_)
+
+def hex_bitlist_to_list(bitlist: str) -> list[bool]:
+    bytes_ = hex_str_to_bytes(bitlist)
+    if not len(bytes_) or bytes_[-1] == 0:
+        raise ValueError(f"Got invalid {bitlist=}")
+    bitlist_len = int.from_bytes(bytes_, "little").bit_length() - 1
+    return _bytes_to_bool_list(bytes_, count=bitlist_len)
+
+def _bytes_to_bool_list(bytes_: bytes, count: int | None = None) -> list[bool]:
+    count = count if count is not None else  len(bytes_) * 8
     # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
-    bytes_ = bytes.fromhex(bitvector[2:]) if bitvector.startswith("0x") else bytes.fromhex(bitvector)
-    return [bool((bytes_[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(bytes_) * 8)]
+    return [bool((bytes_[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(count)]
