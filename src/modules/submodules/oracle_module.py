@@ -82,11 +82,10 @@ class BaseModule(ABC):
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
             self._slot_threshold = blockstamp.slot_number
 
-        logger.info({'msg': f'Cycle end. Sleeping for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
-
     @staticmethod
     def _sleep_cycle():
         """Handles sleeping between cycles based on the configured cycle sleep time."""
+        logger.info({'msg': f'Cycle end. Sleeping for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
         time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
