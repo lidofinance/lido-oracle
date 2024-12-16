@@ -125,6 +125,10 @@ def test_derive_attestation_version():
     att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="")
     assert is_electra_attestation(att)
 
+    att: BlockAttestation = Mock(data=Mock(index="1"), aggregation_bits="", committee_bits="")
+    with pytest.raises(ValueError, match="invalid attestation"):
+        assert is_electra_attestation(att)
+
 
 @pytest.mark.unit
 def test_get_committee_indices_pre_electra():
