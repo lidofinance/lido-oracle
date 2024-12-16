@@ -1,11 +1,14 @@
 from collections import defaultdict
+from itertools import chain
 from types import SimpleNamespace
 from typing import Protocol
+from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.checkpoint import is_electra_attestation, process_attestations
+from src.modules.csm.checkpoint import get_committee_indices, is_electra_attestation, process_attestations
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockAttestation
 from src.types import BlockStamp
 from tests.factory.blockstamp import BlockStampFactory
 
@@ -90,3 +93,92 @@ def test_processing_attestation_after_electra(blockstamp: BlockStamp, web3: Web3
     assert not included[26890][47095]
     assert included[26889][84443]
     assert included[26890][31687]
+
+
+@pytest.mark.unit
+def test_attested_indices_post_electra():
+    # Test is based on mekong slot 294664 and attestation for slot 294656.
+
+    committees = {
+        ("42", "20"): [Mock(index=20000 + i) for i in range(130)],
+        ("42", "22"): [Mock(index=22000 + i) for i in range(131)],
+    }
+    process_attestations(
+        [
+            Mock(
+                data=Mock(slot="42", index="0"),
+                aggregation_bits="0x000000000000000000001000000000000010001000000000000000000000000020",
+                committee_bits="0x0000500000000000",
+            )
+        ],
+        committees,  # type: ignore
+    )
+    vals = [v for v in chain(*committees.values()) if v.included is True]
+    assert [v.index for v in vals] == [20084, 22010, 22026]
+
+
+@pytest.mark.unit
+def test_derive_attestation_version():
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits=None)
+    assert not is_electra_attestation(att)
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="")
+    assert is_electra_attestation(att)
+
+
+@pytest.mark.unit
+def test_get_committee_indices_pre_electra():
+    att: BlockAttestation = Mock(
+        data=Mock(index="0"),
+        aggregation_bits="",
+        committee_bits=None,
+    )
+    assert get_committee_indices(att) == ["0"]
+
+    att: BlockAttestation = Mock(
+        data=Mock(index="42"),
+        aggregation_bits="",
+        committee_bits=None,
+    )
+    assert get_committee_indices(att) == ["42"]
+
+    att: BlockAttestation = Mock(
+        data=Mock(index="42"),
+        aggregation_bits="",
+        committee_bits="0xff",
+    )
+    assert get_committee_indices(att) == ["42"]
+
+
+@pytest.mark.unit
+def test_get_committee_indices_post_electra():
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="")
+    assert get_committee_indices(att) == []
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0x0100000000000000")
+    assert get_committee_indices(att) == ["0"]
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0xffffff0000000000")
+    assert get_committee_indices(att) == [str(n) for n in range(24)]
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0x0000500000000000")
+    assert get_committee_indices(att) == ["20", "22"]
+
+    att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="0x5ff2990000000000")
+    assert get_committee_indices(att) == [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "6",
+        "9",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "19",
+        "20",
+        "23",
+    ]
