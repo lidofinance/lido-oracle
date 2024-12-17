@@ -70,6 +70,9 @@ def test_hex_bitlist_to_list():
     with pytest.raises(ValueError, match="invalid bitlist"):
         hex_bitlist_to_list("0x000000000000000000001000000000000010001000000000000000000000000000")
 
+    bits = hex_bitlist_to_list("0x01")
+    assert bits == []
+
 
 @pytest.mark.unit
 def test_attested_indices_pre_electra():
@@ -195,25 +198,3 @@ def test_get_committee_indices_post_electra():
         "20",
         "23",
     ]
-
-
-def get_serialized_bytearray(value: Sequence[bool], bit_count: int, extra_byte: bool) -> bytearray:
-    """
-    Serialize a sequence either into a Bitlist or a Bitvector
-    @see https://github.com/ethereum/py-ssz/blob/main/ssz/utils.py#L223
-    """
-
-    if extra_byte:
-        # Serialize Bitlist
-        as_bytearray = bytearray(bit_count // 8 + 1)
-    else:
-        # Serialize Bitvector
-        as_bytearray = bytearray((bit_count + 7) // 8)
-
-    for i in range(bit_count):
-        as_bytearray[i // 8] |= value[i] << (i % 8)
-
-    if extra_byte:
-        as_bytearray[bit_count // 8] |= 1 << (bit_count % 8)
-
-    return as_bytearray
