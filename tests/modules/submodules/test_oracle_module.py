@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch, MagicMock
 from typing import Type
 
 import pytest
@@ -92,41 +92,38 @@ def test_run_as_daemon(oracle):
 @pytest.mark.parametrize(
     "ex",
     [
-        DecoratorTimeoutError,
-        NoActiveProviderError,
-        RequestsConnectionError,
-        NotOkResponse,
-        NoSlotsAvailable,
-        SlotNotFinalized,
-        InconsistentData,
-        KeysOutdatedException,
+        DecoratorTimeoutError("Fake exception"),
+        NoActiveProviderError("Fake exception"),
+        RequestsConnectionError("Fake exception"),
+        NotOkResponse(status=500, text="Fake exception"),
+        NoSlotsAvailable("Fake exception"),
+        SlotNotFinalized("Fake exception"),
+        InconsistentData("Fake exception"),
+        KeysOutdatedException("Fake exception"),
     ],
+    ids=lambda param: f"{type(param).__name__}"
 )
-def test_run_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Type[Exception]):
-    def _throw_with(*args):
-        if ex is NotOkResponse:
-            raise ex(status=500, text="Fake exception")  # type: ignore
-        raise ex("Fake exception")
-
-    oracle.execute_module = Mock(side_effect=_throw_with)
-
-    ret = oracle.run_cycle(ReferenceBlockStampFactory.build())
-    assert ret is ModuleExecuteDelay.NEXT_SLOT
+def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
+    oracle.w3.lido_contracts = MagicMock()
+    with patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)), \
+        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), \
+        patch.object(oracle, "execute_module", side_effect=ex):
+        oracle._cycle()
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "ex",
     [
-        IsNotMemberException,
-        IncompatibleOracleVersion,
+        IsNotMemberException("Fake exception"),
+        IncompatibleOracleVersion("Fake exception"),
     ],
+    ids=lambda param: f"{type(param).__name__}"
 )
-def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Type[Exception]):
-    def _throw_with(*args):
-        raise ex("Fake exception")
-
-    oracle.execute_module = Mock(side_effect=_throw_with)
-
-    with pytest.raises(ex, match="Fake exception"):
-        oracle.run_cycle(ReferenceBlockStampFactory.build())
+def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exception):
+    oracle.w3.lido_contracts = MagicMock()
+    with patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)), \
+        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), \
+        patch.object(oracle, "execute_module", side_effect=ex), \
+        pytest.raises(type(ex), match="Fake exception"):
+        oracle._cycle()
