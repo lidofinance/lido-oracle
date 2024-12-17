@@ -101,13 +101,15 @@ def test_run_as_daemon(oracle):
         InconsistentData("Fake exception"),
         KeysOutdatedException("Fake exception"),
     ],
-    ids=lambda param: f"{type(param).__name__}"
+    ids=lambda param: f"{type(param).__name__}",
 )
 def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
-    with patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)), \
-        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), \
-        patch.object(oracle, "execute_module", side_effect=ex):
+    with patch.object(
+        oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)
+    ), patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), patch.object(
+        oracle, "execute_module", side_effect=ex
+    ):
         oracle._cycle()
 
 
@@ -118,12 +120,15 @@ def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
         IsNotMemberException("Fake exception"),
         IncompatibleOracleVersion("Fake exception"),
     ],
-    ids=lambda param: f"{type(param).__name__}"
+    ids=lambda param: f"{type(param).__name__}",
 )
 def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
-    with patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)), \
-        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), \
-        patch.object(oracle, "execute_module", side_effect=ex), \
-        pytest.raises(type(ex), match="Fake exception"):
+    with patch.object(
+        oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)
+    ), patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), patch.object(
+        oracle, "execute_module", side_effect=ex
+    ), pytest.raises(
+        type(ex), match="Fake exception"
+    ):
         oracle._cycle()
