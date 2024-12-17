@@ -111,6 +111,9 @@ def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
         oracle, "execute_module", side_effect=ex
     ):
         oracle._cycle()
+    # test node availability
+    with patch.object(oracle, "_receive_last_finalized_slot", side_effect=ex):
+        oracle._cycle()
 
 
 @pytest.mark.unit
@@ -129,6 +132,11 @@ def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exceptio
     ), patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False), patch.object(
         oracle, "execute_module", side_effect=ex
     ), pytest.raises(
+        type(ex), match="Fake exception"
+    ):
+        oracle._cycle()
+    # test node availability
+    with patch.object(oracle, "_receive_last_finalized_slot", side_effect=ex), pytest.raises(
         type(ex), match="Fake exception"
     ):
         oracle._cycle()
