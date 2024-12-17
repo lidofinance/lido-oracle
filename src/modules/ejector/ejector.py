@@ -1,4 +1,5 @@
 import logging
+import math
 from functools import reduce
 
 from web3.exceptions import ContractCustomError
@@ -11,14 +12,14 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.ejector import (
-    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
-    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
-    EJECTOR_MAX_WITHDRAWAL_EPOCH,
-)
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.metrics.prometheus.ejector import (
+    EJECTOR_MAX_WITHDRAWAL_EPOCH,
+    EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
+    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+)
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.types import ReportData, EjectorProcessingState
+from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
@@ -28,18 +29,19 @@ from src.services.exit_order.iterator import ExitOrderIterator
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, NodeOperatorGlobalIndex
+from src.types import BlockStamp, EpochNumber, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
+    compute_activation_exit_epoch,
+    compute_exit_churn_limit,
+    get_max_effective_balance,
+    has_execution_withdrawal_credential,
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
-    compute_activation_exit_epoch,
-    compute_exit_churn_limit,
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     3. Decode lido validators into bytes and send report transaction
     """
+
     COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
@@ -286,7 +289,16 @@ class Ejector(BaseModule, ConsensusModule):
             full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
             return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
-        raise NotImplementedError
+        # This version is intended for use with Pectra, but we do not currently take into account pending withdrawal
+        # requests. It would require a large amount of pending withdrawal requests to significantly impact sweep
+        # duration. Roughly every 512 requests adds one more epoch to sweep duration in the current state.
+        # On the other side, to consider pending withdrawals it is necessary to fetch the beacon state and query the
+        # EIP-7002 predeployed contract, which adds complexity with limited improvement for predictions.
+        total_withdrawable_validators = len(self._get_expected_withdrawable_validators(blockstamp))
+        logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
+        slots_to_sweep = math.ceil(total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD)
+        full_sweep_in_epochs = math.ceil(slots_to_sweep / chain_config.slots_per_epoch)
+        return math.ceil(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     def _get_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
         return [
@@ -294,6 +306,15 @@ class Ejector(BaseModule, ConsensusModule):
             for v in self.w3.cc.get_validators(blockstamp)
             if is_partially_withdrawable_validator(v) or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
         ]
+
+    def _get_expected_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
+        def is_withdrawing_validator(v: Validator) -> bool:
+            # We assume a recently swept or appeared validator will get enough balance waiting for the next sweep cycle.
+            has_enough_balance_to_sweep = int(v.balance) >= get_max_effective_balance(v)
+            may_be_swept = has_execution_withdrawal_credential(v) and has_enough_balance_to_sweep
+            return may_be_swept or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
+
+        return [v for v in self.w3.cc.get_validators(blockstamp) if is_withdrawing_validator(v)]
 
     @lru_cache(maxsize=1)
     def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
