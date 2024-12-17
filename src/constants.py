@@ -15,9 +15,6 @@ EFFECTIVE_BALANCE_INCREMENT = 2**0 * 10**9
 MAX_EFFECTIVE_BALANCE = 32 * 10**9
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
-MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP = 2**14
-MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
 ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes

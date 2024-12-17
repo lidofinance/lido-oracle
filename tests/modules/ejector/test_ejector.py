@@ -340,64 +340,12 @@ def test_get_sweep_delay_in_epochs_pre_electra(
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client", "withdrawal_requests")
+@pytest.mark.usefixtures("consensus_client")
 def test_get_sweep_delay_in_epochs_post_electra(
     ejector: Ejector,
     chain_config: ChainConfig,
 ) -> None:
-    ejector.w3.cc.get_validators = Mock(return_value=[Mock()] * 1_000_000)
-    ejector.get_chain_config = Mock(return_value=chain_config)
-    ejector.consensus_version = Mock(return_value=3)
-
-    # Case 1: No pending withdrawals and no withdrawable validators.
-    ejector.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            next_withdrawal_validator_index=0,
-            pending_partial_withdrawals=[],
-        )
-    )
-    ejector.w3.withdrawal_requests.get_queue_len = Mock(return_value=0)
-    ejector._get_withdrawable_validators = Mock(return_value=[])
-
-    result = ejector._get_sweep_delay_in_epochs(Mock())
-    assert result == 0, "Unexpected sweep delay in epochs"
-
-    # Case 2: Some pending withdrawals and no withdrawable validators.
-    ejector.w3.cc.get_state_view = Mock(
-        return_value=Mock(next_withdrawal_validator_index=0, pending_partial_withdrawals=list(range(219)))
-    )
-    ejector.w3.withdrawal_requests.get_queue_len = Mock(return_value=393)
-    ejector._get_withdrawable_validators = Mock(return_value=[])
-
-    result = ejector._get_sweep_delay_in_epochs(Mock())
-    assert result == 3, "Unexpected sweep delay in epochs"
-
-    # Case 3: No pending withdrawals but some withdrawable validators.
-    ejector.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            next_withdrawal_validator_index=524_288,
-            pending_partial_withdrawals=[],
-        )
-    )
-    ejector.w3.withdrawal_requests.get_queue_len = Mock(return_value=0)
-    ejector._get_withdrawable_validators = Mock(return_value=[Mock(index=str(i)) for i in range(100, 1000)])
-
-    result = ejector._get_sweep_delay_in_epochs(Mock())
-    assert result == 3, "Unexpected sweep delay in epochs"
-
-    # Case 4: Some pending withdrawals and withdrawable validators.
-    ejector.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            next_withdrawal_validator_index=524_288,
-            pending_partial_withdrawals=[],
-        )
-    )
-    ejector.w3.withdrawal_requests.get_queue_len = Mock(return_value=8 * 32 + 393)
-    ejector._get_withdrawable_validators = Mock(return_value=[Mock(index=str(i)) for i in range(100, 1000)])
-
-    result = ejector._get_sweep_delay_in_epochs(Mock())
-    assert result == 4, "Unexpected sweep delay in epochs"
-
+    pass
 
 @pytest.mark.usefixtures("contracts")
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:

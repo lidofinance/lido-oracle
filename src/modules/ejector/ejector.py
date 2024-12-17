@@ -7,8 +7,6 @@ from web3.types import Wei
 from src.constants import (
     FAR_FUTURE_EPOCH,
     MAX_WITHDRAWALS_PER_PAYLOAD,
-    MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
-    MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP,
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
@@ -288,45 +286,7 @@ class Ejector(BaseModule, ConsensusModule):
             full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
             return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
-        state_view = self.w3.cc.get_state_view(blockstamp.state_root)
-        partial_withdrawals = list(
-            range(
-                len(state_view.pending_partial_withdrawals) + self.w3.withdrawal_requests.get_queue_len(blockstamp)
-            )
-        )
-        next_sweep_index = int(state_view.next_withdrawal_validator_index)
-
-        withdrawable_indices = set(int(v.index) for v in self._get_withdrawable_validators(blockstamp))
-        total_validators = len(self.w3.cc.get_validators(blockstamp))
-
-        # TODO: Maybe to raise an exception.
-        if not total_validators:
-            return 0
-
-        slots_to_sweep = 0
-
-        while partial_withdrawals or withdrawable_indices:
-            slots_to_sweep += 1
-
-            capacity = MAX_WITHDRAWALS_PER_PAYLOAD
-            capacity -= len(partial_withdrawals[:MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP])
-            partial_withdrawals = partial_withdrawals[MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:]
-
-            if not capacity:
-                continue
-
-            for _ in range(MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP):
-                if next_sweep_index in withdrawable_indices:
-                    withdrawable_indices.remove(next_sweep_index)
-                    capacity -= 1
-
-                next_sweep_index = (next_sweep_index + 1) % total_validators
-
-                if not capacity:
-                    break
-
-        # TODO: Do we need to introduce some new multiplier?
-        return (slots_to_sweep - 1) // chain_config.slots_per_epoch + 1
+        raise NotImplementedError
 
     def _get_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
         return [
