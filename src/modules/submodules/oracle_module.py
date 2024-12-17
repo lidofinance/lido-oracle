@@ -70,7 +70,6 @@ class BaseModule(ABC):
                 'msg': 'Skipping the report. Waiting for new finalized slot.',
                 'slot_threshold': self._slot_threshold,
             })
-            self._sleep_cycle()
             return
 
         # Refresh contracts if the address has changed
