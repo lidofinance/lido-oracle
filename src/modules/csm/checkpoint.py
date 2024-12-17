@@ -254,7 +254,7 @@ def is_electra_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAtte
     has_zero_index = attestation.data.index == "0"
     if has_committee_bits and not has_zero_index:
         raise ValueError(f"Got invalid {attestation=}")
-    return has_committee_bits and attestation.data.index == "0"
+    return has_committee_bits and has_zero_index
 
 
 def get_set_indices(bits: Sequence[bool]) -> list[int]:
