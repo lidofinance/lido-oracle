@@ -58,7 +58,9 @@ def test_process_report_main(consensus, tx_utils, caplog):
 # ----- Hash calculations ----------
 @pytest.mark.unit
 def test_hash_calculations(consensus):
-    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17)
+    rd = ReportData(
+        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], True, [13], [14], 15, HexBytes(int.to_bytes(16, 32)), 17
+    )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
     assert report_hash == HexBytes('0x227d585fc9d342313af84ae0bd07a40caa2419a769c04d45ae24a5e17ba2017c')

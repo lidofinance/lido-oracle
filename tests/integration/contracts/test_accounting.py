@@ -16,16 +16,22 @@ def test_accounting_contract_call(accounting_contract, accounting_oracle_contrac
         shares_requested_to_burn=0,
         withdrawal_finalization_batches=[],
         vault_values=[],
-        net_cash_flows=[]
+        net_cash_flows=[],
     )
 
     check_contract(
         accounting_contract,
         [
-            ('handle_oracle_report', (report, accounting_oracle_contract.address),
-             lambda response: check_value_type(response, list),),
-            ('simulate_oracle_report', (report, 0),
-             lambda response: check_value_type(response, CalculatedReportResults),)
+            (
+                'handle_oracle_report',
+                (report, accounting_oracle_contract.address),
+                lambda response: check_value_type(response, list),
+            ),
+            (
+                'simulate_oracle_report',
+                (report, 0),
+                lambda response: check_value_type(response, CalculatedReportResults),
+            ),
         ],
         caplog,
     )

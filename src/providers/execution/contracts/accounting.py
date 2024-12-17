@@ -76,7 +76,9 @@ class AccountingContract(ContractInterface):
             report.net_cash_flows,
         )
 
-        response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(block_identifier=block_identifier)
+        response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(
+            block_identifier=block_identifier
+        )
         response = named_tuple_to_dataclass(response, CalculatedReportResults)
 
         logger.info({
@@ -87,4 +89,3 @@ class AccountingContract(ContractInterface):
         })
 
         return response
-

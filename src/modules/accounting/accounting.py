@@ -19,13 +19,15 @@ from src.modules.accounting.types import (
     BunkerMode,
     ValidatorsCount,
     ValidatorsBalance,
-    AccountingProcessingState, CalculatedReportResults,
+    AccountingProcessingState,
+    CalculatedReportResults,
+    VaultsReport,
 )
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ZERO_HASH
@@ -35,7 +37,14 @@ from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetT
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.types import (
+    BlockStamp,
+    Gwei,
+    ReferenceBlockStamp,
+    StakingModuleId,
+    NodeOperatorGlobalIndex,
+    FinalizationBatches,
+)
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.exception import IncompatibleException
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
@@ -56,6 +65,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
+
     COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (2, 2)]
 
     def __init__(self, w3: Web3):
@@ -217,7 +227,11 @@ class Accounting(BaseModule, ConsensusModule):
         count = len(lido_validators)
         total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
 
-        logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
+        logger.info({
+            'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)',
+            'value': (count, total_balance),
+        })
+
         return ValidatorsCount(count), ValidatorsBalance(total_balance)
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:
@@ -279,7 +293,7 @@ class Accounting(BaseModule, ConsensusModule):
             [],  # net_cash_flows
         )
 
-        withdrawal_share_rate = 0 # For initial calculation we assume 0 share rate
+        withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
 
         # Accounting contract has sanity check that timestamp is not in the future.
         # That's why we get revert if timestamp in args > call block timestamp.
@@ -369,9 +383,12 @@ class Accounting(BaseModule, ConsensusModule):
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
+        vaults_part = self._calculate_vaults_report(blockstamp)
 
         extra_data_part_v2 = self._calculate_extra_data_report_v2(blockstamp)
-        return self._combine_report_parts(2, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v2)
+        return self._combine_report_parts(
+            2, blockstamp, rebase_part, modules_part, wq_part, vaults_part, extra_data_part_v2
+        )
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
@@ -379,13 +396,24 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
-        return validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn
+        return (
+            validators_count,
+            cl_balance,
+            withdrawal_vault_balance,
+            el_rewards_vault_balance,
+            shares_requested_to_burn,
+        )
 
     # calculates is_bunker, finalization_share_rate, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
         is_bunker = self._is_bunker(blockstamp)
         finalization_batches = self._get_finalization_data(blockstamp)
         return is_bunker, finalization_batches
+
+    # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
+    def _calculate_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
+        validators = self.w3.cc.get_validators(blockstamp)
+        return self.w3.lido_vaults.get_vaults_data(validators, blockstamp)
 
     def _calculate_extra_data_report_v1(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -419,9 +447,12 @@ class Accounting(BaseModule, ConsensusModule):
         report_rebase_part: RebaseReport,
         report_modules_part: tuple[list[StakingModuleId], list[int]],
         report_wq_part: WqReport,
-        extra_data: ExtraData
+        vaults_part: VaultsReport,
+        extra_data: ExtraData,
     ) -> ReportData:
-        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
+        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
+            report_rebase_part
+        )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
         is_bunker, finalization_batches = report_wq_part
         return ReportData(
@@ -435,9 +466,8 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            # TODO: Add rebasable vaults values and net cash flows
-            vaultsValues=[],
-            vaultsNetCashFlows=[],
+            vaultsValues=vaults_part[0],
+            vaultsNetCashFlows=vaults_part[1],
             is_bunker=is_bunker,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,

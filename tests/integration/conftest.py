@@ -13,6 +13,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContractV1, StakingRouterContractV2
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 
 
@@ -56,6 +57,7 @@ def lido_contract(web3_provider_integration, lido_locator_contract) -> LidoContr
         lido_locator_contract.lido(),
     )
 
+
 @pytest.fixture
 def accounting_contract(web3_provider_integration, lido_locator_contract) -> LidoContract:
     return get_contract(
@@ -63,6 +65,7 @@ def accounting_contract(web3_provider_integration, lido_locator_contract) -> Lid
         AccountingContract,
         lido_locator_contract.accounting(),
     )
+
 
 @pytest.fixture
 def accounting_oracle_contract(web3_provider_integration, lido_locator_contract) -> AccountingOracleContract:
@@ -133,4 +136,13 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
         web3_provider_integration,
         BurnerContract,
         lido_locator_contract.burner(),
+    )
+
+
+@pytest.fixture
+def vault_hub_contract(web3_provider_integration, lido_locator_contract) -> VaultHubContract:
+    return get_contract(
+        web3_provider_integration,
+        VaultHubContract,
+        lido_locator_contract.accounting(),  # accounting contract is inherited from vault hub contract
     )

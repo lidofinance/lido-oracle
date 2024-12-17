@@ -142,6 +142,7 @@ type SharesToBurn = int
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches]
+type VaultsReport = tuple[list[int], list[int]]
 
 
 @dataclass
@@ -193,3 +194,13 @@ class CalculatedReportResults:
 
     def withdrawals_share_rate(self):
         return self.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // self.post_total_shares
+
+
+@dataclass(frozen=True)
+class VaultSocket:
+    vault: ChecksumAddress
+    share_limit: int
+    shares_minted: int
+    reserve_ratio: int
+    reserve_ratio_threshold: int
+    treasury_fee_bp: int
