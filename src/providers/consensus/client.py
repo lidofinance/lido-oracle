@@ -22,7 +22,6 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 
-
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
 
@@ -145,10 +144,10 @@ class ConsensusClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
         streamed_json = cast(TransientStreamingJSONObject, self._get(
-                self.API_GET_STATE,
-                path_params=(state_id,),
-                stream=True,
-            ))
+            self.API_GET_STATE,
+            path_params=(state_id,),
+            stream=True,
+        ))
         return list(streamed_json['data']['block_roots'])
 
     @lru_cache(maxsize=1)
@@ -159,6 +158,12 @@ class ConsensusClient(HTTPProvider):
     @list_of_dataclasses(Validator.from_response)
     def get_validators_no_cache(self, blockstamp: BlockStamp, pub_keys: str | tuple | None = None) -> list[dict]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators"""
+        logger.info({
+            'msg': 'Getting validators...',
+            'url': self.API_GET_VALIDATORS,
+            'slot_number': blockstamp.slot_number,
+            'state_root': blockstamp.state_root,
+        })
         try:
             data, _ = self._get(
                 self.API_GET_VALIDATORS,
@@ -168,6 +173,7 @@ class ConsensusClient(HTTPProvider):
             )
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getStateValidators")
+            logger.info({'msg': f'Fetched {len(data)} validators'})
             return data
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
