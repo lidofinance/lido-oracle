@@ -12,12 +12,13 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import logger
+from src.main import logger, ipfs_providers
 from src.modules.submodules.types import FrameConfig
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
+from src.providers.ipfs import MultiIPFSProvider, CID
 from src.types import SlotNumber, BlockRoot, BlockStamp
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_next_non_missed_slot
@@ -27,6 +28,7 @@ from src.variables import (
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
+from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils, CSM
 
 logger = logger.getChild("fork")
 
@@ -49,7 +51,7 @@ def account_from(monkeypatch):
             monkeypatch.setattr(
                 variables,
                 "ACCOUNT",
-                Account.from_key(pk),
+                Account.from_key(private_key=pk),  # pylint: disable=no-value-for-parameter
             )
             logger.info(f"Switched to ACCOUNT {variables.ACCOUNT.address}")
             yield
@@ -125,7 +127,7 @@ def blockstamp_for_forking(
 
 
 @pytest.fixture()
-def run_fork(blockstamp_for_forking: BlockStamp):
+def forked_el_client(blockstamp_for_forking: BlockStamp):
     cli_params = [
         'anvil',
         '--config-out',
@@ -136,32 +138,60 @@ def run_fork(blockstamp_for_forking: BlockStamp):
         '--fork-block-number',
         str(blockstamp_for_forking.block_number),
     ]
-    process = subprocess.Popen(cli_params)
-    time.sleep(5)
-    logger.info(f"Started fork from block {blockstamp_for_forking.block_number}")
-    yield process
-    process.terminate()
-    process.wait()
-    subprocess.run(['rm', 'localhost.json'])
+    with subprocess.Popen(cli_params) as process:
+        time.sleep(5)
+        logger.info(f"Started fork from block {blockstamp_for_forking.block_number}")
+        web3 = Web3(MultiProvider(['http://127.0.0.1:8545'], request_kwargs={'timeout': 5 * 60}))
+        tweak_w3_contracts(web3)
+        web3.middleware_onion.add(construct_simple_cache_middleware())
+        web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
+        web3.provider.make_request(RPCEndpoint('evm_setAutomine'), [True])
+        yield web3
+        process.terminate()
+        process.wait()
+        subprocess.run(['rm', 'localhost.json'], check=True)
 
 
 @pytest.fixture()
-def forked_web3(run_fork) -> Web3:
-    web3 = Web3(MultiProvider(['http://127.0.0.1:8545'], request_kwargs={'timeout': 5 * 60}))
-    tweak_w3_contracts(web3)
-    web3.middleware_onion.add(construct_simple_cache_middleware())
-    web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
-    web3.provider.make_request(RPCEndpoint('evm_setAutomine'), [True])
-    yield web3
+def csm_extension(forked_el_client):
+    return CSM(forked_el_client)
 
 
 @pytest.fixture()
-def accounts_from_fork(forked_web3):
+def web3(forked_el_client, patched_cl_client, csm_extension, mocked_ipfs_client):
+    kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_el_client)
+    forked_el_client.attach_modules(
+        {
+            'lido_contracts': LidoContracts,
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            "csm": lambda: csm_extension,  # type: ignore[dict-item]
+            'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+            "ipfs": lambda: mocked_ipfs_client,
+        }
+    )
+    yield forked_el_client
+
+
+@pytest.fixture()
+def mocked_ipfs_client(monkeypatch):
+    def _publish(self, content: bytes, name: str | None = None) -> CID:
+        return CID('Qm' + 'f' * 46)
+
+    with monkeypatch.context():
+        monkeypatch.setattr(MultiIPFSProvider, 'publish', _publish)
+        ipfs = MultiIPFSProvider(ipfs_providers())
+        yield ipfs
+
+
+@pytest.fixture()
+def accounts_from_fork(forked_el_client):
     with open('localhost.json') as f:
         data = json.load(f)
         addresses = data['available_accounts']
         private_keys = data['private_keys']
-    return [forked_web3.to_checksum_address(address) for address in addresses], private_keys
+    return [forked_el_client.to_checksum_address(address) for address in addresses], private_keys
 
 
 @pytest.fixture
@@ -182,7 +212,7 @@ def running_finalized_slots(request):
 
 
 @pytest.fixture()
-def patched_cl_client(monkeypatch, forked_web3, real_cl_client, real_finalized_slot, running_finalized_slots):
+def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):
 
     _, current = running_finalized_slots
 
@@ -231,20 +261,20 @@ def patched_cl_client(monkeypatch, forked_web3, real_cl_client, real_finalized_s
             block_from_fork = None
             while not block_from_fork:
                 try:
-                    block_from_fork = forked_web3.eth.get_block(
+                    block_from_fork = forked_el_client.eth.get_block(
                         int(slot_details.message.body.execution_payload.block_number)
                     )
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.debug(f"FORKED CLIENT: {e}")
                 if not block_from_fork:
-                    latest_el = int(forked_web3.eth.get_block('latest')['number'])
+                    latest_el = int(forked_el_client.eth.get_block('latest')['number'])
                     from_cl = int(slot_details.message.body.execution_payload.block_number)
                     diff = from_cl - latest_el
                     if diff < 0:
                         raise TestRunningException(f"Latest block {latest_el} is ahead block {from_cl}")
                     for _ in range(diff):
-                        forked_web3.provider.make_request(RPCEndpoint('evm_mine'), [])
-                        logger.debug(f"FORKED CLIENT: Mined block {forked_web3.eth.block_number}")
+                        forked_el_client.provider.make_request(RPCEndpoint('evm_mine'), [])
+                        logger.debug(f"FORKED CLIENT: Mined block {forked_el_client.eth.block_number}")
                         time.sleep(0.1)
 
             slot_details.message.body.execution_payload.block_number = block_from_fork['number']
@@ -272,7 +302,7 @@ def hash_consensus_bin():
 
 @pytest.fixture()
 def new_hash_consensus(
-    forked_web3,
+    forked_el_client,
     real_cl_client,
     frame_config,
     accounts_from_fork,
@@ -282,8 +312,10 @@ def new_hash_consensus(
     addresses, _ = accounts_from_fork
     admin, *_ = addresses
 
-    HashConsensus = forked_web3.eth.contract(ContractFactoryClass=HashConsensusContract, bytecode=hash_consensus_bin)
-    new_consensus_address = forked_web3.eth.wait_for_transaction_receipt(
+    HashConsensus = forked_el_client.eth.contract(
+        ContractFactoryClass=HashConsensusContract, bytecode=hash_consensus_bin
+    )
+    new_consensus_address = forked_el_client.eth.wait_for_transaction_receipt(
         HashConsensus.constructor(
             slotsPerEpoch=32,
             secondsPerSlot=12,
@@ -297,7 +329,7 @@ def new_hash_consensus(
 
     new_consensus = cast(
         HashConsensusContract,
-        forked_web3.eth.contract(
+        forked_el_client.eth.contract(
             address=new_consensus_address, ContractFactoryClass=HashConsensusContract, decode_tuples=True
         ),
     )
@@ -307,14 +339,14 @@ def new_hash_consensus(
     new_consensus.functions.updateInitialEpoch(frame_config.initial_epoch).transact({'from': default_admin})
 
     oracle_admin = report_contract.functions.getRoleMember(DEFAULT_ADMIN_ROLE, 0).call()
-    forked_web3.provider.make_request('anvil_setBalance', [oracle_admin, hex(10**18)])
+    forked_el_client.provider.make_request('anvil_setBalance', [oracle_admin, hex(10**18)])
 
     MANAGE_CONSENSUS_CONTRACT_ROLE = "0x" + report_contract.functions.MANAGE_CONSENSUS_CONTRACT_ROLE().call().hex()
     report_contract.functions.grantRole(MANAGE_CONSENSUS_CONTRACT_ROLE, admin).transact({'from': oracle_admin})
     report_contract.functions.setConsensusContract(new_consensus_address).transact({'from': admin})
 
-    storage_slot = forked_web3.keccak(text="lido.BaseOracle.lastProcessingRefSlot")
-    forked_web3.provider.make_request('anvil_setStorageAt', [report_contract.address, storage_slot, bytes(32)])
+    storage_slot = forked_el_client.keccak(text="lido.BaseOracle.lastProcessingRefSlot")
+    forked_el_client.provider.make_request('anvil_setStorageAt', [report_contract.address, storage_slot, bytes(32)])
 
     yield new_consensus
 

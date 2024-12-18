@@ -1,27 +1,26 @@
 import pytest
 
-from src import variables
 from src.modules.accounting.accounting import Accounting
-from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.modules.ejector.ejector import Ejector
+from src.modules.submodules.consensus import ConsensusModule
+from src.modules.submodules.oracle_module import BaseModule
 from tests.fork.conftest import first_slot_of_epoch
 
 
+@pytest.fixture
+def accounting_module(web3):
+    yield Accounting(web3)
+
+
+@pytest.fixture
+def ejector_module(web3):
+    yield Ejector(web3)
+
+
 @pytest.fixture()
-def module(forked_web3, patched_cl_client):
-    kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_web3)
-    forked_web3.attach_modules(
-        {
-            'lido_contracts': LidoContracts,
-            'lido_validators': LidoValidatorsProvider,
-            'transaction': TransactionUtils,
-            # "csm": lambda: csm_extension,
-            'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
-            'kac': lambda: kac,  # type: ignore[dict-item]
-            # "ipfs": lambda: _,
-        }
-    )
-    _module = Accounting(forked_web3)
-    yield _module
+def module(request) -> BaseModule | ConsensusModule:
+    module = request.getfixturevalue(request.param.__name__)
+    yield module
 
 
 @pytest.fixture()
@@ -31,7 +30,7 @@ def report_contract(module):
 
 @pytest.fixture()
 def hash_consensus_bin():
-    with open('tests/fork/contracts/accounting/HashConsensus_bin', 'r') as f:
+    with open('tests/fork/contracts/lido/HashConsensus_bin', 'r') as f:
         yield f.read()
 
 
@@ -58,24 +57,29 @@ def missed_initial_frame(frame_config):
 
 @pytest.mark.fork
 @pytest.mark.parametrize(
+    'module',
+    [accounting_module, ejector_module],
+    indirect=True,
+)
+@pytest.mark.parametrize(
     'running_finalized_slots',
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_accounting_report(
-    forked_web3, set_oracle_members, running_finalized_slots, account_from, module, new_hash_consensus
-):
+def test_module_report(set_oracle_members, running_finalized_slots, account_from, module, new_hash_consensus):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
-    report_frame = module.get_initial_or_current_frame(module._receive_last_finalized_slot())
-
-    switch_finalized, current = running_finalized_slots
+    report_frame = None
+    switch_finalized, _ = running_finalized_slots
     while switch_finalized():
         for _, private_key in members:
             # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
+        report_frame = module.get_initial_or_current_frame(
+            module._receive_last_finalized_slot()  # pylint: disable=protected-access
+        )
 
     last_processing_after_report = module.report_contract.get_last_processing_ref_slot()
     assert (

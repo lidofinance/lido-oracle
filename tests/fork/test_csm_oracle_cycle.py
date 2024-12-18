@@ -2,34 +2,15 @@ import subprocess
 
 import pytest
 
-from src import variables
-from src.main import ipfs_providers
 from src.modules.csm.csm import CSOracle
-from src.providers.ipfs import MultiIPFSProvider, CID
-from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils, CSM
+from src.web3py.types import Web3
 from tests.fork.conftest import first_slot_of_epoch
 
 
 @pytest.fixture()
-def mocked_ipfs_client(monkeypatch):
-    def _publish(self, content: bytes, name: str | None = None) -> CID:
-        return CID('Qm' + 'f' * 46)
-
-    with monkeypatch.context():
-        monkeypatch.setattr(MultiIPFSProvider, 'publish', _publish)
-        ipfs = MultiIPFSProvider(ipfs_providers())
-        yield ipfs
-
-
-@pytest.fixture()
-def hash_consensus_bin():
-    with open('tests/fork/contracts/csm/HashConsensus_bin', 'r') as f:
-        yield f.read()
-
-
-@pytest.fixture()
-def csm_extension(forked_web3):
-    yield CSM(forked_web3)
+def module(web3: Web3):
+    yield CSOracle(web3)
+    subprocess.run(['rm', 'cache.pkl'], check=True)
 
 
 @pytest.fixture()
@@ -38,22 +19,9 @@ def report_contract(csm_extension):
 
 
 @pytest.fixture()
-def module(forked_web3, patched_cl_client, csm_extension, mocked_ipfs_client):
-    kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_web3)
-    forked_web3.attach_modules(
-        {
-            'lido_contracts': LidoContracts,
-            'lido_validators': LidoValidatorsProvider,
-            'transaction': TransactionUtils,
-            "csm": lambda: csm_extension,
-            'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
-            'kac': lambda: kac,  # type: ignore[dict-item]
-            "ipfs": lambda: mocked_ipfs_client,
-        }
-    )
-    _module = CSOracle(forked_web3)
-    yield _module
-    subprocess.run(['rm', 'cache.pkl'])
+def hash_consensus_bin():
+    with open('tests/fork/contracts/csm/HashConsensus_bin', 'r') as f:
+        yield f.read()
 
 
 @pytest.fixture
@@ -83,25 +51,29 @@ def missed_initial_frame(frame_config):
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_execute_module(
+def test_csm_report(
+    set_oracle_members,
     running_finalized_slots,
     new_hash_consensus,
-    set_oracle_members,
     module: CSOracle,
     account_from,
 ):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
-    report_frame = module.get_initial_or_current_frame(module._receive_last_finalized_slot())
+    report_frame = None
     to_distribute_before_report = module.w3.csm.fee_distributor.shares_to_distribute()
 
-    switch_finalized, current = running_finalized_slots
+    switch_finalized, _ = running_finalized_slots
+    # pylint:disable=duplicate-code
     while switch_finalized():
         for _, private_key in members:
             # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
+        report_frame = module.get_initial_or_current_frame(
+            module._receive_last_finalized_slot()  # pylint: disable=protected-access
+        )
 
     last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
     assert (
