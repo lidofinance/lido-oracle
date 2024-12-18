@@ -2,9 +2,15 @@ import pytest
 
 from src.modules.accounting.accounting import Accounting
 from src.modules.ejector.ejector import Ejector
-from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
+from src.modules.submodules.types import FrameConfig
+from src.utils.range import sequence
 from tests.fork.conftest import first_slot_of_epoch
+
+
+@pytest.fixture()
+def hash_consensus_bin():
+    with open('tests/fork/contracts/lido/HashConsensus_bin', 'r') as f:
+        yield f.read()
 
 
 @pytest.fixture
@@ -17,42 +23,25 @@ def ejector_module(web3):
     yield Ejector(web3)
 
 
-@pytest.fixture()
-def module(request) -> BaseModule | ConsensusModule:
-    module = request.getfixturevalue(request.param.__name__)
-    yield module
-
-
-@pytest.fixture()
-def report_contract(module):
-    yield module.report_contract
-
-
-@pytest.fixture()
-def hash_consensus_bin():
-    with open('tests/fork/contracts/lido/HashConsensus_bin', 'r') as f:
-        yield f.read()
-
-
 @pytest.fixture
-def start_before_initial_epoch(frame_config):
+def start_before_initial_epoch(frame_config: FrameConfig):
     _from = frame_config.initial_epoch - 1
-    _to = frame_config.initial_epoch + 3
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+    _to = frame_config.initial_epoch + 2
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.fixture
-def start_after_initial_epoch(frame_config):
+def start_after_initial_epoch(frame_config: FrameConfig):
     _from = frame_config.initial_epoch + 1
-    _to = frame_config.initial_epoch + 3
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+    _to = frame_config.initial_epoch + 2
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.fixture
-def missed_initial_frame(frame_config):
+def missed_initial_frame(frame_config: FrameConfig):
     _from = frame_config.initial_epoch + frame_config.epochs_per_frame + 1
-    _to = _from + 3
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+    _to = _from + 2
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.mark.fork
@@ -66,15 +55,15 @@ def missed_initial_frame(frame_config):
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_module_report(set_oracle_members, running_finalized_slots, account_from, module, new_hash_consensus):
+def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
     report_frame = None
+
     switch_finalized, _ = running_finalized_slots
     while switch_finalized():
         for _, private_key in members:
-            # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
         report_frame = module.get_initial_or_current_frame(

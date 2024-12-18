@@ -3,19 +3,10 @@ import subprocess
 import pytest
 
 from src.modules.csm.csm import CSOracle
+from src.modules.submodules.types import FrameConfig
+from src.utils.range import sequence
 from src.web3py.types import Web3
 from tests.fork.conftest import first_slot_of_epoch
-
-
-@pytest.fixture()
-def module(web3: Web3):
-    yield CSOracle(web3)
-    subprocess.run(['rm', 'cache.pkl'], check=True)
-
-
-@pytest.fixture()
-def report_contract(csm_extension):
-    yield csm_extension.oracle
 
 
 @pytest.fixture()
@@ -24,40 +15,45 @@ def hash_consensus_bin():
         yield f.read()
 
 
-@pytest.fixture
-def start_before_initial_epoch(frame_config):
-    _from = frame_config.initial_epoch - 2
-    _to = frame_config.initial_epoch + 6
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+@pytest.fixture()
+def csm_module(web3: Web3):
+    yield CSOracle(web3)
+    subprocess.run(['rm', 'cache.pkl'], check=True)
 
 
 @pytest.fixture
-def start_after_initial_epoch(frame_config):
-    _from = frame_config.initial_epoch + 2
-    _to = frame_config.initial_epoch + 6
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+def start_before_initial_epoch(frame_config: FrameConfig):
+    _from = frame_config.initial_epoch - 1
+    _to = frame_config.initial_epoch + 4
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.fixture
-def missed_initial_frame(frame_config):
+def start_after_initial_epoch(frame_config: FrameConfig):
+    _from = frame_config.initial_epoch + 1
+    _to = frame_config.initial_epoch + 4
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
+
+
+@pytest.fixture
+def missed_initial_frame(frame_config: FrameConfig):
     _from = frame_config.initial_epoch + frame_config.epochs_per_frame + 1
-    _to = _from + 6
-    return [first_slot_of_epoch(i) for i in range(_from, _to)]
+    _to = _from + 4
+    return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.mark.fork
+@pytest.mark.parametrize(
+    'module',
+    [csm_module],
+    indirect=True,
+)
 @pytest.mark.parametrize(
     'running_finalized_slots',
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_csm_report(
-    set_oracle_members,
-    running_finalized_slots,
-    new_hash_consensus,
-    module: CSOracle,
-    account_from,
-):
+def test_csm_module_report(module, set_oracle_members, running_finalized_slots, account_from):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 

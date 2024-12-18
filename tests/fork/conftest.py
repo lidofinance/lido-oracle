@@ -13,6 +13,8 @@ from web3_multi_provider import MultiProvider
 
 from src import variables
 from src.main import logger, ipfs_providers
+from src.modules.submodules.consensus import ConsensusModule
+from src.modules.submodules.oracle_module import BaseModule
 from src.modules.submodules.types import FrameConfig
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
@@ -28,7 +30,7 @@ from src.variables import (
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils, CSM
+from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils, LazyCSM
 
 logger = logger.getChild("fork")
 
@@ -111,7 +113,7 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
     return _frame_config
 
 
-@pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])
+@pytest.fixture(params=[-2], ids=["fork 2 epochs before initial epoch"])
 def blockstamp_for_forking(
     request, frame_config: FrameConfig, real_cl_client: ConsensusClient, real_finalized_slot: SlotNumber
 ) -> BlockStamp:
@@ -138,7 +140,7 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
         '--fork-block-number',
         str(blockstamp_for_forking.block_number),
     ]
-    with subprocess.Popen(cli_params) as process:
+    with subprocess.Popen(cli_params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
         logger.info(f"Started fork from block {blockstamp_for_forking.block_number}")
         web3 = Web3(MultiProvider(['http://127.0.0.1:8545'], request_kwargs={'timeout': 5 * 60}))
@@ -146,6 +148,7 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
         web3.middleware_onion.add(construct_simple_cache_middleware())
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
         web3.provider.make_request(RPCEndpoint('evm_setAutomine'), [True])
+        # TODO: tx execution should somehow change corresponding block on CL
         yield web3
         process.terminate()
         process.wait()
@@ -153,19 +156,14 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
 
 
 @pytest.fixture()
-def csm_extension(forked_el_client):
-    return CSM(forked_el_client)
-
-
-@pytest.fixture()
-def web3(forked_el_client, patched_cl_client, csm_extension, mocked_ipfs_client):
+def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_el_client)
     forked_el_client.attach_modules(
         {
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "csm": lambda: csm_extension,  # type: ignore[dict-item]
+            "csm": LazyCSM,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
@@ -199,6 +197,7 @@ def running_finalized_slots(request):
     slots = request.getfixturevalue(request.param.__name__)
     iterator = iter(slots)
     current = slots[0]
+    logger.info(f"TESTRUN Running finalized slots: {slots}")
 
     def switch() -> SlotNumber | None:
         nonlocal current
@@ -206,6 +205,7 @@ def running_finalized_slots(request):
             current = next(iterator)
         except StopIteration:
             current = None
+        logger.info(f"TESTRUN Switched finalized to slot {current}")
         return current
 
     return switch, lambda: current
@@ -246,12 +246,12 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
                 raise TestRunningException(f"Unknown state_id: {state_id}")
 
             existing = get_next_non_missed_slot(
-                super(),
+                self,
                 slot_to_find,
                 real_finalized_slot,
             ).message.slot
 
-            return super().get_block_root(SlotNumber(int(existing)))
+            return self.get_block_root(SlotNumber(int(existing)))
 
         def get_block_details(self, state_id: SlotNumber | BlockRoot) -> BlockDetailsResponse:
             """
@@ -274,7 +274,6 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
                         raise TestRunningException(f"Latest block {latest_el} is ahead block {from_cl}")
                     for _ in range(diff):
                         forked_el_client.provider.make_request(RPCEndpoint('evm_mine'), [])
-                        logger.debug(f"FORKED CLIENT: Mined block {forked_el_client.eth.block_number}")
                         time.sleep(0.1)
 
             slot_details.message.body.execution_payload.block_number = block_from_fork['number']
@@ -291,8 +290,14 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
 
 
 @pytest.fixture()
-def report_contract():
-    raise TestRunningException("`report_contract` fixture should be overriden on tests level")
+def module(request) -> BaseModule | ConsensusModule:
+    module = request.getfixturevalue(request.param.__name__)
+    yield module
+
+
+@pytest.fixture()
+def report_contract(module):
+    yield module.report_contract
 
 
 @pytest.fixture()
