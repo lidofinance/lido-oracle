@@ -24,7 +24,7 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoValidatorsProvider,
     FallbackProviderModule,
-    LazyCSM
+    LazyCSM,
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.types import Web3
