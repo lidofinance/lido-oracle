@@ -31,5 +31,5 @@ def _build_blockstamp_data(
         "state_root": slot_details.message.state_root,
         "block_number": BlockNumber(int(execution_payload.block_number)),
         "block_hash": execution_payload.block_hash,
-        "block_timestamp": Timestamp(int(execution_payload.timestamp))
+        "block_timestamp": Timestamp(int(execution_payload.timestamp)),
     }
