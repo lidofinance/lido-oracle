@@ -23,6 +23,19 @@ class ValidatorStateFactory(Web3Factory):
 class ValidatorFactory(Web3Factory):
     __model__ = Validator
 
+    @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs
+        )
+
 
 class LidoKeyFactory(Web3Factory):
     __model__ = LidoKey
@@ -51,6 +64,19 @@ class LidoValidatorFactory(Web3Factory):
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
         return cls.build(
             validator=ValidatorStateFactory.build(activation_epoch=str(faker.pyint(max_value=max_value - 1))), **kwargs
+        )
+
+    @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs
         )
 
     @classmethod

@@ -90,6 +90,7 @@ def test_is_abnormal_cl_rebase(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_rebase"),
     [
+        (simple_ref_blockstamp(50), 512000000),
         (simple_ref_blockstamp(40), 420650924),
         (simple_ref_blockstamp(20), 140216974),
         (simple_ref_blockstamp(123), 1120376622),
@@ -234,6 +235,7 @@ def test_calculate_cl_rebase_between_blocks(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
+        (simple_ref_blockstamp(50), 98001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
