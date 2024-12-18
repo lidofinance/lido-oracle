@@ -1,7 +1,6 @@
 from typing import Sequence
 
 from src.constants import (
-    MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     SHARD_COMMITTEE_PERIOD,
     FAR_FUTURE_EPOCH,
@@ -9,6 +8,9 @@ from src.constants import (
     MAX_SEED_LOOKAHEAD,
     MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT,
+    COMPOUNDING_WITHDRAWAL_PREFIX,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, Gwei
@@ -41,13 +43,22 @@ def is_partially_withdrawable_validator(validator: Validator) -> bool:
     Check if `validator` is partially withdrawable
     https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
     """
-    has_max_effective_balance = int(validator.validator.effective_balance) == MAX_EFFECTIVE_BALANCE
-    has_excess_balance = int(validator.balance) > MAX_EFFECTIVE_BALANCE
+    max_effective_balance = get_max_effective_balance(validator)
+    has_max_effective_balance = int(validator.validator.effective_balance) == max_effective_balance
+    has_excess_balance = int(validator.balance) > max_effective_balance
     return (
-        has_eth1_withdrawal_credential(validator)
+        has_execution_withdrawal_credential(validator)
         and has_max_effective_balance
         and has_excess_balance
     )
+
+
+def has_compounding_withdrawal_credential(validator: Validator) -> bool:
+    """
+    Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal credential.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+    """
+    return validator.validator.withdrawal_credentials[:4] == COMPOUNDING_WITHDRAWAL_PREFIX
 
 
 def has_eth1_withdrawal_credential(validator: Validator) -> bool:
@@ -58,13 +69,21 @@ def has_eth1_withdrawal_credential(validator: Validator) -> bool:
     return validator.validator.withdrawal_credentials[:4] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
 
+def has_execution_withdrawal_credential(validator: Validator) -> bool:
+    """
+    Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
+    """
+    return has_compounding_withdrawal_credential(validator) or has_eth1_withdrawal_credential(validator)
+
+
 def is_fully_withdrawable_validator(validator: Validator, epoch: EpochNumber) -> bool:
     """
     Check if `validator` is fully withdrawable
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator
     """
     return (
-        has_eth1_withdrawal_credential(validator)
+        has_execution_withdrawal_credential(validator)
         and EpochNumber(int(validator.validator.withdrawable_epoch)) <= epoch
         and Gwei(int(validator.balance)) > Gwei(0)
     )
@@ -114,3 +133,13 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
 
 def compute_exit_churn_limit(active_validators_count: int):
     return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
+
+
+def get_max_effective_balance(validator: Validator) -> Gwei:
+    """
+    Get max effective balance for ``validator``.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_max_effective_balance
+    """
+    if has_compounding_withdrawal_credential(validator):
+        return MAX_EFFECTIVE_BALANCE_ELECTRA
+    return MIN_ACTIVATION_BALANCE
