@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import IntEnum, StrEnum, auto
 from typing import NewType
 
 from eth_typing import BlockNumber, ChecksumAddress, HexStr
@@ -36,6 +36,25 @@ WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
+
+
+# TODO: Can be generated dynamycally from the spec response?
+class Fork(IntEnum):
+    PHASE0 = auto()
+    ALTAIR = auto()
+    BELLATRIX = auto()
+    CAPELLA = auto()
+    DENEB = auto()
+    ELECTRA = auto()
+
+    @classmethod
+    def _missing_(cls, value: object):
+        assert isinstance(value, str)
+        value = value.upper()
+        for member in cls:
+            if member.name == value:
+                return member
+        return None
 
 
 @dataclass(frozen=True)
