@@ -14,7 +14,7 @@ import src.variables
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils, WithdrawalRequests
+from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
 from src.web3py.types import Web3
 from tests.providers_utils import (
     ResponseFromFile,
@@ -180,11 +180,6 @@ def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
-
-
-@pytest.fixture()
-def withdrawal_requests(web3):
-    web3.attach_modules({"withdrawal_requests": WithdrawalRequests})
 
 
 @dataclass
