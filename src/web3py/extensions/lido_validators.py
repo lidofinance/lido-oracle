@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -189,7 +188,7 @@ class LidoValidatorsProvider(Module):
         for validator in merged_validators:
             global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
-                NodeOperatorId(validator.lido_id.operatorIndex),
+                validator.lido_id.operatorIndex,
             )
 
             if global_no_id in no_validators:
@@ -223,7 +222,7 @@ class LidoValidatorsProvider(Module):
         if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
             raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
         operators = kapi['operators']
-        keys = {k['key']: k for k in kapi['keys']}
+        keys = {k['key']: LidoKey.from_response(**k) for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
         module_id = StakingModuleId(int(kapi['module']['id']))
 
@@ -237,10 +236,10 @@ class LidoValidatorsProvider(Module):
             lido_key = keys.get(validator.validator.pubkey)
             if not lido_key:
                 continue
-            global_id = (module_id, lido_key['operatorIndex'])
+            global_id = (module_id, lido_key.operatorIndex)
             no_validators[global_id].append(
                 LidoValidator(
-                    lido_id=LidoKey.from_response(**lido_key),
+                    lido_id=lido_key,
                     **asdict(validator),
                 )
             )

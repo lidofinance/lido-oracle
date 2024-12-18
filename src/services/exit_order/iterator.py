@@ -173,5 +173,5 @@ class ExitOrderIterator:
     ) -> NodeOperatorGlobalIndex:
         return (
             StakingModuleId(staking_module_id[validator.lido_id.moduleAddress]),
-            NodeOperatorId(validator.lido_id.operatorIndex),
+            validator.lido_id.operatorIndex,
         )

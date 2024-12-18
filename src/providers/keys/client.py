@@ -1,11 +1,12 @@
 from time import sleep
 from typing import cast
 
+from eth_typing import HexStr
+
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.providers.keys.types import LidoKey, KeysApiStatus
 from src.types import BlockStamp, StakingModuleAddress
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
 
@@ -17,9 +18,26 @@ class KAPIClientError(NotOkResponse):
     pass
 
 
-def _transform_keys_response(data: list[dict]) -> list[dict]:
-    # make keys in lowercase
-    return [{**v, 'key': str(v['key']).lower()} if 'key' in v else v for v in data]
+def _transform_keys_to_lowercase(lido_keys: list[LidoKey]) -> list[LidoKey]:
+    """
+    Transforms the `key` field of each LidoKey in the input list to lowercase.
+
+    Args:
+        lido_keys (List[LidoKey]): List of LidoKey objects.
+
+    Returns:
+        List[LidoKey]: List of transformed LidoKey objects.
+    """
+    return [
+        LidoKey(
+            key=HexStr(lido_key.key.lower()),
+            depositSignature=lido_key.depositSignature,
+            operatorIndex=lido_key.operatorIndex,
+            used=lido_key.used,
+            moduleAddress=lido_key.moduleAddress
+        )
+        for lido_key in lido_keys
+    ]
 
 
 class KeysAPIClient(HTTPProvider):
@@ -56,10 +74,10 @@ class KeysAPIClient(HTTPProvider):
         raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
 
     @lru_cache(maxsize=1)
-    @list_of_dataclasses(LidoKey.from_response)
-    def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
+    def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        return cast(list[dict], _transform_keys_response(self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
+        lido_keys = list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
+        return _transform_keys_to_lowercase(lido_keys)
 
     @lru_cache(maxsize=1)
     def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> dict:
@@ -67,7 +85,7 @@ class KeysAPIClient(HTTPProvider):
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
         data = self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp)
-        data['keys'] = [_transform_keys_response(key) for key in data['keys']]
+        data['keys'] = _transform_keys_to_lowercase(data['keys'])
         return cast(dict, data)
 
     def get_status(self) -> KeysApiStatus:
