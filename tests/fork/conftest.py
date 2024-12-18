@@ -87,12 +87,12 @@ def real_finalized_slot(real_cl_client: ConsensusClient) -> SlotNumber:
     return finalized_slot
 
 
-@pytest.fixture(params=[-24], ids=["initial epoch 24 epochs before real finalized epoch"])
+@pytest.fixture(params=[-18], ids=["initial epoch 24 epochs before real finalized epoch"])
 def initial_epoch(request, real_finalized_slot: SlotNumber) -> int:
     return (real_finalized_slot // 32) + request.param
 
 
-@pytest.fixture(params=[8], ids=["8 epochs per frame"])
+@pytest.fixture(params=[6], ids=["6 epochs per frame"])
 def epochs_per_frame(request):
     return request.param
 
