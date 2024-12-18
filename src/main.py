@@ -31,7 +31,6 @@ from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -42,22 +41,10 @@ def main(module_name: OracleModule):
         'variables': {
             **build_info,
             'module': module_name,
-            'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
-            'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
-            'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
-            'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
-            'EL_REQUESTS_BATCH_SIZE': variables.EL_REQUESTS_BATCH_SIZE,
-            'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
+            **variables.PUBLIC_ENV_VARS,
         },
     })
-    ENV_VARIABLES_INFO.info({
-        "ACCOUNT": str(variables.ACCOUNT.address) if variables.ACCOUNT else 'Dry',
-        "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
-        "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
-        "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
-        "EL_REQUESTS_BATCH_SIZE": str(variables.EL_REQUESTS_BATCH_SIZE),
-        "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
-    })
+    ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 
     logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})

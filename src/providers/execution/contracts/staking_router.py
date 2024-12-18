@@ -99,7 +99,7 @@ class StakingRouterContractV2(StakingRouterContract):
             logger.warning({'msg': 'Use StakingRouterV1.json abi (old one) to parse the response.'})
             staking_router = self.w3.eth.contract(
                 address=self.address,
-                abi=self.load_abi(super().abi_path),
+                abi=self.load_abi(StakingRouterContractV1.abi_path),
                 decode_tuples=True,
             )
             response = staking_router.functions.getStakingModules().call(block_identifier=block_identifier)
