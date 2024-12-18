@@ -71,12 +71,6 @@ def test_get_validators(consensus_client: ConsensusClient):
     assert validator_by_pub_key[0] == validator
 
 
-@pytest.mark.integration
-def test_get_state_view(consensus_client: ConsensusClient):
-    state_view = consensus_client.get_state_view("head")
-    assert int(state_view.slot) > 0
-
-
 @pytest.mark.unit
 def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
     consensus_client._get_without_fallbacks = Mock(return_value=(1, None))

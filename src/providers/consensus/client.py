@@ -1,12 +1,11 @@
 from http import HTTPStatus
 from typing import Literal, cast
 
-from json_stream.base import TransientAccessException, TransientStreamingJSONObject  # type: ignore
+from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
-    BeaconStateView,
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
@@ -17,7 +16,7 @@ from src.providers.consensus.types import (
     SlotAttestationCommittee, BlockAttestation,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -151,25 +150,6 @@ class ConsensusClient(HTTPProvider):
                 stream=True,
             ))
         return list(streamed_json['data']['block_roots'])
-
-    @lru_cache(maxsize=1)
-    def get_state_view(self, state_id: LiteralState| SlotNumber | StateRoot) -> BeaconStateView:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
-        streamed_json = cast(TransientStreamingJSONObject, self._get(
-                self.API_GET_STATE,
-                path_params=(state_id,),
-                stream=True,
-            ))
-        view = {}
-        data = streamed_json['data']
-        try:
-            # NOTE: Keep in mind: the order is important.
-            view['slot'] = data['slot']
-            view['deposit_balance_to_consume'] = data['deposit_balance_to_consume']
-            view['exit_balance_to_consume'] = data['exit_balance_to_consume']
-        except TransientAccessException:
-            pass
-        return BeaconStateView.from_response(**view)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
