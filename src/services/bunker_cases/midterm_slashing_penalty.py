@@ -5,7 +5,7 @@ from src.constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
-    EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE
+    EFFECTIVE_BALANCE_INCREMENT,
 )
 from src.modules.submodules.types import FrameConfig, ChainConfig
 from src.providers.consensus.types import Validator
@@ -183,29 +183,30 @@ class MidtermSlashingPenalty:
                 ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
             )
             penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
-                validator, len(bound_slashed_validators), total_balance
+                validator, bound_slashed_validators, total_balance
             )
         return Gwei(penalty_in_frame)
 
     @staticmethod
     def get_validator_midterm_penalty(
         validator: LidoValidator,
-        bound_slashed_validators_count: int,
-        total_balance: Gwei
+        bound_slashed_validators: list[Validator],
+        total_balance: Gwei,
     ) -> Gwei:
         """
         Calculate midterm penalty for particular validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings
         """
-        # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
-        slashings = Gwei(bound_slashed_validators_count * MAX_EFFECTIVE_BALANCE)
+        # We don't know validators effective balances on the moment of slashing,
+        # so we assume that it was at least `effective_balance`
+        slashings = Gwei(sum(int(v.validator.effective_balance) for v in bound_slashed_validators))
         adjusted_total_slashing_balance = min(
             slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
         )
         effective_balance = int(validator.validator.effective_balance)
-        penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
-        penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
-
+        penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (total_balance // EFFECTIVE_BALANCE_INCREMENT)
+        effective_balance_increments = effective_balance // EFFECTIVE_BALANCE_INCREMENT
+        penalty = penalty_per_effective_balance_increment * effective_balance_increments
         return Gwei(penalty)
 
     @staticmethod

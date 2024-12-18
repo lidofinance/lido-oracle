@@ -1,10 +1,11 @@
 import pytest
 
+from src.constants import MAX_EFFECTIVE_BALANCE_ELECTRA, MAX_EFFECTIVE_BALANCE
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-from src.types import EpochNumber, ReferenceBlockStamp
+from src.types import EpochNumber, ReferenceBlockStamp, Gwei
 
 
 def simple_blockstamp(
@@ -30,7 +31,7 @@ def simple_validators(
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
-                effective_balance=str(32 * 10**9),
+                effective_balance=effective_balance,
                 slashed=slashed,
                 activation_eligibility_epoch='',
                 activation_epoch='0',
@@ -219,7 +220,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
             {18: simple_validators(0, 0, slashed=True)},
             simple_validators(0, 0, slashed=True),
             100,
-            {18: 0},
+            {18: 960_000_000},
         ),
         (
             # all are slashed
@@ -288,7 +289,7 @@ def test_get_future_midterm_penalty_sum_in_frames(
             simple_validators(0, 0, slashed=True),
             100 * 32 * 10**9,
             simple_validators(0, 0, slashed=True),
-            0,
+            960_000_000,
         ),
         (
             # all are slashed
@@ -304,7 +305,7 @@ def test_get_future_midterm_penalty_sum_in_frames(
             simple_validators(0, 9, slashed=True),
             100 * 32 * 10**9,
             simple_validators(0, 9, slashed=True),
-            10 * 9 * 10**9,
+            96_000_000_000,
         ),
         (
             # slashed in different epochs in different frames without determined slashing epochs
@@ -318,7 +319,7 @@ def test_get_future_midterm_penalty_sum_in_frames(
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
-            10 * 9 * 10**9,
+            96_000_000_000,
         ),
     ],
 )
@@ -332,22 +333,58 @@ def test_predict_midterm_penalty_in_frame(
     assert result == expected_result
 
 
+# 50% active validators with 2048 EB and the rest part with 32 EB
+half_electra = [
+    *simple_validators(0, 250_000, effective_balance=str(MAX_EFFECTIVE_BALANCE)),
+    *simple_validators(250_001, 500_000, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+]
+# 20% active validators with 2048 EB and the rest part with 32 EB
+part_electra = [
+    *simple_validators(0, 10_000, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+    *simple_validators(10_001, 500_000, effective_balance=str(MAX_EFFECTIVE_BALANCE)),
+]
+
+one_32eth = simple_validators(0, 0, effective_balance=str(MAX_EFFECTIVE_BALANCE))
+one_2048eth = simple_validators(0, 0, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA))
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("bounded_slashings_count", "active_validators_count", "expected_penalty"),
+    ("bounded_slashed_validators", "active_validators", "expected_penalty"),
     [
-        (1, 500000, 0),
-        (100, 500000, 0),
-        (1000, 500000, 0),
-        (5000, 500000, 0),
-        (10000, 500000, 1000000000),
-        (20000, 500000, 3000000000),
-        (50000, 500000, 9000000000),
+        (one_32eth, half_electra, 5888),
+        (one_2048eth, half_electra, 378_080),
+        (one_32eth, part_electra, 84_928),
+        (one_2048eth, part_electra, 5_436_832),
+        (100 * one_32eth, half_electra, 590_752),
+        (100 * one_2048eth, half_electra, 37_809_216),
+        (100 * one_32eth, part_electra, 8_495_072),
+        (100 * one_2048eth, part_electra, 543_686_016),
+        (10_000 * one_32eth, half_electra, 59_076_896),
+        (10_000 * one_2048eth, half_electra, 3_780_922_816),
+        (10_000 * one_32eth, part_electra, 849_509_408),
+        (10_000 * one_2048eth, part_electra, 32_000_000_000),
+    ],
+    ids=[
+        "1 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "1 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "1 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        "1 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        "100 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "100 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "100 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        "100 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        "10_000 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "10_000 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
+        "10_000 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        "10_000 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
     ],
 )
-def test_get_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
+def test_get_midterm_penalty(bounded_slashed_validators, active_validators, expected_penalty):
     result = MidtermSlashingPenalty.get_validator_midterm_penalty(
-        simple_validators(0, 0)[0], bounded_slashings_count, active_validators_count * 32 * 10**9
+        validator=simple_validators(0, 0)[0],
+        bound_slashed_validators=bounded_slashed_validators,
+        total_balance=Gwei(sum(int(v.validator.effective_balance) for v in active_validators)),
     )
 
     assert result == expected_penalty
