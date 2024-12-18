@@ -165,11 +165,8 @@ class ConsensusClient(HTTPProvider):
         try:
             # NOTE: Keep in mind: the order is important.
             view['slot'] = data['slot']
-            view['next_withdrawal_validator_index'] = data['next_withdrawal_validator_index']
             view['deposit_balance_to_consume'] = data['deposit_balance_to_consume']
             view['exit_balance_to_consume'] = data['exit_balance_to_consume']
-            view['earliest_exit_epoch'] = data['earliest_exit_epoch']
-            view['pending_partial_withdrawals'] = data['pending_partial_withdrawals'].persistent()
         except TransientAccessException:
             pass
         return BeaconStateView.from_response(**view)
