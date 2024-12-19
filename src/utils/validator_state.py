@@ -1,16 +1,18 @@
 from typing import Sequence
 
 from src.constants import (
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
-    SHARD_COMMITTEE_PERIOD,
-    FAR_FUTURE_EPOCH,
-    EFFECTIVE_BALANCE_INCREMENT,
-    MAX_SEED_LOOKAHEAD,
-    MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT,
     COMPOUNDING_WITHDRAWAL_PREFIX,
+    EFFECTIVE_BALANCE_INCREMENT,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT,
+    MAX_SEED_LOOKAHEAD,
     MIN_ACTIVATION_BALANCE,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
+    SHARD_COMMITTEE_PERIOD,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, Gwei
@@ -133,6 +135,17 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
 
 def compute_exit_churn_limit(active_validators_count: int):
     return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
+
+
+# @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
+def compute_exit_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
+    return min(MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT, get_balance_churn_limit(total_active_balance))
+
+
+# @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_balance_churn_limit
+def get_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
+    churn = max(MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, total_active_balance // CHURN_LIMIT_QUOTIENT)
+    return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
 
 
 def get_max_effective_balance(validator: Validator) -> Gwei:
