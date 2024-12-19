@@ -55,7 +55,7 @@ def account_from(monkeypatch):
                 "ACCOUNT",
                 Account.from_key(private_key=pk),  # pylint: disable=no-value-for-parameter
             )
-            logger.info(f"Switched to ACCOUNT {variables.ACCOUNT.address}")
+            logger.info(f"TESTRUN Switched to ACCOUNT {variables.ACCOUNT.address}")
             yield
 
     return _use
@@ -83,16 +83,16 @@ def real_cl_client():
 @pytest.fixture
 def real_finalized_slot(real_cl_client: ConsensusClient) -> SlotNumber:
     finalized_slot = SlotNumber(int(real_cl_client.get_block_header('finalized').data.header.message.slot))
-    logger.info(f"True finalized slot on CL: {finalized_slot}")
+    logger.info(f"TESTRUN True finalized slot on CL: {finalized_slot}")
     return finalized_slot
 
 
-@pytest.fixture(params=[-18], ids=["initial epoch 24 epochs before real finalized epoch"])
+@pytest.fixture(params=[-24], ids=[f"initial epoch 24 epochs before real finalized epoch"])
 def initial_epoch(request, real_finalized_slot: SlotNumber) -> int:
     return (real_finalized_slot // 32) + request.param
 
 
-@pytest.fixture(params=[6], ids=["6 epochs per frame"])
+@pytest.fixture(params=[8], ids=["8 epochs per frame"])
 def epochs_per_frame(request):
     return request.param
 
@@ -109,7 +109,7 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
         epochs_per_frame=epochs_per_frame,
         fast_lane_length_slots=fast_lane_length_slots,
     )
-    logger.info(f"Frame config: {_frame_config}")
+    logger.info(f"TESTRUN Frame config: {_frame_config}")
     return _frame_config
 
 
@@ -124,7 +124,7 @@ def blockstamp_for_forking(
         real_finalized_slot,
     )
     blockstamp = build_blockstamp(existing)
-    logger.info(f"Blockstamp to fork: {blockstamp}")
+    logger.info(f"TESTRUN Blockstamp to fork: {blockstamp}")
     return blockstamp
 
 
@@ -140,9 +140,9 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
         '--fork-block-number',
         str(blockstamp_for_forking.block_number),
     ]
-    with subprocess.Popen(cli_params, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+    with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
-        logger.info(f"Started fork from block {blockstamp_for_forking.block_number}")
+        logger.info(f"TESTRUN Started fork from block {blockstamp_for_forking.block_number}")
         web3 = Web3(MultiProvider(['http://127.0.0.1:8545'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.middleware_onion.add(construct_simple_cache_middleware())
@@ -265,16 +265,16 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
                         int(slot_details.message.body.execution_payload.block_number)
                     )
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.debug(f"FORKED CLIENT: {e}")
+                    logger.debug(f"TESTRUN FORKED CLIENT: {e}")
                 if not block_from_fork:
                     latest_el = int(forked_el_client.eth.get_block('latest')['number'])
                     from_cl = int(slot_details.message.body.execution_payload.block_number)
                     diff = from_cl - latest_el
                     if diff < 0:
-                        raise TestRunningException(f"Latest block {latest_el} is ahead block {from_cl}")
+                        raise TestRunningException(f"TESTRUN Latest block {latest_el} is ahead block {from_cl}")
                     for _ in range(diff):
                         forked_el_client.provider.make_request(RPCEndpoint('evm_mine'), [])
-                        time.sleep(0.1)
+                        time.sleep(0.2)
 
             slot_details.message.body.execution_payload.block_number = block_from_fork['number']
             slot_details.message.body.execution_payload.block_hash = block_from_fork['hash'].hex()
@@ -302,7 +302,7 @@ def report_contract(module):
 
 @pytest.fixture()
 def hash_consensus_bin():
-    raise TestRunningException("`hash_consensus_bin` fixture should be overriden on tests level")
+    raise TestRunningException("TESTRUN `hash_consensus_bin` fixture should be overriden on tests level")
 
 
 @pytest.fixture()
