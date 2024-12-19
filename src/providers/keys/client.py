@@ -84,9 +84,9 @@ class KeysAPIClient(HTTPProvider):
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
-        data = self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp)
+        data = cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
         data['keys'] = _transform_keys_to_lowercase(data['keys'])
-        return cast(dict, data)
+        return data
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
