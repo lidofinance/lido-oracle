@@ -5,17 +5,17 @@ import pytest
 from web3.exceptions import ContractCustomError
 
 from src import constants
-from src.constants import MAX_EFFECTIVE_BALANCE
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector
 from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
-from src.types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, _Fork as Fork, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -136,9 +136,8 @@ class TestGetValidatorsToEject:
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [], "Unexpected validators to eject"
 
-        ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
-
         with monkeypatch.context() as m:
+            ejector.consensus_version = Mock(return_value=2)
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
@@ -160,14 +159,13 @@ class TestGetValidatorsToEject:
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
         ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=200)
-        ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
-        ejector._get_sweep_delay_in_epochs = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector._get_total_el_balance = Mock(return_value=100)
         ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(return_value=[])
 
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
-        ejector._get_predicted_withdrawable_epoch = Mock(return_value=50)
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
         ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
 
         validators = [
@@ -177,6 +175,7 @@ class TestGetValidatorsToEject:
         ]
 
         with monkeypatch.context() as m:
+            ejector.consensus_version = Mock(return_value=1)
             m.setattr(
                 ejector_module.ExitOrderIterator,
                 "__iter__",
@@ -185,9 +184,8 @@ class TestGetValidatorsToEject:
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [validators[0]], "Unexpected validators to eject"
 
-        ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
-
         with monkeypatch.context() as m:
+            ejector.consensus_version = Mock(return_value=2)
             val_iter = iter(SimpleIterator(validators[:2]))
             val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
@@ -226,13 +224,14 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 @pytest.mark.unit
 def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
+    ejector.fork = Mock(return_value=Fork.CAPELLA)
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, 2)
+    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 2)
     assert result == 3808, "Unexpected predicted withdrawable epoch"
 
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, 4)
+    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 4)
     assert result == 3809, "Unexpected predicted withdrawable epoch"
 
 
@@ -248,12 +247,39 @@ def test_get_total_active_validators(ejector: Ejector) -> None:
         ]
     )
 
-    assert ejector._get_total_active_validators(ref_blockstamp) == 100
+    assert len(ejector._get_active_validators(ref_blockstamp)) == 100
+
+
+@pytest.mark.unit
+def test_get_total_active_balance(ejector: Ejector) -> None:
+    ejector._get_active_validators = Mock(return_value=[])
+    assert ejector._get_total_active_balance(Mock()) == EFFECTIVE_BALANCE_INCREMENT
+    ejector._get_active_validators.assert_called_once()
+
+    ejector._get_active_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+        ]
+    )
+    assert ejector._get_total_active_balance(Mock()) == Gwei(95 * 10**9)
+    ejector._get_active_validators.assert_called_once()
+
+    ejector._get_active_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(99 * 10**9), meb=MAX_EFFECTIVE_BALANCE_ELECTRA),
+        ]
+    )
+    assert ejector._get_total_active_balance(Mock()) == Gwei(162 * 10**9)
+    ejector._get_active_validators.assert_called_once()
 
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("consensus_client", "lido_validators")
-def test_get_withdrawable_lido_validators(
+def test_get_withdrawable_lido_validators_balance(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
@@ -275,7 +301,7 @@ def test_get_withdrawable_lido_validators(
         )
 
         result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
-        assert result == 42 * 10**9, "Unexpected withdrawable amount"
+        assert result == 42, "Unexpected withdrawable amount"
 
         ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
         ejector.w3.lido_validators.get_lido_validators.assert_called_once()
@@ -283,22 +309,29 @@ def test_get_withdrawable_lido_validators(
 
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
-    validator = LidoValidatorFactory.build(balance="0")
+    validator = LidoValidatorFactory.build_with_balance(Gwei(0))
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 0, "Expected zero"
 
-    validator = LidoValidatorFactory.build(balance="42")
+    validator = LidoValidatorFactory.build_with_balance(Gwei(42))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == 42 * 10**9, "Expected validator's balance in gwei"
+    assert result == 42, "Expected validator's balance in gwei"
 
-    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
+    validator = LidoValidatorFactory.build_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE * 10**9, "Expect MAX_EFFECTIVE_BALANCE"
+    assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
+
+    validator = LidoValidatorFactory.build_with_balance(
+        Gwei(MAX_EFFECTIVE_BALANCE + 1),
+        meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
+    )
+    result = ejector._get_predicted_withdrawable_balance(validator)
+    assert result == MAX_EFFECTIVE_BALANCE + 1, "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("consensus_client")
-def test_get_sweep_delay_in_epochs(
+def test_get_sweep_delay_in_epochs_pre_electra(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
@@ -306,6 +339,7 @@ def test_get_sweep_delay_in_epochs(
 ) -> None:
     ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
     ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector.consensus_version = Mock(return_value=1)
 
     with monkeypatch.context() as m:
         m.setattr(
@@ -338,6 +372,102 @@ def test_get_sweep_delay_in_epochs(
         # all 1024 validators
         result = ejector._get_sweep_delay_in_epochs(ReferenceBlockStampFactory.build(slot_number=1))
         assert result == 1, "Unexpected sweep delay in epochs"
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("consensus_client")
+def test_get_sweep_delay_in_epochs_post_electra(
+    ejector: Ejector,
+    chain_config: ChainConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector.consensus_version = Mock(return_value=3)
+    ejector.w3.cc = Mock()
+
+    ejector.w3.cc.get_validators = Mock(return_value=[])
+    delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
+    assert delay == 0, "Unexpected sweep delay in epochs"
+
+    ejector.w3.cc.get_validators = Mock(return_value=[LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9))] * 3)
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=False),
+        )
+        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
+        assert delay == 0, "Unexpected sweep delay in epochs"
+
+    ejector.w3.cc.get_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+        ],
+    )
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=False),
+        )
+        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
+        assert delay == 1, "Unexpected sweep delay in epochs"
+
+    ejector.w3.cc.get_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
+        ],
+    )
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=True),
+        )
+        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
+        assert delay == 1, "Unexpected sweep delay in epochs"
+
+    ejector.w3.cc.get_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
+            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9)),
+        ]
+        * 513,
+    )
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=True),
+        )
+        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
+        assert delay == 2, "Unexpected sweep delay in epochs"
+
+
+@pytest.mark.unit
+def test_get_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
+    ejector.w3.cc = Mock()
+    ejector.w3.cc.get_validators = Mock(
+        return_value=[
+            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9), index=1),
+            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9), index=2),
+            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9), index=3),
+        ],
+    )
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=False),
+        )
+        withdrawable = ejector._get_withdrawable_validators(Mock())
+
+    assert [v.index for v in withdrawable] == [2]
 
 
 @pytest.mark.usefixtures("contracts")

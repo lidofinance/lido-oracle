@@ -25,7 +25,6 @@ from web3_multi_provider import NoActiveProviderError
 from src import variables
 from src.types import SlotNumber, BlockStamp, BlockRoot
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,42 +56,36 @@ class BaseModule(ABC):
             logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()
 
-    @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
     def cycle_handler(self):
-        blockstamp = self._receive_last_finalized_slot()
+        self._cycle()
+        self._sleep_cycle()
 
-        if blockstamp.slot_number > self._slot_threshold:
+    @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
+    def _cycle(self):
+        """
+        Main cycle logic: fetch the last finalized slot, refresh contracts if necessary,
+        and execute the module's business logic.
+        """
+        # pylint: disable=too-many-branches
+        try:
+            blockstamp = self._receive_last_finalized_slot()
+
+            # Check if the blockstamp is below the threshold and exit early
+            if blockstamp.slot_number <= self._slot_threshold:
+                logger.info({
+                    'msg': 'Skipping the report. Waiting for new finalized slot.',
+                    'slot_threshold': self._slot_threshold,
+                })
+                return
+
+            # Refresh contracts if the address has changed
             if self.w3.lido_contracts.has_contract_address_changed():
                 clear_global_cache()
                 self.refresh_contracts()
-            result = self.run_cycle(blockstamp)
 
+            result = self.run_cycle(blockstamp)
             if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
                 self._slot_threshold = blockstamp.slot_number
-        else:
-            logger.info({
-                'msg': 'Skipping the report. Wait for new finalized slot.',
-                'slot_threshold': self._slot_threshold,
-            })
-
-        logger.info({'msg': f'Cycle end. Sleep for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
-        time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
-
-    def _receive_last_finalized_slot(self) -> BlockStamp:
-        block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
-        block_details = self.w3.cc.get_block_details(block_root)
-        bs = build_blockstamp(block_details)
-        logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
-        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
-        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
-        return bs
-
-    def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        # pylint: disable=too-many-branches
-        logger.info({'msg': 'Execute module.', 'value': blockstamp})
-
-        try:
-            result = self.execute_module(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
@@ -119,12 +112,27 @@ class BaseModule(ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
-        else:
-            # if there are no exceptions, then pulse
-            pulse()
-            return result
 
-        return ModuleExecuteDelay.NEXT_SLOT
+    @staticmethod
+    def _sleep_cycle():
+        """Handles sleeping between cycles based on the configured cycle sleep time."""
+        logger.info({'msg': f'Cycle end. Sleeping for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
+        time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
+
+    def _receive_last_finalized_slot(self) -> BlockStamp:
+        block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
+        block_details = self.w3.cc.get_block_details(block_root)
+        bs = build_blockstamp(block_details)
+        logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
+        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
+        return bs
+
+    def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        logger.info({'msg': 'Execute module.', 'value': blockstamp})
+        result = self.execute_module(blockstamp)
+        pulse()
+        return result
 
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:

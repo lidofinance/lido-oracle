@@ -3,13 +3,15 @@ from itertools import count
 from typing import Any
 
 from faker import Faker
+from hexbytes import HexBytes
 from pydantic_factories import Use
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
+from src.types import Gwei
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
-from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
 faker = Faker()
 
@@ -17,11 +19,31 @@ faker = Faker()
 class ValidatorStateFactory(Web3Factory):
     __model__ = ValidatorState
 
+    withdrawal_credentials = "0x01"
     exit_epoch = FAR_FUTURE_EPOCH
+
+    @classmethod
+    def build(cls, **kwargs: Any):
+        if 'pubkey' not in kwargs:
+            kwargs['pubkey'] = HexBytes(faker.binary(length=48)).hex()
+        return super().build(**kwargs)
 
 
 class ValidatorFactory(Web3Factory):
     __model__ = Validator
+
+    @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs,
+        )
 
 
 class LidoKeyFactory(Web3Factory):
@@ -54,13 +76,26 @@ class LidoValidatorFactory(Web3Factory):
         )
 
     @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs,
+        )
+
+    @classmethod
     def build_not_active_vals(cls, epoch, **kwargs: Any):
         return cls.build(
             validator=ValidatorStateFactory.build(
                 activation_epoch=str(faker.pyint(min_value=epoch + 1, max_value=FAR_FUTURE_EPOCH)),
                 exit_epoch=str(FAR_FUTURE_EPOCH),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -70,7 +105,7 @@ class LidoValidatorFactory(Web3Factory):
                 activation_epoch=str(faker.pyint(min_value=0, max_value=epoch - 1)),
                 exit_epoch=str(faker.pyint(min_value=epoch + 1, max_value=FAR_FUTURE_EPOCH)),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -80,7 +115,18 @@ class LidoValidatorFactory(Web3Factory):
                 activation_epoch='0',
                 exit_epoch=str(faker.pyint(min_value=1, max_value=epoch)),
             ),
-            **kwargs
+            **kwargs,
+        )
+
+    @classmethod
+    def build_with_balance(cls, balance: Gwei, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs: Any):
+        return cls.build(
+            balance=balance,
+            validator=ValidatorStateFactory.build(
+                effective_balance=min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, meb),
+                withdrawal_credentials="0x01" if meb == MAX_EFFECTIVE_BALANCE else "0x02",
+            ),
+            **kwargs,
         )
 
 
