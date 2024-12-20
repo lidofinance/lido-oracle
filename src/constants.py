@@ -1,3 +1,5 @@
+from src.types import Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
@@ -10,8 +12,8 @@ EPOCHS_PER_SLASHINGS_VECTOR = 2**13
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
-MAX_EFFECTIVE_BALANCE = 32 * 10 ** 9
-MIN_ACTIVATION_BALANCE = 32 * 10 ** 9
+MAX_EFFECTIVE_BALANCE = Gwei(32 * 10 ** 9)
+MIN_ACTIVATION_BALANCE = Gwei(32 * 10 ** 9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2 ** 4
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
