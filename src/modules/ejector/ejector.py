@@ -294,7 +294,7 @@ class Ejector(BaseModule, ConsensusModule):
         # duration. Roughly every 512 requests adds one more epoch to sweep duration in the current state.
         # On the other side, to consider pending withdrawals it is necessary to fetch the beacon state and query the
         # EIP-7002 predeployed contract, which adds complexity with limited improvement for predictions.
-        total_withdrawable_validators = len(self._get_expected_withdrawable_validators(blockstamp))
+        total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
         logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
         slots_to_sweep = math.ceil(total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD)
         full_sweep_in_epochs = math.ceil(slots_to_sweep / chain_config.slots_per_epoch)
@@ -306,15 +306,6 @@ class Ejector(BaseModule, ConsensusModule):
             for v in self.w3.cc.get_validators(blockstamp)
             if is_partially_withdrawable_validator(v) or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
         ]
-
-    def _get_expected_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
-        def is_withdrawing_validator(v: Validator) -> bool:
-            # We assume a recently swept or appeared validator will get enough balance waiting for the next sweep cycle.
-            has_enough_balance_to_sweep = int(v.balance) >= get_max_effective_balance(v)
-            may_be_swept = has_execution_withdrawal_credential(v) and has_enough_balance_to_sweep
-            return may_be_swept or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
-
-        return [v for v in self.w3.cc.get_validators(blockstamp) if is_withdrawing_validator(v)]
 
     @lru_cache(maxsize=1)
     def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:

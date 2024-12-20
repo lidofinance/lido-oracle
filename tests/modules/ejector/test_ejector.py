@@ -407,7 +407,7 @@ def test_get_sweep_delay_in_epochs_post_electra(
         m.setattr(
             ejector_module,
             "is_fully_withdrawable_validator",
-            Mock(return_value=False),
+            Mock(return_value=True),
         )
         delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
         assert delay == 2, "Unexpected sweep delay in epochs"
@@ -433,28 +433,6 @@ def test_get_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
         withdrawable = ejector._get_withdrawable_validators(Mock())
 
     assert [v.index for v in withdrawable] == [2]
-
-
-@pytest.mark.unit
-def test_get_expected_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
-    ejector.w3.cc = Mock()
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9), index=1),
-            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9), index=2),
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9), index=3),
-        ],
-    )
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        withdrawable = ejector._get_expected_withdrawable_validators(Mock())
-
-    assert [v.index for v in withdrawable] == [1, 2]
 
 
 @pytest.mark.usefixtures("contracts")
