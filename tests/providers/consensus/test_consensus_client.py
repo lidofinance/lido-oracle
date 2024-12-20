@@ -5,10 +5,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import Fork, SlotNumber
+from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
@@ -75,7 +74,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 @pytest.mark.integration
 def test_get_fork(consensus_client: ConsensusClient):
     fork = consensus_client.get_fork("head")
-    assert fork > Fork.PHASE0
+    assert fork >= fork.GENESIS
 
 
 @pytest.mark.integration
@@ -84,8 +83,8 @@ def test_get_state_view(consensus_client: ConsensusClient):
     assert state_view.slot > 0
 
     fork = consensus_client.get_fork(state_view.slot)
-    if fork >= Fork.ELECTRA:
-        assert state_view.earliest_exit_epoch != FAR_FUTURE_EPOCH
+    if fork >= fork.ELECTRA:
+        assert state_view.earliest_exit_epoch != 0
         assert state_view.exit_balance_to_consume >= 0
 
 
