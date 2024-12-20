@@ -5,14 +5,23 @@ import pytest
 from web3.exceptions import ContractCustomError
 
 from src import constants
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
+from src.constants import (
+    EFFECTIVE_BALANCE_INCREMENT,
+    MAX_EFFECTIVE_BALANCE,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MAX_SEED_LOOKAHEAD,
+    MIN_ACTIVATION_BALANCE,
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+)
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import Ejector
 from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
-from src.types import BlockStamp, _Fork as Fork, Gwei, ReferenceBlockStamp
+from src.providers.consensus.types import BeaconStateView
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import _Fork as Fork
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModuleId
@@ -223,7 +232,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 @pytest.mark.unit
-def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
+def test_get_predicted_withdrawable_epoch_pre_electra(ejector: Ejector) -> None:
     ejector.fork = Mock(return_value=Fork.CAPELLA)
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
@@ -233,6 +242,84 @@ def test_get_predicted_withdrawable_epoch(ejector: Ejector) -> None:
 
     result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 4)
     assert result == 3809, "Unexpected predicted withdrawable epoch"
+
+
+class TestPredictedWithdrawableEpochPostElectra:
+    @pytest.fixture
+    def ref_blockstamp(self) -> ReferenceBlockStamp:
+        return ReferenceBlockStampFactory.build(
+            ref_slot=10_000_000,
+            ref_epoch=10_000_000 // 32,
+        )
+
+    @pytest.mark.unit
+    def test_earliest_exit_epoch_is_old(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector._get_total_active_balance = Mock(return_value=int(2048e9))
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                earliest_exit_epoch=ref_blockstamp.ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+            )
+        )
+        result = ejector._get_predicted_withdrawable_epoch(
+            ref_blockstamp,
+            [LidoValidatorFactory.build_with_balance(MIN_ACTIVATION_BALANCE)] * 1,
+        )
+        assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    @pytest.mark.unit
+    def test_exit_fits_exit_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector._get_total_active_balance = Mock(return_value=int(2048e9))
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
+                exit_balance_to_consume=Gwei(int(256e9)),
+            )
+        )
+        result = ejector._get_predicted_withdrawable_epoch(
+            ref_blockstamp,
+            [LidoValidatorFactory.build_with_balance(129e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
+        )
+        assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    @pytest.mark.unit
+    def test_exit_exceeds_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector._get_total_active_balance = Mock(return_value=2048e9)
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
+                exit_balance_to_consume=Gwei(1),
+            )
+        )
+        result = ejector._get_predicted_withdrawable_epoch(
+            ref_blockstamp,
+            [LidoValidatorFactory.build_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
+        )
+        assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    @pytest.mark.unit
+    def test_exit_exceeds_churn_limit(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector._get_total_active_balance = Mock(return_value=2048e9)
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                earliest_exit_epoch=ref_blockstamp.ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+            )
+        )
+        result = ejector._get_predicted_withdrawable_epoch(
+            ref_blockstamp,
+            [LidoValidatorFactory.build_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
+        )
+        assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + 3 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    @pytest.fixture(autouse=True)
+    def _patch_ejector(self, ejector: Ejector):
+        ejector.fork = Mock(return_value=Fork.ELECTRA)
+        ejector.w3.cc = Mock()
 
 
 @pytest.mark.unit

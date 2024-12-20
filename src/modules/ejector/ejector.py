@@ -34,6 +34,7 @@ from src.utils.validator_state import (
     compute_activation_exit_epoch,
     compute_exit_balance_churn_limit,
     compute_exit_churn_limit,
+    get_max_effective_balance,
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
@@ -130,7 +131,10 @@ class Ejector(BaseModule, ConsensusModule):
                 gid, next_validator = next(validators_iterator)
                 validators_to_eject.append((gid, next_validator))
                 validator_to_eject_balance_sum += self.w3.to_wei(self._get_predicted_withdrawable_balance(next_validator), "gwei")
-                expected_balance = self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp) + validator_to_eject_balance_sum
+                expected_balance = (
+                    self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp)
+                    + validator_to_eject_balance_sum
+                )
         except StopIteration:
             pass
 

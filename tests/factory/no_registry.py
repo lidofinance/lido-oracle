@@ -86,7 +86,7 @@ class LidoValidatorFactory(Web3Factory):
         )
 
     @classmethod
-    def build_with_balance(cls, balance: Gwei, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs: Any):
+    def build_with_balance(cls, balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs: Any):
         return cls.build(
             balance=balance,
             validator=ValidatorStateFactory.build(
