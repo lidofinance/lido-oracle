@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from eth_typing import ChecksumAddress, HexStr
 
+from src.types import NodeOperatorId
 from src.utils.dataclass import FromResponse
 
 
@@ -9,7 +10,7 @@ from src.utils.dataclass import FromResponse
 class LidoKey(FromResponse):
     key: HexStr
     depositSignature: HexStr
-    operatorIndex: int
+    operatorIndex: NodeOperatorId
     used: bool
     moduleAddress: ChecksumAddress
 
