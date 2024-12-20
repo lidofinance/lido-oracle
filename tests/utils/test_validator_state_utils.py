@@ -389,6 +389,7 @@ def test_get_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwe
     actual_limit = get_balance_churn_limit(total_active_balance)
     assert actual_limit == expected_limit, "Unexpected balance churn limit"
 
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("total_active_balance", "expected_limit"),

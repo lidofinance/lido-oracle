@@ -12,7 +12,7 @@ from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
-from src.types import BlockStamp, Fork, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, _Fork as Fork, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModuleId

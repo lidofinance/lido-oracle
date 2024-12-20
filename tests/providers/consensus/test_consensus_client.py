@@ -78,6 +78,7 @@ def test_get_fork(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
+@pytest.mark.skip(reason="Too long to complete in CI")
 def test_get_state_view(consensus_client: ConsensusClient):
     state_view = consensus_client.get_state_view("head")
     assert state_view.slot > 0
