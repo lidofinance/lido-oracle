@@ -3,6 +3,7 @@ from itertools import count
 from typing import Any
 
 from faker import Faker
+from hexbytes import HexBytes
 from pydantic_factories import Use
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -18,6 +19,12 @@ class ValidatorStateFactory(Web3Factory):
     __model__ = ValidatorState
 
     exit_epoch = FAR_FUTURE_EPOCH
+
+    @classmethod
+    def build(cls, **kwargs: Any):
+        if 'pubkey' not in kwargs:
+            kwargs['pubkey'] = HexBytes(faker.binary(length=48)).hex()
+        return super().build(**kwargs)
 
 
 class ValidatorFactory(Web3Factory):
