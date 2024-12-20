@@ -93,7 +93,10 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     """
     Check if `validator` can exit.
     Verify the validator has been active long enough.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#voluntary-exits
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#voluntary-exits
+
+    The validator can only exit if it has no pending withdrawals in the queue.
+    This method don't take partial withdrawals into account because Lido protocol doesn't support partial withdrawals.
     """
     active_long_enough = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
