@@ -244,12 +244,13 @@ def process_attestations(attestations: Iterable[BlockAttestation], committees: C
 
 
 def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
-    if not is_electra_attestation(attestation):
-        return [attestation.data.index]
-    return [str(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
+    if is_eip7549_attestation(attestation):
+        return [str(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
+    return [attestation.data.index]
 
 
-def is_electra_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationElectra]:
+def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationElectra]:
+    # @see https://eips.ethereum.org/EIPS/eip-7549
     has_committee_bits = getattr(attestation, "committee_bits") is not None
     has_zero_index = attestation.data.index == "0"
     if has_committee_bits and not has_zero_index:

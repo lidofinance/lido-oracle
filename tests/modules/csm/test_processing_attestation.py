@@ -1,5 +1,4 @@
 from itertools import chain
-from typing import Sequence
 from unittest.mock import Mock
 
 import pytest
@@ -8,7 +7,7 @@ from src.modules.csm.checkpoint import (
     get_committee_indices,
     hex_bitlist_to_list,
     hex_bitvector_to_list,
-    is_electra_attestation,
+    is_eip7549_attestation,
     process_attestations,
 )
 from src.providers.consensus.types import BlockAttestation
@@ -128,14 +127,14 @@ def test_attested_indices_post_electra():
 @pytest.mark.unit
 def test_derive_attestation_version():
     att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits=None)
-    assert not is_electra_attestation(att)
+    assert not is_eip7549_attestation(att)
 
     att: BlockAttestation = Mock(data=Mock(index="0"), aggregation_bits="", committee_bits="")
-    assert is_electra_attestation(att)
+    assert is_eip7549_attestation(att)
 
     att: BlockAttestation = Mock(data=Mock(index="1"), aggregation_bits="", committee_bits="")
     with pytest.raises(ValueError, match="invalid attestation"):
-        assert is_electra_attestation(att)
+        assert is_eip7549_attestation(att)
 
 
 @pytest.mark.unit
