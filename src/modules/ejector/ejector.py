@@ -34,8 +34,6 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     compute_exit_churn_limit,
-    get_max_effective_balance,
-    has_execution_withdrawal_credential,
     is_active_validator,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
