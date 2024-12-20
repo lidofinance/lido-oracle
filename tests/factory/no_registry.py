@@ -3,6 +3,7 @@ from itertools import count
 from typing import Any
 
 from faker import Faker
+from hexbytes import HexBytes
 from pydantic_factories import Use
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -19,9 +20,28 @@ class ValidatorStateFactory(Web3Factory):
 
     exit_epoch = FAR_FUTURE_EPOCH
 
+    @classmethod
+    def build(cls, **kwargs: Any):
+        if 'pubkey' not in kwargs:
+            kwargs['pubkey'] = HexBytes(faker.binary(length=48)).hex()
+        return super().build(**kwargs)
+
 
 class ValidatorFactory(Web3Factory):
     __model__ = Validator
+
+    @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs
+        )
 
 
 class LidoKeyFactory(Web3Factory):
@@ -51,6 +71,19 @@ class LidoValidatorFactory(Web3Factory):
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
         return cls.build(
             validator=ValidatorStateFactory.build(activation_epoch=str(faker.pyint(max_value=max_value - 1))), **kwargs
+        )
+
+    @classmethod
+    def build_pending_deposit_vals(cls, **kwargs: Any):
+        return cls.build(
+            balance=str(0),
+            validator=ValidatorStateFactory.build(
+                activation_eligibility_epoch=str(FAR_FUTURE_EPOCH),
+                activation_epoch=str(FAR_FUTURE_EPOCH),
+                exit_epoch=str(FAR_FUTURE_EPOCH),
+                effective_balance=str(0),
+            ),
+            **kwargs
         )
 
     @classmethod
