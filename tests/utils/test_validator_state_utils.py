@@ -1,29 +1,31 @@
-from pydantic.class_validators import validator
 import pytest
+from pydantic.class_validators import validator
 
 from src.constants import (
-    FAR_FUTURE_EPOCH,
     EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
 )
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState, ValidatorStatus
 from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
-    calculate_total_active_effective_balance,
-    is_on_exit,
-    get_validator_age,
     calculate_active_effective_balance_sum,
-    is_validator_eligible_to_exit,
-    is_fully_withdrawable_validator,
-    is_partially_withdrawable_validator,
-    has_eth1_withdrawal_credential,
-    is_exited_validator,
-    is_active_validator,
+    calculate_total_active_effective_balance,
     compute_activation_exit_epoch,
-    has_compounding_withdrawal_credential,
-    has_execution_withdrawal_credential,
+    get_balance_churn_limit,
     get_max_effective_balance,
+    get_validator_age,
+    has_compounding_withdrawal_credential,
+    has_eth1_withdrawal_credential,
+    has_execution_withdrawal_credential,
+    is_active_validator,
+    is_exited_validator,
+    is_fully_withdrawable_validator,
+    is_on_exit,
+    is_partially_withdrawable_validator,
+    is_validator_eligible_to_exit,
+    compute_exit_balance_churn_limit,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -367,3 +369,40 @@ class TestCalculateTotalEffectiveBalance:
 def test_compute_activation_exit_epoch():
     ref_epoch = 3455
     assert 3460 == compute_activation_exit_epoch(ref_epoch)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("total_active_balance", "expected_limit"),
+    (
+        (0, 128e9),
+        (32e9, 128e9),
+        (2 * 32e9, 128e9),
+        (1024 * 32e9, 128e9),
+        (512 * 1024 * 32e9, 256e9),
+        (1024 * 1024 * 32e9, 512e9),
+        (2000 * 1024 * 32e9, 1000e9),
+        (3300 * 1024 * 32e9, 1650e9),
+    ),
+)
+def test_get_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwei):
+    actual_limit = get_balance_churn_limit(total_active_balance)
+    assert actual_limit == expected_limit, "Unexpected balance churn limit"
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("total_active_balance", "expected_limit"),
+    (
+        (0, 128e9),
+        (32e9, 128e9),
+        (2 * 32e9, 128e9),
+        (1024 * 32e9, 128e9),
+        (512 * 1024 * 32e9, 256e9),
+        (1024 * 1024 * 32e9, 256e9),
+        (2000 * 1024 * 32e9, 256e9),
+        (3300 * 1024 * 32e9, 256e9),
+    ),
+)
+def test_compute_exit_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwei):
+    actual_limit = compute_exit_balance_churn_limit(total_active_balance)
+    assert actual_limit == expected_limit, "Unexpected exit churn limit"
