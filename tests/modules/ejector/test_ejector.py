@@ -309,17 +309,24 @@ def test_get_withdrawable_lido_validators_balance(
 
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
-    validator = LidoValidatorFactory.build(balance="0")
+    validator = LidoValidatorFactory.build_with_balance(Gwei(0))
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 0, "Expected zero"
 
-    validator = LidoValidatorFactory.build(balance="42")
+    validator = LidoValidatorFactory.build_with_balance(Gwei(42))
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == 42, "Expected validator's balance in gwei"
 
-    validator = LidoValidatorFactory.build(balance=str(MAX_EFFECTIVE_BALANCE + 1))
+    validator = LidoValidatorFactory.build_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
+
+    validator = LidoValidatorFactory.build_with_balance(
+        Gwei(MAX_EFFECTIVE_BALANCE + 1),
+        meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
+    )
+    result = ejector._get_predicted_withdrawable_balance(validator)
+    assert result == MAX_EFFECTIVE_BALANCE + 1, "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
 @pytest.mark.unit
