@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 

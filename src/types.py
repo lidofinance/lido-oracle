@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import IntEnum, StrEnum, auto
+from enum import StrEnum, auto
 from typing import NewType
 
 from eth_typing import BlockNumber, ChecksumAddress, HexStr
@@ -38,23 +38,18 @@ ELVaultBalance = NewType('ELVaultBalance', Wei)
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
 
 
-# TODO: Can be generated dynamycally from the spec response?
-class Fork(IntEnum):
-    PHASE0 = auto()
+class _Fork(StrEnum):
+    """We store fork versions as an enum of hex encoded 4 bytes, so the values are comparable as strings"""
+
+    GENESIS = auto()
     ALTAIR = auto()
     BELLATRIX = auto()
     CAPELLA = auto()
     DENEB = auto()
     ELECTRA = auto()
 
-    @classmethod
-    def _missing_(cls, value: object):
-        assert isinstance(value, str)
-        value = value.upper()
-        for member in cls:
-            if member.name == value:
-                return member
-        return None
+
+type Fork = _Fork
 
 
 @dataclass(frozen=True)
