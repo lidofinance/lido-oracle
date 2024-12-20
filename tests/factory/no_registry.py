@@ -42,7 +42,7 @@ class ValidatorFactory(Web3Factory):
                 exit_epoch=str(FAR_FUTURE_EPOCH),
                 effective_balance=str(0),
             ),
-            **kwargs
+            **kwargs,
         )
 
 
@@ -85,7 +85,7 @@ class LidoValidatorFactory(Web3Factory):
                 exit_epoch=str(FAR_FUTURE_EPOCH),
                 effective_balance=str(0),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
