@@ -1,11 +1,13 @@
+from enum import StrEnum
 from http import HTTPStatus
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
-from json_stream.base import TransientStreamingJSONObject  # type: ignore
+from json_stream.base import TransientAccessException, TransientStreamingJSONObject  # type: ignore
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
+    BeaconStateView,
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
@@ -16,9 +18,13 @@ from src.providers.consensus.types import (
     SlotAttestationCommittee, BlockAttestation,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.types import is_4bytes_hex
+
+if TYPE_CHECKING:
+    from src.types import Fork
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +55,43 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
+    API_GET_FORK = '/eth/v1/beacon/states/{}/fork'
 
-    def get_config_spec(self):
+    def get_config_spec(self) -> BeaconSpecResponse:
+        data = self._get_raw_spec()
+        return BeaconSpecResponse.from_response(**data)
+
+    def get_fork(self, state_id: LiteralState | SlotNumber) -> "Fork":
+        data, _ = self._get(
+            self.API_GET_FORK,
+            path_params=(state_id,),
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getFork")
+
+        current_version = data["current_version"]
+        return self._forks()(current_version)  # type: ignore[operator]
+
+    def _forks(self) -> "Fork":
+        spec = self._get_raw_spec()
+
+        versions = {}
+        for k, v in spec.items():
+            if k.endswith("FORK_VERSION"):
+                if not is_4bytes_hex(v):
+                    raise ValueError(f"Got invalid fork version {v}")
+                versions[k.split("_")[0].upper()] = v
+
+        if not versions:
+            raise ValueError("No forks defined in the spec")
+        return cast("Fork", StrEnum("Fork", versions.items()))
+
+    def _get_raw_spec(self) -> dict[str, str]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
         data, _ = self._get(self.API_GET_SPEC)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getSpec")
-        return BeaconSpecResponse.from_response(**data)
+        return data
 
     def get_genesis(self):
         """
@@ -149,6 +185,25 @@ class ConsensusClient(HTTPProvider):
             stream=True,
         ))
         return list(streamed_json['data']['block_roots'])
+
+    @lru_cache(maxsize=1)
+    def get_state_view(self, state_id: SlotNumber | StateRoot) -> BeaconStateView:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
+        streamed_json = cast(TransientStreamingJSONObject, self._get(
+                self.API_GET_STATE,
+                path_params=(state_id,),
+                stream=True,
+            ))
+        view = {}
+        data = streamed_json['data']
+        try:
+            # NOTE: Keep in mind: the order is important.
+            view['slot'] = int(data['slot'])
+            view['exit_balance_to_consume'] = int(data['exit_balance_to_consume'])
+            view['earliest_exit_epoch'] = int(data['earliest_exit_epoch'])
+        except TransientAccessException:
+            pass
+        return BeaconStateView.from_response(**view)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
