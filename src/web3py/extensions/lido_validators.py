@@ -175,6 +175,8 @@ class LidoValidatorsProvider(Module):
 
     @staticmethod
     def calculate_pending_deposits_sum(lido_validators: list[LidoValidator]) -> int:
+        # NOTE: Using 32 ETH as a default validator pending balance is OK for the current protocol implementation.
+        #       It must be changed in case of validators consolidation feature implementation.
         return sum(
             MIN_ACTIVATION_BALANCE
             for validator in lido_validators
