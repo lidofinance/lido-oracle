@@ -36,7 +36,7 @@ from src.utils.validator_state import (
     compute_exit_churn_limit,
     is_active_validator,
     is_fully_withdrawable_validator,
-    is_partially_withdrawable_validator,
+    is_partially_withdrawable_validator, get_max_effective_balance,
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
@@ -130,7 +130,8 @@ class Ejector(BaseModule, ConsensusModule):
                 gid, next_validator = next(validators_iterator)
                 validators_to_eject.append((gid, next_validator))
                 validator_to_eject_balance_sum += self.w3.to_wei(self._get_predicted_withdrawable_balance(next_validator), "gwei")
-                expected_balance = self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp) + validator_to_eject_balance_sum
+                expected_balance = self._get_total_expected_balance([v for (_, v) in validators_to_eject],
+                                                                    blockstamp) + validator_to_eject_balance_sum
         except StopIteration:
             pass
 
@@ -178,7 +179,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         return future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance
 
-    def get_validators_iterator(self, consensus_version: int,  blockstamp: ReferenceBlockStamp):
+    def get_validators_iterator(self, consensus_version: int, blockstamp: ReferenceBlockStamp):
         chain_config = self.get_chain_config(blockstamp)
 
         if consensus_version == 1:
