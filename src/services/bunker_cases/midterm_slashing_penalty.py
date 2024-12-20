@@ -195,7 +195,7 @@ class MidtermSlashingPenalty:
     ) -> Gwei:
         """
         Calculate midterm penalty for particular validator
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings
+        https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-process_slashings
         """
         # We don't know validators effective balances on the moment of slashing,
         # so we assume that it was at least `effective_balance`
