@@ -89,7 +89,7 @@ class LidoContract(ContractInterface):
         state_override: dict[ChecksumAddress, CallOverrideParams] = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value
-                'balance': Wei(10**18),
+                'balance': Wei(100 * 10**18),
                 # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
