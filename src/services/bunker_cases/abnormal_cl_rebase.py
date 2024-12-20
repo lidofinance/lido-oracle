@@ -217,10 +217,11 @@ class AbnormalClRebase:
         Get Lido validator balance with withdrawals vault balance
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
+        pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(lido_validators)
         withdrawals_vault_balance = int(
             self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
         )
-        return Gwei(real_cl_balance + withdrawals_vault_balance)
+        return Gwei(real_cl_balance + pending_deposits_sum + withdrawals_vault_balance)
 
     def _get_withdrawn_from_vault_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
