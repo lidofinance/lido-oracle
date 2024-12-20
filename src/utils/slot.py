@@ -59,7 +59,7 @@ def _get_non_missed_slot_header(
     #  Exception case can be when all slots are missed in range [slot, last_finalized_slot_number] it will mean that
     #  block response of CL node contradicts itself, because few moments ago we got existed `last_finalized_slot_number`
     if slot > last_finalized_slot_number:
-        raise ValueError('`slot` should be less or equal `last_finalized_slot_number`')
+        raise ValueError(f'{slot=} should be less or equal {last_finalized_slot_number=}')
 
     slot_is_missing = False
     existing_header = None
@@ -106,6 +106,7 @@ def get_prev_non_missed_slot(
     ):
         raise InconsistentData(
             "Parent root next to `slot` existing header doesn't match the expected slot.\n"
+            f'Expected {slot=}, Got {parent_header.data.header.message.slot=}'
             'Probably, a problem with the consensus node.'
         )
 
