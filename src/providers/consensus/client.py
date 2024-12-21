@@ -1,6 +1,6 @@
 from enum import StrEnum
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal, cast
 
 from json_stream.base import TransientAccessException, TransientStreamingJSONObject  # type: ignore
 
@@ -18,13 +18,10 @@ from src.providers.consensus.types import (
     SlotAttestationCommittee, BlockAttestation,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
+from src.types import BlockRoot, BlockStamp, Fork, SlotNumber, EpochNumber, StateRoot
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.types import is_4bytes_hex
-
-if TYPE_CHECKING:
-    from src.types import Fork
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +59,7 @@ class ConsensusClient(HTTPProvider):
         data = self._get_raw_spec()
         return BeaconSpecResponse.from_response(**data)
 
-    def get_fork(self, state_id: LiteralState | SlotNumber) -> "Fork":
+    def get_fork(self, state_id: LiteralState | SlotNumber) -> Fork:
         data, _ = self._get(
             self.API_GET_FORK,
             path_params=(state_id,),
@@ -73,7 +70,7 @@ class ConsensusClient(HTTPProvider):
         current_version = data["current_version"]
         return self._forks()(current_version)  # type: ignore[operator]
 
-    def _forks(self) -> "Fork":
+    def _forks(self) -> Fork:
         spec = self._get_raw_spec()
 
         versions = {}
@@ -85,7 +82,7 @@ class ConsensusClient(HTTPProvider):
 
         if not versions:
             raise ValueError("No forks defined in the spec")
-        return cast("Fork", StrEnum("Fork", versions.items()))
+        return cast(Fork, StrEnum("Fork", versions.items()))
 
     def _get_raw_spec(self) -> dict[str, str]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
