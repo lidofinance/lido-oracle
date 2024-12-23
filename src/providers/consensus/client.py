@@ -6,8 +6,8 @@ from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
-    BlockAttestationElectra,
-    BlockAttestationPhase0,
+    BlockAttestation,
+    BlockAttestationResponse,
     BlockDetailsResponse,
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
@@ -15,7 +15,7 @@ from src.providers.consensus.types import (
     Validator,
     BeaconSpecResponse,
     GenesisResponse,
-    SlotAttestationCommittee, BlockAttestation,
+    SlotAttestationCommittee,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber
@@ -111,8 +111,9 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=256)
     def get_block_attestations(
-        self, state_id: SlotNumber | BlockRoot
-    ) -> list[BlockAttestationPhase0 | BlockAttestationElectra]:
+        self,
+        state_id: SlotNumber | BlockRoot,
+    ) -> list[BlockAttestation]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
         data, _ = self._get(
             self.API_GET_BLOCK_ATTESTATIONS,
@@ -121,7 +122,7 @@ class ConsensusClient(HTTPProvider):
         )
         if not isinstance(data, list):
             raise ValueError("Expected list response from getBlockAttestations")
-        return [BlockAttestation.from_response(**att) for att in data]
+        return [BlockAttestationResponse.from_response(**att) for att in data]
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(

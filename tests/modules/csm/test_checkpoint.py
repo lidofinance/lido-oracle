@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Iterator, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest

@@ -10,7 +10,7 @@ from src.constants import SLOTS_PER_HISTORICAL_ROOT
 from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestationElectra, BlockAttestationPhase0
+from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
@@ -22,9 +22,6 @@ lock = Lock()
 
 
 class MinStepIsNotReached(Exception): ...
-
-
-type BlockAttestation = BlockAttestationPhase0 | BlockAttestationElectra
 
 
 @dataclass
@@ -249,7 +246,7 @@ def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]
     return [attestation.data.index]
 
 
-def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationElectra]:
+def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationEIP7549]:
     # @see https://eips.ethereum.org/EIPS/eip-7549
     has_committee_bits = getattr(attestation, "committee_bits") is not None
     has_zero_index = attestation.data.index == "0"
