@@ -77,6 +77,11 @@
             "internalType": "address",
             "name": "accounting",
             "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "wstETH",
+            "type": "address"
           }
         ],
         "internalType": "struct LidoLocator.Config",
@@ -353,6 +358,19 @@
   {
     "inputs": [],
     "name": "withdrawalVault",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "wstETH",
     "outputs": [
       {
         "internalType": "address",

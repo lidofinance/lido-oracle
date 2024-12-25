@@ -1,5 +1,24 @@
 [
   {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "_sharesAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPooledEthBySharesRoundUp",
+    "outputs": [
+      {
+        "name": "etherAmount",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "constant": false,
     "inputs": [],
     "name": "resume",
@@ -12,7 +31,7 @@
     "constant": false,
     "inputs": [
       {
-        "name": "_receiver",
+        "name": "_recipient",
         "type": "address"
       },
       {
@@ -409,7 +428,7 @@
         "type": "address"
       },
       {
-        "name": "_sharesAmount",
+        "name": "_amountOfShares",
         "type": "uint256"
       }
     ],
@@ -434,9 +453,49 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "name": "_preClValidators",
+        "type": "uint256"
+      },
+      {
+        "name": "_reportClValidators",
+        "type": "uint256"
+      },
+      {
+        "name": "_reportClBalance",
+        "type": "uint256"
+      }
+    ],
+    "name": "processClStateUpdate",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "getCurrentStakeLimit",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getExternalShares",
     "outputs": [
       {
         "name": "",
@@ -652,6 +711,15 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [],
+    "name": "rebalanceExternalEtherToInternal",
+    "outputs": [],
+    "payable": true,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "appId",
@@ -709,7 +777,7 @@
     "constant": false,
     "inputs": [
       {
-        "name": "_sharesAmount",
+        "name": "_amountOfShares",
         "type": "uint256"
       }
     ],
@@ -717,6 +785,20 @@
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getMaxMintableExternalShares",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -782,7 +864,7 @@
         "type": "uint256"
       },
       {
-        "name": "_adjustedPreCLBalance",
+        "name": "_principalCLBalance",
         "type": "uint256"
       },
       {
@@ -827,20 +909,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_maxExternalBalanceBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMaxExternalBalanceBP",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "getEIP712StETH",
@@ -848,6 +916,20 @@
       {
         "name": "",
         "type": "address"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getMaxExternalRatioBP",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
       }
     ],
     "payable": false,
@@ -994,20 +1076,6 @@
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getMaxExternalEther",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1267,36 +1335,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_reportTimestamp",
-        "type": "uint256"
-      },
-      {
-        "name": "_preClValidators",
-        "type": "uint256"
-      },
-      {
-        "name": "_reportClValidators",
-        "type": "uint256"
-      },
-      {
-        "name": "_reportClBalance",
-        "type": "uint256"
-      },
-      {
-        "name": "_postExternalBalance",
-        "type": "uint256"
-      }
-    ],
-    "name": "processClStateUpdate",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "getDepositableEther",
@@ -1308,6 +1346,20 @@
     ],
     "payable": false,
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_maxExternalRatioBP",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMaxExternalRatioBP",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1436,7 +1488,7 @@
       },
       {
         "indexed": false,
-        "name": "preCLBalance",
+        "name": "principalCLBalance",
         "type": "uint256"
       },
       {
@@ -1590,7 +1642,7 @@
       },
       {
         "indexed": false,
-        "name": "stethAmount",
+        "name": "amountOfStETH",
         "type": "uint256"
       }
     ],
@@ -1624,11 +1676,23 @@
     "inputs": [
       {
         "indexed": false,
-        "name": "maxExternalBalanceBP",
+        "name": "maxExternalRatioBP",
         "type": "uint256"
       }
     ],
-    "name": "MaxExternalBalanceBPSet",
+    "name": "MaxExternalRatioBPSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ExternalEtherTransferredToBuffer",
     "type": "event"
   },
   {

@@ -83,11 +83,16 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "locked",
+        "name": "currentlyLocked",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "attemptedLocked",
         "type": "uint256"
       }
     ],
-    "name": "LockedCannotBeDecreased",
+    "name": "LockedCannotDecreaseOutsideOfReport",
     "type": "error"
   },
   {
@@ -104,11 +109,6 @@
       }
     ],
     "name": "NotAuthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotHealthy",
     "type": "error"
   },
   {
@@ -141,33 +141,17 @@
   {
     "inputs": [
       {
-        "internalType": "uint8",
-        "name": "bits",
-        "type": "uint8"
-      },
-      {
-        "internalType": "int256",
-        "name": "value",
-        "type": "int256"
-      }
-    ],
-    "name": "SafeCastOverflowedIntDowncast",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "bits",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "valuation",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "value",
+        "name": "rebalanceAmount",
         "type": "uint256"
       }
     ],
-    "name": "SafeCastOverflowedUintDowncast",
+    "name": "RebalanceAmountExceedsValuation",
     "type": "error"
   },
   {
@@ -183,7 +167,7 @@
         "type": "address"
       }
     ],
-    "name": "SenderShouldBeBeacon",
+    "name": "SenderNotBeacon",
     "type": "error"
   },
   {
@@ -200,6 +184,16 @@
       }
     ],
     "name": "TransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Unbalanced",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnrecoverableError",
     "type": "error"
   },
   {
@@ -254,25 +248,6 @@
         "type": "uint256"
       }
     ],
-    "name": "ExecutionLayerRewardsReceived",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
     "name": "Funded",
     "type": "event"
   },
@@ -299,18 +274,12 @@
         "type": "uint256"
       }
     ],
-    "name": "Locked",
+    "name": "LockedIncreased",
     "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
       {
         "indexed": false,
         "internalType": "bytes",
@@ -343,12 +312,6 @@
   {
     "anonymous": false,
     "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
       {
         "indexed": false,
         "internalType": "uint256",
@@ -383,7 +346,7 @@
       {
         "indexed": false,
         "internalType": "bytes",
-        "name": "validatorPublicKey",
+        "name": "pubkey",
         "type": "bytes"
       }
     ],
@@ -421,19 +384,6 @@
     "outputs": [
       {
         "internalType": "contract IDepositContract",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_HUB",
-    "outputs": [
-      {
-        "internalType": "contract VaultHub",
         "name": "",
         "type": "address"
       }
@@ -518,8 +468,13 @@
         "type": "address"
       },
       {
+        "internalType": "address",
+        "name": "_operator",
+        "type": "address"
+      },
+      {
         "internalType": "bytes",
-        "name": "_params",
+        "name": "",
         "type": "bytes"
       }
     ],
@@ -530,7 +485,7 @@
   },
   {
     "inputs": [],
-    "name": "isHealthy",
+    "name": "isBalanced",
     "outputs": [
       {
         "internalType": "bool",
@@ -587,6 +542,19 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "operator",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -652,7 +620,7 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "_validatorPublicKey",
+        "name": "_pubkeys",
         "type": "bytes"
       }
     ],

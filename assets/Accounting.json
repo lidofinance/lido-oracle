@@ -10,11 +10,6 @@
         "internalType": "contract ILido",
         "name": "_lido",
         "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_treasury",
-        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -98,16 +93,16 @@
       },
       {
         "internalType": "uint256",
-        "name": "capVaultBalance",
+        "name": "capShares",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "maxExternalBalance",
+        "name": "maxMintableExternalShares",
         "type": "uint256"
       }
     ],
-    "name": "ExternalBalanceCapReached",
+    "name": "ExternalSharesCapReached",
     "type": "error"
   },
   {
@@ -172,22 +167,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "firstArrayLength",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "secondArrayLength",
-        "type": "uint256"
-      }
-    ],
-    "name": "InequalArrayLengths",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "vault",
         "type": "address"
@@ -220,6 +199,22 @@
   {
     "inputs": [],
     "name": "InvalidInitialization",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "vault",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "sharesMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "NoMintedSharesShouldBeLeft",
     "type": "error"
   },
   {
@@ -384,6 +379,22 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "firstArrayLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "secondArrayLength",
+        "type": "uint256"
+      }
+    ],
+    "name": "UnequalArrayLengths",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "string",
         "name": "argument",
         "type": "string"
@@ -396,19 +407,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
-        "name": "sender",
+        "name": "vault",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "tokens",
+        "name": "amountOfShares",
         "type": "uint256"
       }
     ],
-    "name": "BurnedStETHOnVault",
+    "name": "BurnedSharesOnVault",
     "type": "event"
   },
   {
@@ -428,19 +439,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
-        "name": "sender",
+        "name": "vault",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "tokens",
+        "name": "amountOfShares",
         "type": "uint256"
       }
     ],
-    "name": "MintedStETHOnVault",
+    "name": "MintedSharesOnVault",
     "type": "event"
   },
   {
@@ -522,7 +533,26 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "vault",
+        "type": "address"
+      },
+      {
         "indexed": false,
+        "internalType": "uint256",
+        "name": "newShareLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "ShareLimitUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "vault",
         "type": "address"
@@ -553,7 +583,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "vault",
         "type": "address"
@@ -566,7 +596,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "factory",
         "type": "address"
@@ -579,7 +609,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "impl",
         "type": "address"
@@ -592,9 +622,9 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
-        "name": "sender",
+        "name": "vault",
         "type": "address"
       },
       {
@@ -639,6 +669,19 @@
     "outputs": [
       {
         "internalType": "contract ILidoLocator",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "STETH",
+    "outputs": [
+      {
+        "internalType": "contract ILido",
         "name": "",
         "type": "address"
       }
@@ -693,7 +736,7 @@
         "type": "address"
       }
     ],
-    "name": "addImpl",
+    "name": "addVaultImpl",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -707,11 +750,11 @@
       },
       {
         "internalType": "uint256",
-        "name": "_tokens",
+        "name": "_amountOfShares",
         "type": "uint256"
       }
     ],
-    "name": "burnStethBackedByVault",
+    "name": "burnSharesBackedByVault",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -719,7 +762,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IHubVault",
+        "internalType": "address",
         "name": "_vault",
         "type": "address"
       },
@@ -730,12 +773,12 @@
       },
       {
         "internalType": "uint256",
-        "name": "_reserveRatio",
+        "name": "_reserveRatioBP",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_reserveRatioThreshold",
+        "name": "_reserveRatioThresholdBP",
         "type": "uint256"
       },
       {
@@ -757,7 +800,7 @@
         "type": "address"
       }
     ],
-    "name": "disconnectVault",
+    "name": "disconnect",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -765,7 +808,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IHubVault",
+        "internalType": "address",
         "name": "_vault",
         "type": "address"
       }
@@ -971,11 +1014,11 @@
       },
       {
         "internalType": "uint256",
-        "name": "_tokens",
+        "name": "_amountOfShares",
         "type": "uint256"
       }
     ],
-    "name": "mintStethBackedByVault",
+    "name": "mintSharesBackedByVault",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1175,11 +1218,6 @@
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "externalEther",
-            "type": "uint256"
-          },
-          {
             "internalType": "uint256[]",
             "name": "vaultsLockedEther",
             "type": "uint256[]"
@@ -1188,24 +1226,16 @@
             "internalType": "uint256[]",
             "name": "vaultsTreasuryFeeShares",
             "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalVaultsTreasuryFeeShares",
+            "type": "uint256"
           }
         ],
         "internalType": "struct Accounting.CalculatedValues",
         "name": "update",
         "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "stETH",
-    "outputs": [
-      {
-        "internalType": "contract ILido",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -1239,26 +1269,31 @@
       },
       {
         "internalType": "uint256",
-        "name": "_tokens",
+        "name": "_amountOfShares",
         "type": "uint256"
       }
     ],
-    "name": "transferAndBurnStethBackedByVault",
+    "name": "transferAndBurnSharesBackedByVault",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "treasury",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "_vault",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_shareLimit",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "updateShareLimit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1272,7 +1307,7 @@
     "name": "vault",
     "outputs": [
       {
-        "internalType": "contract IHubVault",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -1293,14 +1328,9 @@
       {
         "components": [
           {
-            "internalType": "contract IHubVault",
+            "internalType": "address",
             "name": "vault",
             "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "shareLimit",
-            "type": "uint96"
           },
           {
             "internalType": "uint96",
@@ -1308,19 +1338,29 @@
             "type": "uint96"
           },
           {
+            "internalType": "uint96",
+            "name": "shareLimit",
+            "type": "uint96"
+          },
+          {
             "internalType": "uint16",
-            "name": "reserveRatio",
+            "name": "reserveRatioBP",
             "type": "uint16"
           },
           {
             "internalType": "uint16",
-            "name": "reserveRatioThreshold",
+            "name": "reserveRatioThresholdBP",
             "type": "uint16"
           },
           {
             "internalType": "uint16",
             "name": "treasuryFeeBP",
             "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "isDisconnected",
+            "type": "bool"
           }
         ],
         "internalType": "struct VaultHub.VaultSocket",
@@ -1344,14 +1384,9 @@
       {
         "components": [
           {
-            "internalType": "contract IHubVault",
+            "internalType": "address",
             "name": "vault",
             "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "shareLimit",
-            "type": "uint96"
           },
           {
             "internalType": "uint96",
@@ -1359,19 +1394,29 @@
             "type": "uint96"
           },
           {
+            "internalType": "uint96",
+            "name": "shareLimit",
+            "type": "uint96"
+          },
+          {
             "internalType": "uint16",
-            "name": "reserveRatio",
+            "name": "reserveRatioBP",
             "type": "uint16"
           },
           {
             "internalType": "uint16",
-            "name": "reserveRatioThreshold",
+            "name": "reserveRatioThresholdBP",
             "type": "uint16"
           },
           {
             "internalType": "uint16",
             "name": "treasuryFeeBP",
             "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "isDisconnected",
+            "type": "bool"
           }
         ],
         "internalType": "struct VaultHub.VaultSocket",
@@ -1393,6 +1438,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      }
+    ],
+    "name": "voluntaryDisconnect",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]
