@@ -188,7 +188,6 @@ class CalculatedReportResults:
     principal_cl_balance: int
     post_total_shares: int
     post_total_pooled_ether: int
-    external_ether: int
     vaults_locked_ether: List[int]
     vaults_treasury_fee_shares: List[int]
     total_vaults_treasury_fee_shares: int
