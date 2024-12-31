@@ -63,7 +63,7 @@ class RewardsPredictionService:
         total_rewards = 0
         time_spent = 0
         for event in events:
-            total_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['preCLBalance'] + event['executionLayerRewardsWithdrawn']
+            total_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['principalCLBalance'] + event['executionLayerRewardsWithdrawn']
             time_spent += event['timeElapsed']
 
         return max(
