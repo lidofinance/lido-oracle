@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
 from src.providers.consensus.types import Validator
@@ -222,7 +222,7 @@ class LidoValidatorsProvider(Module):
         if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
             raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
         operators = kapi['operators']
-        keys = {k['key']: LidoKey.from_response(**k) for k in kapi['keys']}
+        keys = {k.key: k for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
         module_id = StakingModuleId(int(kapi['module']['id']))
 
@@ -233,7 +233,7 @@ class LidoValidatorsProvider(Module):
 
         # Map validators to their corresponding node operators
         for validator in validators:
-            lido_key = keys.get(validator.validator.pubkey)
+            lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:
                 continue
             global_id = (module_id, lido_key.operatorIndex)
