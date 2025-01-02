@@ -34,6 +34,39 @@ class ModuleExecuteDelay(Enum):
     NEXT_FINALIZED_EPOCH = 1
 
 
+def _handle_error(error):
+    """Handle exceptions and log messages based on exception type."""
+    error_mapping = {
+        IsNotMemberException: 'Provided account is not part of Oracle`s committee.',
+        IncompatibleOracleVersion: 'Incompatible Contract version. Please update Oracle Daemon.',
+        DecoratorTimeoutError: 'Oracle module do not respond.',
+        NoActiveProviderError: 'No active provider available.',
+        RequestsConnectionError: 'Connection error.',
+        NotOkResponse: 'Invalid response from server.',
+        (NoSlotsAvailable, SlotNotFinalized, InconsistentData): 'Inconsistent response from consensus layer node.',
+        KeysOutdatedException: 'Keys API service returns outdated data.',
+        CountOfKeysDiffersException: 'Keys API service returned incorrect number of keys.',
+        Web3Exception: 'Web3py exception.',
+        IPFSError: 'IPFS provider error.',
+        ValueError: 'Unexpected error.',
+    }
+
+    for exception_type, message in error_mapping.items():
+        if isinstance(error, exception_type):
+            if isinstance(error, NotOkResponse):
+                logger.error({'msg': ''.join(traceback.format_exception(error))})
+                return
+            # Reraise specific exceptions
+            if isinstance(error, (IsNotMemberException, IncompatibleOracleVersion)):
+                logger.error({'msg': message})
+                raise error
+            logger.error({'msg': message, 'error': str(error)})
+            return  # Handled exception; no further action needed
+
+    # Reraise unhandled exceptions
+    raise error
+
+
 class BaseModule(ABC):
     """
     Base skeleton for Oracle modules.
@@ -79,32 +112,8 @@ class BaseModule(ABC):
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
-        except IsNotMemberException as exception:
-            logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
-            raise exception
-        except IncompatibleOracleVersion as exception:
-            logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
-            raise exception
-        except DecoratorTimeoutError as exception:
-            logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
-        except NoActiveProviderError as error:
-            logger.error({'msg': ''.join(traceback.format_exception(error))})
-        except RequestsConnectionError as error:
-            logger.error({'msg': 'Connection error.', 'error': str(error)})
-        except NotOkResponse as error:
-            logger.error({'msg': ''.join(traceback.format_exception(error))})
-        except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
-            logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
-        except KeysOutdatedException as error:
-            logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
-        except CountOfKeysDiffersException as error:
-            logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
-        except Web3Exception as error:
-            logger.error({'msg': 'Web3py exception.', 'error': str(error)})
-        except IPFSError as error:
-            logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
-        except ValueError as error:
-            logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+        except Exception as exception:
+            _handle_error(exception)
 
     @staticmethod
     def _sleep_cycle():
