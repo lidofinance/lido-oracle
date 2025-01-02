@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Type, cast, Self
+from typing import cast, Self
 
 from eth_typing import ChecksumAddress, HexStr
 
 from src.types import NodeOperatorId
-from src.utils.dataclass import FromResponse, T
+from src.utils.dataclass import FromResponse
 
 
 @dataclass
@@ -18,8 +18,8 @@ class LidoKey(FromResponse):
     @classmethod
     def from_response(cls, **kwargs) -> Self:
         # Example: Modify kwargs or add logging
-        lido_key = super().from_response(**kwargs)
-        lido_key = cast(LidoKey, lido_key)
+        response_lido_key = super().from_response(**kwargs)
+        lido_key = cast(LidoKey, response_lido_key)
         lido_key.key = HexStr(lido_key.key.lower())
         return lido_key
 
