@@ -19,8 +19,8 @@ class LidoKey(FromResponse):
     def from_response(cls, **kwargs) -> Self:
         # Example: Modify kwargs or add logging
         response_lido_key = super().from_response(**kwargs)
-        lido_key: LidoKey = cast(LidoKey, response_lido_key)
-        lido_key.key = HexStr(lido_key.key.lower()) # pylint: disable=no-member
+        lido_key: Self = cast(Self, response_lido_key)
+        lido_key.key = HexStr(lido_key.key.lower())  # pylint: disable=no-member
         return lido_key
 
 

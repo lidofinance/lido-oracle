@@ -65,7 +65,7 @@ class KeysAPIClient(HTTPProvider):
         """
         data = cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
-        return data
+        return cast(PartiallyTypedModuleOperatorsKeys, data)
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
