@@ -66,7 +66,6 @@ class BaseModule(ABC):
         Main cycle logic: fetch the last finalized slot, refresh contracts if necessary,
         and execute the module's business logic.
         """
-        # pylint: disable=too-many-branches
         try:
             blockstamp = self._receive_last_finalized_slot()
 
@@ -78,14 +77,8 @@ class BaseModule(ABC):
                 })
                 return
 
-            # Refresh contracts if the address has changed
-            if self.w3.lido_contracts.has_contract_address_changed():
-                clear_global_cache()
-                self.refresh_contracts()
-
-            result = self.run_cycle(blockstamp)
-            if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-                self._slot_threshold = blockstamp.slot_number
+            self.refresh_contracts_if_address_change()
+            self.run_cycle(blockstamp)
         except IsNotMemberException as exception:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise exception
@@ -128,11 +121,12 @@ class BaseModule(ABC):
         ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
         return bs
 
-    def run_cycle(self, blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def run_cycle(self, blockstamp: BlockStamp):
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
         result = self.execute_module(blockstamp)
         pulse()
-        return result
+        if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
+            self._slot_threshold = blockstamp.slot_number
 
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
@@ -148,3 +142,9 @@ class BaseModule(ABC):
     def refresh_contracts(self):
         """This method called if contracts addresses were changed"""
         raise NotImplementedError('Module should implement this method.')  # pragma: no cover
+
+    def refresh_contracts_if_address_change(self):
+        # Refresh contracts if the address has changed
+        if self.w3.lido_contracts.has_contract_address_changed():
+            clear_global_cache()
+            self.refresh_contracts()
