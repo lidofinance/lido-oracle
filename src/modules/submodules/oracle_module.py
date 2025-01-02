@@ -112,7 +112,22 @@ class BaseModule(ABC):
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
-        except Exception as exception:
+        except (
+            IsNotMemberException,
+            IncompatibleOracleVersion,
+            DecoratorTimeoutError,
+            NoActiveProviderError,
+            RequestsConnectionError,
+            NotOkResponse,
+            NoSlotsAvailable,
+            SlotNotFinalized,
+            InconsistentData,
+            KeysOutdatedException,
+            CountOfKeysDiffersException,
+            Web3Exception,
+            IPFSError,
+            ValueError
+        ) as exception:
             _handle_error(exception)
 
     @staticmethod
