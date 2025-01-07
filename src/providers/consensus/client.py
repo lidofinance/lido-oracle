@@ -195,7 +195,7 @@ class ConsensusClient(HTTPProvider):
         view = {}
         data = streamed_json['data']
         try:
-            # NOTE: Keep in mind: the order is important.
+            # NOTE: Keep in mind: the order is important, see TransientStreamingJSONObject.
             view['slot'] = int(data['slot'])
             view['exit_balance_to_consume'] = int(data['exit_balance_to_consume'])
             view['earliest_exit_epoch'] = int(data['earliest_exit_epoch'])
