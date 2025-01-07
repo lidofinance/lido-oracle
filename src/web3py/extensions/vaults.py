@@ -1,7 +1,6 @@
 import logging
 from typing import cast
 
-from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.module import Module
 
@@ -13,7 +12,6 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src import variables
 
 from src.types import BlockStamp
-from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 

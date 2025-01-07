@@ -11,7 +11,7 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 
-from src.modules.accounting.types import LidoReportRebase, CalculatedReportResults
+from src.modules.accounting.types import CalculatedReportResults
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators

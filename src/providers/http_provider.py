@@ -74,7 +74,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
-    def _get(
+    def _get(  # pylint: disable=too-many-positional-arguments
         self,
         endpoint: str,
         path_params: Sequence[str | int] | None = None,
@@ -112,7 +112,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         # Raise error from last provider.
         raise errors[-1]
 
-    def _get_without_fallbacks(
+    def _get_without_fallbacks( # pylint: disable=too-many-positional-arguments
         self,
         host: str,
         endpoint: str,

@@ -374,11 +374,14 @@ class Accounting(BaseModule, ConsensusModule):
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
+        vaults_part = self._calculate_vaults_report(blockstamp)
 
         # Distinct parts explicitly labeled by version
         # So at the top level it is clear in which parts the reports will differ
         extra_data_part_v1 = self._calculate_extra_data_report_v1(blockstamp)
-        return self._combine_report_parts(1, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v1)
+        return self._combine_report_parts(
+            1, blockstamp, rebase_part, modules_part, wq_part, vaults_part, extra_data_part_v1
+        )
 
     def _calculate_report_v2(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         rebase_part = self._calculate_rebase_report(blockstamp)
@@ -442,7 +445,7 @@ class Accounting(BaseModule, ConsensusModule):
         ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
     @staticmethod
-    def _combine_report_parts(
+    def _combine_report_parts( # pylint: disable=too-many-positional-arguments
         consensus_version: int,
         blockstamp: ReferenceBlockStamp,
         report_rebase_part: RebaseReport,

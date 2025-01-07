@@ -116,7 +116,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
         Module.__init__(self, w3)
         FromFile.__init__(self, mock_path)
 
-    def _get(
+    def _get( # pylint: disable=too-many-positional-arguments
         self,
         endpoint: str,
         path_params: Sequence[str | int] | None = None,
@@ -151,7 +151,7 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
         self.responses = []
         self.from_file = ResponseFromFileHTTPProvider(mock_path, w3)
 
-    def _get(
+    def _get( # pylint: disable=too-many-positional-arguments
         self,
         endpoint: str,
         path_params: Sequence[str | int] | None = None,

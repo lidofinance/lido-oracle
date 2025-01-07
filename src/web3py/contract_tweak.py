@@ -27,7 +27,7 @@ from web3.types import (
 )
 
 
-def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
+def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-many-positional-arguments
     w3: "Web3",
     address: ChecksumAddress,
     normalizers: Tuple[Callable[..., Any], ...],

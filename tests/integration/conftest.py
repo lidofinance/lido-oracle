@@ -4,7 +4,6 @@ from typing import cast
 import pytest
 from web3 import Web3, HTTPProvider
 
-from src import variables
 from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
