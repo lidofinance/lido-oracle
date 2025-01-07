@@ -6,7 +6,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import MIN_ACTIVATION_BALANCE
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
@@ -112,7 +112,7 @@ def test_get_consensus_lido_state(accounting: Accounting):
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators)) + 3 * MIN_ACTIVATION_BALANCE
+    assert balance == sum((int(val.balance) for val in validators)) + 3 * LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit
