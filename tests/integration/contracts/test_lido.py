@@ -5,7 +5,8 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
-def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_contract, caplog):
+@pytest.mark.parametrize('environment', ['holesky-vaults-devnet-2'], indirect=True)
+def test_lido_contract_call(lido_contract, caplog):
     check_contract(
         lido_contract,
         [

@@ -28,7 +28,7 @@ class AccountingContract(ContractInterface):
         NB: see `simulate_oracle_report` for simulation details.
         """
 
-        report = (
+        payload = (
             report.timestamp,
             report.time_elapsed,
             report.cl_validators,
@@ -41,13 +41,13 @@ class AccountingContract(ContractInterface):
             report.net_cash_flows,
         )
 
-        response = self.functions.handleOracleReport(report).call(
+        response = self.functions.handleOracleReport(payload).call(
             transaction={'from': accounting_oracle_address},
             block_identifier=block_identifier,
         )
 
         logger.info({
-            'msg': f'Call `handleOracleReport({report}).',
+            'msg': f'Call `handleOracleReport({payload}).',
             'value': response,
             'block_identifier': repr(block_identifier),
             'to': self.address,
@@ -69,7 +69,7 @@ class AccountingContract(ContractInterface):
         plugging the returned values to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
 
-        report = (
+        payload = (
             report.timestamp,
             report.time_elapsed,
             report.cl_validators,
@@ -82,13 +82,13 @@ class AccountingContract(ContractInterface):
             report.net_cash_flows,
         )
 
-        response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(
+        response = self.functions.simulateOracleReport(payload, withdrawal_share_rate).call(
             block_identifier=block_identifier
         )
         response = named_tuple_to_dataclass(response, CalculatedReportResults)
 
         logger.info({
-            'msg': f'Call `simulateOracleReport({report}, {withdrawal_share_rate}).',
+            'msg': f'Call `simulateOracleReport({payload}, {withdrawal_share_rate}).',
             'value': response,
             'block_identifier': repr(block_identifier),
             'to': self.address,

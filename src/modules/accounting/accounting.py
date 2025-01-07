@@ -282,7 +282,7 @@ class Accounting(BaseModule, ConsensusModule):
         chain_conf = self.get_chain_config(blockstamp)
 
         withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
-        withdrawal_finalization_batches = [] # For initial calculation we assume no withdrawals
+        withdrawal_finalization_batches: list[int] = [] # For initial calculation we assume no withdrawals
 
         report = ReportValues(
             # Accounting contract has sanity check that timestamp is not in the future.
