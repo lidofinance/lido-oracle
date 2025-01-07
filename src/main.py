@@ -19,12 +19,13 @@ from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.extensions import (
     LidoContracts,
+    LidoVaults,
     TransactionUtils,
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoValidatorsProvider,
     FallbackProviderModule,
-    LazyCSM
+    LazyCSM,
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.types import Web3
@@ -95,6 +96,7 @@ def main(module_name: OracleModule):
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,
+        'lido_vaults': LidoVaults,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'csm': LazyCSM,

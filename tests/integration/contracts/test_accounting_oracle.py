@@ -6,6 +6,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize('environment', ['holesky-vaults-devnet-2'], indirect=True)
 def test_accounting_oracle_contract(accounting_oracle_contract, caplog):
     check_contract(
         accounting_oracle_contract,
