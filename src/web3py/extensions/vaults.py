@@ -62,20 +62,19 @@ class LidoVaults(Module):
             ),
         )
 
-    @lru_cache(maxsize=1)
     def get_vaults_count(self, blockstamp: BlockStamp) -> int:
         return self.vault_hub.get_vaults_count(blockstamp)
 
     @staticmethod
-    def get_validator_cl_balance(validators: list[Validator], vault_address: ChecksumAddress) -> int:
-        validator_cl_balance = 0
+    def get_validator_cl_balance(validators: list[Validator], vault_withdrawal_credentials: str) -> int:
+        validator_cl_balance_in_wei = 0
 
         for validator in validators:
-            if validator.validator.withdrawal_credentials == vault_address:
-                validator_cl_balance = int(validator.balance)
+            if validator.validator.withdrawal_credentials == vault_withdrawal_credentials:
+                validator_cl_balance_in_wei = Web3.to_wei(int(validator.balance), 'gwei')
                 break
 
-        return validator_cl_balance
+        return validator_cl_balance_in_wei
 
     def get_vaults_data(self, validators: list[Validator], blockstamp: BlockStamp) -> VaultsReport:
         vaults_count = self.get_vaults_count(blockstamp)
@@ -92,13 +91,14 @@ class LidoVaults(Module):
 
             # Get vault values for the report
             vault_balance = self.w3.eth.get_balance(vault.address, block_identifier=blockstamp.block_hash)
-            vault_cl_balance = self.get_validator_cl_balance(validators, socket.vault)
+            vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp)
+            vault_cl_balance = self.get_validator_cl_balance(validators, vault_withdrawal_credentials)
 
             vault_value = vault_balance + vault_cl_balance
             vaults_values.append(vault_value)
 
             logger.info({
-                'msg': f'Vault values for vault #{vault_id}.',
+                'msg': f'Vault values for vault: {vault.address}.',
                 'vault_in_out_delta': vault_in_out_delta,
                 'vault_value': vault_value,
             })

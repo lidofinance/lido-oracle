@@ -5,7 +5,6 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import SHARE_RATE_PRECISION_E27
 from src.types import (
     SlotNumber,
     Gwei,
@@ -190,9 +189,6 @@ class CalculatedReportResults:
     vaults_locked_ether: List[int]
     vaults_treasury_fee_shares: List[int]
     total_vaults_treasury_fee_shares: int
-
-    def withdrawals_share_rate(self):
-        return self.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // self.post_total_shares
 
 
 @dataclass(frozen=True)
