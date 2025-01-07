@@ -7,7 +7,7 @@ import pytest
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import SlotNumber
+from src.types import SlotNumber, _Fork
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
@@ -119,3 +119,11 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
 
     with raises:
         consensus_client._get_chain_id_with_provider(0)
+
+
+@pytest.mark.unit
+def test_unknown_fork(consensus_client: ConsensusClient):
+    consensus_client._get = Mock(return_value=[{"current_version": "UNKNOWN"}, None])
+    consensus_client._forks = Mock(return_value=_Fork)
+    with pytest.raises(ValueError, match="'UNKNOWN' is not a valid _Fork"):
+        consensus_client.get_fork("head")
