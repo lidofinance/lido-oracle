@@ -5,7 +5,8 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
-def test_accounting_contract_call(accounting_contract, accounting_oracle_contract, burner_contract, caplog):
+@pytest.mark.parametrize('web3_provider_integration', ['holesky_vaults_devnet_2'], indirect=True)
+def test_accounting_contract_call(web3_provider_integration, accounting_contract, accounting_oracle_contract, burner_contract, caplog):
     report = ReportValues(
         timestamp=1733914164,
         time_elapsed=86400,
