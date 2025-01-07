@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class MidtermSlashingPenalty:
 
     @staticmethod
-    def is_high_midterm_slashing_penalty( # pylint: disable=too-many-positional-arguments
+    def is_high_midterm_slashing_penalty(
         blockstamp: ReferenceBlockStamp,
         frame_config: FrameConfig,
         chain_config: ChainConfig,

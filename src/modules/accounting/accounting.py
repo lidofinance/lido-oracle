@@ -449,7 +449,7 @@ class Accounting(BaseModule, ConsensusModule):
         ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
     @staticmethod
-    def _combine_report_parts( # pylint: disable=too-many-positional-arguments
+    def _combine_report_parts(
         consensus_version: int,
         blockstamp: ReferenceBlockStamp,
         report_rebase_part: RebaseReport,
