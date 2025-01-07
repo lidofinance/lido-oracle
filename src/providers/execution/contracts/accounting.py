@@ -24,6 +24,8 @@ class AccountingContract(ContractInterface):
         Updates accounting stats, collects EL rewards and distributes collected rewards
         if beacon balance increased, performs withdrawal requests finalization
         periodically called by the AccountingOracle contract
+
+        NB: see `simulate_oracle_report` for simulation details.
         """
 
         report = (
@@ -61,6 +63,10 @@ class AccountingContract(ContractInterface):
     ) -> CalculatedReportResults:
         """
         Simulates the effects of the `handleOracleReport` function without actually updating the contract state.
+
+        NB: should be calculated off-chain by calling the simulateOracleReport function with the same arguments as the
+        handleOracleReport function, while keeping `_withdrawalFinalizationBatches` empty ([]) and `_simulatedShareRate` == 0,
+        plugging the returned values to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
 
         report = (
