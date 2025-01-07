@@ -5,12 +5,19 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize('environment', ['holesky-vaults-devnet-2'], indirect=True)
 def test_lido_locator_contract(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
             (
                 'lido',
+                None,
+                lambda response: check_value_re(ADDRESS_REGREX, response)
+                and check_value_type(response, ChecksumAddress),
+            ),
+            (
+                'accounting',
                 None,
                 lambda response: check_value_re(ADDRESS_REGREX, response)
                 and check_value_type(response, ChecksumAddress),

@@ -32,13 +32,13 @@ def get_contract(w3, contract_class, address):
 
 
 @dataclass
-class Web3ProviderIntegration:
+class Environment:
     web3: Web3
     lido_locator_address: str
 
 
 @pytest.fixture
-def web3_provider_integration(request) -> Web3ProviderIntegration:
+def environment(request) -> Environment:
     env_name = getattr(request, 'param', 'mainnet')  # Default to 'mainnet'
     env_config = ENVIRONMENTS.get(env_name, None)
 
@@ -48,115 +48,115 @@ def web3_provider_integration(request) -> Web3ProviderIntegration:
     w3 = Web3(HTTPProvider(env_config.execution_client_uri, request_kwargs={"timeout": 3600}))
     assert w3.eth.chain_id == env_config.chain_id
 
-    return Web3ProviderIntegration(
+    return Environment(
         web3=w3,
         lido_locator_address=env_config.lido_locator_address,
     )
 
 
 @pytest.fixture
-def lido_locator_contract(web3_provider_integration) -> LidoLocatorContract:
+def lido_locator_contract(environment) -> LidoLocatorContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         LidoLocatorContract,
-        web3_provider_integration.lido_locator_address,
+        environment.lido_locator_address,
     )
 
 
 @pytest.fixture
-def lido_contract(web3_provider_integration, lido_locator_contract) -> LidoContract:
+def lido_contract(environment, lido_locator_contract) -> LidoContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         LidoContract,
         lido_locator_contract.lido(),
     )
 
 
 @pytest.fixture
-def accounting_contract(web3_provider_integration, lido_locator_contract) -> LidoContract:
+def accounting_contract(environment, lido_locator_contract) -> LidoContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         AccountingContract,
         lido_locator_contract.accounting(),
     )
 
 
 @pytest.fixture
-def accounting_oracle_contract(web3_provider_integration, lido_locator_contract) -> AccountingOracleContract:
+def accounting_oracle_contract(environment, lido_locator_contract) -> AccountingOracleContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         AccountingOracleContract,
         lido_locator_contract.accounting_oracle(),
     )
 
 
 @pytest.fixture
-def staking_router_contract(web3_provider_integration, lido_locator_contract) -> StakingRouterContractV1:
+def staking_router_contract(environment, lido_locator_contract) -> StakingRouterContractV1:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         StakingRouterContractV1,
         lido_locator_contract.staking_router(),
     )
 
 
 @pytest.fixture
-def staking_router_contract_v2(web3_provider_integration, lido_locator_contract) -> StakingRouterContractV2:
+def staking_router_contract_v2(environment, lido_locator_contract) -> StakingRouterContractV2:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         StakingRouterContractV2,
         lido_locator_contract.staking_router(),
     )
 
 
 @pytest.fixture
-def validators_exit_bus_oracle_contract(web3_provider_integration, lido_locator_contract) -> ExitBusOracleContract:
+def validators_exit_bus_oracle_contract(environment, lido_locator_contract) -> ExitBusOracleContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         ExitBusOracleContract,
         lido_locator_contract.validator_exit_bus_oracle(),
     )
 
 
 @pytest.fixture
-def withdrawal_queue_nft_contract(web3_provider_integration, lido_locator_contract):
+def withdrawal_queue_nft_contract(environment, lido_locator_contract):
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         WithdrawalQueueNftContract,
         lido_locator_contract.withdrawal_queue(),
     )
 
 
 @pytest.fixture
-def oracle_report_sanity_checker_contract(web3_provider_integration, lido_locator_contract):
+def oracle_report_sanity_checker_contract(environment, lido_locator_contract):
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         OracleReportSanityCheckerContract,
         lido_locator_contract.oracle_report_sanity_checker(),
     )
 
 
 @pytest.fixture
-def oracle_daemon_config_contract(web3_provider_integration, lido_locator_contract):
+def oracle_daemon_config_contract(environment, lido_locator_contract):
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         OracleDaemonConfigContract,
         lido_locator_contract.oracle_daemon_config(),
     )
 
 
 @pytest.fixture
-def burner_contract(web3_provider_integration, lido_locator_contract):
+def burner_contract(environment, lido_locator_contract):
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         BurnerContract,
         lido_locator_contract.burner(),
     )
 
 
 @pytest.fixture
-def vault_hub_contract(web3_provider_integration, lido_locator_contract) -> VaultHubContract:
+def vault_hub_contract(environment, lido_locator_contract) -> VaultHubContract:
     return get_contract(
-        web3_provider_integration.web3,
+        environment.web3,
         VaultHubContract,
         lido_locator_contract.accounting(),  # accounting contract is inherited from vault hub contract
     )
