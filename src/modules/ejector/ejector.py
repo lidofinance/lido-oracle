@@ -278,20 +278,27 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
-        chain_config = self.get_chain_config(blockstamp)
 
         if self.consensus_version(blockstamp) in (1, 2):
-            total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
-            logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
+            return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
+        return self._get_sweep_delay_in_epochs_post_pectra(blockstamp)
 
-            full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
-            return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
+    def _get_sweep_delay_in_epochs_pre_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
+        chain_config = self.get_chain_config(blockstamp)
 
+        total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
+        logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
+
+        full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
+        return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
+
+    def _get_sweep_delay_in_epochs_post_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
         # This version is intended for use with Pectra, but we do not currently take into account pending withdrawal
         # requests. It would require a large amount of pending withdrawal requests to significantly impact sweep
         # duration. Roughly every 512 requests adds one more epoch to sweep duration in the current state.
         # On the other side, to consider pending withdrawals it is necessary to fetch the beacon state and query the
         # EIP-7002 predeployed contract, which adds complexity with limited improvement for predictions.
+        chain_config = self.get_chain_config(blockstamp)
         total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
         logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
         slots_to_sweep = math.ceil(total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD)
