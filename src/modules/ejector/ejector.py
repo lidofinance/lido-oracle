@@ -32,8 +32,8 @@ from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, Re
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
-    compute_exit_balance_churn_limit,
-    compute_exit_churn_limit,
+    get_activation_exit_churn_limit,
+    get_validator_churn_limit,
     get_max_effective_balance,
     is_active_validator,
     is_fully_withdrawable_validator,
@@ -265,7 +265,7 @@ class Ejector(BaseModule, ConsensusModule):
         blockstamp: ReferenceBlockStamp,
         validators_to_eject: list[Validator],
     ) -> EpochNumber:
-        per_epoch_churn = compute_exit_balance_churn_limit(self._get_total_active_balance(blockstamp))
+        per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
         activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
         state_view = self.w3.cc.get_state_view(blockstamp.state_root)
 
@@ -347,7 +347,7 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
         total_active_validators = len(self._get_active_validators(blockstamp))
         logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
-        churn_limit = compute_exit_churn_limit(total_active_validators)
+        churn_limit = get_validator_churn_limit(total_active_validators)
         logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
         return churn_limit
 

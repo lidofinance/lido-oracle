@@ -133,12 +133,12 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
     return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
 
-def compute_exit_churn_limit(active_validators_count: int):
+def get_validator_churn_limit(active_validators_count: int):
     return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
 
 
 # @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
-def compute_exit_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
+def get_activation_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
     return min(MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT, get_balance_churn_limit(total_active_balance))
 
 

@@ -25,7 +25,7 @@ from src.utils.validator_state import (
     is_on_exit,
     is_partially_withdrawable_validator,
     is_validator_eligible_to_exit,
-    compute_exit_balance_churn_limit,
+    get_activation_exit_churn_limit,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -405,5 +405,5 @@ def test_get_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwe
     ),
 )
 def test_compute_exit_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwei):
-    actual_limit = compute_exit_balance_churn_limit(total_active_balance)
+    actual_limit = get_activation_exit_churn_limit(total_active_balance)
     assert actual_limit == expected_limit, "Unexpected exit churn limit"
