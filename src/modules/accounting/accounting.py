@@ -277,28 +277,32 @@ class Accounting(BaseModule, ConsensusModule):
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+        vaults_values, vaults_net_cash_flows = self._calculate_vaults_report(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
+        withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
+        withdrawal_finalization_batches = [] # For initial calculation we assume no withdrawals
+
         report = ReportValues(
+            # Accounting contract has sanity check that timestamp is not in the future.
+            # That's why we get revert if timestamp in args > call block timestamp.
+            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
             blockstamp.block_timestamp,  # timestamp
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # time_elapsed
+            # CL values
             validators_count,  # cl_validators
             Web3.to_wei(cl_balance, 'gwei'),  # cl_balance
+            # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # withdrawal_vault_balance
             el_rewards,  # el_rewards_vault_balance
             self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
-            [],  # withdrawal_finalization_batches
-            # TODO: add real values for vaults accounting
-            [],  # vault_values
-            [],  # net_cash_flows
+            withdrawal_finalization_batches,  # withdrawal_finalization_batches
+            # Vaults values
+            vaults_values, # vaults_values
+            vaults_net_cash_flows, # vaults_net_cash_flows
         )
 
-        withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
-
-        # Accounting contract has sanity check that timestamp is not in the future.
-        # That's why we get revert if timestamp in args > call block timestamp.
-        # In normal case, we call handleOracleReport with timestamp == call block timestamp.
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
             report,
             withdrawal_share_rate,
