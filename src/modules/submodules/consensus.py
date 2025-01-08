@@ -92,10 +92,6 @@ class ConsensusModule(ABC):
         return self.report_contract.get_consensus_version(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def fork(self, blockstamp: BlockStamp):
-        return self.w3.cc.get_fork(blockstamp.slot_number)
-
-    @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_chain_config(blockstamp.block_hash)

@@ -7,7 +7,7 @@ import pytest
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import SlotNumber, _Fork
+from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
@@ -72,19 +72,14 @@ def test_get_validators(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
-def test_get_fork(consensus_client: ConsensusClient):
-    fork = consensus_client.get_fork("head")
-    assert fork >= fork.GENESIS
-
-
-@pytest.mark.integration
 @pytest.mark.skip(reason="Too long to complete in CI")
 def test_get_state_view(consensus_client: ConsensusClient):
     state_view = consensus_client.get_state_view("head")
     assert state_view.slot > 0
 
-    fork = consensus_client.get_fork(state_view.slot)
-    if fork >= fork.ELECTRA:
+    spec = consensus_client.get_config_spec()
+    epoch = state_view.slot // 32
+    if epoch >= int(spec.ELECTRA_FORK_EPOCH):
         assert state_view.earliest_exit_epoch != 0
         assert state_view.exit_balance_to_consume >= 0
 
@@ -119,11 +114,3 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
 
     with raises:
         consensus_client._get_chain_id_with_provider(0)
-
-
-@pytest.mark.unit
-def test_unknown_fork(consensus_client: ConsensusClient):
-    consensus_client._get = Mock(return_value=[{"current_version": "UNKNOWN"}, None])
-    consensus_client._forks = Mock(return_value=_Fork)
-    with pytest.raises(ValueError, match="'UNKNOWN' is not a valid _Fork"):
-        consensus_client.get_fork("head")

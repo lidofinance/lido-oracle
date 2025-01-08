@@ -3,6 +3,7 @@ from enum import Enum
 
 from src.types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
 from src.utils.dataclass import Nested, FromResponse
+from src.constants import FAR_FUTURE_EPOCH
 
 
 @dataclass
@@ -12,6 +13,7 @@ class BeaconSpecResponse(FromResponse):
     SECONDS_PER_SLOT: str
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: str
+    ELECTRA_FORK_EPOCH: str = str(FAR_FUTURE_EPOCH)
 
 
 @dataclass

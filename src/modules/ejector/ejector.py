@@ -234,9 +234,9 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
-        fork = self.fork(blockstamp)
+        spec = self.w3.cc.get_config_spec()
 
-        if fork < fork.ELECTRA:
+        if blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
             return self._get_predicted_withdrawable_epoch_pre_electra(blockstamp, validators_to_eject)
 
         return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import StrEnum
 from typing import NewType
 
 from eth_typing import BlockNumber, ChecksumAddress, HexStr
@@ -36,20 +36,6 @@ WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
-
-
-class _Fork(StrEnum):
-    """We store fork versions as an enum of hex encoded 4 bytes, so the values are comparable as strings"""
-
-    GENESIS = auto()
-    ALTAIR = auto()
-    BELLATRIX = auto()
-    CAPELLA = auto()
-    DENEB = auto()
-    ELECTRA = auto()
-
-
-type Fork = _Fork
 
 
 @dataclass(frozen=True)

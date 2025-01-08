@@ -20,11 +20,10 @@ from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import BeaconStateView
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
-from src.types import _Fork as Fork
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModuleId
+from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -233,7 +232,8 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 @pytest.mark.unit
 def test_get_predicted_withdrawable_epoch_pre_electra(ejector: Ejector) -> None:
-    ejector.fork = Mock(return_value=Fork.CAPELLA)
+    ejector.w3.cc = Mock()
+    ejector.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=FAR_FUTURE_EPOCH))
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
@@ -318,8 +318,8 @@ class TestPredictedWithdrawableEpochPostElectra:
 
     @pytest.fixture(autouse=True)
     def _patch_ejector(self, ejector: Ejector):
-        ejector.fork = Mock(return_value=Fork.ELECTRA)
         ejector.w3.cc = Mock()
+        ejector.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=0))
 
 
 @pytest.mark.unit
