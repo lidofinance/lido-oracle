@@ -1,6 +1,5 @@
 """IPFS provider"""
 
-
 import random
 import string
 
@@ -8,7 +7,7 @@ import pytest
 
 from src import variables
 from src.main import ipfs_providers
-from src.providers.ipfs import GW3, IPFSError, IPFSProvider, Pinata, PublicIPFS
+from src.providers.ipfs import GW3, IPFSError, IPFSProvider, Kubo, Pinata, PublicIPFS
 
 
 @pytest.fixture()
@@ -20,7 +19,7 @@ def content():
 def providers():
     configured_providers = tuple(ipfs_providers())
 
-    for typ in (GW3, Pinata):
+    for typ in (GW3, Pinata, Kubo):
         try:
             provider = [p for p in configured_providers if isinstance(p, typ)].pop()
         except IndexError:
