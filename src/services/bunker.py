@@ -70,6 +70,7 @@ class BunkerService:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
 
+        MidtermSlashingPenalty.cl_spec = self.w3.cc.get_config_spec()
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
             blockstamp, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
         )
