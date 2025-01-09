@@ -215,8 +215,6 @@ class Ejector(BaseModule, ConsensusModule):
             )
         )
 
-        return result
-
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Gwei:
         return Gwei(min(int(validator.balance), get_max_effective_balance(validator)))
 
