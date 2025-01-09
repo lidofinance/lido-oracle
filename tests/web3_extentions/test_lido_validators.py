@@ -41,17 +41,9 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 
 @pytest.mark.unit
 def test_calc_pending_deposits_sum(web3, lido_validators, contracts):
-    validators = [ValidatorFactory.build_pending_deposit_vals() for _ in range(5)]
-    validators.extend(ValidatorFactory.batch(30))
-    lido_keys = LidoKeyFactory.generate_for_validators(validators[:15])
-    lido_keys.extend(LidoKeyFactory.batch(10))
+    lido_validators = LidoValidatorFactory.batch(30)
+    lido_validators.extend(LidoValidatorFactory.build_pending_deposit_vals() for _ in range(5))
 
-    web3.lido_validators._kapi_sanity_check = Mock()
-
-    web3.cc.get_validators = Mock(return_value=validators)
-    web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
-
-    lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
     pending_deposits_sum = web3.lido_validators.calculate_pending_deposits_sum(lido_validators)
 
     assert pending_deposits_sum == 5 * LIDO_DEPOSIT_AMOUNT
