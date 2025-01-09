@@ -51,7 +51,6 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
-    API_GET_FORK = '/eth/v1/beacon/states/{}/fork'
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
