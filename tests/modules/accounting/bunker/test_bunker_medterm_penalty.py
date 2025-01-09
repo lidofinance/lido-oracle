@@ -223,7 +223,14 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("ref_epoch", "electra_fork_epoch", "per_frame_validators", "all_slashed_validators", "active_validators_count", "expected_result"),
+    (
+        "ref_epoch",
+        "electra_fork_epoch",
+        "per_frame_validators",
+        "all_slashed_validators",
+        "active_validators_count",
+        "expected_result",
+    ),
     [
         (225, 225, {}, [], 50000, {}),
         (
