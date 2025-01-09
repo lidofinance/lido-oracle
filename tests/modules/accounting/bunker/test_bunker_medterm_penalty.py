@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from src.constants import MAX_EFFECTIVE_BALANCE_ELECTRA, MAX_EFFECTIVE_BALANCE
@@ -41,6 +43,16 @@ def simple_validators(
         )
         validators.append(validator)
     return validators
+
+
+TEST_ELECTRA_FORK_EPOCH = 450
+
+
+@pytest.fixture(params=[TEST_ELECTRA_FORK_EPOCH])
+def electra_fork_epoch(request):
+    # sets the electra fork epoch to the test value for calculating the penalty
+    MidtermSlashingPenalty.cl_spec = Mock(ELECTRA_FORK_EPOCH=request.param)
+    return request.param
 
 
 @pytest.mark.unit
@@ -109,7 +121,7 @@ def simple_validators(
     ],
 )
 def test_is_high_midterm_slashing_penalty(
-    blockstamp, all_validators, lido_validators, report_cl_rebase, expected_result
+    blockstamp, electra_fork_epoch, all_validators, lido_validators, report_cl_rebase, expected_result
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
@@ -154,7 +166,7 @@ def test_is_high_midterm_slashing_penalty(
         ),
     ],
 )
-def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
+def test_get_possible_slashed_epochs(validator, electra_fork_epoch, ref_epoch, expected_result):
     result = MidtermSlashingPenalty.get_possible_slashed_epochs(validator, ref_epoch)
 
     assert result == expected_result
@@ -169,7 +181,7 @@ def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
             # the same midterm epoch
             225,
             simple_validators(0, 9, slashed=True),
-            {18: simple_validators(0, 9, slashed=True)},
+            {(18, 4050): simple_validators(0, 9, slashed=True)},
         ),
         (
             # midterm frames in past
@@ -185,14 +197,14 @@ def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
                 *simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
             ],
             {
-                18: simple_validators(0, 9, slashed=True),
-                19: simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
+                (18, 4050): simple_validators(0, 9, slashed=True),
+                (19, 4275): simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
             },
         ),
     ],
 )
 def test_get_per_frame_lido_validators_with_future_midterm_epoch(
-    ref_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
+    ref_epoch, electra_fork_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
 ):
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
@@ -211,48 +223,70 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("ref_epoch", "per_frame_validators", "all_slashed_validators", "active_validators_count", "expected_result"),
+    ("ref_epoch", "electra_fork_epoch", "per_frame_validators", "all_slashed_validators", "active_validators_count", "expected_result"),
     [
-        (225, {}, [], 100, {}),
+        (225, 225, {}, [], 50000, {}),
         (
-            # one is slashed
+            # one is slashed before electra
             225,
-            {18: simple_validators(0, 0, slashed=True)},
+            4500,
+            {(18, 4050): simple_validators(0, 0, slashed=True)},
             simple_validators(0, 0, slashed=True),
-            100,
-            {18: 960_000_000},
+            50000,
+            {18: 0},
         ),
         (
-            # all are slashed
+            # one is slashed after electra
             225,
-            {18: simple_validators(0, 99, slashed=True)},
+            225,
+            {(18, 4050): simple_validators(0, 0, slashed=True)},
+            simple_validators(0, 0, slashed=True),
+            50000,
+            {18: 1_920_000},
+        ),
+        (
+            # all are slashed before electra
+            225,
+            4500,
+            {(18, 4050): simple_validators(0, 99, slashed=True)},
             simple_validators(0, 99, slashed=True),
-            100,
-            {18: 100 * 32 * 10**9},
+            50000,
+            {18: 0},
         ),
         (
-            # slashed in different frames with determined slashing epochs
+            # all are slashed after electra
             225,
+            225,
+            {(18, 4050): simple_validators(0, 99, slashed=True)},
+            simple_validators(0, 99, slashed=True),
+            50000,
+            {18: 19_200_000_000},
+        ),
+        (
+            # slashed in different frames with determined slashing epochs in different forks
+            225,
+            4500,
             {
-                18: simple_validators(0, 9, slashed=True),
-                19: simple_validators(10, 59, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
+                (18, 4050): simple_validators(0, 0, slashed=True),
+                (19, 4725): simple_validators(10, 59, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
             },
             [
-                *simple_validators(0, 9, slashed=True),
+                *simple_validators(0, 0, slashed=True),
                 *simple_validators(10, 59, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
             ],
-            100,
-            {18: 10 * 32 * 10**9, 19: 50 * 32 * 10**9},
+            50000,
+            {18: 0, 19: 4_896_000_000},
         ),
         (
-            # slashed in different epochs in different frames without determined shasling epochs
+            # slashed in different epochs in different frames without determined slashing epochs in different forks
             225,
+            4500,
             {
-                18: [
+                (18, 4050): [
                     *simple_validators(0, 5),
                     *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
                 ],
-                19: [
+                (19, 4725): [
                     *simple_validators(10, 29, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
                     *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
                 ],
@@ -263,13 +297,19 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
                 *simple_validators(10, 29, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
                 *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
             ],
-            100,
-            {18: 10 * 32 * 10**9, 19: 50 * 32 * 10**9},
+            50000,
+            {18: 0, 19: 5_760_000_000},
         ),
     ],
+    indirect=["electra_fork_epoch"],
 )
 def test_get_future_midterm_penalty_sum_in_frames(
-    ref_epoch, per_frame_validators, all_slashed_validators, active_validators_count, expected_result
+    ref_epoch,
+    electra_fork_epoch,
+    per_frame_validators,
+    all_slashed_validators,
+    active_validators_count,
+    expected_result,
 ):
     result = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
         EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10**9, per_frame_validators
@@ -280,20 +320,30 @@ def test_get_future_midterm_penalty_sum_in_frames(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("ref_epoch", "all_slashed_validators", "total_balance", "validators_in_frame", "expected_result"),
+    (
+        "ref_epoch",
+        "is_after_electra",
+        "all_slashed_validators",
+        "total_balance",
+        "validators_in_frame",
+        "expected_result",
+    ),
     [
-        (225, [], 100 * 32 * 10**9, [], 0),
+        # BEFORE ELECTRA
+        (225, False, [], 100 * 32 * 10**9, [], 0),
         (
             # one is slashed
             225,
+            False,
             simple_validators(0, 0, slashed=True),
             100 * 32 * 10**9,
             simple_validators(0, 0, slashed=True),
-            960_000_000,
+            0,
         ),
         (
             # all are slashed
             225,
+            False,
             simple_validators(0, 99, slashed=True),
             100 * 32 * 10**9,
             simple_validators(0, 99, slashed=True),
@@ -302,6 +352,51 @@ def test_get_future_midterm_penalty_sum_in_frames(
         (
             # several are slashed
             225,
+            False,
+            simple_validators(0, 9, slashed=True),
+            100 * 32 * 10**9,
+            simple_validators(0, 9, slashed=True),
+            10 * 9 * 10**9,
+        ),
+        (
+            # slashed in different epochs in different frames without determined slashing epochs
+            225,
+            False,
+            [
+                *simple_validators(0, 5, slashed=True),
+                *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
+            ],
+            100 * 32 * 10**9,
+            [
+                *simple_validators(0, 5, slashed=True),
+                *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
+            ],
+            10 * 9 * 10**9,
+        ),
+        # AFTER ELECTRA
+        (225, True, [], 100 * 32 * 10**9, [], 0),
+        (
+            # one is slashed
+            225,
+            True,
+            simple_validators(0, 0, slashed=True),
+            100 * 32 * 10**9,
+            simple_validators(0, 0, slashed=True),
+            960_000_000,
+        ),
+        (
+            # all are slashed
+            225,
+            True,
+            simple_validators(0, 99, slashed=True),
+            100 * 32 * 10**9,
+            simple_validators(0, 99, slashed=True),
+            100 * 32 * 10**9,
+        ),
+        (
+            # several are slashed
+            225,
+            True,
             simple_validators(0, 9, slashed=True),
             100 * 32 * 10**9,
             simple_validators(0, 9, slashed=True),
@@ -310,6 +405,7 @@ def test_get_future_midterm_penalty_sum_in_frames(
         (
             # slashed in different epochs in different frames without determined slashing epochs
             225,
+            True,
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
@@ -324,10 +420,20 @@ def test_get_future_midterm_penalty_sum_in_frames(
     ],
 )
 def test_predict_midterm_penalty_in_frame(
-    ref_epoch, all_slashed_validators, total_balance, validators_in_frame, expected_result
+    ref_epoch,
+    is_after_electra,
+    all_slashed_validators,
+    total_balance,
+    validators_in_frame,
+    expected_result,
+    electra_fork_epoch,
 ):
     result = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
-        EpochNumber(ref_epoch), all_slashed_validators, total_balance, validators_in_frame
+        report_ref_epoch=EpochNumber(ref_epoch),
+        frame_ref_epoch=EpochNumber(electra_fork_epoch if is_after_electra else electra_fork_epoch - 1),
+        all_slashed_validators=all_slashed_validators,
+        total_balance=total_balance,
+        midterm_penalized_validators_in_frame=validators_in_frame,
     )
 
     assert result == expected_result
@@ -380,11 +486,32 @@ one_2048eth = simple_validators(0, 0, effective_balance=str(MAX_EFFECTIVE_BALANC
         "10_000 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
     ],
 )
-def test_get_midterm_penalty(bounded_slashed_validators, active_validators, expected_penalty):
-    result = MidtermSlashingPenalty.get_validator_midterm_penalty(
+def test_get_validator_midterm_penalty_electra(bounded_slashed_validators, active_validators, expected_penalty):
+    result = MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
         validator=simple_validators(0, 0)[0],
         bound_slashed_validators=bounded_slashed_validators,
         total_balance=Gwei(sum(int(v.validator.effective_balance) for v in active_validators)),
+    )
+
+    assert result == expected_penalty
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("bounded_slashings_count", "active_validators_count", "expected_penalty"),
+    [
+        (1, 500000, 0),
+        (100, 500000, 0),
+        (1000, 500000, 0),
+        (5000, 500000, 0),
+        (10000, 500000, 1000000000),
+        (20000, 500000, 3000000000),
+        (50000, 500000, 9000000000),
+    ],
+)
+def test_get_validator_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
+    result = MidtermSlashingPenalty.get_validator_midterm_penalty(
+        simple_validators(0, 0)[0], bounded_slashings_count, active_validators_count * 32 * 10**9
     )
 
     assert result == expected_penalty
@@ -488,6 +615,26 @@ def test_get_frame_by_epoch(epoch, expected_frame):
     )
     frame_by_epoch = MidtermSlashingPenalty.get_frame_by_epoch(epoch, frame_config)
     assert frame_by_epoch == expected_frame
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("frame_number", "expected_ref_epoch"),
+    [
+        (0, 0),
+        (1, 225),
+        (2, 450),
+        (3, 675),
+    ],
+)
+def test_get_ref_epoch_by_frame(frame_number, expected_ref_epoch):
+    frame_config = FrameConfig(
+        initial_epoch=EpochNumber(0),
+        epochs_per_frame=EpochNumber(225),
+        fast_lane_length_slots=0,
+    )
+    ref_epoch = MidtermSlashingPenalty.get_ref_epoch_by_frame(frame_number, frame_config)
+    assert ref_epoch == expected_ref_epoch
 
 
 @pytest.mark.unit
