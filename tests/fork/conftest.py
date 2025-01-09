@@ -23,6 +23,7 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.providers.ipfs import MultiIPFSProvider, CID
 from src.types import SlotNumber, BlockRoot, BlockStamp
 from src.utils.blockstamp import build_blockstamp
+from src.utils.cache import clear_global_cache
 from src.utils.slot import get_next_non_missed_slot
 from src.variables import (
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
@@ -37,6 +38,16 @@ logger = logger.getChild("fork")
 
 class TestRunningException(Exception):
     pass
+
+
+#
+# Global
+#
+@pytest.fixture(autouse=True)
+def clean_global_cache_after_test():
+    yield
+    logger.info("TESTRUN Clear global LRU functions cache (Autoused)")
+    clear_global_cache()
 
 
 #
