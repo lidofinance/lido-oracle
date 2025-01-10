@@ -219,7 +219,15 @@ def test_is_high_midterm_slashing_penalty_post_electra(
         fast_lane_length_slots=0,
     )
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-        blockstamp, 3, spec_with_electra, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
+        blockstamp,
+        3,
+        spec_with_electra,
+        frame_config,
+        chain_config,
+        all_validators,
+        lido_validators,
+        report_cl_rebase,
+        0,
     )
     assert result == expected_result
 
