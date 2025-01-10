@@ -1,6 +1,6 @@
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 from src.types import Gwei
 
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2 ** 64 - 1
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2 ** 8
@@ -12,7 +12,7 @@ EPOCHS_PER_SLASHINGS_VECTOR = 2 ** 13
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = 2 ** 0 * 10 ** 9
-MAX_EFFECTIVE_BALANCE = 32 * 10 ** 9
+MAX_EFFECTIVE_BALANCE = Gwei(32 * 10 ** 9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2 ** 4
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -28,6 +28,8 @@ SLOTS_PER_HISTORICAL_ROOT = 8192
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
 MIN_ACTIVATION_BALANCE = Gwei(2 ** 5 * 10 ** 9)
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2 ** 11 * 10 ** 9)
+
+LIDO_DEPOSIT_AMOUNT = MIN_ACTIVATION_BALANCE
 
 # Local constants
 GWEI_TO_WEI = 10 ** 9

@@ -216,11 +216,13 @@ class Accounting(BaseModule, ConsensusModule):
     def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
-        count = len(lido_validators)
-        total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
+        validators_count = len(lido_validators)
+        active_balance = sum(int(validator.balance) for validator in lido_validators)
+        pending_deposits = self.w3.lido_validators.calculate_pending_deposits_sum(lido_validators)
+        total_balance = Gwei(active_balance + pending_deposits)
 
-        logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
-        return ValidatorsCount(count), ValidatorsBalance(total_balance)
+        logger.info({'msg': f'Calculate Lido state on CL. {validators_count=}, {active_balance=}, {pending_deposits=}, {total_balance=} (Gwei)'})
+        return ValidatorsCount(validators_count), ValidatorsBalance(total_balance)
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
         simulation = self.simulate_full_rebase(blockstamp)

@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting.types import BeaconStat
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -36,6 +37,16 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 
     for v in lido_validators:
         assert v.lido_id.key == v.validator.pubkey
+
+
+@pytest.mark.unit
+def test_calc_pending_deposits_sum(web3, lido_validators, contracts):
+    lido_validators = LidoValidatorFactory.batch(30)
+    lido_validators.extend(LidoValidatorFactory.build_pending_deposit_vals() for _ in range(5))
+
+    pending_deposits_sum = web3.lido_validators.calculate_pending_deposits_sum(lido_validators)
+
+    assert pending_deposits_sum == 5 * LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit
