@@ -180,7 +180,7 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def predict_midterm_penalty_in_frame_pre_electra(
-        report_ref_epoch: EpochNumber,
+        ref_epoch: EpochNumber,
         all_slashed_validators: list[Validator],
         total_balance: Gwei,
         midterm_penalized_validators_in_frame: list[LidoValidator]
@@ -190,7 +190,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-                report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+                ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
             )
             penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
                 validator, len(bound_slashed_validators), total_balance
