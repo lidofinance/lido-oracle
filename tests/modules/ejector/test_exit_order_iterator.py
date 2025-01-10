@@ -14,12 +14,12 @@ from tests.factory.no_registry import LidoValidatorFactory
 
 @pytest.mark.unit
 def test_predicates():
-    def v(module_address, operator, index, activation_epoch) -> LidoValidator:
+    def v(module_address, operator: int, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.lido_id = object.__new__(LidoKey)
         validator.validator = object.__new__(ValidatorState)
         validator.lido_id.moduleAddress = module_address
-        validator.lido_id.operatorIndex = operator
+        validator.lido_id.operatorIndex = NodeOperatorId(operator)
         validator.index = index
         validator.validator.activation_epoch = activation_epoch
         return validator
@@ -75,12 +75,12 @@ def test_predicates():
 
 @pytest.mark.unit
 def test_decrease_node_operator_stats():
-    def v(module_address, operator, index, activation_epoch) -> LidoValidator:
+    def v(module_address, operator: int, index, activation_epoch) -> LidoValidator:
         validator = object.__new__(LidoValidator)
         validator.lido_id = object.__new__(LidoKey)
         validator.validator = object.__new__(ValidatorState)
         validator.lido_id.moduleAddress = module_address
-        validator.lido_id.operatorIndex = operator
+        validator.lido_id.operatorIndex = NodeOperatorId(operator)
         validator.index = index
         validator.validator.activation_epoch = activation_epoch
         return validator

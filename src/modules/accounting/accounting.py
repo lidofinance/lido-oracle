@@ -216,11 +216,13 @@ class Accounting(BaseModule, ConsensusModule):
     def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
-        count = len(lido_validators)
-        total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
+        validators_count = len(lido_validators)
+        active_balance = sum(int(validator.balance) for validator in lido_validators)
+        pending_deposits = self.w3.lido_validators.calculate_pending_deposits_sum(lido_validators)
+        total_balance = Gwei(active_balance + pending_deposits)
 
-        logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
-        return ValidatorsCount(count), ValidatorsBalance(total_balance)
+        logger.info({'msg': f'Calculate Lido state on CL. {validators_count=}, {active_balance=}, {pending_deposits=}, {total_balance=} (Gwei)'})
+        return ValidatorsCount(validators_count), ValidatorsBalance(total_balance)
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
         simulation = self.simulate_full_rebase(blockstamp)
@@ -326,7 +328,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
 
         if consensus_version == 1:
             return ExtraDataService.collect(
@@ -350,7 +352,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
         return stuck_validators, exited_validators, orl
 
     def _calculate_report_v1(self, blockstamp: ReferenceBlockStamp) -> ReportData:

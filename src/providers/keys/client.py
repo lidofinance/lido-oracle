@@ -1,11 +1,10 @@
 from time import sleep
-from typing import cast
+from typing import cast, TypedDict, List
 
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.providers.keys.types import LidoKey, KeysApiStatus
 from src.types import BlockStamp, StakingModuleAddress
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
 
@@ -15,6 +14,12 @@ class KeysOutdatedException(Exception):
 
 class KAPIClientError(NotOkResponse):
     pass
+
+
+class ModuleOperatorsKeys(TypedDict):
+    keys: List[LidoKey]
+    module: dict
+    operators: list
 
 
 class KeysAPIClient(HTTPProvider):
@@ -51,17 +56,18 @@ class KeysAPIClient(HTTPProvider):
         raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
 
     @lru_cache(maxsize=1)
-    @list_of_dataclasses(LidoKey.from_response)
-    def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[dict]:
+    def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        return cast(list[dict], self._get_with_blockstamp(self.USED_KEYS, blockstamp))
+        return list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
 
     @lru_cache(maxsize=1)
-    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> dict:
+    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ModuleOperatorsKeys:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
-        return cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
+        data = cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
+        data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
+        return cast(ModuleOperatorsKeys, data)
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""

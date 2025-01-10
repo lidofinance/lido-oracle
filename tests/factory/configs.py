@@ -3,7 +3,7 @@ from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (
     BeaconSpecResponse,
     SlotAttestationCommittee,
-    BlockAttestation,
+    BlockAttestationResponse,
     AttestationData,
     Checkpoint,
 )
@@ -61,9 +61,10 @@ class SlotAttestationCommitteeFactory(Web3Factory):
 
 
 class BlockAttestationFactory(Web3Factory):
-    __model__ = BlockAttestation
+    __model__ = BlockAttestationResponse
 
     aggregation_bits = "0x"
+    committee_bits = None
     data = AttestationData(
         slot="0",
         index="0",

@@ -7,8 +7,7 @@ from eth_typing import ChecksumAddress
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig
 from src.services.exit_order.iterator_state import ExitOrderIteratorStateService, NodeOperatorPredictableState
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, NodeOperatorId
-
+from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
 from src.utils.validator_state import get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
@@ -54,9 +53,8 @@ class ExitOrderIterator:
         eois = ExitOrderIteratorStateService(self.w3, self.blockstamp)
 
         self.left_queue_count = 0
-        self.max_validators_to_exit = eois.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
-            self.blockstamp.block_hash,
-        ).max_validator_exit_requests_per_report
+        self.max_validators_to_exit = (eois.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
+                                       .max_validator_exit_requests_per_report)
         self.operator_network_penetration_threshold = eois.get_operator_network_penetration_threshold(self.blockstamp)
 
         # Prepare list of exitable validators, which will be sorted by exit order predicates
@@ -173,5 +171,5 @@ class ExitOrderIterator:
     ) -> NodeOperatorGlobalIndex:
         return (
             StakingModuleId(staking_module_id[validator.lido_id.moduleAddress]),
-            NodeOperatorId(validator.lido_id.operatorIndex),
+            validator.lido_id.operatorIndex,
         )

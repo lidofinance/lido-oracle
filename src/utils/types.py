@@ -5,8 +5,8 @@ def bytes_to_hex_str(b: bytes) -> HexStr:
     return HexStr('0x' + b.hex())
 
 
-def hex_str_to_bytes(hex_str: HexStr) -> bytes:
-    return bytes.fromhex(hex_str[2:])
+def hex_str_to_bytes(hex_str: str) -> bytes:
+    return bytes.fromhex(hex_str[2:]) if hex_str.startswith("0x") else bytes.fromhex(hex_str)
 
 
 def is_4bytes_hex(s: str) -> bool:
