@@ -181,7 +181,7 @@ class ConsensusClient(HTTPProvider):
 
             raise error
 
-    PRYSM_STATE_NOT_FOUND_ERROR = 'State not found: state not found in the last'
+    PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
     def __raise_on_prysm_error(self, errors: list[Exception]) -> Exception | None:
         """
