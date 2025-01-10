@@ -9,6 +9,7 @@ from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, ReferenceBlockStamp
+from tests.modules.ejector.test_exit_order_state_service import FAR_FUTURE_EPOCH
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
@@ -25,7 +26,9 @@ def simple_key(pubkey: str) -> LidoKey:
     return key
 
 
-def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='', exit_epoch='100500') -> Validator:
+def simple_validator(
+    index, pubkey, balance, slashed=False, withdrawable_epoch='', exit_epoch='100500', activation_epoch="0"
+) -> Validator:
     return Validator(
         index=str(index),
         balance=str(balance),
@@ -36,7 +39,7 @@ def simple_validator(index, pubkey, balance, slashed=False, withdrawable_epoch='
             effective_balance=str(32 * 10**9),
             slashed=slashed,
             activation_eligibility_epoch='',
-            activation_epoch='0',
+            activation_epoch=activation_epoch,
             exit_epoch=exit_epoch,
             withdrawable_epoch=withdrawable_epoch,
         ),
@@ -134,6 +137,7 @@ def mock_get_withdrawal_vault_balance(abnormal_case, contracts):
             31: 2 * 10**18,
             33: 2 * 10**18,
             40: 2 * 10**18,
+            50: 2 * 10**18,
         }
         return balance[blockstamp.block_number]
 
@@ -197,6 +201,14 @@ def mock_get_validators(web3):
                 simple_validator(2, '0x02', 32 * 10**9),
                 simple_validator(3, '0x03', (32 * 10**9) + 333333),
                 simple_validator(4, '0x04', 32 * 10**9),
+                simple_validator(5, '0x05', (32 * 10**9) + 824112),
+            ],
+            50: [
+                simple_validator(4, '0x00', balance=0, activation_epoch=FAR_FUTURE_EPOCH),
+                simple_validator(1, '0x01', 32 * 10**9),
+                simple_validator(2, '0x02', 32 * 10**9),
+                simple_validator(3, '0x03', (32 * 10**9) + 333333),
+                simple_validator(4, '0x04', balance=0, activation_epoch=FAR_FUTURE_EPOCH),
                 simple_validator(5, '0x05', (32 * 10**9) + 824112),
             ],
             1000: [

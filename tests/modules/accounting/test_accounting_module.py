@@ -6,6 +6,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
@@ -21,7 +22,6 @@ from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFacto
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
-from tests.web3_extentions.test_lido_validators import blockstamp
 
 
 @pytest.fixture(autouse=True)
@@ -101,13 +101,18 @@ def test_get_updated_modules_stats(accounting: Accounting):
 @pytest.mark.usefixtures("lido_validators")
 def test_get_consensus_lido_state(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
-    validators = LidoValidatorFactory.batch(10)
+    validators = [
+        *[LidoValidatorFactory.build_pending_deposit_vals() for _ in range(3)],
+        *[LidoValidatorFactory.build_not_active_vals(bs.ref_epoch) for _ in range(3)],
+        *[LidoValidatorFactory.build_active_vals(bs.ref_epoch) for _ in range(2)],
+        *[LidoValidatorFactory.build_exit_vals(bs.ref_epoch) for _ in range(2)],
+    ]
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators))
+    assert balance == sum((int(val.balance) for val in validators)) + 3 * LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit

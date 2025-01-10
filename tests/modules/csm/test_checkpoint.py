@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Iterator, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -16,6 +16,7 @@ from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
 from src.utils.web3converter import Web3Converter
+from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
     BlockAttestationFactory,
@@ -254,12 +255,12 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 0
     attestation.data.index = 0
-    attestation.aggregation_bits = '0x' + 'f' * 32
+    attestation.aggregation_bits = BitListFactory.build(set_indices=[i for i in range(32)]).hex()
     # the same but with no included attestations in bits
     attestation2 = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation2.data.slot = 0
     attestation2.data.index = 0
-    attestation2.aggregation_bits = '0x' + '0' * 32
+    attestation2.aggregation_bits = BitListFactory.build(set_indices=[]).hex()
     process_attestations([attestation, attestation2], committees)
     for index, validators in enumerate(committees.values()):
         for validator in validators:
