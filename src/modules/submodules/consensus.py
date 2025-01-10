@@ -88,7 +88,7 @@ class ConsensusModule(ABC):
         return consensus_contract.get_members(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def consensus_version(self, blockstamp: BlockStamp):
+    def get_consensus_version(self, blockstamp: BlockStamp):
         return self.report_contract.get_consensus_version(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)

@@ -137,7 +137,7 @@ class TestGetValidatorsToEject:
             assert result == [], "Unexpected validators to eject"
 
         with monkeypatch.context() as m:
-            ejector.consensus_version = Mock(return_value=2)
+            ejector.get_consensus_version = Mock(return_value=2)
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
@@ -175,7 +175,7 @@ class TestGetValidatorsToEject:
         ]
 
         with monkeypatch.context() as m:
-            ejector.consensus_version = Mock(return_value=1)
+            ejector.get_consensus_version = Mock(return_value=1)
             m.setattr(
                 ejector_module.ExitOrderIterator,
                 "__iter__",
@@ -185,7 +185,7 @@ class TestGetValidatorsToEject:
             assert result == [validators[0]], "Unexpected validators to eject"
 
         with monkeypatch.context() as m:
-            ejector.consensus_version = Mock(return_value=2)
+            ejector.get_consensus_version = Mock(return_value=2)
             val_iter = iter(SimpleIterator(validators[:2]))
             val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
@@ -304,7 +304,7 @@ def test_get_sweep_delay_in_epochs_pre_electra(
 ) -> None:
     ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
     ejector.get_chain_config = Mock(return_value=chain_config)
-    ejector.consensus_version = Mock(return_value=1)
+    ejector.get_consensus_version = Mock(return_value=1)
 
     with monkeypatch.context() as m:
         m.setattr(
@@ -347,7 +347,7 @@ def test_get_sweep_delay_in_epochs_post_electra(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ejector.get_chain_config = Mock(return_value=chain_config)
-    ejector.consensus_version = Mock(return_value=3)
+    ejector.get_consensus_version = Mock(return_value=3)
     ejector.w3.cc = Mock()
 
     ejector.w3.cc.get_validators = Mock(return_value=[])

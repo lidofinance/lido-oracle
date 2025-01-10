@@ -119,7 +119,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         expected_balance = self._get_total_expected_balance(0, blockstamp)
 
-        consensus_version = self.consensus_version(blockstamp)
+        consensus_version = self.get_consensus_version(blockstamp)
         validators_iterator = iter(self.get_validators_iterator(consensus_version, blockstamp))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
@@ -141,7 +141,7 @@ class Ejector(BaseModule, ConsensusModule):
             'validators_to_eject_count': len(validators_to_eject),
         })
 
-        if self.consensus_version(blockstamp) != 1:
+        if self.get_consensus_version(blockstamp) != 1:
             forced_validators = validators_iterator.get_remaining_forced_validators()
             if forced_validators:
                 logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
@@ -279,7 +279,7 @@ class Ejector(BaseModule, ConsensusModule):
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
 
-        if self.consensus_version(blockstamp) in (1, 2):
+        if self.get_consensus_version(blockstamp) in (1, 2):
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
         return self._get_sweep_delay_in_epochs_post_pectra(blockstamp)
 
