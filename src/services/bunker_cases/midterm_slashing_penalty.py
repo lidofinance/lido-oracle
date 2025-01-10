@@ -21,11 +21,10 @@ type SlashedValidatorsFrameBuckets = dict[tuple[FrameNumber, EpochNumber], list[
 
 class MidtermSlashingPenalty:
 
-    cl_spec: BeaconSpecResponse
-
     @staticmethod
     def is_high_midterm_slashing_penalty(
         blockstamp: ReferenceBlockStamp,
+        cl_spec: BeaconSpecResponse,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         all_validators: list[Validator],
@@ -63,7 +62,7 @@ class MidtermSlashingPenalty:
 
         # Calculate sum of Lido midterm penalties in each future frame
         frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-            blockstamp.ref_epoch, all_slashed_validators,  total_balance, future_frames_lido_validators,
+            blockstamp.ref_epoch, cl_spec, all_slashed_validators,  total_balance, future_frames_lido_validators,
         )
         max_lido_midterm_penalty = max(frames_lido_midterm_penalties.values())
         logger.info({"msg": f"Max lido midterm penalty: {max_lido_midterm_penalty}"})
@@ -157,6 +156,7 @@ class MidtermSlashingPenalty:
     @staticmethod
     def get_future_midterm_penalty_sum_in_frames(
         ref_epoch: EpochNumber,
+        cl_spec: BeaconSpecResponse,
         all_slashed_validators: list[Validator],
         total_balance: Gwei,
         per_frame_validators: SlashedValidatorsFrameBuckets,
@@ -167,6 +167,7 @@ class MidtermSlashingPenalty:
             per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
                 ref_epoch,
                 frame_ref_epoch,
+                cl_spec,
                 all_slashed_validators,
                 total_balance,
                 validators_in_future_frame
@@ -174,11 +175,11 @@ class MidtermSlashingPenalty:
 
         return per_frame_midterm_penalty_sum
 
-    @classmethod
+    @staticmethod
     def predict_midterm_penalty_in_frame(
-        cls,
         report_ref_epoch: EpochNumber,
         frame_ref_epoch: EpochNumber,
+        cl_spec: BeaconSpecResponse,
         all_slashed_validators: list[Validator],
         total_balance: Gwei,
         midterm_penalized_validators_in_frame: list[LidoValidator]
@@ -191,7 +192,7 @@ class MidtermSlashingPenalty:
                 report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
             )
 
-            if frame_ref_epoch < int(cls.cl_spec.ELECTRA_FORK_EPOCH):
+            if frame_ref_epoch < int(cl_spec.ELECTRA_FORK_EPOCH):
                 penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
                     validator, len(bound_slashed_validators), total_balance
                 )

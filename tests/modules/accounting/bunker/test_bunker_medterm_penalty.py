@@ -49,10 +49,9 @@ TEST_ELECTRA_FORK_EPOCH = 450
 
 
 @pytest.fixture(params=[TEST_ELECTRA_FORK_EPOCH])
-def electra_fork_epoch(request):
+def spec_with_electra(request):
     # sets the electra fork epoch to the test value for calculating the penalty
-    MidtermSlashingPenalty.cl_spec = Mock(ELECTRA_FORK_EPOCH=request.param)
-    return request.param
+    return Mock(ELECTRA_FORK_EPOCH=request.param)
 
 
 @pytest.mark.unit
@@ -121,7 +120,7 @@ def electra_fork_epoch(request):
     ],
 )
 def test_is_high_midterm_slashing_penalty(
-    blockstamp, electra_fork_epoch, all_validators, lido_validators, report_cl_rebase, expected_result
+    blockstamp, spec_with_electra, all_validators, lido_validators, report_cl_rebase, expected_result
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
@@ -135,7 +134,7 @@ def test_is_high_midterm_slashing_penalty(
     )
 
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-        blockstamp, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
+        blockstamp, spec_with_electra, frame_config, chain_config, all_validators, lido_validators, report_cl_rebase, 0
     )
     assert result == expected_result
 
@@ -166,7 +165,7 @@ def test_is_high_midterm_slashing_penalty(
         ),
     ],
 )
-def test_get_possible_slashed_epochs(validator, electra_fork_epoch, ref_epoch, expected_result):
+def test_get_possible_slashed_epochs(validator, spec_with_electra, ref_epoch, expected_result):
     result = MidtermSlashingPenalty.get_possible_slashed_epochs(validator, ref_epoch)
 
     assert result == expected_result
@@ -204,7 +203,7 @@ def test_get_possible_slashed_epochs(validator, electra_fork_epoch, ref_epoch, e
     ],
 )
 def test_get_per_frame_lido_validators_with_future_midterm_epoch(
-    ref_epoch, electra_fork_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
+    ref_epoch, spec_with_electra, future_midterm_penalty_lido_slashed_validators, expected_result
 ):
     frame_config = FrameConfig(
         initial_epoch=EpochNumber(0),
@@ -225,7 +224,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
 @pytest.mark.parametrize(
     (
         "ref_epoch",
-        "electra_fork_epoch",
+        "spec_with_electra",
         "per_frame_validators",
         "all_slashed_validators",
         "active_validators_count",
@@ -308,18 +307,22 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
             {18: 0, 19: 5_760_000_000},
         ),
     ],
-    indirect=["electra_fork_epoch"],
+    indirect=["spec_with_electra"],
 )
 def test_get_future_midterm_penalty_sum_in_frames(
     ref_epoch,
-    electra_fork_epoch,
+    spec_with_electra,
     per_frame_validators,
     all_slashed_validators,
     active_validators_count,
     expected_result,
 ):
     result = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-        EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10**9, per_frame_validators
+        EpochNumber(ref_epoch),
+        spec_with_electra,
+        all_slashed_validators,
+        active_validators_count * 32 * 10**9,
+        per_frame_validators,
     )
 
     assert result == expected_result
@@ -433,11 +436,14 @@ def test_predict_midterm_penalty_in_frame(
     total_balance,
     validators_in_frame,
     expected_result,
-    electra_fork_epoch,
+    spec_with_electra,
 ):
     result = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
         report_ref_epoch=EpochNumber(ref_epoch),
-        frame_ref_epoch=EpochNumber(electra_fork_epoch if is_after_electra else electra_fork_epoch - 1),
+        frame_ref_epoch=EpochNumber(
+            spec_with_electra.ELECTRA_FORK_EPOCH if is_after_electra else spec_with_electra.ELECTRA_FORK_EPOCH - 1
+        ),
+        cl_spec=spec_with_electra,
         all_slashed_validators=all_slashed_validators,
         total_balance=total_balance,
         midterm_penalized_validators_in_frame=validators_in_frame,
