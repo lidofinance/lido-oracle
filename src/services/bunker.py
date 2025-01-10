@@ -71,8 +71,9 @@ class BunkerService:
             return True
 
         cl_spec = self.w3.cc.get_config_spec()
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, cl_spec, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
+            blockstamp, consensus_version, cl_spec, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})

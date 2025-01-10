@@ -24,6 +24,7 @@ class MidtermSlashingPenalty:
     @staticmethod
     def is_high_midterm_slashing_penalty(
         blockstamp: ReferenceBlockStamp,
+        consensus_version: int,
         cl_spec: BeaconSpecResponse,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
@@ -61,9 +62,14 @@ class MidtermSlashingPenalty:
         total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
 
         # Calculate sum of Lido midterm penalties in each future frame
-        frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-            blockstamp.ref_epoch, cl_spec, all_slashed_validators,  total_balance, future_frames_lido_validators,
-        )
+        if consensus_version in (1, 2):
+            frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames_pre_electra(
+                blockstamp.ref_epoch, all_slashed_validators, total_balance, future_frames_lido_validators
+            )
+        else:
+            frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames_post_electra(
+                blockstamp.ref_epoch, cl_spec, all_slashed_validators,  total_balance, future_frames_lido_validators,
+            )
         max_lido_midterm_penalty = max(frames_lido_midterm_penalties.values())
         logger.info({"msg": f"Max lido midterm penalty: {max_lido_midterm_penalty}"})
 
@@ -154,7 +160,45 @@ class MidtermSlashingPenalty:
         return buckets
 
     @staticmethod
-    def get_future_midterm_penalty_sum_in_frames(
+    def get_future_midterm_penalty_sum_in_frames_pre_electra(
+        ref_epoch: EpochNumber,
+        all_slashed_validators: list[Validator],
+        total_balance: Gwei,
+        per_frame_validators: SlashedValidatorsFrameBuckets,
+    ) -> dict[FrameNumber, Gwei]:
+        """Calculate sum of midterm penalties in each frame"""
+        per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
+        for (frame_number, _), validators_in_future_frame in per_frame_validators.items():
+            per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_pre_electra(
+                ref_epoch,
+                all_slashed_validators,
+                total_balance,
+                validators_in_future_frame
+            )
+
+        return per_frame_midterm_penalty_sum
+
+    @staticmethod
+    def predict_midterm_penalty_in_frame_pre_electra(
+        report_ref_epoch: EpochNumber,
+        all_slashed_validators: list[Validator],
+        total_balance: Gwei,
+        midterm_penalized_validators_in_frame: list[LidoValidator]
+    ) -> Gwei:
+        """Predict penalty in frame"""
+        penalty_in_frame = 0
+        for validator in midterm_penalized_validators_in_frame:
+            midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
+            bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
+                report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+            )
+            penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
+                validator, len(bound_slashed_validators), total_balance
+            )
+        return Gwei(penalty_in_frame)
+
+    @staticmethod
+    def get_future_midterm_penalty_sum_in_frames_post_electra(
         ref_epoch: EpochNumber,
         cl_spec: BeaconSpecResponse,
         all_slashed_validators: list[Validator],
@@ -164,7 +208,7 @@ class MidtermSlashingPenalty:
         """Calculate sum of midterm penalties in each frame"""
         per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
         for (frame_number, frame_ref_epoch), validators_in_future_frame in per_frame_validators.items():
-            per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
+            per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
                 ref_epoch,
                 frame_ref_epoch,
                 cl_spec,
@@ -176,7 +220,7 @@ class MidtermSlashingPenalty:
         return per_frame_midterm_penalty_sum
 
     @staticmethod
-    def predict_midterm_penalty_in_frame(
+    def predict_midterm_penalty_in_frame_post_electra(
         report_ref_epoch: EpochNumber,
         frame_ref_epoch: EpochNumber,
         cl_spec: BeaconSpecResponse,
