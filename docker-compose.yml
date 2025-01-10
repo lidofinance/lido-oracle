@@ -1,0 +1,18 @@
+---
+services:
+  ipfs:
+    image: ipfs/kubo
+    restart: unless-stopped
+    volumes:
+      - ./010-pin-cids.sh:/container-init.d/010-pin-cids.sh
+      - .ipfs/:/data/ipfs
+    entrypoint: []
+    command:
+      - /sbin/tini
+      - --
+      - timeout
+      - 600s
+      - /usr/local/bin/start_ipfs
+      - daemon
+      - --migrate=true
+      - --agent-version-suffix=docker
