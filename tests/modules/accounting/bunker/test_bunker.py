@@ -80,6 +80,7 @@ class TestIsBunkerMode:
         is_abnormal_cl_rebase: Mock,
     ) -> None:
         bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
+        bunker.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock()
         bunker.w3.cc.get_config_spec = Mock()
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = True
@@ -107,6 +108,7 @@ class TestIsBunkerMode:
         is_abnormal_cl_rebase: Mock,
     ) -> None:
         bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
+        bunker.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock()
         bunker.w3.cc.get_config_spec = Mock()
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = False
@@ -136,6 +138,7 @@ class TestIsBunkerMode:
         is_abnormal_cl_rebase: Mock,
     ) -> None:
         bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
+        bunker.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock()
         bunker.w3.cc.get_config_spec = Mock()
         bunker.get_cl_rebase_for_current_report = Mock(return_value=0)
         is_high_midterm_slashing_penalty.return_value = False
