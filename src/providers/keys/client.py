@@ -16,8 +16,10 @@ class KAPIClientError(NotOkResponse):
     pass
 
 
-class PartiallyTypedModuleOperatorsKeys(TypedDict):
+class ModuleOperatorsKeys(TypedDict):
     keys: List[LidoKey]
+    module: dict
+    operators: list
 
 
 class KeysAPIClient(HTTPProvider):
@@ -59,13 +61,13 @@ class KeysAPIClient(HTTPProvider):
         return list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
 
     @lru_cache(maxsize=1)
-    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> PartiallyTypedModuleOperatorsKeys:
+    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ModuleOperatorsKeys:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
         data = cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
-        return cast(PartiallyTypedModuleOperatorsKeys, data)
+        return cast(ModuleOperatorsKeys, data)
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
