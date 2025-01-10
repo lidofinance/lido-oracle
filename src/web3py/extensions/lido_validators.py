@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
 from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
@@ -13,9 +13,7 @@ from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorG
 from src.utils.dataclass import Nested
 from src.utils.cache import global_lru_cache as lru_cache
 
-
 logger = logging.getLogger(__name__)
-
 
 if TYPE_CHECKING:
     from src.web3py.types import Web3  # pragma: no cover
@@ -201,7 +199,7 @@ class LidoValidatorsProvider(Module):
         for validator in merged_validators:
             global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
-                NodeOperatorId(validator.lido_id.operatorIndex),
+                validator.lido_id.operatorIndex,
             )
 
             if global_no_id in no_validators:
@@ -215,15 +213,28 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
-    def get_module_validators_by_node_operators(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        """Get module validators by querying the KeysAPI for the module keys"""
+    def get_module_validators_by_node_operators(
+        self,
+        module_address: StakingModuleAddress,
+        blockstamp: BlockStamp
+    ) -> ValidatorsByNodeOperator:
+        """
+        Get module validators by querying the KeysAPI for the module keys.
+
+        Args:
+            module_address (StakingModuleAddress): The address of the staking module.
+            blockstamp (BlockStamp): The block timestamp for querying validators.
+
+        Returns:
+            ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
+        """
+        # Fetch module operator keys from the KeysAPI
         kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
         if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
             raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
         operators = kapi['operators']
-        keys = {k['key']: k for k in kapi['keys']}
+        keys = {k.key: k for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
-
         module_id = StakingModuleId(int(kapi['module']['id']))
 
         # Make sure even empty NO will be presented in dict
@@ -231,14 +242,15 @@ class LidoValidatorsProvider(Module):
             (module_id, NodeOperatorId(int(operator['index']))): [] for operator in operators
         }
 
+        # Map validators to their corresponding node operators
         for validator in validators:
-            lido_key = keys.get(validator.validator.pubkey)
+            lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:
                 continue
-            global_id = (module_id, lido_key['operatorIndex'])
+            global_id = (module_id, lido_key.operatorIndex)
             no_validators[global_id].append(
                 LidoValidator(
-                    lido_id=LidoKey.from_response(**lido_key),
+                    lido_id=lido_key,
                     **asdict(validator),
                 )
             )

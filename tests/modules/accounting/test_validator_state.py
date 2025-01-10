@@ -86,7 +86,7 @@ def lido_validators(web3):
             lido_id=LidoKey(
                 key=pubkey,
                 depositSignature="",
-                operatorIndex=-1,
+                operatorIndex=NodeOperatorId(-1),
                 used=True,
                 moduleAddress="",
             ),
