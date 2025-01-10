@@ -256,6 +256,7 @@ def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAtte
 
 
 def get_set_indices(bits: Sequence[bool]) -> list[int]:
+    """Returns indices of truthy values in the supplied sequence"""
     return [i for (i, bit) in enumerate(bits) if bit]
 
 
