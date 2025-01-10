@@ -6,11 +6,12 @@ from faker import Faker
 from hexbytes import HexBytes
 from pydantic_factories import Use
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
+from src.types import Gwei
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
-from src.web3py.extensions.lido_validators import StakingModule, LidoValidator, NodeOperator
 
 faker = Faker()
 
@@ -18,6 +19,7 @@ faker = Faker()
 class ValidatorStateFactory(Web3Factory):
     __model__ = ValidatorState
 
+    withdrawal_credentials = "0x01"
     exit_epoch = FAR_FUTURE_EPOCH
 
     @classmethod
@@ -40,7 +42,7 @@ class ValidatorFactory(Web3Factory):
                 exit_epoch=str(FAR_FUTURE_EPOCH),
                 effective_balance=str(0),
             ),
-            **kwargs
+            **kwargs,
         )
 
 
@@ -83,7 +85,7 @@ class LidoValidatorFactory(Web3Factory):
                 exit_epoch=str(FAR_FUTURE_EPOCH),
                 effective_balance=str(0),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -93,7 +95,7 @@ class LidoValidatorFactory(Web3Factory):
                 activation_epoch=str(faker.pyint(min_value=epoch + 1, max_value=FAR_FUTURE_EPOCH)),
                 exit_epoch=str(FAR_FUTURE_EPOCH),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -103,7 +105,7 @@ class LidoValidatorFactory(Web3Factory):
                 activation_epoch=str(faker.pyint(min_value=0, max_value=epoch - 1)),
                 exit_epoch=str(faker.pyint(min_value=epoch + 1, max_value=FAR_FUTURE_EPOCH)),
             ),
-            **kwargs
+            **kwargs,
         )
 
     @classmethod
@@ -113,7 +115,17 @@ class LidoValidatorFactory(Web3Factory):
                 activation_epoch='0',
                 exit_epoch=str(faker.pyint(min_value=1, max_value=epoch)),
             ),
-            **kwargs
+            **kwargs,
+        )
+
+    @classmethod
+    def build_with_balance(cls, balance: Gwei, **kwargs: Any):
+        return cls.build(
+            balance=balance,
+            validator=ValidatorStateFactory.build(
+                effective_balance=min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, MIN_ACTIVATION_BALANCE),
+            ),
+            **kwargs,
         )
 
 

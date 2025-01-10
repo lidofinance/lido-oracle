@@ -88,6 +88,10 @@ class ConsensusModule(ABC):
         return consensus_contract.get_members(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
+    def get_consensus_version(self, blockstamp: BlockStamp):
+        return self.report_contract.get_consensus_version(blockstamp.block_hash)
+
+    @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_chain_config(blockstamp.block_hash)
