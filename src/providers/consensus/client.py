@@ -1,11 +1,12 @@
 from http import HTTPStatus
 from typing import Literal, cast
 
-from json_stream.base import TransientStreamingJSONObject  # type: ignore
+from json_stream.base import TransientAccessException, TransientStreamingJSONObject  # type: ignore
 
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
+    BeaconStateView,
     BlockAttestation,
     BlockAttestationResponse,
     BlockDetailsResponse,
@@ -18,7 +19,7 @@ from src.providers.consensus.types import (
     SlotAttestationCommittee,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -52,7 +53,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
 
-    def get_config_spec(self):
+    def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
         data, _ = self._get(self.API_GET_SPEC)
         if not isinstance(data, dict):
@@ -159,6 +160,25 @@ class ConsensusClient(HTTPProvider):
             stream=True,
         ))
         return list(streamed_json['data']['block_roots'])
+
+    @lru_cache(maxsize=1)
+    def get_state_view(self, state_id: SlotNumber | StateRoot) -> BeaconStateView:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
+        streamed_json = cast(TransientStreamingJSONObject, self._get(
+                self.API_GET_STATE,
+                path_params=(state_id,),
+                stream=True,
+            ))
+        view = {}
+        data = streamed_json['data']
+        try:
+            # NOTE: Keep in mind: the order is important, see TransientStreamingJSONObject.
+            view['slot'] = int(data['slot'])
+            view['exit_balance_to_consume'] = int(data['exit_balance_to_consume'])
+            view['earliest_exit_epoch'] = int(data['earliest_exit_epoch'])
+        except TransientAccessException:
+            pass
+        return BeaconStateView.from_response(**view)
 
     @lru_cache(maxsize=1)
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:

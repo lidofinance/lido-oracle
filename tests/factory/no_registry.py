@@ -6,7 +6,7 @@ from faker import Faker
 from hexbytes import HexBytes
 from pydantic_factories import Use
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei
@@ -119,11 +119,12 @@ class LidoValidatorFactory(Web3Factory):
         )
 
     @classmethod
-    def build_with_balance(cls, balance: Gwei, **kwargs: Any):
+    def build_with_balance(cls, balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs: Any):
         return cls.build(
             balance=balance,
             validator=ValidatorStateFactory.build(
-                effective_balance=min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, MIN_ACTIVATION_BALANCE),
+                effective_balance=min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, meb),
+                withdrawal_credentials="0x01" if meb == MAX_EFFECTIVE_BALANCE else "0x02",
             ),
             **kwargs,
         )

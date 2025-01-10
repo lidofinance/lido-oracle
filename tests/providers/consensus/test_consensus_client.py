@@ -71,6 +71,19 @@ def test_get_validators(consensus_client: ConsensusClient):
     assert validator_by_pub_key[0] == validator
 
 
+@pytest.mark.integration
+@pytest.mark.skip(reason="Too long to complete in CI")
+def test_get_state_view(consensus_client: ConsensusClient):
+    state_view = consensus_client.get_state_view("head")
+    assert state_view.slot > 0
+
+    spec = consensus_client.get_config_spec()
+    epoch = state_view.slot // 32
+    if epoch >= int(spec.ELECTRA_FORK_EPOCH):
+        assert state_view.earliest_exit_epoch != 0
+        assert state_view.exit_balance_to_consume >= 0
+
+
 @pytest.mark.unit
 def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
     consensus_client._get_without_fallbacks = Mock(return_value=(1, None))

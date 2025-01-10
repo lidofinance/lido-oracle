@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Protocol
 
-from src.types import BlockHash, BlockRoot, StateRoot
-from src.utils.dataclass import FromResponse, Nested
+from src.types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
+from src.utils.dataclass import Nested, FromResponse
+from src.constants import FAR_FUTURE_EPOCH
 
 
 @dataclass
@@ -13,6 +14,7 @@ class BeaconSpecResponse(FromResponse):
     SECONDS_PER_SLOT: str
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: str
+    ELECTRA_FORK_EPOCH: str = str(FAR_FUTURE_EPOCH)
 
 
 @dataclass
@@ -164,3 +166,13 @@ class SlotAttestationCommittee(FromResponse):
     index: str
     slot: str
     validators: list[str]
+
+
+@dataclass
+class BeaconStateView(Nested, FromResponse):
+    """A view to BeaconState with only the required keys presented"""
+
+    slot: SlotNumber
+    # This fields are new in Electra, so here are default values for backward compatibility.
+    exit_balance_to_consume: Gwei = Gwei(0)
+    earliest_exit_epoch: int = 0
