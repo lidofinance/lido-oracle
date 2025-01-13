@@ -12,7 +12,7 @@ from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
+from src.custom_types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,

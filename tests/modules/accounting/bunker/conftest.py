@@ -8,7 +8,7 @@ from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, ReferenceBlockStamp
+from src.custom_types import BlockNumber, BlockStamp, ReferenceBlockStamp
 from tests.modules.ejector.test_exit_order_state_service import FAR_FUTURE_EPOCH
 
 

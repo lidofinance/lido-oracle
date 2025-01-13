@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
-from src.types import EpochNumber, ValidatorIndex
+from src.custom_types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.variables import CACHE_PATH
 

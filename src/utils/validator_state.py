@@ -15,7 +15,7 @@ from src.constants import (
     SHARD_COMMITTEE_PERIOD,
 )
 from src.providers.consensus.types import Validator
-from src.types import EpochNumber, Gwei
+from src.custom_types import EpochNumber, Gwei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:

@@ -23,7 +23,7 @@ from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.types import SlotNumber, BlockStamp, BlockRoot
+from src.custom_types import SlotNumber, BlockStamp, BlockRoot
 
 
 logger = logging.getLogger(__name__)

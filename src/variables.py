@@ -107,7 +107,7 @@ def raise_from_errors(errors):
 
 
 # All non-private env variables to the logs in main
-PUBLIC_ENV_VARS = {key: str(value) for key, value in {
+PUBLIC_ENV_VARS = {
     'ACCOUNT': 'Dry' if ACCOUNT is None else ACCOUNT.address,
     'LIDO_LOCATOR_ADDRESS': LIDO_LOCATOR_ADDRESS,
     'CSM_MODULE_ADDRESS': CSM_MODULE_ADDRESS,
@@ -136,8 +136,8 @@ PUBLIC_ENV_VARS = {key: str(value) for key, value in {
     'PROMETHEUS_PREFIX': PROMETHEUS_PREFIX,
     'HEALTHCHECK_SERVER_PORT': HEALTHCHECK_SERVER_PORT,
     'MAX_CYCLE_LIFETIME_IN_SECONDS': MAX_CYCLE_LIFETIME_IN_SECONDS,
-    'CACHE_PATH': CACHE_PATH,
-}.items()}
+    'CACHE_PATH': str(CACHE_PATH),
+}
 
 PRIVATE_ENV_VARS = {
     'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.types import SlotNumber
+from src.custom_types import SlotNumber
 
 
 ZERO_HASH = bytes([0]*32)

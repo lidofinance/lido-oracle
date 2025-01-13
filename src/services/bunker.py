@@ -15,7 +15,7 @@ from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
-from src.types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.custom_types import BlockStamp, ReferenceBlockStamp, Gwei
 from src.web3py.types import Web3
 
 

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Protocol
 
-from src.types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
+from src.custom_types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
 from src.utils.dataclass import Nested, FromResponse
 from src.constants import FAR_FUTURE_EPOCH
 

@@ -7,7 +7,7 @@ from more_itertools import ilen
 from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.services.validator_state import LidoValidatorStateService
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
+from src.custom_types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
 from src.web3py.types import Web3

@@ -7,7 +7,7 @@ import pytest
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import SlotNumber
+from src.custom_types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
