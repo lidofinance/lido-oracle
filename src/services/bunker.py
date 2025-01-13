@@ -16,6 +16,7 @@ from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
 from src.types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3
 
 
@@ -72,8 +73,9 @@ class BunkerService:
 
         cl_spec = self.w3.cc.get_config_spec()
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        web3_converter = Web3Converter(chain_config, frame_config)
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, consensus_version, cl_spec, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
+            blockstamp, consensus_version, cl_spec, web3_converter, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})

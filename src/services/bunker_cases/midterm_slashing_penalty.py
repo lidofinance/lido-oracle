@@ -8,10 +8,10 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     MAX_EFFECTIVE_BALANCE,
 )
-from src.modules.submodules.types import FrameConfig, ChainConfig
 from src.providers.consensus.types import Validator, BeaconSpecResponse
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, FrameNumber, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,7 @@ class MidtermSlashingPenalty:
         blockstamp: ReferenceBlockStamp,
         consensus_version: int,
         cl_spec: BeaconSpecResponse,
-        frame_config: FrameConfig,
-        chain_config: ChainConfig,
+        web3_converter: Web3Converter,
         all_validators: list[Validator],
         lido_validators: list[LidoValidator],
         current_report_cl_rebase: Gwei,
@@ -49,7 +48,7 @@ class MidtermSlashingPenalty:
 
         # Put all Lido slashed validators to future frames by midterm penalty epoch
         future_frames_lido_validators = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-            blockstamp.ref_epoch, frame_config, lido_validators
+            blockstamp.ref_epoch, web3_converter, lido_validators
         )
 
         # If no one Lido in current not withdrawn slashed validators
@@ -76,7 +75,7 @@ class MidtermSlashingPenalty:
         # Compare with calculated frame CL rebase on pessimistic strategy
         # and whether they will cover future midterm penalties, so that the bunker is better to be turned on than not
         frame_cl_rebase = MidtermSlashingPenalty.get_frame_cl_rebase_from_report_cl_rebase(
-            frame_config, chain_config, current_report_cl_rebase, blockstamp, last_report_ref_slot
+            web3_converter, current_report_cl_rebase, blockstamp, last_report_ref_slot
         )
         if max_lido_midterm_penalty > frame_cl_rebase:
             return True
@@ -138,7 +137,7 @@ class MidtermSlashingPenalty:
     @staticmethod
     def get_lido_validators_with_future_midterm_epoch(
         ref_epoch: EpochNumber,
-        frame_config: FrameConfig,
+        web3_converter: Web3Converter,
         lido_validators: list[LidoValidator],
     ) -> SlashedValidatorsFrameBuckets:
         """
@@ -153,8 +152,9 @@ class MidtermSlashingPenalty:
             if midterm_penalty_epoch <= ref_epoch:
                 # We need midterm penalties only from future frames
                 continue
-            frame_number = MidtermSlashingPenalty.get_frame_by_epoch(midterm_penalty_epoch, frame_config)
-            frame_ref_epoch = MidtermSlashingPenalty.get_ref_epoch_by_frame(frame_number, frame_config)
+            frame_number = web3_converter.get_frame_by_epoch(midterm_penalty_epoch)
+            frame_ref_slot = SlotNumber(web3_converter.get_frame_first_slot(frame_number) - 1)
+            frame_ref_epoch = web3_converter.get_epoch_by_slot(frame_ref_slot)
             buckets[(frame_number, frame_ref_epoch)].append(validator)
 
         return buckets
@@ -310,31 +310,20 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_frame_cl_rebase_from_report_cl_rebase(
-        frame_config: FrameConfig,
-        chain_config: ChainConfig,
+        web3_converter: Web3Converter,
         report_cl_rebase: Gwei,
         curr_report_blockstamp: ReferenceBlockStamp,
         last_report_ref_slot: SlotNumber
     ) -> Gwei:
         """Get frame rebase from report rebase"""
-        last_report_ref_epoch = EpochNumber(last_report_ref_slot // chain_config.slots_per_epoch)
+        last_report_ref_epoch = web3_converter.get_epoch_by_slot(last_report_ref_slot)
 
         epochs_passed_since_last_report = curr_report_blockstamp.ref_epoch - last_report_ref_epoch
 
         frame_cl_rebase = (
-            (report_cl_rebase / epochs_passed_since_last_report) * frame_config.epochs_per_frame
+            (report_cl_rebase / epochs_passed_since_last_report) * web3_converter.frame_config.epochs_per_frame
         )
         return Gwei(int(frame_cl_rebase))
-
-    @staticmethod
-    def get_frame_by_epoch(epoch: EpochNumber, frame_config: FrameConfig) -> FrameNumber:
-        """Get oracle report frame index by epoch"""
-        return FrameNumber((epoch - frame_config.initial_epoch) // frame_config.epochs_per_frame)
-
-    @staticmethod
-    def get_ref_epoch_by_frame(frame_number: FrameNumber, frame_config: FrameConfig) -> EpochNumber:
-        """Get frame reference epoch"""
-        return EpochNumber(frame_number * frame_config.epochs_per_frame + frame_config.initial_epoch)
 
     @staticmethod
     def get_midterm_penalty_epoch(validator: Validator) -> EpochNumber:
