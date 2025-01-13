@@ -174,10 +174,8 @@ class Accounting(BaseModule, ConsensusModule):
         # or in the `execute_module` method
         if consensus_version == 1:
             report_data = self._calculate_report_v1(blockstamp)
-        elif consensus_version in (2, 3):
-            report_data = self._calculate_report_v2_v3(consensus_version, blockstamp)
         else:
-            raise IncompatibleException("Consensus version is not supported")
+            report_data = self._calculate_report_latest_version(consensus_version, blockstamp)
 
         self._update_metrics(report_data)
         return report_data
@@ -369,13 +367,13 @@ class Accounting(BaseModule, ConsensusModule):
         extra_data_part_v1 = self._calculate_extra_data_report_v1(blockstamp)
         return self._combine_report_parts(1, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v1)
 
-    def _calculate_report_v2_v3(self, consensus_version: int, blockstamp: ReferenceBlockStamp) -> ReportData:
+    def _calculate_report_latest_version(self, consensus_version: int, blockstamp: ReferenceBlockStamp) -> ReportData:
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
 
-        extra_data_part_v2 = self._calculate_extra_data_report_v2_v3(blockstamp)
-        return self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v2)
+        extra_data_part = self._calculate_extra_data_report(blockstamp)
+        return self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part)
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
@@ -400,7 +398,7 @@ class Accounting(BaseModule, ConsensusModule):
             orl.max_node_operators_per_extra_data_item,
         )
 
-    def _calculate_extra_data_report_v2_v3(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+    def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
         return ExtraDataServiceV2.collect(
             stuck_validators,
