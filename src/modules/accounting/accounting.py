@@ -39,7 +39,6 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.exception import IncompatibleException
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
