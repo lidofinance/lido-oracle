@@ -240,11 +240,10 @@ class MidtermSlashingPenalty:
                 penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
                     validator, len(bound_slashed_validators), total_balance
                 )
-                continue
-
-            penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
-                validator, bound_slashed_validators, total_balance
-            )
+            else:
+                penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
+                    validator, bound_slashed_validators, total_balance
+                )
         return Gwei(penalty_in_frame)
 
     @staticmethod
