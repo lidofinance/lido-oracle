@@ -185,7 +185,7 @@ class TestTransactionUtils(unittest.TestCase):
             assert 'nonce' in params
             assert 'gas' not in params
 
-            self.utils.w3.eth.fee_history = Mock(return_value={'reward': [[1 * 10 ** 18]]})
+            self.utils.w3.eth.fee_history = Mock(return_value={'reward': [[1 * 10**18]]})
             params = self.utils._get_transaction_params(tx, self.account)
 
             assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
