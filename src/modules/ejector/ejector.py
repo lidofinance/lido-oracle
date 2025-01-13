@@ -63,7 +63,7 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2), (1, 3)]
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
