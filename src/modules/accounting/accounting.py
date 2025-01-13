@@ -58,7 +58,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (2, 2)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (2, 2), (2, 3)]
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
