@@ -6,7 +6,7 @@ from typing import Sequence, cast
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
-from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, MIN_ACTIVATION_BALANCE
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
@@ -93,6 +93,7 @@ class AbnormalClRebase:
             self.lido_keys, last_report_all_validators
         )
 
+        # Calculate mean sum of effective balance for all validators and Lido validators (ACTIVE only)
         mean_sum_of_all_effective_balance = AbnormalClRebase.get_mean_sum_of_effective_balance(
             last_report_blockstamp, blockstamp, last_report_all_validators, self.all_validators
         )
@@ -290,7 +291,7 @@ class AbnormalClRebase:
         validators_diff = len(ref_validators) - len(prev_validators)
         if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * MAX_EFFECTIVE_BALANCE)
+        return Gwei(validators_diff * MIN_ACTIVATION_BALANCE)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
