@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch, Mock
 
 import pytest
 
-from src.custom_types import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.services.safe_border import SafeBorder
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory, OracleReportLimitsFactory

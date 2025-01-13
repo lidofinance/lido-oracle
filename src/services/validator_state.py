@@ -12,7 +12,7 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.submodules.types import ChainConfig
-from src.custom_types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
+from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit

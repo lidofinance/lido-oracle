@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.csm.state import AttestationsAccumulator, State
-from src.custom_types import EpochNumber, ValidatorIndex
+from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
 

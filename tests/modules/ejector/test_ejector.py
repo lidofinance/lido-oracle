@@ -20,7 +20,7 @@ from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import BeaconStateView
-from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId

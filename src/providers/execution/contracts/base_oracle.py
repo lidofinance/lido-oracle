@@ -6,7 +6,7 @@ from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
-from src.custom_types import SlotNumber
+from src.types import SlotNumber
 
 
 logger = logging.getLogger(__name__)

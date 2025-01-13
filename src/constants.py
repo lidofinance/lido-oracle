@@ -1,4 +1,4 @@
-from src.custom_types import Gwei
+from src.types import Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2**64 - 1

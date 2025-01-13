@@ -22,7 +22,7 @@ from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
-from src.custom_types import (
+from src.types import (
     BlockStamp,
     EpochNumber,
     ReferenceBlockStamp,

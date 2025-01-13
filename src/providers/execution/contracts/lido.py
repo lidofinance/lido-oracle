@@ -5,7 +5,7 @@ from web3.types import Wei, BlockIdentifier, CallOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
-from src.custom_types import SlotNumber
+from src.types import SlotNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 

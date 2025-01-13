@@ -3,7 +3,7 @@ import pytest
 
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import AttestationsAccumulator
-from src.custom_types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 

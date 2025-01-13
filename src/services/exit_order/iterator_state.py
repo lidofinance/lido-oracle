@@ -5,7 +5,7 @@ from more_itertools import ilen
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.submodules.types import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
-from src.custom_types import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex, LidoValidator
 from src.web3py.types import Web3

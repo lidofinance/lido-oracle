@@ -10,7 +10,7 @@ from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMe
 from src.modules.submodules.exceptions import IncompatibleOracleVersion
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
-from src.custom_types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory

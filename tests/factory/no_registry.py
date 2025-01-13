@@ -9,7 +9,7 @@ from pydantic_factories import Use
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.custom_types import Gwei
+from src.types import Gwei
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
 

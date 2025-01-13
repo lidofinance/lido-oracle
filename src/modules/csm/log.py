@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 
 from src.modules.csm.state import AttestationsAccumulator
 from src.modules.csm.types import Shares
-from src.custom_types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 
 
 class LogJSONEncoder(json.JSONEncoder): ...

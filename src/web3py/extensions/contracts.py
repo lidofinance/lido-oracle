@@ -24,7 +24,7 @@ from src.providers.execution.contracts.staking_router import (
 )
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.custom_types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
+from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
 

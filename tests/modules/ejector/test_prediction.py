@@ -7,7 +7,7 @@ from web3.types import Wei
 import src.services.prediction as prediction_module
 from src.modules.submodules.types import ChainConfig
 from src.services.prediction import RewardsPredictionService
-from src.custom_types import BlockNumber, SlotNumber
+from src.types import BlockNumber, SlotNumber
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 

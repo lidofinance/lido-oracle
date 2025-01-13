@@ -19,7 +19,7 @@ from src.providers.consensus.types import (
     SlotAttestationCommittee,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.custom_types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
 
