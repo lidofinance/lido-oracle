@@ -152,9 +152,13 @@ class ExitOrderIterator:
         We prefer to exit validators which operators with high stake weight first.
         Operators who have stake weight less than `operator_network_penetration_threshold` will have the same weight
         """
+        if not total_predictable_validators_count:
+            return 0
+
         stake_volume = operator_state.predictable_validators_count / total_predictable_validators_count
         if stake_volume > operator_network_penetration_threshold:
             return operator_state.predictable_validators_total_age
+
         return 0
 
     @staticmethod

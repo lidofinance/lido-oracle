@@ -228,7 +228,11 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         is_bunker = self._is_bunker(blockstamp)
 
-        share_rate = simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+        share_rate = (
+            simulation.post_total_pooled_ether * SHARE_RATE_PRECISION_E27 // simulation.post_total_shares
+            if simulation.post_total_shares
+            else 0
+        )
         logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
