@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/env sh
 
 # Mount this file into docker container:
 # docker run \
@@ -9,22 +9,26 @@
 
 set -e
 
+WGET_ARGS="--quiet --no-check-certificate"
 GATEWAY=${GATEWAY:-https://ipfs.io}
 
 echo "Fetching list of CIDs to pin"
+
 LIST=$(mktemp)
-wget https://raw.githubusercontent.com/lidofinance/csm-rewards/refs/heads/artifact/cids -O$LIST
+trap "rm $LIST" EXIT
+
+wget https://raw.githubusercontent.com/lidofinance/csm-rewards/refs/heads/artifact/cids -O$LIST $WGET_ARGS
 
 echo "Bootstrap pinned CIDs"
 while IFS= read -r cid; do
   {
-    set -x
-    ipfs pin add $cid && continue
+    ipfs pin add ${cid} && continue || echo "Fetching ${cid} from remote"
 
     FILE=$(mktemp)
-    wget $GATEWAY/ipfs/$cid -O$FILE --no-check-certificate
+    wget $GATEWAY/ipfs/${cid} -O$FILE $WGET_ARGS
     ipfs add $FILE && rm $FILE
     ipfs pin add $cid
   }
 done < $LIST
-rm $LIST
+
+echo "CIDs bootstrap complete!"
