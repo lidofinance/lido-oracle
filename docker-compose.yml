@@ -5,14 +5,16 @@ services:
     restart: unless-stopped
     volumes:
       - ./010-pin-cids.sh:/container-init.d/010-pin-cids.sh
-      - .ipfs/:/data/ipfs
-    entrypoint: []
-    command:
+      - ./entrypoint.sh:/entrypoint.sh
+      - ipfs_data:/data/ipfs
+    entrypoint:
       - /sbin/tini
       - --
-      - timeout
-      - 600s
-      - /usr/local/bin/start_ipfs
+      - /entrypoint.sh
+    command:
       - daemon
       - --migrate=true
       - --agent-version-suffix=docker
+
+volumes:
+  ipfs_data:
