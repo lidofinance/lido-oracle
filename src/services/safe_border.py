@@ -57,7 +57,7 @@ class SafeBorder(Web3Converter):
         self._retrieve_constants()
 
     def _retrieve_constants(self):
-        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
+        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash)
 
         self.finalization_default_shift = math.ceil(
             limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
