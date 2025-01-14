@@ -53,8 +53,9 @@ class ExitOrderIterator:
         eois = ExitOrderIteratorStateService(self.w3, self.blockstamp)
 
         self.left_queue_count = 0
-        self.max_validators_to_exit = (eois.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
-                                       .max_validator_exit_requests_per_report)
+        self.max_validators_to_exit = eois.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
+            self.blockstamp.block_hash,
+        ).max_validator_exit_requests_per_report
         self.operator_network_penetration_threshold = eois.get_operator_network_penetration_threshold(self.blockstamp)
 
         # Prepare list of exitable validators, which will be sorted by exit order predicates

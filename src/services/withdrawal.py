@@ -82,7 +82,7 @@ class Withdrawal:
         available_eth: int,
         until_timestamp: int
     ) -> list[int]:
-        max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length()
+        max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length(self.blockstamp.block_hash)
 
         state = BatchState(
             remaining_eth_budget=available_eth,
