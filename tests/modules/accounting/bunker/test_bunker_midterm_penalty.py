@@ -5,7 +5,7 @@ import pytest
 from src.constants import MAX_EFFECTIVE_BALANCE_ELECTRA, MAX_EFFECTIVE_BALANCE
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, ReferenceBlockStamp, Gwei
 from src.utils.web3converter import Web3Converter
