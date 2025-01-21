@@ -19,7 +19,7 @@ from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
-from src.providers.consensus.types import BeaconStateView
+from src.providers.consensus.types import BeaconStateView, Checkpoint
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
@@ -262,6 +262,7 @@ class TestPredictedWithdrawableEpochPostElectra:
                 balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
+                finalized_checkpoint=Checkpoint(epoch=ref_blockstamp.ref_epoch, root="0x"),
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -280,6 +281,7 @@ class TestPredictedWithdrawableEpochPostElectra:
                 balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(int(256e9)),
+                finalized_checkpoint=Checkpoint(epoch=ref_blockstamp.ref_epoch, root="0x"),
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -298,6 +300,7 @@ class TestPredictedWithdrawableEpochPostElectra:
                 balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(1),
+                finalized_checkpoint=Checkpoint(epoch=ref_blockstamp.ref_epoch, root="0x"),
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -316,6 +319,7 @@ class TestPredictedWithdrawableEpochPostElectra:
                 balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
+                finalized_checkpoint=Checkpoint(epoch=ref_blockstamp.ref_epoch, root="0x"),
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
