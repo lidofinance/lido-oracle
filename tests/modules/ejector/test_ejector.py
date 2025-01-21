@@ -1,5 +1,5 @@
 from typing import Iterable, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 from web3.exceptions import ContractCustomError
@@ -12,15 +12,31 @@ from src.constants import (
     MAX_SEED_LOOKAHEAD,
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+    MAX_WITHDRAWALS_PER_PAYLOAD,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    COMPOUNDING_WITHDRAWAL_PREFIX,
 )
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import Ejector
+from src.modules.ejector.ejector import (
+    Ejector,
+    Withdrawal,
+    _get_sweep_delay_in_epochs_post_pectra,
+    predict_withdrawals_number_in_sweep_cycle,
+    get_pending_partial_withdrawals,
+    get_validators_withdrawals,
+)
 from src.modules.ejector.ejector import logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
-from src.providers.consensus.types import BeaconStateView, Checkpoint
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.providers.consensus.types import (
+    BeaconStateView,
+    Checkpoint,
+    ValidatorState,
+    PendingPartialWithdrawal,
+    Validator,
+)
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
@@ -396,7 +412,7 @@ def test_get_withdrawable_lido_validators_balance(
         m.setattr(
             ejector_module,
             "is_fully_withdrawable_validator",
-            Mock(side_effect=lambda v, _: int(v.balance) > 32),
+            Mock(side_effect=lambda _1, b, _2: b > 32),
         )
 
         result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
@@ -474,77 +490,74 @@ def test_get_sweep_delay_in_epochs_pre_electra(
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
-def test_get_sweep_delay_in_epochs_post_electra(
-    ejector: Ejector,
-    chain_config: ChainConfig,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ejector.get_chain_config = Mock(return_value=chain_config)
-    ejector.get_consensus_version = Mock(return_value=3)
-    ejector.w3.cc = Mock()
-
-    ejector.w3.cc.get_validators = Mock(return_value=[])
-    delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
-    assert delay == 0, "Unexpected sweep delay in epochs"
-
-    ejector.w3.cc.get_validators = Mock(return_value=[LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9))] * 3)
+def test_get_sweep_delay_in_epochs_post_pectra(monkeypatch):
+    # Create mock objects for state and spec
+    state = Mock(spec=BeaconStateView)
+    spec = Mock(spec=ChainConfig)
+    spec.slots_per_epoch = 12
+    predicted_withdrawals = 1000
     with monkeypatch.context() as m:
         m.setattr(
             ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
+            "predict_withdrawals_number_in_sweep_cycle",
+            Mock(return_value=predicted_withdrawals),
         )
-        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
-        assert delay == 0, "Unexpected sweep delay in epochs"
+        # Calculate delay
+        result = _get_sweep_delay_in_epochs_post_pectra(state, spec)
 
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
-            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9)),
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
-        ],
-    )
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
-        assert delay == 1, "Unexpected sweep delay in epochs"
+        # Assert the delay calculation is correct
+        expected_delay = predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch) // 2
+        assert result == expected_delay, f"Expected delay {expected_delay}, got {result}"
 
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9)),
-        ],
-    )
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=True),
-        )
-        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
-        assert delay == 1, "Unexpected sweep delay in epochs"
 
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9)),
-            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9)),
-        ]
-        * 513,
-    )
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=True),
-        )
-        delay = ejector._get_sweep_delay_in_epochs(Mock(ref_epoch=0))
-        assert delay == 2, "Unexpected sweep delay in epochs"
+def create_fake_state(
+    validators: list[Validator], pending_partial_withdrawals: list[PendingPartialWithdrawal]
+) -> BeaconStateView:
+    for i in range(len(validators)):
+        validators[i].index = i
+    beacon_state = MagicMock(spec=BeaconStateView)
+    beacon_state.slot = SlotNumber(1)
+    beacon_state.indexed_validators = validators
+    beacon_state.validators = [v.validator for v in validators]
+    beacon_state.balances = [v.balance for v in validators]
+    beacon_state.pending_partial_withdrawals = pending_partial_withdrawals
+    beacon_state.finalized_checkpoint = Checkpoint(epoch="1", root="0x")
+    return beacon_state
+
+
+@pytest.fixture()
+def fake_beacon_state_view():
+    """Fixture to create a fake BeaconStateView."""
+    validators = [
+        LidoValidatorFactory.build_with_balance(Gwei(1000)),
+        LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
+        LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
+    ]
+    pending_partial_withdrawals = [
+        PendingPartialWithdrawal(validator_index="0", amount=500, withdrawable_epoch=1),
+        PendingPartialWithdrawal(validator_index="1", amount=700, withdrawable_epoch=1),
+    ]
+    return create_fake_state(validators, pending_partial_withdrawals)
+
+
+@pytest.mark.unit
+def test_get_pending_partial_withdrawals(fake_beacon_state_view):
+    """Test for the `get_pending_partial_withdrawals` function."""
+    result = get_pending_partial_withdrawals(fake_beacon_state_view)
+    assert len(result) == 1, f"Expected 1 pending partial withdrawals, got {len(result)}"
+
+    assert result[0].validator_index == 1, f"Expected validator_index 1, got {result[0].validator_index}"
+    assert result[0].amount == 1, f"Expected amount 1 for validator 1, got {result[0].amount}"
+
+
+@pytest.mark.unit
+def test_get_validators_withdrawals(fake_beacon_state_view):
+    """Test for the `get_validators_withdrawals` function."""
+    result = get_validators_withdrawals(fake_beacon_state_view, [Withdrawal(validator_index=1, amount=1)])
+    assert len(result) == 1, f"Expected 1 withdrawals, got {len(result)}"
+
+    assert result[0].validator_index == 2, f"Expected validator_index 2, got {result[0].validator_index}"
+    assert result[0].amount == 1, f"Expected amount 1 for validator 2, got {result[0].amount}"
 
 
 @pytest.mark.unit
