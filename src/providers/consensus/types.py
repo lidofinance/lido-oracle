@@ -169,6 +169,11 @@ class PendingPartialWithdrawal(Nested):
 
 
 @dataclass
+class Checkpoint(Nested):
+    epoch: EpochNumber
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """A view to BeaconState with only the required keys presented"""
 

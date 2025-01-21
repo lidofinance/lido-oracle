@@ -28,6 +28,9 @@ MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 8192
 
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
+MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
+
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
 MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
