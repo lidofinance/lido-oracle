@@ -157,7 +157,7 @@ def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     """
     withdrawals: List[Withdrawal] = []
-    epoch = state.finalized_checkpoint.epoch
+    epoch = EpochNumber(int(state.finalized_checkpoint.epoch))
 
     for validator_index, validator in enumerate(state.indexed_validators):
         partially_withdrawn_balance = Gwei(sum(
