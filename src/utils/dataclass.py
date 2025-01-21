@@ -3,6 +3,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
 from typing import Callable, Self, Sequence
 
+from src.types import EpochNumber, Gwei, SlotNumber
 from src.utils.abi import named_tuple_to_dataclass
 
 
@@ -26,15 +27,23 @@ class Nested:
                             field.type.__origin__(map(
                                 lambda x: factory(**x) if not is_dataclass(x) else x,
                                 getattr(self, field.name))))
+                elif self.__is_numberish_type(field_type):
+                    setattr(self, field.name, field.type.__origin__(int(v) for v in getattr(self, field.name)))
             elif is_dataclass(field.type) and not is_dataclass(getattr(self, field.name)):
                 factory = self.__get_dataclass_factory(field.type)
                 setattr(self, field.name, factory(**getattr(self, field.name)))
+            elif self.__is_numberish_type(field.type):
+                setattr(self, field.name, int(getattr(self, field.name)))
 
     @staticmethod
     def __get_dataclass_factory(field_type):
         if issubclass(field_type, FromResponse):
             return field_type.from_response
         return field_type
+
+    @staticmethod
+    def __is_numberish_type(field_type):
+        return field_type in (int, Gwei, SlotNumber, EpochNumber)
 
 
 @dataclass
