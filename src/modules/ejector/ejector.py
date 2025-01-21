@@ -156,29 +156,22 @@ def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List
     This method returns fully and partial withdrawals that can be performed for validators
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     """
-    withdrawals: List[Withdrawal] = []
     epoch = EpochNumber(int(state.finalized_checkpoint.epoch))
+    withdrawals = []
+    partially_withdrawn_map = {withdrawal.validator_index: withdrawal.amount for withdrawal in partial_withdrawals}
 
     for validator_index, validator in enumerate(state.indexed_validators):
-        partially_withdrawn_balance = Gwei(
-            sum(
-                withdrawal.amount for withdrawal in partial_withdrawals if withdrawal.validator_index == validator_index
-            )
-        )
+        partially_withdrawn_balance = Gwei(partially_withdrawn_map.get(validator_index, 0))
         balance = Gwei(state.balances[validator_index] - partially_withdrawn_balance)
 
         if is_fully_withdrawable_validator(validator.validator, balance, epoch):
-            withdrawals.append(
-                Withdrawal(
-                    validator_index=validator_index,
-                    amount=balance,
-                )
-            )
+            withdrawals.append(Withdrawal(validator_index=validator_index, amount=balance))
         elif is_partially_withdrawable_validator(validator.validator, balance):
+            max_effective_balance = get_max_effective_balance(validator.validator)
             withdrawals.append(
                 Withdrawal(
                     validator_index=validator_index,
-                    amount=balance - get_max_effective_balance(validator.validator),
+                    amount=balance - max_effective_balance,
                 )
             )
 
