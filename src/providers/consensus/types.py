@@ -1,10 +1,9 @@
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
-from src.types import BlockHash, BlockRoot, Gwei, SlotNumber, StateRoot
-from src.utils.dataclass import Nested, FromResponse
 from src.constants import FAR_FUTURE_EPOCH
+from src.types import BlockHash, BlockRoot, EpochNumber, Gwei, SlotNumber, StateRoot
+from src.utils.dataclass import FromResponse, Nested
 
 
 @dataclass
@@ -118,21 +117,6 @@ class BlockMessage(Nested, FromResponse):
     body: BeaconBlockBody
 
 
-class ValidatorStatus(Enum):
-    PENDING_INITIALIZED = 'pending_initialized'
-    PENDING_QUEUED = 'pending_queued'
-
-    ACTIVE_ONGOING = 'active_ongoing'
-    ACTIVE_EXITING = 'active_exiting'
-    ACTIVE_SLASHED = 'active_slashed'
-
-    EXITED_UNSLASHED = 'exited_unslashed'
-    EXITED_SLASHED = 'exited_slashed'
-
-    WITHDRAWAL_POSSIBLE = 'withdrawal_possible'
-    WITHDRAWAL_DONE = 'withdrawal_done'
-
-
 @dataclass
 class ValidatorState(FromResponse):
     # All uint variables presents in str
@@ -150,7 +134,6 @@ class ValidatorState(FromResponse):
 class Validator(Nested, FromResponse):
     index: str
     balance: str
-    status: ValidatorStatus
     validator: ValidatorState
 
 
@@ -169,10 +152,42 @@ class SlotAttestationCommittee(FromResponse):
 
 
 @dataclass
+class PendingDeposit(Nested):
+    pubkey: str
+    withdrawal_credentials: str
+    amount: Gwei
+    signature: str
+    slot: SlotNumber
+
+
+@dataclass
+class PendingPartialWithdrawal(Nested):
+    validator_index: str
+    amount: Gwei
+    withdrawable_epoch: EpochNumber
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """A view to BeaconState with only the required keys presented"""
 
     slot: SlotNumber
+    validators: list[ValidatorState]
+    balances: list[Gwei]
     # This fields are new in Electra, so here are default values for backward compatibility.
+    deposit_balance_to_consume: Gwei = Gwei(0)
     exit_balance_to_consume: Gwei = Gwei(0)
-    earliest_exit_epoch: int = 0
+    earliest_exit_epoch: EpochNumber = EpochNumber(0)
+    pending_deposits: list[PendingDeposit] = field(default_factory=list)
+    pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
+
+    @property
+    def indexed_validators(self) -> list[Validator]:
+        return [
+            Validator(
+                index=str(i),
+                balance=str(self.balances[i]),
+                validator=v,
+            )
+            for (i, v) in enumerate(self.validators)
+        ]

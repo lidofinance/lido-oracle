@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import ValidatorState, Validator, ValidatorStatus
+from src.providers.consensus.types import ValidatorState, Validator
 from src.services.exit_order.iterator import NodeOperatorPredictableState
 from src.services.exit_order.iterator_state import ExitOrderIteratorStateService
 from src.web3py.extensions.lido_validators import (
@@ -25,7 +25,6 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=str(32 * 10**9),
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
