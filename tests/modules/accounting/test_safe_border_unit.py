@@ -273,4 +273,4 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
 
 
 def create_validator(validator: ValidatorState) -> Validator:
-    return Validator(validator=validator, status=None, index=None, balance=None)
+    return Validator(validator=validator, index=None, balance=None)

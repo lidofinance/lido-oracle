@@ -25,7 +25,6 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=str(32 * 10**9),
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',

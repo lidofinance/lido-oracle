@@ -258,6 +258,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
             )
@@ -274,6 +276,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(int(256e9)),
             )
@@ -290,6 +294,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(1),
             )
@@ -306,6 +312,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
             )

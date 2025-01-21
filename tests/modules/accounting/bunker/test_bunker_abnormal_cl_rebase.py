@@ -4,6 +4,7 @@ from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
+from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -18,7 +19,6 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=balance,
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',

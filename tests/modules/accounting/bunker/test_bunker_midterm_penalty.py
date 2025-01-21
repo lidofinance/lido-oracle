@@ -30,7 +30,6 @@ def simple_validators(
         validator = Validator(
             index=str(index),
             balance=effective_balance,
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
