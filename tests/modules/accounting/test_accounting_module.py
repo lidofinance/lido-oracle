@@ -1,4 +1,4 @@
-from typing import Any, Iterable, cast
+from typing import Iterable, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -104,7 +104,8 @@ def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
-    count, balance = accounting._get_consensus_lido_state_pre_electra(bs)
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
     assert balance == sum((int(val.balance) for val in validators))
@@ -130,7 +131,9 @@ def test_get_consensus_lido_state_post_electra(accounting: Accounting):
         )
     )
 
-    count, balance = accounting._get_consensus_lido_state_post_electra(bs)
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=bs.ref_epoch))
+    count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
     assert balance == sum((int(val.balance) for val in validators)) + 3 * LIDO_DEPOSIT_AMOUNT
@@ -449,10 +452,9 @@ def test_simulate_rebase_after_report(
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
 
-    accounting._get_consensus_lido_state_pre_electra = Mock(return_value=(0, 0))
+    accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
