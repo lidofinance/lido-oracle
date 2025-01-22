@@ -182,35 +182,13 @@ class AbnormalClRebase:
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )
 
-        # Get Lido validators' balances with WithdrawalVault balance
-        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(ref_blockstamp.block_hash)
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            ref_blockstamp, self.lido_validators
+        )
 
-        def _pre_electra_fork():
-            ref = self._get_lido_validators_balance_with_vault_pre_electra(
-                ref_blockstamp, self.lido_validators
-            )
-            prev = self._get_lido_validators_balance_with_vault_pre_electra(
-                prev_blockstamp, prev_lido_validators
-            )
-            return ref, prev
-
-        def _post_electra_fork():
-            ref = self._get_lido_validators_balance_with_vault_post_electra(
-                ref_blockstamp, self.lido_validators
-            )
-            prev = self._get_lido_validators_balance_with_vault_post_electra(
-                prev_blockstamp, prev_lido_validators
-            )
-            return ref, prev
-
-        if consensus_version in (1, 2):
-            ref_lido_balance_with_vault, prev_lido_balance_with_vault = _pre_electra_fork()
-        else:
-            spec = self.w3.cc.get_config_spec()
-            if ref_blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
-                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _pre_electra_fork()
-            else:
-                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _post_electra_fork()
+        prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            prev_blockstamp, prev_lido_validators
+        )
 
         # Raw CL rebase is calculated as difference between reference and previous Lido validators' balances
         # Without accounting withdrawals from WithdrawalVault
@@ -234,7 +212,7 @@ class AbnormalClRebase:
 
         return cl_rebase
 
-    def _get_lido_validators_balance_with_vault_pre_electra(
+    def _get_lido_validators_balance_with_vault(
         self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
     ) -> Gwei:
         """
@@ -244,21 +222,20 @@ class AbnormalClRebase:
         withdrawals_vault_balance = int(
             self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
         )
-        return Gwei(real_cl_balance + withdrawals_vault_balance)
+        total_balance = real_cl_balance + withdrawals_vault_balance
 
-    def _get_lido_validators_balance_with_vault_post_electra(
-        self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
-    ) -> Gwei:
-        """
-        Get Lido validator balance with withdrawals vault balance
-        """
-        real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
-        state = self.w3.cc.get_state_view(blockstamp)
-        pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(lido_validators, state.pending_deposits)
-        withdrawals_vault_balance = int(
-            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
-        )
-        return Gwei(real_cl_balance + pending_deposits_sum + withdrawals_vault_balance)
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        if consensus_version > 2:
+            epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
+            spec = self.w3.cc.get_config_spec()
+            if epoch >= int(spec.ELECTRA_FORK_EPOCH):
+                state = self.w3.cc.get_state_view(blockstamp)
+                pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(
+                    lido_validators, state.pending_deposits
+                )
+                total_balance += pending_deposits_sum
+
+        return Gwei(total_balance)
 
     def _get_withdrawn_from_vault_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
