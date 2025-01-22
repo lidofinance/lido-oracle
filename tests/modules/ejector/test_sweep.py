@@ -14,6 +14,7 @@ from src.modules.ejector.sweep import (
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal, Validator
 from src.types import SlotNumber, Gwei
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
@@ -38,20 +39,6 @@ def test_get_sweep_delay_in_epochs_post_pectra(monkeypatch):
         assert result == expected_delay, f"Expected delay {expected_delay}, got {result}"
 
 
-def create_fake_state(
-    validators: list[Validator], pending_partial_withdrawals: list[PendingPartialWithdrawal]
-) -> BeaconStateView:
-    for i in range(len(validators)):
-        validators[i].index = i
-    beacon_state = MagicMock(spec=BeaconStateView)
-    beacon_state.slot = SlotNumber(1)
-    beacon_state.indexed_validators = validators
-    beacon_state.validators = [v.validator for v in validators]
-    beacon_state.balances = [v.balance for v in validators]
-    beacon_state.pending_partial_withdrawals = pending_partial_withdrawals
-    return beacon_state
-
-
 @pytest.fixture()
 def fake_beacon_state_view():
     """Fixture to create a fake BeaconStateView."""
@@ -64,7 +51,10 @@ def fake_beacon_state_view():
         PendingPartialWithdrawal(validator_index="0", amount=500, withdrawable_epoch=1),
         PendingPartialWithdrawal(validator_index="1", amount=700, withdrawable_epoch=1),
     ]
-    return create_fake_state(validators, pending_partial_withdrawals)
+    return BeaconStateViewFactory.build_with_validators(
+        validators=validators,
+        pending_partial_withdrawals=pending_partial_withdrawals,
+    )
 
 
 @pytest.mark.unit

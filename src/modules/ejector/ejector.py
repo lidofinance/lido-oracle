@@ -320,7 +320,7 @@ class Ejector(BaseModule, ConsensusModule):
         """Returns amount of epochs that will take to sweep all validators in chain."""
         spec = self.w3.cc.get_config_spec()
         chain_config = self.get_chain_config(blockstamp)
-        if self.get_consensus_version(blockstamp) in (1, 2) and epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch) >= int(spec.ELECTRA_FORK_EPOCH):
+        if self.get_consensus_version(blockstamp) in (1, 2) and epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch) < int(spec.ELECTRA_FORK_EPOCH):
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs_post_pectra(state, chain_config)

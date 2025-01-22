@@ -1,5 +1,5 @@
 from typing import Iterable, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 from web3.exceptions import ContractCustomError
@@ -23,7 +23,7 @@ from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
-    Checkpoint,
+    Checkpoint, BeaconSpecResponse,
 )
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
@@ -439,6 +439,9 @@ def test_get_sweep_delay_in_epochs_pre_electra(
 ) -> None:
     ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
     ejector.get_chain_config = Mock(return_value=chain_config)
+    spec = MagicMock(spec = BeaconSpecResponse)
+    spec.ELECTRA_FORK_EPOCH = "-1"
+    ejector.w3.cc.get_config_spec = spec
     ejector.get_consensus_version = Mock(return_value=1)
 
     with monkeypatch.context() as m:
