@@ -13,7 +13,7 @@ from src.modules.ejector.sweep import (
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal, Validator
-from src.types import SlotNumber, Gwei
+from src.types import Gwei
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
@@ -70,11 +70,15 @@ def test_get_pending_partial_withdrawals(fake_beacon_state_view):
 @pytest.mark.unit
 def test_get_validators_withdrawals(fake_beacon_state_view):
     """Test for the `get_validators_withdrawals` function."""
-    result = get_validators_withdrawals(fake_beacon_state_view, [
-        Withdrawal(validator_index=1, amount=1),
-        Withdrawal(validator_index=2, amount=1),
-        Withdrawal(validator_index=2, amount=1),
-    ], 32)
+    result = get_validators_withdrawals(
+        fake_beacon_state_view,
+        [
+            Withdrawal(validator_index=1, amount=1),
+            Withdrawal(validator_index=2, amount=1),
+            Withdrawal(validator_index=2, amount=1),
+        ],
+        32,
+    )
     assert len(result) == 1, f"Expected 1 withdrawals, got {len(result)}"
 
     assert result[0].validator_index == 2, f"Expected validator_index 2, got {result[0].validator_index}"
