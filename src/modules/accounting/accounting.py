@@ -282,7 +282,11 @@ class Accounting(BaseModule, ConsensusModule):
         if consensus_version in (1, 2):
             validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
         else:
-            validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
+            spec = self.w3.cc.get_config_spec()
+            if blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
+                validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
+            else:
+                validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
@@ -399,7 +403,11 @@ class Accounting(BaseModule, ConsensusModule):
         if consensus_version in (1, 2):
             validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
         else:
-            validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
+            spec = self.w3.cc.get_config_spec()
+            if blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
+                validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
+            else:
+                validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
