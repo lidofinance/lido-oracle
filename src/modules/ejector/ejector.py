@@ -1,7 +1,5 @@
 import logging
 import math
-from dataclasses import dataclass
-from typing import List
 
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
@@ -11,8 +9,6 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    MIN_ACTIVATION_BALANCE,
-    MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
@@ -22,11 +18,12 @@ from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
 from src.modules.ejector.data_encode import encode_data
+from src.modules.ejector.sweep import _get_sweep_delay_in_epochs_post_pectra
 from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH, ChainConfig
-from src.providers.consensus.types import Validator, BeaconStateView
+from src.modules.submodules.types import ZERO_HASH
+from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order.iterator import ExitOrderIterator
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
@@ -47,135 +44,6 @@ from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Withdrawal:
-    validator_index: int
-    amount: int
-
-
-def _get_sweep_delay_in_epochs_post_pectra(state: BeaconStateView, spec: ChainConfig) -> int:
-    """
-    This method predicts the average withdrawal delay in epochs.
-    It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
-    """
-
-    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state)
-    full_sweep_cycle_in_epochs = int(
-        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch)
-    )
-
-    return full_sweep_cycle_in_epochs // 2
-
-
-def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView) -> int:
-    """
-    This method predicts the number of withdrawals that can be performed in a single sweep cycle.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
-
-    The prediction is based on the following assumptions:
-    - All pending_partial_withdrawals have reached withdrawable_epoch and do not have any processing delays;
-    - All pending_partial_withdrawals are executed before full and partial withdrawals, and the result
-        is immediately reflected in the validators' balances;
-    - The limit MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
-    """
-    pending_partial_withdrawals = get_pending_partial_withdrawals(state)
-    validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals)
-
-    pending_partial_withdrawals_number = len(pending_partial_withdrawals)
-    validators_withdrawals_number = len(validators_withdrawals)
-
-    # Each payload can have no more than MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    # pending partials out of MAX_WITHDRAWALS_PER_PAYLOAD
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
-    #
-    #
-    # No partials:   [0 1 2 3], [4 5 6 7], [8 9 0 1], ...
-    #                 ^                         ^ cycle
-    # With partials: [p p 0 1], [p p 2 3], [p p 4 5], [p p 6 7], [p p 8 9], [p p 0 1], ...
-    #                     ^                                                      ^ cycle
-    # [ ] - payload
-    # 0-9 - index of validator being withdrawn
-    #   p - pending partial withdrawal
-    #
-    # Thus, the ratio of the maximum number of `pending_partial_withdrawals` to the remaining number
-    # of `validators_withdrawals` in a single payload is calculated as:
-    #
-    # pending_partial_withdrawals                  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    # ---------------------------- = ------------------------------------------------------------------------
-    #    validators_withdrawals      MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-
-    partial_withdrawals_max_ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (
-            MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    )
-
-    pending_partial_withdrawals_max_number_in_cycle = int(validators_withdrawals_number * partial_withdrawals_max_ratio)
-
-    pending_partial_withdrawals_number_in_cycle = min(
-        pending_partial_withdrawals_number, pending_partial_withdrawals_max_number_in_cycle
-    )
-
-    withdrawals_number = validators_withdrawals_number + pending_partial_withdrawals_number_in_cycle
-
-    return withdrawals_number
-
-
-def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
-    """
-    This method returns withdrawals that can be performed from `state.pending_partial_withdrawals`
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
-    """
-    withdrawals: List[Withdrawal] = []
-
-    for withdrawal in state.pending_partial_withdrawals:
-        # if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
-        #     break
-        #
-        # These checks from the original method are omitted. It is assumed that `withdrawable_epoch`
-        # has arrived for all `pending_partial_withdrawals`
-        index = int(withdrawal.validator_index)
-        validator = state.validators[index]
-        has_sufficient_effective_balance = Gwei(int(validator.effective_balance)) >= MIN_ACTIVATION_BALANCE
-        has_excess_balance = state.balances[index] > MIN_ACTIVATION_BALANCE
-
-        if int(validator.exit_epoch) == FAR_FUTURE_EPOCH and has_sufficient_effective_balance and has_excess_balance:
-            withdrawable_balance = min(state.balances[index] - MIN_ACTIVATION_BALANCE, withdrawal.amount)
-            withdrawals.append(
-                Withdrawal(
-                    validator_index=index,
-                    amount=withdrawable_balance,
-                )
-            )
-
-    return withdrawals
-
-
-def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List[Withdrawal]) -> List[Withdrawal]:
-    """
-    This method returns fully and partial withdrawals that can be performed for validators
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
-    """
-    epoch = EpochNumber(int(state.finalized_checkpoint.epoch))
-    withdrawals = []
-    partially_withdrawn_map = {withdrawal.validator_index: withdrawal.amount for withdrawal in partial_withdrawals}
-
-    for validator_index, validator in enumerate(state.indexed_validators):
-        partially_withdrawn_balance = Gwei(partially_withdrawn_map.get(validator_index, 0))
-        balance = Gwei(state.balances[validator_index] - partially_withdrawn_balance)
-
-        if is_fully_withdrawable_validator(validator.validator, balance, epoch):
-            withdrawals.append(Withdrawal(validator_index=validator_index, amount=balance))
-        elif is_partially_withdrawable_validator(validator.validator, balance):
-            max_effective_balance = get_max_effective_balance(validator.validator)
-            withdrawals.append(
-                Withdrawal(
-                    validator_index=validator_index,
-                    amount=balance - max_effective_balance,
-                )
-            )
-
-    return withdrawals
 
 
 class Ejector(BaseModule, ConsensusModule):
@@ -249,7 +117,7 @@ class Ejector(BaseModule, ConsensusModule):
         return report_data.as_tuple()
 
     def get_validators_to_eject(
-            self, blockstamp: ReferenceBlockStamp
+        self, blockstamp: ReferenceBlockStamp
     ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
         EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
@@ -271,8 +139,8 @@ class Ejector(BaseModule, ConsensusModule):
                     self._get_predicted_withdrawable_balance(next_validator), "gwei"
                 )
                 expected_balance = (
-                        self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp)
-                        + validator_to_eject_balance_sum
+                    self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp)
+                    + validator_to_eject_balance_sum
                 )
         except StopIteration:
             pass
@@ -350,12 +218,12 @@ class Ejector(BaseModule, ConsensusModule):
             sum(
                 self._get_predicted_withdrawable_balance(v)
                 for v in lido_validators
-                if is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), on_epoch)
+                if is_fully_withdrawable_validator(v, on_epoch)
             )
         )
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Gwei:
-        return Gwei(min(int(validator.balance), get_max_effective_balance(validator.validator)))
+        return Gwei(min(int(validator.balance), get_max_effective_balance(validator)))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -366,9 +234,9 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
     def _get_predicted_withdrawable_epoch(
-            self,
-            blockstamp: ReferenceBlockStamp,
-            validators_to_eject: list[Validator],
+        self,
+        blockstamp: ReferenceBlockStamp,
+        validators_to_eject: list[Validator],
     ) -> EpochNumber:
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
@@ -381,9 +249,9 @@ class Ejector(BaseModule, ConsensusModule):
         return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
 
     def _get_predicted_withdrawable_epoch_pre_electra(
-            self,
-            blockstamp: ReferenceBlockStamp,
-            validators_to_eject: list[Validator],
+        self,
+        blockstamp: ReferenceBlockStamp,
+        validators_to_eject: list[Validator],
     ) -> EpochNumber:
         max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
 
@@ -396,17 +264,17 @@ class Ejector(BaseModule, ConsensusModule):
         churn_limit = self._get_churn_limit(blockstamp)
 
         epochs_required_to_exit_validators = (
-                                                     len(validators_to_eject) + 1 + latest_to_exit_validators_count
-                                             ) // churn_limit
+            len(validators_to_eject) + 1 + latest_to_exit_validators_count
+        ) // churn_limit
 
         return EpochNumber(
             max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
         )
 
     def _get_predicted_withdrawable_epoch_post_electra(
-            self,
-            blockstamp: ReferenceBlockStamp,
-            validators_to_eject: list[Validator],
+        self,
+        blockstamp: ReferenceBlockStamp,
+        validators_to_eject: list[Validator],
     ) -> EpochNumber:
         per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
         activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
@@ -475,7 +343,7 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
 
         full_sweep_in_epochs = (
-                total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
+            total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
         )
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
@@ -483,8 +351,7 @@ class Ejector(BaseModule, ConsensusModule):
         return [
             v
             for v in self.w3.cc.get_validators(blockstamp)
-            if is_partially_withdrawable_validator(v.validator, Gwei(int(v.balance)))
-               or is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), blockstamp.ref_epoch)
+            if is_partially_withdrawable_validator(v) or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
         ]
 
     @lru_cache(maxsize=1)
