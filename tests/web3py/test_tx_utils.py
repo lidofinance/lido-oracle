@@ -1,6 +1,4 @@
-import unittest
-from collections import defaultdict
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_account.signers.local import LocalAccount
@@ -8,184 +6,200 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractLogicError, TimeExhausted
 
 from src import variables
-from src.constants import MAX_BLOCK_GAS_LIMIT
 from src.utils import input
 from src.web3py.contract_tweak import ContractFunction
 from src.web3py.extensions import TransactionUtils
-from tests.conftest import Account
 
 
-@pytest.mark.unit
-class TestTransactionUtils(unittest.TestCase):
+@pytest.fixture
+def fake_transaction_utils():
+    w3 = MagicMock()
+    utils = TransactionUtils(w3)
+    account = MagicMock(spec=LocalAccount)
+    account.address = "0x123"
+    return utils, account
 
-    def setUp(self):
-        w3 = MagicMock()
-        self.utils = TransactionUtils(w3)
-        self.account = MagicMock(spec=LocalAccount)
-        self.account.address = "0x123"
 
-    def test_check_and_send_transaction_dry_mode(self):
-        transaction = MagicMock()
-        result = self.utils.check_and_send_transaction(transaction)
+def test_check_and_send_transaction_dry_mode(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock()
+    result = utils.check_and_send_transaction(transaction)
 
-        self.assertIsNone(result)
+    assert result is None
 
-    @patch('src.web3py.extensions.tx_utils.prompt', return_value=True)
-    @patch('src.web3py.extensions.TransactionUtils._sign_and_send_transaction')
-    def test_manual_transaction_processing(self, mock_sign_send, mock_prompt):
-        transaction = MagicMock()
-        params = {'from': self.account.address}
-        account = MagicMock(spec=LocalAccount)
 
-        self.utils._manual_tx_processing(transaction, params, account)
+@patch('src.web3py.extensions.tx_utils.prompt', return_value=True)
+@patch('src.web3py.extensions.TransactionUtils._sign_and_send_transaction')
+def test_manual_transaction_processing(mock_sign_send, mock_prompt, fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock()
+    params = {'from': account.address}
+    account = MagicMock(spec=LocalAccount)
 
-        mock_prompt.assert_called()
-        mock_sign_send.assert_called_with(transaction, params, account)
+    utils._manual_tx_processing(transaction, params, account)
 
-    def test_check_transaction_reverted(self):
-        transaction = MagicMock()
-        transaction.call.side_effect = ValueError("Reverted")
-        params = {'from': self.account.address}
+    mock_prompt.assert_called()
+    mock_sign_send.assert_called_with(transaction, params, account)
 
-        result = self.utils._check_transaction(transaction, params)
 
-        self.assertFalse(result)
+def test_check_transaction_reverted(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock()
+    transaction.call.side_effect = ValueError("Reverted")
+    params = {'from': account.address}
 
-    @patch('src.web3py.extensions.TransactionUtils._estimate_gas', return_value=None)
-    def test_get_transaction_params_without_gas(self, mock_estimate_gas):
-        transaction = MagicMock(spec=ContractFunction)
+    result = utils._check_transaction(transaction, params)
 
-        latest_block = {'baseFeePerGas': 10}
-        self.utils.w3.eth.get_block.return_value = latest_block
-        self.utils.w3.eth.get_transaction_count.return_value = 1
-        self.utils.w3.eth.fee_history.return_value = {'reward': [[5]]}
+    assert result is False
 
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            monkeypatch.setattr(variables, "MAX_PRIORITY_FEE", 20)
-            monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 2)
-            monkeypatch.setattr(variables, "PRIORITY_FEE_PERCENTILE", 10)
-            params = self.utils._get_transaction_params(transaction, self.account)
 
-            self.assertNotIn('gas', params)
-            self.assertEqual(params['nonce'], 1)
+@patch('src.web3py.extensions.TransactionUtils._estimate_gas', return_value=None)
+def test_get_transaction_params_without_gas(mock_estimate_gas, fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock(spec=ContractFunction)
 
-    def test_estimate_gas_failure(self):
-        transaction = MagicMock()
-        transaction.estimate_gas.side_effect = ValueError("Execution reverted")
-        gas = self.utils._estimate_gas(transaction, self.account)
+    latest_block = {'baseFeePerGas': 10}
+    utils.w3.eth.get_block.return_value = latest_block
+    utils.w3.eth.get_transaction_count.return_value = 1
+    utils.w3.eth.fee_history.return_value = {'reward': [[5]]}
 
-        self.assertIsNone(gas)
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(variables, "MAX_PRIORITY_FEE", 20)
+        monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 2)
+        monkeypatch.setattr(variables, "PRIORITY_FEE_PERCENTILE", 10)
+        params = utils._get_transaction_params(transaction, account)
 
-    @patch('src.web3py.extensions.TransactionUtils._handle_sent_transaction')
-    def test_sign_and_send_transaction(self, mock_handle_sent):
-        transaction = MagicMock()
-        params = {'from': self.account.address}
-        account = MagicMock(spec=LocalAccount)
-        account.key = "dummy_key"
+        assert 'gas' not in params
+        assert params['nonce'] == 1
 
-        built_tx = {'key': 'value'}
-        transaction.build_transaction.return_value = built_tx
 
-        signed_tx = MagicMock()
-        signed_tx.rawTransaction = HexBytes("0xabc")
-        self.utils.w3.eth.account.sign_transaction.return_value = signed_tx
+def test_estimate_gas_failure(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock()
+    transaction.estimate_gas.side_effect = ValueError("Execution reverted")
+    gas = utils._estimate_gas(transaction, account)
 
-        tx_hash = HexBytes("0x123")
-        self.utils.w3.eth.send_raw_transaction.return_value = tx_hash
+    assert gas is None
 
-        self.utils._sign_and_send_transaction(transaction, params, account)
 
-        self.utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.rawTransaction)
-        mock_handle_sent.assert_called_with(tx_hash)
+@patch('src.web3py.extensions.TransactionUtils._handle_sent_transaction')
+def test_sign_and_send_transaction(mock_handle_sent, fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    transaction = MagicMock()
+    params = {'from': account.address}
+    account.key = "dummy_key"
 
-    def test_estimate_gas(self):
-        tx = MagicMock()
+    built_tx = {'key': 'value'}
+    transaction.build_transaction.return_value = built_tx
 
-        tx.estimate_gas = Mock(return_value=MAX_BLOCK_GAS_LIMIT * 2)
-        gas_amount = self.utils._estimate_gas(tx, self.account)
-        assert gas_amount == MAX_BLOCK_GAS_LIMIT
+    signed_tx = MagicMock()
+    signed_tx.rawTransaction = HexBytes("0xabc")
+    utils.w3.eth.account.sign_transaction.return_value = signed_tx
 
-        tx.estimate_gas = Mock(return_value=100)
-        gas_amount = self.utils._estimate_gas(tx, self.account)
-        assert gas_amount == 100 + variables.TX_GAS_ADDITION
+    tx_hash = HexBytes("0x123")
+    utils.w3.eth.send_raw_transaction.return_value = tx_hash
 
-        tx.estimate_gas = Mock(side_effect=ContractLogicError())
-        gas_amount = self.utils._estimate_gas(tx, self.account)
-        assert gas_amount is None
+    utils._sign_and_send_transaction(transaction, params, account)
 
-    def test_manual_tx_processing(self):
-        tx = MagicMock()
-        input.get_input = Mock(return_value='y')
-        self.utils._sign_and_send_transaction = Mock()
-        self.utils._manual_tx_processing(tx, {}, self.account)
-        self.utils._sign_and_send_transaction.assert_called_once()
+    utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.rawTransaction)
+    mock_handle_sent.assert_called_with(tx_hash)
 
-    def test_manual_tx_processing_decline(self):
-        tx = MagicMock()
-        input.get_input = Mock(return_value='n')
-        self.utils._sign_and_send_transaction = Mock()
-        self.utils._manual_tx_processing(tx, {}, self.account)
-        self.utils._sign_and_send_transaction.assert_not_called()
 
-    def test_daemon_check_and_send_transaction(self):
-        tx = MagicMock()
-        input.get_input = Mock(return_value='n')
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            monkeypatch.setattr(variables, "DAEMON", False)
-            self.utils._sign_and_send_transaction = Mock()
-            self.utils._get_transaction_params = Mock(return_value={})
-            self.utils._check_transaction = Mock(return_value=True)
-            self.utils.check_and_send_transaction(tx, self.account)
-            self.utils._sign_and_send_transaction.assert_not_called()
+def test_estimate_gas(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    tx = MagicMock()
 
-    def test_find_transaction_timeout(self):
-        self.utils.w3.eth.wait_for_transaction_receipt = Mock(side_effect=TimeExhausted())
+    tx.estimate_gas = MagicMock(return_value=100)
+    gas_amount = utils._estimate_gas(tx, account)
+    assert gas_amount == 100 + variables.TX_GAS_ADDITION
 
-        assert not self.utils._handle_sent_transaction('0x000001')
+    tx.estimate_gas = MagicMock(side_effect=ContractLogicError())
+    gas_amount = utils._estimate_gas(tx, account)
+    assert gas_amount is None
 
-        self.utils.w3.eth.wait_for_transaction_receipt = Mock(
-            return_value={
-                'blockHash': b'',
-                'blockNumber': '',
-                'gasUsed': '',
-                'effectiveGasPrice': '',
-                'status': '',
-                'transactionHash': b'',
-                'transactionIndex': '',
-            }
-        )
 
-        assert self.utils._handle_sent_transaction('0x000001')
+def test_manual_tx_processing(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    tx = MagicMock()
+    input.get_input = MagicMock(return_value='y')
+    utils._sign_and_send_transaction = MagicMock()
+    utils._manual_tx_processing(tx, {}, account)
+    utils._sign_and_send_transaction.assert_called_once()
 
-    def test_get_tx_params(self):
-        gas_amount = 1000
-        tx = MagicMock()
-        tx.estimate_gas = Mock(return_value=gas_amount)
 
-        self.utils.w3.eth.get_block = Mock(return_value={'baseFeePerGas': 20})
-        self.utils.w3.eth.fee_history = Mock(return_value={'reward': [[5]]})
-        self.utils.w3.eth.get_transaction_count = Mock(return_value=10)
+def test_manual_tx_processing_decline(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    tx = MagicMock()
+    input.get_input = MagicMock(return_value='n')
+    utils._sign_and_send_transaction = MagicMock()
+    utils._manual_tx_processing(tx, {}, account)
+    utils._sign_and_send_transaction.assert_not_called()
 
-        params = self.utils._get_transaction_params(tx, self.account)
 
-        assert params['from'] == self.account.address
-        assert params['maxFeePerGas'] == 20 * 2 + variables.MIN_PRIORITY_FEE
-        assert params['maxPriorityFeePerGas'] == variables.MIN_PRIORITY_FEE
-        assert params['nonce'] == 10
-        assert params['gas'] == gas_amount + variables.TX_GAS_ADDITION
+def test_daemon_check_and_send_transaction(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    tx = MagicMock()
+    input.get_input = MagicMock(return_value='n')
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(variables, "DAEMON", False)
+        utils._sign_and_send_transaction = MagicMock()
+        utils._get_transaction_params = MagicMock(return_value={})
+        utils._check_transaction = MagicMock(return_value=True)
+        utils.check_and_send_transaction(tx, account)
+        utils._sign_and_send_transaction.assert_not_called()
 
-        tx.estimate_gas = Mock(side_effect=ContractLogicError())
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 1)
-            params = self.utils._get_transaction_params(tx, self.account)
 
-            assert params['maxPriorityFeePerGas'] == 5
-            assert 'from' in params
-            assert 'maxFeePerGas' in params
-            assert 'nonce' in params
-            assert 'gas' not in params
+def test_find_transaction_timeout(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    utils.w3.eth.wait_for_transaction_receipt = MagicMock(side_effect=TimeExhausted())
 
-            self.utils.w3.eth.fee_history = Mock(return_value={'reward': [[1 * 10**18]]})
-            params = self.utils._get_transaction_params(tx, self.account)
+    assert not utils._handle_sent_transaction('0x000001')
 
-            assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
+    utils.w3.eth.wait_for_transaction_receipt = MagicMock(
+        return_value={
+            'blockHash': b'',
+            'blockNumber': '',
+            'gasUsed': '',
+            'effectiveGasPrice': '',
+            'status': '',
+            'transactionHash': b'',
+            'transactionIndex': '',
+        }
+    )
+
+    assert utils._handle_sent_transaction('0x000001')
+
+
+def test_get_tx_params(fake_transaction_utils):
+    utils, account = fake_transaction_utils
+    gas_amount = 1000
+    tx = MagicMock()
+    tx.estimate_gas = MagicMock(return_value=gas_amount)
+
+    utils.w3.eth.get_block = MagicMock(return_value={'baseFeePerGas': 20})
+    utils.w3.eth.fee_history = MagicMock(return_value={'reward': [[5]]})
+    utils.w3.eth.get_transaction_count = MagicMock(return_value=10)
+
+    params = utils._get_transaction_params(tx, account)
+
+    assert params['from'] == account.address
+    assert params['maxFeePerGas'] == 20 * 2 + variables.MIN_PRIORITY_FEE
+    assert params['maxPriorityFeePerGas'] == variables.MIN_PRIORITY_FEE
+    assert params['nonce'] == 10
+    assert params['gas'] == gas_amount + variables.TX_GAS_ADDITION
+
+    tx.estimate_gas = MagicMock(side_effect=ContractLogicError())
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 1)
+        params = utils._get_transaction_params(tx, account)
+
+        assert params['maxPriorityFeePerGas'] == 5
+        assert 'from' in params
+        assert 'maxFeePerGas' in params
+        assert 'nonce' in params
+        assert 'gas' not in params
+
+        utils.w3.eth.fee_history = MagicMock(return_value={'reward': [[1 * 10**18]]})
+        params = utils._get_transaction_params(tx, account)
+
+        assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
