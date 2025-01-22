@@ -1,5 +1,4 @@
 import pytest
-from pydantic.class_validators import validator
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
@@ -7,7 +6,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
 )
-from src.providers.consensus.types import Validator, ValidatorState, ValidatorStatus
+from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
 from src.utils.validator_state import (
     calculate_active_effective_balance_sum,
@@ -41,19 +40,16 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                 Validator(
                     '0',
                     '1',
-                    ValidatorStatus.ACTIVE_ONGOING,
                     ValidatorState('0x0', '', str(32 * 10**9), False, '', '15000', '15001', ''),
                 ),
                 Validator(
                     '1',
                     '1',
-                    ValidatorStatus.ACTIVE_EXITING,
                     ValidatorState('0x1', '', str(31 * 10**9), False, '', '14999', '15000', ''),
                 ),
                 Validator(
                     '2',
                     '1',
-                    ValidatorStatus.ACTIVE_SLASHED,
                     ValidatorState('0x2', '', str(31 * 10**9), True, '', '15000', '15001', ''),
                 ),
             ],
@@ -64,13 +60,11 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                 Validator(
                     '0',
                     '1',
-                    ValidatorStatus.ACTIVE_ONGOING,
                     ValidatorState('0x0', '', str(32 * 10**9), False, '', '14000', '14999', ''),
                 ),
                 Validator(
                     '1',
                     '1',
-                    ValidatorStatus.EXITED_SLASHED,
                     ValidatorState('0x1', '', str(32 * 10**9), True, '', '15000', '15000', ''),
                 ),
             ],

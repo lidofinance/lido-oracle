@@ -3,7 +3,7 @@ from typing import Any, Iterable
 
 import pytest
 
-from src.utils.dataclass import DecodeToDataclassException, list_of_dataclasses, Nested, FromResponse
+from src.utils.dataclass import DecodeToDataclassException, FromResponse, Nested, list_of_dataclasses
 
 pytestmark = pytest.mark.unit
 
@@ -174,3 +174,17 @@ def test_dataclass_nested_raises_missing_field():
     response = dict(pets=[{"name": "Bob", "age": 5, "extra": "field"}])
     with pytest.raises(TypeError, match="favourite_pet"):
         Hooman.from_response(**response)
+
+
+@dataclass
+class ObjectWithNumericFields(FromResponse, Nested):
+    sequence: list[int]
+    digit: int
+    name: str
+
+
+def test_dataclass_nested_converts_numberish():
+    response = {"sequence": ["1", "1", "2", "3", "5"], "digit": "4", "name": "Name"}
+    obj = ObjectWithNumericFields.from_response(**response)
+    assert obj.sequence == [1, 1, 2, 3, 5]
+    assert obj.digit == 4

@@ -94,7 +94,6 @@ def lido_validators(web3):
                 Validator(
                     index=str(index),
                     balance="0",
-                    status="",
                     validator=ValidatorState(
                         pubkey=pubkey,
                         withdrawal_credentials="0x1",

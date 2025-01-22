@@ -66,19 +66,21 @@ def test_get_validators(consensus_client: ConsensusClient):
     validators: list[Validator] = consensus_client.get_validators(blockstamp)
     assert validators
 
-    validator = validators[0]
-    validator_by_pub_key = consensus_client.get_validators_no_cache(blockstamp, pub_keys=validator.validator.pubkey)
-    assert validator_by_pub_key[0] == validator
+    validators_no_cache = consensus_client.get_validators_no_cache(blockstamp)
+    assert validators_no_cache[42] == validators[42]
 
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Too long to complete in CI")
 def test_get_state_view(consensus_client: ConsensusClient):
-    state_view = consensus_client.get_state_view("head")
-    assert state_view.slot > 0
+    root = consensus_client.get_block_root('finalized').root
+    block_details = consensus_client.get_block_details(root)
+    blockstamp = build_blockstamp(block_details)
+
+    state_view = consensus_client.get_state_view(blockstamp)
+    assert state_view.slot == blockstamp.slot_number
 
     spec = consensus_client.get_config_spec()
-    epoch = state_view.slot // 32
+    epoch = int(state_view.slot) // 32
     if epoch >= int(spec.ELECTRA_FORK_EPOCH):
         assert state_view.earliest_exit_epoch != 0
         assert state_view.exit_balance_to_consume >= 0
@@ -108,9 +110,6 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
 
     with raises:
         consensus_client.get_validators_no_cache(bs)
-
-    with raises:
-        consensus_client._get_validators_with_prysm(bs)
 
     with raises:
         consensus_client._get_chain_id_with_provider(0)

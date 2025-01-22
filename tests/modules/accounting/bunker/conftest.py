@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
@@ -32,7 +32,6 @@ def simple_validator(
     return Validator(
         index=str(index),
         balance=str(balance),
-        status=ValidatorStatus.ACTIVE_ONGOING,
         validator=ValidatorState(
             pubkey=pubkey,
             withdrawal_credentials='',
@@ -232,6 +231,7 @@ def mock_get_validators(web3):
         return validators[state.slot_number]
 
     web3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
+    web3.cc.get_validators = Mock(side_effect=_get_validators)
 
 
 @pytest.fixture
