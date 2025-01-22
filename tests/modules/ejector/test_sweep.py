@@ -34,7 +34,7 @@ def test_get_sweep_delay_in_epochs_post_pectra(monkeypatch):
         result = _get_sweep_delay_in_epochs_post_pectra(state, spec)
 
         # Assert the delay calculation is correct
-        expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch) // 2)
+        expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch)) // 2
         assert result == expected_delay, f"Expected delay {expected_delay}, got {result}"
 
 
