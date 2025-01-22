@@ -1,9 +1,12 @@
+from unittest.mock import Mock
+
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
+from tests.factory.no_registry import PendingDepositFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -234,12 +237,11 @@ def test_calculate_cl_rebase_between_blocks(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(50), 98001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
 )
-def test_get_lido_validators_balance_with_vault(
+def test_get_lido_validators_balance_with_vault_pre_electra(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
     blockstamp,
@@ -247,7 +249,36 @@ def test_get_lido_validators_balance_with_vault(
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
-    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+    result = abnormal_case._get_lido_validators_balance_with_vault_pre_electra(blockstamp, lido_validators)
+
+    assert result == expected_result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("blockstamp", "expected_result"),
+    [
+        (simple_ref_blockstamp(50), 98001157445),
+        (simple_ref_blockstamp(40), 98001157445),
+        (simple_ref_blockstamp(20), 77999899300),
+    ],
+)
+def test_get_lido_validators_balance_with_vault_post_electra(
+    abnormal_case,
+    mock_get_withdrawal_vault_balance,
+    blockstamp,
+    expected_result,
+):
+    lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
+    abnormal_case.w3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_deposits=PendingDepositFactory.generate_for_validators(
+                lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT
+            )
+        )
+    )
+
+    result = abnormal_case._get_lido_validators_balance_with_vault_post_electra(blockstamp, lido_validators)
 
     assert result == expected_result
 

@@ -7,13 +7,11 @@ from hexbytes import HexBytes
 from pydantic_factories import Use
 
 from src.constants import (
-    EFFECTIVE_BALANCE_INCREMENT,
-    FAR_FUTURE_EPOCH,
-    MAX_EFFECTIVE_BALANCE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     COMPOUNDING_WITHDRAWAL_PREFIX,
 )
-from src.providers.consensus.types import Validator, ValidatorState
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
+from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
 from src.providers.keys.types import LidoKey
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
@@ -81,7 +79,7 @@ class LidoValidatorFactory(Web3Factory):
         )
 
     @classmethod
-    def build_pending_deposit_vals(cls, **kwargs: Any):
+    def build_transition_period_pending_deposit_vals(cls, **kwargs: Any):
         return cls.build(
             balance=str(0),
             validator=ValidatorStateFactory.build(
@@ -135,6 +133,14 @@ class LidoValidatorFactory(Web3Factory):
             ),
             **kwargs,
         )
+
+
+class PendingDepositFactory(Web3Factory):
+    __model__ = PendingDeposit
+
+    @classmethod
+    def generate_for_validators(cls, validators: list[Validator], **kwargs):
+        return cls.batch_with('pubkey', [v.validator.pubkey for v in validators], **kwargs)
 
 
 class NodeOperatorFactory(Web3Factory):

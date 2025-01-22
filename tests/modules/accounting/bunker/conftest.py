@@ -35,7 +35,7 @@ def simple_validator(
         validator=ValidatorState(
             pubkey=pubkey,
             withdrawal_credentials='',
-            effective_balance=str(32 * 10**9),
+            effective_balance=str(balance),
             slashed=slashed,
             activation_eligibility_epoch='',
             activation_epoch=activation_epoch,

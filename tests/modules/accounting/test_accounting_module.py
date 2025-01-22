@@ -21,7 +21,7 @@ from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
-from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
+from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory, PendingDepositFactory
 
 
 @pytest.fixture(autouse=True)
@@ -99,17 +99,38 @@ def test_get_updated_modules_stats(accounting: Accounting):
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("lido_validators")
-def test_get_consensus_lido_state(accounting: Accounting):
+def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+    validators = LidoValidatorFactory.batch(10)
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+
+    count, balance = accounting._get_consensus_lido_state_pre_electra(bs)
+
+    assert count == 10
+    assert balance == sum((int(val.balance) for val in validators))
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("lido_validators")
+def test_get_consensus_lido_state_post_electra(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = [
-        *[LidoValidatorFactory.build_pending_deposit_vals() for _ in range(3)],
+        *[LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(3)],
         *[LidoValidatorFactory.build_not_active_vals(bs.ref_epoch) for _ in range(3)],
         *[LidoValidatorFactory.build_active_vals(bs.ref_epoch) for _ in range(2)],
         *[LidoValidatorFactory.build_exit_vals(bs.ref_epoch) for _ in range(2)],
     ]
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    accounting.w3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_deposits=[
+                *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
+                *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
+            ]
+        )
+    )
 
-    count, balance = accounting._get_consensus_lido_state(bs)
+    count, balance = accounting._get_consensus_lido_state_post_electra(bs)
 
     assert count == 10
     assert balance == sum((int(val.balance) for val in validators)) + 3 * LIDO_DEPOSIT_AMOUNT
@@ -428,7 +449,7 @@ def test_simulate_rebase_after_report(
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
 
-    accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
+    accounting._get_consensus_lido_state_pre_electra = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
     accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
