@@ -6,7 +6,7 @@ import src.modules.ejector.sweep as sweep_module
 
 from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
-    _get_sweep_delay_in_epochs_post_pectra,
+    get_sweep_delay_in_epochs_post_pectra,
     get_pending_partial_withdrawals,
     get_validators_withdrawals,
     Withdrawal,
@@ -31,7 +31,7 @@ def test_get_sweep_delay_in_epochs_post_pectra(monkeypatch):
             Mock(return_value=predicted_withdrawals),
         )
         # Calculate delay
-        result = _get_sweep_delay_in_epochs_post_pectra(state, spec)
+        result = get_sweep_delay_in_epochs_post_pectra(state, spec)
 
         # Assert the delay calculation is correct
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch)) // 2

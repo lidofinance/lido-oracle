@@ -43,6 +43,7 @@ def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
 def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
     """
     Check if ``validator`` is partially withdrawable.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator
     """
     max_effective_balance = get_max_effective_balance(validator)
     has_max_effective_balance = Gwei(int(validator.effective_balance)) == max_effective_balance

@@ -18,7 +18,7 @@ from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.sweep import _get_sweep_delay_in_epochs_post_pectra
+from src.modules.ejector.sweep import get_sweep_delay_in_epochs_post_pectra
 from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -31,6 +31,7 @@ from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.slot import epoch_from_slot
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -317,12 +318,12 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
-
-        if self.get_consensus_version(blockstamp) in (1, 2):
+        spec = self.w3.cc.get_config_spec()
+        chain_config = self.get_chain_config(blockstamp)
+        if self.get_consensus_version(blockstamp) in (1, 2) and epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch) >= int(spec.ELECTRA_FORK_EPOCH):
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        chain_config = self.get_chain_config(blockstamp)
-        return _get_sweep_delay_in_epochs_post_pectra(state, chain_config)
+        return get_sweep_delay_in_epochs_post_pectra(state, chain_config)
 
     def _get_sweep_delay_in_epochs_pre_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
         chain_config = self.get_chain_config(blockstamp)
@@ -332,19 +333,6 @@ class Ejector(BaseModule, ConsensusModule):
 
         full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
-
-    def _get_sweep_delay_in_epochs_post_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
-        # This version is intended for use with Pectra, but we do not currently take into account pending withdrawal
-        # requests. It would require a large amount of pending withdrawal requests to significantly impact sweep
-        # duration. Roughly every 512 requests adds one more epoch to sweep duration in the current state.
-        # On the other side, to consider pending withdrawals it is necessary to fetch the beacon state and query the
-        # EIP-7002 predeployed contract, which adds complexity with limited improvement for predictions.
-        chain_config = self.get_chain_config(blockstamp)
-        total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
-        logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
-        slots_to_sweep = math.ceil(total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD)
-        full_sweep_in_epochs = math.ceil(slots_to_sweep / chain_config.slots_per_epoch)
-        return math.ceil(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     def _get_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
         return [
