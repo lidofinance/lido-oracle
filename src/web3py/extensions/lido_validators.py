@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
-from src.providers.consensus.types import Validator
+from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT
+from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
 from src.utils.dataclass import Nested
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -172,14 +172,63 @@ class LidoValidatorsProvider(Module):
         return lido_validators
 
     @staticmethod
-    def calculate_pending_deposits_sum(lido_validators: list[LidoValidator]) -> int:
-        # NOTE: Using 32 ETH as a default validator pending balance is OK for the current protocol implementation.
-        #       It must be changed in case of validators consolidation feature implementation.
-        return sum(
-            LIDO_DEPOSIT_AMOUNT
-            for validator in lido_validators
-            if int(validator.balance) == 0 and int(validator.validator.activation_epoch) == FAR_FUTURE_EPOCH
+    def calculate_pending_deposits_sum(lido_validators: list[LidoValidator], pending_deposits: list[PendingDeposit]) -> int:
+        total_pending_balance = 0
+        for v in lido_validators:
+            if (
+                # An non activated validator with a zero balance can occur in two cases:
+                # 1. A validator whose balance was moved to the pending_deposits queue during the Electra hardfork activation
+                #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
+                # 2. A validator whose deposit was processed after the Electra hardfork activation through the former Eth1 bridge
+                #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
+                int(v.validator.effective_balance) == 0 and
+                int(v.validator.activation_epoch) == FAR_FUTURE_EPOCH
+            ):
+                # Pending deposits may contain:
+                # - Deposit requests:      https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#deposit-requests
+                # - Eth1 bridge deposits:  https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
+                # - Excess active balance: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-queue_excess_active_balance
+                #
+                # For a NON ACTIVATED validator, there couldn't be any deposits that are excess ACTIVE balance.
+                # So for this validator, there could be only two types of deposits: deposit requests and Eth1 bridge deposits.
+
+                all_deposits_amount = LidoValidatorsProvider.sum_pending_deposits_for_validator(v, pending_deposits)
+                deposit_requests_amount = LidoValidatorsProvider.sum_pending_deposit_requests_for_validator(v, pending_deposits)
+                excess_active_balance_amount = 0
+                eth1_bridge_deposits_amount = all_deposits_amount - deposit_requests_amount - excess_active_balance_amount
+
+                assert eth1_bridge_deposits_amount >= 0
+
+                total_pending_balance += eth1_bridge_deposits_amount
+
+        return Gwei(total_pending_balance)
+
+    @staticmethod
+    def sum_pending_deposits_for_validator(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
+        """
+        Return the total amount of any pending deposits for the validator.
+        """
+        res = sum(
+            deposit.amount for deposit in pending_deposits
+            if deposit.pubkey == validator.validator.pubkey
         )
+        return Gwei(res)
+
+    @staticmethod
+    def sum_pending_deposit_requests_for_validator(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
+        """
+        Return the total amount of pending deposit requests for the validator.
+        """
+        res = sum(
+            deposit.amount for deposit in pending_deposits
+            if (
+                # Is for the validator
+                deposit.pubkey == validator.validator.pubkey and
+                # Is deposit request
+                deposit.slot > GENESIS_SLOT
+            )
+        )
+        return Gwei(res)
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:

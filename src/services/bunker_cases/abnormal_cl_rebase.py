@@ -183,10 +183,17 @@ class AbnormalClRebase:
         )
 
         # Get Lido validators' balances with WithdrawalVault balance
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
-        prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
-            prev_blockstamp, prev_lido_validators
-        )
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(ref_blockstamp.block_hash)
+        if consensus_version in (1, 2):
+            ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault_pre_electra(ref_blockstamp, self.lido_validators)
+            prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault_pre_electra(
+                prev_blockstamp, prev_lido_validators
+            )
+        else:
+            ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault_post_electra(ref_blockstamp, self.lido_validators)
+            prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault_post_electra(
+                prev_blockstamp, prev_lido_validators
+            )
 
         # Raw CL rebase is calculated as difference between reference and previous Lido validators' balances
         # Without accounting withdrawals from WithdrawalVault
@@ -210,14 +217,27 @@ class AbnormalClRebase:
 
         return cl_rebase
 
-    def _get_lido_validators_balance_with_vault(
+    def _get_lido_validators_balance_with_vault_pre_electra(
         self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
-        pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(lido_validators)
+        withdrawals_vault_balance = int(
+            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
+        )
+        return Gwei(real_cl_balance + withdrawals_vault_balance)
+
+    def _get_lido_validators_balance_with_vault_post_electra(
+        self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
+    ) -> Gwei:
+        """
+        Get Lido validator balance with withdrawals vault balance
+        """
+        real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
+        state = self.w3.cc.get_state_view(blockstamp)
+        pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(lido_validators, state.pending_deposits)
         withdrawals_vault_balance = int(
             self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
         )

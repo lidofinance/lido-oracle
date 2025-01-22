@@ -210,12 +210,23 @@ class Accounting(BaseModule, ConsensusModule):
         return list(module_stats.keys()), list(module_stats.values())
 
     @lru_cache(maxsize=1)
-    def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
+    def _get_consensus_lido_state_pre_electra(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
+        lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
+
+        count = len(lido_validators)
+        total_balance = Gwei(sum(int(validator.balance) for validator in lido_validators))
+
+        logger.info({'msg': 'Calculate lido state on CL. (Validators count, Total balance in gwei)', 'value': (count, total_balance)})
+        return ValidatorsCount(count), ValidatorsBalance(total_balance)
+
+    @lru_cache(maxsize=1)
+    def _get_consensus_lido_state_post_electra(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         validators_count = len(lido_validators)
         active_balance = sum(int(validator.balance) for validator in lido_validators)
-        pending_deposits = self.w3.lido_validators.calculate_pending_deposits_sum(lido_validators)
+        state = self.w3.cc.get_state_view(blockstamp)
+        pending_deposits = self.w3.lido_validators.calculate_pending_deposits_sum(lido_validators, state.pending_deposits)
         total_balance = Gwei(active_balance + pending_deposits)
 
         logger.info(
@@ -267,7 +278,7 @@ class Accounting(BaseModule, ConsensusModule):
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
-        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+        validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
@@ -380,7 +391,11 @@ class Accounting(BaseModule, ConsensusModule):
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
-        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        if consensus_version in (1, 2):
+            validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
+        else:
+            validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
