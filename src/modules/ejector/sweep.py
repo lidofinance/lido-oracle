@@ -11,7 +11,7 @@ from src.constants import (
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
-from src.types import EpochNumber, Gwei
+from src.types import Gwei
 from src.utils.slot import epoch_from_slot
 from src.utils.validator_state import (
     is_fully_withdrawable_validator,

@@ -12,7 +12,7 @@ from src.modules.ejector.sweep import (
     Withdrawal,
 )
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal, Validator, Checkpoint
+from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal, Validator
 from src.types import SlotNumber, Gwei
 from tests.factory.no_registry import LidoValidatorFactory
 
@@ -49,7 +49,6 @@ def create_fake_state(
     beacon_state.validators = [v.validator for v in validators]
     beacon_state.balances = [v.balance for v in validators]
     beacon_state.pending_partial_withdrawals = pending_partial_withdrawals
-    beacon_state.finalized_checkpoint = Checkpoint(epoch="1", root="0x")
     return beacon_state
 
 
@@ -59,7 +58,7 @@ def fake_beacon_state_view():
     validators = [
         LidoValidatorFactory.build_with_balance(Gwei(1000)),
         LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
-        LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
+        LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 12)),
     ]
     pending_partial_withdrawals = [
         PendingPartialWithdrawal(validator_index="0", amount=500, withdrawable_epoch=1),
@@ -81,8 +80,12 @@ def test_get_pending_partial_withdrawals(fake_beacon_state_view):
 @pytest.mark.unit
 def test_get_validators_withdrawals(fake_beacon_state_view):
     """Test for the `get_validators_withdrawals` function."""
-    result = get_validators_withdrawals(fake_beacon_state_view, [Withdrawal(validator_index=1, amount=1)])
+    result = get_validators_withdrawals(fake_beacon_state_view, [
+        Withdrawal(validator_index=1, amount=1),
+        Withdrawal(validator_index=2, amount=1),
+        Withdrawal(validator_index=2, amount=1),
+    ], 32)
     assert len(result) == 1, f"Expected 1 withdrawals, got {len(result)}"
 
     assert result[0].validator_index == 2, f"Expected validator_index 2, got {result[0].validator_index}"
-    assert result[0].amount == 1, f"Expected amount 1 for validator 2, got {result[0].amount}"
+    assert result[0].amount == 10, f"Expected amount 1 for validator 2, got {result[0].amount}"
