@@ -452,6 +452,7 @@ def test_simulate_rebase_after_report(
     accounting._get_consensus_lido_state_pre_electra = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))

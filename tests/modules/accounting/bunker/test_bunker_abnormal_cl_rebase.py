@@ -83,6 +83,7 @@ def test_is_abnormal_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     result = abnormal_case.is_abnormal_cl_rebase(blockstamp, all_validators, lido_validators, frame_cl_rebase)
 
     assert result == expected_is_abnormal
@@ -112,6 +113,7 @@ def test_calculate_lido_normal_cl_rebase(
     abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
     abnormal_case.lido_keys = abnormal_case.w3.kac.get_used_lido_keys(blockstamp)
 
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     result = abnormal_case._calculate_lido_normal_cl_rebase(blockstamp)
 
     assert result == expected_rebase
@@ -161,6 +163,7 @@ def test_is_negative_specific_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     if isinstance(expected_is_negative, str):
         with pytest.raises(ValueError, match=expected_is_negative):
             abnormal_case._is_negative_specific_cl_rebase(blockstamp)
@@ -225,6 +228,7 @@ def test_calculate_cl_rebase_between_blocks(
         simple_key('0x04'),
         simple_key('0x05'),
     ]
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     if isinstance(expected_rebase, str):
         with pytest.raises(ValueError, match=expected_rebase):
             abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
