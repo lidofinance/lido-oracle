@@ -48,8 +48,8 @@ def fake_beacon_state_view():
         LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 12)),
     ]
     pending_partial_withdrawals = [
-        PendingPartialWithdrawal(validator_index="0", amount=500, withdrawable_epoch=1),
-        PendingPartialWithdrawal(validator_index="1", amount=700, withdrawable_epoch=1),
+        PendingPartialWithdrawal(validator_index=0, amount=500, withdrawable_epoch=1),
+        PendingPartialWithdrawal(validator_index=1, amount=700, withdrawable_epoch=1),
     ]
     return BeaconStateViewFactory.build_with_validators(
         validators=validators,

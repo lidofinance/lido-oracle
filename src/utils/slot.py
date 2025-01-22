@@ -155,6 +155,3 @@ def _check_block_header(block_header: BlockHeaderFullResponse):
         raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not finalized, but should be.')
     if not block_header.data.canonical:
         raise SlotNotFinalized(f'Slot [{block_header.data.header.message.slot}] is not canonical, but should be.')
-
-def epoch_from_slot(slot: SlotNumber, slots_per_epoch: int) -> EpochNumber:
-    return EpochNumber(slot // slots_per_epoch)

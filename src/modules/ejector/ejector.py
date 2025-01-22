@@ -31,7 +31,6 @@ from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import epoch_from_slot
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -41,6 +40,7 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
 )
+from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 

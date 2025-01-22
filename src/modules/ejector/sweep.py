@@ -12,12 +12,12 @@ from src.constants import (
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
 from src.types import Gwei
-from src.utils.slot import epoch_from_slot
 from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
     get_max_effective_balance,
 )
+from src.utils.web3converter import epoch_from_slot
 
 
 @dataclass
@@ -107,7 +107,7 @@ def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
         #
         # These checks from the original method are omitted. It is assumed that `withdrawable_epoch`
         # has arrived for all `pending_partial_withdrawals`
-        index = int(withdrawal.validator_index)
+        index = withdrawal.validator_index
         validator = state.validators[index]
         has_sufficient_effective_balance = Gwei(int(validator.effective_balance)) >= MIN_ACTIVATION_BALANCE
         has_excess_balance = state.balances[index] > MIN_ACTIVATION_BALANCE

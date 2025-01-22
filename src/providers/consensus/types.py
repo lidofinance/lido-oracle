@@ -162,7 +162,7 @@ class PendingDeposit(Nested):
 
 @dataclass
 class PendingPartialWithdrawal(Nested):
-    validator_index: str
+    validator_index: int
     amount: Gwei
     withdrawable_epoch: EpochNumber
 
