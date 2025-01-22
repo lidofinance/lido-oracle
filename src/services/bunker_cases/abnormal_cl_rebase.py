@@ -185,7 +185,7 @@ class AbnormalClRebase:
         # Get Lido validators' balances with WithdrawalVault balance
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(ref_blockstamp.block_hash)
 
-        def _before_electra_fork():
+        def _pre_electra_fork():
             ref = self._get_lido_validators_balance_with_vault_pre_electra(
                 ref_blockstamp, self.lido_validators
             )
@@ -194,7 +194,7 @@ class AbnormalClRebase:
             )
             return ref, prev
 
-        def _after_electra_fork():
+        def _post_electra_fork():
             ref = self._get_lido_validators_balance_with_vault_post_electra(
                 ref_blockstamp, self.lido_validators
             )
@@ -204,13 +204,13 @@ class AbnormalClRebase:
             return ref, prev
 
         if consensus_version in (1, 2):
-            ref_lido_balance_with_vault, prev_lido_balance_with_vault = _before_electra_fork()
+            ref_lido_balance_with_vault, prev_lido_balance_with_vault = _pre_electra_fork()
         else:
             spec = self.w3.cc.get_config_spec()
             if ref_blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
-                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _before_electra_fork()
+                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _pre_electra_fork()
             else:
-                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _after_electra_fork()
+                ref_lido_balance_with_vault, prev_lido_balance_with_vault = _post_electra_fork()
 
         # Raw CL rebase is calculated as difference between reference and previous Lido validators' balances
         # Without accounting withdrawals from WithdrawalVault
