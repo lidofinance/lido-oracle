@@ -132,10 +132,10 @@ def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List
     """
     epoch = epoch_from_slot(state.slot, slots_per_epoch)
     withdrawals = []
-    partially_withdrawn_map: dict[int, Gwei] = defaultdict(lambda: Gwei(0))
+    partially_withdrawn_map: dict[int, int] = defaultdict(int)
 
     for withdrawal in partial_withdrawals:
-        partially_withdrawn_map[withdrawal.validator_index] += Gwei(withdrawal.amount)
+        partially_withdrawn_map[withdrawal.validator_index] += withdrawal.amount
 
     for validator_index, validator in enumerate(state.indexed_validators):
         partially_withdrawn_balance = Gwei(partially_withdrawn_map.get(validator_index, 0))
