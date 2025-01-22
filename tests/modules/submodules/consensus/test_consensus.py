@@ -14,7 +14,7 @@ from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
-from tests.web3_extentions.test_lido_validators import blockstamp
+from tests.web3py.test_lido_validators import blockstamp
 
 
 @pytest.fixture()
