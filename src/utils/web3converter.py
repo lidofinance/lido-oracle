@@ -3,6 +3,9 @@ from src.modules.submodules.types import ChainConfig, FrameConfig
 
 
 def epoch_from_slot(slot: SlotNumber, slots_per_epoch: int) -> EpochNumber:
+    """
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+    """
     return EpochNumber(slot // slots_per_epoch)
 
 
