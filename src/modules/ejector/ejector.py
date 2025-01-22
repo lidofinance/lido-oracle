@@ -322,7 +322,7 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         current_epoch = epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch)
         electra_epoch = int(spec.ELECTRA_FORK_EPOCH)
-        if self.get_consensus_version(blockstamp) in (1, 2) and current_epoch < electra_epoch:
+        if self.get_consensus_version(blockstamp) in (1, 2) or current_epoch < electra_epoch:
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs_post_pectra(state, chain_config)
