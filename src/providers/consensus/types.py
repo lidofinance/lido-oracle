@@ -169,13 +169,15 @@ class PendingPartialWithdrawal(Nested):
 
 @dataclass
 class BeaconStateView(Nested, FromResponse):
-    """A view to BeaconState with only the required keys presented"""
+    """
+    A view to BeaconState with only the required keys presented.
+    @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#beaconstate
+    """
 
     slot: SlotNumber
     validators: list[ValidatorState]
     balances: list[Gwei]
     # This fields are new in Electra, so here are default values for backward compatibility.
-    deposit_balance_to_consume: Gwei = Gwei(0)
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
