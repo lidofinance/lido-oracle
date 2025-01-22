@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from src.modules.csm.log import FramePerfLog, AttestationsAccumulator
+from src.modules.csm.log import FramePerfLog, DutyAccumulator
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -28,7 +28,7 @@ def test_fields_access(log: FramePerfLog):
 
 def test_log_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
-    log.operators[NodeOperatorId(42)].validators["41337"].perf = AttestationsAccumulator(220, 119)
+    log.operators[NodeOperatorId(42)].validators["41337"].perf = DutyAccumulator(220, 119)
     log.operators[NodeOperatorId(42)].distributed = 17
     log.operators[NodeOperatorId(0)].distributed = 0
 
@@ -51,12 +51,12 @@ def test_log_encode(log: FramePerfLog):
 
 def test_logs_encode():
     log_0 = FramePerfLog(ReferenceBlockStampFactory.build(), (EpochNumber(100), EpochNumber(500)))
-    log_0.operators[NodeOperatorId(42)].validators["41337"].perf = AttestationsAccumulator(220, 119)
+    log_0.operators[NodeOperatorId(42)].validators["41337"].perf = DutyAccumulator(220, 119)
     log_0.operators[NodeOperatorId(42)].distributed = 17
     log_0.operators[NodeOperatorId(0)].distributed = 0
 
     log_1 = FramePerfLog(ReferenceBlockStampFactory.build(), (EpochNumber(500), EpochNumber(900)))
-    log_1.operators[NodeOperatorId(5)].validators["1234"].perf = AttestationsAccumulator(400, 399)
+    log_1.operators[NodeOperatorId(5)].validators["1234"].perf = DutyAccumulator(400, 399)
     log_1.operators[NodeOperatorId(5)].distributed = 40
     log_1.operators[NodeOperatorId(18)].distributed = 0
 

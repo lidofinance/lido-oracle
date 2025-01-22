@@ -232,7 +232,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
         finalized_blockstamp,
     )
     raw = consensus_client.get_attestation_committees(0, 0)
-    committees = processor._prepare_committees(0)
+    committees = processor._prepare_att_committees(0)
     assert len(committees) == 2048
     for index, (committee_id, validators) in enumerate(committees.items()):
         slot, committee_index = committee_id
@@ -253,7 +253,7 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
         converter,
         finalized_blockstamp,
     )
-    committees = processor._prepare_committees(0)
+    committees = processor._prepare_att_committees(0)
     # normal attestation
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 0
@@ -286,7 +286,7 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
         converter,
         finalized_blockstamp,
     )
-    committees = processor._prepare_committees(0)
+    committees = processor._prepare_att_committees(0)
     # undefined committee
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 100500
@@ -363,11 +363,11 @@ def test_checkpoints_processor_check_duty(
         finalized_blockstamp,
     )
     roots = processor._get_block_roots(0)
-    processor._check_duty(0, roots[:64])
+    processor._check_duties(0, roots[:64])
     assert len(state._processed_epochs) == 1
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 255
-    assert len(state.data[(0, 255)]) == 2048 * 32
+    assert len(state.att_data[(0, 255)]) == 2048 * 32
 
 
 def test_checkpoints_processor_process(
@@ -392,7 +392,7 @@ def test_checkpoints_processor_process(
     assert len(state._processed_epochs) == 2
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 254
-    assert len(state.data[(0, 255)]) == 2048 * 32
+    assert len(state.att_data[(0, 255)]) == 2048 * 32
 
 
 def test_checkpoints_processor_exec(
@@ -418,4 +418,4 @@ def test_checkpoints_processor_exec(
     assert len(state._processed_epochs) == 2
     assert len(state._epochs_to_process) == 256
     assert len(state.unprocessed_epochs) == 254
-    assert len(state.data[(0, 255)]) == 2048 * 32
+    assert len(state.att_data[(0, 255)]) == 2048 * 32

@@ -21,8 +21,8 @@ class InvalidState(ValueError):
 
 
 @dataclass
-class AttestationsAccumulator:
-    """Accumulator of attestations duties observed for a validator"""
+class DutyAccumulator:
+    """Accumulator of duties observed for a validator"""
 
     assigned: int = 0
     included: int = 0
@@ -46,7 +46,9 @@ class State:
 
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
-    data: dict[Frame, defaultdict[ValidatorIndex, AttestationsAccumulator]]
+    att_data: dict[Frame, defaultdict[ValidatorIndex, DutyAccumulator]]
+    prop_data: dict[Frame, defaultdict[ValidatorIndex, DutyAccumulator]]
+    sync_data: dict[Frame, defaultdict[ValidatorIndex, DutyAccumulator]]
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
@@ -54,10 +56,12 @@ class State:
 
     _consensus_version: int = 1
 
-    def __init__(self, data: dict[Frame, dict[ValidatorIndex, AttestationsAccumulator]] | None = None) -> None:
-        self.data = {
-            frame: defaultdict(AttestationsAccumulator, validators) for frame, validators in (data or {}).items()
+    def __init__(self, att_data: dict[Frame, dict[ValidatorIndex, DutyAccumulator]] | None = None) -> None:
+        self.att_data = {
+            frame: defaultdict(DutyAccumulator, validators) for frame, validators in (att_data or {}).items()
         }
+        self.prop_data = {}
+        self.sync_data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
         self._epochs_per_frame = 0
@@ -97,7 +101,13 @@ class State:
 
     @property
     def is_empty(self) -> bool:
-        return not self.data and not self._epochs_to_process and not self._processed_epochs
+        return (
+            not self.att_data and
+            not self.sync_data and
+            not self.prop_data and
+            not self._epochs_to_process and
+            not self._processed_epochs
+        )
 
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
@@ -111,21 +121,28 @@ class State:
         return not self.unprocessed_epochs
 
     def clear(self) -> None:
-        self.data = {}
+        self.att_data = {}
+        self.sync_data = {}
+        self.prop_data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
         assert self.is_empty
 
     def find_frame(self, epoch: EpochNumber) -> Frame:
-        frames = self.data.keys()
+        frames = self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
         for epoch_range in frames:
             if epoch_range[0] <= epoch <= epoch_range[1]:
                 return epoch_range
         raise ValueError(f"Epoch {epoch} is out of frames range: {frames}")
 
-    def increment_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
-        epoch_range = self.find_frame(epoch)
-        self.data[epoch_range][val_index].add_duty(included)
+    def increment_att_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
+        self.att_data[frame][val_index].add_duty(included)
+
+    def increment_prop_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
+        self.prop_data[frame][val_index].add_duty(included)
+
+    def increment_sync_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
+        self.sync_data[frame][val_index].add_duty(included)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
@@ -133,7 +150,13 @@ class State:
     def log_progress(self) -> None:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
-    def init_or_migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int) -> None:
+    def init_or_migrate(
+        self,
+        l_epoch: EpochNumber,
+        r_epoch: EpochNumber,
+        epochs_per_frame: int,
+        consensus_version: int
+    ) -> None:
         if consensus_version != self._consensus_version:
             logger.warning(
                 {
@@ -157,7 +180,9 @@ class State:
     def _fill_frames(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
         frames = self.calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         for frame in frames:
-            self.data.setdefault(frame, defaultdict(AttestationsAccumulator))
+            self.att_data.setdefault(frame, defaultdict(DutyAccumulator))
+            self.prop_data.setdefault(frame, defaultdict(DutyAccumulator))
+            self.sync_data.setdefault(frame, defaultdict(DutyAccumulator))
 
     def _migrate_or_invalidate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> bool:
         current_frames = self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
@@ -176,7 +201,9 @@ class State:
         if has_single_frame and frame_expanded:
             current_frame, *_ = current_frames
             new_frame, *_ = new_frames
-            self.data[new_frame] = self.data.pop(current_frame)
+            self.att_data[new_frame] = self.att_data.pop(current_frame)
+            self.prop_data[new_frame] = self.prop_data.pop(current_frame)
+            self.sync_data[new_frame] = self.sync_data.pop(current_frame)
             logger.info({"msg": f"Migrated state cache to a new frame. {current_frame=}, {new_frame=}"})
             return False
 
@@ -219,20 +246,54 @@ class State:
             frames.append((frame_epochs[0], frame_epochs[-1]))
         return frames
 
-    def get_network_aggr(self, frame: Frame) -> AttestationsAccumulator:
+    def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation
         included = assigned = 0
-        frame_data = self.data.get(frame)
+        frame_data = self.att_data.get(frame)
         if not frame_data:
-            raise ValueError(f"No data for frame {frame} to calculate network aggregate")
+            raise ValueError(f"No data for frame {frame} to calculate attestations network aggregate")
         for validator, acc in frame_data.items():
             if acc.included > acc.assigned:
                 raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
             included += acc.included
             assigned += acc.assigned
-        aggr = AttestationsAccumulator(
+        aggr = DutyAccumulator(
             included=included,
             assigned=assigned,
         )
         logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_sync_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        included = assigned = 0
+        frame_data = self.sync_data.get(frame)
+        if not frame_data:
+            raise ValueError(f"No data for frame {frame} to calculate syncs network aggregate")
+        for validator, acc in frame_data.items():
+            if acc.included > acc.assigned:
+                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
+            included += acc.included
+            assigned += acc.assigned
+        aggr = DutyAccumulator(
+            included=included,
+            assigned=assigned,
+        )
+        logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_prop_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        included = assigned = 0
+        frame_data = self.prop_data.get(frame)
+        if not frame_data:
+            raise ValueError(f"No data for frame {frame} to calculate proposal network aggregate")
+        for validator, acc in frame_data.items():
+            if acc.included > acc.assigned:
+                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
+            included += acc.included
+            assigned += acc.assigned
+        aggr = DutyAccumulator(
+            included=included,
+            assigned=assigned,
+        )
+        logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr

@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
-from src.modules.csm.state import AttestationsAccumulator
+from src.modules.csm.state import DutyAccumulator
 from src.modules.csm.types import Shares
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
@@ -12,8 +12,10 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    # TODO: Should be renamed. Perf means different things in different contexts
-    perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
+    attestations: DutyAccumulator = field(default_factory=DutyAccumulator)
+    proposals: DutyAccumulator = field(default_factory=DutyAccumulator)
+    sync_committee: DutyAccumulator = field(default_factory=DutyAccumulator)
+    performance: float = 0.0
     slashed: bool = False
 
 

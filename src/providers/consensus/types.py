@@ -104,9 +104,15 @@ type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
 
 
 @dataclass
+class SyncAggregate(FromResponse):
+    sync_committee_bits: str
+
+
+@dataclass
 class BeaconBlockBody(Nested, FromResponse):
     execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
+    sync_aggregate: SyncAggregate
 
 
 @dataclass
@@ -194,3 +200,15 @@ class BeaconStateView(Nested, FromResponse):
             )
             for (i, v) in enumerate(self.validators)
         ]
+
+
+@dataclass
+class SyncCommittee(FromResponse):
+    validators: list[str]
+
+
+@dataclass
+class ProposerDuties(FromResponse):
+    pubkey: str
+    validator_index: str
+    slot: str

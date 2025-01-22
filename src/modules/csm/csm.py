@@ -237,7 +237,8 @@ class CSOracle(BaseModule, ConsensusModule):
         shares = defaultdict[NodeOperatorId, int](int)
         logs: list[FramePerfLog] = []
 
-        for frame in self.state.data:
+        frames = self.state.calculate_frames(self.state._epochs_to_process, self.state._epochs_per_frame)
+        for frame in frames:
             from_epoch, to_epoch = frame
             logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
             frame_blockstamp = blockstamp
@@ -271,7 +272,15 @@ class CSOracle(BaseModule, ConsensusModule):
         frame: Frame,
         distributed: int,
     ):
-        network_perf = self.state.get_network_aggr(frame).perf
+        att_network_perf = self.state.get_att_network_aggr(frame).perf
+        prop_network_perf = self.state.get_prop_network_aggr(frame).perf
+        sync_network_perf = self.state.get_sync_network_aggr(frame).perf
+
+        network_perf = 54/64 * att_network_perf + 8/64 * prop_network_perf + 2/64 * sync_network_perf
+
+        if network_perf > 1:
+            raise ValueError(f"Invalid network performance: {network_perf=}")
+
         threshold = network_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
 
         # Build the map of the current distribution operators.
@@ -280,30 +289,56 @@ class CSOracle(BaseModule, ConsensusModule):
         log = FramePerfLog(blockstamp, frame, threshold)
 
         for (_, no_id), validators in operators_to_validators.items():
+            log_operator = log.operators[no_id]
+
             if no_id in stuck_operators:
-                log.operators[no_id].stuck = True
+                log_operator.stuck = True
                 continue
 
             for v in validators:
-                aggr = self.state.data[frame].get(ValidatorIndex(int(v.index)))
+                att_aggr = self.state.att_data[frame].get(ValidatorIndex(int(v.index)))
+                prop_aggr = self.state.prop_data[frame].get(ValidatorIndex(int(v.index)))
+                sync_aggr = self.state.sync_data[frame].get(ValidatorIndex(int(v.index)))
 
-                if aggr is None:
+                if att_aggr is None:
                     # It's possible that the validator is not assigned to any duty, hence it's performance
                     # is not presented in the aggregates (e.g. exited, pending for activation etc).
+                    # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
                     continue
+
+                log_validator = log_operator.validators[v.index]
 
                 if v.validator.slashed is True:
                     # It means that validator was active during the frame and got slashed and didn't meet the exit
                     # epoch, so we should not count such validator for operator's share.
-                    log.operators[no_id].validators[v.index].slashed = True
+                    log_validator.slashed = True
                     continue
 
-                if aggr.perf > threshold:
+                performance = att_aggr.perf
+
+                if prop_aggr is not None and sync_aggr is not None:
+                    performance = 54/64 * att_aggr.perf + 8/64 * prop_aggr.perf + 2/64 * sync_aggr.perf
+
+                if prop_aggr is not None and sync_aggr is None:
+                    performance = 54/62 * att_aggr.perf + 8/62 * prop_aggr.perf
+
+                if prop_aggr is None and sync_aggr is not None:
+                    performance = 54/56 * att_aggr.perf + 2/56 * sync_aggr.perf
+
+                if performance > 1:
+                    raise ValueError(f"Invalid performance: {performance=}")
+
+                if performance > threshold:
                     # Count of assigned attestations used as a metrics of time
                     # the validator was active in the current frame.
-                    distribution[no_id] += aggr.assigned
+                    distribution[no_id] += att_aggr.assigned
 
-                log.operators[no_id].validators[v.index].perf = aggr
+                log_validator.performance = performance
+                log_validator.attestations = att_aggr
+                if prop_aggr is not None:
+                    log_validator.proposals = prop_aggr
+                if sync_aggr is not None:
+                    log_validator.sync_committee = sync_aggr
 
         # Calculate share of each CSM node operator.
         shares = defaultdict[NodeOperatorId, int](int)

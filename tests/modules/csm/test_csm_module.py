@@ -9,7 +9,7 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAccumulator, State, Frame
+from src.modules.csm.state import DutyAccumulator, State, Frame
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
@@ -172,26 +172,26 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
     module.state = State(
         {
             frame_0: {
-                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(0): DutyAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): DutyAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): DutyAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): DutyAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): DutyAccumulator(included=500, assigned=1000),  # underperforming
                 # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(10): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): DutyAccumulator(included=1000, assigned=1000),
             }
         }
     )
 
     l_epoch, r_epoch = frame_0
 
-    frame_0_network_aggr = module.state.get_network_aggr(frame_0)
+    frame_0_network_aggr = module.state.get_att_network_aggr(frame_0)
 
     blockstamp = ReferenceBlockStampFactory.build(slot_number=r_epoch * 32, ref_epoch=r_epoch, ref_slot=r_epoch * 32)
     _, shares, logs = module.calculate_distribution(blockstamp=blockstamp)
@@ -289,34 +289,34 @@ def test_calculate_distribution_with_missed_with_two_frames(module: CSOracle, cs
     module.state = State(
         {
             frame_0: {
-                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(0): DutyAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): DutyAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): DutyAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): DutyAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): DutyAccumulator(included=500, assigned=1000),  # underperforming
                 # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(10): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): DutyAccumulator(included=1000, assigned=1000),
             },
             frame_1: {
-                ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-                ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-                ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-                ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-                ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-                ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(0): DutyAccumulator(included=200, assigned=200),  # short on frame
+                ValidatorIndex(1): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(2): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(3): DutyAccumulator(included=999, assigned=1000),
+                ValidatorIndex(4): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(5): DutyAccumulator(included=500, assigned=1000),  # underperforming
+                ValidatorIndex(6): DutyAccumulator(included=0, assigned=0),  # underperforming
+                ValidatorIndex(7): DutyAccumulator(included=900, assigned=1000),
+                ValidatorIndex(8): DutyAccumulator(included=500, assigned=1000),  # underperforming
                 # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-                ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-                ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(10): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(11): DutyAccumulator(included=1000, assigned=1000),
+                ValidatorIndex(12): DutyAccumulator(included=1000, assigned=1000),
             },
         }
     )
@@ -355,8 +355,8 @@ def test_calculate_distribution_with_missed_with_two_frames(module: CSOracle, cs
 
     for log in logs:
 
-        assert log.frame in module.state.data.keys()
-        assert log.threshold == module.state.get_network_aggr(log.frame).perf - 0.05
+        assert log.frame in module.state.att_data.keys()
+        assert log.threshold == module.state.get_att_network_aggr(log.frame).perf - 0.05
 
         assert tuple(log.operators.keys()) == (
             NodeOperatorId(0),
