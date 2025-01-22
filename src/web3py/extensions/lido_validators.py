@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT
+from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
@@ -181,7 +181,7 @@ class LidoValidatorsProvider(Module):
                 #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
                 # 2. A validator whose deposit was processed after the Electra hardfork activation through the former Eth1 bridge
                 #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
-                int(v.validator.effective_balance) == 0 and
+                int(v.validator.effective_balance) < LIDO_DEPOSIT_AMOUNT and
                 int(v.validator.activation_epoch) == FAR_FUTURE_EPOCH
             ):
                 # Pending deposits may contain:
