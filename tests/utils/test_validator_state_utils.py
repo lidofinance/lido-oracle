@@ -162,7 +162,7 @@ def test_has_compounding_withdrawal_credential(withdrawal_credentials, expected)
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = withdrawal_credentials
 
-    actual = has_compounding_withdrawal_credential(validator)
+    actual = has_compounding_withdrawal_credential(validator.validator)
     assert actual == expected
 
 
@@ -180,7 +180,7 @@ def test_has_eth1_withdrawal_credential(withdrawal_credentials, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = withdrawal_credentials
 
-    actual = has_eth1_withdrawal_credential(validator)
+    actual = has_eth1_withdrawal_credential(validator.validator)
     assert actual == expected
 
 
@@ -202,7 +202,7 @@ def test_has_execution_withdrawal_credential(wc, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = wc
 
-    actual = has_execution_withdrawal_credential(validator)
+    actual = has_execution_withdrawal_credential(validator.validator)
     assert actual == expected
 
 
@@ -226,7 +226,7 @@ def test_is_fully_withdrawable_validator(withdrawable_epoch, wc, balance, epoch,
     validator.validator.withdrawal_credentials = wc
     validator.balance = balance
 
-    actual = is_fully_withdrawable_validator(validator, EpochNumber(epoch))
+    actual = is_fully_withdrawable_validator(validator.validator, validator.balance, EpochNumber(epoch))
     assert actual == expected
 
 
@@ -250,7 +250,7 @@ def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_cr
     validator.validator.effective_balance = effective_balance
     validator.balance = effective_balance + add_balance
 
-    actual = is_partially_withdrawable_validator(validator)
+    actual = is_partially_withdrawable_validator(validator.validator, validator.balance)
     assert actual == expected
 
 
@@ -284,7 +284,7 @@ def test_is_validator_eligible_to_exit(activation_epoch, exit_epoch, epoch, expe
 def test_max_effective_balance(wc, expected):
     validator = ValidatorFactory.build()
     validator.validator.withdrawal_credentials = wc
-    result = get_max_effective_balance(validator)
+    result = get_max_effective_balance(validator.validator)
     assert result == expected
 
 

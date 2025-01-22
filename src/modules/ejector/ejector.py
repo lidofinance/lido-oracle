@@ -18,6 +18,7 @@ from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
 from src.modules.ejector.data_encode import encode_data
+from src.modules.ejector.sweep import get_sweep_delay_in_epochs_post_pectra
 from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -39,6 +40,7 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
 )
+from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -211,12 +213,12 @@ class Ejector(BaseModule, ConsensusModule):
             sum(
                 self._get_predicted_withdrawable_balance(v)
                 for v in lido_validators
-                if is_fully_withdrawable_validator(v, on_epoch)
+                if is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), on_epoch)
             )
         )
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Gwei:
-        return Gwei(min(int(validator.balance), get_max_effective_balance(validator)))
+        return Gwei(min(int(validator.balance), get_max_effective_balance(validator.validator)))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -316,10 +318,14 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
-
-        if self.get_consensus_version(blockstamp) in (1, 2):
+        spec = self.w3.cc.get_config_spec()
+        chain_config = self.get_chain_config(blockstamp)
+        current_epoch = epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch)
+        electra_epoch = int(spec.ELECTRA_FORK_EPOCH)
+        if self.get_consensus_version(blockstamp) in (1, 2) or current_epoch < electra_epoch:
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
-        return self._get_sweep_delay_in_epochs_post_pectra(blockstamp)
+        state = self.w3.cc.get_state_view(blockstamp)
+        return get_sweep_delay_in_epochs_post_pectra(state, chain_config)
 
     def _get_sweep_delay_in_epochs_pre_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
         chain_config = self.get_chain_config(blockstamp)
@@ -330,24 +336,11 @@ class Ejector(BaseModule, ConsensusModule):
         full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
         return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
-    def _get_sweep_delay_in_epochs_post_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
-        # This version is intended for use with Pectra, but we do not currently take into account pending withdrawal
-        # requests. It would require a large amount of pending withdrawal requests to significantly impact sweep
-        # duration. Roughly every 512 requests adds one more epoch to sweep duration in the current state.
-        # On the other side, to consider pending withdrawals it is necessary to fetch the beacon state and query the
-        # EIP-7002 predeployed contract, which adds complexity with limited improvement for predictions.
-        chain_config = self.get_chain_config(blockstamp)
-        total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
-        logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
-        slots_to_sweep = math.ceil(total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD)
-        full_sweep_in_epochs = math.ceil(slots_to_sweep / chain_config.slots_per_epoch)
-        return math.ceil(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
-
     def _get_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
         return [
             v
             for v in self.w3.cc.get_validators(blockstamp)
-            if is_partially_withdrawable_validator(v) or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
+            if is_partially_withdrawable_validator(v.validator, Gwei(int(v.balance))) or is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), blockstamp.ref_epoch)
         ]
 
     @lru_cache(maxsize=1)

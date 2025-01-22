@@ -162,7 +162,7 @@ class PendingDeposit(Nested):
 
 @dataclass
 class PendingPartialWithdrawal(Nested):
-    validator_index: str
+    validator_index: int
     amount: Gwei
     withdrawable_epoch: EpochNumber
 
@@ -177,6 +177,7 @@ class BeaconStateView(Nested, FromResponse):
     slot: SlotNumber
     validators: list[ValidatorState]
     balances: list[Gwei]
+
     # This fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)

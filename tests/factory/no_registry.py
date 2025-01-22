@@ -6,10 +6,15 @@ from faker import Faker
 from hexbytes import HexBytes
 from pydantic_factories import Use
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    COMPOUNDING_WITHDRAWAL_PREFIX,
+)
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import Gwei
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3Factory
 
@@ -124,7 +129,9 @@ class LidoValidatorFactory(Web3Factory):
             balance=balance,
             validator=ValidatorStateFactory.build(
                 effective_balance=min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, meb),
-                withdrawal_credentials="0x01" if meb == MAX_EFFECTIVE_BALANCE else "0x02",
+                withdrawal_credentials=(
+                    ETH1_ADDRESS_WITHDRAWAL_PREFIX if meb == MAX_EFFECTIVE_BALANCE else COMPOUNDING_WITHDRAWAL_PREFIX
+                ),
             ),
             **kwargs,
         )
