@@ -298,7 +298,8 @@ class Accounting(BaseModule, ConsensusModule):
         if last_ref_slot:
             slots_elapsed = blockstamp.ref_slot - last_ref_slot
         else:
-            slots_elapsed = max(blockstamp.ref_slot - frame_config.initial_epoch * chain_conf.slots_per_epoch, 0)
+            # https://github.com/lidofinance/core/blob/master/contracts/0.8.9/oracle/HashConsensus.sol#L667
+            slots_elapsed = blockstamp.ref_slot - (frame_config.initial_epoch * chain_conf.slots_per_epoch - 1)
 
         return slots_elapsed
 
