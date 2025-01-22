@@ -197,7 +197,10 @@ class LidoValidatorsProvider(Module):
                 excess_active_balance_amount = 0
                 eth1_bridge_deposits_amount = all_deposits_amount - deposit_requests_amount - excess_active_balance_amount
 
-                assert eth1_bridge_deposits_amount >= 0
+                if eth1_bridge_deposits_amount < 0:
+                    raise ValueError(
+                        f'Negative eth1_bridge_deposits_amount: {eth1_bridge_deposits_amount=}. {v=}, {pending_deposits=}'
+                    )
 
                 total_pending_balance += eth1_bridge_deposits_amount
 
