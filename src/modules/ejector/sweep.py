@@ -32,10 +32,9 @@ def get_sweep_delay_in_epochs_post_pectra(state: BeaconStateView, spec: ChainCon
     It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
     """
 
-    slots_per_epoch = int(spec.slots_per_epoch)
-    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch)
+    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state, spec.slots_per_epoch)
     full_sweep_cycle_in_epochs = math.ceil(
-        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / slots_per_epoch
+        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch
     )
 
     return full_sweep_cycle_in_epochs // 2
