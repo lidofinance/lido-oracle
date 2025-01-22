@@ -278,7 +278,11 @@ class Accounting(BaseModule, ConsensusModule):
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
-        validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        if consensus_version in (1, 2):
+            validators_count, cl_balance = self._get_consensus_lido_state_pre_electra(blockstamp)
+        else:
+            validators_count, cl_balance = self._get_consensus_lido_state_post_electra(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
