@@ -44,30 +44,15 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 def test_calc_pending_deposits_sum(web3, lido_validators, contracts):
     lido_validators = LidoValidatorFactory.batch(30)
     lido_validators.extend(LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(5))
-
-    pending_deposits = ...
-
-    pending_deposits_sum = web3.lido_validators.calculate_pending_deposits_sum(lido_validators, pending_deposits)
-
-    expected = ...
-
-    assert pending_deposits_sum == expected
-
-
-@pytest.mark.unit
-def test_sum_pending_deposits_for_validator(web3, lido_validators, contracts):
-    validators = LidoValidatorFactory.batch(5)
     pending_deposits = [
-        *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.generate_for_validators(lido_validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.generate_for_validators(lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
         *PendingDepositFactory.batch(10),
     ]
 
-    one_validator, *_ = validators
+    pending_deposits_sum = web3.lido_validators.calculate_pending_deposits_sum(lido_validators, pending_deposits)
 
-    pending_deposits_sum = web3.lido_validators.sum_pending_deposits_for_validator(one_validator, pending_deposits)
-
-    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT * 2
+    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT * 5
 
 
 @pytest.mark.unit
@@ -81,9 +66,7 @@ def test_sum_pending_deposit_requests_for_validator(web3, lido_validators, contr
 
     one_validator, *_ = validators
 
-    pending_deposits_sum = web3.lido_validators.sum_pending_deposit_requests_for_validator(
-        one_validator, pending_deposits
-    )
+    pending_deposits_sum = web3.lido_validators.sum_eth1_bridge_deposits_amount(one_validator, pending_deposits)
 
     assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT
 

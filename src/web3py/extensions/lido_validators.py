@@ -191,44 +191,20 @@ class LidoValidatorsProvider(Module):
                 #
                 # For a NON ACTIVATED validator, there couldn't be any deposits that are excess ACTIVE balance.
                 # So for this validator, there could be only two types of deposits: deposit requests and Eth1 bridge deposits.
-
-                all_deposits_amount = LidoValidatorsProvider.sum_pending_deposits_for_validator(v, pending_deposits)
-                deposit_requests_amount = LidoValidatorsProvider.sum_pending_deposit_requests_for_validator(v, pending_deposits)
-                excess_active_balance_amount = 0
-                eth1_bridge_deposits_amount = all_deposits_amount - deposit_requests_amount - excess_active_balance_amount
-
-                if eth1_bridge_deposits_amount < 0:
-                    raise ValueError(
-                        f'Negative eth1_bridge_deposits_amount: {eth1_bridge_deposits_amount=}. {v=}, {pending_deposits=}'
-                    )
-
-                total_pending_balance += eth1_bridge_deposits_amount
+                total_pending_balance += LidoValidatorsProvider.sum_eth1_bridge_deposits_amount(v, pending_deposits)
 
         return Gwei(total_pending_balance)
 
     @staticmethod
-    def sum_pending_deposits_for_validator(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
-        """
-        Return the total amount of any pending deposits for the validator.
-        """
-        res = sum(
-            deposit.amount for deposit in pending_deposits
-            if deposit.pubkey == validator.validator.pubkey
-        )
-        return Gwei(res)
-
-    @staticmethod
-    def sum_pending_deposit_requests_for_validator(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
+    def sum_eth1_bridge_deposits_amount(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
         """
         Return the total amount of pending deposit requests for the validator.
         """
         res = sum(
             deposit.amount for deposit in pending_deposits
             if (
-                # Is for the validator
                 deposit.pubkey == validator.validator.pubkey and
-                # Is deposit request
-                deposit.slot > GENESIS_SLOT
+                deposit.slot == GENESIS_SLOT
             )
         )
         return Gwei(res)
