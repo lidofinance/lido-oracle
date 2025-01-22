@@ -30,7 +30,6 @@ class TestTransactionUtils:
 
         assert result is None
 
-
     @patch('src.web3py.extensions.tx_utils.prompt', return_value=True)
     @patch('src.web3py.extensions.TransactionUtils._sign_and_send_transaction')
     def test_manual_transaction_processing(self, mock_sign_send, mock_prompt, fake_transaction_utils):
@@ -44,8 +43,6 @@ class TestTransactionUtils:
         mock_prompt.assert_called()
         mock_sign_send.assert_called_with(transaction, params, account)
 
-
-    @pytest.mark.unit
     def test_check_transaction_reverted(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
@@ -55,7 +52,6 @@ class TestTransactionUtils:
         result = utils._check_transaction(transaction, params)
 
         assert result is False
-
 
     @patch('src.web3py.extensions.TransactionUtils._estimate_gas', return_value=None)
     def test_get_transaction_params_without_gas(self, mock_estimate_gas, fake_transaction_utils):
@@ -76,8 +72,6 @@ class TestTransactionUtils:
             assert 'gas' not in params
             assert params['nonce'] == 1
 
-
-    @pytest.mark.unit
     def test_estimate_gas_failure(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
@@ -86,8 +80,6 @@ class TestTransactionUtils:
 
         assert gas is None
 
-
-    @pytest.mark.unit
     @patch('src.web3py.extensions.TransactionUtils._handle_sent_transaction')
     def test_sign_and_send_transaction(self, mock_handle_sent, fake_transaction_utils):
         utils, account = fake_transaction_utils
@@ -110,8 +102,6 @@ class TestTransactionUtils:
         utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.rawTransaction)
         mock_handle_sent.assert_called_with(tx_hash)
 
-
-    @pytest.mark.unit
     def test_estimate_gas(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
@@ -124,8 +114,6 @@ class TestTransactionUtils:
         gas_amount = utils._estimate_gas(tx, account)
         assert gas_amount is None
 
-
-    @pytest.mark.unit
     def test_manual_tx_processing(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
@@ -134,8 +122,6 @@ class TestTransactionUtils:
         utils._manual_tx_processing(tx, {}, account)
         utils._sign_and_send_transaction.assert_called_once()
 
-
-    @pytest.mark.unit
     def test_manual_tx_processing_decline(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
@@ -144,8 +130,6 @@ class TestTransactionUtils:
         utils._manual_tx_processing(tx, {}, account)
         utils._sign_and_send_transaction.assert_not_called()
 
-
-    @pytest.mark.unit
     def test_daemon_check_and_send_transaction(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
@@ -158,8 +142,6 @@ class TestTransactionUtils:
             utils.check_and_send_transaction(tx, account)
             utils._sign_and_send_transaction.assert_not_called()
 
-
-    @pytest.mark.unit
     def test_find_transaction_timeout(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         utils.w3.eth.wait_for_transaction_receipt = MagicMock(side_effect=TimeExhausted())
@@ -180,8 +162,6 @@ class TestTransactionUtils:
 
         assert utils._handle_sent_transaction('0x000001')
 
-
-    @pytest.mark.unit
     def test_get_tx_params(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         gas_amount = 1000
