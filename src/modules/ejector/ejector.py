@@ -212,12 +212,12 @@ class Ejector(BaseModule, ConsensusModule):
             sum(
                 self._get_predicted_withdrawable_balance(v)
                 for v in lido_validators
-                if is_fully_withdrawable_validator(v, on_epoch)
+                if is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), on_epoch)
             )
         )
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Gwei:
-        return Gwei(min(int(validator.balance), get_max_effective_balance(validator)))
+        return Gwei(min(int(validator.balance), get_max_effective_balance(validator.validator)))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -350,7 +350,7 @@ class Ejector(BaseModule, ConsensusModule):
         return [
             v
             for v in self.w3.cc.get_validators(blockstamp)
-            if is_partially_withdrawable_validator(v) or is_fully_withdrawable_validator(v, blockstamp.ref_epoch)
+            if is_partially_withdrawable_validator(v.validator, Gwei(int(v.balance))) or is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), blockstamp.ref_epoch)
         ]
 
     @lru_cache(maxsize=1)
