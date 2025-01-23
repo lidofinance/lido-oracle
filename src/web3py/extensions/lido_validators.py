@@ -176,13 +176,19 @@ class LidoValidatorsProvider(Module):
         total_pending_balance = 0
         for v in lido_validators:
             if (
-                # An non activated validator with a zero balance can occur in two cases:
-                # 1. A validator whose balance was moved to the pending_deposits queue during the Electra hardfork activation
-                #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
-                # 2. A validator whose deposit was processed after the Electra hardfork activation through the former Eth1 bridge
-                #    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
-                int(v.validator.effective_balance) < LIDO_DEPOSIT_AMOUNT and
-                int(v.validator.activation_epoch) == FAR_FUTURE_EPOCH
+                # The oracle reports the number of validators in the registry and their total balance.
+                # During and shortly after the Electra fork activation, validators may be added to
+                # the registry without having ETH in their balance. The deposited ETH will be placed
+                # in the pending_deposits queue.
+                #
+                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
+                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
+
+                # Validator is not activated
+                v.validator.activation_epoch == FAR_FUTURE_EPOCH and
+
+                # It has unexpected balance for non-activated validator
+                v.validator.effective_balance < LIDO_DEPOSIT_AMOUNT
             ):
                 # Pending deposits may contain:
                 # - Deposit requests:      https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#deposit-requests
