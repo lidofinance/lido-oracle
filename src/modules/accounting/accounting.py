@@ -216,7 +216,6 @@ class Accounting(BaseModule, ConsensusModule):
         total_balance = sum(int(validator.balance) for validator in lido_validators)
         logger.info({'msg': 'Calculate Lido active balance (in Gwei)', 'value': total_balance})
 
-
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         if consensus_version > 2:
             spec = self.w3.cc.get_config_spec()
