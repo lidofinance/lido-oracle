@@ -15,6 +15,7 @@ authors = [
     "Vladimir Gorkavenko",
 ]
 license = "GPL 3.0"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -57,6 +58,7 @@ markers = [
     "integration: tests with using providers",
     "possible_integration: tests with using providers, but can be run using mocks",
     "e2e: complex tests with using providers and real Ethereum network",
+    "fork: tests with using forked Ethereum network",
 ]
 addopts = "-s -vv --pdbcls pudb.debugger:Debugger"
 

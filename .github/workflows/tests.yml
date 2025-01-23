@@ -31,7 +31,7 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Test with pytest
-        run: poetry run pytest -m 'not fork' --cov=src tests
+        run: poetry run pytest --cov=src tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}

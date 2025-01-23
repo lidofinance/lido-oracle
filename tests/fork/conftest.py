@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import get_args, cast
 
 import pytest
+from _pytest.nodes import Item
 from eth_account import Account
 from web3 import Web3
 from web3.middleware import construct_simple_cache_middleware
@@ -39,6 +40,18 @@ logger = logger.getChild("fork")
 class TestRunningException(Exception):
     pass
 
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_collection_modifyitems(items: list[Item]):
+    yield
+    if any(not item.get_closest_marker("fork") for item in items):
+        for item in items:
+            if item.get_closest_marker("fork"):
+                item.add_marker(
+                    pytest.mark.skip(
+                        reason="fork tests are take a lot of time and skipped if any other tests are selected"
+                    )
+                )
 
 #
 # Global
