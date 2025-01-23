@@ -60,7 +60,7 @@ class CSOracle(BaseModule, ConsensusModule):
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 2)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
 
     report_contract: CSFeeOracleContract
     module_id: StakingModuleId
