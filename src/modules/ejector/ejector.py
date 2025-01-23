@@ -269,7 +269,7 @@ class Ejector(BaseModule, ConsensusModule):
     ) -> EpochNumber:
         per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
         activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
-        state_view = self.w3.cc.get_state_view(blockstamp.state_root)
+        state_view = self.w3.cc.get_state_view(blockstamp)
 
         if state_view.earliest_exit_epoch < activation_exit_epoch:
             earliest_exit_epoch = activation_exit_epoch
