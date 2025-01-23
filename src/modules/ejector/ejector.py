@@ -31,6 +31,7 @@ from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.units import gwei_to_wei, wei_to_gwei
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -125,16 +126,16 @@ class Ejector(BaseModule, ConsensusModule):
         validators_iterator = iter(self.get_validators_iterator(consensus_version, blockstamp))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
-        validator_to_eject_balance_sum = 0
+        total_balance_to_eject_wei = 0
 
         try:
             while expected_balance < to_withdraw_amount:
                 gid, next_validator = next(validators_iterator)
                 validators_to_eject.append((gid, next_validator))
-                validator_to_eject_balance_sum += self.w3.to_wei(self._get_predicted_withdrawable_balance(next_validator), "gwei")
-                expected_balance = (
+                total_balance_to_eject_wei += self._get_predicted_withdrawable_balance(next_validator)
+                expected_balance = Wei(
                     self._get_total_expected_balance([v for (_, v) in validators_to_eject], blockstamp)
-                    + validator_to_eject_balance_sum
+                    + total_balance_to_eject_wei
                 )
         except StopIteration:
             pass
@@ -153,7 +154,7 @@ class Ejector(BaseModule, ConsensusModule):
 
         return validators_to_eject
 
-    def _get_total_expected_balance(self, vals_to_exit: list[Validator], blockstamp: ReferenceBlockStamp):
+    def _get_total_expected_balance(self, vals_to_exit: list[Validator], blockstamp: ReferenceBlockStamp) -> Wei:
         chain_config = self.get_chain_config(blockstamp)
 
         validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exited_validators(blockstamp, chain_config)
@@ -180,7 +181,7 @@ class Ejector(BaseModule, ConsensusModule):
         total_available_balance = self._get_total_el_balance(blockstamp)
         logger.info({'msg': 'Calculate el balance.', 'value': total_available_balance})
 
-        return future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance
+        return Wei(future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance)
 
     def get_validators_iterator(self, consensus_version: int,  blockstamp: ReferenceBlockStamp):
         chain_config = self.get_chain_config(blockstamp)
@@ -207,16 +208,17 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
-        return Wei(
-            sum(
+        return sum(
+            (
                 self._get_predicted_withdrawable_balance(v)
                 for v in lido_validators
                 if is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), on_epoch)
-            )
+            ),
+            Wei(0),
         )
 
-    def _get_predicted_withdrawable_balance(self, validator: Validator) -> Gwei:
-        return Gwei(min(int(validator.balance), get_max_effective_balance(validator.validator)))
+    def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
+        return gwei_to_wei(min(Gwei(int(validator.balance)), get_max_effective_balance(validator.validator)))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -267,7 +269,7 @@ class Ejector(BaseModule, ConsensusModule):
     ) -> EpochNumber:
         per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
         activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
-        state_view = self.w3.cc.get_state_view(blockstamp.state_root)
+        state_view = self.w3.cc.get_state_view(blockstamp)
 
         if state_view.earliest_exit_epoch < activation_exit_epoch:
             earliest_exit_epoch = activation_exit_epoch
@@ -276,7 +278,9 @@ class Ejector(BaseModule, ConsensusModule):
             earliest_exit_epoch = state_view.earliest_exit_epoch
             exit_balance_to_consume = state_view.exit_balance_to_consume
 
-        exit_balance = sum(self._get_predicted_withdrawable_balance(v) for v in validators_to_eject)
+        exit_balance = wei_to_gwei(
+            sum((self._get_predicted_withdrawable_balance(v) for v in validators_to_eject), Wei(0))
+        )
         balance_to_process = max(0, exit_balance - exit_balance_to_consume)
         additional_epochs = math.ceil(balance_to_process / per_epoch_churn)
 

@@ -14,6 +14,7 @@ from src.services.bunker_cases.types import BunkerConfig
 from src.types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
 from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
+from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
@@ -219,9 +220,7 @@ class AbnormalClRebase:
         Get Lido validator balance with withdrawals vault balance
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
-        withdrawals_vault_balance = int(
-            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
-        )
+        withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
         total_balance = real_cl_balance + withdrawals_vault_balance
 
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
@@ -265,10 +264,10 @@ class AbnormalClRebase:
             logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
             return Gwei(0)
 
-        vault_withdrawals = int(self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei'))
+        vault_withdrawals = wei_to_gwei(events[0]['args']['withdrawalsWithdrawn'])
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
 
-        return Gwei(vault_withdrawals)
+        return vault_withdrawals
 
     def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
         """Get ETHDistributed events between blocks"""

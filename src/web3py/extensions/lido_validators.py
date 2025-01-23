@@ -172,7 +172,7 @@ class LidoValidatorsProvider(Module):
         return lido_validators
 
     @staticmethod
-    def calculate_total_eth1_bridge_deposits_amount(lido_validators: list[LidoValidator], pending_deposits: list[PendingDeposit]) -> int:
+    def calculate_total_eth1_bridge_deposits_amount(lido_validators: list[LidoValidator], pending_deposits: list[PendingDeposit]) -> Gwei:
         total_eth1_bridge_deposits_amount = 0
         for v in lido_validators:
             if (

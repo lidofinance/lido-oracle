@@ -7,6 +7,7 @@ from web3.exceptions import ContractCustomError
 from src import constants
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
+    GWEI_TO_WEI,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MAX_SEED_LOOKAHEAD,
@@ -383,7 +384,7 @@ def test_get_withdrawable_lido_validators_balance(
         )
 
         result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
-        assert result == 42, "Unexpected withdrawable amount"
+        assert result == 42 * GWEI_TO_WEI, "Unexpected withdrawable amount"
 
         ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
         ejector.w3.lido_validators.get_lido_validators.assert_called_once()
@@ -397,18 +398,18 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
 
     validator = LidoValidatorFactory.build_with_balance(Gwei(42))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == 42, "Expected validator's balance in gwei"
+    assert result == 42 * GWEI_TO_WEI, "Expected validator's balance in gwei"
 
     validator = LidoValidatorFactory.build_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
+    assert result == MAX_EFFECTIVE_BALANCE * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE"
 
     validator = LidoValidatorFactory.build_with_balance(
         Gwei(MAX_EFFECTIVE_BALANCE + 1),
         meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
     )
     result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE + 1, "Expect MAX_EFFECTIVE_BALANCE + 1"
+    assert result == (MAX_EFFECTIVE_BALANCE + 1) * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
 @pytest.mark.unit
