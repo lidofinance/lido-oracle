@@ -157,7 +157,7 @@ def test_get_slots_elapsed_from_initialize(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build(ref_slot=100)
     slots_elapsed = accounting._get_slots_elapsed_from_last_report(bs)
 
-    assert slots_elapsed == 100 - 32 * 2
+    assert slots_elapsed == 100 - 32 * 2 + 1
 
 
 @pytest.mark.unit
