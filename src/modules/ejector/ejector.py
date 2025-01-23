@@ -40,7 +40,6 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
 )
-from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
