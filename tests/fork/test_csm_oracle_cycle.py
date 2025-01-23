@@ -1,5 +1,3 @@
-import subprocess
-
 import pytest
 
 from src.modules.csm.csm import CSOracle
@@ -18,7 +16,6 @@ def hash_consensus_bin():
 @pytest.fixture()
 def csm_module(web3: Web3):
     yield CSOracle(web3)
-    subprocess.run(['rm', 'cache.pkl'], check=True)
 
 
 @pytest.fixture

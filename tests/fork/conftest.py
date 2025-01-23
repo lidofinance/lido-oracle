@@ -2,6 +2,7 @@ import json
 import subprocess
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import get_args, cast
 
 import pytest
@@ -82,6 +83,26 @@ def set_delay_and_sleep(monkeypatch):
         )
         logger.info("TESTRUN Set SUBMIT_DATA_DELAY_IN_SLOTS and CYCLE_SLEEP_IN_SECONDS to 0")
         yield
+
+
+@pytest.fixture(autouse=True)
+def set_cache_path(monkeypatch, testrun_path):
+    with monkeypatch.context():
+        monkeypatch.setattr(
+            variables,
+            "CACHE_PATH",
+            Path(testrun_path),
+        )
+        logger.info(f"TESTRUN Set CACHE_PATH to {testrun_path}")
+        yield
+
+
+@pytest.fixture
+def testrun_path(testrun_uid):
+    path = f"./testrun_{testrun_uid}"
+    subprocess.run(['mkdir', path])
+    yield path
+    subprocess.run(['rm', '-rf', path], check=True)
 
 
 #
@@ -174,14 +195,14 @@ def blockstamp_for_forking(
 
 
 @pytest.fixture()
-def forked_el_client(blockstamp_for_forking: BlockStamp):
+def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str):
     port = Faker().random_int(min=10000, max=20000)
     cli_params = [
         'anvil',
         '--port',
         str(port),
         '--config-out',
-        'localhost.json',
+        f'{testrun_path}/localhost.json',
         '--auto-impersonate',
         '-f',
         variables.EXECUTION_CLIENT_URI[0],
@@ -200,7 +221,6 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
         yield web3
         process.terminate()
         process.wait()
-        subprocess.run(['rm', 'localhost.json'], check=True)
 
 
 @pytest.fixture()
@@ -232,8 +252,8 @@ def mocked_ipfs_client(monkeypatch):
 
 
 @pytest.fixture()
-def accounts_from_fork(forked_el_client):
-    with open('localhost.json') as f:
+def accounts_from_fork(forked_el_client, testrun_path):
+    with open(f'{testrun_path}/localhost.json') as f:
         data = json.load(f)
         addresses = data['available_accounts']
         private_keys = data['private_keys']
