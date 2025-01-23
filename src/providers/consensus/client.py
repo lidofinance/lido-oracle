@@ -46,7 +46,6 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_ROOT = 'eth/v1/beacon/blocks/{}/root'
     API_GET_BLOCK_HEADER = 'eth/v1/beacon/headers/{}'
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
-    API_GET_BLOCK_ATTESTATIONS = 'eth/v1/beacon/blocks/{}/attestations'
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
@@ -114,15 +113,15 @@ class ConsensusClient(HTTPProvider):
         self,
         state_id: SlotNumber | BlockRoot,
     ) -> list[BlockAttestation]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations"""
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
-            self.API_GET_BLOCK_ATTESTATIONS,
+            self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
         )
-        if not isinstance(data, list):
-            raise ValueError("Expected list response from getBlockAttestations")
-        return [BlockAttestationResponse.from_response(**att) for att in data]
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getBlockV2")
+        return [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
