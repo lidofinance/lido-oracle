@@ -39,6 +39,7 @@ from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
@@ -289,7 +290,7 @@ class Accounting(BaseModule, ConsensusModule):
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
             # CL values
             validators_count,  # _clValidators
-            Web3.to_wei(cl_balance, 'gwei'),  # _clBalance
+            gwei_to_wei(cl_balance),  # _clBalance
             # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
             el_rewards,  # _elRewardsVaultBalance

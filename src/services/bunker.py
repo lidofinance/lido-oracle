@@ -1,6 +1,8 @@
 import logging
 
-from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
+from web3.types import Wei
+
+from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.validators import (
     ALL_VALIDATORS,
     LIDO_VALIDATORS,
@@ -16,6 +18,7 @@ from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
 from src.types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.utils.units import wei_to_gwei
 from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3
 
@@ -96,11 +99,11 @@ class BunkerService:
         """
         logger.info({"msg": "Getting CL rebase for frame"})
         before_report_total_pooled_ether = self.w3.lido_contracts.lido.total_supply(blockstamp.block_hash)
+        rebase_diff = Wei(simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether)
 
-        # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
+        frame_cl_rebase = wei_to_gwei(rebase_diff)
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
-        return Gwei(frame_cl_rebase)
+        return frame_cl_rebase
 
     def _get_config(self, blockstamp: BlockStamp) -> BunkerConfig:
         """Get config values from OracleDaemonConfig contract"""
