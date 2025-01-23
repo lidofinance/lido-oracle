@@ -58,11 +58,30 @@ def pytest_collection_modifyitems(items: list[Item]):
 #
 # Global
 #
+
+
 @pytest.fixture(autouse=True)
 def clean_global_cache_after_test():
     yield
     logger.info("TESTRUN Clear global LRU functions cache (Autoused)")
     clear_global_cache()
+
+
+@pytest.fixture(autouse=True)
+def set_delay_and_sleep(monkeypatch):
+    with monkeypatch.context():
+        monkeypatch.setattr(
+            variables,
+            "SUBMIT_DATA_DELAY_IN_SLOTS",
+            0,
+        )
+        monkeypatch.setattr(
+            variables,
+            "CYCLE_SLEEP_IN_SECONDS",
+            0,
+        )
+        logger.info("TESTRUN Set SUBMIT_DATA_DELAY_IN_SLOTS and CYCLE_SLEEP_IN_SECONDS to 0")
+        yield
 
 
 #
@@ -171,7 +190,7 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
     ]
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
-        logger.info(f"TESTRUN Started fork from block {blockstamp_for_forking.block_number}")
+        logger.info(f"TESTRUN Started fork on {port=} from {blockstamp_for_forking.block_number=}")
         web3 = Web3(MultiProvider([f'http://127.0.0.1:{port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.middleware_onion.add(construct_simple_cache_middleware())
