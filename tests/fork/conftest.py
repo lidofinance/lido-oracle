@@ -7,6 +7,7 @@ from typing import get_args, cast
 import pytest
 from _pytest.nodes import Item
 from eth_account import Account
+from faker.proxy import Faker
 from web3 import Web3
 from web3.middleware import construct_simple_cache_middleware
 from web3.types import RPCEndpoint
@@ -154,8 +155,11 @@ def blockstamp_for_forking(
 
 @pytest.fixture()
 def forked_el_client(blockstamp_for_forking: BlockStamp):
+    port = Faker().random_int(min=10000, max=20000)
     cli_params = [
         'anvil',
+        '--port',
+        str(port),
         '--config-out',
         'localhost.json',
         '--auto-impersonate',
@@ -167,7 +171,7 @@ def forked_el_client(blockstamp_for_forking: BlockStamp):
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
         logger.info(f"TESTRUN Started fork from block {blockstamp_for_forking.block_number}")
-        web3 = Web3(MultiProvider(['http://127.0.0.1:8545'], request_kwargs={'timeout': 5 * 60}))
+        web3 = Web3(MultiProvider([f'http://127.0.0.1:{port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.middleware_onion.add(construct_simple_cache_middleware())
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])

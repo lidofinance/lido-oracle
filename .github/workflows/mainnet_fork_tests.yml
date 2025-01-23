@@ -45,7 +45,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Mainnet Fork Tests
-        run: poetry run pytest -m 'fork' tests
+        run: poetry run pytest -m 'fork' -n auto tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
