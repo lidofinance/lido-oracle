@@ -230,7 +230,7 @@ class AbnormalClRebase:
             spec = self.w3.cc.get_config_spec()
             if epoch >= int(spec.ELECTRA_FORK_EPOCH):
                 state = self.w3.cc.get_state_view(blockstamp)
-                pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(
+                pending_deposits_sum = LidoValidatorsProvider.calculate_total_eth1_bridge_deposits_amount(
                     lido_validators, state.pending_deposits
                 )
                 total_balance += pending_deposits_sum

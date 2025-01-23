@@ -215,21 +215,22 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_balance = sum(int(validator.balance) for validator in lido_validators)
-        logger.info({'msg': 'Calculate Lido active balance (in Gwei)', 'value': total_balance})
+        total_lido_balance = lido_validators_state_balance = sum(int(validator.balance) for validator in lido_validators)
+        logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
 
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         if consensus_version > 2:
             spec = self.w3.cc.get_config_spec()
             if blockstamp.ref_epoch >= int(spec.ELECTRA_FORK_EPOCH):
                 state = self.w3.cc.get_state_view(blockstamp)
-                pending_deposits = self.w3.lido_validators.calculate_pending_deposits_sum(
+                total_lido_eth1_bridge_deposits_amount = self.w3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
                     lido_validators, state.pending_deposits
                 )
-                logger.info({'msg': 'Calculate Lido pending deposits (in Gwei)', 'value': pending_deposits})
-                total_balance += pending_deposits
+                logger.info({'msg': 'Calculate Lido eth1 bridge deposits (in Gwei)', 'value': total_lido_eth1_bridge_deposits_amount})
+                total_lido_balance += total_lido_eth1_bridge_deposits_amount
+                logger.info({'msg': 'Calculate total Lido balance on CL (in Gwei)', 'value': total_lido_balance})
 
-        return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_balance))
+        return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
         simulation = self.simulate_full_rebase(blockstamp)
