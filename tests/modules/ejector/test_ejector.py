@@ -84,7 +84,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 @pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
@@ -142,15 +142,6 @@ class TestGetValidatorsToEject:
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=10)
 
         with monkeypatch.context() as m:
-            m.setattr(
-                ejector_module.ExitOrderIterator,
-                "__iter__",
-                Mock(return_value=iter([])),
-            )
-            result = ejector.get_validators_to_eject(ref_blockstamp)
-            assert result == [], "Unexpected validators to eject"
-
-        with monkeypatch.context() as m:
             ejector.get_consensus_version = Mock(return_value=2)
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
@@ -187,16 +178,6 @@ class TestGetValidatorsToEject:
             ((StakingModuleId(0), NodeOperatorId(3)), LidoValidatorFactory.build()),
             ((StakingModuleId(0), NodeOperatorId(5)), LidoValidatorFactory.build()),
         ]
-
-        with monkeypatch.context() as m:
-            ejector.get_consensus_version = Mock(return_value=1)
-            m.setattr(
-                ejector_module.ExitOrderIterator,
-                "__iter__",
-                Mock(return_value=iter(validators)),
-            )
-            result = ejector.get_validators_to_eject(ref_blockstamp)
-            assert result == [validators[0]], "Unexpected validators to eject"
 
         with monkeypatch.context() as m:
             ejector.get_consensus_version = Mock(return_value=2)

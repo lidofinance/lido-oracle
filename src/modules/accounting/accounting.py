@@ -57,7 +57,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validators count by each node operator.
     """
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (2, 2), (2, 3)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -168,14 +168,12 @@ class Accounting(BaseModule, ConsensusModule):
     def _calculate_report(self, blockstamp: ReferenceBlockStamp):
         consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
         logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
+        rebase_part = self._calculate_rebase_report(blockstamp)
+        modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
+        wq_part = self._calculate_wq_report(blockstamp)
 
-        # Have branching at a high level when collecting a report
-        # or in the `execute_module` method
-        if consensus_version == 1:
-            report_data = self._calculate_report_v1(blockstamp)
-        else:
-            report_data = self._calculate_report_latest_version(consensus_version, blockstamp)
-
+        extra_data_part = self._calculate_extra_data_report(blockstamp)
+        report_data = self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part)
         self._update_metrics(report_data)
         return report_data
 
@@ -367,27 +365,6 @@ class Accounting(BaseModule, ConsensusModule):
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
         return stuck_validators, exited_validators, orl
 
-    def _calculate_report_v1(self, blockstamp: ReferenceBlockStamp) -> ReportData:
-        # Separate parts of the report into separate methods.
-        # This way we can reuse the identical parts when collecting reports
-        # for different consensus versions without unnecessary code duplication.
-        rebase_part = self._calculate_rebase_report(blockstamp)
-        modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
-        wq_part = self._calculate_wq_report(blockstamp)
-
-        # Distinct parts explicitly labeled by version
-        # So at the top level it is clear in which parts the reports will differ
-        extra_data_part_v1 = self._calculate_extra_data_report_v1(blockstamp)
-        return self._combine_report_parts(1, blockstamp, rebase_part, modules_part, wq_part, extra_data_part_v1)
-
-    def _calculate_report_latest_version(self, consensus_version: int, blockstamp: ReferenceBlockStamp) -> ReportData:
-        rebase_part = self._calculate_rebase_report(blockstamp)
-        modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
-        wq_part = self._calculate_wq_report(blockstamp)
-
-        extra_data_part = self._calculate_extra_data_report(blockstamp)
-        return self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part)
-
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
@@ -401,15 +378,6 @@ class Accounting(BaseModule, ConsensusModule):
         is_bunker = self._is_bunker(blockstamp)
         finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
         return is_bunker, finalization_share_rate, finalization_batches
-
-    def _calculate_extra_data_report_v1(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
-        return ExtraDataService.collect(
-            stuck_validators,
-            exited_validators,
-            orl.max_items_per_extra_data_transaction,
-            orl.max_node_operators_per_extra_data_item,
-        )
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)

@@ -61,7 +61,7 @@ class MidtermSlashingPenalty:
         total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
 
         # Calculate sum of Lido midterm penalties in each future frame
-        if consensus_version in (1, 2):
+        if consensus_version < 3:
             frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames_pre_electra(
                 blockstamp.ref_epoch, all_slashed_validators, total_balance, future_frames_lido_validators
             )

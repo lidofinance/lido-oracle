@@ -40,7 +40,6 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
 )
-from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -65,7 +64,7 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2), (1, 3)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 2), (1, 3)]
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
@@ -147,11 +146,10 @@ class Ejector(BaseModule, ConsensusModule):
             'validators_to_eject_count': len(validators_to_eject),
         })
 
-        if self.get_consensus_version(blockstamp) != 1:
-            forced_validators = validators_iterator.get_remaining_forced_validators()
-            if forced_validators:
-                logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
-                validators_to_eject.extend(forced_validators)
+        forced_validators = validators_iterator.get_remaining_forced_validators()
+        if forced_validators:
+            logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
+            validators_to_eject.extend(forced_validators)
 
         return validators_to_eject
 
@@ -320,9 +318,8 @@ class Ejector(BaseModule, ConsensusModule):
         """Returns amount of epochs that will take to sweep all validators in chain."""
         spec = self.w3.cc.get_config_spec()
         chain_config = self.get_chain_config(blockstamp)
-        current_epoch = epoch_from_slot(blockstamp.slot_number, chain_config.slots_per_epoch)
         electra_epoch = int(spec.ELECTRA_FORK_EPOCH)
-        if self.get_consensus_version(blockstamp) in (1, 2) or current_epoch < electra_epoch:
+        if self.get_consensus_version(blockstamp) < 3 or blockstamp.ref_epoch < electra_epoch:
             return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs_post_pectra(state, chain_config)
