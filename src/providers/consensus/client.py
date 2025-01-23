@@ -114,16 +114,14 @@ class ConsensusClient(HTTPProvider):
         state_id: SlotNumber | BlockRoot,
     ) -> list[BlockAttestation]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
-        data = cast(TransientStreamingJSONObject, self._get(
+        data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            stream=True,
-        ))
-        return [
-            BlockAttestationResponse.from_response(**att)
-            for att in data["data"]["message"]["body"]["attestations"].persistent()
-        ]
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getBlockV2")
+        return [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
