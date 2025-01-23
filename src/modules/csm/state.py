@@ -8,7 +8,7 @@ from typing import Self
 
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
-from src.variables import CACHE_PATH
+from src import variables
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class State:
 
     @classmethod
     def file(cls) -> Path:
-        return CACHE_PATH / Path("cache").with_suffix(cls.EXTENSION)
+        return variables.CACHE_PATH / Path("cache").with_suffix(cls.EXTENSION)
 
     @property
     def buffer(self) -> Path:

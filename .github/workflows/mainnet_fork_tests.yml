@@ -1,0 +1,56 @@
+name: Mainnet Fork Tests
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - closed
+    branches:
+      - main
+      - develop
+    paths:
+      - "src/**"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Setup poetry
+        run: >
+          curl -sSL https://install.python-poetry.org | python - &&
+          echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
+        env:
+          POETRY_HOME: "/opt/poetry"
+          POETRY_VERSION: 1.3.2
+
+      - name: Install Python dependencies
+        run: |
+          poetry install --no-interaction --with=dev
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Mainnet Fork Tests
+        run: poetry run pytest -m 'fork' -n auto tests
+        env:
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
+          CSM_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+
