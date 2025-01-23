@@ -100,7 +100,7 @@ def set_cache_path(monkeypatch, testrun_path):
 @pytest.fixture
 def testrun_path(testrun_uid):
     path = f"./testrun_{testrun_uid}"
-    subprocess.run(['mkdir', path])
+    subprocess.run(['mkdir', path], check=True)
     yield path
     subprocess.run(['rm', '-rf', path], check=True)
 
