@@ -112,7 +112,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
             return ReportData(
-                self.report_contract.get_consensus_version(blockstamp.block_hash),
+                self.get_consensus_version(blockstamp),
                 blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
@@ -131,7 +131,7 @@ class CSOracle(BaseModule, ConsensusModule):
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
-            self.report_contract.get_consensus_version(blockstamp.block_hash),
+            self.get_consensus_version(blockstamp),
             blockstamp.ref_slot,
             tree_root=tree.root,
             tree_cid=tree_cid,

@@ -104,7 +104,7 @@ class Ejector(BaseModule, ConsensusModule):
         data, data_format = encode_data(validators)
 
         report_data = ReportData(
-            self.report_contract.get_consensus_version(blockstamp.block_hash),
+            self.get_consensus_version(blockstamp),
             blockstamp.ref_slot,
             len(validators),
             data_format,

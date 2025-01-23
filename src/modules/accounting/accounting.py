@@ -167,7 +167,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     # ---------------------------------------- Build report ----------------------------------------
     def _calculate_report(self, blockstamp: ReferenceBlockStamp):
-        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
+        consensus_version = self.get_consensus_version(blockstamp)
         logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
