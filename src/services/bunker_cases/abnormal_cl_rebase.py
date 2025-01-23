@@ -224,16 +224,14 @@ class AbnormalClRebase:
         )
         total_balance = real_cl_balance + withdrawals_vault_balance
 
-        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
-        if consensus_version > 2:
-            epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
-            spec = self.w3.cc.get_config_spec()
-            if epoch >= int(spec.ELECTRA_FORK_EPOCH):
-                state = self.w3.cc.get_state_view(blockstamp)
-                pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(
-                    lido_validators, state.pending_deposits
-                )
-                total_balance += pending_deposits_sum
+        epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
+        spec = self.w3.cc.get_config_spec()
+        if epoch >= int(spec.ELECTRA_FORK_EPOCH):
+            state = self.w3.cc.get_state_view(blockstamp)
+            pending_deposits_sum = LidoValidatorsProvider.calculate_pending_deposits_sum(
+                lido_validators, state.pending_deposits
+            )
+            total_balance += pending_deposits_sum
 
         return Gwei(total_balance)
 

@@ -197,6 +197,7 @@ def test_compatible_contract_version(consensus):
     bs = ReferenceBlockStampFactory.build()
 
     consensus._check_compatability = Mock()
+    consensus.get_consensus_version = Mock(return_value=2)
     consensus._check_contract_versions(bs)
 
     assert consensus._check_compatability.call_count == 2
@@ -210,6 +211,7 @@ def test_incompatible_contract_version(consensus):
 
     consensus.report_contract.get_contract_version = Mock(return_value=2)
     consensus.report_contract.get_consensus_version = Mock(return_value=1)
+    consensus.get_consensus_version = Mock(return_value=2)
 
     with pytest.raises(IncompatibleOracleVersion):
         consensus._check_contract_versions(bs)
@@ -219,6 +221,7 @@ def test_incompatible_contract_version(consensus):
 def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: ConsensusModule, caplog):
     bs = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=bs)
+    consensus.get_consensus_version = Mock(return_value=2)
     consensus._check_contract_versions = Mock(return_value=True)
     consensus.is_contract_reportable = Mock(return_value=False)
 
