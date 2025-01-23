@@ -1,4 +1,4 @@
-name: Fork Tests
+name: Mainnet Fork Tests
 
 on:
   pull_request:
@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
       - closed
     branches:
       - main
@@ -45,7 +44,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Fork tests
+      - name: Mainnet Fork Tests
         run: poetry run pytest -m 'fork' tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
