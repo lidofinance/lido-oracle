@@ -3,8 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 
-Oracle daemon for Lido decentralized staking service: Monitoring the state of the protocol across both layers and submitting regular update
-reports to the Lido smart contracts.
+Oracle daemon for Lido decentralized staking service: Monitoring the state of the protocol across both layers and submitting regular update reports to the Lido smart contracts.
 
 ## How it works
 
@@ -16,8 +15,7 @@ There are 3 modules in the oracle:
 
 ### Accounting module
 
-Accounting module updates the protocol TVL, distributes node-operator rewards, updates information about the number of exited and stuck
-validators and processes user withdrawal requests.
+Accounting module updates the protocol TVL, distributes node-operator rewards, updates information about the number of exited and stuck validators and processes user withdrawal requests.
 Also Accounting module makes decision to turn on/off the bunker.
 
 **Flow**
@@ -39,8 +37,7 @@ The frame includes these stages:
 
 ### Ejector module
 
-Ejector module requests Lido validators to eject via events in Execution Layer when the protocol requires additional funds to process user
-withdrawals.
+Ejector module requests Lido validators to eject via events in Execution Layer when the protocol requires additional funds to process user withdrawals.
 
 **Flow**
 
@@ -69,8 +66,7 @@ Oracle + KAPI:
 
 ### Execution Client Node
 
-To prepare the report, Oracle fetches up to 10 days old events, makes historical requests for balance data and makes simulated reports on
-historical blocks. This requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) execution node.
+To prepare the report, Oracle fetches up to 10 days old events, makes historical requests for balance data and makes simulated reports on historical blocks. This requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) execution node.
 Oracle needs two weeks of archived data.
 
 | Client                                          | Tested | Notes                                                                                                                                                                           |
@@ -82,8 +78,7 @@ Oracle needs two weeks of archived data.
 
 ### Consensus Client Node
 
-Also, to calculate some metrics for bunker mode Oracle
-needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
+Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
 
 | Client                                          | Tested | Notes                                                                                                                                           |
 |-------------------------------------------------|:------:|-------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -95,8 +90,7 @@ needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archi
 
 ### Keys API Service
 
-This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in
-database.
+This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
 
 [Lido Keys API repository.](https://github.com/lidofinance/lido-keys-api)
 
@@ -109,11 +103,9 @@ Pull the image using the following command:
 docker pull lidofinance/oracle:{tag}
 ```
 
-Where `{tag}` is a version of the image. You can find the latest version in
-the [releases](https://github.com/lidofinance/lido-oracle/releases)
+Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
 **OR**\
-You can build it locally using the following command (make sure build it from
-latest [release](https://github.com/lidofinance/lido-oracle/releases)):
+You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
 ```bash
 docker build -t lidofinance/oracle .
@@ -133,17 +125,16 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    and your environment is ready to run the oracle.
 
 ## Run the oracle
-
 1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
-   To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` environment variable:
+    To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` environment variable:
     ```
     MEMBER_PRIV_KEY={value}
     ```
-   Where `{value}` is a private key of the Oracle member account or:
+    Where `{value}` is a private key of the Oracle member account or:
     ```
     MEMBER_PRIV_KEY_FILE={path}
     ```
-   Where `{path}` is a path to the private key of the Oracle member account.
+    Where `{path}` is a path to the private key of the Oracle member account.
 2. Run the container using the following command:
 
    ```bash
@@ -213,7 +204,6 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                     |
 
 ### Mainnet variables
-
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
 
