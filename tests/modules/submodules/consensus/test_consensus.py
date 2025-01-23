@@ -209,7 +209,7 @@ def test_incompatible_contract_version(consensus):
     bs = ReferenceBlockStampFactory.build()
 
     consensus.report_contract.get_contract_version = Mock(return_value=2)
-    consensus.report_contract.get_consensus_version = Mock(return_value=2)
+    consensus.report_contract.get_consensus_version = Mock(return_value=1)
 
     with pytest.raises(IncompatibleOracleVersion):
         consensus._check_contract_versions(bs)
