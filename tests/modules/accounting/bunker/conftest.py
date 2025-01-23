@@ -27,7 +27,14 @@ def simple_key(pubkey: str) -> LidoKey:
 
 
 def simple_validator(
-    index, pubkey, balance, slashed=False, withdrawable_epoch='', exit_epoch='100500', activation_epoch="0"
+    index,
+    pubkey,
+    balance,
+    slashed=False,
+    withdrawable_epoch='',
+    exit_epoch='100500',
+    activation_epoch="0",
+    effective_balance=str(32 * 10**9),
 ) -> Validator:
     return Validator(
         index=str(index),
@@ -35,7 +42,7 @@ def simple_validator(
         validator=ValidatorState(
             pubkey=pubkey,
             withdrawal_credentials='',
-            effective_balance=str(32 * 10**9),
+            effective_balance=effective_balance,
             slashed=slashed,
             activation_eligibility_epoch='',
             activation_epoch=activation_epoch,
@@ -203,11 +210,11 @@ def mock_get_validators(web3):
                 simple_validator(5, '0x05', (32 * 10**9) + 824112),
             ],
             50: [
-                simple_validator(4, '0x00', balance=0, activation_epoch=FAR_FUTURE_EPOCH),
+                simple_validator(4, '0x00', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
                 simple_validator(1, '0x01', 32 * 10**9),
                 simple_validator(2, '0x02', 32 * 10**9),
                 simple_validator(3, '0x03', (32 * 10**9) + 333333),
-                simple_validator(4, '0x04', balance=0, activation_epoch=FAR_FUTURE_EPOCH),
+                simple_validator(4, '0x04', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
                 simple_validator(5, '0x05', (32 * 10**9) + 824112),
             ],
             1000: [
