@@ -163,7 +163,8 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
         get_current_frame=Mock(side_effect=err), get_consensus_state_for_member=Mock(side_effect=err)
     )
     consensus._get_consensus_contract = Mock(return_value=consensus_contract)
-    consensus._is_submit_member = Mock(return_value=True)
+    consensus.report_contract.submit_data_role = Mock(return_value='0x0')
+    consensus.report_contract.has_role = Mock(return_value=True)
     consensus.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=5, epochs_per_frame=10))
     consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
 

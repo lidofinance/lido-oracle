@@ -19,7 +19,7 @@ from src.metrics.prometheus.business import (
     FRAME_DEADLINE_SLOT,
     ORACLE_MEMBER_INFO
 )
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.blockstamp import build_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -161,7 +161,11 @@ class ConsensusModule(ABC):
                 if revert.data != InitialEpochIsYetToArriveRevert:
                     raise revert
 
-            is_submit_member = self._is_submit_member(blockstamp)
+            is_submit_member = self.report_contract.has_role(
+                self.report_contract.submit_data_role(blockstamp.block_hash),
+                variables.ACCOUNT.address,
+                blockstamp.block_hash
+            )
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -183,16 +187,6 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
-
-    def _is_submit_member(self, blockstamp: BlockStamp) -> bool:
-        if not variables.ACCOUNT:
-            return True
-
-        return self.report_contract.has_role(
-            self.report_contract.submit_data_role(blockstamp.block_hash),
-            variables.ACCOUNT.address,
-            blockstamp.block_hash
-        )
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
