@@ -173,6 +173,7 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
     consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
 
     first_frame = consensus.get_initial_or_current_frame(bs)
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert first_frame.ref_slot == 5 * 32 - 1
