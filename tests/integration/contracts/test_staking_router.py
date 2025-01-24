@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
@@ -24,11 +22,7 @@ def test_staking_router(staking_router_contract, caplog):
                 lambda response: check_value_type(response, list)
                 and map(lambda sm: check_value_type(sm, NodeOperator), response),
             ),
-            (
-                'get_contract_version',
-                None,
-                lambda response: check_value_type(response, int)
-            )
+            ('get_contract_version', None, lambda response: check_value_type(response, int)),
         ],
         caplog,
     )

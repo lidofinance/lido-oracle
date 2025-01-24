@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -121,21 +120,6 @@ def csm(web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
-
-    def _load_staking_router(self, lido_locator):
-        from src.providers.execution.contracts.staking_router import StakingRouterContractV1  # pylint: disable=C0415
-
-        staking_router_address = lido_locator.staking_router()
-        self.staking_router = cast(
-            StakingRouterContractV1,
-            self.w3.eth.contract(
-                address=staking_router_address,
-                ContractFactoryClass=StakingRouterContractV1,
-                decode_tuples=True,
-            ),
-        )
-
-    LidoContracts._load_staking_router = _load_staking_router  # pylint: disable=protected-access
 
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment

@@ -1,10 +1,8 @@
 import logging
-from time import sleep
 from typing import cast
 
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
 from web3.module import Module
 from web3.types import Wei
 
