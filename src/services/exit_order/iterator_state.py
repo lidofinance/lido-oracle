@@ -81,7 +81,7 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
             operator_predictable_stats[global_index] = NodeOperatorPredictableState(
                 predictable_validators_total_age,
                 transient_validators_count + predictable_validators_count,
-                operator.is_target_limit_active,
+                bool(operator.is_target_limit_active),
                 operator.target_validators_count,
                 max(0, delayed_validators_count - operator.refunded_validators_count)
             )

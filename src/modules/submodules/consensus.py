@@ -4,7 +4,6 @@ from time import sleep
 from typing import cast
 
 from eth_abi import encode
-from eth_typing import BlockIdentifier
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
