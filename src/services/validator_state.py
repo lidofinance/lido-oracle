@@ -42,18 +42,18 @@ class LidoValidatorStateService:
         for global_no_index, validators in lido_validators_by_no.items():
             def sum_stuck_validators(total: int, validator: LidoValidator) -> int:
                 # If validator index is higher than ejected index - we didn't request this validator to exit
-                if int(validator.index) > ejected_index[global_no_index]:
+                if validator.index > ejected_index[global_no_index]:
                     return total
 
                 # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
-                if int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH:
+                if validator.validator.exit_epoch != FAR_FUTURE_EPOCH:
                     return total
 
                 # If validator's pub key in recent events, node operator has still time to eject these validators
                 if validator.lido_id.key in recently_requested_to_exit_pubkeys:
                     return total
 
-                validator_available_to_exit_epoch = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD
+                validator_available_to_exit_epoch = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD
                 delinquent_timeout_in_slots = self.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots(
                     blockstamp.block_hash,
                 )
@@ -177,10 +177,10 @@ class LidoValidatorStateService:
         for global_index, validators in lido_validators_by_operator.items():
 
             def validator_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) <= ejected_indexes[global_index]
+                return validator.index <= ejected_indexes[global_index]
 
             def validator_recently_requested_to_exit(validator: LidoValidator) -> bool:
-                return int(validator.index) in recent_indexes[global_index]
+                return validator.index in recent_indexes[global_index]
 
             def validator_eligible_to_exit(validator: LidoValidator) -> bool:
                 vals_delayed = self.w3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots(blockstamp.block_hash)

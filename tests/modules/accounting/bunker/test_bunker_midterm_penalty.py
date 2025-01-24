@@ -2,12 +2,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
+from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 
 
@@ -21,24 +21,24 @@ def simple_validators(
     from_index: int,
     to_index: int,
     slashed=False,
-    withdrawable_epoch="8192",
-    exit_epoch="7892",
-    effective_balance=str(32 * 10**9),
+    withdrawable_epoch=8192,
+    exit_epoch=7892,
+    effective_balance=Gwei(32 * 10**9),
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
         validator = Validator(
-            index=str(index),
+            index=ValidatorIndex(index),
             balance=effective_balance,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
                 effective_balance=effective_balance,
                 slashed=slashed,
-                activation_eligibility_epoch='',
-                activation_epoch='0',
-                exit_epoch=exit_epoch,
-                withdrawable_epoch=withdrawable_epoch,
+                activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                activation_epoch=EpochNumber(0),
+                exit_epoch=EpochNumber(exit_epoch),
+                withdrawable_epoch=EpochNumber(withdrawable_epoch),
             ),
         )
         validators.append(validator)
@@ -678,17 +678,17 @@ def test_predict_midterm_penalty_in_frame_post_electra(
 
 # 50% active validators with 2048 EB and the rest part with 32 EB
 half_electra = [
-    *simple_validators(0, 250_000, effective_balance=str(MAX_EFFECTIVE_BALANCE)),
-    *simple_validators(250_001, 500_000, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+    *simple_validators(0, 250_000, effective_balance=MAX_EFFECTIVE_BALANCE),
+    *simple_validators(250_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
 ]
 # 20% active validators with 2048 EB and the rest part with 32 EB
 part_electra = [
-    *simple_validators(0, 10_000, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA)),
-    *simple_validators(10_001, 500_000, effective_balance=str(MAX_EFFECTIVE_BALANCE)),
+    *simple_validators(0, 10_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
+    *simple_validators(10_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE),
 ]
 
-one_32eth = simple_validators(0, 0, effective_balance=str(MAX_EFFECTIVE_BALANCE))
-one_2048eth = simple_validators(0, 0, effective_balance=str(MAX_EFFECTIVE_BALANCE_ELECTRA))
+one_32eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE)
+one_2048eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA)
 
 
 @pytest.mark.unit
@@ -727,7 +727,7 @@ def test_get_validator_midterm_penalty_electra(bounded_slashed_validators, activ
     result = MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
         validator=simple_validators(0, 0)[0],
         bound_slashed_validators=bounded_slashed_validators,
-        total_balance=Gwei(sum(int(v.validator.effective_balance) for v in active_validators)),
+        total_balance=sum(v.validator.effective_balance for v in active_validators),
     )
 
     assert result == expected_penalty

@@ -121,7 +121,7 @@ class ValidatorExitIteratorV2:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
             self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
-            self.exitable_validators[gid].sort(key=lambda val: int(val.index))
+            self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -165,7 +165,7 @@ class ValidatorExitIteratorV2:
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
-            requested_to_exit = int(validator.index) <= indexes[gid]
+            requested_to_exit = validator.index <= indexes[gid]
             return not is_on_exit(validator) and not requested_to_exit
 
         return is_validator_exitable
@@ -182,8 +182,8 @@ class ValidatorExitIteratorV2:
         for gid, validators_list in lido_validators.items():
 
             def is_delayed(validator: LidoValidator) -> bool:
-                requested_to_exit = int(validator.index) <= last_requested_to_exit[gid]
-                recently_requested_to_exit = int(validator.index) in recent_requests[gid]
+                requested_to_exit = validator.index <= last_requested_to_exit[gid]
+                recently_requested_to_exit = validator.index in recent_requests[gid]
                 return requested_to_exit and not recently_requested_to_exit and not is_on_exit(validator)
 
             result[gid] = ilen(val for val in validators_list if is_delayed(val))
@@ -296,7 +296,7 @@ class ValidatorExitIteratorV2:
         # If NO doesn't have exitable validators - sorting by validators index doesn't matter
         first_val_index = 0
         if validators:
-            first_val_index = int(validators[0].index)
+            first_val_index = validators[0].index
 
         return first_val_index
 

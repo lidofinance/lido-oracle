@@ -2,11 +2,11 @@ import logging
 from http import HTTPStatus
 
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockHeaderFullResponse, BlockDetailsResponse
+from src.providers.consensus.types import BlockDetailsResponse, BlockHeaderFullResponse
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
-from src.types import SlotNumber, EpochNumber, ReferenceBlockStamp
-from src.utils.blockstamp import build_reference_blockstamp, build_blockstamp
+from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import build_blockstamp, build_reference_blockstamp
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +101,8 @@ def get_prev_non_missed_slot(
     parent_header = cc.get_block_header(non_missed_header_parent_root)
 
     if (
-        int(parent_header.data.header.message.slot) >= slot
-        or int(existing_header.data.header.message.slot) - int(parent_header.data.header.message.slot) < 1
+        parent_header.data.header.message.slot >= slot
+        or existing_header.data.header.message.slot - parent_header.data.header.message.slot < 1
     ):
         raise InconsistentData(
             "Parent root next to `slot` existing header doesn't match the expected slot.\n"

@@ -1,26 +1,27 @@
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Protocol
+
+from eth_typing import BlockNumber
+from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.types import BlockHash, BlockRoot, EpochNumber, Gwei, SlotNumber, StateRoot
+from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
 
 
 @dataclass
-class BeaconSpecResponse(FromResponse, Nested):
-    DEPOSIT_CHAIN_ID: str
-    SLOTS_PER_EPOCH: str
-    SECONDS_PER_SLOT: str
+class BeaconSpecResponse(Nested, FromResponse):
+    DEPOSIT_CHAIN_ID: int
+    SLOTS_PER_EPOCH: int
+    SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
-    SLOTS_PER_HISTORICAL_ROOT: str
+    SLOTS_PER_HISTORICAL_ROOT: int
     ELECTRA_FORK_EPOCH: int = FAR_FUTURE_EPOCH
 
 
 @dataclass
-class GenesisResponse(FromResponse):
-    genesis_time: str
-    genesis_validators_root: str
-    genesis_fork_version: str
+class GenesisResponse(Nested, FromResponse):
+    genesis_time: int
 
 
 @dataclass
@@ -30,9 +31,9 @@ class BlockRootResponse(FromResponse):
 
 
 @dataclass
-class BlockHeaderMessage(FromResponse):
-    slot: str
-    proposer_index: str
+class BlockHeaderMessage(Nested, FromResponse):
+    slot: SlotNumber
+    proposer_index: ValidatorIndex
     parent_root: BlockRoot
     state_root: StateRoot
     body_root: str
@@ -61,23 +62,23 @@ class BlockHeaderFullResponse(Nested, FromResponse):
 
 
 @dataclass
-class ExecutionPayload(FromResponse):
+class ExecutionPayload(Nested, FromResponse):
     parent_hash: BlockHash
-    block_number: str
-    timestamp: str
+    block_number: BlockNumber
+    timestamp: Timestamp
     block_hash: BlockHash
 
 
 @dataclass
-class Checkpoint:
-    epoch: str
+class Checkpoint(Nested):
+    epoch: EpochNumber
     root: BlockRoot
 
 
 @dataclass
 class AttestationData(Nested, FromResponse):
-    slot: str
-    index: str | Literal["0"]
+    slot: SlotNumber
+    index: CommitteeIndex
     beacon_block_root: BlockRoot
     source: Checkpoint
     target: Checkpoint
@@ -105,35 +106,34 @@ type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
 @dataclass
 class BeaconBlockBody(Nested, FromResponse):
     execution_payload: ExecutionPayload
-    attestations: list[BlockAttestation]
+    attestations: list[BlockAttestationResponse]
 
 
 @dataclass
 class BlockMessage(Nested, FromResponse):
-    slot: str
-    proposer_index: str
+    slot: SlotNumber
+    proposer_index: ValidatorIndex
     parent_root: str
     state_root: StateRoot
     body: BeaconBlockBody
 
 
 @dataclass
-class ValidatorState(FromResponse):
-    # All uint variables presents in str
+class ValidatorState(Nested, FromResponse):
     pubkey: str
     withdrawal_credentials: str
-    effective_balance: str
+    effective_balance: Gwei
     slashed: bool
-    activation_eligibility_epoch: str
-    activation_epoch: str
-    exit_epoch: str
-    withdrawable_epoch: str
+    activation_eligibility_epoch: EpochNumber
+    activation_epoch: EpochNumber
+    exit_epoch: EpochNumber
+    withdrawable_epoch: EpochNumber
 
 
 @dataclass
 class Validator(Nested, FromResponse):
-    index: str
-    balance: str
+    index: ValidatorIndex
+    balance: Gwei
     validator: ValidatorState
 
 
@@ -145,10 +145,10 @@ class BlockDetailsResponse(Nested, FromResponse):
 
 
 @dataclass
-class SlotAttestationCommittee(FromResponse):
-    index: str
-    slot: str
-    validators: list[str]
+class SlotAttestationCommittee(Nested, FromResponse):
+    index: CommitteeIndex
+    slot: SlotNumber
+    validators: list[ValidatorIndex]
 
 
 @dataclass
@@ -162,7 +162,7 @@ class PendingDeposit(Nested):
 
 @dataclass
 class PendingPartialWithdrawal(Nested):
-    validator_index: int
+    validator_index: ValidatorIndex
     amount: Gwei
     withdrawable_epoch: EpochNumber
 
@@ -188,8 +188,8 @@ class BeaconStateView(Nested, FromResponse):
     def indexed_validators(self) -> list[Validator]:
         return [
             Validator(
-                index=str(i),
-                balance=str(self.balances[i]),
+                index=ValidatorIndex(i),
+                balance=self.balances[i],
                 validator=v,
             )
             for (i, v) in enumerate(self.validators)

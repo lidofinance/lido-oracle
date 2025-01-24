@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
 from typing import Callable, Self, Sequence
 
-from src.types import EpochNumber, Gwei, SlotNumber
+from src.types import BlockNumber, EpochNumber, Gwei, SlotNumber, Timestamp, ValidatorIndex
 from src.utils.abi import named_tuple_to_dataclass
 
 
@@ -17,6 +17,7 @@ class Nested:
     Base class for dataclasses that converts all inner dicts into dataclasses
     Also works with lists of dataclasses
     """
+
     def __post_init__(self):
         for field in fields(self):
             if isinstance(field.type, GenericAlias):
@@ -43,7 +44,7 @@ class Nested:
 
     @staticmethod
     def __is_numberish_type(field_type):
-        return field_type in (int, Gwei, SlotNumber, EpochNumber)
+        return field_type in (int, Gwei, BlockNumber, SlotNumber, EpochNumber, Timestamp, ValidatorIndex)
 
 
 @dataclass

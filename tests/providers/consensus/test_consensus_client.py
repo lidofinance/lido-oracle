@@ -49,12 +49,12 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
     assert attestation_committees
 
     attestation_committee = attestation_committees[0]
-    attestation_committee_by_slot = list(
-        consensus_client.get_attestation_committees(blockstamp, slot=SlotNumber(int(attestation_committee.slot)))
+    attestation_committee_by_slot = consensus_client.get_attestation_committees(
+        blockstamp, slot=attestation_committee.slot
     )
     assert attestation_committee_by_slot[0].slot == attestation_committee.slot
     assert attestation_committee_by_slot[0].index == attestation_committee.index
-    assert str(attestation_committee_by_slot[0].validators) == str(attestation_committee.validators)
+    assert attestation_committee_by_slot[0].validators == attestation_committee.validators
 
 
 @pytest.mark.integration

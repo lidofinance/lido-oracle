@@ -109,10 +109,10 @@ def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
         # has arrived for all `pending_partial_withdrawals`
         index = withdrawal.validator_index
         validator = state.validators[index]
-        has_sufficient_effective_balance = Gwei(int(validator.effective_balance)) >= MIN_ACTIVATION_BALANCE
+        has_sufficient_effective_balance = validator.effective_balance >= MIN_ACTIVATION_BALANCE
         has_excess_balance = state.balances[index] > MIN_ACTIVATION_BALANCE
 
-        if int(validator.exit_epoch) == FAR_FUTURE_EPOCH and has_sufficient_effective_balance and has_excess_balance:
+        if validator.exit_epoch == FAR_FUTURE_EPOCH and has_sufficient_effective_balance and has_excess_balance:
             withdrawable_balance = min(state.balances[index] - MIN_ACTIVATION_BALANCE, withdrawal.amount)
             withdrawals.append(
                 Withdrawal(

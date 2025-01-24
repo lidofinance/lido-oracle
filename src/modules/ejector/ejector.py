@@ -212,13 +212,13 @@ class Ejector(BaseModule, ConsensusModule):
             (
                 self._get_predicted_withdrawable_balance(v)
                 for v in lido_validators
-                if is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), on_epoch)
+                if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch)
             ),
             Wei(0),
         )
 
     def _get_predicted_withdrawable_balance(self, validator: Validator) -> Wei:
-        return gwei_to_wei(min(Gwei(int(validator.balance)), get_max_effective_balance(validator.validator)))
+        return gwei_to_wei(min(validator.balance, get_max_effective_balance(validator.validator)))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -296,7 +296,7 @@ class Ejector(BaseModule, ConsensusModule):
         validators = self.w3.cc.get_validators(blockstamp)
 
         for validator in validators:
-            val_exit_epoch = EpochNumber(int(validator.validator.exit_epoch))
+            val_exit_epoch = validator.validator.exit_epoch
 
             if val_exit_epoch == FAR_FUTURE_EPOCH:
                 continue
@@ -339,7 +339,7 @@ class Ejector(BaseModule, ConsensusModule):
         return [
             v
             for v in self.w3.cc.get_validators(blockstamp)
-            if is_partially_withdrawable_validator(v.validator, Gwei(int(v.balance))) or is_fully_withdrawable_validator(v.validator, Gwei(int(v.balance)), blockstamp.ref_epoch)
+            if is_partially_withdrawable_validator(v.validator, v.balance) or is_fully_withdrawable_validator(v.validator, v.balance, blockstamp.ref_epoch)
         ]
 
     @lru_cache(maxsize=1)
@@ -353,7 +353,7 @@ class Ejector(BaseModule, ConsensusModule):
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         active_validators = self._get_active_validators(blockstamp)
-        return Gwei(max(EFFECTIVE_BALANCE_INCREMENT, sum(int(v.validator.effective_balance) for v in active_validators)))
+        return max(EFFECTIVE_BALANCE_INCREMENT, sum((v.validator.effective_balance for v in active_validators), Gwei(0)))
 
     @lru_cache(maxsize=1)
     def _get_active_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:

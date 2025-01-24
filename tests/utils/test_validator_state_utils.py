@@ -12,6 +12,7 @@ from src.utils.validator_state import (
     calculate_active_effective_balance_sum,
     calculate_total_active_effective_balance,
     compute_activation_exit_epoch,
+    get_activation_exit_churn_limit,
     get_balance_churn_limit,
     get_max_effective_balance,
     get_validator_age,
@@ -24,7 +25,6 @@ from src.utils.validator_state import (
     is_on_exit,
     is_partially_withdrawable_validator,
     is_validator_eligible_to_exit,
-    get_activation_exit_churn_limit,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -40,17 +40,21 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                 Validator(
                     '0',
                     '1',
-                    ValidatorState('0x0', '', str(32 * 10**9), False, '', '15000', '15001', ''),
+                    ValidatorState('0x0', '', str(32 * 10**9), False, FAR_FUTURE_EPOCH, 15000, 15001, FAR_FUTURE_EPOCH),
                 ),
                 Validator(
                     '1',
                     '1',
-                    ValidatorState('0x1', '', str(31 * 10**9), False, '', '14999', '15000', ''),
+                    ValidatorState(
+                        '0x1', '', str(31 * 10**9), False, FAR_FUTURE_EPOCH, '14999', '15000', FAR_FUTURE_EPOCH
+                    ),
                 ),
                 Validator(
                     '2',
                     '1',
-                    ValidatorState('0x2', '', str(31 * 10**9), True, '', '15000', '15001', ''),
+                    ValidatorState(
+                        '0x2', '', str(31 * 10**9), True, FAR_FUTURE_EPOCH, '15000', '15001', FAR_FUTURE_EPOCH
+                    ),
                 ),
             ],
             63 * 10**9,
@@ -60,12 +64,16 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                 Validator(
                     '0',
                     '1',
-                    ValidatorState('0x0', '', str(32 * 10**9), False, '', '14000', '14999', ''),
+                    ValidatorState(
+                        '0x0', '', str(32 * 10**9), False, FAR_FUTURE_EPOCH, '14000', '14999', FAR_FUTURE_EPOCH
+                    ),
                 ),
                 Validator(
                     '1',
                     '1',
-                    ValidatorState('0x1', '', str(32 * 10**9), True, '', '15000', '15000', ''),
+                    ValidatorState(
+                        '0x1', '', str(32 * 10**9), True, FAR_FUTURE_EPOCH, '15000', '15000', FAR_FUTURE_EPOCH
+                    ),
                 ),
             ],
             0,
@@ -324,21 +332,21 @@ class TestCalculateTotalEffectiveBalance:
 
     @pytest.mark.unit
     def test_skip_exiting(self, validators: list[Validator]):
-        validators[0].validator.exit_epoch = "170256"
+        validators[0].validator.exit_epoch = EpochNumber(170256)
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == Gwei(2000000000)
 
     @pytest.mark.unit
     def test_skip_exited(self, validators: list[Validator]):
-        validators[0].validator.exit_epoch = "170000"
+        validators[0].validator.exit_epoch = EpochNumber(170000)
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == Gwei(2000000000)
 
     @pytest.mark.unit
     def test_skip_exited_slashed(self, validators: list[Validator]):
-        validators[0].validator.exit_epoch = "170256"
+        validators[0].validator.exit_epoch = EpochNumber(170256)
         validators[0].validator.slashed = True
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
@@ -353,7 +361,7 @@ class TestCalculateTotalEffectiveBalance:
 
     @pytest.mark.unit
     def test_skip_ongoing(self, validators: list[Validator]):
-        validators[0].validator.activation_epoch = "170257"
+        validators[0].validator.activation_epoch = EpochNumber(170257)
 
         actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == Gwei(2000000000)
@@ -361,7 +369,7 @@ class TestCalculateTotalEffectiveBalance:
 
 @pytest.mark.unit
 def test_compute_activation_exit_epoch():
-    ref_epoch = 3455
+    ref_epoch = EpochNumber(3455)
     assert 3460 == compute_activation_exit_epoch(ref_epoch)
 
 

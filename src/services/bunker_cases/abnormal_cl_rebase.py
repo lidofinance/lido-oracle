@@ -252,8 +252,8 @@ class AbnormalClRebase:
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
-            from_block=BlockNumber(int(prev_blockstamp.block_number) + 1),
-            to_block=BlockNumber(int(ref_blockstamp.block_number)),
+            from_block=BlockNumber(prev_blockstamp.block_number + 1),
+            to_block=BlockNumber(ref_blockstamp.block_number),
         )
 
         if len(events) > 1:
@@ -331,7 +331,7 @@ class AbnormalClRebase:
 
     @staticmethod
     def calculate_validators_balance_sum(validators: Sequence[Validator]) -> Gwei:
-        return Gwei(sum(int(v.balance) for v in validators))
+        return sum((v.balance for v in validators), Gwei(0))
 
     @staticmethod
     def calculate_normal_cl_rebase(

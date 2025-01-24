@@ -23,21 +23,21 @@ def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
     Check if ``validator`` is active.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#is_active_validator
     """
-    return int(validator.validator.activation_epoch) <= epoch < int(validator.validator.exit_epoch)
+    return validator.validator.activation_epoch <= epoch < validator.validator.exit_epoch
 
 
 def is_exited_validator(validator: Validator, epoch: EpochNumber) -> bool:
-    return int(validator.validator.exit_epoch) <= epoch
+    return validator.validator.exit_epoch <= epoch
 
 
 def is_on_exit(validator: Validator) -> bool:
     """Validator exited or is going to exit"""
-    return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
+    return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
 
 
 def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
     """Validator age in epochs from activation to ref_epoch"""
-    return max(ref_epoch - int(validator.validator.activation_epoch), 0)
+    return max(ref_epoch - validator.validator.activation_epoch, 0)
 
 
 def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
@@ -46,7 +46,7 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator
     """
     max_effective_balance = get_max_effective_balance(validator)
-    has_max_effective_balance = Gwei(int(validator.effective_balance)) == max_effective_balance
+    has_max_effective_balance = validator.effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
     return (
         has_execution_withdrawal_credential(validator)
@@ -86,7 +86,7 @@ def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, ep
     """
     return (
         has_execution_withdrawal_credential(validator)
-        and EpochNumber(int(validator.withdrawable_epoch)) <= epoch
+        and validator.withdrawable_epoch <= epoch
         and balance > Gwei(0)
     )
 
@@ -100,7 +100,7 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     The validator can only exit if it has no pending withdrawals in the queue.
     This method don't take partial withdrawals into account because Lido protocol doesn't support partial withdrawals.
     """
-    active_long_enough = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD <= epoch
+    active_long_enough = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
 
 
@@ -122,7 +122,7 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
 
     for validator in validators:
         if is_active_validator(validator, ref_epoch):
-            effective_balance_sum += int(validator.validator.effective_balance)
+            effective_balance_sum += validator.validator.effective_balance
 
     return Gwei(effective_balance_sum)
 

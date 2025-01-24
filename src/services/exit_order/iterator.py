@@ -126,7 +126,7 @@ class ExitOrderIterator:
                 operator_stats, self.total_predictable_validators_count, self.operator_network_penetration_threshold
             ),
             -self._operator_predictable_validators(operator_stats),
-            self._validator_index(validator),
+            validator.index,
         )
 
     @staticmethod
@@ -165,10 +165,6 @@ class ExitOrderIterator:
     @staticmethod
     def _operator_predictable_validators(operator_state: NodeOperatorPredictableState) -> int:
         return operator_state.predictable_validators_count
-
-    @staticmethod
-    def _validator_index(validator: LidoValidator) -> int:
-        return int(validator.index)
 
     @staticmethod
     def operator_index_by_validator(

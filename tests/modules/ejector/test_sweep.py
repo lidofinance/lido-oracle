@@ -1,21 +1,21 @@
 import math
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
-import src.modules.ejector.sweep as sweep_module
 
-from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+import src.modules.ejector.sweep as sweep_module
+from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX, MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
-    get_sweep_delay_in_epochs_post_electra,
-    get_pending_partial_withdrawals,
-    get_validators_withdrawals,
     Withdrawal,
+    get_pending_partial_withdrawals,
+    get_sweep_delay_in_epochs_post_electra,
+    get_validators_withdrawals,
 )
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal, Validator
+from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
 from src.types import Gwei
 from tests.factory.consensus import BeaconStateViewFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
 @pytest.mark.unit
@@ -35,7 +35,7 @@ def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
         result = get_sweep_delay_in_epochs_post_electra(state, spec)
 
         # Assert the delay calculation is correct
-        expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / int(spec.slots_per_epoch)) // 2
+        expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
         assert result == expected_delay, f"Expected delay {expected_delay}, got {result}"
 
 
@@ -87,41 +87,25 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
 
 def test_only_validators_withdrawals():
     """Test when there are only validators eligible for withdrawals."""
-    mock_state = MagicMock(spec=BeaconStateView)
-    mock_state.slot = 32
-    mock_state.pending_partial_withdrawals = []
-    mock_state.validators = [
-        MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
-        MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
-    ]
-    mock_state.balances = [32000000000, 32000000000]
-    mock_state.indexed_validators = [
-        MagicMock(
-            balance=32000000000,
-            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
-        ),
-        MagicMock(
-            balance=32000000000,
-            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
-        ),
-    ]
+
+    mock_state = BeaconStateView(
+        slot=32,
+        validators=ValidatorStateFactory.batch(2, effective_balance=32_000_000_000, withdrawable_epoch=0),
+        balances=[32_000_000_000] * 2,
+        pending_partial_withdrawals=[],
+    )
     result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
     assert result == 2
 
 
 def test_combined_withdrawals():
     """Test when there are both partial and full withdrawals."""
-    mock_state = MagicMock(spec=BeaconStateView)
-    mock_state.slot = 32
-    mock_state.pending_partial_withdrawals = [Withdrawal(i, 100) for i in range(10)]
-    mock_state.validators = [MagicMock(exit_epoch=123) for _ in range(10)]
-    mock_state.balances = [32000000000 for _ in range(10)]
-    mock_state.indexed_validators = [
-        MagicMock(
-            balance=32000000000,
-            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
-        )
-        for _ in range(10)
-    ]
+
+    mock_state = BeaconStateView(
+        slot=32,
+        validators=ValidatorStateFactory.batch(10, effective_balance=32_000_000_000, exit_epoch=123),
+        balances=[32_000_000_001] * 10,
+        pending_partial_withdrawals=[],
+    )
     result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
     assert result == 10

@@ -144,6 +144,8 @@ class ConsensusClient(HTTPProvider):
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error
             )
+            if not isinstance(data, list):
+                raise ValueError("Expected list response from getEpochCommittees")
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 data = self._get_attestation_committees_with_prysm(
@@ -255,4 +257,4 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.API_GET_SPEC)
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getSpec")
-        return int(BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID)
+        return BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID
