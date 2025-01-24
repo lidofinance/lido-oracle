@@ -79,33 +79,33 @@ def simple_validators(
         (
             # one day since last report, penalty greater than report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            49 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            199 * 10**9,
             True,
         ),
         (
             # three days since last report, penalty greater than frame rebase
             simple_blockstamp(3 * 225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            3 * 49 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            3 * 199 * 10**9,
             True,
         ),
         (
-            # one day since last report,penalty equal report rebase
+            # one day since last report, penalty equal report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            50 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            200 * 10**9,
             False,
         ),
         (
             # one day since last report, penalty less report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            51 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            201 * 10**9,
             False,
         ),
     ],
@@ -128,12 +128,12 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
         blockstamp,
         2,
-        lambda _: True,  # FIXME: doens't affect the test outcome
+        lambda _: True,  # doesn't matter because consensus version == 2
         web3_converter,
         all_validators,
         lido_validators,
         report_cl_rebase,
-        0,
+        SlotNumber(0),
     )
     assert result == expected_result
 
@@ -172,33 +172,33 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
         (
             # one day since last report, penalty greater than report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            49 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            199 * 10**9,
             True,
         ),
         (
             # three days since last report, penalty greater than frame rebase
             simple_blockstamp(3 * 225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            3 * 49 * 32 * 10**9,
-            True,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            3 * 199 * 10**9,
+            True,  # Because penalty is 200 * 10**9 than one frame rebase
         ),
         (
-            # one day since last report,penalty equal report rebase
+            # one day since last report, penalty equal report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            50 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            228_571_427_200,
             False,
         ),
         (
             # one day since last report, penalty less report rebase
             simple_blockstamp(225 * 32),
-            [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
-            simple_validators(50, 99, slashed=True),
-            51 * 32 * 10**9,
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            228_571_427_200 + 1,
             False,
         ),
     ],
@@ -220,7 +220,7 @@ def test_is_high_midterm_slashing_penalty_post_electra(
     result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
         blockstamp,
         3,
-        lambda _: True,  # FIXME: It doesn't change the test outcome.
+        lambda _: True,
         web3_converter,
         all_validators,
         lido_validators,
