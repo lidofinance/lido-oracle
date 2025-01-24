@@ -7,7 +7,7 @@ from src.utils.dataclass import FromResponse, Nested
 
 
 @dataclass
-class BeaconSpecResponse(FromResponse):
+class BeaconSpecResponse(FromResponse, Nested):
     DEPOSIT_CHAIN_ID: str
     SLOTS_PER_EPOCH: str
     SECONDS_PER_SLOT: str
