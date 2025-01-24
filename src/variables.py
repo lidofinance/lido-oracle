@@ -4,6 +4,7 @@ from typing import Final
 
 from eth_account import Account
 
+from src.types import OracleModule
 from src.utils.env import from_file_or_env
 
 # - Providers-
@@ -85,10 +86,14 @@ MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECO
 CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
 
 
-def check_all_required_variables():
+def check_all_required_variables(module: OracleModule):
     errors = check_uri_required_variables()
     if not LIDO_LOCATOR_ADDRESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
+
+    if module is OracleModule.CSM and not CSM_MODULE_ADDRESS:
+        errors.append('CSM_MODULE_ADDRESS')
+
     return errors
 
 

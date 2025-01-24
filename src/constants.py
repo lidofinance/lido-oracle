@@ -12,8 +12,11 @@ EPOCHS_PER_SLASHINGS_VECTOR = 2**13
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#rewards-and-penalties
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
-EFFECTIVE_BALANCE_INCREMENT = 2**0 * 10**9
+EFFECTIVE_BALANCE_INCREMENT = Gwei(2**0 * 10**9)
 MAX_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
+MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
+MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -32,17 +35,12 @@ SLOTS_PER_HISTORICAL_ROOT = 2**13 # 8192
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
-MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
-MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
-
+# Lido contracts constants
 LIDO_DEPOSIT_AMOUNT = MIN_ACTIVATION_BALANCE
-
-# Local constants
-GWEI_TO_WEI = 10**9
 SHARE_RATE_PRECISION_E27 = 10**27
 TOTAL_BASIS_POINTS = 10000
 
+# Local constants
+GWEI_TO_WEI = 10**9
 MAX_BLOCK_GAS_LIMIT = 30_000_000
-
 UINT64_MAX = 2**64 - 1

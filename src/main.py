@@ -164,12 +164,12 @@ if __name__ == '__main__':
         raise ValueError(msg)
 
     module = OracleModule(module_name_arg)
-    if module == OracleModule.CHECK:
+    if module is OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
 
         sys.exit(check())
 
-    errors = variables.check_all_required_variables()
+    errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
     main(module)
