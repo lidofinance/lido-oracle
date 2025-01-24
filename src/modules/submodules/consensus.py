@@ -296,7 +296,7 @@ class ConsensusModule(ABC):
                 logger.info({'msg': 'Consensus reached with provided hash.'})
                 return None
 
-        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
+        consensus_version = self.get_consensus_version(blockstamp)
 
         logger.info({'msg': f'Send report hash. Consensus version: [{consensus_version}]'})
         self._send_report_hash(blockstamp, report_hash, consensus_version)
