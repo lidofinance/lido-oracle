@@ -272,7 +272,7 @@ class Ejector(BaseModule, ConsensusModule):
             Gwei(sum(int(v.validator.effective_balance) for v in validators_to_eject)),
             blockstamp,
         )
-        return earliest_exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+        return EpochNumber(earliest_exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
 
     def compute_exit_epoch_and_update_churn(
         self,
