@@ -136,6 +136,10 @@ class ConsensusModule(ABC):
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
+            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
+                self.w3.eth.get_balance(variables.ACCOUNT.address)
+            )
+
             try:
                 (
                     # Current frame's reference slot.
@@ -404,12 +408,6 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
-
-        if variables.ACCOUNT:
-            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
-                self.w3.eth.get_balance(variables.ACCOUNT.address)
-            )
-
         return bs
 
     @lru_cache(maxsize=1)
