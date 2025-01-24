@@ -4,7 +4,7 @@ from unittest.mock import Mock, MagicMock
 import pytest
 import src.modules.ejector.sweep as sweep_module
 
-from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
+from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.ejector.sweep import (
     get_sweep_delay_in_epochs_post_electra,
     get_pending_partial_withdrawals,
@@ -83,3 +83,45 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
 
     assert result[0].validator_index == 2, f"Expected validator_index 2, got {result[0].validator_index}"
     assert result[0].amount == 10, f"Expected amount 1 for validator 2, got {result[0].amount}"
+
+
+def test_only_validators_withdrawals():
+    """Test when there are only validators eligible for withdrawals."""
+    mock_state = MagicMock(spec=BeaconStateView)
+    mock_state.slot = 32
+    mock_state.pending_partial_withdrawals = []
+    mock_state.validators = [
+        MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+        MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+    ]
+    mock_state.balances = [32000000000, 32000000000]
+    mock_state.indexed_validators = [
+        MagicMock(
+            balance=32000000000,
+            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+        ),
+        MagicMock(
+            balance=32000000000,
+            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+        ),
+    ]
+    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    assert result == 2
+
+
+def test_combined_withdrawals():
+    """Test when there are both partial and full withdrawals."""
+    mock_state = MagicMock(spec=BeaconStateView)
+    mock_state.slot = 32
+    mock_state.pending_partial_withdrawals = [Withdrawal(i, 100) for i in range(10)]
+    mock_state.validators = [MagicMock(exit_epoch=123) for _ in range(10)]
+    mock_state.balances = [32000000000 for _ in range(10)]
+    mock_state.indexed_validators = [
+        MagicMock(
+            balance=32000000000,
+            validator=MagicMock(exit_epoch=123, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+        )
+        for _ in range(10)
+    ]
+    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    assert result == 10
