@@ -121,7 +121,6 @@ def csm(web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
-    LidoContracts._check_contracts = Mock()  # pylint: disable=protected-access
 
     def _load_staking_router(self, lido_locator):
         from src.providers.execution.contracts.staking_router import StakingRouterContractV1  # pylint: disable=C0415

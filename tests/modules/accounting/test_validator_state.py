@@ -46,6 +46,9 @@ def lido_validators(web3):
         last_deposit_at=1676386968,
         last_deposit_block=89677,
         exited_validators_count=0,
+        priority_exit_share_threshold=0,
+        max_deposits_per_block=0,
+        min_deposit_block_distance=0,
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
