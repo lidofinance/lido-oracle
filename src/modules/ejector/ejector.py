@@ -1,5 +1,4 @@
 import logging
-import math
 
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
@@ -31,7 +30,7 @@ from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.units import gwei_to_wei, wei_to_gwei
+from src.utils.units import gwei_to_wei
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
