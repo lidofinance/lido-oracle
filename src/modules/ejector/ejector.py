@@ -23,7 +23,7 @@ from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import Validator, BeaconStateView
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order.iterator import ExitOrderIterator
 from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
@@ -267,24 +267,38 @@ class Ejector(BaseModule, ConsensusModule):
         blockstamp: ReferenceBlockStamp,
         validators_to_eject: list[Validator],
     ) -> EpochNumber:
-        per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
-        activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
-        state_view = self.w3.cc.get_state_view(blockstamp)
+        state = self.w3.cc.get_state_view(blockstamp)
+        earliest_exit_epoch = self.compute_exit_epoch_and_update_churn(
+            state,
+            Gwei(sum(int(v.validator.effective_balance) for v in validators_to_eject)),
+            blockstamp,
+        )
+        return earliest_exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-        if state_view.earliest_exit_epoch < activation_exit_epoch:
-            earliest_exit_epoch = activation_exit_epoch
+    def compute_exit_epoch_and_update_churn(
+        self,
+        state: BeaconStateView,
+        exit_balance: Gwei,
+        blockstamp: ReferenceBlockStamp,
+    ) -> EpochNumber:
+        """
+        https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+        """
+        earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
+        per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
+        # New epoch for exits.
+        if state.earliest_exit_epoch < earliest_exit_epoch:
             exit_balance_to_consume = per_epoch_churn
         else:
-            earliest_exit_epoch = state_view.earliest_exit_epoch
-            exit_balance_to_consume = state_view.exit_balance_to_consume
+            exit_balance_to_consume = state.exit_balance_to_consume
 
-        exit_balance = wei_to_gwei(
-            sum((self._get_predicted_withdrawable_balance(v) for v in validators_to_eject), Wei(0))
-        )
-        balance_to_process = max(0, exit_balance - exit_balance_to_consume)
-        additional_epochs = math.ceil(balance_to_process / per_epoch_churn)
+        # Exit doesn't fit in the current earliest epoch.
+        if exit_balance > exit_balance_to_consume:
+            balance_to_process = exit_balance - exit_balance_to_consume
+            additional_epochs = (balance_to_process - 1) // per_epoch_churn + 1
+            earliest_exit_epoch += additional_epochs
 
-        return EpochNumber(earliest_exit_epoch + additional_epochs + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+        return earliest_exit_epoch
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, int]:
