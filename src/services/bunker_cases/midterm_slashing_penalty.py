@@ -243,13 +243,13 @@ class MidtermSlashingPenalty:
                 report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
             )
 
-            if not is_electra_activated(frame_ref_epoch):
-                penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
-                    validator, len(bound_slashed_validators), total_balance
-                )
-            else:
+            if is_electra_activated(frame_ref_epoch):
                 penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
                     validator, bound_slashed_validators, total_balance
+                )
+            else:
+                penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
+                    validator, len(bound_slashed_validators), total_balance
                 )
         return Gwei(penalty_in_frame)
 
