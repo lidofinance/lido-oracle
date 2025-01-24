@@ -11,7 +11,7 @@ from web3.exceptions import Web3Exception
 
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
@@ -80,14 +80,19 @@ class BaseModule(ABC):
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
-        except IsNotMemberException as exception:
+        except IsNotMemberException as error:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
-            raise exception
-        except IncompatibleOracleVersion as exception:
+            raise error
+        except IncompatibleOracleVersion as error:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
-            raise exception
-        except DecoratorTimeoutError as exception:
-            logger.error({'msg': 'Oracle module do not respond.', 'error': str(exception)})
+            raise error
+        except ContractVersionMismatch as error:
+            logger.error({
+                'msg': 'The oracle can\'t submit a report, because the contract\'s consensus version has changed.',
+                'error': str(error),
+            })
+        except DecoratorTimeoutError as error:
+            logger.error({'msg': 'Oracle module do not respond.', 'error': str(error)})
         except NoActiveProviderError as error:
             logger.error({'msg': ''.join(traceback.format_exception(error))})
         except RequestsConnectionError as error:

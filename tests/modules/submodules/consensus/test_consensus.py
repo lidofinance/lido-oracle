@@ -2,12 +2,13 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from toolz.functoolz import return_none
 from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.exceptions import IncompatibleOracleVersion
+from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
@@ -193,15 +194,44 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
 
 
 @pytest.mark.unit
-def test_compatible_contract_version(consensus):
+@pytest.mark.parametrize(
+    'contract_version,consensus_version',
+    [
+        pytest.param(1, 2, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        pytest.param(2, 1, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        (2, 2),
+    ],
+)
+def test_incompatible_oracle(consensus, contract_version, consensus_version):
     bs = ReferenceBlockStampFactory.build()
 
-    consensus._check_compatability = Mock()
-    consensus._check_contract_versions(bs)
+    consensus.report_contract.get_contract_version = Mock(return_value=contract_version)
+    consensus.report_contract.get_consensus_version = Mock(return_value=consensus_version)
 
-    assert consensus._check_compatability.call_count == 2
-    assert consensus._check_compatability._mock_mock_calls[0].args[0] == bs.block_hash
-    assert consensus._check_compatability._mock_mock_calls[1].args[0] == 'latest'
+    consensus._check_compatability(bs)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    'contract_version,consensus_version',
+    [
+        pytest.param(3, 2, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(3, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(2, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        (2, 2),
+    ],
+)
+def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version):
+    bs = ReferenceBlockStampFactory.build()
+
+    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 2
+    consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
+
+    check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
+    consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
+
+    consensus._check_compatability(bs)
 
 
 @pytest.mark.unit
@@ -212,7 +242,7 @@ def test_incompatible_contract_version(consensus):
     consensus.report_contract.get_consensus_version = Mock(return_value=1)
 
     with pytest.raises(IncompatibleOracleVersion):
-        consensus._check_contract_versions(bs)
+        consensus._check_compatability(bs)
 
 
 @pytest.mark.unit

@@ -233,31 +233,37 @@ class ConsensusModule(ABC):
 
         return bs
 
-    def _check_contract_versions(self, blockstamp: ReferenceBlockStamp):
+    def _check_compatability(self, blockstamp: BlockStamp):
         """
         Check if Oracle can process report on reference blockstamp.
         """
-        self._check_compatability(blockstamp.block_hash)
-        self._check_compatability('latest')
-
-    def _check_compatability(self, block_tag: BlockIdentifier):
-        contract_version = self.report_contract.get_contract_version(block_tag)
-        consensus_version = self.report_contract.get_consensus_version(block_tag)
+        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
+        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
         compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
 
         if not compatibility:
             raise IncompatibleOracleVersion(
-                f'Incompatible Oracle version. Block tag: {repr(block_tag)}. '
+                f'Incompatible Oracle version. Block tag: {repr(blockstamp.block_hash)}. '
                 f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
                 f'Got ({contract_version}, {consensus_version})'
+            )
+
+        contract_version_latest = self.report_contract.get_contract_version('latest')
+        consensus_version_latest = self.report_contract.get_consensus_version('latest')
+
+        if not (contract_version == contract_version_latest and consensus_version == consensus_version_latest):
+            raise ContractVersionMismatch(
+                'The Oracle can\'t process the report on the reference blockstamp. '
+                f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
+                'further processing report can lead to unexpected behavior.'
             )
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
         # Make sure module is compatible with contracts on reference and latest blockstamps.
-        self._check_contract_versions(blockstamp)
+        self._check_compatability(blockstamp)
 
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
