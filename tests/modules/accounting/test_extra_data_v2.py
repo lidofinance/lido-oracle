@@ -1,14 +1,14 @@
 import pytest
 from web3 import Web3
 
-from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2, ItemPayload
+from src.modules.accounting.third_phase.extra_data import ExtraDataService, ItemPayload
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.submodules.types import ZERO_HASH
 
 
 @pytest.mark.unit
 def test_collect():
-    extra_data = ExtraDataServiceV2.collect(
+    extra_data = ExtraDataService.collect(
         {
             (1, 1): 10,
             (2, 1): 5,
@@ -37,7 +37,7 @@ def test_collect():
         == b'\xaf\x92O*Z\xc3#|`\xf2\xbc\xc3\xbd\xf2\xee\x92\xd1\xb6\xcbk\x86\xe8d\xd9\xf3\xbc\xc7,\x1c7\x8c4\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x01\x00\x01\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05'
     )
 
-    extra_data = ExtraDataServiceV2.collect({}, {}, 2, 4)
+    extra_data = ExtraDataService.collect({}, {}, 2, 4)
     assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
 
 
@@ -53,7 +53,7 @@ def test_build_validators_payloads():
         (2, 2): 7,
     }
 
-    result = ExtraDataServiceV2.build_validators_payloads(
+    result = ExtraDataService.build_validators_payloads(
         vals_payloads,
         2,
     )
@@ -69,7 +69,7 @@ def test_build_validators_payloads():
     assert result[2].vals_counts == [5]
     assert result[3].module_id == 2
 
-    assert not ExtraDataServiceV2.build_validators_payloads({}, 2)
+    assert not ExtraDataService.build_validators_payloads({}, 2)
 
 
 @pytest.mark.unit
@@ -94,7 +94,7 @@ def test_build_extra_transactions_data():
         )
     ]
 
-    items_count, txs = ExtraDataServiceV2.build_extra_transactions_data(
+    items_count, txs = ExtraDataService.build_extra_transactions_data(
         stuck_items,
         exit_items,
         2,
@@ -111,13 +111,13 @@ def test_build_extra_transactions_data():
 
 @pytest.mark.unit
 def test_add_hashes_to_transactions():
-    next_hash, txs = ExtraDataServiceV2.add_hashes_to_transactions([])
+    next_hash, txs = ExtraDataService.add_hashes_to_transactions([])
 
     assert next_hash == ZERO_HASH
     assert txs == []
 
     transactions = [b'a' * 32, b'b' * 32, b'c' * 32]
-    next_hash, txs = ExtraDataServiceV2.add_hashes_to_transactions(transactions)
+    next_hash, txs = ExtraDataService.add_hashes_to_transactions(transactions)
 
     assert txs[0][32:] == b'a' * 32
     assert txs[1][32:] == b'b' * 32

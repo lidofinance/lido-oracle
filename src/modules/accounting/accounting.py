@@ -9,7 +9,6 @@ from web3.types import Wei
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
-from src.modules.accounting.third_phase.extra_data_v2 import ExtraDataServiceV2
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     ReportData,
@@ -333,8 +332,6 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
-
         chain_config = self.get_chain_config(blockstamp)
         stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
@@ -342,15 +339,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
 
-        if consensus_version == 1:
-            return ExtraDataService.collect(
-                stuck_validators,
-                exited_validators,
-                orl.max_items_per_extra_data_transaction,
-                orl.max_node_operators_per_extra_data_item,
-            )
-
-        return ExtraDataServiceV2.collect(
+        return ExtraDataService.collect(
             stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
@@ -383,7 +372,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
-        return ExtraDataServiceV2.collect(
+        return ExtraDataService.collect(
             stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
