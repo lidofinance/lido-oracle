@@ -74,14 +74,14 @@ def set_delay_and_sleep(monkeypatch):
         monkeypatch.setattr(
             variables,
             "SUBMIT_DATA_DELAY_IN_SLOTS",
-            0,
+            1,
         )
         monkeypatch.setattr(
             variables,
             "CYCLE_SLEEP_IN_SECONDS",
-            0,
+            1,
         )
-        logger.info("TESTRUN Set SUBMIT_DATA_DELAY_IN_SLOTS and CYCLE_SLEEP_IN_SECONDS to 0")
+        logger.info("TESTRUN Set SUBMIT_DATA_DELAY_IN_SLOTS and CYCLE_SLEEP_IN_SECONDS to 1")
         yield
 
 
