@@ -221,7 +221,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 @pytest.mark.unit
 def test_get_predicted_withdrawable_epoch_pre_electra(ejector: Ejector) -> None:
     ejector.w3.cc = Mock()
-    ejector.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=FAR_FUTURE_EPOCH))
+    ejector.w3.cc.is_electra_activated = Mock(return_value=False)
     ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
     ejector._get_churn_limit = Mock(return_value=2)
     ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)

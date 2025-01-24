@@ -40,6 +40,7 @@ class ConsensusClient(HTTPProvider):
     state_id
     State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
     """
+
     PROVIDER_EXCEPTION = ConsensusClientError
     PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
@@ -51,6 +52,10 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
+
+    def is_electra_activated(self, epoch: EpochNumber) -> bool:
+        spec = self.get_config_spec()
+        return epoch >= spec.ELECTRA_FORK_EPOCH
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""

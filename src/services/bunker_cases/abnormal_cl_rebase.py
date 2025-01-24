@@ -226,8 +226,7 @@ class AbnormalClRebase:
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         if consensus_version > 2:
             epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
-            spec = self.w3.cc.get_config_spec()
-            if epoch >= int(spec.ELECTRA_FORK_EPOCH):
+            if self.w3.cc.is_electra_activated(epoch):
                 state = self.w3.cc.get_state_view(blockstamp)
                 total_eth1_bridge_deposits_amount = LidoValidatorsProvider.calculate_total_eth1_bridge_deposits_amount(
                     lido_validators, state.pending_deposits

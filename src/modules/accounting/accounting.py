@@ -219,8 +219,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         if consensus_version > 2:
-            spec = self.w3.cc.get_config_spec()
-            if blockstamp.ref_epoch >= int(spec.ELECTRA_FORK_EPOCH):
+            if self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
                 state = self.w3.cc.get_state_view(blockstamp)
                 total_lido_eth1_bridge_deposits_amount = self.w3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
                     lido_validators, state.pending_deposits

@@ -13,7 +13,7 @@ class BeaconSpecResponse(FromResponse):
     SECONDS_PER_SLOT: str
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: str
-    ELECTRA_FORK_EPOCH: str = str(FAR_FUTURE_EPOCH)
+    ELECTRA_FORK_EPOCH: int = FAR_FUTURE_EPOCH
 
 
 @dataclass
