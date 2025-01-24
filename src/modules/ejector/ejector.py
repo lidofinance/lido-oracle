@@ -18,7 +18,7 @@ from src.metrics.prometheus.ejector import (
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
 from src.modules.ejector.data_encode import encode_data
-from src.modules.ejector.sweep import get_sweep_delay_in_epochs_post_pectra
+from src.modules.ejector.sweep import get_sweep_delay_in_epochs_post_electra
 from src.modules.ejector.types import EjectorProcessingState, ReportData
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -324,11 +324,11 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         electra_epoch = int(spec.ELECTRA_FORK_EPOCH)
         if self.get_consensus_version(blockstamp) < 3 or blockstamp.ref_epoch < electra_epoch:
-            return self._get_sweep_delay_in_epochs_pre_pectra(blockstamp)
+            return self._get_sweep_delay_in_epochs_pre_electra(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs_post_pectra(state, chain_config)
+        return get_sweep_delay_in_epochs_post_electra(state, chain_config)
 
-    def _get_sweep_delay_in_epochs_pre_pectra(self, blockstamp: ReferenceBlockStamp) -> int:
+    def _get_sweep_delay_in_epochs_pre_electra(self, blockstamp: ReferenceBlockStamp) -> int:
         chain_config = self.get_chain_config(blockstamp)
 
         total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
