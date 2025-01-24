@@ -77,6 +77,7 @@ def test_get_latest_blockstamp(consensus, set_no_account):
 @pytest.mark.unit
 def test_get_member_info_with_account(consensus, set_report_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
@@ -90,6 +91,7 @@ def test_get_member_info_with_account(consensus, set_report_account):
 @pytest.mark.unit
 def test_get_member_info_without_account(consensus, set_no_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
@@ -103,6 +105,7 @@ def test_get_member_info_without_account(consensus, set_no_account):
 @pytest.mark.unit
 def test_get_member_info_no_member_account(consensus, set_not_member_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
 
     with pytest.raises(IsNotMemberException):
         consensus.get_member_info(bs)
@@ -111,6 +114,7 @@ def test_get_member_info_no_member_account(consensus, set_not_member_account):
 @pytest.mark.unit
 def test_get_member_info_submit_only_account(consensus, set_submit_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
