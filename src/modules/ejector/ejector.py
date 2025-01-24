@@ -236,12 +236,11 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
-        spec = self.w3.cc.get_config_spec()
 
-        if blockstamp.ref_epoch < int(spec.ELECTRA_FORK_EPOCH):
-            return self._get_predicted_withdrawable_epoch_pre_electra(blockstamp, validators_to_eject)
+        if self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
+            return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
 
-        return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
+        return self._get_predicted_withdrawable_epoch_pre_electra(blockstamp, validators_to_eject)
 
     def _get_predicted_withdrawable_epoch_pre_electra(
         self,
@@ -320,11 +319,10 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
-        spec = self.w3.cc.get_config_spec()
-        chain_config = self.get_chain_config(blockstamp)
-        electra_epoch = int(spec.ELECTRA_FORK_EPOCH)
-        if self.get_consensus_version(blockstamp) < 3 or blockstamp.ref_epoch < electra_epoch:
+        if self.get_consensus_version(blockstamp) < 3 or not self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
             return self._get_sweep_delay_in_epochs_pre_electra(blockstamp)
+
+        chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs_post_electra(state, chain_config)
 

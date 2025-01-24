@@ -7,13 +7,13 @@ from src.utils.dataclass import FromResponse, Nested
 
 
 @dataclass
-class BeaconSpecResponse(FromResponse):
+class BeaconSpecResponse(FromResponse, Nested):
     DEPOSIT_CHAIN_ID: str
     SLOTS_PER_EPOCH: str
     SECONDS_PER_SLOT: str
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: str
-    ELECTRA_FORK_EPOCH: str = str(FAR_FUTURE_EPOCH)
+    ELECTRA_FORK_EPOCH: int = FAR_FUTURE_EPOCH
 
 
 @dataclass
