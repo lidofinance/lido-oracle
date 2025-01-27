@@ -190,9 +190,9 @@ class FrameCheckpointProcessor:
         block_roots: list[BlockRoot],
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
-        committees = self._prepare_committees(EpochNumber(duty_epoch))
+        committees = self._prepare_committees(duty_epoch)
         for root in block_roots:
-            attestations = self.cc.get_block_attestations(BlockRoot(root))
+            attestations = self.cc.get_block_attestations(root)
             process_attestations(attestations, committees)
 
         with lock:
@@ -218,7 +218,7 @@ class FrameCheckpointProcessor:
     )
     def _prepare_committees(self, epoch: EpochNumber) -> Committees:
         committees = {}
-        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
+        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
             validators = []
             # Order of insertion is used to track the positions in the committees.
             for validator in committee.validators:

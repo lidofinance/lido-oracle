@@ -195,7 +195,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-                ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+                ref_epoch, all_slashed_validators, midterm_penalty_epoch
             )
             penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
                 validator, len(bound_slashed_validators), total_balance
@@ -240,7 +240,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-                report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+                report_ref_epoch, all_slashed_validators, midterm_penalty_epoch
             )
 
             if is_electra_activated(frame_ref_epoch):
@@ -265,9 +265,7 @@ class MidtermSlashingPenalty:
         """
         # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
         slashings = Gwei(bound_slashed_validators_count * MAX_EFFECTIVE_BALANCE)
-        adjusted_total_slashing_balance = min(
-            slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
-        )
+        adjusted_total_slashing_balance = min(slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
         effective_balance = validator.validator.effective_balance
         penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
         penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
@@ -287,11 +285,11 @@ class MidtermSlashingPenalty:
         # We don't know validators effective balances on the moment of slashing,
         # so we assume that it was at least `effective_balance`
         slashings = sum((v.validator.effective_balance for v in bound_slashed_validators), Gwei(0))
-        adjusted_total_slashing_balance = min(
-            slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
-        )
+        adjusted_total_slashing_balance = min(slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
         effective_balance = validator.validator.effective_balance
-        penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (total_balance // EFFECTIVE_BALANCE_INCREMENT)
+        penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (
+            total_balance // EFFECTIVE_BALANCE_INCREMENT
+        )
         effective_balance_increments = effective_balance // EFFECTIVE_BALANCE_INCREMENT
         penalty = penalty_per_effective_balance_increment * effective_balance_increments
         return Gwei(penalty)
