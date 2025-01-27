@@ -72,7 +72,7 @@ def list_of_dataclasses[T](
                 raise DecodeToDataclassException(f'Type {type(list_of_elements)} is not supported.')
 
             if not list_of_elements:
-                return list_of_elements
+                return []
 
             if isinstance(list_of_elements[0], dict):
                 return list(map(lambda x: _dataclass_factory(**x), list_of_elements))
