@@ -10,7 +10,7 @@ from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
-from src.utils.dataclass import Nested
+from src.utils.dataclass import Nested, FromResponse
 from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,16 @@ if TYPE_CHECKING:
 
 
 class NodeOperatorLimitMode(Enum):
+    # 0 == No priority ejections
     DISABLED = 0
+    # 1 == Soft priority ejections
     SOFT = 1
+    # 2 == Force priority ejections
     FORCE = 2
 
 
 @dataclass
-class StakingModule:
+class StakingModule(FromResponse):
     # unique id of the staking module
     id: StakingModuleId
     # address of staking module
@@ -48,26 +51,12 @@ class StakingModule:
     last_deposit_block: int
     # number of exited validators
     exited_validators_count: int
-    # ---------------------
-    # Available after SR2
-    # ---------------------
     # module's share threshold, upon crossing which, exits of validators from the module will be prioritized, in BP
-    priority_exit_share_threshold: int | None = None
+    priority_exit_share_threshold: int
     # the maximum number of validators that can be deposited in a single block
-    max_deposits_per_block: int | None = None
+    max_deposits_per_block: int
     # the minimum distance between deposits in blocks
-    min_deposit_block_distance: int | None = None
-
-    @classmethod
-    def from_response(cls, **staking_module):
-        """
-        To support both versions of StakingRouter, we map values by order instead of keys.
-
-        Breaking changes are
-        target_share -> stake_share_limit
-        """
-        # `target_share` renamed to `stake_share_limit`
-        return cls(*staking_module.values())  # pylint: disable=no-value-for-parameter
+    min_deposit_block_distance: int
 
     def __hash__(self):
         return hash(self.id)
@@ -100,18 +89,11 @@ class NodeOperator(Nested):
             depositable_validators_count,
         ) = data
 
-        # Staking router v1 contract returns bool value in target limit mode
-        # Staking router v1.5 introduce new limit mode (force) and updates is_target_limit_active to uint type
-        #
-        # False == 0 == No priority ejections
-        # True  == 1 == Soft priority ejections
-        #          2 == Force priority ejections
-        is_target_limit_active = NodeOperatorLimitMode(min(is_target_limit_active, 2))
-
         return cls(
             _id,
             is_active,
-            is_target_limit_active,
+            # In case mode > 2, consider its force priority
+            NodeOperatorLimitMode(min(is_target_limit_active, 2)),
             target_validators_count,
             stuck_validators_count,
             refunded_validators_count,
