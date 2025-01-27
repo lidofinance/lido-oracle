@@ -16,7 +16,7 @@ class BeaconSpecResponse(Nested, FromResponse):
     SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
-    ELECTRA_FORK_EPOCH: int = FAR_FUTURE_EPOCH
+    ELECTRA_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
 
 @dataclass
