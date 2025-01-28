@@ -228,7 +228,7 @@ class SafeBorder(Web3Converter):
         return len(slashed_validators) > 0
 
     def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
-        sorted_validators = sorted(validators, key=lambda validator: (validator.validator.exit_epoch))
+        sorted_validators = sorted(validators, key=lambda validator: validator.validator.exit_epoch)
         return filter_validators_by_exit_epoch(sorted_validators, sorted_validators[0].validator.exit_epoch)
 
     def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
