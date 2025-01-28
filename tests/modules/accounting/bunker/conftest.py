@@ -8,7 +8,7 @@ from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, ReferenceBlockStamp
+from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 from tests.modules.ejector.test_exit_order_state_service import FAR_FUTURE_EPOCH
 
 
@@ -27,27 +27,27 @@ def simple_key(pubkey: str) -> LidoKey:
 
 
 def simple_validator(
-    index,
+    index: int,
     pubkey,
-    balance,
+    balance: int,
     slashed=False,
-    withdrawable_epoch='',
-    exit_epoch='100500',
-    activation_epoch="0",
-    effective_balance=str(32 * 10**9),
+    withdrawable_epoch=-1,
+    exit_epoch=100500,
+    activation_epoch=0,
+    effective_balance=32 * 10**9,
 ) -> Validator:
     return Validator(
-        index=str(index),
-        balance=str(balance),
+        index=ValidatorIndex(index),
+        balance=Gwei(balance),
         validator=ValidatorState(
             pubkey=pubkey,
             withdrawal_credentials='',
-            effective_balance=effective_balance,
+            effective_balance=Gwei(effective_balance),
             slashed=slashed,
-            activation_eligibility_epoch='',
-            activation_epoch=activation_epoch,
-            exit_epoch=exit_epoch,
-            withdrawable_epoch=withdrawable_epoch,
+            activation_eligibility_epoch=EpochNumber(-1),
+            activation_epoch=EpochNumber(activation_epoch),
+            exit_epoch=EpochNumber(exit_epoch),
+            withdrawable_epoch=EpochNumber(withdrawable_epoch),
         ),
     )
 

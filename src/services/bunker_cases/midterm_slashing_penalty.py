@@ -111,7 +111,7 @@ class MidtermSlashingPenalty:
         """
 
         def is_have_impact(v: Validator) -> bool:
-            return v.validator.slashed and int(v.validator.withdrawable_epoch) > ref_epoch
+            return v.validator.slashed and v.validator.withdrawable_epoch > ref_epoch
 
         return list(filter(is_have_impact, validators))
 
@@ -130,14 +130,14 @@ class MidtermSlashingPenalty:
         """
         v = validator.validator
 
-        if int(v.withdrawable_epoch) - int(v.exit_epoch) > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-            determined_slashed_epoch = EpochNumber(int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR)
+        if v.withdrawable_epoch - v.exit_epoch > MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
+            determined_slashed_epoch = EpochNumber(v.withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
             return [determined_slashed_epoch]
 
         earliest_possible_slashed_epoch = max(0, ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         # We get here `min` because exit queue can be greater than `EPOCHS_PER_SLASHINGS_VECTOR`
         # So possible slashed epoch can not be greater than `ref_epoch`
-        latest_possible_epoch = min(ref_epoch, int(v.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR)
+        latest_possible_epoch = min(ref_epoch, v.withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         return [EpochNumber(epoch) for epoch in range(earliest_possible_slashed_epoch, latest_possible_epoch + 1)]
 
     @staticmethod
@@ -195,7 +195,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-                ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+                ref_epoch, all_slashed_validators, midterm_penalty_epoch
             )
             penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
                 validator, len(bound_slashed_validators), total_balance
@@ -240,7 +240,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             bound_slashed_validators = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-                report_ref_epoch, all_slashed_validators, EpochNumber(midterm_penalty_epoch)
+                report_ref_epoch, all_slashed_validators, midterm_penalty_epoch
             )
 
             if is_electra_activated(frame_ref_epoch):
@@ -265,10 +265,8 @@ class MidtermSlashingPenalty:
         """
         # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
         slashings = Gwei(bound_slashed_validators_count * MAX_EFFECTIVE_BALANCE)
-        adjusted_total_slashing_balance = min(
-            slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
-        )
-        effective_balance = int(validator.validator.effective_balance)
+        adjusted_total_slashing_balance = min(slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
+        effective_balance = validator.validator.effective_balance
         penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
         penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
 
@@ -286,12 +284,12 @@ class MidtermSlashingPenalty:
         """
         # We don't know validators effective balances on the moment of slashing,
         # so we assume that it was at least `effective_balance`
-        slashings = Gwei(sum(int(v.validator.effective_balance) for v in bound_slashed_validators))
-        adjusted_total_slashing_balance = min(
-            slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance
+        slashings = sum((v.validator.effective_balance for v in bound_slashed_validators), Gwei(0))
+        adjusted_total_slashing_balance = min(slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
+        effective_balance = validator.validator.effective_balance
+        penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (
+            total_balance // EFFECTIVE_BALANCE_INCREMENT
         )
-        effective_balance = int(validator.validator.effective_balance)
-        penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (total_balance // EFFECTIVE_BALANCE_INCREMENT)
         effective_balance_increments = effective_balance // EFFECTIVE_BALANCE_INCREMENT
         penalty = penalty_per_effective_balance_increment * effective_balance_increments
         return Gwei(penalty)
@@ -326,12 +324,12 @@ class MidtermSlashingPenalty:
 
         epochs_passed_since_last_report = curr_report_blockstamp.ref_epoch - last_report_ref_epoch
 
-        frame_cl_rebase = (
+        frame_cl_rebase = int(
             (report_cl_rebase / epochs_passed_since_last_report) * web3_converter.frame_config.epochs_per_frame
         )
-        return Gwei(int(frame_cl_rebase))
+        return Gwei(frame_cl_rebase)
 
     @staticmethod
     def get_midterm_penalty_epoch(validator: Validator) -> EpochNumber:
         """https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings"""
-        return EpochNumber(int(validator.validator.withdrawable_epoch) - EPOCHS_PER_SLASHINGS_VECTOR // 2)
+        return EpochNumber(validator.validator.withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR // 2)

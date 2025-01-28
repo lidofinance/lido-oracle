@@ -3,7 +3,7 @@ import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import get_args, cast
+from typing import cast, get_args
 
 import pytest
 from _pytest.nodes import Item
@@ -15,7 +15,7 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import logger, ipfs_providers
+from src.main import ipfs_providers, logger
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.modules.submodules.types import FrameConfig
@@ -23,18 +23,18 @@ from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.ipfs import MultiIPFSProvider, CID
-from src.types import SlotNumber, BlockRoot, BlockStamp
+from src.providers.ipfs import CID, MultiIPFSProvider
+from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import get_next_non_missed_slot
 from src.variables import (
-    HTTP_REQUEST_TIMEOUT_CONSENSUS,
     HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
+    HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import KeysAPIClientModule, LidoContracts, LidoValidatorsProvider, TransactionUtils, LazyCSM
+from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
 
 logger = logger.getChild("fork")
 
@@ -112,7 +112,6 @@ def testrun_path(worker_id, testrun_uid):
 
 @pytest.fixture
 def account_from(monkeypatch):
-
     @contextmanager
     def _use(pk: str):
         with monkeypatch.context():
@@ -148,7 +147,7 @@ def real_cl_client():
 
 @pytest.fixture
 def real_finalized_slot(real_cl_client: ConsensusClient) -> SlotNumber:
-    finalized_slot = SlotNumber(int(real_cl_client.get_block_header('finalized').data.header.message.slot))
+    finalized_slot = real_cl_client.get_block_header('finalized').data.header.message.slot
     logger.info(f"TESTRUN True finalized slot on CL: {finalized_slot}")
     return finalized_slot
 
@@ -281,13 +280,10 @@ def running_finalized_slots(request):
 
 @pytest.fixture()
 def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):
-
     _, current = running_finalized_slots
 
     class PatchedConsensusClient(ConsensusClient):
-
         def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
-
             if state_id == 'genesis' or state_id not in get_args(LiteralState):
                 return super().get_block_root(state_id)
 
@@ -319,7 +315,7 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
                 real_finalized_slot,
             ).message.slot
 
-            return self.get_block_root(SlotNumber(int(existing)))
+            return self.get_block_root(existing)
 
         def get_block_details(self, state_id: SlotNumber | BlockRoot) -> BlockDetailsResponse:
             """
@@ -330,13 +326,13 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
             while not block_from_fork:
                 try:
                     block_from_fork = forked_el_client.eth.get_block(
-                        int(slot_details.message.body.execution_payload.block_number)
+                        slot_details.message.body.execution_payload.block_number
                     )
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.debug(f"TESTRUN FORKED CLIENT: {e}")
                 if not block_from_fork:
                     latest_el = int(forked_el_client.eth.get_block('latest')['number'])
-                    from_cl = int(slot_details.message.body.execution_payload.block_number)
+                    from_cl = slot_details.message.body.execution_payload.block_number
                     diff = from_cl - latest_el
                     if diff < 0:
                         raise TestRunningException(f"TESTRUN Latest block {latest_el} is ahead block {from_cl}")
@@ -392,7 +388,7 @@ def new_hash_consensus(
         HashConsensus.constructor(
             slotsPerEpoch=32,
             secondsPerSlot=12,
-            genesisTime=int(real_cl_client.get_genesis().genesis_time),
+            genesisTime=real_cl_client.get_genesis().genesis_time,
             epochsPerFrame=frame_config.epochs_per_frame,
             fastLaneLengthSlots=frame_config.fast_lane_length_slots,
             admin=admin,
@@ -429,7 +425,6 @@ def set_oracle_members(new_hash_consensus: HashConsensusContract, accounts_from_
     addresses, private_keys = accounts_from_fork
 
     def _set_members(count: int = 2):
-
         DEFAULT_ADMIN_ROLE = "0x" + new_hash_consensus.functions.DEFAULT_ADMIN_ROLE().call().hex()
         MANAGE_MEMBERS_AND_QUORUM_ROLE = (
             "0x" + new_hash_consensus.functions.MANAGE_MEMBERS_AND_QUORUM_ROLE().call().hex()

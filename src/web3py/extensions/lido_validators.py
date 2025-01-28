@@ -167,10 +167,10 @@ class LidoValidatorsProvider(Module):
                 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
 
                 # Validator is not activated
-                int(v.validator.activation_epoch) == FAR_FUTURE_EPOCH and
+                v.validator.activation_epoch == FAR_FUTURE_EPOCH and
 
                 # It has unexpected balance for non-activated validator
-                int(v.validator.effective_balance) < LIDO_DEPOSIT_AMOUNT
+                v.validator.effective_balance < LIDO_DEPOSIT_AMOUNT
             ):
                 # Pending deposits may contain:
                 # - Deposit requests:      https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#deposit-requests

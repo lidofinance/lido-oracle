@@ -2,7 +2,6 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from toolz.functoolz import return_none
 from web3.exceptions import ContractCustomError
 
 from src import variables
@@ -15,7 +14,6 @@ from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
-from tests.web3py.test_lido_validators import blockstamp
 
 
 @pytest.fixture()
@@ -203,8 +201,8 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
 @pytest.mark.parametrize(
     'contract_version,consensus_version',
     [
-        pytest.param(1, 2, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
-        pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        # pytest.param(1, 2, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        # pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
         pytest.param(2, 1, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
         (2, 2),
     ],

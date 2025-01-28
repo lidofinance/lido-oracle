@@ -140,9 +140,9 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
         delayed_validators_count = 0
 
         for validator in operator_validators:
-            requested_to_exit = int(validator.index) <= last_requested_to_exit_index
+            requested_to_exit = validator.index <= last_requested_to_exit_index
             on_exit = is_on_exit(validator)
-            recently_requested_to_exit = int(validator.index) in recently_operator_requested_to_exit_index
+            recently_requested_to_exit = validator.index in recently_operator_requested_to_exit_index
             if requested_to_exit and not on_exit and not recently_requested_to_exit:
                 delayed_validators_count += 1
 
@@ -151,7 +151,7 @@ class ExitOrderIteratorStateService(LidoValidatorStateService):
     @staticmethod
     def is_exitable(validator: LidoValidator, last_requested_to_exit_index: int) -> bool:
         """Returns True if validator is exitable: not on exit and not requested to exit"""
-        requested_to_exit = int(validator.index) <= last_requested_to_exit_index
+        requested_to_exit = validator.index <= last_requested_to_exit_index
         on_exit = is_on_exit(validator)
         exitable = not on_exit and not requested_to_exit
         return exitable

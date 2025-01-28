@@ -165,7 +165,7 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].delayed_validators == 1
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
     assert iterator.node_operators_stats[(2, 1)].force_exit_to is not None
-    assert iterator.exitable_validators[(2, 1)][0].index == '7'
+    assert iterator.exitable_validators[(2, 1)][0].index == 7
     assert iterator.total_lido_validators == 7
 
     prev_total_age = iterator.node_operators_stats[(1, 1)].total_age

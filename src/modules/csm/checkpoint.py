@@ -11,7 +11,7 @@ from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSE
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
-from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
+from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
@@ -103,9 +103,7 @@ class FrameCheckpointsIterator:
         return False
 
 
-type Slot = str
-type CommitteeIndex = str
-type Committees = dict[tuple[Slot, CommitteeIndex], list[ValidatorDuty]]
+type Committees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
 
 
 class FrameCheckpointProcessor:
@@ -192,9 +190,9 @@ class FrameCheckpointProcessor:
         block_roots: list[BlockRoot],
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
-        committees = self._prepare_committees(EpochNumber(duty_epoch))
+        committees = self._prepare_committees(duty_epoch)
         for root in block_roots:
-            attestations = self.cc.get_block_attestations(BlockRoot(root))
+            attestations = self.cc.get_block_attestations(root)
             process_attestations(attestations, committees)
 
         with lock:
@@ -220,11 +218,11 @@ class FrameCheckpointProcessor:
     )
     def _prepare_committees(self, epoch: EpochNumber) -> Committees:
         committees = {}
-        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
+        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
             validators = []
             # Order of insertion is used to track the positions in the committees.
             for validator in committee.validators:
-                validators.append(ValidatorDuty(index=ValidatorIndex(int(validator)), included=False))
+                validators.append(ValidatorDuty(index=validator, included=False))
             committees[(committee.slot, committee.index)] = validators
         return committees
 
@@ -242,14 +240,14 @@ def process_attestations(attestations: Iterable[BlockAttestation], committees: C
 
 def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
     if is_eip7549_attestation(attestation):
-        return [str(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
+        return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
     return [attestation.data.index]
 
 
 def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationEIP7549]:
     # @see https://eips.ethereum.org/EIPS/eip-7549
     has_committee_bits = getattr(attestation, "committee_bits") is not None
-    has_zero_index = attestation.data.index == "0"
+    has_zero_index = attestation.data.index == 0
     if has_committee_bits and not has_zero_index:
         raise ValueError(f"Got invalid {attestation=}")
     return has_committee_bits and has_zero_index

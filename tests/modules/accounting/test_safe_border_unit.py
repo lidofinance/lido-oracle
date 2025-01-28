@@ -8,6 +8,7 @@ from src.providers.consensus.types import ValidatorState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
+from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
 FAR_FUTURE_EPOCH = 2**64 - 1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
@@ -260,12 +261,7 @@ def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):
 
 
 def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> ValidatorState:
-    return ValidatorState(
-        pubkey=None,
-        withdrawal_credentials=None,
-        effective_balance=None,
-        activation_eligibility_epoch=None,
-        activation_epoch=None,
+    return ValidatorStateFactory.build(
         slashed=slashed,
         exit_epoch=exit_epoch,
         withdrawable_epoch=withdrawable_epoch,
@@ -273,4 +269,4 @@ def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> Validator
 
 
 def create_validator(validator: ValidatorState) -> Validator:
-    return Validator(validator=validator, index=None, balance=None)
+    return ValidatorFactory.build(validator=validator)

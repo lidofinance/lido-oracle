@@ -9,7 +9,7 @@ from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import StakingModuleId, NodeOperatorId
+from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -95,17 +95,17 @@ def lido_validators(web3):
             ),
             **asdict(
                 Validator(
-                    index=str(index),
-                    balance="0",
+                    index=ValidatorIndex(index),
+                    balance=Gwei(0),
                     validator=ValidatorState(
                         pubkey=pubkey,
                         withdrawal_credentials="0x1",
-                        effective_balance="0",
+                        effective_balance=0,
                         slashed=False,
-                        activation_eligibility_epoch="0",
-                        activation_epoch=str(activation_epoch),
-                        exit_epoch=str(exit_epoch),
-                        withdrawable_epoch="0",
+                        activation_eligibility_epoch=EpochNumber(0),
+                        activation_epoch=EpochNumber(activation_epoch),
+                        exit_epoch=EpochNumber(exit_epoch),
+                        withdrawable_epoch=EpochNumber(0),
                     ),
                 )
             ),

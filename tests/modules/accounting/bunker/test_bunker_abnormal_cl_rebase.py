@@ -6,28 +6,29 @@ from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
+from src.types import EpochNumber, Gwei, ValidatorIndex
 from tests.factory.no_registry import PendingDepositFactory
-from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
+from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
 
 def simple_validators(
     from_index: int,
     to_index: int,
-    balance=str(32 * 10**9),
-    effective_balance=str(32 * 10**9),
+    balance=Gwei(32 * 10**9),
+    effective_balance=Gwei(32 * 10**9),
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
         validator = Validator(
-            index=str(index),
+            index=ValidatorIndex(index),
             balance=balance,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
                 effective_balance=effective_balance,
                 slashed=False,
-                activation_eligibility_epoch='',
-                activation_epoch='0',
+                activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                activation_epoch=EpochNumber(0),
                 exit_epoch=FAR_FUTURE_EPOCH,
                 withdrawable_epoch=FAR_FUTURE_EPOCH,
             ),
@@ -375,10 +376,10 @@ def test_validate_slot_distance(distant_slot, nearest_slot, ref_slot, expected_r
         ([], 0),
         (simple_validators(0, 9), 10 * 32 * 10**9),
         (
-            simple_validators(0, 9, balance=str(int(31.75 * 10**9)), effective_balance=str(32 * 10**9)),
+            simple_validators(0, 9, balance=int(31.75 * 10**9), effective_balance=32 * 10**9),
             10 * int(31.75 * 10**9),
         ),
-        (simple_validators(0, 9, balance=str(10**9)), 10 * 10**9),
+        (simple_validators(0, 9, balance=10**9), 10 * 10**9),
     ],
 )
 def test_calculate_real_balance(validators, expected_balance):

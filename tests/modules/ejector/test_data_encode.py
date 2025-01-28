@@ -85,7 +85,7 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
 
         assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
         assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
-        assert int.from_bytes(chunks[2]) == int(_val.index), "Validator's index mismatch"
+        assert int.from_bytes(chunks[2]) == _val.index, "Validator's index mismatch"
         assert chunks[3] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
 
 
@@ -274,5 +274,5 @@ def test_validators_sorting_for_ejector_report(validators_to_eject):
             last_no_id = global_index[1]
             last_validator_index = -1
 
-        assert int(validator.index) > last_validator_index
-        last_validator_index = int(validator.index)
+        assert validator.index > last_validator_index
+        last_validator_index = validator.index

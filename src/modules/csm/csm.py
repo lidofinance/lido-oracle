@@ -29,7 +29,6 @@ from src.types import (
     SlotNumber,
     StakingModuleAddress,
     StakingModuleId,
-    ValidatorIndex,
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
@@ -243,7 +242,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 continue
 
             for v in validators:
-                aggr = self.state.data.get(ValidatorIndex(int(v.index)))
+                aggr = self.state.data.get(v.index)
 
                 if aggr is None:
                     # It's possible that the validator is not assigned to any duty, hence it's performance

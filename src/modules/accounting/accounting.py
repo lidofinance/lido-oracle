@@ -213,7 +213,7 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_lido_balance = lido_validators_state_balance = sum(int(validator.balance) for validator in lido_validators)
+        total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
 
         if self.get_consensus_version(blockstamp) > 2:

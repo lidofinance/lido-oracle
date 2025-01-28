@@ -108,7 +108,7 @@ def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators))
+    assert balance == sum(val.balance for val in validators)
 
 
 @pytest.mark.unit
@@ -136,7 +136,7 @@ def test_get_consensus_lido_state_post_electra(accounting: Accounting):
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators)) + 3 * LIDO_DEPOSIT_AMOUNT
+    assert balance == sum(val.balance for val in validators) + 3 * LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit

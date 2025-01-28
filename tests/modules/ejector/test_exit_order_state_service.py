@@ -6,6 +6,7 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import ValidatorState, Validator
 from src.services.exit_order.iterator import NodeOperatorPredictableState
 from src.services.exit_order.iterator_state import ExitOrderIteratorStateService
+from src.types import EpochNumber, Gwei, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -23,17 +24,17 @@ def simple_validators(
     validators = []
     for index in range(from_index, to_index + 1):
         validator = Validator(
-            index=str(index),
-            balance=str(32 * 10**9),
+            index=ValidatorIndex(index),
+            balance=Gwei(32 * 10**9),
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
-                effective_balance=str(32 * 10**9),
+                effective_balance=Gwei(32 * 10**9),
                 slashed=slashed,
-                activation_eligibility_epoch='',
-                activation_epoch=str(activation_epoch),
-                exit_epoch=exit_epoch,
-                withdrawable_epoch=exit_epoch,
+                activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                activation_epoch=EpochNumber(activation_epoch),
+                exit_epoch=EpochNumber(exit_epoch),
+                withdrawable_epoch=EpochNumber(exit_epoch),
             ),
         )
         validators.append(validator)
