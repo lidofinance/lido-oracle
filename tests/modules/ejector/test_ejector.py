@@ -24,7 +24,6 @@ from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
-    Checkpoint,
     BeaconSpecResponse,
 )
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp
@@ -147,7 +146,7 @@ class TestGetValidatorsToEject:
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
-                ejector_module.ValidatorExitIteratorV2,
+                ejector_module.ValidatorExitIterator,
                 "__iter__",
                 Mock(return_value=val_iter),
             )
@@ -185,7 +184,7 @@ class TestGetValidatorsToEject:
             val_iter = iter(SimpleIterator(validators[:2]))
             val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
-                ejector_module.ValidatorExitIteratorV2,
+                ejector_module.ValidatorExitIterator,
                 "__iter__",
                 Mock(return_value=val_iter),
             )
