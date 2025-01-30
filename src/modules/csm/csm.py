@@ -168,6 +168,9 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
 
+        consensus_version = self.get_consensus_version(blockstamp)
+        eip7549_supported = consensus_version != 1
+
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -212,7 +215,7 @@ class CSOracle(BaseModule, ConsensusModule):
         except MinStepIsNotReached:
             return False
 
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
+        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported)
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
