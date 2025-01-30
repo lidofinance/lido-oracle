@@ -53,6 +53,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
 
+    @lru_cache(maxsize=1)
     def is_electra_activated(self, epoch: EpochNumber) -> bool:
         spec = self.get_config_spec()
         return epoch >= spec.ELECTRA_FORK_EPOCH
