@@ -52,10 +52,10 @@ class Accounting(BaseModule, ConsensusModule):
 
     Report goes in tree phases:
         - Send report hash
-        - Send report data (extra data hash inside)
-            Contains information about lido states, last withdrawal request to finalize and exited validators count by module.
+        - Send report data (with extra data hash inside)
+            Contains information about lido state, withdrawal requests to finalize and exited validators count by module.
         - Send extra data
-            Contains stuck and exited validators count by each node operator.
+            Contains stuck and exited validator's updates count by each node operator.
     """
     COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
 
@@ -67,7 +67,7 @@ class Accounting(BaseModule, ConsensusModule):
         self.bunker_service = BunkerService(self.w3)
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.lido_contracts.accounting_oracle
+        self.report_contract = self.w3.lido_contracts.accounting_oracle  # type: ignore
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
@@ -220,7 +220,8 @@ class Accounting(BaseModule, ConsensusModule):
             if self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
                 state = self.w3.cc.get_state_view(blockstamp)
                 total_lido_eth1_bridge_deposits_amount = self.w3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
-                    lido_validators, state.pending_deposits
+                    lido_validators,
+                    state.pending_deposits,
                 )
                 logger.info({'msg': 'Calculate Lido eth1 bridge deposits (in Gwei)', 'value': total_lido_eth1_bridge_deposits_amount})
                 total_lido_balance += total_lido_eth1_bridge_deposits_amount
@@ -330,12 +331,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        chain_config = self.get_chain_config(blockstamp)
-        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
-        exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
-        logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
 
         return ExtraDataService.collect(
             stuck_validators,

@@ -24,8 +24,7 @@ from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.consensus.types import Validator, BeaconStateView
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.services.exit_order.iterator import ExitOrderIterator
-from src.services.exit_order_v2.iterator import ValidatorExitIteratorV2
+from src.services.exit_order_iterator import ValidatorExitIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
@@ -121,8 +120,12 @@ class Ejector(BaseModule, ConsensusModule):
 
         expected_balance = self._get_total_expected_balance([], blockstamp)
 
-        consensus_version = self.get_consensus_version(blockstamp)
-        validators_iterator = iter(self.get_validators_iterator(consensus_version, blockstamp))
+        chain_config = self.get_chain_config(blockstamp)
+        validators_iterator = iter(ValidatorExitIterator(
+            w3=self.w3,
+            blockstamp=blockstamp,
+            seconds_per_slot=chain_config.seconds_per_slot
+        ))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         total_balance_to_eject_wei = 0
@@ -181,22 +184,6 @@ class Ejector(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate el balance.', 'value': total_available_balance})
 
         return Wei(future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance)
-
-    def get_validators_iterator(self, consensus_version: int,  blockstamp: ReferenceBlockStamp):
-        chain_config = self.get_chain_config(blockstamp)
-
-        if consensus_version == 1:
-            return ExitOrderIterator(
-                web3=self.w3,
-                blockstamp=blockstamp,
-                chain_config=chain_config
-            )
-
-        return ValidatorExitIteratorV2(
-            w3=self.w3,
-            blockstamp=blockstamp,
-            seconds_per_slot=chain_config.seconds_per_slot
-        )
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self.report_contract.is_paused('latest')
@@ -296,7 +283,7 @@ class Ejector(BaseModule, ConsensusModule):
             additional_epochs = (balance_to_process - 1) // per_epoch_churn + 1
             earliest_exit_epoch += additional_epochs
 
-        return earliest_exit_epoch
+        return EpochNumber(earliest_exit_epoch)
 
     @lru_cache(maxsize=1)
     def _get_latest_exit_epoch(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, int]:
