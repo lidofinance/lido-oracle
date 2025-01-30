@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
 from typing import Callable, Self, Sequence
 
-from src.types import BlockNumber, EpochNumber, Gwei, SlotNumber, Timestamp, ValidatorIndex
+from src.types import BlockNumber, CommitteeIndex, EpochNumber, Gwei, SlotNumber, Timestamp, ValidatorIndex
 from src.utils.abi import named_tuple_to_dataclass
 
 
@@ -44,7 +44,16 @@ class Nested:
 
     @staticmethod
     def __is_numberish_type(field_type):
-        return field_type in (int, Gwei, BlockNumber, SlotNumber, EpochNumber, Timestamp, ValidatorIndex)
+        return field_type in (
+            int,
+            Gwei,
+            BlockNumber,
+            SlotNumber,
+            EpochNumber,
+            Timestamp,
+            ValidatorIndex,
+            CommitteeIndex,
+        )
 
 
 @dataclass
