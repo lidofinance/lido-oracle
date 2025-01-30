@@ -76,7 +76,7 @@ def test_get_delayed_validators(iterator):
 
 
 def test_calculate_validators_age(iterator, monkeypatch):
-    monkeypatch.setattr('src.services.exit_order_v2.iterator.get_validator_age', lambda x, _: 1)
+    monkeypatch.setattr('src.services.exit_order_iterator.get_validator_age', lambda x, _: 1)
     iterator.blockstamp = ReferenceBlockStampFactory.build()
     age = iterator.calculate_validators_age(list(range(20)))
     assert age == 20
