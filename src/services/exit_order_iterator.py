@@ -34,7 +34,7 @@ class NodeOperatorStats:
     soft_exit_to: int | None = None
 
 
-class ValidatorExitIteratorV2:
+class ValidatorExitIterator:
     """
     To determine which validators to request for exit, the VEBO selects one entry
     from the sorted list of exitable Lido validators until the demand in WQ is covered by
@@ -240,14 +240,14 @@ class ValidatorExitIteratorV2:
 
     @staticmethod
     def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.force_exit_to,
         )
 
     @staticmethod
     def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.soft_exit_to,
         )
@@ -263,12 +263,7 @@ class ValidatorExitIteratorV2:
         """
         The higher coefficient the higher priority to eject validator
         """
-        priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
-
-        # ToDo: remove after upgrade to sr v2
-        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else TOTAL_BASIS_POINTS
-
-        max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
+        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
 
         max_validators_count = int(max_share_rate * self.total_lido_validators)
         return max(node_operator.module_stats.predictable_validators - max_validators_count, 0)
