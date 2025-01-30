@@ -322,7 +322,7 @@ def test_checkpoints_processor_check_duty(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -347,7 +347,7 @@ def test_checkpoints_processor_process(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -372,7 +372,7 @@ def test_checkpoints_processor_exec(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,

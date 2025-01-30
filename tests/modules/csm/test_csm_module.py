@@ -183,7 +183,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
             ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
         }
     )
-    module.state.migrate(EpochNumber(100), EpochNumber(500))
+    module.state.migrate(EpochNumber(100), EpochNumber(500), 1)
 
     _, shares, log = module.calculate_distribution(blockstamp=Mock())
 
