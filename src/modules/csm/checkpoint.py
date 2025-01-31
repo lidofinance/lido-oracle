@@ -113,11 +113,21 @@ class FrameCheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter, finalized_blockstamp: BlockStamp):
+    eip7549_supported: bool
+
+    def __init__(
+        self,
+        cc: ConsensusClient,
+        state: State,
+        converter: Web3Converter,
+        finalized_blockstamp: BlockStamp,
+        eip7549_supported: bool = True,
+    ):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
+        self.eip7549_supported = eip7549_supported
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
@@ -193,7 +203,7 @@ class FrameCheckpointProcessor:
         committees = self._prepare_committees(duty_epoch)
         for root in block_roots:
             attestations = self.cc.get_block_attestations(root)
-            process_attestations(attestations, committees)
+            process_attestations(attestations, committees, self.eip7549_supported)
 
         with lock:
             for committee in committees.values():
@@ -227,8 +237,14 @@ class FrameCheckpointProcessor:
         return committees
 
 
-def process_attestations(attestations: Iterable[BlockAttestation], committees: Committees) -> None:
+def process_attestations(
+    attestations: Iterable[BlockAttestation],
+    committees: Committees,
+    eip7549_supported: bool = True,
+) -> None:
     for attestation in attestations:
+        if is_eip7549_attestation(attestation) and not eip7549_supported:
+            raise ValueError("EIP-7549 support is not enabled")
         committee_offset = 0
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
