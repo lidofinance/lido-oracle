@@ -201,7 +201,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the frame is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch)
+        self.state.migrate(l_epoch, r_epoch, consensus_version)
         self.state.log_progress()
 
         if self.state.is_fulfilled:
