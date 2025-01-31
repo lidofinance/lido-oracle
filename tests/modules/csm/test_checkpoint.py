@@ -326,7 +326,7 @@ def test_checkpoints_processor_no_eip7549_support(
     monkeypatch: pytest.MonkeyPatch,
 ):
     state = State()
-    state.migrate(EpochNumber(0), EpochNumber(255))
+    state.migrate(EpochNumber(0), EpochNumber(255), 1)
     processor = FrameCheckpointProcessor(
         consensus_client,
         state,
