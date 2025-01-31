@@ -245,7 +245,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         )
 
     @pytest.mark.unit
-    def test_earliest_exit_epoch_is_old(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_earliest_exit_epoch_is_old(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -263,7 +265,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_fits_exit_balance_to_consume(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_fits_exit_balance_to_consume(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -281,7 +285,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_balance_to_consume(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_balance_to_consume(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -299,7 +305,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_churn_limit(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_churn_limit(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
