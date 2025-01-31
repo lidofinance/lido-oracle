@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker import BunkerService
@@ -9,7 +10,6 @@ from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
-from tests.modules.ejector.test_exit_order_state_service import FAR_FUTURE_EPOCH
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:

@@ -24,7 +24,6 @@ from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
-    Checkpoint,
     BeaconSpecResponse,
 )
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp
@@ -63,6 +62,11 @@ def ref_blockstamp() -> ReferenceBlockStamp:
 def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
     web3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
     return Ejector(web3)
+
+
+@pytest.fixture()
+def set_consensus(ejector):
+    ejector.get_consensus_version = Mock(return_value=3)
 
 
 @pytest.mark.unit
@@ -147,7 +151,7 @@ class TestGetValidatorsToEject:
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
-                ejector_module.ValidatorExitIteratorV2,
+                ejector_module.ValidatorExitIterator,
                 "__iter__",
                 Mock(return_value=val_iter),
             )
@@ -185,7 +189,7 @@ class TestGetValidatorsToEject:
             val_iter = iter(SimpleIterator(validators[:2]))
             val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
-                ejector_module.ValidatorExitIteratorV2,
+                ejector_module.ValidatorExitIterator,
                 "__iter__",
                 Mock(return_value=val_iter),
             )
@@ -241,7 +245,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         )
 
     @pytest.mark.unit
-    def test_earliest_exit_epoch_is_old(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_earliest_exit_epoch_is_old(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -259,7 +265,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_fits_exit_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_fits_exit_balance_to_consume(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -277,7 +285,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_balance_to_consume(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
@@ -295,7 +305,9 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_churn_limit(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_churn_limit(
+        self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp
+    ) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(

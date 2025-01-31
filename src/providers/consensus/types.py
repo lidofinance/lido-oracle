@@ -178,7 +178,7 @@ class BeaconStateView(Nested, FromResponse):
     validators: list[ValidatorState]
     balances: list[Gwei]
 
-    # This fields are new in Electra, so here are default values for backward compatibility.
+    # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
