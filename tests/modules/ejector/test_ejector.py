@@ -64,6 +64,11 @@ def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
     return Ejector(web3)
 
 
+@pytest.fixture()
+def set_consensus(ejector):
+    ejector.get_consensus_version = Mock(return_value=3)
+
+
 @pytest.mark.unit
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=None)
@@ -240,9 +245,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         )
 
     @pytest.mark.unit
-    def test_earliest_exit_epoch_is_old(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_earliest_exit_epoch_is_old(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
-        ejector.get_consensus_version = Mock(return_value=3)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
@@ -259,9 +263,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_fits_exit_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_fits_exit_balance_to_consume(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector._get_total_active_balance = Mock(return_value=int(2048e9))
-        ejector.get_consensus_version = Mock(return_value=3)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
@@ -278,9 +281,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_balance_to_consume(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_balance_to_consume(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
-        ejector.get_consensus_version = Mock(return_value=3)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
@@ -297,9 +299,8 @@ class TestPredictedWithdrawableEpochPostElectra:
         assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     @pytest.mark.unit
-    def test_exit_exceeds_churn_limit(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    def test_exit_exceeds_churn_limit(self, ejector: Ejector, set_consensus, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector._get_total_active_balance = Mock(return_value=2048e9)
-        ejector.get_consensus_version = Mock(return_value=3)
         ejector.w3.cc.get_state_view = Mock(
             return_value=BeaconStateView(
                 slot=ref_blockstamp.slot_number,
