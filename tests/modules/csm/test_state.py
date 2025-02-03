@@ -50,10 +50,10 @@ def test_state_avg_perf():
 def test_state_frame():
     state = State()
 
-    state.migrate(EpochNumber(100), EpochNumber(500))
+    state.migrate(EpochNumber(100), EpochNumber(500), 1)
     assert state.frame == (100, 500)
 
-    state.migrate(EpochNumber(300), EpochNumber(301))
+    state.migrate(EpochNumber(300), EpochNumber(301), 1)
     assert state.frame == (300, 301)
 
     state.clear()
@@ -155,7 +155,7 @@ class TestStateTransition:
         l_epoch = EpochNumber(1)
         r_epoch = EpochNumber(255)
 
-        state.migrate(l_epoch, r_epoch)
+        state.migrate(l_epoch, r_epoch, 1)
 
         assert not state.is_empty
         assert state.unprocessed_epochs == set(sequence(l_epoch, r_epoch))
@@ -171,10 +171,10 @@ class TestStateTransition:
     def test_new_frame_requires_discarding_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
         state = State()
         state.clear = Mock(side_effect=state.clear)
-        state.migrate(l_epoch_old, r_epoch_old)
+        state.migrate(l_epoch_old, r_epoch_old, 1)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new)
+        state.migrate(l_epoch_new, r_epoch_new, 1)
         state.clear.assert_called_once()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
@@ -190,10 +190,30 @@ class TestStateTransition:
         state = State()
         state.clear = Mock(side_effect=state.clear)
 
-        state.migrate(l_epoch_old, r_epoch_old)
+        state.migrate(l_epoch_old, r_epoch_old, 1)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new)
+        state.migrate(l_epoch_new, r_epoch_new, 1)
         state.clear.assert_not_called()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
+
+    @pytest.mark.parametrize(
+        ("old_version", "new_version"),
+        [
+            pytest.param(2, 3, id="Increase consensus version"),
+            pytest.param(3, 2, id="Decrease consensus version"),
+        ],
+    )
+    def test_consensus_version_change(self, old_version, new_version):
+        state = State()
+        state.clear = Mock(side_effect=state.clear)
+        state._consensus_version = old_version
+
+        l_epoch = r_epoch = EpochNumber(255)
+
+        state.migrate(l_epoch, r_epoch, old_version)
+        state.clear.assert_not_called()
+
+        state.migrate(l_epoch, r_epoch, new_version)
+        state.clear.assert_called_once()

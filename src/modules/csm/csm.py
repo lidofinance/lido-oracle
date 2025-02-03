@@ -29,7 +29,6 @@ from src.types import (
     SlotNumber,
     StakingModuleAddress,
     StakingModuleId,
-    ValidatorIndex,
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
@@ -112,7 +111,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
             return ReportData(
-                self.report_contract.get_consensus_version(blockstamp.block_hash),
+                self.get_consensus_version(blockstamp),
                 blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
@@ -131,7 +130,7 @@ class CSOracle(BaseModule, ConsensusModule):
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
-            self.report_contract.get_consensus_version(blockstamp.block_hash),
+            self.get_consensus_version(blockstamp),
             blockstamp.ref_slot,
             tree_root=tree.root,
             tree_cid=tree_cid,
@@ -169,6 +168,9 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
 
+        consensus_version = self.get_consensus_version(blockstamp)
+        eip7549_supported = consensus_version != 1
+
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -199,7 +201,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the frame is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch)
+        self.state.migrate(l_epoch, r_epoch, consensus_version)
         self.state.log_progress()
 
         if self.state.is_fulfilled:
@@ -213,7 +215,7 @@ class CSOracle(BaseModule, ConsensusModule):
         except MinStepIsNotReached:
             return False
 
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
+        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported)
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
@@ -243,7 +245,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 continue
 
             for v in validators:
-                aggr = self.state.data.get(ValidatorIndex(int(v.index)))
+                aggr = self.state.data.get(v.index)
 
                 if aggr is None:
                     # It's possible that the validator is not assigned to any duty, hence it's performance
@@ -400,9 +402,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
     def _get_module_id(self) -> StakingModuleId:
-        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules(
-            self._receive_last_finalized_slot().block_hash
-        )
+        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules()
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:

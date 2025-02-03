@@ -158,18 +158,18 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
 
 if __name__ == '__main__':
     module_name_arg = sys.argv[-1]
-    if module_name_arg not in iter(OracleModule):
+    if module_name_arg not in OracleModule:
         msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name_arg}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 
     module = OracleModule(module_name_arg)
-    if module == OracleModule.CHECK:
+    if module is OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
 
         sys.exit(check())
 
-    errors = variables.check_all_required_variables()
+    errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
     main(module)

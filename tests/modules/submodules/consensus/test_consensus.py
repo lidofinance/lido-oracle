@@ -7,14 +7,13 @@ from web3.exceptions import ContractCustomError
 from src import variables
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.exceptions import IncompatibleOracleVersion
+from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
-from tests.web3_extentions.test_lido_validators import blockstamp
 
 
 @pytest.fixture()
@@ -76,6 +75,7 @@ def test_get_latest_blockstamp(consensus, set_no_account):
 @pytest.mark.unit
 def test_get_member_info_with_account(consensus, set_report_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
@@ -89,6 +89,7 @@ def test_get_member_info_with_account(consensus, set_report_account):
 @pytest.mark.unit
 def test_get_member_info_without_account(consensus, set_no_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
@@ -102,6 +103,7 @@ def test_get_member_info_without_account(consensus, set_no_account):
 @pytest.mark.unit
 def test_get_member_info_no_member_account(consensus, set_not_member_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
 
     with pytest.raises(IsNotMemberException):
         consensus.get_member_info(bs)
@@ -110,6 +112,7 @@ def test_get_member_info_no_member_account(consensus, set_not_member_account):
 @pytest.mark.unit
 def test_get_member_info_submit_only_account(consensus, set_submit_account):
     bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
@@ -162,11 +165,13 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
         get_current_frame=Mock(side_effect=err), get_consensus_state_for_member=Mock(side_effect=err)
     )
     consensus._get_consensus_contract = Mock(return_value=consensus_contract)
-    consensus._is_submit_member = Mock(return_value=True)
+    consensus.report_contract.submit_data_role = Mock(return_value='0x0')
+    consensus.report_contract.has_role = Mock(return_value=True)
     consensus.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=5, epochs_per_frame=10))
     consensus.get_chain_config = Mock(return_value=ChainConfigFactory.build())
 
     first_frame = consensus.get_initial_or_current_frame(bs)
+    consensus.w3.eth.get_balance = Mock(return_value=1)
     member_info = consensus.get_member_info(bs)
 
     assert first_frame.ref_slot == 5 * 32 - 1
@@ -193,15 +198,44 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
 
 
 @pytest.mark.unit
-def test_compatible_contract_version(consensus):
+@pytest.mark.parametrize(
+    'contract_version,consensus_version',
+    [
+        # pytest.param(1, 2, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        # pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        pytest.param(2, 1, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        (2, 2),
+    ],
+)
+def test_incompatible_oracle(consensus, contract_version, consensus_version):
     bs = ReferenceBlockStampFactory.build()
 
-    consensus._check_compatability = Mock()
-    consensus._check_contract_versions(bs)
+    consensus.report_contract.get_contract_version = Mock(return_value=contract_version)
+    consensus.report_contract.get_consensus_version = Mock(return_value=consensus_version)
 
-    assert consensus._check_compatability.call_count == 2
-    assert consensus._check_compatability._mock_mock_calls[0].args[0] == bs.block_hash
-    assert consensus._check_compatability._mock_mock_calls[1].args[0] == 'latest'
+    consensus._check_compatability(bs)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    'contract_version,consensus_version',
+    [
+        pytest.param(3, 2, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(3, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(2, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        (2, 2),
+    ],
+)
+def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version):
+    bs = ReferenceBlockStampFactory.build()
+
+    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 2
+    consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
+
+    check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
+    consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
+
+    consensus._check_compatability(bs)
 
 
 @pytest.mark.unit
@@ -212,7 +246,7 @@ def test_incompatible_contract_version(consensus):
     consensus.report_contract.get_consensus_version = Mock(return_value=1)
 
     with pytest.raises(IncompatibleOracleVersion):
-        consensus._check_contract_versions(bs)
+        consensus._check_compatability(bs)
 
 
 @pytest.mark.unit

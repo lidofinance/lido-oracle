@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 
 from src.modules.csm.state import AttestationsAccumulator
 from src.modules.csm.types import Shares
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
 
 class LogJSONEncoder(json.JSONEncoder): ...
@@ -19,7 +19,7 @@ class ValidatorFrameSummary:
 @dataclass
 class OperatorFrameSummary:
     distributed: int = 0
-    validators: dict[str, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
+    validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
     stuck: bool = False
 
 

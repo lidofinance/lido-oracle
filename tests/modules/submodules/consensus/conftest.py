@@ -5,7 +5,7 @@ from src.types import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (2, 2)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2)]
 
     def __init__(self, w3):
         self.report_contract = w3.lido_contracts.accounting_oracle

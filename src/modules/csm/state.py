@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
+from src import variables
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
-from src.variables import CACHE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,8 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
+    _consensus_version: int = 1
+
     def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
         self.data = defaultdict(AttestationsAccumulator, data or {})
         self._epochs_to_process = tuple()
@@ -81,7 +83,7 @@ class State:
 
     @classmethod
     def file(cls) -> Path:
-        return CACHE_PATH / Path("cache").with_suffix(cls.EXTENSION)
+        return variables.CACHE_PATH / Path("cache").with_suffix(cls.EXTENSION)
 
     @property
     def buffer(self) -> Path:
@@ -102,7 +104,16 @@ class State:
     def log_progress(self) -> None:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
-    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
+    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, consensus_version: int):
+        if consensus_version != self._consensus_version:
+            logger.warning(
+                {
+                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
+                    f"Discarding data to migrate to consensus version {consensus_version}"
+                }
+            )
+            self.clear()
+
         for state_epochs in (self._epochs_to_process, self._processed_epochs):
             for epoch in state_epochs:
                 if epoch < l_epoch or epoch > r_epoch:
@@ -111,6 +122,7 @@ class State:
                     break
 
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+        self._consensus_version = consensus_version
         self.commit()
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:

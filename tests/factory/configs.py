@@ -66,8 +66,8 @@ class BlockAttestationFactory(Web3Factory):
     aggregation_bits = "0x"
     committee_bits = None
     data = AttestationData(
-        slot="0",
-        index="0",
+        slot=0,
+        index=0,
         beacon_block_root="0x",
         source=Checkpoint("0", "0x"),
         target=Checkpoint("0", "0x"),

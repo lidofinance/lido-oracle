@@ -34,7 +34,7 @@ class NodeOperatorStats:
     soft_exit_to: int | None = None
 
 
-class ValidatorExitIteratorV2:
+class ValidatorExitIterator:
     """
     To determine which validators to request for exit, the VEBO selects one entry
     from the sorted list of exitable Lido validators until the demand in WQ is covered by
@@ -121,7 +121,7 @@ class ValidatorExitIteratorV2:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
             self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
-            self.exitable_validators[gid].sort(key=lambda val: int(val.index))
+            self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -165,7 +165,7 @@ class ValidatorExitIteratorV2:
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
-            requested_to_exit = int(validator.index) <= indexes[gid]
+            requested_to_exit = validator.index <= indexes[gid]
             return not is_on_exit(validator) and not requested_to_exit
 
         return is_validator_exitable
@@ -182,8 +182,8 @@ class ValidatorExitIteratorV2:
         for gid, validators_list in lido_validators.items():
 
             def is_delayed(validator: LidoValidator) -> bool:
-                requested_to_exit = int(validator.index) <= last_requested_to_exit[gid]
-                recently_requested_to_exit = int(validator.index) in recent_requests[gid]
+                requested_to_exit = validator.index <= last_requested_to_exit[gid]
+                recently_requested_to_exit = validator.index in recent_requests[gid]
                 return requested_to_exit and not recently_requested_to_exit and not is_on_exit(validator)
 
             result[gid] = ilen(val for val in validators_list if is_delayed(val))
@@ -240,14 +240,14 @@ class ValidatorExitIteratorV2:
 
     @staticmethod
     def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.force_exit_to,
         )
 
     @staticmethod
     def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.soft_exit_to,
         )
@@ -263,12 +263,7 @@ class ValidatorExitIteratorV2:
         """
         The higher coefficient the higher priority to eject validator
         """
-        priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
-
-        # ToDo: remove after upgrade to sr v2
-        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else TOTAL_BASIS_POINTS
-
-        max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
+        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
 
         max_validators_count = int(max_share_rate * self.total_lido_validators)
         return max(node_operator.module_stats.predictable_validators - max_validators_count, 0)
@@ -296,7 +291,7 @@ class ValidatorExitIteratorV2:
         # If NO doesn't have exitable validators - sorting by validators index doesn't matter
         first_val_index = 0
         if validators:
-            first_val_index = int(validators[0].index)
+            first_val_index = validators[0].index
 
         return first_val_index
 

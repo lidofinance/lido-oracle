@@ -1,31 +1,34 @@
+from unittest.mock import Mock
+
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
+from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
+from src.types import EpochNumber, Gwei, ValidatorIndex
+from tests.factory.no_registry import PendingDepositFactory
+from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
 
 def simple_validators(
     from_index: int,
     to_index: int,
-    balance=str(32 * 10**9),
-    effective_balance=str(32 * 10**9),
+    balance=Gwei(32 * 10**9),
+    effective_balance=Gwei(32 * 10**9),
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
         validator = Validator(
-            index=str(index),
+            index=ValidatorIndex(index),
             balance=balance,
-            status=ValidatorStatus.ACTIVE_ONGOING,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
                 withdrawal_credentials='',
                 effective_balance=effective_balance,
                 slashed=False,
-                activation_eligibility_epoch='',
-                activation_epoch='0',
+                activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                activation_epoch=EpochNumber(0),
                 exit_epoch=FAR_FUTURE_EPOCH,
                 withdrawable_epoch=FAR_FUTURE_EPOCH,
             ),
@@ -81,6 +84,7 @@ def test_is_abnormal_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     result = abnormal_case.is_abnormal_cl_rebase(blockstamp, all_validators, lido_validators, frame_cl_rebase)
 
     assert result == expected_is_abnormal
@@ -110,6 +114,7 @@ def test_calculate_lido_normal_cl_rebase(
     abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
     abnormal_case.lido_keys = abnormal_case.w3.kac.get_used_lido_keys(blockstamp)
 
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     result = abnormal_case._calculate_lido_normal_cl_rebase(blockstamp)
 
     assert result == expected_rebase
@@ -159,6 +164,7 @@ def test_is_negative_specific_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     if isinstance(expected_is_negative, str):
         with pytest.raises(ValueError, match=expected_is_negative):
             abnormal_case._is_negative_specific_cl_rebase(blockstamp)
@@ -223,6 +229,7 @@ def test_calculate_cl_rebase_between_blocks(
         simple_key('0x04'),
         simple_key('0x05'),
     ]
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     if isinstance(expected_rebase, str):
         with pytest.raises(ValueError, match=expected_rebase):
             abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
@@ -235,12 +242,11 @@ def test_calculate_cl_rebase_between_blocks(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(50), 98001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
 )
-def test_get_lido_validators_balance_with_vault(
+def test_get_lido_validators_balance_with_vault_pre_electra(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
     blockstamp,
@@ -248,6 +254,38 @@ def test_get_lido_validators_balance_with_vault(
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+
+    assert result == expected_result
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("blockstamp", "expected_result"),
+    [
+        (simple_ref_blockstamp(50), 98001157445),
+        (simple_ref_blockstamp(40), 98001157445),
+        (simple_ref_blockstamp(20), 77999899300),
+    ],
+)
+def test_get_lido_validators_balance_with_vault_post_electra(
+    abnormal_case,
+    mock_get_withdrawal_vault_balance,
+    blockstamp,
+    expected_result,
+):
+    lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
+    abnormal_case.w3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_deposits=PendingDepositFactory.generate_for_validators(
+                lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT
+            )
+        )
+    )
+
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
+    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch))
     result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
 
     assert result == expected_result
@@ -338,10 +376,10 @@ def test_validate_slot_distance(distant_slot, nearest_slot, ref_slot, expected_r
         ([], 0),
         (simple_validators(0, 9), 10 * 32 * 10**9),
         (
-            simple_validators(0, 9, balance=str(int(31.75 * 10**9)), effective_balance=str(32 * 10**9)),
+            simple_validators(0, 9, balance=int(31.75 * 10**9), effective_balance=32 * 10**9),
             10 * int(31.75 * 10**9),
         ),
-        (simple_validators(0, 9, balance=str(10**9)), 10 * 10**9),
+        (simple_validators(0, 9, balance=10**9), 10 * 10**9),
     ],
 )
 def test_calculate_real_balance(validators, expected_balance):
