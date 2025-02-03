@@ -107,7 +107,6 @@ class WithdrawalQueueNftContract(ContractInterface):
         })
         return response
 
-    @lru_cache(maxsize=1)
     def max_batches_length(self, block_identifier: BlockIdentifier = 'latest') -> int:
         """
         maximal length of the batch array provided for prefinalization.

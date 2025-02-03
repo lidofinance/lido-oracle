@@ -12,7 +12,6 @@ from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
 from src.web3py.types import Web3
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -149,9 +148,8 @@ class ValidatorExitIterator:
                 self.node_operators_stats[gid].soft_exit_to = self.node_operators_stats[gid].node_operator.target_validators_count
 
     def _load_blockchain_state(self):
-        self.max_validators_to_exit = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
-            self.blockstamp.block_hash,
-        ).max_validator_exit_requests_per_report
+        self.max_validators_to_exit = (self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
+                                       .max_validator_exit_requests_per_report)
 
         self.no_penetration_threshold = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
             block_identifier=self.blockstamp.block_hash,
@@ -180,7 +178,6 @@ class ValidatorExitIterator:
 
         result = {}
         for gid, validators_list in lido_validators.items():
-
             def is_delayed(validator: LidoValidator) -> bool:
                 requested_to_exit = validator.index <= last_requested_to_exit[gid]
                 recently_requested_to_exit = validator.index in recent_requests[gid]
