@@ -113,9 +113,9 @@ def raise_from_errors(errors):
 
 # All non-private env variables to the logs in main
 PUBLIC_ENV_VARS = {
-    key: str(value if key != 'ACCOUNT' else 'Dry' if ACCOUNT is None else ACCOUNT.address)
+    key: str(value)
     for key, value in {
-        'ACCOUNT': ACCOUNT,
+        'ACCOUNT': 'Dry' if ACCOUNT is None else ACCOUNT.address,
         'LIDO_LOCATOR_ADDRESS': LIDO_LOCATOR_ADDRESS,
         'CSM_MODULE_ADDRESS': CSM_MODULE_ADDRESS,
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
