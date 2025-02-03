@@ -107,11 +107,10 @@ class FrameCheckpointsIterator:
         return False
 
 
-type Slot = str
 type CommitteeIndex = str
 type SlotBlockRoot = tuple[SlotNumber, BlockRoot | None]
 type SyncCommittees = dict[SlotNumber, list[ValidatorDuty]]
-type AttestationCommittees = dict[tuple[Slot, CommitteeIndex], list[ValidatorDuty]]
+type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
 
 
 class SyncCommitteesCache(dict):
@@ -414,7 +413,7 @@ def process_sync(slot: SlotNumber, sync_aggregate: SyncAggregate, committees: Sy
 
 def process_attestations(
     attestations: Iterable[BlockAttestation],
-    committees: Committees,
+    committees: AttestationCommittees,
     eip7549_supported: bool = True,
 ) -> None:
     for attestation in attestations:
