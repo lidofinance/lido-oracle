@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.csm.state import DutyAccumulator, State
+from src.modules.csm.state import DutyAccumulator, State, calculate_frames
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -209,7 +209,7 @@ class TestStateTransition:
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
         assert len(state.att_data) == 2
         assert list(state.att_data.keys()) == [(l_epoch_old, r_epoch_old), (r_epoch_old + 1, r_epoch_new)]
-        assert state.calculate_frames(state._epochs_to_process, epochs_per_frame) == [
+        assert calculate_frames(state._epochs_to_process, epochs_per_frame) == [
             (l_epoch_old, r_epoch_old),
             (r_epoch_old + 1, r_epoch_new),
         ]
@@ -235,7 +235,7 @@ class TestStateTransition:
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
         assert len(state.att_data) == 1
         assert list(state.att_data.keys())[0] == (l_epoch_new, r_epoch_new)
-        assert state.calculate_frames(state._epochs_to_process, epochs_per_frame_new) == [(l_epoch_new, r_epoch_new)]
+        assert calculate_frames(state._epochs_to_process, epochs_per_frame_new) == [(l_epoch_new, r_epoch_new)]
 
     @pytest.mark.parametrize(
         ("old_version", "new_version"),

@@ -12,7 +12,7 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.log import FramePerfLog
+from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import State, Frame
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
@@ -29,13 +29,12 @@ from src.types import (
     SlotNumber,
     StakingModuleAddress,
     StakingModuleId,
-    ValidatorIndex,
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_next_non_missed_slot, get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator
+from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator, LidoValidator
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -237,8 +236,7 @@ class CSOracle(BaseModule, ConsensusModule):
         shares = defaultdict[NodeOperatorId, int](int)
         logs: list[FramePerfLog] = []
 
-        frames = self.state.calculate_frames(self.state._epochs_to_process, self.state._epochs_per_frame)
-        for frame in frames:
+        for frame in self.state.frames:
             from_epoch, to_epoch = frame
             logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
             frame_blockstamp = blockstamp
@@ -272,16 +270,8 @@ class CSOracle(BaseModule, ConsensusModule):
         frame: Frame,
         distributed: int,
     ):
-        att_network_perf = self.state.get_att_network_aggr(frame).perf
-        prop_network_perf = self.state.get_prop_network_aggr(frame).perf
-        sync_network_perf = self.state.get_sync_network_aggr(frame).perf
-
-        network_perf = 54/64 * att_network_perf + 8/64 * prop_network_perf + 2/64 * sync_network_perf
-
-        if network_perf > 1:
-            raise ValueError(f"Invalid network performance: {network_perf=}")
-
-        threshold = network_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
+        network_perf = self._calculate_network_performance(frame)
+        threshold = self._calculate_threshold(network_perf, blockstamp)
 
         # Build the map of the current distribution operators.
         distribution: dict[NodeOperatorId, int] = defaultdict(int)
@@ -289,60 +279,104 @@ class CSOracle(BaseModule, ConsensusModule):
         log = FramePerfLog(blockstamp, frame, threshold)
 
         for (_, no_id), validators in operators_to_validators.items():
-            log_operator = log.operators[no_id]
+            self._process_operator(validators, no_id, stuck_operators, frame, log, distribution, threshold)
 
-            if no_id in stuck_operators:
-                log_operator.stuck = True
-                continue
+        return self._finalize_distribution(distribution, blockstamp, distributed, log)
 
-            for v in validators:
-                att_aggr = self.state.att_data[frame].get(ValidatorIndex(int(v.index)))
-                prop_aggr = self.state.prop_data[frame].get(ValidatorIndex(int(v.index)))
-                sync_aggr = self.state.sync_data[frame].get(ValidatorIndex(int(v.index)))
+    def _calculate_network_performance(self, frame: Frame) -> float:
+        att_perf = self.state.get_att_network_aggr(frame).perf
+        prop_perf = self.state.get_prop_network_aggr(frame).perf
+        sync_perf = self.state.get_sync_network_aggr(frame).perf
+        network_perf = 54 / 64 * att_perf + 8 / 64 * prop_perf + 2 / 64 * sync_perf
 
-                if att_aggr is None:
-                    # It's possible that the validator is not assigned to any duty, hence it's performance
-                    # is not presented in the aggregates (e.g. exited, pending for activation etc).
-                    # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
-                    continue
+        if network_perf > 1:
+            raise ValueError(f"Invalid network performance: {network_perf=}")
+        return network_perf
 
-                log_validator = log_operator.validators[v.index]
+    def _calculate_threshold(self, network_perf: float, blockstamp: ReferenceBlockStamp) -> float:
+        return network_perf - self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
 
-                if v.validator.slashed is True:
-                    # It means that validator was active during the frame and got slashed and didn't meet the exit
-                    # epoch, so we should not count such validator for operator's share.
-                    log_validator.slashed = True
-                    continue
+    def _process_operator(
+        self,
+        validators: list[LidoValidator],
+        no_id: NodeOperatorId,
+        stuck_operators: set[NodeOperatorId],
+        frame: Frame,
+        log: FramePerfLog,
+        distribution: dict[NodeOperatorId, int],
+        threshold: float
+    ):
+        log_operator = log.operators[no_id]
 
-                performance = att_aggr.perf
+        if no_id in stuck_operators:
+            log_operator.stuck = True
+            return
 
-                if prop_aggr is not None and sync_aggr is not None:
-                    performance = 54/64 * att_aggr.perf + 8/64 * prop_aggr.perf + 2/64 * sync_aggr.perf
+        for v in validators:
+            self._process_validator(v, frame, log_operator, distribution, threshold)
 
-                if prop_aggr is not None and sync_aggr is None:
-                    performance = 54/62 * att_aggr.perf + 8/62 * prop_aggr.perf
+    def _process_validator(
+        self,
+        validator: LidoValidator,
+        frame: Frame,
+        log_operator: OperatorFrameSummary,
+        distribution: dict[NodeOperatorId, int],
+        threshold: float
+    ):
+        att_aggr = self.state.att_data[frame].get(validator.index)
+        prop_aggr = self.state.prop_data[frame].get(validator.index)
+        sync_aggr = self.state.sync_data[frame].get(validator.index)
 
-                if prop_aggr is None and sync_aggr is not None:
-                    performance = 54/56 * att_aggr.perf + 2/56 * sync_aggr.perf
+        if att_aggr is None:
+            # It's possible that the validator is not assigned to any duty, hence it's performance
+            # is not presented in the aggregates (e.g. exited, pending for activation etc).
+            # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
+            return
 
-                if performance > 1:
-                    raise ValueError(f"Invalid performance: {performance=}")
+        log_validator = log_operator.validators[validator.index]
 
-                if performance > threshold:
-                    # Count of assigned attestations used as a metrics of time
-                    # the validator was active in the current frame.
-                    distribution[no_id] += att_aggr.assigned
+        if validator.validator.slashed:
+            # It means that validator was active during the frame and got slashed and didn't meet the exit
+            # epoch, so we should not count such validator for operator's share.
+            log_validator.slashed = True
+            return
 
-                log_validator.performance = performance
-                log_validator.attestations = att_aggr
-                if prop_aggr is not None:
-                    log_validator.proposals = prop_aggr
-                if sync_aggr is not None:
-                    log_validator.sync_committee = sync_aggr
+        performance = self._calculate_validator_performance(att_aggr, prop_aggr, sync_aggr)
 
-        # Calculate share of each CSM node operator.
-        shares = defaultdict[NodeOperatorId, int](int)
-        total = sum(p for p in distribution.values())
+        if performance > threshold:
+            # Count of assigned attestations used as a metrics of time
+            # the validator was active in the current frame.
+            distribution[validator.lido_id.operatorIndex] += att_aggr.assigned
+
+        log_validator.performance = performance
+        log_validator.attestations = att_aggr
+        if prop_aggr:
+            log_validator.proposals = prop_aggr
+        if sync_aggr:
+            log_validator.sync_committee = sync_aggr
+
+    @staticmethod
+    def _calculate_validator_performance(att_aggr, prop_aggr, sync_aggr) -> float:
+        performance = att_aggr.perf
+        if prop_aggr and sync_aggr:
+            performance = 54 / 64 * att_aggr.perf + 8 / 64 * prop_aggr.perf + 2 / 64 * sync_aggr.perf
+        elif prop_aggr:
+            performance = 54 / 62 * att_aggr.perf + 8 / 62 * prop_aggr.perf
+        elif sync_aggr:
+            performance = 54 / 56 * att_aggr.perf + 2 / 56 * sync_aggr.perf
+        if performance > 1:
+            raise ValueError(f"Invalid performance: {performance=}")
+        return performance
+
+    def _finalize_distribution(
+        self,
+        distribution: dict[NodeOperatorId, int],
+        blockstamp: ReferenceBlockStamp,
+        distributed: int,
+        log: FramePerfLog
+    ) -> tuple[int, dict[NodeOperatorId, int], FramePerfLog]:
+        shares: dict[NodeOperatorId, int] = defaultdict(int)
+        total = sum(distribution.values())
         to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(blockstamp.block_hash) - distributed
         log.distributable = to_distribute
 
@@ -354,7 +388,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 shares[no_id] = to_distribute * no_share // total
                 log.operators[no_id].distributed = shares[no_id]
 
-        distributed = sum(s for s in shares.values())
+        distributed = sum(shares.values())
         if distributed > to_distribute:
             raise CSMError(f"Invalid distribution: {distributed=} > {to_distribute=}")
         return distributed, shares, log

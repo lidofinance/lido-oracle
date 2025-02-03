@@ -133,7 +133,7 @@ class ConsensusClient(HTTPProvider):
         attestations = [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
         sync = SyncAggregate.from_response(**data["message"]["body"]["sync_aggregate"])
 
-        return attestations, sync
+        return cast(list[BlockAttestation], attestations), sync
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(

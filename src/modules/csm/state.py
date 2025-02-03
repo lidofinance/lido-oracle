@@ -36,6 +36,16 @@ class DutyAccumulator:
         self.included += 1 if included else 0
 
 
+def calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
+    """Split epochs to process into frames of `epochs_per_frame` length"""
+    frames = []
+    for frame_epochs in batched(epochs_to_process, epochs_per_frame):
+        if len(frame_epochs) < epochs_per_frame:
+            raise ValueError("Insufficient epochs to form a frame")
+        frames.append((frame_epochs[0], frame_epochs[-1]))
+    return frames
+
+
 class State:
     """
     Processing state of a CSM performance oracle frame.
@@ -129,11 +139,10 @@ class State:
         assert self.is_empty
 
     def find_frame(self, epoch: EpochNumber) -> Frame:
-        frames = self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
-        for epoch_range in frames:
+        for epoch_range in self.frames:
             if epoch_range[0] <= epoch <= epoch_range[1]:
                 return epoch_range
-        raise ValueError(f"Epoch {epoch} is out of frames range: {frames}")
+        raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
     def increment_att_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
         self.att_data[frame][val_index].add_duty(included)
@@ -178,16 +187,15 @@ class State:
         self.commit()
 
     def _fill_frames(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
-        frames = self.calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        frames = calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         for frame in frames:
             self.att_data.setdefault(frame, defaultdict(DutyAccumulator))
             self.prop_data.setdefault(frame, defaultdict(DutyAccumulator))
             self.sync_data.setdefault(frame, defaultdict(DutyAccumulator))
 
     def _migrate_or_invalidate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> bool:
-        current_frames = self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
-        new_frames = self.calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
-        inv_msg = f"Discarding invalid state cache because of frames change. {current_frames=}, {new_frames=}"
+        new_frames = calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        inv_msg = f"Discarding invalid state cache because of frames change. {self.frames=}, {new_frames=}"
 
         if self._invalidate_on_epoch_range_change(l_epoch, r_epoch):
             logger.warning({"msg": inv_msg})
@@ -196,10 +204,10 @@ class State:
         frame_expanded = epochs_per_frame > self._epochs_per_frame
         frame_shrunk = epochs_per_frame < self._epochs_per_frame
 
-        has_single_frame = len(current_frames) == len(new_frames) == 1
+        has_single_frame = len(self.frames) == len(new_frames) == 1
 
         if has_single_frame and frame_expanded:
-            current_frame, *_ = current_frames
+            current_frame, *_ = self.frames
             new_frame, *_ = new_frames
             self.att_data[new_frame] = self.att_data.pop(current_frame)
             self.prop_data[new_frame] = self.prop_data.pop(current_frame)
@@ -236,15 +244,9 @@ class State:
             if epoch not in self._processed_epochs:
                 raise InvalidState(f"Epoch {epoch} missing in processed epochs")
 
-    @staticmethod
-    def calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
-        """Split epochs to process into frames of `epochs_per_frame` length"""
-        frames = []
-        for frame_epochs in batched(epochs_to_process, epochs_per_frame):
-            if len(frame_epochs) < epochs_per_frame:
-                raise ValueError("Insufficient epochs to form a frame")
-            frames.append((frame_epochs[0], frame_epochs[-1]))
-        return frames
+    @property
+    def frames(self) -> list[Frame]:
+        return calculate_frames(self._epochs_to_process, self._epochs_per_frame)
 
     def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation

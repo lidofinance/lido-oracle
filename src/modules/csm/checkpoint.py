@@ -107,7 +107,6 @@ class FrameCheckpointsIterator:
         return False
 
 
-type CommitteeIndex = str
 type SlotBlockRoot = tuple[SlotNumber, BlockRoot | None]
 type SyncCommittees = dict[SlotNumber, list[ValidatorDuty]]
 type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
@@ -250,7 +249,7 @@ class FrameCheckpointProcessor:
             missed_slot = root is None
             if missed_slot:
                 continue
-            attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(BlockRoot(root))
+            attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
             process_attestations(attestations, att_committees, self.eip7549_supported)
             if (slot, root) in duty_epoch_roots:
                 propose_duties[slot].included = True
@@ -384,7 +383,7 @@ class FrameCheckpointProcessor:
                         }
                     )
                     break
-                dependent_slot -= 1
+                dependent_slot = SlotNumber(int(dependent_slot - 1))
         except SlotOutOfRootsRange:
             dependent_non_missed_slot = SlotNumber(int(
                 get_prev_non_missed_slot(
