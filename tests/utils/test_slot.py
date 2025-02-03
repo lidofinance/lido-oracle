@@ -22,7 +22,7 @@ def test_get_first_non_missed_slot(web3):
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
 
-    assert int(slot_details.message.slot) == ref_slot
+    assert slot_details.message.slot == ref_slot
 
 
 @pytest.mark.unit
@@ -43,8 +43,8 @@ def test_get_third_non_missed_slot_backward(web3):
         slot=SlotNumber(139456),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
-    assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
-    assert int(slot_details.message.slot) == 139455
+    assert slot_details.message.slot < finalized_blockstamp.slot_number
+    assert slot_details.message.slot == 139455
 
 
 @pytest.mark.unit
@@ -65,8 +65,8 @@ def test_get_third_non_missed_slot_forward(web3):
         slot=SlotNumber(1541622),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
-    assert int(slot_details.message.slot) < finalized_blockstamp.slot_number
-    assert int(slot_details.message.slot) == 1541625
+    assert slot_details.message.slot < finalized_blockstamp.slot_number
+    assert slot_details.message.slot == 1541625
 
 
 @pytest.mark.unit

@@ -3,25 +3,25 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, TypeGuard
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT
-from src.metrics.prometheus.csm import CSM_UNPROCESSED_EPOCHS_COUNT, CSM_MIN_UNPROCESSED_EPOCH
+from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestation
-from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, ValidatorIndex
+from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
+from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
+from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import Web3Converter
 
 logger = logging.getLogger(__name__)
 lock = Lock()
 
 
-class MinStepIsNotReached(Exception):
-    ...
+class MinStepIsNotReached(Exception): ...
 
 
 @dataclass
@@ -103,7 +103,7 @@ class FrameCheckpointsIterator:
         return False
 
 
-type Committees = dict[tuple[str, str], list[ValidatorDuty]]
+type Committees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
 
 
 class FrameCheckpointProcessor:
@@ -113,11 +113,21 @@ class FrameCheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    def __init__(self, cc: ConsensusClient, state: State, converter: Web3Converter, finalized_blockstamp: BlockStamp):
+    eip7549_supported: bool
+
+    def __init__(
+        self,
+        cc: ConsensusClient,
+        state: State,
+        converter: Web3Converter,
+        finalized_blockstamp: BlockStamp,
+        eip7549_supported: bool = True,
+    ):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
+        self.eip7549_supported = eip7549_supported
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
@@ -190,10 +200,10 @@ class FrameCheckpointProcessor:
         block_roots: list[BlockRoot],
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
-        committees = self._prepare_committees(EpochNumber(duty_epoch))
+        committees = self._prepare_committees(duty_epoch)
         for root in block_roots:
-            attestations = self.cc.get_block_attestations(BlockRoot(root))
-            process_attestations(attestations, committees)
+            attestations = self.cc.get_block_attestations(root)
+            process_attestations(attestations, committees, self.eip7549_supported)
 
         with lock:
             for committee in committees.values():
@@ -218,29 +228,66 @@ class FrameCheckpointProcessor:
     )
     def _prepare_committees(self, epoch: EpochNumber) -> Committees:
         committees = {}
-        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, EpochNumber(epoch)):
+        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
             validators = []
             # Order of insertion is used to track the positions in the committees.
             for validator in committee.validators:
-                validators.append(ValidatorDuty(index=ValidatorIndex(int(validator)), included=False))
+                validators.append(ValidatorDuty(index=validator, included=False))
             committees[(committee.slot, committee.index)] = validators
         return committees
 
 
-def process_attestations(attestations: Iterable[BlockAttestation], committees: Committees) -> None:
+def process_attestations(
+    attestations: Iterable[BlockAttestation],
+    committees: Committees,
+    eip7549_supported: bool = True,
+) -> None:
     for attestation in attestations:
-        committee_id = (attestation.data.slot, attestation.data.index)
-        committee = committees.get(committee_id, [])
-        att_bits = _to_bits(attestation.aggregation_bits)
-        for index_in_committee, validator_duty in enumerate(committee):
-            validator_duty.included = validator_duty.included or _is_attested(att_bits, index_in_committee)
+        if is_eip7549_attestation(attestation) and not eip7549_supported:
+            raise ValueError("EIP-7549 support is not enabled")
+        committee_offset = 0
+        for committee_idx in get_committee_indices(attestation):
+            committee = committees.get((attestation.data.slot, committee_idx), [])
+            att_bits = hex_bitlist_to_list(attestation.aggregation_bits)[committee_offset:][: len(committee)]
+            for index_in_committee in get_set_indices(att_bits):
+                committee[index_in_committee].included = True
+            committee_offset += len(committee)
 
 
-def _is_attested(bits: Sequence[bool], index: int) -> bool:
-    return bits[index]
+def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
+    if is_eip7549_attestation(attestation):
+        return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
+    return [attestation.data.index]
 
 
-def _to_bits(aggregation_bits: str) -> Sequence[bool]:
+def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationEIP7549]:
+    # @see https://eips.ethereum.org/EIPS/eip-7549
+    has_committee_bits = getattr(attestation, "committee_bits") is not None
+    has_zero_index = attestation.data.index == 0
+    if has_committee_bits and not has_zero_index:
+        raise ValueError(f"Got invalid {attestation=}")
+    return has_committee_bits and has_zero_index
+
+
+def get_set_indices(bits: Sequence[bool]) -> list[int]:
+    """Returns indices of truthy values in the supplied sequence"""
+    return [i for (i, bit) in enumerate(bits) if bit]
+
+
+def hex_bitvector_to_list(bitvector: str) -> list[bool]:
+    bytes_ = hex_str_to_bytes(bitvector)
+    return _bytes_to_bool_list(bytes_)
+
+
+def hex_bitlist_to_list(bitlist: str) -> list[bool]:
+    bytes_ = hex_str_to_bytes(bitlist)
+    if not bytes_ or bytes_[-1] == 0:
+        raise ValueError(f"Got invalid {bitlist=}")
+    bitlist_len = int.from_bytes(bytes_, "little").bit_length() - 1
+    return _bytes_to_bool_list(bytes_, count=bitlist_len)
+
+
+def _bytes_to_bool_list(bytes_: bytes, count: int | None = None) -> list[bool]:
+    count = count if count is not None else len(bytes_) * 8
     # copied from https://github.com/ethereum/py-ssz/blob/main/ssz/sedes/bitvector.py#L66
-    att_bytes = bytes.fromhex(aggregation_bits[2:])
-    return [bool((att_bytes[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(len(att_bytes) * 8)]
+    return [bool((bytes_[bit_index // 8] >> bit_index % 8) % 2) for bit_index in range(count)]

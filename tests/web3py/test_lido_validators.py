@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting.types import BeaconStat
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -11,6 +12,7 @@ from tests.factory.no_registry import (
     NodeOperatorFactory,
     StakingModuleFactory,
     ValidatorFactory,
+    PendingDepositFactory,
 )
 
 
@@ -36,6 +38,39 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 
     for v in lido_validators:
         assert v.lido_id.key == v.validator.pubkey
+
+
+@pytest.mark.unit
+def calculate_total_eth1_bridge_deposits_amount(web3, lido_validators, contracts):
+    lido_validators = LidoValidatorFactory.batch(30)
+    lido_validators.extend(LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(5))
+    pending_deposits = [
+        *PendingDepositFactory.generate_for_validators(lido_validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.generate_for_validators(lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.batch(10),
+    ]
+
+    pending_deposits_sum = web3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
+        lido_validators, pending_deposits
+    )
+
+    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT * 5
+
+
+@pytest.mark.unit
+def test_sum_pending_deposit_requests_for_validator(web3, lido_validators, contracts):
+    validators = LidoValidatorFactory.batch(5)
+    pending_deposits = [
+        *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
+        *PendingDepositFactory.batch(10),
+    ]
+
+    one_validator, *_ = validators
+
+    pending_deposits_sum = web3.lido_validators.sum_eth1_bridge_deposits_amount(one_validator, pending_deposits)
+
+    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit

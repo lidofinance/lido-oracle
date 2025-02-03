@@ -4,3 +4,7 @@ class IsNotMemberException(Exception):
 
 class IncompatibleOracleVersion(Exception):
     pass
+
+
+class ContractVersionMismatch(Exception):
+    pass

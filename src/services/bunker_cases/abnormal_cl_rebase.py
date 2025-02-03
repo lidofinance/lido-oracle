@@ -6,7 +6,7 @@ from typing import Sequence, cast
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
-from src.constants import MAX_EFFECTIVE_BALANCE, EFFECTIVE_BALANCE_INCREMENT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, MIN_ACTIVATION_BALANCE
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
@@ -14,6 +14,7 @@ from src.services.bunker_cases.types import BunkerConfig
 from src.types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
 from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
+from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
@@ -93,6 +94,7 @@ class AbnormalClRebase:
             self.lido_keys, last_report_all_validators
         )
 
+        # Calculate mean sum of effective balance for all validators and Lido validators (ACTIVE only)
         mean_sum_of_all_effective_balance = AbnormalClRebase.get_mean_sum_of_effective_balance(
             last_report_blockstamp, blockstamp, last_report_all_validators, self.all_validators
         )
@@ -181,8 +183,10 @@ class AbnormalClRebase:
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )
 
-        # Get Lido validators' balances with WithdrawalVault balance
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            ref_blockstamp, self.lido_validators
+        )
+
         prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
             prev_blockstamp, prev_lido_validators
         )
@@ -216,10 +220,20 @@ class AbnormalClRebase:
         Get Lido validator balance with withdrawals vault balance
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
-        withdrawals_vault_balance = int(
-            self.w3.from_wei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp), "gwei")
-        )
-        return Gwei(real_cl_balance + withdrawals_vault_balance)
+        withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
+        total_balance = real_cl_balance + withdrawals_vault_balance
+
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        if consensus_version > 2:
+            epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
+            if self.w3.cc.is_electra_activated(epoch):
+                state = self.w3.cc.get_state_view(blockstamp)
+                total_eth1_bridge_deposits_amount = LidoValidatorsProvider.calculate_total_eth1_bridge_deposits_amount(
+                    lido_validators, state.pending_deposits
+                )
+                total_balance += total_eth1_bridge_deposits_amount
+
+        return Gwei(total_balance)
 
     def _get_withdrawn_from_vault_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
@@ -238,8 +252,8 @@ class AbnormalClRebase:
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
-            from_block=BlockNumber(int(prev_blockstamp.block_number) + 1),
-            to_block=BlockNumber(int(ref_blockstamp.block_number)),
+            from_block=BlockNumber(prev_blockstamp.block_number + 1),
+            to_block=BlockNumber(ref_blockstamp.block_number),
         )
 
         if len(events) > 1:
@@ -249,10 +263,10 @@ class AbnormalClRebase:
             logger.info({"msg": "No ETHDistributed event found. Vault withdrawals: 0 Gwei."})
             return Gwei(0)
 
-        vault_withdrawals = int(self.w3.from_wei(events[0]['args']['withdrawalsWithdrawn'], 'gwei'))
+        vault_withdrawals = wei_to_gwei(events[0]['args']['withdrawalsWithdrawn'])
         logger.info({"msg": f"Vault withdrawals: {vault_withdrawals} Gwei"})
 
-        return Gwei(vault_withdrawals)
+        return vault_withdrawals
 
     def _get_eth_distributed_events(self, from_block: BlockNumber, to_block: BlockNumber) -> list[EventData]:
         """Get ETHDistributed events between blocks"""
@@ -289,7 +303,7 @@ class AbnormalClRebase:
         validators_diff = len(ref_validators) - len(prev_validators)
         if validators_diff < 0:
             raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * MAX_EFFECTIVE_BALANCE)
+        return Gwei(validators_diff * MIN_ACTIVATION_BALANCE)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
@@ -317,7 +331,7 @@ class AbnormalClRebase:
 
     @staticmethod
     def calculate_validators_balance_sum(validators: Sequence[Validator]) -> Gwei:
-        return Gwei(sum(int(v.balance) for v in validators))
+        return sum((v.balance for v in validators), Gwei(0))
 
     @staticmethod
     def calculate_normal_cl_rebase(

@@ -1,207 +1,129 @@
 import pytest
-from hexbytes import HexBytes
+from web3 import Web3
 
-from src.modules.accounting.third_phase.extra_data import ExtraDataService
-from src.modules.accounting.third_phase.types import FormatList, ExtraData
-from src.web3py.extensions.lido_validators import NodeOperatorGlobalIndex
-
-
-pytestmark = pytest.mark.unit
+from src.modules.accounting.third_phase.extra_data import ExtraDataService, ItemPayload
+from src.modules.accounting.third_phase.types import FormatList
+from src.modules.submodules.types import ZERO_HASH
 
 
-@pytest.fixture()
-def extra_data_service(lido_validators):
-    return ExtraDataService()
+@pytest.mark.unit
+def test_collect():
+    extra_data = ExtraDataService.collect(
+        {
+            (1, 1): 10,
+            (2, 1): 5,
+        },
+        {
+            (1, 2): 16,
+            (2, 1): 12,
+            (2, 2): 14,
+            (2, 3): 18,
+            (2, 5): 18,
+            (2, 6): 18,
+            (2, 7): 18,
+            (2, 8): 18,
+            (3, 1): 18,
+        },
+        2,
+        3,
+    )
+
+    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
+    assert len(extra_data.extra_data_list) == 4
+    assert extra_data.data_hash == Web3.keccak(extra_data.extra_data_list[0])
+    assert extra_data.extra_data_list[0][:32] == Web3.keccak(extra_data.extra_data_list[1])
+    assert (
+        extra_data.extra_data_list[0]
+        == b'\xaf\x92O*Z\xc3#|`\xf2\xbc\xc3\xbd\xf2\xee\x92\xd1\xb6\xcbk\x86\xe8d\xd9\xf3\xbc\xc7,\x1c7\x8c4\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x01\x00\x01\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05'
+    )
+
+    extra_data = ExtraDataService.collect({}, {}, 2, 4)
+    assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
 
 
-def node_operator(module_id, node_operator_id) -> NodeOperatorGlobalIndex:
-    return module_id, node_operator_id
+@pytest.mark.unit
+def test_build_validators_payloads():
+    vals_payloads = {
+        (1, 1): 1,
+        (1, 2): 2,
+        (1, 3): 3,
+        (1, 4): 4,
+        (1, 5): 5,
+        (2, 1): 6,
+        (2, 2): 7,
+    }
+
+    result = ExtraDataService.build_validators_payloads(
+        vals_payloads,
+        2,
+    )
+
+    assert len(result) == 4
+
+    assert result[0].module_id == 1
+    assert result[1].module_id == 1
+    assert result[1].node_operator_ids == [3, 4]
+    assert result[1].vals_counts == [3, 4]
+    assert result[2].module_id == 1
+    assert result[2].node_operator_ids == [5]
+    assert result[2].vals_counts == [5]
+    assert result[3].module_id == 2
+
+    assert not ExtraDataService.build_validators_payloads({}, 2)
 
 
-class TestBuildValidators:
-    def test_collect_zero(self, extra_data_service, contracts):
-        extra_data = extra_data_service.collect({}, {}, 10, 10)
-        assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
-        assert not extra_data.extra_data_list
-        assert extra_data.data_hash == HexBytes('0x0000000000000000000000000000000000000000000000000000000000000000')
-
-    def test_collect_non_zero(self, extra_data_service):
-        vals_stuck_non_zero = {
-            node_operator(1, 0): 1,
-        }
-        vals_exited_non_zero = {
-            node_operator(1, 0): 2,
-        }
-        extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 10, 10)
-        assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
-        assert len(extra_data.extra_data_list) == 1
-        assert (
-            extra_data.extra_data_list[0]
-            == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+@pytest.mark.unit
+def test_build_extra_transactions_data():
+    exit_items = [
+        ItemPayload(
+            1,
+            [1, 2, 3],
+            [11, 22, 33],
+        ),
+        ItemPayload(
+            2,
+            [1, 2, 3],
+            [11, 22, 33],
+        ),
+    ]
+    stuck_items = [
+        ItemPayload(
+            1,
+            [3],
+            [11],
         )
-        assert extra_data.data_hash == HexBytes(
-            b"\x1a\xa3\x94\x9dqI\xcb\xd9y\xbf\xabG\x8d\xeb\xb1j\x91\x8b\xce\xd9\xda;!x*aPk\xf5^\x19\xd1"
-        )
+    ]
 
-    def test_payload(self, extra_data_service):
-        vals_payload = {
-            node_operator(1, 0): 1,
-            node_operator(1, 1): 2,
-        }
-        payload = extra_data_service.build_validators_payloads(vals_payload, 10)
-        assert payload[0].module_id == b'\x00\x00\x01'
-        assert payload[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
-        assert payload[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        assert (
-            payload[0].vals_counts
-            == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
-        )
+    items_count, txs = ExtraDataService.build_extra_transactions_data(
+        stuck_items,
+        exit_items,
+        2,
+    )
 
-    def test_collect_stuck_vals_in_cap(self, extra_data_service):
-        vals_stuck_non_zero = {
-            node_operator(1, 0): 1,
-            node_operator(1, 1): 1,
-        }
-        vals_exited_non_zero = {
-            node_operator(1, 0): 2,
-        }
-        extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 1, 2)
-        assert isinstance(extra_data, ExtraData)
-        assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
-        assert len(extra_data.extra_data_list) == 1
-        assert (
-            extra_data.extra_data_list[0]
-            == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        )
-        assert extra_data.data_hash == HexBytes(
-            b'\xc7\x98\xd9\xa9\xe1A\xfe\x19\xc6"\xa0\xa0\xa3\x89N\xe3r\xfc\xff\xe6L\x08+K\x9doa\xabF\xc3\x0cs'
-        )
+    assert items_count == 3
+    assert len(txs[0]) == 128
+    assert len(txs[1]) == 128 - 16 - 8 - 8 - 8
+    assert (
+        txs[0]
+        == b'\x00\x00\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x01\x00\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00!'
+    )
 
-        # |  3 bytes  | 2 bytes  | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-        # | itemIndex | itemType | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
-        # Expecting only one module with two no
-        item_length = 3 + 2 + 3 + 8
-        no_payload_length = 8 + 16
-        # Expecting one module
-        assert len(extra_data.extra_data_list[0]) == item_length + no_payload_length * 2
-        # Expecting two modules
-        extra_data = extra_data_service.collect(vals_stuck_non_zero, vals_exited_non_zero, 2, 2)
-        assert (
-            len(extra_data.extra_data_list[0]) == item_length + no_payload_length * 2 + item_length + no_payload_length
-        )
 
-    def test_order(self, extra_data_service, monkeypatch):
-        vals_order = {
-            node_operator(2, 0): 1,
-            node_operator(2, 1): 1,
-            node_operator(1, 3): 1,
-            node_operator(2, 2): 1,
-            node_operator(3, 4): 1,
-            node_operator(3, 5): 1,
-        }
+@pytest.mark.unit
+def test_add_hashes_to_transactions():
+    next_hash, txs = ExtraDataService.add_hashes_to_transactions([])
 
-        payloads = extra_data_service.build_validators_payloads(vals_order, 4)
-        assert len(payloads) == 3
-        assert payloads[0].module_id == b'\x00\x00\x01'
-        assert payloads[1].module_id == b'\x00\x00\x02'
-        assert payloads[2].module_id == b'\x00\x00\x03'
+    assert next_hash == ZERO_HASH
+    assert txs == []
 
-        assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x03'
-        assert (
-            payloads[1].node_operator_ids
-            == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02'
-        )
+    transactions = [b'a' * 32, b'b' * 32, b'c' * 32]
+    next_hash, txs = ExtraDataService.add_hashes_to_transactions(transactions)
 
-    def test_max_items_count_per_tx(self, extra_data_service):
-        """
-        nodeOpsCount must not be greater than maxAccountingExtraDataListItemsCount specified
-        in OracleReportSanityChecker contract. If a staking module has more node operators
-        with total stuck validators counts changed compared to the staking module smart contract
-        storage (as observed at the reference slot), reporting for that module should be split
-        into multiple items.
-        """
-        vals_max_items_count_per_tx = {
-            node_operator(1, 0): 1,
-            node_operator(1, 1): 1,
-            node_operator(1, 2): 1,
-        }
+    assert txs[0][32:] == b'a' * 32
+    assert txs[1][32:] == b'b' * 32
+    assert txs[2][32:] == b'c' * 32
 
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 3)
-        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x03'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 2)
-        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x02'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 1)
-        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x01'
-        payloads = extra_data_service.build_validators_payloads(vals_max_items_count_per_tx, 0)
-        assert payloads[0].node_ops_count == b'\x00\x00\x00\x00\x00\x00\x00\x00'
-
-    def test_stuck_exited_validators_count_non_zero(self, extra_data_service):
-        vals_stuck = {
-            node_operator(1, 0): 1,
-            node_operator(1, 1): 1,
-        }
-        vals_exited = {
-            node_operator(1, 0): 2,
-            node_operator(1, 1): 2,
-            node_operator(1, 2): 1,
-        }
-        stuck_validators_payload = extra_data_service.build_validators_payloads(vals_stuck, 10)
-        exited_validators_payload = extra_data_service.build_validators_payloads(vals_exited, 10)
-        extra_data = extra_data_service.build_extra_data(stuck_validators_payload, exited_validators_payload, 10)
-        assert (
-            extra_data[0].item_payload.vals_counts
-            == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        )
-        assert (
-            extra_data[1].item_payload.vals_counts
-            == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        )
-
-    def test_stuck_exited_validators_count_is_empty(self, extra_data_service):
-        vals_stuck_empty = {}
-        vals_exited_empty = {}
-
-        stuck_validators_payload = extra_data_service.build_validators_payloads(vals_stuck_empty, 10)
-        exited_validators_payload = extra_data_service.build_validators_payloads(vals_exited_empty, 10)
-        extra_data = extra_data_service.build_extra_data(stuck_validators_payload, exited_validators_payload, 10)
-        assert extra_data == []
-
-    def test_payload_sorting(self, extra_data_service):
-        """
-        Items should be sorted ascendingly by the (itemType, ...itemSortingKey) compound key
-        where `itemSortingKey` calculation depends on the item's type (see below).
-        Item sorting key is a compound key consisting of the module id and the first reported
-        node operator's id: itemSortingKey = (moduleId, nodeOperatorIds[0:8])
-        """
-        vals_correct_order = {
-            node_operator(1, 0): 1,
-            node_operator(1, 1): 1,
-            node_operator(2, 0): 1,
-            node_operator(3, 0): 1,
-            node_operator(3, 1): 1,
-        }
-
-        payloads = extra_data_service.build_validators_payloads(vals_correct_order, 10)
-        self._check_payloads(payloads)
-
-        vals_incorrect_order = {
-            node_operator(3, 0): 1,
-            node_operator(1, 1): 1,
-            node_operator(2, 0): 1,
-            node_operator(1, 0): 1,
-            node_operator(3, 1): 1,
-        }
-
-        payloads = extra_data_service.build_validators_payloads(vals_incorrect_order, 10)
-        self._check_payloads(payloads)
-
-    @staticmethod
-    def _check_payloads(payloads):
-        assert payloads[0].module_id == b'\x00\x00\x01'
-        assert payloads[0].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
-        assert payloads[1].module_id == b'\x00\x00\x02'
-        assert payloads[1].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00'
-        assert payloads[2].module_id == b'\x00\x00\x03'
-        assert payloads[2].node_operator_ids == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+    assert next_hash == Web3.keccak(Web3.keccak(Web3.keccak(ZERO_HASH + b'c' * 32) + b'b' * 32) + b'a' * 32)
+    assert txs[0][:32] == Web3.keccak(Web3.keccak(ZERO_HASH + b'c' * 32) + b'b' * 32)
+    assert txs[1][:32] == Web3.keccak(ZERO_HASH + b'c' * 32)
+    assert txs[2][:32] == ZERO_HASH

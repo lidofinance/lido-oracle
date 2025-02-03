@@ -58,6 +58,7 @@ Only Oracle:
 - Memory - 8 GB
 
 Oracle + KAPI:
+
 - vCPU - 4
 - Memory - 16 GB
 
@@ -79,13 +80,13 @@ Oracle needs two weeks of archived data.
 
 Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
 
-| Client                                            | Tested | Notes                                                                                                                                           |
-|---------------------------------------------------|:------:|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Lighthouse](https://lighthouse.sigmaprime.io/)   |   🟢   | Use `--reconstruct-historic-states` param                                                                                                       |
-| [Lodestar](https://lodestar.chainsafe.io)         |   🔴   | Not tested yet                                                                                                                                  |
-| [Nimbus](https://nimbus.team)                     |   🔴   | Not tested yet                                                                                                                                  |
-| [Prysm](https://github.com/prysmaticlabs/prysm)   |   🟢   | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
-| [Teku](https://docs.teku.consensys.net)           |   🟢   | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
+| Client                                          | Tested | Notes                                                                                                                                           |
+|-------------------------------------------------|:------:|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Lighthouse](https://lighthouse.sigmaprime.io/) |   🟢   | Use `--reconstruct-historic-states` param                                                                                                       |
+| [Lodestar](https://lodestar.chainsafe.io)       |   🔴   | Not tested yet                                                                                                                                  |
+| [Nimbus](https://nimbus.team)                   |   🔴   | Not tested yet                                                                                                                                  |
+| [Prysm](https://github.com/prysmaticlabs/prysm) |   🟢   | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
+| [Teku](https://docs.teku.consensys.net)         |   🟢   | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
 
 ### Keys API Service
 
@@ -281,9 +282,12 @@ Special metrics for ejector oracle:
 
 Special metrics for CSM oracle:
 
-| Metric name                       | Description                                 | Labels |
-|-----------------------------------|---------------------------------------------|--------|
-| TBD                               | TBD                                         |        |
+| Metric name                     | Description                            | Labels |
+|---------------------------------|----------------------------------------|--------|
+| csm_current_frame_range_l_epoch | Left epoch of the current frame range  |        |
+| csm_current_frame_range_r_epoch | Right epoch of the current frame range |        |
+| csm_unprocessed_epochs_count    | Unprocessed epochs count               |        |
+| csm_min_unprocessed_epoch       | Minimum unprocessed epoch              |        |
 
 # Development
 

@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
+
 from src.services.safe_border import SafeBorder
-from tests.factory.no_registry import ValidatorFactory
+from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
 
 @pytest.mark.unit
@@ -68,19 +70,22 @@ def test_get_bunker_start_or_last_successful_report_epoch(
 
 @pytest.fixture
 def validators():
-    validators = ValidatorFactory.batch(2)
-
-    validators[0].validator.activation_epoch = "90"
-    validators[0].validator.pubkey = "pubkey_validator_1"
-    validators[0].validator.withdrawable_epoch = "8292"
-    validators[0].validator.slashed = True
-
-    validators[1].validator.activation_epoch = "90"
-    validators[1].validator.pubkey = "pubkey_validator_2"
-    validators[1].validator.withdrawable_epoch = "8292"
-    validators[1].validator.slashed = False
-
-    return validators
+    return [
+        ValidatorFactory.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=90,
+                withdrawable_epoch=8292,
+                slashed=True,
+            ),
+        ),
+        ValidatorFactory.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=90,
+                withdrawable_epoch=8292,
+                slashed=False,
+            ),
+        ),
+    ]
 
 
 @pytest.fixture

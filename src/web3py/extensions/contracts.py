@@ -1,10 +1,8 @@
 import logging
-from time import sleep
 from typing import cast
 
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
 from web3.module import Module
 from web3.types import Wei
 
@@ -17,11 +15,7 @@ from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_router import (
-    StakingRouterContract,
-    StakingRouterContractV1,
-    StakingRouterContractV2,
-)
+from src.providers.execution.contracts.staking_router import StakingRouterContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
@@ -61,97 +55,88 @@ class LidoContracts(Module):
         new_addresses = [contract.address for contract in self.__dict__.values() if isinstance(contract, Contract)]
         return addresses != new_addresses
 
-    def _check_contracts(self):
-        """This is startup check that checks that contract are deployed and has valid implementation"""
-        contract: AccountingOracleContract | ExitBusOracleContract = None # type: ignore
-        try:
-            # TODO: Do we really have to care about all the contracts if we just run one module at a time?
-            for contract in [self.accounting_oracle, self.validators_exit_bus_oracle]:
-                contract.get_contract_version()
-        except BadFunctionCallOutput:
-            logger.info({
-                'msg': f'getContractVersion method from one of the oracle contracts {contract.address=}'
-                       'doesn\'t return any data. Probably addresses from Lido Locator refer to the wrong '
-                       'implementation or contracts don\'t exist. Sleep for 1 minute.'
-            })
-            sleep(60)
-            self._load_contracts()
-
     def _load_contracts(self):
         # Contract that stores all lido contract addresses
-        self.lido_locator: LidoLocatorContract = cast(LidoLocatorContract, self.w3.eth.contract(
-            address=variables.LIDO_LOCATOR_ADDRESS, # type: ignore
-            ContractFactoryClass=LidoLocatorContract,
-            decode_tuples=True,
-        ))
-
-        self.lido: LidoContract = cast(LidoContract, self.w3.eth.contract(
-            address=self.lido_locator.lido(),
-            ContractFactoryClass=LidoContract,
-            decode_tuples=True,
-        ))
-
-        self.accounting_oracle: AccountingOracleContract = cast(AccountingOracleContract, self.w3.eth.contract(
-            address=self.lido_locator.accounting_oracle(),
-            ContractFactoryClass=AccountingOracleContract,
-            decode_tuples=True,
-        ))
-
-        self.validators_exit_bus_oracle: ExitBusOracleContract = cast(ExitBusOracleContract, self.w3.eth.contract(
-            address=self.lido_locator.validator_exit_bus_oracle(),
-            ContractFactoryClass=ExitBusOracleContract,
-            decode_tuples=True,
-        ))
-
-        self.withdrawal_queue_nft: WithdrawalQueueNftContract = cast(WithdrawalQueueNftContract, self.w3.eth.contract(
-            address=self.lido_locator.withdrawal_queue(),
-            ContractFactoryClass=WithdrawalQueueNftContract,
-            decode_tuples=True,
-        ))
-
-        self.oracle_report_sanity_checker: OracleReportSanityCheckerContract = cast(OracleReportSanityCheckerContract, self.w3.eth.contract(
-            address=self.lido_locator.oracle_report_sanity_checker(),
-            ContractFactoryClass=OracleReportSanityCheckerContract,
-            decode_tuples=True,
-        ))
-
-        self.oracle_daemon_config: OracleDaemonConfigContract = cast(OracleDaemonConfigContract, self.w3.eth.contract(
-            address=self.lido_locator.oracle_daemon_config(),
-            ContractFactoryClass=OracleDaemonConfigContract,
-            decode_tuples=True,
-        ))
-
-        self.burner: BurnerContract = cast(BurnerContract, self.w3.eth.contract(
-            address=self.lido_locator.burner(),
-            ContractFactoryClass=BurnerContract,
-            decode_tuples=True,
-        ))
-
-        self._load_staking_router(self.lido_locator)
-        self._check_contracts()
-
-    def _load_staking_router(self, lido_locator: LidoLocatorContract):
-        staking_router_address = lido_locator.staking_router()
-
-        self.staking_router = cast(
-            StakingRouterContractV2,
+        self.lido_locator: LidoLocatorContract = cast(
+            LidoLocatorContract,
             self.w3.eth.contract(
-                address=staking_router_address,
-                ContractFactoryClass=StakingRouterContractV2,
+                address=variables.LIDO_LOCATOR_ADDRESS, # type: ignore
+                ContractFactoryClass=LidoLocatorContract,
                 decode_tuples=True,
             ),
         )
 
-        if self.staking_router.get_contract_version() == 1:
-            logger.debug({'msg': 'Use staking router V1.'})
-            self.staking_router = cast(
-                StakingRouterContractV1,
-                self.w3.eth.contract(
-                    address=staking_router_address,
-                    ContractFactoryClass=StakingRouterContractV1,
-                    decode_tuples=True,
-                ),
-            )
+        self.lido: LidoContract = cast(
+            LidoContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.lido(),
+                ContractFactoryClass=LidoContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.accounting_oracle: AccountingOracleContract = cast(
+            AccountingOracleContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.accounting_oracle(),
+                ContractFactoryClass=AccountingOracleContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.validators_exit_bus_oracle: ExitBusOracleContract = cast(
+            ExitBusOracleContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.validator_exit_bus_oracle(),
+                ContractFactoryClass=ExitBusOracleContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.withdrawal_queue_nft: WithdrawalQueueNftContract = cast(
+            WithdrawalQueueNftContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.withdrawal_queue(),
+                ContractFactoryClass=WithdrawalQueueNftContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.oracle_report_sanity_checker: OracleReportSanityCheckerContract = cast(
+            OracleReportSanityCheckerContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.oracle_report_sanity_checker(),
+                ContractFactoryClass=OracleReportSanityCheckerContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.oracle_daemon_config: OracleDaemonConfigContract = cast(
+            OracleDaemonConfigContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.oracle_daemon_config(),
+                ContractFactoryClass=OracleDaemonConfigContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.burner: BurnerContract = cast(
+            BurnerContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.burner(),
+                ContractFactoryClass=BurnerContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.staking_router = cast(
+            StakingRouterContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.staking_router(),
+                ContractFactoryClass=StakingRouterContract,
+                decode_tuples=True,
+            ),
+        )
 
     # --- Contract methods ---
     @lru_cache(maxsize=1)

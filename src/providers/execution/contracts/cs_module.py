@@ -1,13 +1,11 @@
 import logging
-from typing import Iterable, NamedTuple
+from typing import NamedTuple
 
 from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.constants import UINT64_MAX
-from src.utils.cache import global_lru_cache as lru_cache
-from src.web3py.extensions.lido_validators import NodeOperatorId
 
 from ..base_interface import ContractInterface
 

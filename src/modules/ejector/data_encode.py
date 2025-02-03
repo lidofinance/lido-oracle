@@ -1,5 +1,6 @@
 from eth_typing import HexStr
 
+from src.types import ValidatorIndex
 from src.utils.types import hex_str_to_bytes
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 
@@ -27,7 +28,7 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
     for (module_id, op_id), validator in validators:
         result += module_id.to_bytes(MODULE_ID_LENGTH)
         result += op_id.to_bytes(NODE_OPERATOR_ID_LENGTH)
-        result += int(validator.index).to_bytes(VALIDATOR_INDEX_LENGTH)
+        result += validator.index.to_bytes(VALIDATOR_INDEX_LENGTH)
 
         pubkey_bytes = hex_str_to_bytes(HexStr(validator.validator.pubkey))
 
@@ -42,9 +43,9 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
 def sort_validators_to_eject(
     validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]],
 ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-    def _nog_validator_key(no_validator: tuple[NodeOperatorGlobalIndex, LidoValidator]) -> tuple[int, int, int]:
+    def _nog_validator_key(no_validator: tuple[NodeOperatorGlobalIndex, LidoValidator]) -> tuple[int, int, ValidatorIndex]:
         (module_id, no_id), validator = no_validator
-        return module_id, no_id, int(validator.index)
+        return module_id, no_id, validator.index
 
     validators = sorted(validators_to_eject, key=_nog_validator_key)
 

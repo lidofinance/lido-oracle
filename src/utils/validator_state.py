@@ -1,16 +1,20 @@
 from typing import Sequence
 
 from src.constants import (
-    MAX_EFFECTIVE_BALANCE,
-    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
-    SHARD_COMMITTEE_PERIOD,
-    FAR_FUTURE_EPOCH,
-    EFFECTIVE_BALANCE_INCREMENT,
-    MAX_SEED_LOOKAHEAD,
-    MIN_PER_EPOCH_CHURN_LIMIT,
     CHURN_LIMIT_QUOTIENT,
+    COMPOUNDING_WITHDRAWAL_PREFIX,
+    EFFECTIVE_BALANCE_INCREMENT,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT,
+    MAX_SEED_LOOKAHEAD,
+    MIN_ACTIVATION_BALANCE,
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
+    SHARD_COMMITTEE_PERIOD,
 )
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
 
 
@@ -19,54 +23,71 @@ def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
     Check if ``validator`` is active.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#is_active_validator
     """
-    return int(validator.validator.activation_epoch) <= epoch < int(validator.validator.exit_epoch)
+    return validator.validator.activation_epoch <= epoch < validator.validator.exit_epoch
 
 
 def is_exited_validator(validator: Validator, epoch: EpochNumber) -> bool:
-    return int(validator.validator.exit_epoch) <= epoch
+    return validator.validator.exit_epoch <= epoch
 
 
 def is_on_exit(validator: Validator) -> bool:
     """Validator exited or is going to exit"""
-    return int(validator.validator.exit_epoch) != FAR_FUTURE_EPOCH
+    return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
 
 
 def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
     """Validator age in epochs from activation to ref_epoch"""
-    return max(ref_epoch - int(validator.validator.activation_epoch), 0)
+    return max(ref_epoch - validator.validator.activation_epoch, 0)
 
 
-def is_partially_withdrawable_validator(validator: Validator) -> bool:
+def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
     """
-    Check if `validator` is partially withdrawable
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+    Check if ``validator`` is partially withdrawable.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator
     """
-    has_max_effective_balance = int(validator.validator.effective_balance) == MAX_EFFECTIVE_BALANCE
-    has_excess_balance = int(validator.balance) > MAX_EFFECTIVE_BALANCE
+    max_effective_balance = get_max_effective_balance(validator)
+    has_max_effective_balance = validator.effective_balance == max_effective_balance
+    has_excess_balance = balance > max_effective_balance
     return (
-        has_eth1_withdrawal_credential(validator)
+        has_execution_withdrawal_credential(validator)
         and has_max_effective_balance
         and has_excess_balance
     )
 
 
-def has_eth1_withdrawal_credential(validator: Validator) -> bool:
+def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
+    """
+    Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal credential.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+    """
+    return validator.withdrawal_credentials[:4] == COMPOUNDING_WITHDRAWAL_PREFIX
+
+
+def has_eth1_withdrawal_credential(validator: ValidatorState) -> bool:
     """
     Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
     """
-    return validator.validator.withdrawal_credentials[:4] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+    return validator.withdrawal_credentials[:4] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
 
-def is_fully_withdrawable_validator(validator: Validator, epoch: EpochNumber) -> bool:
+def has_execution_withdrawal_credential(validator: ValidatorState) -> bool:
+    """
+    Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
+    """
+    return has_compounding_withdrawal_credential(validator) or has_eth1_withdrawal_credential(validator)
+
+
+def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, epoch: EpochNumber) -> bool:
     """
     Check if `validator` is fully withdrawable
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator
     """
     return (
-        has_eth1_withdrawal_credential(validator)
-        and EpochNumber(int(validator.validator.withdrawable_epoch)) <= epoch
-        and Gwei(int(validator.balance)) > Gwei(0)
+        has_execution_withdrawal_credential(validator)
+        and validator.withdrawable_epoch <= epoch
+        and balance > Gwei(0)
     )
 
 
@@ -74,9 +95,12 @@ def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> b
     """
     Check if `validator` can exit.
     Verify the validator has been active long enough.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#voluntary-exits
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#voluntary-exits
+
+    The validator can only exit if it has no pending withdrawals in the queue.
+    This method don't take partial withdrawals into account because Lido protocol doesn't support partial withdrawals.
     """
-    active_long_enough = int(validator.validator.activation_epoch) + SHARD_COMMITTEE_PERIOD <= epoch
+    active_long_enough = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= epoch
     return active_long_enough and not is_on_exit(validator)
 
 
@@ -98,7 +122,7 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
 
     for validator in validators:
         if is_active_validator(validator, ref_epoch):
-            effective_balance_sum += int(validator.validator.effective_balance)
+            effective_balance_sum += validator.validator.effective_balance
 
     return Gwei(effective_balance_sum)
 
@@ -112,5 +136,26 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
     return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
 
-def compute_exit_churn_limit(active_validators_count: int):
+def get_validator_churn_limit(active_validators_count: int):
     return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
+
+
+# @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
+def get_activation_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
+    return min(MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT, get_balance_churn_limit(total_active_balance))
+
+
+# @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_balance_churn_limit
+def get_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
+    churn = max(MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, total_active_balance // CHURN_LIMIT_QUOTIENT)
+    return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
+
+
+def get_max_effective_balance(validator: ValidatorState) -> Gwei:
+    """
+    Get max effective balance for ``validator``.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_max_effective_balance
+    """
+    if has_compounding_withdrawal_credential(validator):
+        return MAX_EFFECTIVE_BALANCE_ELECTRA
+    return MIN_ACTIVATION_BALANCE

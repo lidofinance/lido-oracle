@@ -24,13 +24,12 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoValidatorsProvider,
     FallbackProviderModule,
-    LazyCSM
+    LazyCSM,
 )
 from src.web3py.middleware import metrics_collector
 from src.web3py.types import Web3
 
 from src.web3py.contract_tweak import tweak_w3_contracts
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,22 +41,10 @@ def main(module_name: OracleModule):
         'variables': {
             **build_info,
             'module': module_name,
-            'ACCOUNT': variables.ACCOUNT.address if variables.ACCOUNT else 'Dry',
-            'LIDO_LOCATOR_ADDRESS': variables.LIDO_LOCATOR_ADDRESS,
-            'CSM_MODULE_ADDRESS': variables.CSM_MODULE_ADDRESS,
-            'FINALIZATION_BATCH_MAX_REQUEST_COUNT': variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT,
-            'EL_REQUESTS_BATCH_SIZE': variables.EL_REQUESTS_BATCH_SIZE,
-            'MAX_CYCLE_LIFETIME_IN_SECONDS': variables.MAX_CYCLE_LIFETIME_IN_SECONDS,
+            **variables.PUBLIC_ENV_VARS,
         },
     })
-    ENV_VARIABLES_INFO.info({
-        "ACCOUNT": str(variables.ACCOUNT.address) if variables.ACCOUNT else 'Dry',
-        "LIDO_LOCATOR_ADDRESS": str(variables.LIDO_LOCATOR_ADDRESS),
-        "CSM_MODULE_ADDRESS": str(variables.CSM_MODULE_ADDRESS),
-        "FINALIZATION_BATCH_MAX_REQUEST_COUNT": str(variables.FINALIZATION_BATCH_MAX_REQUEST_COUNT),
-        "EL_REQUESTS_BATCH_SIZE": str(variables.EL_REQUESTS_BATCH_SIZE),
-        "MAX_CYCLE_LIFETIME_IN_SECONDS": str(variables.MAX_CYCLE_LIFETIME_IN_SECONDS),
-    })
+    ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 
     logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
@@ -171,18 +158,18 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
 
 if __name__ == '__main__':
     module_name_arg = sys.argv[-1]
-    if module_name_arg not in iter(OracleModule):
+    if module_name_arg not in OracleModule:
         msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name_arg}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 
     module = OracleModule(module_name_arg)
-    if module == OracleModule.CHECK:
+    if module is OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
 
         sys.exit(check())
 
-    errors = variables.check_all_required_variables()
+    errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
     main(module)

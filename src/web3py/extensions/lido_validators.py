@@ -3,31 +3,33 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.providers.consensus.types import Validator
+from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
+from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
-from src.utils.dataclass import Nested
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
+from src.utils.dataclass import Nested, FromResponse
 from src.utils.cache import global_lru_cache as lru_cache
 
-
 logger = logging.getLogger(__name__)
-
 
 if TYPE_CHECKING:
     from src.web3py.types import Web3  # pragma: no cover
 
 
 class NodeOperatorLimitMode(Enum):
+    # 0 == No priority ejections
     DISABLED = 0
+    # 1 == Soft priority ejections
     SOFT = 1
+    # 2 == Force priority ejections
     FORCE = 2
 
 
 @dataclass
-class StakingModule:
+class StakingModule(FromResponse):
     # unique id of the staking module
     id: StakingModuleId
     # address of staking module
@@ -49,26 +51,12 @@ class StakingModule:
     last_deposit_block: int
     # number of exited validators
     exited_validators_count: int
-    # ---------------------
-    # Available after SR2
-    # ---------------------
     # module's share threshold, upon crossing which, exits of validators from the module will be prioritized, in BP
-    priority_exit_share_threshold: int | None = None
+    priority_exit_share_threshold: int
     # the maximum number of validators that can be deposited in a single block
-    max_deposits_per_block: int | None = None
+    max_deposits_per_block: int
     # the minimum distance between deposits in blocks
-    min_deposit_block_distance: int | None = None
-
-    @classmethod
-    def from_response(cls, **staking_module):
-        """
-        To support both versions of StakingRouter, we map values by order instead of keys.
-
-        Breaking changes are
-        target_share -> stake_share_limit
-        """
-        # `target_share` renamed to `stake_share_limit`
-        return cls(*staking_module.values())  # pylint: disable=no-value-for-parameter
+    min_deposit_block_distance: int
 
     def __hash__(self):
         return hash(self.id)
@@ -101,18 +89,11 @@ class NodeOperator(Nested):
             depositable_validators_count,
         ) = data
 
-        # Staking router v1 contract returns bool value in target limit mode
-        # Staking router v1.5 introduce new limit mode (force) and updates is_target_limit_active to uint type
-        #
-        # False == 0 == No priority ejections
-        # True  == 1 == Soft priority ejections
-        #          2 == Force priority ejections
-        is_target_limit_active = NodeOperatorLimitMode(min(is_target_limit_active, 2))
-
         return cls(
             _id,
             is_active,
-            is_target_limit_active,
+            # In case mode > 2, consider its force priority
+            NodeOperatorLimitMode(min(is_target_limit_active, 2)),
             target_validators_count,
             stuck_validators_count,
             refunded_validators_count,
@@ -172,6 +153,50 @@ class LidoValidatorsProvider(Module):
 
         return lido_validators
 
+    @staticmethod
+    def calculate_total_eth1_bridge_deposits_amount(lido_validators: list[LidoValidator], pending_deposits: list[PendingDeposit]) -> Gwei:
+        total_eth1_bridge_deposits_amount = 0
+        for v in lido_validators:
+            if (
+                # The oracle reports the number of validators in the registry and their total balance.
+                # During and shortly after the Electra fork activation, validators may be added to
+                # the registry without having ETH in their balance. The deposited ETH will be placed
+                # in the pending_deposits queue.
+                #
+                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
+                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
+
+                # Validator is not activated
+                v.validator.activation_epoch == FAR_FUTURE_EPOCH and
+
+                # It has unexpected balance for non-activated validator
+                v.validator.effective_balance < LIDO_DEPOSIT_AMOUNT
+            ):
+                # Pending deposits may contain:
+                # - Deposit requests:      https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#deposit-requests
+                # - Eth1 bridge deposits:  https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
+                # - Excess active balance: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-queue_excess_active_balance
+                #
+                # For a NON ACTIVATED validator, there couldn't be any deposits that are excess ACTIVE balance.
+                # So for this validator, there could be only two types of deposits: deposit requests and Eth1 bridge deposits.
+                total_eth1_bridge_deposits_amount += LidoValidatorsProvider.sum_eth1_bridge_deposits_amount(v, pending_deposits)
+
+        return Gwei(total_eth1_bridge_deposits_amount)
+
+    @staticmethod
+    def sum_eth1_bridge_deposits_amount(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
+        """
+        Return the total amount of pending deposit requests for the validator.
+        """
+        res = sum(
+            deposit.amount for deposit in pending_deposits
+            if (
+                deposit.pubkey == validator.validator.pubkey and
+                deposit.slot == GENESIS_SLOT
+            )
+        )
+        return Gwei(res)
+
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
         merged_validators = self.get_lido_validators(blockstamp)
@@ -190,7 +215,7 @@ class LidoValidatorsProvider(Module):
         for validator in merged_validators:
             global_no_id = (
                 staking_module_address[validator.lido_id.moduleAddress],
-                NodeOperatorId(validator.lido_id.operatorIndex),
+                validator.lido_id.operatorIndex,
             )
 
             if global_no_id in no_validators:
@@ -204,15 +229,28 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
-    def get_module_validators_by_node_operators(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        """Get module validators by querying the KeysAPI for the module keys"""
+    def get_module_validators_by_node_operators(
+        self,
+        module_address: StakingModuleAddress,
+        blockstamp: BlockStamp
+    ) -> ValidatorsByNodeOperator:
+        """
+        Get module validators by querying the KeysAPI for the module keys.
+
+        Args:
+            module_address (StakingModuleAddress): The address of the staking module.
+            blockstamp (BlockStamp): The block timestamp for querying validators.
+
+        Returns:
+            ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
+        """
+        # Fetch module operator keys from the KeysAPI
         kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
         if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
             raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
         operators = kapi['operators']
-        keys = {k['key']: k for k in kapi['keys']}
+        keys = {k.key: k for k in kapi['keys']}
         validators = self.w3.cc.get_validators(blockstamp)
-
         module_id = StakingModuleId(int(kapi['module']['id']))
 
         # Make sure even empty NO will be presented in dict
@@ -220,14 +258,15 @@ class LidoValidatorsProvider(Module):
             (module_id, NodeOperatorId(int(operator['index']))): [] for operator in operators
         }
 
+        # Map validators to their corresponding node operators
         for validator in validators:
-            lido_key = keys.get(validator.validator.pubkey)
+            lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:
                 continue
-            global_id = (module_id, lido_key['operatorIndex'])
+            global_id = (module_id, lido_key.operatorIndex)
             no_validators[global_id].append(
                 LidoValidator(
-                    lido_id=LidoKey.from_response(**lido_key),
+                    lido_id=lido_key,
                     **asdict(validator),
                 )
             )

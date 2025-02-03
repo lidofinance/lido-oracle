@@ -161,8 +161,8 @@ class SafeBorder(Web3Converter):
     # This means that there are so many validators in the queue that the exit epoch moves with the withdrawable epoch,
     # and we cannot detect when slashing has started.
     def _predict_earliest_slashed_epoch(self, validator: Validator) -> EpochNumber | None:
-        exit_epoch = int(validator.validator.exit_epoch)
-        withdrawable_epoch = int(validator.validator.withdrawable_epoch)
+        exit_epoch = validator.validator.exit_epoch
+        withdrawable_epoch = validator.validator.withdrawable_epoch
 
         exited_period = withdrawable_epoch - exit_epoch
 
@@ -228,10 +228,8 @@ class SafeBorder(Web3Converter):
         return len(slashed_validators) > 0
 
     def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
-        sorted_validators = sorted(validators, key=lambda validator: (int(validator.validator.exit_epoch)))
-        return filter_validators_by_exit_epoch(
-            sorted_validators, EpochNumber(int(sorted_validators[0].validator.exit_epoch))
-        )
+        sorted_validators = sorted(validators, key=lambda validator: validator.validator.exit_epoch)
+        return filter_validators_by_exit_epoch(sorted_validators, sorted_validators[0].validator.exit_epoch)
 
     def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
         if len(validators) == 0:
@@ -239,9 +237,9 @@ class SafeBorder(Web3Converter):
 
         sorted_validators = sorted(
             validators,
-            key=lambda validator: (int(validator.validator.activation_epoch))
+            key=lambda validator: validator.validator.activation_epoch
         )
-        return EpochNumber(int(sorted_validators[0].validator.activation_epoch))
+        return sorted_validators[0].validator.activation_epoch
 
     def _get_bunker_mode_start_timestamp(self) -> int | None:
         start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
@@ -279,16 +277,16 @@ def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator
 
 def filter_non_withdrawable_validators(slashed_validators: Iterable[Validator], epoch: EpochNumber) -> list[Validator]:
     # This filter works only with slashed_validators
-    return [v for v in slashed_validators if int(v.validator.withdrawable_epoch) > epoch]
+    return [v for v in slashed_validators if v.validator.withdrawable_epoch > epoch]
 
 
 def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch: EpochNumber) -> list[Validator]:
-    return [v for v in validators if int(v.validator.exit_epoch) == exit_epoch]
+    return [v for v in validators if v.validator.exit_epoch == exit_epoch]
 
 
 def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
     return [HexStr(v.validator.pubkey) for v in validators]
 
 
-def get_validators_withdrawable_epochs(validators: Iterable[Validator]) -> list[int]:
-    return [int(v.validator.withdrawable_epoch) for v in validators]
+def get_validators_withdrawable_epochs(validators: Iterable[Validator]) -> list[EpochNumber]:
+    return [v.validator.withdrawable_epoch for v in validators]
