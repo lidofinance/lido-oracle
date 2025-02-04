@@ -216,17 +216,6 @@ class Accounting(BaseModule, ConsensusModule):
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
 
-        if self.get_consensus_version(blockstamp) > 2:
-            if self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
-                state = self.w3.cc.get_state_view(blockstamp)
-                total_lido_eth1_bridge_deposits_amount = self.w3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
-                    lido_validators,
-                    state.pending_deposits,
-                )
-                logger.info({'msg': 'Calculate Lido eth1 bridge deposits (in Gwei)', 'value': total_lido_eth1_bridge_deposits_amount})
-                total_lido_balance += total_lido_eth1_bridge_deposits_amount
-                logger.info({'msg': 'Calculate total Lido balance on CL (in Gwei)', 'value': total_lido_balance})
-
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:

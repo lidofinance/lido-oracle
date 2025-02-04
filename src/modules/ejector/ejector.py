@@ -172,7 +172,7 @@ class Ejector(BaseModule, ConsensusModule):
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
 
-        withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, validators_going_to_exit + vals_to_exit)
+        withdrawal_epoch = self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_going_to_exit + vals_to_exit)
         logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
         EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
 
@@ -222,10 +222,7 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
-        if self.w3.cc.is_electra_activated(blockstamp.ref_epoch) and self.get_consensus_version(blockstamp) > 2:
-            return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
-
-        return self._get_predicted_withdrawable_epoch_pre_electra(blockstamp, validators_to_eject)
+        return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
 
     def _get_predicted_withdrawable_epoch_pre_electra(
         self,
@@ -318,21 +315,9 @@ class Ejector(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
-        if self.get_consensus_version(blockstamp) < 3 or not self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
-            return self._get_sweep_delay_in_epochs_pre_electra(blockstamp)
-
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs_post_electra(state, chain_config)
-
-    def _get_sweep_delay_in_epochs_pre_electra(self, blockstamp: ReferenceBlockStamp) -> int:
-        chain_config = self.get_chain_config(blockstamp)
-
-        total_withdrawable_validators = len(self._get_withdrawable_validators(blockstamp))
-        logger.info({'msg': 'Calculate total withdrawable validators.', 'value': total_withdrawable_validators})
-
-        full_sweep_in_epochs = total_withdrawable_validators / MAX_WITHDRAWALS_PER_PAYLOAD / chain_config.slots_per_epoch
-        return int(full_sweep_in_epochs * self.AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER)
 
     def _get_withdrawable_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
         return [

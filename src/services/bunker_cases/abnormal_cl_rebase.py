@@ -222,17 +222,6 @@ class AbnormalClRebase:
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
         withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
         total_balance = real_cl_balance + withdrawals_vault_balance
-
-        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
-        if consensus_version > 2:
-            epoch = EpochNumber(blockstamp.slot_number // self.c_conf.slots_per_epoch)
-            if self.w3.cc.is_electra_activated(epoch):
-                state = self.w3.cc.get_state_view(blockstamp)
-                total_eth1_bridge_deposits_amount = LidoValidatorsProvider.calculate_total_eth1_bridge_deposits_amount(
-                    lido_validators, state.pending_deposits
-                )
-                total_balance += total_eth1_bridge_deposits_amount
-
         return Gwei(total_balance)
 
     def _get_withdrawn_from_vault_between_blocks(
