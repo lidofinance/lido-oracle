@@ -103,8 +103,8 @@ def test_bunker_mode_associated_slashing_unpredicted(
     subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(
         return_value=past_blockstamp.ref_epoch - finalization_max_negative_rebase_epoch_shift - 1
     )
-    subject._get_last_finalized_withdrawal_request_slot = MagicMock(
-        return_value=withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 2
+    subject._get_last_finalized_withdrawal_request_epoch = MagicMock(
+        return_value=(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 2) // subject.chain_config.slots_per_epoch
     )
     subject.w3.lido_validators.get_lido_validators = MagicMock(
         return_value=[

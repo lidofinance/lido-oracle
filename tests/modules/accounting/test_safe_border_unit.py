@@ -280,7 +280,7 @@ def test_get_bunker_start_or_last_successful_report_epoch(safe_border, past_bloc
     assert safe_border._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
 
 
-def test_get_last_finalized_withdrawal_request_slot(safe_border):
+def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     timestamp = 1677230000
 
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=3)
@@ -290,15 +290,14 @@ def test_get_last_finalized_withdrawal_request_slot(safe_border):
 
     slot = (timestamp - safe_border.chain_config.genesis_time) // safe_border.chain_config.seconds_per_slot
     epoch = slot // safe_border.chain_config.slots_per_epoch
-    first_slot = epoch * safe_border.chain_config.slots_per_epoch
 
-    assert safe_border._get_last_finalized_withdrawal_request_slot() == first_slot
+    assert safe_border._get_last_finalized_withdrawal_request_epoch() == epoch
 
 
-def test_get_last_finalized_withdrawal_request_slot_no_requests(safe_border):
+def test_get_last_finalized_withdrawal_request_epoch_no_requests(safe_border):
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=0)
 
-    assert safe_border._get_last_finalized_withdrawal_request_slot() == 0
+    assert safe_border._get_last_finalized_withdrawal_request_epoch() == 0
 
 
 def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):

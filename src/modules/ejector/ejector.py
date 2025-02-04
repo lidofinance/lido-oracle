@@ -102,11 +102,11 @@ class Ejector(BaseModule, ConsensusModule):
         data, data_format = encode_data(validators)
 
         report_data = ReportData(
-            self.get_consensus_version(blockstamp),
-            blockstamp.ref_slot,
-            len(validators),
-            data_format,
-            data,
+            consensusVersion=self.get_consensus_version(blockstamp),
+            ref_slot=blockstamp.ref_slot,
+            requests_count=len(validators),
+            data_format=data_format,
+            data=data,
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)

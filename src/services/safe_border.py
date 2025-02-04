@@ -176,16 +176,18 @@ class SafeBorder(Web3Converter):
         """
         Returns the earliest slashed epoch for the given validators rounded to the frame
         """
-        last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
-        earliest_activation_epoch = min((v.validator.activation_epoch for v in validators))
+        withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
+        last_finalized_request_id_epoch = self._get_last_finalized_withdrawal_request_epoch()
+
+        earliest_activation_epoch = self._get_validators_earliest_activation_epoch(validators)
+        max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
+
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
         start_epoch = max(last_finalized_request_id_epoch, earliest_activation_epoch)
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
         # or the max possible earliest slashed epoch for the given validators
-        withdrawable_epoch = min(v.validator.withdrawable_epoch for v in validators)
-        max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
         start_frame = self.get_frame_by_epoch(EpochNumber(start_epoch))
@@ -230,15 +232,15 @@ class SafeBorder(Web3Converter):
 
         return start_timestamp
 
-    def _get_last_finalized_withdrawal_request_slot(self) -> SlotNumber:
+    def _get_last_finalized_withdrawal_request_epoch(self) -> EpochNumber:
         last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
         if last_finalized_request_id == 0:
             # request with id: 0 is reserved by protocol. No requests were finalized.
-            return SlotNumber(0)
+            return EpochNumber(0)
 
         last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(last_finalized_request_id)
 
-        return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
+        return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
         return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
