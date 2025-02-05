@@ -74,7 +74,7 @@ class CSOracle(BaseModule, ConsensusModule):
         self.report_contract = self.w3.csm.oracle  # type: ignore
         self.state.clear()
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_blockstamp: BlockStamp, refslot: int | None = None) -> ModuleExecuteDelay:
         collected = self.collect_data(last_finalized_blockstamp)
         if not collected:
             logger.info(

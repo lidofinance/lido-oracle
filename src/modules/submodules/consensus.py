@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from time import sleep
 from typing import cast
@@ -203,6 +204,25 @@ class ConsensusModule(ABC):
             Non-missed reference slot blockstamp in case contract is reportable.
         """
         latest_blockstamp = self._get_latest_blockstamp()
+
+        refslot = os.getenv("ORACLE_REFSLOT")
+        logger.info({'msg': f'Refslot {refslot}'})
+        if refslot is not None:
+            member_info = self.get_member_info(latest_blockstamp)
+            logger.info({'msg': 'Fetch member info.', 'value': member_info})
+
+            refslot_int = SlotNumber(int(refslot))
+            converter = self._get_web3_converter(last_finalized_blockstamp)
+
+            bs = get_reference_blockstamp(
+                cc=self.w3.cc,
+                ref_slot=refslot_int,
+                ref_epoch=converter.get_epoch_by_slot(refslot_int),
+                last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+            )
+            logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
+
+            return bs
 
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):

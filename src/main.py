@@ -2,11 +2,9 @@ import sys
 from typing import Iterator, cast
 
 from packaging.version import Version
-from prometheus_client import start_http_server
 from web3.middleware import simple_cache_middleware
 
 from src import variables
-from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
@@ -47,11 +45,11 @@ def main(module_name: OracleModule):
     ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 
-    logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
-    start_pulse_server()
+    # logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
+    # start_pulse_server()
 
-    logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
-    start_http_server(variables.PROMETHEUS_PORT)
+    # logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
+    # start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(FallbackProviderModule(
@@ -156,8 +154,7 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
     yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
 
-if __name__ == '__main__':
-    module_name_arg = sys.argv[-1]
+def run_oracle(module_name_arg: str):
     if module_name_arg not in OracleModule:
         msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name_arg}.'
         logger.error({'msg': msg})
@@ -173,3 +170,7 @@ if __name__ == '__main__':
     errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
     main(module)
+
+
+if __name__ == '__main__':
+    run_oracle(sys.argv[-1])
