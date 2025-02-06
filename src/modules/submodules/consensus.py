@@ -287,7 +287,7 @@ class ConsensusModule(ABC):
         self._check_compatability(blockstamp)
 
         report_data = self.build_report(blockstamp)
-        logger.info({'msg': 'Build report.', 'value': report_data})
+        logger.critical({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
