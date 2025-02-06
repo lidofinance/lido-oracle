@@ -7,7 +7,7 @@ from eth_abi import decode
 
 from src.main import run_oracle
 
-ETHERSCAN_API_KEY = "<>"
+ETHERSCAN_API_KEY = "9NF7PAGYH2AM8XHSXM96S1TJ7ZKVPP59YB"
 
 SUBMIT_REPORT_DATA_SELECTOR = "0xfc7377cd"
 
@@ -28,7 +28,7 @@ def get_transactions(contract_address):
     # 🔹 Filter only successful transactions
     successful_transactions = [tx for tx in transactions if tx.get("txreceipt_status") == "1"]
 
-    submit_report_calls = [tx for tx in successful_transactions if tx["input"].startswith(SUBMIT_REPORT_DATA_SELECTOR)][:20]
+    submit_report_calls = [tx for tx in successful_transactions if tx["input"].startswith(SUBMIT_REPORT_DATA_SELECTOR)][:30]
 
     return submit_report_calls
 
@@ -50,9 +50,10 @@ def extract_ref_slot(tx_data):
 
 
 if __name__ == "__main__":
-    contract_address = "0x852deD011285fe67063a08005c71a85690503Cee"
+    print(f"---AccountingOracle---")
+    accounting_address = "0x852deD011285fe67063a08005c71a85690503Cee"
 
-    transactions = get_transactions(contract_address)
+    transactions = get_transactions(accounting_address)
 
     if not transactions:
         print("No submitReportData transactions found!")
@@ -67,3 +68,22 @@ if __name__ == "__main__":
         os.environ["ORACLE_REFSLOT"] = str(refslot)
         os.environ["DEAMON"] = str(False)
         run_oracle('accounting')
+
+    print(f"---ValidatorExitBusOracle---")
+    ejector_address = "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e"
+
+    transactions = get_transactions(ejector_address)
+
+    if not transactions:
+        print("No submitReportData transactions found!")
+        sys.exit(0)
+
+    print(f"✅ Found {len(transactions)} submitReportData calls")
+
+    for tx in transactions:
+        tx_hash = tx["hash"]
+        refslot = extract_ref_slot(tx["input"])
+        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
+        os.environ["ORACLE_REFSLOT"] = str(refslot)
+        os.environ["DEAMON"] = str(False)
+        run_oracle('ejector')
