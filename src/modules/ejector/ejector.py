@@ -6,7 +6,6 @@ from web3.types import Wei
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     FAR_FUTURE_EPOCH,
-    MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE

@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
+from src.constants import GENESIS_SLOT
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
-from src.utils.dataclass import Nested, FromResponse
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import Nested, FromResponse
 
 logger = logging.getLogger(__name__)
 

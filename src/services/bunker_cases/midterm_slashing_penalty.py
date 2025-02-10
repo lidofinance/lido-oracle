@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from typing import Callable
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,

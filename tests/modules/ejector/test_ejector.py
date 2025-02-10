@@ -222,20 +222,6 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
 
 
-@pytest.mark.unit
-def test_get_predicted_withdrawable_epoch_pre_electra(ejector: Ejector) -> None:
-    ejector.w3.cc = Mock()
-    ejector.w3.cc.is_electra_activated = Mock(return_value=False)
-    ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
-    ejector._get_churn_limit = Mock(return_value=2)
-    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 2)
-    assert result == 3808, "Unexpected predicted withdrawable epoch"
-
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 4)
-    assert result == 3809, "Unexpected predicted withdrawable epoch"
-
-
 class TestPredictedWithdrawableEpochPostElectra:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
@@ -422,55 +408,6 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     )
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == (MAX_EFFECTIVE_BALANCE + 1) * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE + 1"
-
-
-@pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
-def test_get_sweep_delay_in_epochs_pre_electra(
-    ejector: Ejector,
-    ref_blockstamp: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
-    ejector.get_chain_config = Mock(return_value=chain_config)
-    spec = MagicMock(spec=BeaconSpecResponse)
-    spec.ELECTRA_FORK_EPOCH = str(FAR_FUTURE_EPOCH)
-    ejector.w3.cc.get_config_spec = Mock(return_value=spec)
-    ejector.get_consensus_version = Mock(return_value=1)
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_partially_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
-        )
-
-        # no validators at all
-        result = ejector._get_sweep_delay_in_epochs(ref_blockstamp)
-        assert result == 0, "Unexpected sweep delay in epochs"
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_partially_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=True),
-        )
-
-        # all 1024 validators
-        result = ejector._get_sweep_delay_in_epochs(ReferenceBlockStampFactory.build(slot_number=1))
-        assert result == 1, "Unexpected sweep delay in epochs"
-
 
 @pytest.mark.unit
 def test_get_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
