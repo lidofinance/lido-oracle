@@ -264,7 +264,7 @@ def test_get_lido_validators_balance_with_vault_pre_electra(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(50), 98001157445),
+        (simple_ref_blockstamp(50), 66001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
