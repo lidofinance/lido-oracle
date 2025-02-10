@@ -409,6 +409,7 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     result = ejector._get_predicted_withdrawable_balance(validator)
     assert result == (MAX_EFFECTIVE_BALANCE + 1) * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE + 1"
 
+
 @pytest.mark.unit
 def test_get_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
     ejector.w3.cc = Mock()

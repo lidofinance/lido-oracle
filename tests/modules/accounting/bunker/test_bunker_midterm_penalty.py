@@ -301,7 +301,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
         "expected_result",
     ),
     [
-        (225, 225, {}, [], 50000, {}),
+        (225, {}, [], 50000, {}),
         (
             # one is slashed before electra
             225,
