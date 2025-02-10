@@ -99,21 +99,7 @@ def test_get_updated_modules_stats(accounting: Accounting):
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("lido_validators")
-def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
-    bs = ReferenceBlockStampFactory.build()
-    validators = LidoValidatorFactory.batch(10)
-    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
-
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
-    count, balance = accounting._get_consensus_lido_state(bs)
-
-    assert count == 10
-    assert balance == sum(val.balance for val in validators)
-
-
-@pytest.mark.unit
-@pytest.mark.usefixtures("lido_validators")
-def test_get_consensus_lido_state_post_electra(accounting: Accounting):
+def test_get_consensus_lido_state(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = [
         *[LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(3)],
@@ -122,21 +108,12 @@ def test_get_consensus_lido_state_post_electra(accounting: Accounting):
         *[LidoValidatorFactory.build_exit_vals(bs.ref_epoch) for _ in range(2)],
     ]
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
-    accounting.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            pending_deposits=[
-                *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
-                *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
-            ]
-        )
-    )
-
     accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     accounting.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=bs.ref_epoch))
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum(val.balance for val in validators) + 3 * LIDO_DEPOSIT_AMOUNT
+    assert balance == sum(val.balance for val in validators)
 
 
 @pytest.mark.unit
