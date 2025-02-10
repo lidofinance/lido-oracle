@@ -18,7 +18,7 @@ from src.providers.execution.contracts.oracle_report_sanity_checker import Oracl
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
+from src.custom_types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
 

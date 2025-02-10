@@ -11,7 +11,7 @@ from src.modules.submodules.exceptions import IsNotMemberException, Incompatible
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
-from src.types import BlockStamp
+from src.custom_types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src import variables
 from tests.factory.blockstamp import ReferenceBlockStampFactory

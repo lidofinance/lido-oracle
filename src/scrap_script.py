@@ -50,42 +50,42 @@ def extract_ref_slot(tx_data, type):
 
 
 if __name__ == "__main__":
-    print(f"---AccountingOracle---")
-    accounting_address = "0x852deD011285fe67063a08005c71a85690503Cee"
+    #print(f"---AccountingOracle---")
+    #accounting_address = "0x852deD011285fe67063a08005c71a85690503Cee"
 
-    transactions = get_transactions(accounting_address)
+    #transactions = get_transactions(accounting_address)
 
-    if not transactions:
-        print("No submitReportData transactions found!")
-        sys.exit(0)
+    #if not transactions:
+    #    print("No submitReportData transactions found!")
+    #    sys.exit(0)
 
-    print(f"✅ Found {len(transactions)} submitReportData calls")
+    #print(f"✅ Found {len(transactions)} submitReportData calls")
 
-    for tx in transactions:
-        tx_hash = tx["hash"]
-        refslot = extract_ref_slot(tx["input"], 'accounting')
-        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
-        os.environ["ORACLE_REFSLOT"] = str(refslot)
-        os.environ["DEAMON"] = str(False)
-        run_oracle('accounting')
+    #for tx in transactions:
+    #    tx_hash = tx["hash"]
+    #    refslot = extract_ref_slot(tx["input"], 'accounting')
+    #    print(f"🔹 Tx: {tx_hash} → X: {refslot}")
+    #    os.environ["ORACLE_REFSLOT"] = str(refslot)
+    #    os.environ["DEAMON"] = str(False)
+    #    run_oracle('accounting')
 
-    print(f"---ValidatorExitBusOracle---")
-    ejector_address = "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e"
-    transactions = get_transactions(ejector_address, "0x294492c8")
-    if not transactions:
-        print("No submitReportData transactions found!")
-        sys.exit(0)
+    #print(f"---ValidatorExitBusOracle---")
+    #ejector_address = "0x0De4Ea0184c2ad0BacA7183356Aea5B8d5Bf5c6e"
+    #transactions = get_transactions(ejector_address, "0x294492c8")
+    #if not transactions:
+    #    print("No submitReportData transactions found!")
+    #    sys.exit(0)
 
-    print(f"✅ Found {len(transactions)} submitReportData calls")
-    for tx in transactions:
-        tx_hash = tx["hash"]
-        decoded_static_values = extract_ref_slot(tx["input"], 'ejector')
-        refslot = decoded_static_values[0][1]
-        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
-        os.environ["ORACLE_REFSLOT"] = str(refslot)
-        os.environ["DEAMON"] = str(False)
-        print(decoded_static_values)
-        run_oracle('ejector')
+    #print(f"✅ Found {len(transactions)} submitReportData calls")
+    #for tx in transactions:
+    #    tx_hash = tx["hash"]
+    #    decoded_static_values = extract_ref_slot(tx["input"], 'ejector')
+    #    refslot = decoded_static_values[0][1]
+    #    print(f"🔹 Tx: {tx_hash} → X: {refslot}")
+    #    os.environ["ORACLE_REFSLOT"] = str(refslot)
+    #    os.environ["DEAMON"] = str(False)
+    #    print(decoded_static_values)
+    #    run_oracle('ejector')
 
     print(f"---CSFeeOracle---")
     csm_oracle_address = "0x4D4074628678Bd302921c20573EEa1ed38DdF7FB"
@@ -95,12 +95,12 @@ if __name__ == "__main__":
         sys.exit(0)
 
     print(f"✅ Found {len(transactions)} submitReportData calls")
-    for tx in transactions:
-        tx_hash = tx["hash"]
-        decoded_static_values = extract_ref_slot(tx["input"], 'csm')
-        refslot = decoded_static_values[0][1]
-        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
-        os.environ["ORACLE_REFSLOT"] = str(refslot)
-        os.environ["DEAMON"] = str(False)
-        print(decoded_static_values)
-        run_oracle('csm')
+    tx = transactions[0]
+    tx_hash = tx["hash"]
+    decoded_static_values = extract_ref_slot(tx["input"], 'csm')
+    refslot = decoded_static_values[0][1]
+    print(f"🔹 Tx: {tx_hash} → X: {refslot}")
+    os.environ["ORACLE_REFSLOT"] = str(refslot)
+    os.environ["DEAMON"] = str(False)
+    print(decoded_static_values)
+    run_oracle('csm')

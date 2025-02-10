@@ -9,7 +9,7 @@ from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
+from src.custom_types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:

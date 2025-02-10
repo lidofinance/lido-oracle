@@ -9,7 +9,7 @@ from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
+from src.custom_types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,

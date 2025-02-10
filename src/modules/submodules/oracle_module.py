@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import traceback
 from abc import abstractmethod, ABC
@@ -23,7 +24,7 @@ from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.types import SlotNumber, BlockStamp, BlockRoot
+from src.custom_types import SlotNumber, BlockStamp, BlockRoot
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,11 @@ class BaseModule(ABC):
         time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
-        block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
+        refslot = os.getenv("ORACLE_REFSLOT")
+        if refslot is not None:
+            block_root = BlockRoot(self.w3.cc.get_block_root(SlotNumber(int(refslot) + 3 * 32)).root)
+        else:
+            block_root = BlockRoot(self.w3.cc.get_block_root('finalized').root)
         block_details = self.w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
@@ -130,7 +135,7 @@ class BaseModule(ABC):
     def run_cycle(self, blockstamp: BlockStamp):
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
         result = self.execute_module(blockstamp)
-        pulse()
+        # pulse()
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
             self._slot_threshold = blockstamp.slot_number
 

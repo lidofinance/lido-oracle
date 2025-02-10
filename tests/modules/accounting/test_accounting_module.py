@@ -15,7 +15,7 @@ from src.modules.accounting.types import LidoReportRebase, AccountingProcessingS
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, ReferenceBlockStamp
+from src.custom_types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory

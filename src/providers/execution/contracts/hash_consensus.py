@@ -1,5 +1,5 @@
 import logging
-from src.types import SlotNumber
+from src.custom_types import SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 
 from eth_typing import ChecksumAddress

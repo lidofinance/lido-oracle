@@ -12,7 +12,7 @@ from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
+from src.custom_types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -426,7 +426,11 @@ class ConsensusModule(ABC):
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        root = self.w3.cc.get_block_root('head').root
+        refslot = os.getenv("ORACLE_REFSLOT")
+        if refslot is not None:
+            root = self.w3.cc.get_block_root(SlotNumber(int(refslot) + 3 * 32)).root
+        else:
+            root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})

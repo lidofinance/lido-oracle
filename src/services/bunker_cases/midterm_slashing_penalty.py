@@ -10,7 +10,7 @@ from src.constants import (
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
 )
 from src.providers.consensus.types import Validator
-from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.custom_types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator

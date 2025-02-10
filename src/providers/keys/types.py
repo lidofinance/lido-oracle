@@ -3,7 +3,7 @@ from typing import cast, Self
 
 from eth_typing import ChecksumAddress, HexStr
 
-from src.types import NodeOperatorId
+from src.custom_types import NodeOperatorId
 from src.utils.dataclass import FromResponse
 
 

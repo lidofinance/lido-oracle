@@ -11,7 +11,7 @@ from src.constants import (
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
-from src.types import Gwei
+from src.custom_types import Gwei
 from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,

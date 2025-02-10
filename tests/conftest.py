@@ -10,7 +10,7 @@ from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
-from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.custom_types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils

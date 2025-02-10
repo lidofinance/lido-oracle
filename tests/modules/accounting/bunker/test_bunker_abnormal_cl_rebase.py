@@ -6,7 +6,7 @@ from src.constants import FAR_FUTURE_EPOCH, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import EpochNumber, Gwei, ValidatorIndex
+from src.custom_types import EpochNumber, Gwei, ValidatorIndex
 from tests.factory.no_registry import PendingDepositFactory
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 

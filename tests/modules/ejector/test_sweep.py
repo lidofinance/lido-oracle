@@ -13,7 +13,7 @@ from src.modules.ejector.sweep import (
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
-from src.types import Gwei
+from src.custom_types import Gwei
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 

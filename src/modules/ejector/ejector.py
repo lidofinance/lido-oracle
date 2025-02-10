@@ -27,7 +27,7 @@ from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContr
 from src.services.exit_order_iterator import ValidatorExitIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
+from src.custom_types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import (

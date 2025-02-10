@@ -36,7 +36,7 @@ from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetT
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.services.withdrawal import Withdrawal
 from src.services.bunker import BunkerService
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE

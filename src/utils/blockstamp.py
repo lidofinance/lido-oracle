@@ -1,5 +1,5 @@
 from src.providers.consensus.types import BlockDetailsResponse
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.custom_types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 
 
 def build_reference_blockstamp(

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self
 
 from src import variables
-from src.types import EpochNumber, ValidatorIndex
+from src.custom_types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
 logger = logging.getLogger(__name__)

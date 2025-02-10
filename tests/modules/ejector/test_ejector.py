@@ -26,7 +26,7 @@ from src.providers.consensus.types import (
     BeaconStateView,
     BeaconSpecResponse,
 )
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId

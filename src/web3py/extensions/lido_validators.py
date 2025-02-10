@@ -9,7 +9,7 @@ from web3.module import Module
 from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
+from src.custom_types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
 from src.utils.dataclass import Nested, FromResponse
 from src.utils.cache import global_lru_cache as lru_cache
 
