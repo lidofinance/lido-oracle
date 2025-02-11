@@ -205,8 +205,13 @@ def test_get_nearest_and_distant_blockstamps(
 @pytest.mark.parametrize(
     ("prev_blockstamp", "blockstamp", "expected_rebase"),
     [
-        (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 100),
-        (simple_ref_blockstamp(10), simple_ref_blockstamp(20), -32000100800),
+        # the same count of validators, 1 ETH used to finalize requests, new val balance is more than previous
+        (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 195),
+        # the same count of validators, 1 ETH used to finalize requests, new val balance is less than previous
+        (simple_ref_blockstamp(0), simple_ref_blockstamp(20), -(32 * 10**9) - 100700),
+        # new count of validators, no ETH used to finalize requests, new val balance is more than previous
+        (simple_ref_blockstamp(30), simple_ref_blockstamp(40), 1157445),
+        # new validators count is less than previous, should be exception
         (
             simple_ref_blockstamp(20),
             simple_ref_blockstamp(30),
@@ -223,12 +228,10 @@ def test_calculate_cl_rebase_between_blocks(
     blockstamp,
     expected_rebase,
 ):
-    abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
     abnormal_case.lido_keys = [
-        simple_key('0x03'),
-        simple_key('0x04'),
-        simple_key('0x05'),
+        simple_key(v.validator.pubkey) for v in abnormal_case.w3.cc.get_validators(simple_ref_blockstamp(0))
     ]
+    abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     if isinstance(expected_rebase, str):
         with pytest.raises(ValueError, match=expected_rebase):
@@ -297,7 +300,7 @@ def test_get_lido_validators_balance_with_vault_post_electra(
     [
         (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 1 * 10**9),
         (simple_ref_blockstamp(10), simple_ref_blockstamp(20), 0),
-        (simple_ref_blockstamp(20), simple_ref_blockstamp(30), "More than one ETHDistributed event found"),
+        (simple_ref_blockstamp(20), simple_ref_blockstamp(31), "More than one ETHDistributed event found"),
     ],
 )
 def test_get_withdrawn_from_vault_between(
