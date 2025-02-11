@@ -171,7 +171,7 @@ class Ejector(BaseModule, ConsensusModule):
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
 
-        withdrawal_epoch = self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_going_to_exit + vals_to_exit)
+        withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, validators_going_to_exit + vals_to_exit)
         logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
         EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
 
@@ -221,32 +221,6 @@ class Ejector(BaseModule, ConsensusModule):
         """
         Returns epoch when all validators in queue and validators_to_eject will be withdrawn.
         """
-        return self._get_predicted_withdrawable_epoch_post_electra(blockstamp, validators_to_eject)
-
-    def _get_predicted_withdrawable_epoch_pre_electra(
-        self,
-        blockstamp: ReferenceBlockStamp,
-        validators_to_eject: list[Validator],
-    ) -> EpochNumber:
-        max_exit_epoch_number, latest_to_exit_validators_count = self._get_latest_exit_epoch(blockstamp)
-
-        activation_exit_epoch = compute_activation_exit_epoch(blockstamp.ref_epoch)
-
-        if activation_exit_epoch > max_exit_epoch_number:
-            max_exit_epoch_number = activation_exit_epoch
-            latest_to_exit_validators_count = 0
-
-        churn_limit = self._get_churn_limit(blockstamp)
-
-        epochs_required_to_exit_validators = (len(validators_to_eject) + 1 + latest_to_exit_validators_count) // churn_limit
-
-        return EpochNumber(max_exit_epoch_number + epochs_required_to_exit_validators + MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
-
-    def _get_predicted_withdrawable_epoch_post_electra(
-        self,
-        blockstamp: ReferenceBlockStamp,
-        validators_to_eject: list[Validator],
-    ) -> EpochNumber:
         state = self.w3.cc.get_state_view(blockstamp)
         earliest_exit_epoch = self.compute_exit_epoch_and_update_churn(
             state,
@@ -322,7 +296,8 @@ class Ejector(BaseModule, ConsensusModule):
         return [
             v
             for v in self.w3.cc.get_validators(blockstamp)
-            if is_partially_withdrawable_validator(v.validator, v.balance) or is_fully_withdrawable_validator(v.validator, v.balance, blockstamp.ref_epoch)
+            if is_partially_withdrawable_validator(v.validator, v.balance) or is_fully_withdrawable_validator(v.validator, v.balance,
+                                                                                                              blockstamp.ref_epoch)
         ]
 
     @lru_cache(maxsize=1)

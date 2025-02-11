@@ -145,6 +145,15 @@ class TestGetValidatorsToEject:
         ejector.validators_state_service.get_recently_requested_but_not_exited_validators = Mock(return_value=[])
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=10)
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
+                earliest_exit_epoch=ref_blockstamp.ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+            )
+        )
 
         with monkeypatch.context() as m:
             ejector.get_consensus_version = Mock(return_value=2)
@@ -177,6 +186,15 @@ class TestGetValidatorsToEject:
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
         ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=ref_blockstamp.slot_number,
+                validators=[],
+                balances=[],
+                earliest_exit_epoch=ref_blockstamp.ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+            )
+        )
 
         validators = [
             ((StakingModuleId(0), NodeOperatorId(1)), LidoValidatorFactory.build()),
