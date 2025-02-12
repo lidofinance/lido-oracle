@@ -109,7 +109,8 @@ def mock_get_eth_distributed_events(abnormal_case):
             (1, 10): [{'args': {'withdrawalsWithdrawn': 1 * 10**18}}],
             (1, 20): [{'args': {'withdrawalsWithdrawn': 1 * 10**18}}],
             (11, 20): [],
-            (21, 30): [
+            (21, 30): [],
+            (21, 31): [
                 {'args': {'withdrawalsWithdrawn': 7 * 10**18}},
                 {'args': {'withdrawalsWithdrawn': 5 * 10**18}},
             ],
@@ -153,9 +154,9 @@ def mock_get_validators(web3):
                 simple_validator(5, '0x05', 32 * 10**9),
             ],
             10: [
-                simple_validator(0, '0x00', 15 + 32 * 10**9),
-                simple_validator(1, '0x01', 17 + 32 * 10**9),
-                simple_validator(2, '0x02', 63 + 32 * 10**9),
+                simple_validator(0, '0x00', (32 * 10**9) + 15),
+                simple_validator(1, '0x01', (32 * 10**9) + 17),
+                simple_validator(2, '0x02', (32 * 10**9) + 63),
                 simple_validator(3, '0x03', (32 * 10**9) + 1),
                 simple_validator(4, '0x04', 32 * 10**9),
                 simple_validator(5, '0x05', (32 * 10**9) + 99),

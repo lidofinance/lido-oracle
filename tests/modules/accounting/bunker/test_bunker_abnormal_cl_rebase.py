@@ -1,9 +1,17 @@
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
+from unittest.mock import Mock
+
+from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
+from src.types import Gwei
+from src.web3py.extensions import LidoValidatorsProvider
+from src.web3py.types import Web3
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
+from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -196,37 +204,181 @@ def test_get_nearest_and_distant_blockstamps(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("prev_blockstamp", "blockstamp", "expected_rebase"),
+    (
+        "prev_lido_validators",
+        "curr_lido_validators",
+        "prev_withdrawals_vault_balance",  # wei
+        "curr_withdrawals_vault_balance",  # wei
+        "withdrawn_from_vault",  # Gwei
+        "expected_rebase",  # Gwei
+    ),
     [
-        (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 100),
-        (simple_ref_blockstamp(10), simple_ref_blockstamp(20), -32000100800),
         (
-            simple_ref_blockstamp(20),
-            simple_ref_blockstamp(30),
-            "Validators count diff should be positive or 0. Something went wrong with CL API",
+            # The same count of validators,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # but current validators have more balance (has non-withdrawn rewards).
+            LidoValidatorFactory.batch(10, balance=(32 * 10**9) + Gwei(100_000)),
+            # Previous withdrawals vault balance the same as current
+            15 * 10**18,
+            15 * 10**18,
+            # and nothing was withdrawn from the vault.
+            Gwei(0),
+            # Rebase is equal non-withdrawn rewards from vals above.
+            Gwei(10 * 100_000),
+        ),
+        (
+            # The same count of validators,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # and the same balance.
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # Previous withdrawals vault balance the same as current
+            15 * 10**18,
+            15 * 10**18,
+            # and rewards was withdrawn from the vault.
+            Gwei(10 * 100_000),
+            # Rebase is equal withdrawn rewards.
+            Gwei(10 * 100_000),
+        ),
+        (
+            # New vals count is more than previous,
+            LidoValidatorFactory.batch(9, balance=32 * 10**9),
+            # and have the same balance.
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # Previous withdrawals vault balance the same as current
+            15 * 10**18,
+            15 * 10**18,
+            # and nothing was withdrawn from the vault.
+            Gwei(0),
+            # Rebase should be equal to 0 because validators diff has been accounted.
+            Gwei(0),
+        ),
+        (
+            # The same count of validators,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # but some validators have less balance (has penalties).
+            [
+                *LidoValidatorFactory.batch(5, balance=(32 * 10**9) - Gwei(100_000)),
+                *LidoValidatorFactory.batch(5, balance=32 * 10**9),
+            ],
+            # Previous withdrawals vault balance the same as current.
+            15 * 10**18,
+            15 * 10**18,
+            # rewards was withdrawn from the vault.
+            Gwei(10 * 100_000),
+            # Rebase is equal to rewards minus penalties.
+            Gwei(5 * 100_000),
+        ),
+        (
+            # The same count of validators,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # but some validators have less balance (has penalties).
+            [
+                *LidoValidatorFactory.batch(5, balance=(32 * 10**9) - Gwei(100_000)),
+                *LidoValidatorFactory.batch(5, balance=32 * 10**9),
+            ],
+            # Current withdrawals vault balance is more than previous because some rewards were withdrawn
+            15 * 10**18,
+            15 * 10**18 + Web3.to_wei(10 * 100_000, 'gwei'),
+            # but wasn't withdrawn from the vault.
+            Gwei(0),
+            # Rebase is equal to rewards on vault minus penalties
+            Gwei(5 * 100_000),
+        ),
+        (
+            # New vals count is more than previous,
+            LidoValidatorFactory.batch(9, balance=32 * 10**9),
+            # but some validators have less balance (has penalties).
+            #     and another part has non-withdrawn rewards.
+            [
+                *LidoValidatorFactory.batch(5, balance=(32 * 10**9) - Gwei(100_000)),
+                *LidoValidatorFactory.batch(5, balance=(32 * 10**9) + Gwei(100_000)),
+            ],
+            # Current withdrawals vault balance is more than previous
+            # because some were got between withdrawal event and ref block,
+            15 * 10**18,
+            15 * 10**18 + Web3.to_wei(100_000, 'gwei'),
+            # and some were withdrawn from the vault.
+            Gwei(10 * 100_000),
+            # Rebase is equal to rewards withdrawn from vault plus diff between vaults balances
+            Gwei(10 * 100_000 + 100_000),
+        ),
+        (
+            # New vals count is more than previous,
+            LidoValidatorFactory.batch(9, balance=32 * 10**9),
+            # but some validators have less balance (has penalties).
+            [
+                *LidoValidatorFactory.batch(5, balance=(32 * 10**9) - Gwei(100_000)),
+                *LidoValidatorFactory.batch(5, balance=32 * 10**9),
+            ],
+            # Current withdrawals vault balance is less than previous
+            15 * 10**18,
+            15 * 10**18 - Web3.to_wei(10 * 100_000, 'gwei'),
+            # because were withdrawn from the vault.
+            Gwei(10 * 100_000),
+            # Rebase is equal to penalties. Validators diff has been accounted
+            Gwei(-5 * 100_000),
+        ),
+        (
+            # The same count of validators,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # but current validators have less balance (has penalties).
+            LidoValidatorFactory.batch(10, balance=(32 * 10**9) - Gwei(100_000)),
+            # Previous withdrawals vault balance the same as current
+            15 * 10**18,
+            15 * 10**18,
+            # nothing was withdrawn from the vault.
+            Gwei(0),
+            # Rebase is equal to penalties.
+            Gwei(-10 * 100_000),
+        ),
+        (
+            # New vals count is less than previous,
+            LidoValidatorFactory.batch(10, balance=32 * 10**9),
+            # and have the same balance
+            LidoValidatorFactory.batch(9, balance=32 * 10**9),
+            UINT64_MAX,
+            UINT64_MAX,
+            UINT64_MAX,
+            # It is exception because new vals count can't be less that previous
+            ValueError("Validators count diff should be positive or 0. Something went wrong with CL API"),
         ),
     ],
 )
 def test_calculate_cl_rebase_between_blocks(
-    abnormal_case,
-    mock_get_eth_distributed_events,
-    mock_get_withdrawal_vault_balance,
-    mock_get_blockstamp,
-    prev_blockstamp,
-    blockstamp,
+    monkeypatch,
+    web3,
+    prev_lido_validators,
+    curr_lido_validators,
+    prev_withdrawals_vault_balance,
+    curr_withdrawals_vault_balance,
+    withdrawn_from_vault,
     expected_rebase,
 ):
-    abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
-    abnormal_case.lido_keys = [
-        simple_key('0x03'),
-        simple_key('0x04'),
-        simple_key('0x05'),
-    ]
-    if isinstance(expected_rebase, str):
-        with pytest.raises(ValueError, match=expected_rebase):
-            abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=8)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=88)
+    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+    abnormal_case.lido_keys = Mock()
+    abnormal_case.w3.cc = Mock()
+    abnormal_case.w3.lido_contracts = Mock()
+    abnormal_case.w3.cc.get_validators_no_cache = Mock()
+
+    with monkeypatch.context():
+        monkeypatch.setattr(
+            LidoValidatorsProvider,
+            "merge_validators_with_keys",
+            Mock(return_value=prev_lido_validators),
+        )
+    abnormal_case.lido_validators = curr_lido_validators
+    abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(
+        side_effect=[curr_withdrawals_vault_balance, prev_withdrawals_vault_balance]
+    )
+    abnormal_case._get_withdrawn_from_vault_between_blocks = Mock(return_value=withdrawn_from_vault)
+
+    if isinstance(expected_rebase, Exception):
+        with pytest.raises(ValueError, match=expected_rebase.args[0]):
+            abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
     else:
-        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, blockstamp)
+        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
         assert result == expected_rebase
 
 
@@ -257,7 +409,7 @@ def test_get_lido_validators_balance_with_vault(
     [
         (simple_ref_blockstamp(0), simple_ref_blockstamp(10), 1 * 10**9),
         (simple_ref_blockstamp(10), simple_ref_blockstamp(20), 0),
-        (simple_ref_blockstamp(20), simple_ref_blockstamp(30), "More than one ETHDistributed event found"),
+        (simple_ref_blockstamp(20), simple_ref_blockstamp(31), "More than one ETHDistributed event found"),
     ],
 )
 def test_get_withdrawn_from_vault_between(

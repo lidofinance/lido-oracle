@@ -199,7 +199,7 @@ class AbnormalClRebase:
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
         # Finally, we can calculate corrected CL rebase
-        cl_rebase = Gwei(raw_cl_rebase + validators_count_diff_in_gwei + withdrawn_from_vault)
+        cl_rebase = Gwei(raw_cl_rebase - validators_count_diff_in_gwei + withdrawn_from_vault)
 
         logger.info(
             {
