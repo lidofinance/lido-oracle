@@ -12,7 +12,8 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
-    MIN_ACTIVATION_BALANCE, GWEI_TO_WEI,
+    MIN_ACTIVATION_BALANCE,
+    GWEI_TO_WEI,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.keys.types import LidoKey
@@ -80,9 +81,9 @@ class LidoValidatorFactory(Web3Factory):
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
         return cls.build(
             validator=ValidatorStateFactory.build(
-                activation_epoch=faker.pyint(max_value=max_value - 1),
-                effective_balance=Gwei(32 * 10**9)
-            ), **kwargs
+                activation_epoch=faker.pyint(max_value=max_value - 1), effective_balance=Gwei(32 * 10**9)
+            ),
+            **kwargs,
         )
 
     @classmethod

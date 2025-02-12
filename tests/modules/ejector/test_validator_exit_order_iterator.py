@@ -214,7 +214,7 @@ def test_no_predicate(iterator):
 
     node_operator_1 = NodeOperatorStatsFactory.build(
         predictable_validators=100,
-        predictable_effective_balance=Gwei(2000 * 32 * 10 ** 9),
+        predictable_effective_balance=Gwei(2000 * 32 * 10**9),
         delayed_validators=1,
         total_age=1000,
         force_exit_to=50,
@@ -356,26 +356,14 @@ def test_stake_weight_coefficient_predicate(iterator):
 
     sorted_nos = sorted(
         nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(
-            x,
-            10000,
-            10000 * 32 * 10**9,
-            0.1,
-            False
-        ),
+        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000, 10000 * 32 * 10**9, 0.1, False),
     )
 
     assert [nos[1], nos[2], nos[0]] == sorted_nos
 
     sorted_nos = sorted(
         nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(
-            x,
-            10000,
-            10000 * 32 * 10**9,
-            0.1,
-            True
-        ),
+        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000, 10000 * 32 * 10**9, 0.1, True),
     )
 
     assert [nos[1], nos[2], nos[0]] == sorted_nos
