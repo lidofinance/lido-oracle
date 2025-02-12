@@ -41,7 +41,6 @@ from src.utils.validator_state import (
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
-from tests.modules.submodules.consensus.conftest import consensus
 
 logger = logging.getLogger(__name__)
 

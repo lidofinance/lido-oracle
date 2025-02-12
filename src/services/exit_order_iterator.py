@@ -12,7 +12,6 @@ from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModul
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
 from src.web3py.types import Web3
-from tests.services.test_safe_border import validators
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +235,7 @@ class ValidatorExitIterator:
         self.module_stats[gid[0]].predictable_validators -= 1
         # Change node operator stats
         self.node_operators_stats[gid].predictable_validators -= 1
-        self.node_operators_stats[gid].predictable_effective_balance -= lido_validator.validator.effective_balance
+        self.node_operators_stats[gid].predictable_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
         self.node_operators_stats[gid].total_age -= get_validator_age(lido_validator, self.blockstamp.ref_epoch)
 
         logger.debug({
