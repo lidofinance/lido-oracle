@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from faker import Faker
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
@@ -15,8 +15,6 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
-
-faker = Faker()
 
 
 def simple_validators(
@@ -340,9 +338,9 @@ def test_get_nearest_and_distant_blockstamps(
             LidoValidatorFactory.batch(10, balance=32 * 10**9),
             # and have the same balance
             LidoValidatorFactory.batch(9, balance=32 * 10**9),
-            faker.pyint(),
-            faker.pyint(),
-            faker.pyint(),
+            UINT64_MAX,
+            UINT64_MAX,
+            UINT64_MAX,
             # It is exception because new vals count can't be less that previous
             ValueError("Validators count diff should be positive or 0. Something went wrong with CL API"),
         ),
