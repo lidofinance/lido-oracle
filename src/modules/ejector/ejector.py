@@ -41,6 +41,7 @@ from src.utils.validator_state import (
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
+from tests.modules.submodules.consensus.conftest import consensus
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,7 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
+            consensus_version=self.get_consensus_version(blockstamp),
             blockstamp=blockstamp,
             seconds_per_slot=chain_config.seconds_per_slot
         ))
