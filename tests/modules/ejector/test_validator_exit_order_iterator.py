@@ -3,7 +3,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import GWEI_TO_WEI
 from src.services.exit_order_iterator import ValidatorExitIterator, NodeOperatorStats, StakingModuleStats
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
