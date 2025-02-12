@@ -345,6 +345,7 @@ def test_get_nearest_and_distant_blockstamps(
     ],
 )
 def test_calculate_cl_rebase_between_blocks(
+    monkeypatch,
     web3,
     prev_lido_validators,
     curr_lido_validators,
@@ -361,7 +362,12 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case.w3.lido_contracts = Mock()
     abnormal_case.w3.cc.get_validators_no_cache = Mock()
 
-    LidoValidatorsProvider.merge_validators_with_keys = Mock(return_value=prev_lido_validators)
+    with monkeypatch.context():
+        monkeypatch.setattr(
+            LidoValidatorsProvider,
+            "merge_validators_with_keys",
+            Mock(return_value=prev_lido_validators),
+        )
     abnormal_case.lido_validators = curr_lido_validators
     abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(
         side_effect=[curr_withdrawals_vault_balance, prev_withdrawals_vault_balance]
