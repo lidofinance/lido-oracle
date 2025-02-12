@@ -59,7 +59,7 @@ class MidtermSlashingPenalty:
 
         # Calculate sum of Lido midterm penalties in each future frame
         frames_lido_midterm_penalties = (
-            MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames_post_electra(
+            MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
                 blockstamp.ref_epoch,
                 all_slashed_validators,
                 total_balance,
@@ -194,7 +194,7 @@ class MidtermSlashingPenalty:
         return Gwei(penalty_in_frame)
 
     @staticmethod
-    def get_future_midterm_penalty_sum_in_frames_post_electra(
+    def get_future_midterm_penalty_sum_in_frames(
         ref_epoch: EpochNumber,
         all_slashed_validators: list[Validator],
         total_balance: Gwei,
