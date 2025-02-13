@@ -1,19 +1,17 @@
-from unittest.mock import Mock
-
 import pytest
 
 from unittest.mock import Mock
 
-from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
-from src.providers.consensus.types import Validator, ValidatorStatus, ValidatorState
+from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX, LIDO_DEPOSIT_AMOUNT
+from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import Gwei
+from src.types import Gwei, ValidatorIndex, EpochNumber
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, PendingDepositFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -378,6 +376,7 @@ def test_calculate_cl_rebase_between_blocks(
         side_effect=[curr_withdrawals_vault_balance, prev_withdrawals_vault_balance]
     )
     abnormal_case._get_withdrawn_from_vault_between_blocks = Mock(return_value=withdrawn_from_vault)
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
 
     if isinstance(expected_rebase, Exception):
         with pytest.raises(ValueError, match=expected_rebase.args[0]):
