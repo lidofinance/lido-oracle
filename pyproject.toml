@@ -23,18 +23,19 @@ timeout-decorator = "^0.5.0"
 pytest = "^7.2.1"
 pytest-xdist = "^3.2.1"
 more-itertools = "^10.1.0"
-web3 = "^6.10.0"
-web3-multi-provider = "^0.6.0"
+web3 = "^7.8.0"
+web3-multi-provider = "^2.0.0"
 json-stream = "^2.3.2"
 lazy-object-proxy = "^1.9.0"
 oz-merkle-tree = {git = "https://github.com/lidofinance/oz-merkle-tree"}
 py-multiformats-cid = "^0.4.4"
 conventional-pre-commit = "^4.0.0"
+pydantic = "^2.4.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
-pydantic = "1.10.6"
+pydantic = "^2.4.0"
 pytest-cov = "^4.0.0"
 pydantic-factories = "^1.17.2"
 # {{{ stubs for mypy
