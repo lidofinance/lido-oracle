@@ -110,6 +110,10 @@ class State:
     def is_fulfilled(self) -> bool:
         return not self.unprocessed_epochs
 
+    @property
+    def frames(self):
+        return self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
+
     @staticmethod
     def calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
         """Split epochs to process into frames of `epochs_per_frame` length"""
@@ -127,11 +131,10 @@ class State:
         assert self.is_empty
 
     def find_frame(self, epoch: EpochNumber) -> Frame:
-        frames = self.data.keys()
-        for epoch_range in frames:
+        for epoch_range in self.frames:
             if epoch_range[0] <= epoch <= epoch_range[1]:
                 return epoch_range
-        raise ValueError(f"Epoch {epoch} is out of frames range: {frames}")
+        raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
     def increment_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
         if frame not in self.data:
@@ -160,7 +163,7 @@ class State:
         frames_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
 
         if not self.is_empty:
-            cached_frames = self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
+            cached_frames = self.frames
             if cached_frames == frames:
                 logger.info({"msg": "No need to migrate duties data cache"})
                 return

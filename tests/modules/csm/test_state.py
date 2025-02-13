@@ -132,12 +132,16 @@ def test_clear_resets_state_to_empty():
 
 def test_find_frame_returns_correct_frame():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     state.data = {(0, 31): defaultdict(AttestationsAccumulator)}
     assert state.find_frame(15) == (0, 31)
 
 
 def test_find_frame_raises_error_for_out_of_range_epoch():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     state.data = {(0, 31): defaultdict(AttestationsAccumulator)}
     with pytest.raises(ValueError, match="Epoch 32 is out of frames range"):
         state.find_frame(32)

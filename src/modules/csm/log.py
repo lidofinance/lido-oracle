@@ -12,8 +12,7 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    # TODO: Should be renamed. Perf means different things in different contexts
-    perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
+    attestation_duty: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
     slashed: bool = False
 
 
