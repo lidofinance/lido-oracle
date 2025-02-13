@@ -205,12 +205,12 @@ class FrameCheckpointProcessor:
         for root in block_roots:
             attestations = self.cc.get_block_attestations(root)
             process_attestations(attestations, committees, self.eip7549_supported)
-
+        frame = self.state.find_frame(duty_epoch)
         with lock:
             for committee in committees.values():
                 for validator_duty in committee:
                     self.state.increment_duty(
-                        duty_epoch,
+                        frame,
                         validator_duty.index,
                         included=validator_duty.included,
                     )
