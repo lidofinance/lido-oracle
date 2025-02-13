@@ -26,6 +26,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.CRITICAL,
     handlers=[handler],
 )
