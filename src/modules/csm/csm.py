@@ -28,7 +28,6 @@ from src.types import (
     ReferenceBlockStamp,
     SlotNumber,
     StakingModuleAddress,
-    StakingModuleId,
 )
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
@@ -62,13 +61,13 @@ class CSOracle(BaseModule, ConsensusModule):
     COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
 
     report_contract: CSFeeOracleContract
-    module_id: StakingModuleId
+    staking_module: StakingModule
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
-        self.module_id = self._get_module_id()
+        self.staking_module = self._get_staking_module()
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
@@ -368,7 +367,6 @@ class CSOracle(BaseModule, ConsensusModule):
             yield v["value"]
 
     def get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
-        stuck: set[NodeOperatorId] = set()
         l_epoch, _ = frame
         l_ref_slot = self.converter(frame_blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
@@ -381,19 +379,17 @@ class CSOracle(BaseModule, ConsensusModule):
             )
         )
 
-        nos_by_module = self.w3.lido_validators.get_lido_node_operators_by_modules(l_blockstamp)
-        if self.module_id in nos_by_module:
-            stuck.update(no.id for no in nos_by_module[self.module_id] if no.stuck_validators_count > 0)
-        else:
-            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
-
-        stuck.update(
-            self.w3.csm.get_operators_with_stucks_in_range(
-                l_blockstamp.block_hash,
-                frame_blockstamp.block_hash,
-            )
+        digests = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(
+            self.staking_module, l_blockstamp.block_hash
         )
-        return stuck
+        if not digests:
+            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
+        stuck_from_digests = (no.id for no in digests if no.stuck_validators_count > 0)
+        stuck_from_events = self.w3.csm.get_operators_with_stucks_in_range(
+            l_blockstamp.block_hash,
+            frame_blockstamp.block_hash,
+        )
+        return set(stuck_from_digests) | set(stuck_from_events)
 
     def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree:
         if not shares:
@@ -471,11 +467,11 @@ class CSOracle(BaseModule, ConsensusModule):
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
 
-    def _get_module_id(self) -> StakingModuleId:
+    def _get_staking_module(self) -> StakingModule:
         modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules()
 
         for mod in modules:
             if mod.staking_module_address == self.w3.csm.module.address:
-                return mod.id
+                return mod
 
         raise NoModuleFound

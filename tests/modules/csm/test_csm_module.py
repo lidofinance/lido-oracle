@@ -9,12 +9,12 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAccumulator, State, Frame
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
-from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
+from src.types import NodeOperatorId, SlotNumber, StakingModuleId
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -22,7 +22,7 @@ from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 @pytest.fixture(autouse=True)
 def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_module_id", Mock())
+    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
 
 
 @pytest.fixture(autouse=True)
@@ -45,21 +45,16 @@ def test_get_stuck_operators(module: CSOracle, csm: CSM):
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
-    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
-        return_value={
-            1: {
-                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
-                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
-                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
-                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
-            },
-            2: {},
-            3: {},
-            4: {},
-        }
+    module.w3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(
+        return_value=[
+            type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
+            type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
+            type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
+            type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
+            type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
+            type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
+            type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
+        ]
     )
 
     module.w3.csm.get_operators_with_stucks_in_range = Mock(
@@ -89,20 +84,7 @@ def test_get_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
-    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
-        return_value={
-            1: {
-                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
-                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
-                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
-                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
-            },
-            2: {},
-        }
-    )
+    module.w3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(return_value=[])
 
     module.w3.csm.get_operators_with_stucks_in_range = Mock(
         return_value=[
