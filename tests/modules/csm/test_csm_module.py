@@ -595,7 +595,7 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     # mock previous report
     module.w3.csm.get_csm_tree_root = Mock(return_value=param.prev_tree_root)
     module.w3.csm.get_csm_tree_cid = Mock(return_value=param.prev_tree_cid)
-    module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
+    module.get_accumulated_rewards = Mock(return_value=param.prev_acc_shares)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
     module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root))
@@ -654,7 +654,7 @@ def test_get_accumulated_shares(module: CSOracle, tree: Tree):
     encoded_tree = tree.encode()
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
-    for i, leaf in enumerate(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=tree.root)):
+    for i, leaf in enumerate(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=tree.root)):
         assert tuple(leaf) == tree.tree.values[i]["value"]
 
 
@@ -663,7 +663,7 @@ def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
     with pytest.raises(ValueError):
-        next(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
+        next(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
 
 
 @dataclass(frozen=True)

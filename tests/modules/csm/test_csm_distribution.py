@@ -1,5 +1,5 @@
 from collections import defaultdict
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from web3.types import Wei
@@ -10,6 +10,7 @@ from src.modules.csm.log import ValidatorFrameSummary, OperatorFrameSummary
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.types import NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import CSM
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
@@ -42,7 +43,7 @@ def test_calculate_distribution_handles_single_frame(module):
 def test_calculate_distribution_handles_multiple_frames(module):
     module.state = Mock()
     module.state.frames = [(1, 2), (3, 4), (5, 6)]
-    blockstamp = Mock()
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
     module.module_validators_by_node_operators = Mock()
     module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
     module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=800)
@@ -59,6 +60,9 @@ def test_calculate_distribution_handles_multiple_frames(module):
     assert total_distributed == 800
     assert total_rewards[NodeOperatorId(1)] == 800
     assert len(logs) == 3
+    module._get_ref_blockstamp_for_frame.assert_has_calls(
+        [call(blockstamp, frame[1]) for frame in module.state.frames[1:]]
+    )
 
 
 def test_calculate_distribution_handles_invalid_distribution(module):

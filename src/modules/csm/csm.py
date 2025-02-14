@@ -120,9 +120,9 @@ class CSOracle(BaseModule, ConsensusModule):
             ).as_tuple()
 
         if prev_cid and prev_root != ZERO_HASH:
-            # Update cumulative amount of shares for all operators.
-            for no_id, acc_shares in self.get_accumulated_shares(prev_cid, prev_root):
-                total_rewards[no_id] += acc_shares
+            # Update cumulative amount of stETH shares for all operators.
+            for no_id, accumulated_rewards in self.get_accumulated_rewards(prev_cid, prev_root):
+                total_rewards[no_id] += accumulated_rewards
         else:
             logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
@@ -355,7 +355,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return rewards_distribution
 
-    def get_accumulated_shares(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
+    def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = Tree.decode(self.w3.ipfs.fetch(cid))
 
