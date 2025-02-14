@@ -39,7 +39,7 @@ def test_init(module: CSOracle):
     assert module
 
 
-def test_stuck_operators(module: CSOracle, csm: CSM):
+def test_get_stuck_operators(module: CSOracle, csm: CSM):
     module.module = Mock()  # type: ignore
     module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
@@ -66,7 +66,7 @@ def test_stuck_operators(module: CSOracle, csm: CSM):
         return_value=[NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(6), NodeOperatorId(1337)]
     )
 
-    module.current_frame_range = Mock(return_value=(69, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(69, 100))
     module.converter = Mock()
     module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
 
@@ -78,12 +78,12 @@ def test_stuck_operators(module: CSOracle, csm: CSM):
 
     with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
         with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
-            stuck = module.stuck_operators(blockstamp=blockstamp)
+            stuck = module.get_stuck_operators(frame=(69, 100), frame_blockstamp=blockstamp)
 
     assert stuck == {NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(5), NodeOperatorId(6), NodeOperatorId(1337)}
 
 
-def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
+def test_get_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
     module.module = Mock()  # type: ignore
     module.module_id = StakingModuleId(3)
     module.w3.cc = Mock()
@@ -112,7 +112,7 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
         ]
     )
 
-    module.current_frame_range = Mock(return_value=(69, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(69, 100))
     module.converter = Mock()
     module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
 
@@ -121,7 +121,7 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
 
     with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
         with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
-            stuck = module.stuck_operators(blockstamp=blockstamp)
+            stuck = module.get_stuck_operators(frame=(69, 100), frame_blockstamp=blockstamp)
 
     assert stuck == {
         NodeOperatorId(2),
@@ -283,11 +283,11 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
 
     if param.expected_frame is ValueError:
         with pytest.raises(ValueError):
-            module.current_frame_range(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
+            module.get_epochs_range_to_process(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
     else:
         bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
 
-        l_epoch, r_epoch = module.current_frame_range(bs)
+        l_epoch, r_epoch = module.get_epochs_range_to_process(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
 
 
@@ -321,7 +321,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(0, 1)),
                 report_blockstamp=Mock(ref_epoch=3),
                 state=Mock(),
-                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
             ),
             id="frame_changed_forward",
@@ -332,7 +332,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(0, 2)),
                 report_blockstamp=Mock(ref_epoch=1),
                 state=Mock(),
-                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
             ),
             id="frame_changed_backward",
@@ -343,7 +343,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(1, 2)),
                 report_blockstamp=Mock(ref_epoch=2),
                 state=Mock(),
-                expected_msg="The starting epoch of the frame is not finalized yet",
+                expected_msg="The starting epoch of the epochs range is not finalized yet",
                 expected_result=False,
             ),
             id="starting_epoch_not_finalized",
@@ -393,7 +393,7 @@ def test_collect_data(
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = param.state
-    module.current_frame_range = param.collect_frame_range
+    module.get_epochs_range_to_process = param.collect_frame_range
     module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
 
     with caplog.at_level(logging.DEBUG):
@@ -419,7 +419,7 @@ def test_collect_data_outdated_checkpoint(
         unprocessed_epochs=list(range(0, 101)),
         is_fulfilled=False,
     )
-    module.current_frame_range = Mock(side_effect=[(0, 100), (50, 150)])
+    module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
     with caplog.at_level(logging.DEBUG):
@@ -427,7 +427,10 @@ def test_collect_data_outdated_checkpoint(
             module.collect_data(blockstamp=Mock(slot_number=640))
 
     msg = list(
-        filter(lambda log: "Checkpoints were prepared for an outdated frame, stop processing" in log, caplog.messages)
+        filter(
+            lambda log: "Checkpoints were prepared for an outdated epochs range, stop processing" in log,
+            caplog.messages,
+        )
     )
     assert len(msg), "Expected message not found in logs"
 
@@ -443,7 +446,7 @@ def test_collect_data_fulfilled_state(
         unprocessed_epochs=list(range(0, 101)),
     )
     type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
-    module.current_frame_range = Mock(return_value=(0, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
     with caplog.at_level(logging.DEBUG):

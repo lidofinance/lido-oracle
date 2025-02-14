@@ -160,7 +160,7 @@ class CSOracle(BaseModule, ConsensusModule):
     def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
         # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
         # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
-        l_epoch, _ = self.current_frame_range(blockstamp)
+        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
         r_epoch = blockstamp.ref_epoch
 
         self.state.validate(l_epoch, r_epoch)
@@ -175,8 +175,8 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        l_epoch, r_epoch = self.current_frame_range(blockstamp)
-        logger.info({"msg": f"Frame for performance data collect: epochs [{l_epoch};{r_epoch}]"})
+        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        logger.info({"msg": f"Epochs range for performance data collect: [{l_epoch};{r_epoch}]"})
 
         # NOTE: Finalized slot is the first slot of justifying epoch, so we need to take the previous. But if the first
         # slot of the justifying epoch is empty, blockstamp.slot_number will point to the slot where the last finalized
@@ -192,13 +192,13 @@ class CSOracle(BaseModule, ConsensusModule):
         if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
             logger.warning(
                 {
-                    "msg": f"Frame has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"
+                    "msg": f"Epochs range has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"
                 }
             )
             return False
 
         if l_epoch > finalized_epoch:
-            logger.info({"msg": "The starting epoch of the frame is not finalized yet"})
+            logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
             return False
 
         self.state.init_or_migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame, consensus_version)
@@ -218,8 +218,8 @@ class CSOracle(BaseModule, ConsensusModule):
         processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported)
 
         for checkpoint in checkpoints:
-            if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
-                logger.info({"msg": "Checkpoints were prepared for an outdated frame, stop processing"})
+            if self.get_epochs_range_to_process(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
+                logger.info({"msg": "Checkpoints were prepared for an outdated epochs range, stop processing"})
                 raise ValueError("Outdated checkpoint")
             processor.exec(checkpoint)
 
@@ -285,7 +285,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
 
-        stuck_operators = self.stuck_operators(blockstamp)
+        stuck_operators = self.get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
             log_operator = log.operators[no_id]
             if no_id in stuck_operators:
@@ -367,17 +367,17 @@ class CSOracle(BaseModule, ConsensusModule):
         for v in tree.tree.values:
             yield v["value"]
 
-    def stuck_operators(self, blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
+    def get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
         stuck: set[NodeOperatorId] = set()
-        l_epoch, _ = self.current_frame_range(blockstamp)
-        l_ref_slot = self.converter(blockstamp).get_epoch_first_slot(l_epoch)
+        l_epoch, _ = frame
+        l_ref_slot = self.converter(frame_blockstamp).get_epoch_first_slot(l_epoch)
         # NOTE: r_block is guaranteed to be <= ref_slot, and the check
         # in the inner frames assures the  l_block <= r_block.
         l_blockstamp = build_blockstamp(
             get_next_non_missed_slot(
                 self.w3.cc,
                 l_ref_slot,
-                blockstamp.slot_number,
+                frame_blockstamp.slot_number,
             )
         )
 
@@ -390,7 +390,7 @@ class CSOracle(BaseModule, ConsensusModule):
         stuck.update(
             self.w3.csm.get_operators_with_stucks_in_range(
                 l_blockstamp.block_hash,
-                blockstamp.block_hash,
+                frame_blockstamp.block_hash,
             )
         )
         return stuck
@@ -424,7 +424,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return log_cid
 
     @lru_cache(maxsize=1)
-    def current_frame_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
+    def get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         converter = self.converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
@@ -455,9 +455,9 @@ class CSOracle(BaseModule, ConsensusModule):
             )
 
         if l_ref_slot < last_processing_ref_slot:
-            raise CSMError(f"Got invalid frame range: {l_ref_slot=} < {last_processing_ref_slot=}")
+            raise CSMError(f"Got invalid epochs range: {l_ref_slot=} < {last_processing_ref_slot=}")
         if l_ref_slot >= r_ref_slot:
-            raise CSMError(f"Got invalid frame range {r_ref_slot=}, {l_ref_slot=}")
+            raise CSMError(f"Got invalid epochs range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)

@@ -85,7 +85,7 @@ def test_calculate_distribution_in_frame_handles_stuck_operator(module):
     operators_to_validators = {(Mock(), NodeOperatorId(1)): [LidoValidatorFactory.build()]}
     module.state = State()
     module.state.data = {frame: defaultdict(AttestationsAccumulator)}
-    module.stuck_operators = Mock(return_value={NodeOperatorId(1)})
+    module.get_stuck_operators = Mock(return_value={NodeOperatorId(1)})
     module._get_performance_threshold = Mock()
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -107,7 +107,7 @@ def test_calculate_distribution_in_frame_handles_no_attestation_duty(module):
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
     module.state = State()
     module.state.data = {frame: defaultdict(AttestationsAccumulator)}
-    module.stuck_operators = Mock(return_value=set())
+    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock()
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -131,7 +131,7 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     module.state = State()
     attestation_duty = AttestationsAccumulator(assigned=10, included=6)
     module.state.data = {frame: {validator.index: attestation_duty}}
-    module.stuck_operators = Mock(return_value=set())
+    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -155,7 +155,7 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     module.state = State()
     attestation_duty = AttestationsAccumulator(assigned=10, included=5)
     module.state.data = {frame: {validator.index: attestation_duty}}
-    module.stuck_operators = Mock(return_value=set())
+    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
