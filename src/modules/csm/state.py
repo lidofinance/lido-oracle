@@ -117,12 +117,9 @@ class State:
     @staticmethod
     def calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
         """Split epochs to process into frames of `epochs_per_frame` length"""
-        frames = []
-        for frame_epochs in batched(epochs_to_process, epochs_per_frame):
-            if len(frame_epochs) < epochs_per_frame:
-                raise ValueError("Insufficient epochs to form a frame")
-            frames.append((frame_epochs[0], frame_epochs[-1]))
-        return frames
+        if len(epochs_to_process) % epochs_per_frame != 0:
+            raise ValueError("Insufficient epochs to form a frame")
+        return [(frame[0], frame[-1]) for frame in batched(epochs_to_process, epochs_per_frame)]
 
     def clear(self) -> None:
         self.data = {}
@@ -173,8 +170,7 @@ class State:
             for current_frame, migrated in migration_status.items():
                 if not migrated:
                     logger.warning({"msg": f"Invalidating frame duties data cache: {current_frame}"})
-                    for epoch in sequence(*current_frame):
-                        self._processed_epochs.discard(epoch)
+                    self._processed_epochs.difference_update(sequence(*current_frame))
 
         self.data = frames_data
         self._epochs_per_frame = epochs_per_frame
@@ -201,9 +197,9 @@ class State:
                 new_frame_l_epoch, new_frame_r_epoch = new_frame
                 if curr_frame_l_epoch >= new_frame_l_epoch and curr_frame_r_epoch <= new_frame_r_epoch:
                     logger.info({"msg": f"Migrating frame duties data cache: {current_frame=} -> {new_frame=}"})
-                    for val in self.data[current_frame]:
-                        new_data[new_frame][val].assigned += self.data[current_frame][val].assigned
-                        new_data[new_frame][val].included += self.data[current_frame][val].included
+                    for val, duty in self.data[current_frame].items():
+                        new_data[new_frame][val].assigned += duty.assigned
+                        new_data[new_frame][val].included += duty.included
                     migration_status[current_frame] = True
                     break
 
