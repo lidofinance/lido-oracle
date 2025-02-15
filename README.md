@@ -11,7 +11,7 @@ There are 3 modules in the oracle:
 
 - Accounting
 - Ejector
-- CSM
+- CSR
 
 ### Accounting module
 
