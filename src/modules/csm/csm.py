@@ -14,8 +14,6 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import State, Frame, DutyAccumulator
-from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
-from src.modules.csm.state import State, Frame
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
@@ -294,8 +292,12 @@ class CSOracle(BaseModule, ConsensusModule):
                 log_operator.stuck = True
                 continue
             for validator in validators:
-                duty = self.state.data[frame].get(validator.index)
-                self.process_validator_duty(validator, duty, threshold, participation_shares, log_operator)
+                att_duty = self.state.att_data[frame].get(validator.index)
+                prop_duty = self.state.prop_data[frame].get(validator.index)
+                sync_duty = self.state.sync_data[frame].get(validator.index)
+                self.process_validator_duty(
+                    validator, att_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator
+                )
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
 

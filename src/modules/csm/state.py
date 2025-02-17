@@ -178,8 +178,8 @@ class State:
 
         frames = self.calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         att_data = {frame: defaultdict(DutyAccumulator) for frame in frames}
-        sync_data = {frame: defaultdict(DutyAccumulator) for frame in frames}
         prop_data = {frame: defaultdict(DutyAccumulator) for frame in frames}
+        sync_data = {frame: defaultdict(DutyAccumulator) for frame in frames}
 
         if not self.is_empty:
             cached_frames = self.frames
@@ -187,24 +187,30 @@ class State:
                 logger.info({"msg": "No need to migrate duties data cache"})
                 return
 
-            frames_data, migration_status = self._migrate_frames_data(cached_frames, frames)
+            migration_status = self._migrate_frames_data(cached_frames, frames, att_data, prop_data, sync_data)
 
             for current_frame, migrated in migration_status.items():
                 if not migrated:
                     logger.warning({"msg": f"Invalidating frame duties data cache: {current_frame}"})
                     self._processed_epochs.difference_update(sequence(*current_frame))
 
-        self.data = frames_data
+        self.att_data = att_data
+        self.prop_data = prop_data
+        self.sync_data = sync_data
         self._epochs_per_frame = epochs_per_frame
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version
         self.commit()
 
     def _migrate_frames_data(
-        self, current_frames: list[Frame], new_frames: list[Frame]
-    ) -> tuple[StateData, dict[Frame, bool]]:
+        self,
+        current_frames: list[Frame],
+        new_frames: list[Frame],
+        att_data: StateData,
+        prop_data: StateData,
+        sync_data: StateData
+    ) -> dict[Frame, bool]:
         migration_status = {frame: False for frame in current_frames}
-        new_data: StateData = {frame: defaultdict(DutyAccumulator) for frame in new_frames}
 
         logger.info({"msg": f"Migrating duties data cache: {current_frames=} -> {new_frames=}"})
 
@@ -212,20 +218,28 @@ class State:
             curr_frame_l_epoch, curr_frame_r_epoch = current_frame
             for new_frame in new_frames:
                 if current_frame == new_frame:
-                    new_data[new_frame] = self.data[current_frame]
+                    att_data[new_frame] = self.att_data[current_frame]
+                    prop_data[new_frame] = self.prop_data[current_frame]
+                    sync_data[new_frame] = self.sync_data[current_frame]
                     migration_status[current_frame] = True
                     break
 
                 new_frame_l_epoch, new_frame_r_epoch = new_frame
                 if curr_frame_l_epoch >= new_frame_l_epoch and curr_frame_r_epoch <= new_frame_r_epoch:
                     logger.info({"msg": f"Migrating frame duties data cache: {current_frame=} -> {new_frame=}"})
-                    for val, duty in self.data[current_frame].items():
-                        new_data[new_frame][val].assigned += duty.assigned
-                        new_data[new_frame][val].included += duty.included
+                    for val, duty in self.att_data[current_frame].items():
+                        att_data[new_frame][val].assigned += duty.assigned
+                        att_data[new_frame][val].included += duty.included
+                    for val, duty in self.prop_data[current_frame].items():
+                        prop_data[new_frame][val].assigned += duty.assigned
+                        prop_data[new_frame][val].included += duty.included
+                    for val, duty in self.sync_data[current_frame].items():
+                        sync_data[new_frame][val].assigned += duty.assigned
+                        sync_data[new_frame][val].included += duty.included
                     migration_status[current_frame] = True
                     break
 
-        return new_data, migration_status
+        return migration_status
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         if not self.is_fulfilled:
@@ -241,45 +255,33 @@ class State:
 
     def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation
-        included = assigned = 0
         frame_data = self.att_data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame {frame} to calculate network aggregate")
-        for validator, acc in frame_data.items():
-            if acc.included > acc.assigned:
-                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
-            included += acc.included
-            assigned += acc.assigned
-        aggr = DutyAccumulator(
-            included=included,
-            assigned=assigned,
-        )
+        aggr = self.get_duty_network_aggr(frame_data)
         logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
     def get_sync_network_aggr(self, frame: Frame) -> DutyAccumulator:
-        included = assigned = 0
         frame_data = self.sync_data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame {frame} to calculate syncs network aggregate")
-        for validator, acc in frame_data.items():
-            if acc.included > acc.assigned:
-                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
-            included += acc.included
-            assigned += acc.assigned
-        aggr = DutyAccumulator(
-            included=included,
-            assigned=assigned,
-        )
+        aggr = self.get_duty_network_aggr(frame_data)
         logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
     def get_prop_network_aggr(self, frame: Frame) -> DutyAccumulator:
-        included = assigned = 0
         frame_data = self.prop_data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame {frame} to calculate proposal network aggregate")
-        for validator, acc in frame_data.items():
+        aggr = self.get_duty_network_aggr(frame_data)
+        logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    @staticmethod
+    def get_duty_network_aggr(duty_frame_data: defaultdict[ValidatorIndex, DutyAccumulator]) -> DutyAccumulator:
+        included = assigned = 0
+        for validator, acc in duty_frame_data.items():
             if acc.included > acc.assigned:
                 raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
             included += acc.included
@@ -288,5 +290,4 @@ class State:
             included=included,
             assigned=assigned,
         )
-        logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr

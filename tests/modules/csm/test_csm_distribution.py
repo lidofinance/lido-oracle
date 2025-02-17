@@ -7,7 +7,7 @@ from web3.types import Wei
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle, CSMError
 from src.modules.csm.log import ValidatorFrameSummary
-from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.state import DutyAccumulator, State
 from src.types import NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -84,7 +84,7 @@ def test_calculate_distribution_in_frame_handles_stuck_operator(module):
     rewards_to_distribute = UINT64_MAX
     operators_to_validators = {(Mock(), NodeOperatorId(1)): [LidoValidatorFactory.build()]}
     module.state = State()
-    module.state.data = {frame: defaultdict(AttestationsAccumulator)}
+    module.state.data = {frame: defaultdict(DutyAccumulator)}
     module.get_stuck_operators = Mock(return_value={NodeOperatorId(1)})
     module._get_performance_threshold = Mock()
 
@@ -98,7 +98,7 @@ def test_calculate_distribution_in_frame_handles_stuck_operator(module):
     assert log.operators[NodeOperatorId(1)].validators == defaultdict(ValidatorFrameSummary)
 
 
-def test_calculate_distribution_in_frame_handles_no_attestation_duty(module):
+def test_calculate_distribution_in_frame_handles_no_any_duties(module):
     frame = Mock()
     blockstamp = Mock()
     rewards_to_distribute = UINT64_MAX
@@ -106,7 +106,9 @@ def test_calculate_distribution_in_frame_handles_no_attestation_duty(module):
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
     module.state = State()
-    module.state.data = {frame: defaultdict(AttestationsAccumulator)}
+    module.state.att_data = {frame: defaultdict(DutyAccumulator)}
+    module.state.prop_data = {frame: defaultdict(DutyAccumulator)}
+    module.state.sync_data = {frame: defaultdict(DutyAccumulator)}
     module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock()
 
@@ -129,8 +131,12 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
     module.state = State()
-    attestation_duty = AttestationsAccumulator(assigned=10, included=6)
-    module.state.data = {frame: {validator.index: attestation_duty}}
+    attestation_duty = DutyAccumulator(assigned=10, included=6)
+    proposal_duty = DutyAccumulator(assigned=10, included=6)
+    sync_duty = DutyAccumulator(assigned=10, included=6)
+    module.state.att_data = {frame: {validator.index: attestation_duty}}
+    module.state.prop_data = {frame: {validator.index: proposal_duty}}
+    module.state.sync_data = {frame: {validator.index: sync_duty}}
     module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
@@ -142,6 +148,8 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     assert log.operators[node_operator_id].stuck is False
     assert log.operators[node_operator_id].distributed > 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
+    assert log.operators[node_operator_id].validators[validator.index].proposal_duty == proposal_duty
+    assert log.operators[node_operator_id].validators[validator.index].sync_duty == sync_duty
 
 
 def test_calculate_distribution_in_frame_handles_below_threshold_performance(module):
@@ -153,8 +161,12 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
     module.state = State()
-    attestation_duty = AttestationsAccumulator(assigned=10, included=5)
-    module.state.data = {frame: {validator.index: attestation_duty}}
+    attestation_duty = DutyAccumulator(assigned=10, included=5)
+    proposal_duty = DutyAccumulator(assigned=10, included=5)
+    sync_duty = DutyAccumulator(assigned=10, included=5)
+    module.state.att_data = {frame: {validator.index: attestation_duty}}
+    module.state.prop_data = {frame: {validator.index: proposal_duty}}
+    module.state.sync_data = {frame: {validator.index: sync_duty}}
     module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
@@ -166,14 +178,16 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     assert log.operators[node_operator_id].stuck is False
     assert log.operators[node_operator_id].distributed == 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
+    assert log.operators[node_operator_id].validators[validator.index].proposal_duty == proposal_duty
+    assert log.operators[node_operator_id].validators[validator.index].sync_duty == sync_duty
 
 
 def test_performance_threshold_calculates_correctly(module):
     state = State()
-    state.data = {
+    state.att_data = {
         (0, 31): {
-            ValidatorIndex(1): AttestationsAccumulator(10, 10),
-            ValidatorIndex(2): AttestationsAccumulator(10, 10),
+            ValidatorIndex(1): DutyAccumulator(10, 10),
+            ValidatorIndex(2): DutyAccumulator(10, 10),
         },
     }
     module.w3.csm.oracle.perf_leeway_bp.return_value = 500
@@ -188,8 +202,8 @@ def test_performance_threshold_handles_zero_leeway(module):
     state = State()
     state.data = {
         (0, 31): {
-            ValidatorIndex(1): AttestationsAccumulator(10, 10),
-            ValidatorIndex(2): AttestationsAccumulator(10, 10),
+            ValidatorIndex(1): DutyAccumulator(10, 10),
+            ValidatorIndex(2): DutyAccumulator(10, 10),
         },
     }
     module.w3.csm.oracle.perf_leeway_bp.return_value = 0
@@ -203,7 +217,7 @@ def test_performance_threshold_handles_zero_leeway(module):
 def test_performance_threshold_handles_high_leeway(module):
     state = State()
     state.data = {
-        (0, 31): {ValidatorIndex(1): AttestationsAccumulator(10, 1), ValidatorIndex(2): AttestationsAccumulator(10, 1)},
+        (0, 31): {ValidatorIndex(1): DutyAccumulator(10, 1), ValidatorIndex(2): DutyAccumulator(10, 1)},
     }
     module.w3.csm.oracle.perf_leeway_bp.return_value = 5000
     module.state = state
@@ -221,7 +235,7 @@ def test_process_validator_duty_handles_above_threshold_performance():
     participation_shares = defaultdict(int)
     threshold = 0.5
 
-    attestation_duty = AttestationsAccumulator(assigned=10, included=6)
+    attestation_duty = DutyAccumulator(assigned=10, included=6)
 
     CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
 
@@ -237,7 +251,7 @@ def test_process_validator_duty_handles_below_threshold_performance():
     participation_shares = defaultdict(int)
     threshold = 0.5
 
-    attestation_duty = AttestationsAccumulator(assigned=10, included=4)
+    attestation_duty = DutyAccumulator(assigned=10, included=4)
 
     CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
 
@@ -253,7 +267,7 @@ def test_process_validator_duty_handles_non_empy_participation_shares():
     participation_shares = {validator.lido_id.operatorIndex: 25}
     threshold = 0.5
 
-    attestation_duty = AttestationsAccumulator(assigned=10, included=6)
+    attestation_duty = DutyAccumulator(assigned=10, included=6)
 
     CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
 
@@ -268,7 +282,7 @@ def test_process_validator_duty_handles_no_duty_assigned():
     participation_shares = defaultdict(int)
     threshold = 0.5
 
-    CSOracle.process_validator_duty(validator, None, threshold, participation_shares, log_operator)
+    CSOracle.process_validator_duty(validator, None, None, None, threshold, participation_shares, log_operator)
 
     assert participation_shares[validator.lido_id.operatorIndex] == 0
     assert validator.index not in log_operator.validators
@@ -282,9 +296,11 @@ def test_process_validator_duty_handles_slashed_validator():
     participation_shares = defaultdict(int)
     threshold = 0.5
 
-    attestation_duty = AttestationsAccumulator(assigned=1, included=1)
+    attestation_duty = DutyAccumulator(assigned=1, included=1)
+    prop_duty = DutyAccumulator(assigned=1, included=1)
+    sync_duty = DutyAccumulator(assigned=1, included=1)
 
-    CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
+    CSOracle.process_validator_duty(validator, attestation_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator)
 
     assert participation_shares[validator.lido_id.operatorIndex] == 0
     assert log_operator.validators[validator.index].slashed is True
