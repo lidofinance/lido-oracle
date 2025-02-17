@@ -45,14 +45,18 @@ class State:
     """
 
     data: defaultdict[ValidatorIndex, AttestationsAccumulator]
+    consensus_version: int
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _consensus_version: int = 1
-
-    def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
+    def __init__(
+        self,
+        data: dict[ValidatorIndex, AttestationsAccumulator] | None = None,
+        consensus_version: int = 1,
+    ) -> None:
         self.data = defaultdict(AttestationsAccumulator, data or {})
+        self.consensus_version = consensus_version
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
 
@@ -74,6 +78,17 @@ class State:
         else:
             logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
         return obj or cls()
+
+    # TODO: Remove the method in v6.
+    def __setstate__(self, state):
+        if not isinstance(state, dict):
+            raise ValueError("Expected restored state to be of type dict")
+
+        # Migrate older versions of state with no consensus_version set.
+        if "consensus_version" not in state:
+            state["consensus_version"] = 1
+
+        self.__dict__ = state
 
     def commit(self) -> None:
         with self.buffer.open(mode="wb") as f:
@@ -105,10 +120,10 @@ class State:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, consensus_version: int):
-        if consensus_version != self._consensus_version:
+        if consensus_version != self.consensus_version:
             logger.warning(
                 {
-                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
+                    "msg": f"Cache was built for consensus version {self.consensus_version}. "
                     f"Discarding data to migrate to consensus version {consensus_version}"
                 }
             )
@@ -122,7 +137,7 @@ class State:
                     break
 
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._consensus_version = consensus_version
+        self.consensus_version = consensus_version
         self.commit()
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:

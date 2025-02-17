@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -81,12 +82,44 @@ def test_state_load():
         {
             ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
             ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
-        }
+        },
+        consensus_version=42,
     )
 
     orig.commit()
     copy = State.load()
     assert copy.data == orig.data
+    assert copy.consensus_version == orig.consensus_version
+
+
+# TODO: Remove in v6.
+def test_state_load_without_consensus_version(monkeypatch: pytest.MonkeyPatch):
+    orig = State(
+        {
+            ValidatorIndex(0): AttestationsAccumulator(included=333, assigned=777),
+            ValidatorIndex(1): AttestationsAccumulator(included=167, assigned=223),
+        },
+        consensus_version=42,
+    )
+
+    d = deepcopy(orig.__dict__)
+    del d["consensus_version"]
+    orig.__getstate__ = Mock(return_value=d)
+
+    orig.commit()
+    orig.__getstate__.assert_called_once()
+
+    copy = State.load()
+    assert copy.data == orig.data
+    assert copy.consensus_version == 1
+
+    with monkeypatch.context() as ctx:
+        ctx.delattr(State, "__setstate__")
+
+        copy = State.load()
+
+        with pytest.raises(AttributeError, match="consensus_version"):
+            copy.consensus_version
 
 
 def test_state_clear():
@@ -206,9 +239,8 @@ class TestStateTransition:
         ],
     )
     def test_consensus_version_change(self, old_version, new_version):
-        state = State()
+        state = State(consensus_version=old_version)
         state.clear = Mock(side_effect=state.clear)
-        state._consensus_version = old_version
 
         l_epoch = r_epoch = EpochNumber(255)
 
