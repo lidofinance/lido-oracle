@@ -12,9 +12,9 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    attestations: DutyAccumulator = field(default_factory=DutyAccumulator)
-    proposals: DutyAccumulator = field(default_factory=DutyAccumulator)
-    sync_committee: DutyAccumulator = field(default_factory=DutyAccumulator)
+    attestation_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
+    proposal_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
+    sync_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
     performance: float = 0.0
     slashed: bool = False
 

@@ -28,7 +28,7 @@ def test_fields_access(log: FramePerfLog):
 
 def test_log_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
-    log.operators[NodeOperatorId(42)].validators["41337"].perf = DutyAccumulator(220, 119)
+    log.operators[NodeOperatorId(42)].validators["41337"].attestation_duty = DutyAccumulator(220, 119)
     log.operators[NodeOperatorId(42)].distributed = 17
     log.operators[NodeOperatorId(0)].distributed = 0
 
@@ -37,8 +37,8 @@ def test_log_encode(log: FramePerfLog):
     encoded = FramePerfLog.encode(logs)
 
     for decoded in json.loads(encoded):
-        assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["assigned"] == 220
-        assert decoded["operators"]["42"]["validators"]["41337"]["perf"]["included"] == 119
+        assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["assigned"] == 220
+        assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["included"] == 119
         assert decoded["operators"]["42"]["distributed"] == 17
         assert decoded["operators"]["0"]["distributed"] == 0
 
@@ -51,12 +51,12 @@ def test_log_encode(log: FramePerfLog):
 
 def test_logs_encode():
     log_0 = FramePerfLog(ReferenceBlockStampFactory.build(), (EpochNumber(100), EpochNumber(500)))
-    log_0.operators[NodeOperatorId(42)].validators["41337"].perf = DutyAccumulator(220, 119)
+    log_0.operators[NodeOperatorId(42)].validators["41337"].attestation_duty = DutyAccumulator(220, 119)
     log_0.operators[NodeOperatorId(42)].distributed = 17
     log_0.operators[NodeOperatorId(0)].distributed = 0
 
     log_1 = FramePerfLog(ReferenceBlockStampFactory.build(), (EpochNumber(500), EpochNumber(900)))
-    log_1.operators[NodeOperatorId(5)].validators["1234"].perf = DutyAccumulator(400, 399)
+    log_1.operators[NodeOperatorId(5)].validators["1234"].attestation_duty = DutyAccumulator(400, 399)
     log_1.operators[NodeOperatorId(5)].distributed = 40
     log_1.operators[NodeOperatorId(18)].distributed = 0
 
@@ -68,13 +68,13 @@ def test_logs_encode():
 
     assert len(decoded) == 2
 
-    assert decoded[0]["operators"]["42"]["validators"]["41337"]["perf"]["assigned"] == 220
-    assert decoded[0]["operators"]["42"]["validators"]["41337"]["perf"]["included"] == 119
+    assert decoded[0]["operators"]["42"]["validators"]["41337"]["attestation_duty"]["assigned"] == 220
+    assert decoded[0]["operators"]["42"]["validators"]["41337"]["attestation_duty"]["included"] == 119
     assert decoded[0]["operators"]["42"]["distributed"] == 17
     assert decoded[0]["operators"]["0"]["distributed"] == 0
 
-    assert decoded[1]["operators"]["5"]["validators"]["1234"]["perf"]["assigned"] == 400
-    assert decoded[1]["operators"]["5"]["validators"]["1234"]["perf"]["included"] == 399
+    assert decoded[1]["operators"]["5"]["validators"]["1234"]["attestation_duty"]["assigned"] == 400
+    assert decoded[1]["operators"]["5"]["validators"]["1234"]["attestation_duty"]["included"] == 399
     assert decoded[1]["operators"]["5"]["distributed"] == 40
     assert decoded[1]["operators"]["18"]["distributed"] == 0
 
