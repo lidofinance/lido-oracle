@@ -129,7 +129,7 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
 
 def compute_activation_exit_epoch(ref_epoch: EpochNumber):
     """
-    Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+    Return the epoch during which validator activations and exits initiated in ``ref_epoch`` take effect.
 
     Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
     """
