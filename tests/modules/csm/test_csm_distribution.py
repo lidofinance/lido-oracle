@@ -6,7 +6,7 @@ from web3.types import Wei
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle, CSMError
-from src.modules.csm.log import ValidatorFrameSummary, OperatorFrameSummary
+from src.modules.csm.log import ValidatorFrameSummary
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.types import NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import CSM
@@ -15,8 +15,8 @@ from tests.factory.no_registry import LidoValidatorFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_module_id", Mock())
+def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
 
 
 @pytest.fixture()
