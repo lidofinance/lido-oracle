@@ -1,10 +1,9 @@
 import logging
-from collections import defaultdict
 from typing import Iterator
 
 from hexbytes import HexBytes
 
-from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
+from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_L_EPOCH,
@@ -12,8 +11,9 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
-from src.modules.csm.state import State, Frame, DutyAccumulator
+from src.modules.csm.distribution import Distribution
+from src.modules.csm.log import FramePerfLog
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
@@ -27,14 +27,11 @@ from src.types import (
     EpochNumber,
     ReferenceBlockStamp,
     SlotNumber,
-    StakingModuleAddress,
-    StakingModuleId,
 )
-from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_next_non_missed_slot, get_reference_blockstamp
+from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule, ValidatorsByNodeOperator, LidoValidator
+from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -58,8 +55,8 @@ class CSOracle(BaseModule, ConsensusModule):
         2. Calculate the performance of each validator based on the attestations.
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
-
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
+    # TODO: should be (Contract=2, Consensus=3)
+    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2)]
 
     report_contract: CSFeeOracleContract
     staking_module: StakingModule
@@ -101,32 +98,36 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
-        total_distributed, total_rewards, logs = self.calculate_distribution(blockstamp)
+        distribution = Distribution(self.w3, self.staking_module, self.converter(blockstamp), self.state)
+        total_distributed_rewards, total_rewards_map, total_rebate, logs = distribution.calculate(blockstamp)
 
-        if total_distributed != sum(total_rewards.values()):
-            raise InconsistentData(f"Invalid distribution: {sum(total_rewards.values())=} != {total_distributed=}")
+        if total_distributed_rewards != sum(total_rewards_map.values()):
+            raise InconsistentData(f"Invalid distribution: {sum(total_rewards_map.values())=} != {total_distributed_rewards=}")
 
-        log_cid = self.publish_log(logs)
+        logs_cid = self.publish_log(logs)
 
-        if not total_distributed and not total_rewards:
-            logger.info({"msg": "No rewards distributed in the current frame"})
+        if not total_distributed_rewards and not total_rewards_map:
+            logger.info({"msg": f"No rewards distributed in the current frame. {total_rebate=}"})
             return ReportData(
                 self.get_consensus_version(blockstamp),
                 blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
-                log_cid=log_cid,
+                log_cid=logs_cid,
                 distributed=0,
+                rebate=total_rebate,
+                strikes_tree_root=ZERO_HASH,
+                strikes_tree_cid="",
             ).as_tuple()
 
         if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of stETH shares for all operators.
             for no_id, accumulated_rewards in self.get_accumulated_rewards(prev_cid, prev_root):
-                total_rewards[no_id] += accumulated_rewards
+                total_rewards_map[no_id] += accumulated_rewards
         else:
             logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
-        tree = self.make_tree(total_rewards)
+        tree = self.make_tree(total_rewards_map)
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
@@ -134,8 +135,11 @@ class CSOracle(BaseModule, ConsensusModule):
             blockstamp.ref_slot,
             tree_root=tree.root,
             tree_cid=tree_cid,
-            log_cid=log_cid,
-            distributed=total_distributed,
+            log_cid=logs_cid,
+            distributed=total_distributed_rewards,
+            rebate=total_rebate,
+            strikes_tree_root=ZERO_HASH,
+            strikes_tree_cid="",
         ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -150,12 +154,6 @@ class CSOracle(BaseModule, ConsensusModule):
         on_pause = self.report_contract.is_paused('latest')
         CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
         return not on_pause
-
-    @lru_cache(maxsize=1)
-    def module_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_module_validators_by_node_operators(
-            StakingModuleAddress(self.w3.csm.module.address), blockstamp
-        )
 
     def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
         # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
@@ -225,168 +223,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
-    def calculate_distribution(
-        self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[int, defaultdict[NodeOperatorId, int], list[FramePerfLog]]:
-        """Computes distribution of fee shares at the given timestamp"""
-        operators_to_validators = self.module_validators_by_node_operators(blockstamp)
-
-        total_distributed = 0
-        total_rewards = defaultdict[NodeOperatorId, int](int)
-        logs: list[FramePerfLog] = []
-
-        for frame in self.state.frames:
-            from_epoch, to_epoch = frame
-            logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
-
-            frame_blockstamp = blockstamp
-            if to_epoch != blockstamp.ref_epoch:
-                frame_blockstamp = self._get_ref_blockstamp_for_frame(blockstamp, to_epoch)
-
-            total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
-            rewards_to_distribute_in_frame = total_rewards_to_distribute - total_distributed
-
-            rewards_in_frame, log = self._calculate_distribution_in_frame(
-                frame, frame_blockstamp, rewards_to_distribute_in_frame, operators_to_validators
-            )
-            distributed_in_frame = sum(rewards_in_frame.values())
-
-            total_distributed += distributed_in_frame
-            if total_distributed > total_rewards_to_distribute:
-                raise CSMError(f"Invalid distribution: {total_distributed=} > {total_rewards_to_distribute=}")
-
-            for no_id, rewards in rewards_in_frame.items():
-                total_rewards[no_id] += rewards
-
-            logs.append(log)
-
-        return total_distributed, total_rewards, logs
-
-    def _get_ref_blockstamp_for_frame(
-        self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
-    ) -> ReferenceBlockStamp:
-        converter = self.converter(blockstamp)
-        return get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=converter.get_epoch_last_slot(frame_ref_epoch),
-            ref_epoch=frame_ref_epoch,
-            last_finalized_slot_number=blockstamp.slot_number,
-        )
-
-    def _calculate_distribution_in_frame(
-        self,
-        frame: Frame,
-        blockstamp: ReferenceBlockStamp,
-        rewards_to_distribute: int,
-        operators_to_validators: ValidatorsByNodeOperator
-    ):
-        threshold = self._get_performance_threshold(frame, blockstamp)
-        log = FramePerfLog(blockstamp, frame, threshold)
-
-        participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
-
-        stuck_operators = self.get_stuck_operators(frame, blockstamp)
-        for (_, no_id), validators in operators_to_validators.items():
-            log_operator = log.operators[no_id]
-            if no_id in stuck_operators:
-                log_operator.stuck = True
-                continue
-            for validator in validators:
-                att_duty = self.state.att_data[frame].get(validator.index)
-                prop_duty = self.state.prop_data[frame].get(validator.index)
-                sync_duty = self.state.sync_data[frame].get(validator.index)
-                self.process_validator_duty(
-                    validator, att_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator
-                )
-
-        rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
-
-        for no_id, no_rewards in rewards_distribution.items():
-            log.operators[no_id].distributed = no_rewards
-
-        log.distributable = rewards_to_distribute
-
-        return rewards_distribution, log
-
-    def _get_performance_threshold(self, frame: Frame, blockstamp: ReferenceBlockStamp) -> float:
-        att_perf = self.state.get_att_network_aggr(frame).perf
-        prop_perf = self.state.get_prop_network_aggr(frame).perf
-        sync_perf = self.state.get_sync_network_aggr(frame).perf
-        network_perf = 54 / 64 * att_perf + 8 / 64 * prop_perf + 2 / 64 * sync_perf
-        if network_perf > 1:
-            raise ValueError(f"Invalid network performance: {network_perf=}")
-
-        perf_leeway = self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
-        threshold = network_perf - perf_leeway
-        return threshold
-
-    @staticmethod
-    def process_validator_duty(
-        validator: LidoValidator,
-        attestation_duty: DutyAccumulator | None,
-        sync_duty: DutyAccumulator | None,
-        proposal_duty: DutyAccumulator | None,
-        threshold: float,
-        participation_shares: defaultdict[NodeOperatorId, int],
-        log_operator: OperatorFrameSummary
-    ):
-        if attestation_duty is None:
-            # It's possible that the validator is not assigned to any duty, hence it's performance
-            # is not presented in the aggregates (e.g. exited, pending for activation etc).
-            # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
-            return
-
-        log_validator = log_operator.validators[validator.index]
-
-        if validator.validator.slashed is True:
-            # It means that validator was active during the frame and got slashed and didn't meet the exit
-            # epoch, so we should not count such validator for operator's share.
-            log_validator.slashed = True
-            return
-
-        performance = CSOracle._calculate_validator_performance(attestation_duty, proposal_duty, sync_duty)
-
-        if performance > threshold:
-            # Count of assigned attestations used as a metrics of time
-            # the validator was active in the current frame.
-            participation_shares[validator.lido_id.operatorIndex] += attestation_duty.assigned
-
-        log_validator.performance = performance
-        log_validator.attestation_duty = attestation_duty
-        if proposal_duty:
-            log_validator.proposal_duty = proposal_duty
-        if sync_duty:
-            log_validator.sync_duty = sync_duty
-
-    @staticmethod
-    def _calculate_validator_performance(att_aggr, prop_aggr, sync_aggr) -> float:
-        performance = att_aggr.perf
-        if prop_aggr and sync_aggr:
-            performance = 54 / 64 * att_aggr.perf + 8 / 64 * prop_aggr.perf + 2 / 64 * sync_aggr.perf
-        elif prop_aggr:
-            performance = 54 / 62 * att_aggr.perf + 8 / 62 * prop_aggr.perf
-        elif sync_aggr:
-            performance = 54 / 56 * att_aggr.perf + 2 / 56 * sync_aggr.perf
-        if performance > 1:
-            raise ValueError(f"Invalid performance: {performance=}")
-        return performance
-
-    @staticmethod
-    def calc_rewards_distribution_in_frame(
-        participation_shares: dict[NodeOperatorId, int],
-        rewards_to_distribute: int,
-    ) -> dict[NodeOperatorId, int]:
-        rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
-        total_participation = sum(participation_shares.values())
-
-        for no_id, no_participation_share in participation_shares.items():
-            if no_participation_share == 0:
-                # Skip operators with zero participation
-                continue
-            rewards_distribution[no_id] = rewards_to_distribute * no_participation_share // total_participation
-
-        return rewards_distribution
-
     def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = Tree.decode(self.w3.ipfs.fetch(cid))
@@ -398,31 +234,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         for v in tree.tree.values:
             yield v["value"]
-
-    def get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
-        l_epoch, _ = frame
-        l_ref_slot = self.converter(frame_blockstamp).get_epoch_first_slot(l_epoch)
-        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
-        # in the inner frames assures the  l_block <= r_block.
-        l_blockstamp = build_blockstamp(
-            get_next_non_missed_slot(
-                self.w3.cc,
-                l_ref_slot,
-                frame_blockstamp.slot_number,
-            )
-        )
-
-        digests = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(
-            self.staking_module, l_blockstamp.block_hash
-        )
-        if not digests:
-            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
-        stuck_from_digests = (no.id for no in digests if no.stuck_validators_count > 0)
-        stuck_from_events = self.w3.csm.get_operators_with_stucks_in_range(
-            l_blockstamp.block_hash,
-            frame_blockstamp.block_hash,
-        )
-        return set(stuck_from_digests) | set(stuck_from_events)
 
     def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree:
         if not shares:

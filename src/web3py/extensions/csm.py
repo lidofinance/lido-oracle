@@ -19,6 +19,7 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
@@ -31,8 +32,10 @@ class CSM(Module):
     w3: Web3
 
     oracle: CSFeeOracleContract
+    accounting: CSAccountingContract
     fee_distributor: CSFeeDistributorContract
     module: CSModuleContract
+    params: CSParametersRegistryContract
 
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
@@ -88,7 +91,16 @@ class CSM(Module):
                 ),
             )
 
-            accounting = cast(
+            self.params = cast(
+                CSParametersRegistryContract,
+                self.w3.eth.contract(
+                    address=self.module.parameters_registry(),
+                    ContractFactoryClass=CSParametersRegistryContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.accounting = cast(
                 CSAccountingContract,
                 self.w3.eth.contract(
                     address=self.module.accounting(),
@@ -100,7 +112,7 @@ class CSM(Module):
             self.fee_distributor = cast(
                 CSFeeDistributorContract,
                 self.w3.eth.contract(
-                    address=accounting.fee_distributor(),
+                    address=self.accounting.fee_distributor(),
                     ContractFactoryClass=CSFeeDistributorContract,
                     decode_tuples=True,
                 ),
