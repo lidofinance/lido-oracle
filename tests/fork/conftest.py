@@ -10,7 +10,6 @@ from _pytest.nodes import Item
 from eth_account import Account
 from faker.proxy import Faker
 from web3 import Web3
-from web3.middleware import construct_simple_cache_middleware
 from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
@@ -211,9 +210,12 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str):
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
         logger.info(f"TESTRUN Started fork on {port=} from {blockstamp_for_forking.block_number=}")
-        web3 = Web3(MultiProvider([f'http://127.0.0.1:{port}'], request_kwargs={'timeout': 5 * 60}))
+        web3 = Web3(MultiProvider(
+            endpoint_urls=[f'http://127.0.0.1:{port}'],
+            request_kwargs={'timeout': 5 * 60},
+            cache_allowed_requests=True
+        ))
         tweak_w3_contracts(web3)
-        web3.middleware_onion.add(construct_simple_cache_middleware())
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
         web3.provider.make_request(RPCEndpoint('evm_setAutomine'), [True])
         # TODO: tx execution should somehow change corresponding block on CL
@@ -408,7 +410,7 @@ def new_hash_consensus(
     new_consensus.functions.updateInitialEpoch(frame_config.initial_epoch).transact({'from': default_admin})
 
     oracle_admin = report_contract.functions.getRoleMember(DEFAULT_ADMIN_ROLE, 0).call()
-    forked_el_client.provider.make_request('anvil_setBalance', [oracle_admin, hex(10**18)])
+    forked_el_client.provider.make_request('anvil_setBalance', [oracle_admin, hex(10 ** 18)])
 
     MANAGE_CONSENSUS_CONTRACT_ROLE = "0x" + report_contract.functions.MANAGE_CONSENSUS_CONTRACT_ROLE().call().hex()
     report_contract.functions.grantRole(MANAGE_CONSENSUS_CONTRACT_ROLE, admin).transact({'from': oracle_admin})
