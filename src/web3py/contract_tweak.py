@@ -2,11 +2,15 @@ import itertools
 from typing import Any, Callable, Tuple
 
 from eth_abi.exceptions import DecodingError
+from eth_typing import (
+    ABI,
+    ABIFunction,
+)
 from eth_typing import ChecksumAddress
-from web3 import Web3
 from eth_utils.abi import (
     get_abi_output_types,
 )
+from web3 import Web3
 from web3._utils.abi import (
     map_abi_data,
     named_tree,
@@ -19,10 +23,6 @@ from web3.contract.contract import ContractFunction as _ContractFunction
 from web3.contract.contract import ContractFunctions as _ContractFunctions
 from web3.contract.utils import ACCEPTABLE_EMPTY_STRINGS
 from web3.exceptions import BadFunctionCallOutput
-from eth_typing import (
-    ABI,
-    ABIFunction,
-)
 from web3.types import (
     BlockIdentifier,
     StateOverride,
