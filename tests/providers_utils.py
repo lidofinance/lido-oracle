@@ -85,7 +85,7 @@ class ResponseFromFile(JSONBaseProvider, FromFile):
 
 class UpdateResponsesProvider(MultiProvider, UpdateResponses):
     def __init__(self, mock_path: Path, host):
-        MultiProvider.__init__(self, host)
+        MultiProvider.__init__(self, host, cache_allowed_requests=True)
         UpdateResponses.__init__(self)
         self.from_file = ResponseFromFile(mock_path)
 
