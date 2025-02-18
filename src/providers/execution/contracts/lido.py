@@ -1,7 +1,7 @@
 import logging
 
 from eth_typing import ChecksumAddress, HexStr
-from web3.types import Wei, BlockIdentifier, CallOverrideParams
+from web3.types import Wei, BlockIdentifier, StateOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
@@ -86,7 +86,7 @@ class LidoContract(ContractInterface):
         ref_slot: HexStr,
         block_identifier: BlockIdentifier = 'latest',
     ) -> LidoReportRebase:
-        state_override: dict[ChecksumAddress, CallOverrideParams] = {
+        state_override: dict[ChecksumAddress, StateOverrideParams] = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value
                 'balance': Wei(100 * 10**18),

@@ -4,25 +4,29 @@ from typing import Any, Callable, Tuple
 from eth_abi.exceptions import DecodingError
 from eth_typing import ChecksumAddress
 from web3 import Web3
-from web3._utils.abi import (
+from eth_utils.abi import (
     get_abi_output_types,
+)
+from web3._utils.abi import (
     map_abi_data,
     named_tree,
     recursive_dict_to_namedtuple,
 )
-from web3._utils.contracts import find_matching_fn_abi, prepare_transaction
+from web3._utils.contracts import prepare_transaction
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 from web3.contract import Contract as _Contract
 from web3.contract.contract import ContractFunction as _ContractFunction
 from web3.contract.contract import ContractFunctions as _ContractFunctions
 from web3.contract.utils import ACCEPTABLE_EMPTY_STRINGS
 from web3.exceptions import BadFunctionCallOutput
-from web3.types import (
+from eth_typing import (
     ABI,
     ABIFunction,
+)
+from web3.types import (
     BlockIdentifier,
-    CallOverride,
-    FunctionIdentifier,
+    StateOverride,
+    ABIElementIdentifier,
     TxParams,
 )
 
@@ -31,12 +35,12 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     w3: "Web3",
     address: ChecksumAddress,
     normalizers: Tuple[Callable[..., Any], ...],
-    function_identifier: FunctionIdentifier,
+    function_identifier: ABIElementIdentifier,
     transaction: TxParams,
     block_id: BlockIdentifier | None = None,
     contract_abi: ABI | None = None,
     fn_abi: ABIFunction | None = None,
-    state_override: CallOverride | None = None,
+    state_override: StateOverride | None = None,
     ccip_read_enabled: bool | None = None,
     decode_tuples: bool | None = False,
     *args: Any,
@@ -49,9 +53,9 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     call_transaction = prepare_transaction(
         address,
         w3,
-        fn_identifier=function_identifier,
+        abi_element_identifier=function_identifier,
         contract_abi=contract_abi,
-        fn_abi=fn_abi,
+        abi_callable=fn_abi,
         transaction=transaction,
         fn_args=args,
         fn_kwargs=kwargs,
@@ -65,7 +69,7 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     )
 
     if fn_abi is None:
-        fn_abi = find_matching_fn_abi(
+        fn_abi = Contract._find_matching_fn_abi(
             contract_abi, w3.codec, function_identifier, args, kwargs
         )
 
@@ -114,7 +118,7 @@ class ContractFunction(_ContractFunction):
         self,
         transaction: TxParams | None = None,
         block_identifier: BlockIdentifier = "latest",
-        state_override: CallOverride | None = None,
+        state_override: StateOverride | None = None,
         ccip_read_enabled: bool | None = None,
     ) -> Any:
         call_transaction = self._get_call_txparams(transaction)
@@ -123,7 +127,7 @@ class ContractFunction(_ContractFunction):
             self.w3,
             self.address,
             self._return_data_normalizers,
-            self.function_identifier,
+            self.abi_element_identifier,
             call_transaction,
             block_identifier,
             self.contract_abi,
