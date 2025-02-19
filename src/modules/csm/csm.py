@@ -3,7 +3,6 @@ from collections import defaultdict
 from typing import Iterator
 
 from hexbytes import HexBytes
-from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
