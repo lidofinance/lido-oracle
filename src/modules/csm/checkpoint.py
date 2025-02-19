@@ -258,24 +258,23 @@ class FrameCheckpointProcessor:
         with lock:
             if duty_epoch not in self.state.unprocessed_epochs:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
-            frame = self.state.find_frame(duty_epoch)
             for att_committee in att_committees.values():
                 for att_duty in att_committee:
                     self.state.increment_att_duty(
-                        frame,
+                        duty_epoch,
                         att_duty.index,
                         included=att_duty.included,
                     )
             for sync_committee in sync_committees.values():
                 for sync_duty in sync_committee:
                     self.state.increment_sync_duty(
-                        frame,
+                        duty_epoch,
                         sync_duty.index,
                         included=sync_duty.included,
                     )
             for proposer_duty in propose_duties.values():
                 self.state.increment_prop_duty(
-                    frame,
+                    duty_epoch,
                     proposer_duty.index,
                     included=proposer_duty.included
                 )
