@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Iterator
 
 from hexbytes import HexBytes
+from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -226,12 +227,12 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def calculate_distribution(
         self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[int, defaultdict[NodeOperatorId, int], list[FramePerfLog]]:
+    ) -> tuple[Shares, defaultdict[NodeOperatorId, Shares], list[FramePerfLog]]:
         """Computes distribution of fee shares at the given timestamp"""
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
-        total_distributed = 0
-        total_rewards = defaultdict[NodeOperatorId, int](int)
+        total_distributed = Shares(0)
+        total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
         logs: list[FramePerfLog] = []
 
         for frame in self.state.frames:
