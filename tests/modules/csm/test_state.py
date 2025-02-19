@@ -294,72 +294,73 @@ def test_init_or_migrate_discards_unmigrated_frame():
 
 def test_migrate_frames_data_creates_new_data_correctly():
     state = State()
-    current_frames = [(0, 31), (32, 63)]
+    state._epochs_to_process = tuple(sequence(0, 63))
+    state._epochs_per_frame = 32
     new_frames = [(0, 63)]
     state.data = {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
         (32, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(20, 15)}),
     }
-    new_data, migration_status = state._migrate_frames_data(current_frames, new_frames)
-    assert new_data == {
+    state._migrate_frames_data(new_frames)
+    assert state.data == {
         (0, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(30, 20)})
     }
-    assert migration_status == {(0, 31): True, (32, 63): True}
 
 
 def test_migrate_frames_data_handles_no_migration():
     state = State()
-    current_frames = [(0, 31)]
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     new_frames = [(0, 31)]
     state.data = {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
     }
-    new_data, migration_status = state._migrate_frames_data(current_frames, new_frames)
-    assert new_data == {
+    state._migrate_frames_data(new_frames)
+    assert state.data == {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)})
     }
-    assert migration_status == {(0, 31): True}
 
 
 def test_migrate_frames_data_handles_partial_migration():
     state = State()
-    current_frames = [(0, 31), (32, 63)]
+    state._epochs_to_process = tuple(sequence(0, 63))
+    state._epochs_per_frame = 32
     new_frames = [(0, 31), (32, 95)]
     state.data = {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
         (32, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(20, 15)}),
     }
-    new_data, migration_status = state._migrate_frames_data(current_frames, new_frames)
-    assert new_data == {
+    state._migrate_frames_data(new_frames)
+    assert state.data == {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
         (32, 95): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(20, 15)}),
     }
-    assert migration_status == {(0, 31): True, (32, 63): True}
 
 
 def test_migrate_frames_data_handles_no_data():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     current_frames = [(0, 31)]
     new_frames = [(0, 31)]
     state.data = {frame: defaultdict(AttestationsAccumulator) for frame in current_frames}
-    new_data, migration_status = state._migrate_frames_data(current_frames, new_frames)
-    assert new_data == {(0, 31): defaultdict(AttestationsAccumulator)}
-    assert migration_status == {(0, 31): True}
+    state._migrate_frames_data(new_frames)
+    assert state.data == {(0, 31): defaultdict(AttestationsAccumulator)}
 
 
 def test_migrate_frames_data_handles_wider_old_frame():
     state = State()
-    current_frames = [(0, 63)]
+    state._epochs_to_process = tuple(sequence(0, 63))
+    state._epochs_per_frame = 64
     new_frames = [(0, 31), (32, 63)]
     state.data = {
         (0, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(30, 20)}),
     }
-    new_data, migration_status = state._migrate_frames_data(current_frames, new_frames)
-    assert new_data == {
+    state._migrate_frames_data(new_frames)
+    assert state.data == {
         (0, 31): defaultdict(AttestationsAccumulator),
         (32, 63): defaultdict(AttestationsAccumulator),
     }
-    assert migration_status == {(0, 63): False}
 
 
 def test_validate_raises_error_if_state_not_fulfilled():

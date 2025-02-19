@@ -158,54 +158,44 @@ class State:
             self.clear()
 
         frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
-        frames_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
 
         if not self.is_empty:
             cached_frames = self.frames
             if cached_frames == frames:
                 logger.info({"msg": "No need to migrate duties data cache"})
                 return
+            self._migrate_frames_data(frames)
+        else:
+            self.data = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
 
-            frames_data, migration_status = self._migrate_frames_data(cached_frames, frames)
-
-            for current_frame, migrated in migration_status.items():
-                if not migrated:
-                    logger.warning({"msg": f"Invalidating frame duties data cache: {current_frame}"})
-                    self._processed_epochs.difference_update(sequence(*current_frame))
-
-        self.data = frames_data
         self._epochs_per_frame = epochs_per_frame
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version
         self.find_frame.cache_clear()
         self.commit()
 
-    def _migrate_frames_data(
-        self, current_frames: list[Frame], new_frames: list[Frame]
-    ) -> tuple[StateData, dict[Frame, bool]]:
-        migration_status = {frame: False for frame in current_frames}
+    def _migrate_frames_data(self, new_frames: list[Frame]):
+        logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
         new_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in new_frames}
 
-        logger.info({"msg": f"Migrating duties data cache: {current_frames=} -> {new_frames=}"})
+        def overlaps(a: Frame, b: Frame):
+            return a[0] <= b[0] and a[1] >= b[1]
 
-        for current_frame in current_frames:
-            curr_frame_l_epoch, curr_frame_r_epoch = current_frame
-            for new_frame in new_frames:
-                if current_frame == new_frame:
-                    new_data[new_frame] = self.data[current_frame]
-                    migration_status[current_frame] = True
-                    break
-
-                new_frame_l_epoch, new_frame_r_epoch = new_frame
-                if curr_frame_l_epoch >= new_frame_l_epoch and curr_frame_r_epoch <= new_frame_r_epoch:
-                    logger.info({"msg": f"Migrating frame duties data cache: {current_frame=} -> {new_frame=}"})
-                    for val, duty in self.data[current_frame].items():
+        consumed = []
+        for new_frame in new_frames:
+            for frame_to_consume in self.frames:
+                if overlaps(new_frame, frame_to_consume):
+                    assert frame_to_consume not in consumed
+                    consumed.append(frame_to_consume)
+                    for val, duty in self.data[frame_to_consume].items():
                         new_data[new_frame][val].assigned += duty.assigned
                         new_data[new_frame][val].included += duty.included
-                    migration_status[current_frame] = True
-                    break
-
-        return new_data, migration_status
+        for frame in self.frames:
+            if frame in consumed:
+                continue
+            logger.warning({"msg": f"Invalidating frame duties data cache: {frame}"})
+            self._processed_epochs -= set(sequence(*frame))
+        self.data = new_data
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         if not self.is_fulfilled:
