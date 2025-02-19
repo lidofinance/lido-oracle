@@ -327,3 +327,11 @@ def test_calc_rewards_distribution_in_frame_handles_partial_participation():
 
     assert rewards_distribution[NodeOperatorId(1)] == Wei(1 * 10**18)
     assert rewards_distribution[NodeOperatorId(2)] == 0
+
+
+def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
+    participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 200}
+    rewards_to_distribute = Wei(-1)
+
+    with pytest.raises(ValueError, match="Invalid rewards to distribute"):
+        CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)

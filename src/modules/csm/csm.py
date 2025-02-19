@@ -344,6 +344,8 @@ class CSOracle(BaseModule, ConsensusModule):
         participation_shares: dict[NodeOperatorId, int],
         rewards_to_distribute: int,
     ) -> dict[NodeOperatorId, int]:
+        if rewards_to_distribute < 0:
+            raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute}")
         rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
         total_participation = sum(participation_shares.values())
 
