@@ -49,11 +49,11 @@ class State:
 
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
+    frames: list[Frame]
     data: StateData
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
-    _epochs_per_frame: int
 
     _consensus_version: int = 1
 
@@ -61,7 +61,6 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._epochs_per_frame = 0
 
     EXTENSION = ".pkl"
 
@@ -110,10 +109,6 @@ class State:
     @property
     def is_fulfilled(self) -> bool:
         return not self.unprocessed_epochs
-
-    @property
-    def frames(self):
-        return self._calculate_frames(self._epochs_to_process, self._epochs_per_frame)
 
     @staticmethod
     def _calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
@@ -169,7 +164,7 @@ class State:
         else:
             self.data = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
 
-        self._epochs_per_frame = epochs_per_frame
+        self.frames = frames
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version
         self.find_frame.cache_clear()
