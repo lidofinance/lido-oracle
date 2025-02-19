@@ -58,6 +58,7 @@ class State:
     _consensus_version: int = 1
 
     def __init__(self) -> None:
+        self.frames = []
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
@@ -153,21 +154,16 @@ class State:
             )
             self.clear()
 
-        frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        if self.frames == new_frames:
+            logger.info({"msg": "No need to migrate duties data cache"})
+            return
+        self._migrate_frames_data(new_frames)
 
-        if not self.is_empty:
-            cached_frames = self.frames
-            if cached_frames == frames:
-                logger.info({"msg": "No need to migrate duties data cache"})
-                return
-            self._migrate_frames_data(frames)
-        else:
-            self.data = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
-
-        self.frames = frames
+        self.frames = new_frames
+        self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version
-        self.find_frame.cache_clear()
         self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):
