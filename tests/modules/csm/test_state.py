@@ -113,14 +113,14 @@ def test_is_fulfilled_returns_false_if_unprocessed_epochs_exist():
 
 def test_calculate_frames_handles_exact_frame_size():
     epochs = tuple(range(10))
-    frames = State.calculate_frames(epochs, 5)
+    frames = State._calculate_frames(epochs, 5)
     assert frames == [(0, 4), (5, 9)]
 
 
 def test_calculate_frames_raises_error_for_insufficient_epochs():
     epochs = tuple(range(8))
     with pytest.raises(ValueError, match="Insufficient epochs to form a frame"):
-        State.calculate_frames(epochs, 5)
+        State._calculate_frames(epochs, 5)
 
 
 def test_clear_resets_state_to_empty():

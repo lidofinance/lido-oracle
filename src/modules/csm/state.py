@@ -112,14 +112,14 @@ class State:
 
     @property
     def frames(self):
-        return self.calculate_frames(self._epochs_to_process, self._epochs_per_frame)
+        return self._calculate_frames(self._epochs_to_process, self._epochs_per_frame)
 
     @staticmethod
-    def calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
+    def _calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
         """Split epochs to process into frames of `epochs_per_frame` length"""
         if len(epochs_to_process) % epochs_per_frame != 0:
             raise ValueError("Insufficient epochs to form a frame")
-        return [(frame[0], frame[-1]) for frame in batched(epochs_to_process, epochs_per_frame)]
+        return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame)]
 
     def clear(self) -> None:
         self.data = {}
@@ -156,7 +156,7 @@ class State:
             )
             self.clear()
 
-        frames = self.calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         frames_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in frames}
 
         if not self.is_empty:
