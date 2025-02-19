@@ -29,7 +29,6 @@ from src.types import (
     SlotNumber,
 )
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from src.web3py.types import Web3
@@ -55,8 +54,7 @@ class CSOracle(BaseModule, ConsensusModule):
         2. Calculate the performance of each validator based on the attestations.
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
-    # TODO: should be (Contract=2, Consensus=3)
-    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2)]
+    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 3)]
 
     report_contract: CSFeeOracleContract
     staking_module: StakingModule
@@ -222,138 +220,6 @@ class CSOracle(BaseModule, ConsensusModule):
             processor.exec(checkpoint)
 
         return self.state.is_fulfilled
-
-    def calculate_distribution(
-        self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[Shares, defaultdict[NodeOperatorId, Shares], list[FramePerfLog]]:
-        """Computes distribution of fee shares at the given timestamp"""
-        operators_to_validators = self.module_validators_by_node_operators(blockstamp)
-
-        total_distributed = Shares(0)
-        total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
-        logs: list[FramePerfLog] = []
-
-        for frame in self.state.frames:
-            from_epoch, to_epoch = frame
-            logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
-
-            frame_blockstamp = blockstamp
-            if to_epoch != blockstamp.ref_epoch:
-                frame_blockstamp = self._get_ref_blockstamp_for_frame(blockstamp, to_epoch)
-
-            total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
-            rewards_to_distribute_in_frame = total_rewards_to_distribute - total_distributed
-
-            rewards_in_frame, log = self._calculate_distribution_in_frame(
-                frame, frame_blockstamp, rewards_to_distribute_in_frame, operators_to_validators
-            )
-            distributed_in_frame = sum(rewards_in_frame.values())
-
-            total_distributed += distributed_in_frame
-            if total_distributed > total_rewards_to_distribute:
-                raise CSMError(f"Invalid distribution: {total_distributed=} > {total_rewards_to_distribute=}")
-
-            for no_id, rewards in rewards_in_frame.items():
-                total_rewards[no_id] += rewards
-
-            logs.append(log)
-
-        return total_distributed, total_rewards, logs
-
-    def _get_ref_blockstamp_for_frame(
-        self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
-    ) -> ReferenceBlockStamp:
-        converter = self.converter(blockstamp)
-        return get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=converter.get_epoch_last_slot(frame_ref_epoch),
-            ref_epoch=frame_ref_epoch,
-            last_finalized_slot_number=blockstamp.slot_number,
-        )
-
-    def _calculate_distribution_in_frame(
-        self,
-        frame: Frame,
-        blockstamp: ReferenceBlockStamp,
-        rewards_to_distribute: int,
-        operators_to_validators: ValidatorsByNodeOperator
-    ):
-        threshold = self._get_performance_threshold(frame, blockstamp)
-        log = FramePerfLog(blockstamp, frame, threshold)
-
-        participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
-
-        stuck_operators = self.get_stuck_operators(frame, blockstamp)
-        for (_, no_id), validators in operators_to_validators.items():
-            log_operator = log.operators[no_id]
-            if no_id in stuck_operators:
-                log_operator.stuck = True
-                continue
-            for validator in validators:
-                duty = self.state.data[frame].get(validator.index)
-                self.process_validator_duty(validator, duty, threshold, participation_shares, log_operator)
-
-        rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
-
-        for no_id, no_rewards in rewards_distribution.items():
-            log.operators[no_id].distributed = no_rewards
-
-        log.distributable = rewards_to_distribute
-
-        return rewards_distribution, log
-
-    def _get_performance_threshold(self, frame: Frame, blockstamp: ReferenceBlockStamp) -> float:
-        network_perf = self.state.get_network_aggr(frame).perf
-        perf_leeway = self.w3.csm.oracle.perf_leeway_bp(blockstamp.block_hash) / TOTAL_BASIS_POINTS
-        threshold = network_perf - perf_leeway
-        return threshold
-
-    @staticmethod
-    def process_validator_duty(
-        validator: LidoValidator,
-        attestation_duty: AttestationsAccumulator | None,
-        threshold: float,
-        participation_shares: defaultdict[NodeOperatorId, int],
-        log_operator: OperatorFrameSummary
-    ):
-        if attestation_duty is None:
-            # It's possible that the validator is not assigned to any duty, hence it's performance
-            # is not presented in the aggregates (e.g. exited, pending for activation etc).
-            # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
-            return
-
-        log_validator = log_operator.validators[validator.index]
-
-        if validator.validator.slashed is True:
-            # It means that validator was active during the frame and got slashed and didn't meet the exit
-            # epoch, so we should not count such validator for operator's share.
-            log_validator.slashed = True
-            return
-
-        if attestation_duty.perf > threshold:
-            # Count of assigned attestations used as a metrics of time
-            # the validator was active in the current frame.
-            participation_shares[validator.lido_id.operatorIndex] += attestation_duty.assigned
-
-        log_validator.attestation_duty = attestation_duty
-
-    @staticmethod
-    def calc_rewards_distribution_in_frame(
-        participation_shares: dict[NodeOperatorId, int],
-        rewards_to_distribute: int,
-    ) -> dict[NodeOperatorId, int]:
-        if rewards_to_distribute < 0:
-            raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute}")
-        rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
-        total_participation = sum(participation_shares.values())
-
-        for no_id, no_participation_share in participation_shares.items():
-            if no_participation_share == 0:
-                # Skip operators with zero participation
-                continue
-            rewards_distribution[no_id] = rewards_to_distribute * no_participation_share // total_participation
-
-        return rewards_distribution
 
     def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})

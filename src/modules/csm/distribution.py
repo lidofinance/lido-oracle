@@ -5,6 +5,7 @@ from functools import lru_cache
 from src.constants import UINT256_MAX, TOTAL_BASIS_POINTS
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, Frame, State
+from src.modules.csm.types import Shares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
 from src.utils.blockstamp import build_blockstamp
@@ -31,7 +32,7 @@ class Distribution:
 
     def calculate(
         self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[int, defaultdict[NodeOperatorId, int], int, list[FramePerfLog]]:
+    ) -> tuple[Shares, defaultdict[NodeOperatorId, Shares], Shares, list[FramePerfLog]]:
         """Computes distribution of fee shares at the given timestamp"""
         total_distributed_rewards = 0
         total_rewards_map = defaultdict[NodeOperatorId, int](int)
