@@ -131,7 +131,8 @@ class State:
     @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
     def find_frame(self, epoch: EpochNumber) -> Frame:
         for epoch_range in self.frames:
-            if epoch_range[0] <= epoch <= epoch_range[1]:
+            from_epoch, to_epoch = epoch_range
+            if from_epoch <= epoch <= to_epoch:
                 return epoch_range
         raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
