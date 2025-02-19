@@ -12,7 +12,7 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    perf: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
+    attestation_duty: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
     slashed: bool = False
 
 
@@ -35,13 +35,14 @@ class FramePerfLog:
         default_factory=lambda: defaultdict(OperatorFrameSummary)
     )
 
-    def encode(self) -> bytes:
+    @staticmethod
+    def encode(logs: list['FramePerfLog']) -> bytes:
         return (
             LogJSONEncoder(
                 indent=None,
                 separators=(',', ':'),
                 sort_keys=True,
             )
-            .encode(asdict(self))
+            .encode([asdict(log) for log in logs])
             .encode()
         )

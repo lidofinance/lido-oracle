@@ -9,20 +9,20 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
-from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
-from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
+from src.types import NodeOperatorId, SlotNumber, StakingModuleId
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_module_id", Mock())
+def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
 
 
 @pytest.fixture(autouse=True)
@@ -39,34 +39,28 @@ def test_init(module: CSOracle):
     assert module
 
 
-def test_stuck_operators(module: CSOracle, csm: CSM):
+def test_get_stuck_operators(module: CSOracle, csm: CSM):
     module.module = Mock()  # type: ignore
-    module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
-    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
-        return_value={
-            1: {
-                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
-                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
-                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
-                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
-            },
-            2: {},
-            3: {},
-            4: {},
-        }
+    module.w3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(
+        return_value=[
+            Mock(id=0, stuck_validators_count=0),
+            Mock(id=1, stuck_validators_count=0),
+            Mock(id=2, stuck_validators_count=1),
+            Mock(id=3, stuck_validators_count=0),
+            Mock(id=4, stuck_validators_count=100500),
+            Mock(id=5, stuck_validators_count=100),
+            Mock(id=6, stuck_validators_count=0),
+        ]
     )
 
     module.w3.csm.get_operators_with_stucks_in_range = Mock(
         return_value=[NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(6), NodeOperatorId(1337)]
     )
 
-    module.current_frame_range = Mock(return_value=(69, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(69, 100))
     module.converter = Mock()
     module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
 
@@ -78,31 +72,17 @@ def test_stuck_operators(module: CSOracle, csm: CSM):
 
     with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
         with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
-            stuck = module.stuck_operators(blockstamp=blockstamp)
+            stuck = module.get_stuck_operators(frame=(69, 100), frame_blockstamp=blockstamp)
 
     assert stuck == {NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(5), NodeOperatorId(6), NodeOperatorId(1337)}
 
 
-def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
+def test_get_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
     module.module = Mock()  # type: ignore
-    module.module_id = StakingModuleId(3)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
-    module.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
-        return_value={
-            1: {
-                type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
-                type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
-                type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
-                type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
-                type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
-            },
-            2: {},
-        }
-    )
+    module.w3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(return_value=[])
 
     module.w3.csm.get_operators_with_stucks_in_range = Mock(
         return_value=[
@@ -112,7 +92,7 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
         ]
     )
 
-    module.current_frame_range = Mock(return_value=(69, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(69, 100))
     module.converter = Mock()
     module.converter.get_epoch_first_slot = Mock(return_value=lambda epoch: epoch * 32)
 
@@ -121,7 +101,7 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
 
     with patch('src.modules.csm.csm.build_blockstamp', return_value=l_blockstamp):
         with patch('src.modules.csm.csm.get_next_non_missed_slot', return_value=Mock()):
-            stuck = module.stuck_operators(blockstamp=blockstamp)
+            stuck = module.get_stuck_operators(frame=(69, 100), frame_blockstamp=blockstamp)
 
     assert stuck == {
         NodeOperatorId(2),
@@ -130,103 +110,6 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
     }
 
     assert caplog.messages[0].startswith("No CSM digest at blockstamp")
-
-
-def test_calculate_distribution(module: CSOracle, csm: CSM):
-    csm.fee_distributor.shares_to_distribute = Mock(return_value=10_000)
-    csm.oracle.perf_leeway_bp = Mock(return_value=500)
-
-    module.module_validators_by_node_operators = Mock(
-        return_value={
-            (None, NodeOperatorId(0)): [Mock(index=0, validator=Mock(slashed=False))],
-            (None, NodeOperatorId(1)): [Mock(index=1, validator=Mock(slashed=False))],
-            (None, NodeOperatorId(2)): [Mock(index=2, validator=Mock(slashed=False))],  # stuck
-            (None, NodeOperatorId(3)): [Mock(index=3, validator=Mock(slashed=False))],
-            (None, NodeOperatorId(4)): [Mock(index=4, validator=Mock(slashed=False))],  # stuck
-            (None, NodeOperatorId(5)): [
-                Mock(index=5, validator=Mock(slashed=False)),
-                Mock(index=6, validator=Mock(slashed=False)),
-            ],
-            (None, NodeOperatorId(6)): [
-                Mock(index=7, validator=Mock(slashed=False)),
-                Mock(index=8, validator=Mock(slashed=False)),
-            ],
-            (None, NodeOperatorId(7)): [Mock(index=9, validator=Mock(slashed=False))],
-            (None, NodeOperatorId(8)): [
-                Mock(index=10, validator=Mock(slashed=False)),
-                Mock(index=11, validator=Mock(slashed=True)),
-            ],
-            (None, NodeOperatorId(9)): [Mock(index=12, validator=Mock(slashed=True))],
-        }
-    )
-    module.stuck_operators = Mock(
-        return_value=[
-            NodeOperatorId(2),
-            NodeOperatorId(4),
-        ]
-    )
-
-    module.state = State(
-        {
-            ValidatorIndex(0): AttestationsAccumulator(included=200, assigned=200),  # short on frame
-            ValidatorIndex(1): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(2): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(3): AttestationsAccumulator(included=999, assigned=1000),
-            ValidatorIndex(4): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(5): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            ValidatorIndex(6): AttestationsAccumulator(included=0, assigned=0),  # underperforming
-            ValidatorIndex(7): AttestationsAccumulator(included=900, assigned=1000),
-            ValidatorIndex(8): AttestationsAccumulator(included=500, assigned=1000),  # underperforming
-            # ValidatorIndex(9): AttestationsAggregate(included=0, assigned=0),  # missing in state
-            ValidatorIndex(10): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(11): AttestationsAccumulator(included=1000, assigned=1000),
-            ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
-        }
-    )
-    module.state.migrate(EpochNumber(100), EpochNumber(500), 1)
-
-    _, shares, log = module.calculate_distribution(blockstamp=Mock())
-
-    assert tuple(shares.items()) == (
-        (NodeOperatorId(0), 476),
-        (NodeOperatorId(1), 2380),
-        (NodeOperatorId(3), 2380),
-        (NodeOperatorId(6), 2380),
-        (NodeOperatorId(8), 2380),
-    )
-
-    assert tuple(log.operators.keys()) == (
-        NodeOperatorId(0),
-        NodeOperatorId(1),
-        NodeOperatorId(2),
-        NodeOperatorId(3),
-        NodeOperatorId(4),
-        NodeOperatorId(5),
-        NodeOperatorId(6),
-        # NodeOperatorId(7), # Missing in state
-        NodeOperatorId(8),
-        NodeOperatorId(9),
-    )
-
-    assert not log.operators[NodeOperatorId(1)].stuck
-
-    assert log.operators[NodeOperatorId(2)].validators == {}
-    assert log.operators[NodeOperatorId(2)].stuck
-    assert log.operators[NodeOperatorId(4)].validators == {}
-    assert log.operators[NodeOperatorId(4)].stuck
-
-    assert 5 in log.operators[NodeOperatorId(5)].validators
-    assert 6 in log.operators[NodeOperatorId(5)].validators
-    assert 7 in log.operators[NodeOperatorId(6)].validators
-
-    assert log.operators[NodeOperatorId(0)].distributed == 476
-    assert log.operators[NodeOperatorId(1)].distributed == 2380
-    assert log.operators[NodeOperatorId(2)].distributed == 0
-    assert log.operators[NodeOperatorId(3)].distributed == 2380
-    assert log.operators[NodeOperatorId(6)].distributed == 2380
-
-    assert log.frame == (100, 500)
-    assert log.threshold == module.state.get_network_aggr().perf - 0.05
 
 
 # Static functions you were dreaming of for so long.
@@ -380,11 +263,11 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
 
     if param.expected_frame is ValueError:
         with pytest.raises(ValueError):
-            module.current_frame_range(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
+            module.get_epochs_range_to_process(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
     else:
         bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
 
-        l_epoch, r_epoch = module.current_frame_range(bs)
+        l_epoch, r_epoch = module.get_epochs_range_to_process(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
 
 
@@ -418,7 +301,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(0, 1)),
                 report_blockstamp=Mock(ref_epoch=3),
                 state=Mock(),
-                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
             ),
             id="frame_changed_forward",
@@ -429,7 +312,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(0, 2)),
                 report_blockstamp=Mock(ref_epoch=1),
                 state=Mock(),
-                expected_msg="Frame has been changed, but the change is not yet observed on finalized epoch 1",
+                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
                 expected_result=False,
             ),
             id="frame_changed_backward",
@@ -440,7 +323,7 @@ class CollectDataTestParam:
                 collect_frame_range=Mock(return_value=(1, 2)),
                 report_blockstamp=Mock(ref_epoch=2),
                 state=Mock(),
-                expected_msg="The starting epoch of the frame is not finalized yet",
+                expected_msg="The starting epoch of the epochs range is not finalized yet",
                 expected_result=False,
             ),
             id="starting_epoch_not_finalized",
@@ -490,7 +373,7 @@ def test_collect_data(
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = param.state
-    module.current_frame_range = param.collect_frame_range
+    module.get_epochs_range_to_process = param.collect_frame_range
     module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
 
     with caplog.at_level(logging.DEBUG):
@@ -516,7 +399,7 @@ def test_collect_data_outdated_checkpoint(
         unprocessed_epochs=list(range(0, 101)),
         is_fulfilled=False,
     )
-    module.current_frame_range = Mock(side_effect=[(0, 100), (50, 150)])
+    module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
     with caplog.at_level(logging.DEBUG):
@@ -524,7 +407,10 @@ def test_collect_data_outdated_checkpoint(
             module.collect_data(blockstamp=Mock(slot_number=640))
 
     msg = list(
-        filter(lambda log: "Checkpoints were prepared for an outdated frame, stop processing" in log, caplog.messages)
+        filter(
+            lambda log: "Checkpoints were prepared for an outdated epochs range, stop processing" in log,
+            caplog.messages,
+        )
     )
     assert len(msg), "Expected message not found in logs"
 
@@ -540,7 +426,7 @@ def test_collect_data_fulfilled_state(
         unprocessed_epochs=list(range(0, 101)),
     )
     type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
-    module.current_frame_range = Mock(return_value=(0, 100))
+    module.get_epochs_range_to_process = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
     with caplog.at_level(logging.DEBUG):
@@ -692,7 +578,7 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     # mock previous report
     module.w3.csm.get_csm_tree_root = Mock(return_value=param.prev_tree_root)
     module.w3.csm.get_csm_tree_cid = Mock(return_value=param.prev_tree_cid)
-    module.get_accumulated_shares = Mock(return_value=param.prev_acc_shares)
+    module.get_accumulated_rewards = Mock(return_value=param.prev_acc_shares)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
     module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root))
@@ -751,7 +637,7 @@ def test_get_accumulated_shares(module: CSOracle, tree: Tree):
     encoded_tree = tree.encode()
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
-    for i, leaf in enumerate(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=tree.root)):
+    for i, leaf in enumerate(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=tree.root)):
         assert tuple(leaf) == tree.tree.values[i]["value"]
 
 
@@ -760,7 +646,7 @@ def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
     with pytest.raises(ValueError):
-        next(module.get_accumulated_shares(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
+        next(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
 
 
 @dataclass(frozen=True)

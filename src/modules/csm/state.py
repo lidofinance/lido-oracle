@@ -3,6 +3,8 @@ import os
 import pickle
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
+from itertools import batched
 from pathlib import Path
 from typing import Self
 
@@ -33,6 +35,10 @@ class AttestationsAccumulator:
         self.included += 1 if included else 0
 
 
+type Frame = tuple[EpochNumber, EpochNumber]
+type StateData = dict[Frame, defaultdict[ValidatorIndex, AttestationsAccumulator]]
+
+
 class State:
     """
     Processing state of a CSM performance oracle frame.
@@ -43,16 +49,17 @@ class State:
 
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
-
-    data: defaultdict[ValidatorIndex, AttestationsAccumulator]
+    frames: list[Frame]
+    data: StateData
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
     _consensus_version: int = 1
 
-    def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
-        self.data = defaultdict(AttestationsAccumulator, data or {})
+    def __init__(self) -> None:
+        self.frames = []
+        self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
 
@@ -89,54 +96,6 @@ class State:
     def buffer(self) -> Path:
         return self.file().with_suffix(".buf")
 
-    def clear(self) -> None:
-        self.data = defaultdict(AttestationsAccumulator)
-        self._epochs_to_process = tuple()
-        self._processed_epochs.clear()
-        assert self.is_empty
-
-    def inc(self, key: ValidatorIndex, included: bool) -> None:
-        self.data[key].add_duty(included)
-
-    def add_processed_epoch(self, epoch: EpochNumber) -> None:
-        self._processed_epochs.add(epoch)
-
-    def log_progress(self) -> None:
-        logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
-
-    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, consensus_version: int):
-        if consensus_version != self._consensus_version:
-            logger.warning(
-                {
-                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
-                    f"Discarding data to migrate to consensus version {consensus_version}"
-                }
-            )
-            self.clear()
-
-        for state_epochs in (self._epochs_to_process, self._processed_epochs):
-            for epoch in state_epochs:
-                if epoch < l_epoch or epoch > r_epoch:
-                    logger.warning({"msg": "Discarding invalidated state cache"})
-                    self.clear()
-                    break
-
-        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._consensus_version = consensus_version
-        self.commit()
-
-    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-        if not self.is_fulfilled:
-            raise InvalidState(f"State is not fulfilled. {self.unprocessed_epochs=}")
-
-        for epoch in self._processed_epochs:
-            if not l_epoch <= epoch <= r_epoch:
-                raise InvalidState(f"Processed epoch {epoch} is out of range")
-
-        for epoch in sequence(l_epoch, r_epoch):
-            if epoch not in self._processed_epochs:
-                raise InvalidState(f"Epoch {epoch} should be processed")
-
     @property
     def is_empty(self) -> bool:
         return not self.data and not self._epochs_to_process and not self._processed_epochs
@@ -152,17 +111,103 @@ class State:
     def is_fulfilled(self) -> bool:
         return not self.unprocessed_epochs
 
-    @property
-    def frame(self) -> tuple[EpochNumber, EpochNumber]:
-        if not self._epochs_to_process:
-            raise ValueError("Epochs to process are not set")
-        return min(self._epochs_to_process), max(self._epochs_to_process)
+    @staticmethod
+    def _calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
+        """Split epochs to process into frames of `epochs_per_frame` length"""
+        if len(epochs_to_process) % epochs_per_frame != 0:
+            raise ValueError("Insufficient epochs to form a frame")
+        return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame)]
 
-    def get_network_aggr(self) -> AttestationsAccumulator:
-        """Return `AttestationsAccumulator` over duties of all the network validators"""
+    def clear(self) -> None:
+        self.data = {}
+        self._epochs_to_process = tuple()
+        self._processed_epochs.clear()
+        assert self.is_empty
 
+    @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
+    def find_frame(self, epoch: EpochNumber) -> Frame:
+        for epoch_range in self.frames:
+            from_epoch, to_epoch = epoch_range
+            if from_epoch <= epoch <= to_epoch:
+                return epoch_range
+        raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
+
+    def increment_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame][val_index].add_duty(included)
+
+    def add_processed_epoch(self, epoch: EpochNumber) -> None:
+        self._processed_epochs.add(epoch)
+
+    def log_progress(self) -> None:
+        logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
+
+    def migrate(
+        self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int
+    ) -> None:
+        if consensus_version != self._consensus_version:
+            logger.warning(
+                {
+                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
+                    f"Discarding data to migrate to consensus version {consensus_version}"
+                }
+            )
+            self.clear()
+
+        new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        if self.frames == new_frames:
+            logger.info({"msg": "No need to migrate duties data cache"})
+            return
+        self._migrate_frames_data(new_frames)
+
+        self.frames = new_frames
+        self.find_frame.cache_clear()
+        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+        self._consensus_version = consensus_version
+        self.commit()
+
+    def _migrate_frames_data(self, new_frames: list[Frame]):
+        logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
+        new_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in new_frames}
+
+        def overlaps(a: Frame, b: Frame):
+            return a[0] <= b[0] and a[1] >= b[1]
+
+        consumed = []
+        for new_frame in new_frames:
+            for frame_to_consume in self.frames:
+                if overlaps(new_frame, frame_to_consume):
+                    assert frame_to_consume not in consumed
+                    consumed.append(frame_to_consume)
+                    for val, duty in self.data[frame_to_consume].items():
+                        new_data[new_frame][val].assigned += duty.assigned
+                        new_data[new_frame][val].included += duty.included
+        for frame in self.frames:
+            if frame in consumed:
+                continue
+            logger.warning({"msg": f"Invalidating frame duties data cache: {frame}"})
+            self._processed_epochs -= set(sequence(*frame))
+        self.data = new_data
+
+    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+        if not self.is_fulfilled:
+            raise InvalidState(f"State is not fulfilled. {self.unprocessed_epochs=}")
+
+        for epoch in self._processed_epochs:
+            if not l_epoch <= epoch <= r_epoch:
+                raise InvalidState(f"Processed epoch {epoch} is out of range")
+
+        for epoch in sequence(l_epoch, r_epoch):
+            if epoch not in self._processed_epochs:
+                raise InvalidState(f"Epoch {epoch} missing in processed epochs")
+
+    def get_network_aggr(self, frame: Frame) -> AttestationsAccumulator:
+        # TODO: exclude `active_slashed` validators from the calculation
         included = assigned = 0
-        for validator, acc in self.data.items():
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame {frame} to calculate network aggregate")
+        for validator, acc in frame_data.items():
             if acc.included > acc.assigned:
                 raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
             included += acc.included
