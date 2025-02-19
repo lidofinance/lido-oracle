@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 Shares: TypeAlias = int
-RewardTreeLeaf: TypeAlias = tuple[NodeOperatorId, Shares]
+type RewardTreeLeaf = tuple[NodeOperatorId, Shares]
 
 
 @dataclass

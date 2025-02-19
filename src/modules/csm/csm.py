@@ -14,7 +14,7 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import State, Frame, AttestationsAccumulator
-from src.modules.csm.tree import Tree
+from src.modules.csm.tree import RewardTree
 from src.modules.csm.types import ReportData, Shares
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -358,7 +358,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-        tree = Tree.decode(self.w3.ipfs.fetch(cid))
+        tree = RewardTree.decode(self.w3.ipfs.fetch(cid))
 
         logger.info({"msg": "Restored tree from IPFS dump", "root": repr(tree.root)})
 
@@ -393,7 +393,7 @@ class CSOracle(BaseModule, ConsensusModule):
         )
         return set(stuck_from_digests) | set(stuck_from_events)
 
-    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree:
+    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardTree:
         if not shares:
             raise ValueError("No shares to build a tree")
 
@@ -407,11 +407,11 @@ class CSOracle(BaseModule, ConsensusModule):
         if stone in shares and len(shares) > 2:
             shares.pop(stone)
 
-        tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+        tree = RewardTree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
         logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree) -> CID:
+    def publish_tree(self, tree: RewardTree) -> CID:
         tree_cid = self.w3.ipfs.publish(tree.encode())
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid

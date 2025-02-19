@@ -1,6 +1,7 @@
 import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Self, Sequence
+from typing import Iterable, Self, Sequence
 
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
@@ -19,10 +20,10 @@ class TreeJSONEncoder(json.JSONEncoder):
 
 
 @dataclass
-class Tree:
+class Tree[LeafType: Iterable](ABC):
     """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
 
-    tree: StandardMerkleTree[RewardTreeLeaf]
+    tree: StandardMerkleTree[LeafType]
 
     @property
     def root(self) -> HexBytes:
@@ -50,10 +51,17 @@ class Tree:
             .encode()
         )
 
-    def dump(self) -> Dump[RewardTreeLeaf]:
+    def dump(self) -> Dump[LeafType]:
         return self.tree.dump()
 
     @classmethod
-    def new(cls, values: Sequence[RewardTreeLeaf]) -> Self:
+    @abstractmethod
+    def new(cls, values: Sequence[LeafType]) -> Self:
+        raise NotImplementedError
+
+
+class RewardTree(Tree[RewardTreeLeaf]):
+    @classmethod
+    def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
         return cls(StandardMerkleTree(values, ("uint256", "uint256")))
