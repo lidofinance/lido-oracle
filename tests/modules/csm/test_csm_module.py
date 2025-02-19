@@ -21,7 +21,7 @@ from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_get_module_id(monkeypatch: pytest.MonkeyPatch):
+def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
 
 
@@ -41,19 +41,18 @@ def test_init(module: CSOracle):
 
 def test_get_stuck_operators(module: CSOracle, csm: CSM):
     module.module = Mock()  # type: ignore
-    module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
     module.w3.lido_contracts.staking_router.get_all_node_operator_digests = Mock(
         return_value=[
-            type('NodeOperator', (object,), {'id': 0, 'stuck_validators_count': 0})(),
-            type('NodeOperator', (object,), {'id': 1, 'stuck_validators_count': 0})(),
-            type('NodeOperator', (object,), {'id': 2, 'stuck_validators_count': 1})(),
-            type('NodeOperator', (object,), {'id': 3, 'stuck_validators_count': 0})(),
-            type('NodeOperator', (object,), {'id': 4, 'stuck_validators_count': 100500})(),
-            type('NodeOperator', (object,), {'id': 5, 'stuck_validators_count': 100})(),
-            type('NodeOperator', (object,), {'id': 6, 'stuck_validators_count': 0})(),
+            Mock(id=0, stuck_validators_count=0),
+            Mock(id=1, stuck_validators_count=0),
+            Mock(id=2, stuck_validators_count=1),
+            Mock(id=3, stuck_validators_count=0),
+            Mock(id=4, stuck_validators_count=100500),
+            Mock(id=5, stuck_validators_count=100),
+            Mock(id=6, stuck_validators_count=0),
         ]
     )
 
@@ -80,7 +79,6 @@ def test_get_stuck_operators(module: CSOracle, csm: CSM):
 
 def test_get_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
     module.module = Mock()  # type: ignore
-    module.module_id = StakingModuleId(3)
     module.w3.cc = Mock()
     module.w3.lido_validators = Mock()
     module.w3.lido_contracts = Mock()
