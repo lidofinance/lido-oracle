@@ -146,7 +146,7 @@ class State:
     def log_progress(self) -> None:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
-    def init_or_migrate(
+    def migrate(
         self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int
     ) -> None:
         if consensus_version != self._consensus_version:

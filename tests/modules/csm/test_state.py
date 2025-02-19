@@ -218,7 +218,7 @@ def test_init_or_migrate_discards_data_on_version_change():
     state._consensus_version = 1
     state.clear = Mock()
     state.commit = Mock()
-    state.init_or_migrate(0, 63, 32, 2)
+    state.migrate(0, 63, 32, 2)
     state.clear.assert_called_once()
     state.commit.assert_called_once()
 
@@ -233,7 +233,7 @@ def test_init_or_migrate_no_migration_needed():
         (32, 63): defaultdict(AttestationsAccumulator),
     }
     state.commit = Mock()
-    state.init_or_migrate(0, 63, 32, 1)
+    state.migrate(0, 63, 32, 1)
     state.commit.assert_not_called()
 
 
@@ -247,7 +247,7 @@ def test_init_or_migrate_migrates_data():
         (32, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(20, 15)}),
     }
     state.commit = Mock()
-    state.init_or_migrate(0, 63, 64, 1)
+    state.migrate(0, 63, 64, 1)
     assert state.data == {
         (0, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(30, 20)}),
     }
@@ -263,7 +263,7 @@ def test_init_or_migrate_invalidates_unmigrated_frames():
         (0, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(30, 20)}),
     }
     state.commit = Mock()
-    state.init_or_migrate(0, 31, 32, 1)
+    state.migrate(0, 31, 32, 1)
     assert state.data == {
         (0, 31): defaultdict(AttestationsAccumulator),
     }
@@ -283,7 +283,7 @@ def test_init_or_migrate_discards_unmigrated_frame():
     }
     state._processed_epochs = set(sequence(0, 95))
     state.commit = Mock()
-    state.init_or_migrate(0, 63, 32, 1)
+    state.migrate(0, 63, 32, 1)
     assert state.data == {
         (0, 31): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
         (32, 63): defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(20, 15)}),
