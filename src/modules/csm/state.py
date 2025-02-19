@@ -3,6 +3,7 @@ import os
 import pickle
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from itertools import batched
 from pathlib import Path
 from typing import Self
@@ -127,15 +128,15 @@ class State:
         self._processed_epochs.clear()
         assert self.is_empty
 
+    @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
     def find_frame(self, epoch: EpochNumber) -> Frame:
         for epoch_range in self.frames:
             if epoch_range[0] <= epoch <= epoch_range[1]:
                 return epoch_range
         raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
-    def increment_duty(self, frame: Frame, val_index: ValidatorIndex, included: bool) -> None:
-        if frame not in self.data:
-            raise ValueError(f"Frame {frame} is not found in the state")
+    def increment_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+        frame = self.find_frame(epoch)
         self.data[frame][val_index].add_duty(included)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
@@ -176,6 +177,7 @@ class State:
         self._epochs_per_frame = epochs_per_frame
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version
+        self.find_frame.cache_clear()
         self.commit()
 
     def _migrate_frames_data(

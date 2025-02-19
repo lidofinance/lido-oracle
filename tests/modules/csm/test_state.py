@@ -149,44 +149,55 @@ def test_find_frame_raises_error_for_out_of_range_epoch():
 
 def test_increment_duty_adds_duty_correctly():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     frame = (0, 31)
+    duty_epoch, _ = frame
     state.data = {
         frame: defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
     }
-    state.increment_duty(frame, ValidatorIndex(1), True)
+    state.increment_duty(duty_epoch, ValidatorIndex(1), True)
     assert state.data[frame][ValidatorIndex(1)].assigned == 11
     assert state.data[frame][ValidatorIndex(1)].included == 6
 
 
 def test_increment_duty_creates_new_validator_entry():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     frame = (0, 31)
+    duty_epoch, _ = frame
     state.data = {
         frame: defaultdict(AttestationsAccumulator),
     }
-    state.increment_duty(frame, ValidatorIndex(2), True)
+    state.increment_duty(duty_epoch, ValidatorIndex(2), True)
     assert state.data[frame][ValidatorIndex(2)].assigned == 1
     assert state.data[frame][ValidatorIndex(2)].included == 1
 
 
 def test_increment_duty_handles_non_included_duty():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     frame = (0, 31)
+    duty_epoch, _ = frame
     state.data = {
         frame: defaultdict(AttestationsAccumulator, {ValidatorIndex(1): AttestationsAccumulator(10, 5)}),
     }
-    state.increment_duty(frame, ValidatorIndex(1), False)
+    state.increment_duty(duty_epoch, ValidatorIndex(1), False)
     assert state.data[frame][ValidatorIndex(1)].assigned == 11
     assert state.data[frame][ValidatorIndex(1)].included == 5
 
 
 def test_increment_duty_raises_error_for_out_of_range_epoch():
     state = State()
+    state._epochs_to_process = tuple(sequence(0, 31))
+    state._epochs_per_frame = 32
     state.data = {
         (0, 31): defaultdict(AttestationsAccumulator),
     }
-    with pytest.raises(ValueError, match="is not found in the state"):
-        state.increment_duty((0, 32), ValidatorIndex(1), True)
+    with pytest.raises(ValueError, match="is out of frames range"):
+        state.increment_duty(32, ValidatorIndex(1), True)
 
 
 def test_add_processed_epoch_adds_epoch_to_processed_set():
