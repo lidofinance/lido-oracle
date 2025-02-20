@@ -42,7 +42,7 @@ class LidoKeyFactory(Web3DataclassFactory[LidoKey]):
 
     @classmethod
     def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return [cls.build({'key': v.validator.pubkey, **kwargs}) for v in validators]
+        return [cls.build(key=v.validator.pubkey, **kwargs) for v in validators]
 
 
 class StakingModuleFactory(Web3DataclassFactory[StakingModule]):
