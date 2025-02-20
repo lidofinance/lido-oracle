@@ -20,7 +20,9 @@ def provider():
 
 @pytest.fixture()
 def web3(provider):
-    return Web3(provider, middlewares=[metrics_collector])
+    web3 = Web3(provider)
+    web3.middleware_onion.add(metrics_collector)
+    return web3
 
 
 @pytest.fixture(autouse=True)
