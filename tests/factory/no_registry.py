@@ -23,6 +23,7 @@ faker = Faker()
 
 
 class ValidatorStateFactory(Web3DataclassFactory[ValidatorState]):
+    __set_as_default_factory_for_type__ = True
     withdrawal_credentials = "0x01"
     exit_epoch = FAR_FUTURE_EPOCH
 
@@ -122,7 +123,7 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
 class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
     @classmethod
     def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return [cls.build(key=v.validator.pubkey, **kwargs) for v in validators]
+        return [cls.build(pubkey=v.validator.pubkey, **kwargs) for v in validators]
 
 
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
