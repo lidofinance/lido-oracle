@@ -7,7 +7,7 @@ from typing import Any, Iterable, Self, Sequence
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.csm.types import RewardTreeLeaf, StrikeTreeLeaf
+from src.modules.csm.types import RewardsTreeLeaf, StrikesTreeLeaf
 from src.providers.ipfs.cid import CID
 from src.utils.types import hex_str_to_bytes
 
@@ -65,7 +65,7 @@ class Tree[LeafType: Iterable](ABC):
         raise NotImplementedError
 
 
-class RewardTree(Tree[RewardTreeLeaf]):
+class RewardsTree(Tree[RewardsTreeLeaf]):
     @classmethod
     def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
@@ -90,7 +90,7 @@ class StrikeTreeJSONDecoder(JSONDecoder):
         return {key: try_convert_all_hex_str_to_bytes(value) for key, value in items}
 
 
-class StrikeTree(Tree[StrikeTreeLeaf]):
+class StrikesTree(Tree[StrikesTreeLeaf]):
     decoder = StrikeTreeJSONDecoder
 
     @classmethod

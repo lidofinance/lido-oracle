@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import State
-from src.modules.csm.tree import RewardTree, Tree
+from src.modules.csm.tree import RewardsTree, Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID, CIDv0
@@ -623,7 +623,7 @@ def test_execute_module_processed(module: CSOracle):
 
 @pytest.fixture()
 def tree():
-    return RewardTree.new(
+    return RewardsTree.new(
         [
             (NodeOperatorId(0), 0),
             (NodeOperatorId(1), 1),

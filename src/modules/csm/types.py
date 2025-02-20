@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 Shares: TypeAlias = int
-type RewardTreeLeaf = tuple[NodeOperatorId, Shares]
-type StrikeTreeLeaf = tuple[NodeOperatorId, bytes, list[Timestamp]]
+type RewardsTreeLeaf = tuple[NodeOperatorId, Shares]
+type StrikesTreeLeaf = tuple[NodeOperatorId, bytes, list[Timestamp]]
 
 
 @dataclass

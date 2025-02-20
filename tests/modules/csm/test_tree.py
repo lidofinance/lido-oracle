@@ -2,14 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Self
 
 import pytest
-from eth_typing import HexStr
 from web3.types import Timestamp
-from src.utils.types import hex_str_to_bytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.tree import RewardTree, StandardMerkleTree, StrikeTree, Tree, TreeJSONEncoder
-from src.modules.csm.types import RewardTreeLeaf, StrikeTreeLeaf
+from src.modules.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree, TreeJSONEncoder
+from src.modules.csm.types import RewardsTreeLeaf, StrikesTreeLeaf
 from src.types import NodeOperatorId
+from src.utils.types import hex_str_to_bytes
 
 
 class TreeTestBase[LeafType: Iterable](ABC):
@@ -67,11 +66,11 @@ class TestSimpleTree(TreeTestBase[SimpleLeaf]):
         ]
 
 
-class TestRewardTree(TreeTestBase[RewardTreeLeaf]):
-    cls = RewardTree
+class TestRewardsTree(TreeTestBase[RewardsTreeLeaf]):
+    cls = RewardsTree
 
     @property
-    def values(self) -> list[RewardTreeLeaf]:
+    def values(self) -> list[RewardsTreeLeaf]:
         return [
             (NodeOperatorId(0), 0),
             (NodeOperatorId(1), 1),
@@ -80,11 +79,11 @@ class TestRewardTree(TreeTestBase[RewardTreeLeaf]):
         ]
 
 
-class TestStrikeTree(TreeTestBase[StrikeTreeLeaf]):
-    cls = StrikeTree
+class TestStrikesTree(TreeTestBase[StrikesTreeLeaf]):
+    cls = StrikesTree
 
     @property
-    def values(self) -> list[StrikeTreeLeaf]:
+    def values(self) -> list[StrikesTreeLeaf]:
         return [
             (NodeOperatorId(0), hex_str_to_bytes("0x00"), [Timestamp(0)]),
             (NodeOperatorId(1), hex_str_to_bytes("0x01"), [Timestamp(1)]),
