@@ -1,7 +1,7 @@
 from typing import Sequence
 
+from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel
-from pydantic_factories import ModelFactory
 
 
 class BitList(BaseModel):
