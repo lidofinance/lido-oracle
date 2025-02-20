@@ -1,19 +1,17 @@
 from typing import Sequence
 
 from polyfactory.factories.pydantic_factory import ModelFactory
-from pydantic import BaseModel
+from pydantic import RootModel
 
 
-class BitList(BaseModel):
-    __root__: bytes
+class BitList(RootModel):
+    root: bytes
 
     def hex(self) -> str:
-        return f"0x{self.__root__.hex()}"
+        return f"0x{self.root.hex()}"
 
 
-class BitListFactory(ModelFactory):
-    __model__ = BitList
-
+class BitListFactory(ModelFactory[BitList]):
     @classmethod
     def build(
         cls,
