@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
+from web3.types import Timestamp
 
 from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 Shares: TypeAlias = int
 type RewardTreeLeaf = tuple[NodeOperatorId, Shares]
+type StrikeTreeLeaf = tuple[NodeOperatorId, list[Timestamp]]
 
 
 @dataclass

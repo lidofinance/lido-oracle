@@ -6,7 +6,7 @@ from typing import Iterable, Self, Sequence
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.csm.types import RewardTreeLeaf
+from src.modules.csm.types import RewardTreeLeaf, StrikeTreeLeaf
 from src.providers.ipfs.cid import CID
 
 
@@ -65,3 +65,10 @@ class RewardTree(Tree[RewardTreeLeaf]):
     def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
         return cls(StandardMerkleTree(values, ("uint256", "uint256")))
+
+
+class StrikeTree(Tree[StrikeTreeLeaf]):
+    @classmethod
+    def new(cls, values) -> Self:
+        """Create new instance around the wrapped tree out of the given values"""
+        return cls(StandardMerkleTree(values, ("uint256", "uint256[]")))
