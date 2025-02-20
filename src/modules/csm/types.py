@@ -1,10 +1,8 @@
 import logging
 from dataclasses import dataclass
-from typing import TypeAlias, Literal
+from typing import Iterable, Iterator, Literal, Sequence, TypeAlias
 
-from eth_typing import HexStr
 from hexbytes import HexBytes
-from web3.types import Timestamp
 
 from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
@@ -12,9 +10,44 @@ from src.types import NodeOperatorId, SlotNumber
 logger = logging.getLogger(__name__)
 
 
+class StrikesList(Sequence):
+    """Deque-like structure to store strikes"""
+
+    sentinel: int
+    data: list
+
+    def __init__(self, data: Iterable[int]) -> None:
+        self.data = list(data)
+        self.sentinel = 0
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, index: int | slice):
+        return self.data.__getitem__(index)
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(self.data)
+
+    def __eq__(self, value: object, /) -> bool:
+        return self.data.__eq__(value)
+
+    def __repr__(self) -> str:
+        return repr(self.data)
+
+    def resize(self, maxlen: int) -> None:
+        """Update maximum length of the list"""
+        self.data = self.data[:maxlen] + [self.sentinel] * (maxlen - len(self.data))
+
+    def push(self, item: int) -> None:
+        """Push element at the beginning of the list discarding the last element"""
+        self.data.insert(0, item)
+        self.data.pop(-1)
+
+
 Shares: TypeAlias = int
 type RewardsTreeLeaf = tuple[NodeOperatorId, Shares]
-type StrikesTreeLeaf = tuple[NodeOperatorId, bytes, list[Timestamp]]
+type StrikesTreeLeaf = tuple[NodeOperatorId, bytes, StrikesList]
 
 
 @dataclass

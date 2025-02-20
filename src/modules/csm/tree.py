@@ -7,13 +7,15 @@ from typing import Any, Iterable, Self, Sequence
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.csm.types import RewardsTreeLeaf, StrikesTreeLeaf
+from src.modules.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
 from src.providers.ipfs.cid import CID
 from src.utils.types import hex_str_to_bytes
 
 
 class TreeJSONEncoder(JSONEncoder):
     def default(self, o):
+        if isinstance(o, StrikesList):
+            return list(o)
         if isinstance(o, bytes):
             return f"0x{o.hex()}"
         if isinstance(o, CID):
