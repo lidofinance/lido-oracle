@@ -28,9 +28,8 @@ class ValidatorStateFactory(Web3DataclassFactory[ValidatorState]):
 
     @classmethod
     def build(cls, **kwargs: Any):
-        if 'pubkey' not in kwargs:
-            kwargs['pubkey'] = HexBytes(faker.binary(length=48)).hex()
-        return cls.build(**kwargs)
+        kwargs.setdefault('pubkey', HexBytes(faker.binary(48)).hex())
+        return super().build(**kwargs)
 
 
 class ValidatorFactory(Web3DataclassFactory[Validator]):
@@ -123,7 +122,7 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
 class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
     @classmethod
     def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return [cls.build({'key': v.validator.pubkey, **kwargs}) for v in validators]
+        return [cls.build(key=v.validator.pubkey, **kwargs) for v in validators]
 
 
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
