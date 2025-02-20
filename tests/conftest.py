@@ -49,7 +49,7 @@ def update_responses_provider(responses_path) -> UpdateResponsesProvider:
 
 @pytest.fixture()
 def mock_provider(responses_path) -> ResponseFromFile:
-    provider = ResponseFromFile(responses_path)
+    provider = ResponseFromFile(responses_path, cache_allowed_requests=True)
     return provider
 
 
