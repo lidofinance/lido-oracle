@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from functools import lru_cache
 
-from src.constants import UINT256_MAX, TOTAL_BASIS_POINTS
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, Frame, State
 from src.modules.csm.types import Shares
@@ -18,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class Distribution:
-
     w3: Web3
     staking_module: StakingModule
     converter: Web3Converter
@@ -41,7 +39,7 @@ class Distribution:
 
         for frame in self.state.frames:
             logger.info({"msg": f"Calculating distribution for {frame=}"})
-            from_epoch, to_epoch = frame
+            _, to_epoch = frame
             frame_blockstamp = self._get_frame_blockstamp(blockstamp, to_epoch)
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
@@ -89,13 +87,18 @@ class Distribution:
         frame: Frame,
         blockstamp: ReferenceBlockStamp,
         rewards_to_distribute: int,
-        operators_to_validators: ValidatorsByNodeOperator
+        operators_to_validators: ValidatorsByNodeOperator,
     ) -> tuple[dict[NodeOperatorId, int], FramePerfLog]:
         total_rebate_share = 0
         participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
         log = FramePerfLog(blockstamp, frame)
 
         network_perf = self._get_network_performance(frame)
+
+        # TODO: get curves count from the contract
+        # curves_count = self.w3.csm.accounting.get_curves_count(blockstamp.block_hash)
+        curves_count = 2
+        _cached_curve_params = lru_cache(maxsize=curves_count)(self._get_curve_params)
 
         stuck_operators = self._get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
@@ -106,56 +109,33 @@ class Distribution:
                 continue
 
             curve_id = self.w3.csm.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
-            perf_coeffs, perf_leeway_data, reward_share_data = self._get_curve_params(curve_id, blockstamp)
+            perf_coeffs, perf_leeway, reward_share = _cached_curve_params(curve_id, blockstamp)
 
             sorted_validators = sorted(validators, key=lambda v: v.index)
-            for number, validator in enumerate(sorted_validators):
-                att_duty = self.state.att_data[frame].get(validator.index)
-                prop_duty = self.state.prop_data[frame].get(validator.index)
-                sync_duty = self.state.sync_data[frame].get(validator.index)
+            for key_number, validator in enumerate(sorted_validators):
+                key_threshold = max(network_perf - perf_leeway.get_for(key_number), 0)
+                key_reward_share = reward_share.get_for(key_number)
 
-                if att_duty is None:
-                    # It's possible that the validator is not assigned to any duty, hence it's performance
-                    # is not presented in the aggregates (e.g. exited, pending for activation etc).
-                    # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
-                    continue
+                att_duty = self.state.data[frame].attestations.get(validator.index)
+                prop_duty = self.state.data[frame].proposals.get(validator.index)
+                sync_duty = self.state.data[frame].syncs.get(validator.index)
 
-                threshold = None
-                reward_share = None
-
-                # FIXME: CHECK default returns [] for key_pivots or [0] ???
-                perf_leeway_data.key_pivots.append(UINT256_MAX)
-                for i, pivot_number in enumerate(perf_leeway_data.key_pivots):
-                    if number <= pivot_number:
-                        threshold = network_perf - perf_leeway_data.performance_leeways[i] / TOTAL_BASIS_POINTS
-                        break
-
-                reward_share_data.key_pivots.append(UINT256_MAX)
-                for i, pivot_number in enumerate(reward_share_data.key_pivots):
-                    if number <= pivot_number:
-                        reward_share = reward_share_data.reward_shares[i] / TOTAL_BASIS_POINTS
-                        break
-
-                if threshold is None or reward_share is None:
-                    raise ValueError(f"Failed to calculate threshold or reward share for {validator.index=}")
-
-                validator_rebate = self.process_validator_duty(
+                # TODO: better naming
+                validator_rebate = self.process_validator_duties(
                     validator,
                     att_duty,
                     prop_duty,
                     sync_duty,
-                    threshold,
-                    reward_share,
+                    key_threshold,
+                    key_reward_share,
                     perf_coeffs,
                     participation_shares,
-                    log_operator
+                    log_operator,
                 )
                 total_rebate_share += validator_rebate
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(
-            participation_shares,
-            total_rebate_share,
-            rewards_to_distribute
+            participation_shares, total_rebate_share, rewards_to_distribute
         )
 
         for no_id, no_rewards in rewards_distribution.items():
@@ -167,7 +147,6 @@ class Distribution:
 
         return rewards_distribution, log
 
-    @lru_cache(maxsize=32)  # TODO: any feasible size regard to curves count
     def _get_curve_params(self, curve_id: int, blockstamp: ReferenceBlockStamp):
         perf_coeffs = self.w3.csm.params.get_performance_coefficients(curve_id, blockstamp.block_hash)
         perf_leeway_data = self.w3.csm.params.get_performance_leeway_data(curve_id, blockstamp.block_hash)
@@ -178,8 +157,7 @@ class Distribution:
         att_perf = self.state.get_att_network_aggr(frame)
         prop_perf = self.state.get_prop_network_aggr(frame)
         sync_perf = self.state.get_sync_network_aggr(frame)
-        network_perf_coeffs = PerformanceCoefficients(attestations_weight=54, blocks_weight=8, sync_weight=2)
-        network_perf = Distribution.calculate_performance(att_perf, prop_perf, sync_perf, network_perf_coeffs)
+        network_perf = PerformanceCoefficients().calc_performance(att_perf, prop_perf, sync_perf)
         return network_perf
 
     def _get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
@@ -208,17 +186,23 @@ class Distribution:
         return set(stuck_from_digests) | set(stuck_from_events)
 
     @staticmethod
-    def process_validator_duty(
+    def process_validator_duties(
         validator: LidoValidator,
-        attestation_duty: DutyAccumulator | None,
-        sync_duty: DutyAccumulator | None,
-        proposal_duty: DutyAccumulator | None,
+        attestation: DutyAccumulator | None,
+        sync: DutyAccumulator | None,
+        proposal: DutyAccumulator | None,
         threshold: float,
         reward_share: float,
-        performance_coefficients: PerformanceCoefficients,
+        perf_coeffs: PerformanceCoefficients,
         participation_shares: defaultdict[NodeOperatorId, int],
-        log_operator: OperatorFrameSummary
+        log_operator: OperatorFrameSummary,
     ) -> int:
+        if attestation is None:
+            # It's possible that the validator is not assigned to any duty, hence it's performance
+            # is not presented in the aggregates (e.g. exited, pending for activation etc).
+            # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
+            return 0
+
         log_validator = log_operator.validators[validator.index]
 
         log_validator.threshold = threshold
@@ -230,38 +214,24 @@ class Distribution:
             log_validator.slashed = True
             return 0
 
-        performance = Distribution.calculate_performance(attestation_duty, proposal_duty, sync_duty, performance_coefficients)
+        performance = perf_coeffs.calc_performance(attestation, proposal, sync)
 
         log_validator.performance = performance
-        log_validator.attestation_duty = attestation_duty
-        log_validator.proposal_duty = proposal_duty
-        log_validator.sync_duty = sync_duty
+        log_validator.attestation_duty = attestation
+        if proposal:
+            log_validator.proposal_duty = proposal
+        if sync:
+            log_validator.sync_duty = sync
 
         if performance > threshold:
             # Count of assigned attestations used as a metrics of time the validator was active in the current frame.
             # Reward share is a share of the operator's reward the validator should get. It can be less than 1.
-            participation_share = max(int(attestation_duty.assigned * reward_share), 1)
+            participation_share = max(int(attestation.assigned * reward_share), 1)
             participation_shares[validator.lido_id.operatorIndex] += participation_share
-            rebate = attestation_duty.assigned - participation_share
-            return rebate
+            rebate_share = attestation.assigned - participation_share
+            return rebate_share
 
         return 0
-
-    @staticmethod
-    def calculate_performance(att_aggr, prop_aggr, sync_aggr, coeffs) -> float:
-        performance = att_aggr.perf
-        if prop_aggr and sync_aggr:
-            base = coeffs.attestations_weight + coeffs.blocks_weight + coeffs.sync_weight
-            performance = coeffs.attestations_weight / base * att_aggr.perf + coeffs.blocks_weight / base * prop_aggr.perf + coeffs.sync_weight / base * sync_aggr.perf
-        elif prop_aggr:
-            base = coeffs.attestations_weight + coeffs.blocks_weight
-            performance = coeffs.attestations_weight / base * att_aggr.perf + coeffs.blocks_weight / base * prop_aggr.perf
-        elif sync_aggr:
-            base = coeffs.attestations_weight + coeffs.sync_weight
-            performance = coeffs.attestations_weight / base * att_aggr.perf + coeffs.sync_weight / base * sync_aggr.perf
-        if performance > 1:
-            raise ValueError(f"Invalid performance: {performance=}")
-        return performance
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
@@ -284,4 +254,5 @@ class Distribution:
     def validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute):
         if (total_distributed_rewards + total_rebate) > total_rewards_to_distribute:
             raise ValueError(
-                f"Invalid distribution: {total_distributed_rewards + total_rebate} > {total_rewards_to_distribute}")
+                f"Invalid distribution: {total_distributed_rewards + total_rebate} > {total_rewards_to_distribute}"
+            )

@@ -122,7 +122,7 @@ class SyncCommitteesCache(dict):
         super().__setitem__(committee_network_index, value)
 
 
-SYNC_COMMITTEE_CACHE = SyncCommitteesCache()
+SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 
 class FrameCheckpointProcessor:
@@ -308,7 +308,8 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, duty_block_roots: list[SlotBlockRoot]
     ) -> dict[SlotNumber, list[ValidatorDuty]]:
 
-        sync_committee = self._get_cached_sync_committee(epoch)
+        with lock:
+            sync_committee = self._get_sync_committee(epoch)
 
         duties = {}
         for slot, root in duty_block_roots:
@@ -322,24 +323,23 @@ class FrameCheckpointProcessor:
 
         return duties
 
-    def _get_cached_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
-        sync_committee_index = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-        with lock:
-            sync_committee = SYNC_COMMITTEE_CACHE.get(sync_committee_index)
-            if not sync_committee:
-                epochs_before_new_sync_committee = epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-                epochs_range = EPOCHS_PER_SYNC_COMMITTEE_PERIOD - epochs_before_new_sync_committee
-                logger.info({"msg": f"Preparing cached Sync Committee for {epochs_range} epochs from {epoch} epoch"})
-                state_blockstamp = build_blockstamp(
-                    get_prev_non_missed_slot(
-                        self.cc,
-                        self.converter.get_epoch_first_slot(epoch),
-                        self.finalized_blockstamp.slot_number
-                    )
-                )
-                sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
-                SYNC_COMMITTEE_CACHE[sync_committee_index] = sync_committee
-            return sync_committee
+    def _get_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
+        sync_committee_network_index = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+        if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_network_index):
+            return cached_sync_committee
+        from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+        to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
+        logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
+        state_blockstamp = build_blockstamp(
+            get_prev_non_missed_slot(
+                self.cc,
+                self.converter.get_epoch_first_slot(epoch),
+                self.finalized_blockstamp.slot_number
+            )
+        )
+        sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
+        SYNC_COMMITTEES_CACHE[sync_committee_network_index] = sync_committee
+        return sync_committee
 
     @timeit(
         lambda args, duration: logger.info(

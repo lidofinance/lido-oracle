@@ -114,7 +114,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 log_cid=logs_cid,
                 distributed=0,
                 rebate=total_rebate,
-                strikes_tree_root=ZERO_HASH,
+                strikes_tree_root=HexBytes(ZERO_HASH),
                 strikes_tree_cid="",
             ).as_tuple()
 
@@ -136,7 +136,7 @@ class CSOracle(BaseModule, ConsensusModule):
             log_cid=logs_cid,
             distributed=total_distributed_rewards,
             rebate=total_rebate,
-            strikes_tree_root=ZERO_HASH,
+            strikes_tree_root=HexBytes(ZERO_HASH),
             strikes_tree_cid="",
         ).as_tuple()
 
