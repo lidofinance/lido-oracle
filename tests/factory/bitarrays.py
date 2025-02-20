@@ -20,13 +20,11 @@ class BitListFactory(ModelFactory[BitList]):
         bits_count: int = 0,
         **kwargs,
     ) -> BitList:
-        bit_list: list[bool] = []
-        for n in sorted(set_indices):
-            while len(bit_list) < n:
-                bit_list += [False]
-            bit_list += [True]
-
-        model = cls._get_model()
+        bit_list: list[bool] = [False] * (max(set_indices) + 1)
+        for n in set_indices:
+            bit_list[n] = True
+        
+        model = cls.__model__
         return model(
             __root__=get_serialized_bytearray(
                 bit_list,
