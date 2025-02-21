@@ -46,7 +46,7 @@ class StrikesList(Sequence[int]):
 
 Shares: TypeAlias = int
 type RewardsTreeLeaf = tuple[NodeOperatorId, Shares]
-type StrikesTreeLeaf = tuple[NodeOperatorId, bytes, StrikesList]
+type StrikesTreeLeaf = tuple[NodeOperatorId, HexBytes, StrikesList]
 
 
 @dataclass
@@ -57,6 +57,8 @@ class ReportData:
     tree_cid: CID | Literal[""]
     log_cid: CID
     distributed: int
+    strikes_tree_root: HexBytes
+    strikes_tree_cid: CID | Literal[""]
 
     def as_tuple(self):
         # Tuple with report in correct order
@@ -67,4 +69,6 @@ class ReportData:
             str(self.tree_cid),
             str(self.log_cid),
             self.distributed,
+            self.strikes_tree_root,
+            self.strikes_tree_cid,
         )

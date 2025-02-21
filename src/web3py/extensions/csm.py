@@ -82,6 +82,15 @@ class CSM(Module):
             if any(e["args"]["stuckKeysCount"] > 0 for e in group):
                 yield NodeOperatorId(no_id)
 
+    def get_strikes_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+        return self.strikes.tree_root(blockstamp.block_hash)
+
+    def get_strikes_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
+        result = self.strikes.tree_cid(blockstamp.block_hash)
+        if result == "":
+            return None
+        return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
+
     def _load_contracts(self) -> None:
         try:
             self.module = cast(
