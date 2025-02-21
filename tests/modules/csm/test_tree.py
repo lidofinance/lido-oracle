@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from json import JSONDecoder, JSONEncoder
 from typing import Iterable
 
 import pytest
@@ -16,6 +17,14 @@ class TreeTestBase[LeafType: Iterable](ABC):
     cls: type[Tree[LeafType]]
 
     @property
+    def encoder(self) -> JSONEncoder:
+        return self.cls.encoder()
+
+    @property
+    def decoder(self) -> JSONDecoder:
+        return self.cls.decoder()
+
+    @property
     @abstractmethod
     def values(self) -> list[LeafType]:
         raise NotImplementedError
@@ -31,12 +40,12 @@ class TreeTestBase[LeafType: Iterable](ABC):
         decoded = self.cls.decode(tree.encode())
         assert decoded.root == tree.root
 
-        json_encode = self.cls.encoder().encode
+        json_encode = self.encoder.encode
         decoded_values = [v["value"] for v in decoded.tree.values]
         assert json_encode(decoded_values) == json_encode(self.values)
 
     def test_decode_plain_tree_dump(self, tree: TreeType):
-        decoded = self.cls.decode(TreeJSONEncoder().encode(tree.tree.dump()).encode())
+        decoded = self.cls.decode(self.encoder.encode(tree.tree.dump()).encode())
         assert decoded.root == tree.root
 
     def test_dump_compatibility(self, tree: TreeType):
