@@ -16,9 +16,11 @@ class StrikesList(Sequence[int]):
     sentinel: int
     data: list[int]
 
-    def __init__(self, data: Iterable[int]) -> None:
-        self.data = list(data)
+    def __init__(self, data: Iterable[int] | None = None, maxlen: int | None = None) -> None:
+        self.data = list(data or [])
         self.sentinel = 0
+        if maxlen:
+            self.resize(maxlen)
 
     def __len__(self) -> int:
         return len(self.data)
