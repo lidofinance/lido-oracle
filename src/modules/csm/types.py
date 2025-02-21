@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Iterator, Literal, Sequence, TypeAlias
+from typing import Iterable, Literal, Sequence, TypeAlias
 
 from hexbytes import HexBytes
 
@@ -10,11 +10,11 @@ from src.types import NodeOperatorId, SlotNumber
 logger = logging.getLogger(__name__)
 
 
-class StrikesList(Sequence):
+class StrikesList(Sequence[int]):
     """Deque-like structure to store strikes"""
 
     sentinel: int
-    data: list
+    data: list[int]
 
     def __init__(self, data: Iterable[int]) -> None:
         self.data = list(data)
@@ -23,11 +23,8 @@ class StrikesList(Sequence):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index: int | slice):
-        return self.data.__getitem__(index)
-
-    def __iter__(self) -> Iterator[int]:
-        return iter(self.data)
+    def __getitem__(self, index):
+        return self.data[index]
 
     def __eq__(self, value: object, /) -> bool:
         return self.data.__eq__(value)
