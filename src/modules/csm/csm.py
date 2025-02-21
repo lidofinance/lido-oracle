@@ -94,8 +94,8 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
-        prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
+        prev_root = self.w3.csm.get_rewards_tree_root(blockstamp)
+        prev_cid = self.w3.csm.get_rewards_tree_cid(blockstamp)
 
         if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
@@ -125,7 +125,7 @@ class CSOracle(BaseModule, ConsensusModule):
         else:
             logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
-        tree = self.make_tree(total_rewards)
+        tree = self.make_rewards_tree(total_rewards)
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
@@ -393,7 +393,7 @@ class CSOracle(BaseModule, ConsensusModule):
         )
         return set(stuck_from_digests) | set(stuck_from_events)
 
-    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
+    def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
         if not shares:
             raise ValueError("No shares to build a tree")
 
@@ -408,7 +408,7 @@ class CSOracle(BaseModule, ConsensusModule):
             shares.pop(stone)
 
         tree = RewardsTree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-        logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
         return tree
 
     def publish_tree(self, tree: Tree) -> CID:

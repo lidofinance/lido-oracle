@@ -448,7 +448,7 @@ class BuildReportTestParam:
     curr_tree_root: HexBytes
     curr_tree_cid: CID | Literal[""]
     curr_log_cid: CID
-    expected_make_tree_call_args: tuple | None
+    expected_make_rewards_tree_call_args: tuple | None
     expected_func_result: tuple
 
 
@@ -473,7 +473,7 @@ class BuildReportTestParam:
                 curr_tree_root=HexBytes(ZERO_HASH),
                 curr_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
-                expected_make_tree_call_args=None,
+                expected_make_rewards_tree_call_args=None,
                 expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
             ),
             id="empty_prev_report_and_no_new_distribution",
@@ -496,7 +496,9 @@ class BuildReportTestParam:
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
                 curr_tree_cid=CID("QmNEW_TREE"),
                 curr_log_cid=CID("QmLOG"),
-                expected_make_tree_call_args=(({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),),
+                expected_make_rewards_tree_call_args=(
+                    ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
+                ),
                 expected_func_result=(
                     1,
                     100500,
@@ -526,7 +528,7 @@ class BuildReportTestParam:
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
                 curr_tree_cid=CID("QmNEW_TREE"),
                 curr_log_cid=CID("QmLOG"),
-                expected_make_tree_call_args=(
+                expected_make_rewards_tree_call_args=(
                     ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
                 ),
                 expected_func_result=(
@@ -558,7 +560,7 @@ class BuildReportTestParam:
                 curr_tree_root=HexBytes(32),
                 curr_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
-                expected_make_tree_call_args=None,
+                expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
                     1,
                     100500,
@@ -576,18 +578,18 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
     # mock previous report
-    module.w3.csm.get_csm_tree_root = Mock(return_value=param.prev_tree_root)
-    module.w3.csm.get_csm_tree_cid = Mock(return_value=param.prev_tree_cid)
+    module.w3.csm.get_rewards_tree_root = Mock(return_value=param.prev_tree_root)
+    module.w3.csm.get_rewards_tree_cid = Mock(return_value=param.prev_tree_cid)
     module.get_accumulated_rewards = Mock(return_value=param.prev_acc_shares)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
-    module.make_tree = Mock(return_value=Mock(root=param.curr_tree_root))
+    module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_tree_root))
     module.publish_tree = Mock(return_value=param.curr_tree_cid)
     module.publish_log = Mock(return_value=param.curr_log_cid)
 
     report = module.build_report(blockstamp=Mock(ref_slot=100500))
 
-    assert module.make_tree.call_args == param.expected_make_tree_call_args
+    assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
 
 
@@ -698,12 +700,12 @@ class MakeTreeTestParam:
         ),
     ],
 )
-def test_make_tree(module: CSOracle, param: MakeTreeTestParam):
+def test_make_rewards_tree(module: CSOracle, param: MakeTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     if param.expected_tree_values is ValueError:
         with pytest.raises(ValueError):
-            module.make_tree(param.shares)
+            module.make_rewards_tree(param.shares)
     else:
-        tree = module.make_tree(param.shares)
+        tree = module.make_rewards_tree(param.shares)
         assert tree.tree.values == param.expected_tree_values
