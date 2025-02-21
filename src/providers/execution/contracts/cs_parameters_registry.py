@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from web3.types import BlockIdentifier
 
-from src.constants import UINT256_MAX, TOTAL_BASIS_POINTS
+from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX
 from src.providers.execution.base_interface import ContractInterface
 
 logger = logging.getLogger(__name__)
@@ -59,13 +59,19 @@ class PerformanceLeeway:
         raise ValueError(f"Key number {key_number} is out of {self.key_pivots}")
 
 
+@dataclass
+class StrikesParams:
+    lifetime: int
+    threshold: int
+
+
 class CSParametersRegistryContract(ContractInterface):
     abi_path = "./assets/CSParametersRegistry.json"
 
     def get_performance_coefficients(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest"
+        block_identifier: BlockIdentifier = "latest",
     ) -> PerformanceCoefficients:
         """Returns performance coefficients for given node operator"""
 
@@ -82,7 +88,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_reward_share_data(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest"
+        block_identifier: BlockIdentifier = "latest",
     ) -> RewardShare:
         """Returns reward share data for given node operator"""
 
@@ -99,7 +105,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_performance_leeway_data(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest"
+        block_identifier: BlockIdentifier = "latest",
     ) -> PerformanceLeeway:
         """Returns performance leeway data for given node operator"""
 
@@ -112,3 +118,20 @@ class CSParametersRegistryContract(ContractInterface):
             }
         )
         return PerformanceLeeway(*resp)
+
+    def get_strikes_params(
+        self,
+        curve_id: int,
+        block_identifier: BlockIdentifier = "latest",
+    ) -> StrikesParams:
+        """Returns strikes params for a given curve id"""
+
+        resp = self.functions.getStrikesParams(curve_id).call(block_identifier=block_identifier)
+        logger.info(
+            {
+                "msg": f"Call `getStrikesParams({curve_id})`.",
+                "value": resp,
+                "block_identifier": repr(block_identifier),
+            }
+        )
+        return StrikesParams(*resp)
