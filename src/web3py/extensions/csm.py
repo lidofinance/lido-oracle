@@ -19,12 +19,12 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, StrikesParams
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.types import BlockStamp, SlotNumber
+from src.types import BlockStamp, NodeOperatorId, SlotNumber
 from src.utils.events import get_events_in_range
-from src.web3py.extensions.lido_validators import NodeOperatorId
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,11 @@ class CSM(Module):
         if result == "":
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
+
+    @lru_cache
+    def get_strikes_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> StrikesParams:
+        curve_id = self.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
+        return self.params.get_strikes_params(curve_id, blockstamp.block_hash)
 
     def _load_contracts(self) -> None:
         try:

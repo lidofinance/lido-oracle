@@ -5,6 +5,7 @@ from web3.types import BlockIdentifier
 
 from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX
 from src.providers.execution.base_interface import ContractInterface
+from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ class CSParametersRegistryContract(ContractInterface):
         )
         return PerformanceLeeway(*resp)
 
+    @lru_cache
     def get_strikes_params(
         self,
         curve_id: int,

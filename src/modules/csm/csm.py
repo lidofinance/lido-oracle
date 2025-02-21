@@ -110,10 +110,10 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_strikes_cid is None) != (prev_strikes_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_strikes_root=} {prev_strikes_cid=}")
 
-        total_distributed, total_rewards, strikes, logs = self.calculate_distribution(blockstamp)
+        total_distributed, total_rewards, raw_strikes, logs = self.calculate_distribution(blockstamp)
         log_cid = self.publish_log(logs)
 
-        if not total_distributed and not strikes:
+        if not total_distributed and not raw_strikes:
             logger.info({"msg": "No state changes in the current report"})
             return ReportData(
                 self.get_consensus_version(blockstamp),
@@ -141,15 +141,15 @@ class CSOracle(BaseModule, ConsensusModule):
             rewards_tree_root = rewards_tree.root
             rewards_cid = self.publish_tree(rewards_tree)
 
-        if strikes:
+        if raw_strikes:
             if prev_strikes_cid and prev_strikes_root != ZERO_HASH:
                 for no_id, pubkey, old_strikes in self.get_accumulated_strikes(prev_strikes_cid, prev_strikes_root):
                     validator = (no_id, pubkey)
-                    if validator in strikes:
-                        strikes[validator].extend(old_strikes)
-            # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
-            # TODO: maxlen should come from strikes_params.
-            strikes_tree = self.make_strikes_tree({k: StrikesList(v, maxlen=12) for k, v in strikes.items() if sum(v)})
+                    if validator in raw_strikes:
+                        raw_strikes[validator].extend(old_strikes)
+
+            strikes = self._process_raw_strikes(raw_strikes, blockstamp)
+            strikes_tree = self.make_strikes_tree(strikes)
             strikes_tree_root = strikes_tree.root
             strikes_cid = self.publish_tree(strikes_tree)
         else:
@@ -455,6 +455,24 @@ class CSOracle(BaseModule, ConsensusModule):
 
         for v in tree.tree.values:
             yield v["value"]
+
+    def _process_raw_strikes(
+        self,
+        strikes: dict[StrikesValidator, list[int]],
+        blockstamp: BlockStamp,
+    ) -> dict[StrikesValidator, StrikesList]:
+        out: dict[StrikesValidator, StrikesList] = {}
+
+        for (no_id, pubkey), raw_strikes in strikes.items():
+            # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
+            if not sum(raw_strikes):
+                continue
+            maxlen = self.w3.csm.get_strikes_params(no_id, blockstamp).lifetime
+            if (no_id, pubkey) in out:
+                raise CSMError(f"Double accounting of strikes for {no_id=}")
+            out[(no_id, pubkey)] = StrikesList(raw_strikes, maxlen=maxlen)
+
+        return out
 
     def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
         if not shares:

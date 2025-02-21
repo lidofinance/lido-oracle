@@ -5,6 +5,8 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.types import NodeOperatorId
+from src.utils.cache import global_lru_cache as lru_cache
+
 from ..base_interface import ContractInterface
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,7 @@ class CSAccountingContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
+    @lru_cache
     def get_bond_curve_id(self, node_operator_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest") -> int:
         """Returns the curve ID"""
 
