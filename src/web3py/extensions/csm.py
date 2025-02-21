@@ -20,6 +20,7 @@ from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributo
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
+from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
@@ -34,6 +35,7 @@ class CSM(Module):
     oracle: CSFeeOracleContract
     accounting: CSAccountingContract
     fee_distributor: CSFeeDistributorContract
+    strikes: CSStrikesContract
     module: CSModuleContract
     params: CSParametersRegistryContract
 
@@ -122,6 +124,15 @@ class CSM(Module):
                 CSFeeOracleContract,
                 self.w3.eth.contract(
                     address=self.fee_distributor.oracle(),
+                    ContractFactoryClass=CSFeeOracleContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.strikes = cast(
+                CSStrikesContract,
+                self.w3.eth.contract(
+                    address=self.oracle.strikes(),
                     ContractFactoryClass=CSFeeOracleContract,
                     decode_tuples=True,
                 ),

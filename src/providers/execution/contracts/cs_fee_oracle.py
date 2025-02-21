@@ -1,5 +1,7 @@
 import logging
 
+from eth_typing import ChecksumAddress
+from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
@@ -35,3 +37,16 @@ class CSFeeOracleContract(BaseOracleContract):
             }
         )
         return resp
+
+    def strikes(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+        """Return the address of the CSStrikes contract"""
+
+        resp = self.functions.strikes().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                "msg": "Call `strikes()`.",
+                "value": resp,
+                "block_identifier": repr(block_identifier),
+            }
+        )
+        return Web3.to_checksum_address(resp)
