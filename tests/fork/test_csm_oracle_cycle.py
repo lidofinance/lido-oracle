@@ -1,10 +1,15 @@
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from src.modules.csm.csm import CSOracle
 from src.modules.submodules.types import FrameConfig
 from src.utils.range import sequence
 from src.web3py.types import Web3
-from tests.fork.conftest import first_slot_of_epoch
+from tests.fork.conftest import first_slot_of_epoch, logger
+from tests.fork.utils.lock import LockedDir
 
 
 @pytest.fixture()
@@ -13,8 +18,90 @@ def hash_consensus_bin():
         yield f.read()
 
 
+@pytest.fixture(scope='session')
+def csm_repo_path(testruns_folder_path):
+    return Path(testruns_folder_path) / "community-staking-module"
+
+
+@pytest.fixture(scope='session')
+def prepared_csm_repo(testruns_folder_path, csm_repo_path):
+
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # CI should have the repo cloned and prepared
+        if os.path.exists(csm_repo_path):
+            return csm_repo_path
+        raise ValueError("No cloned community-staking-module repo found, but running in CI. Fix the workflow.")
+
+    original_dir = os.getcwd()
+
+    with LockedDir(testruns_folder_path):
+        if not os.path.exists(csm_repo_path / ".prepared"):
+            logger.info("TESTRUN Cloning community-staking-module repo")
+            subprocess.run(
+                ["git", "clone", "https://github.com/lidofinance/community-staking-module", csm_repo_path], check=True
+            )
+            os.chdir(csm_repo_path)
+            subprocess.run(["git", "checkout", "develop"], check=True)
+            subprocess.run(["just", "deps"], check=True)
+            subprocess.run(["just", "build"], check=True)
+            subprocess.run(["touch", ".prepared"], check=True)
+            os.chdir(original_dir)
+
+    return csm_repo_path
+
+
 @pytest.fixture()
-def csm_module(web3: Web3):
+def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int, prepared_csm_repo: Path):
+    original_dir = os.getcwd()
+
+    chain = 'mainnet'
+
+    logger.info("TESTRUN Deploying CSM v2")
+    _, pks = accounts_from_fork
+    deployer, *_ = pks
+
+    os.chdir(prepared_csm_repo)
+
+    with subprocess.Popen(
+        ['just', '_deploy-impl', '--broadcast'],
+        env={
+            **os.environ,
+            "ANVIL_PORT": str(anvil_port),
+            'DEPLOYER_PRIVATE_KEY': deployer,
+            'CHAIN': chain,
+        },
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    ) as process:
+        process.wait()
+        assert process.returncode == 0, "Failed to deploy CSM v2"
+        logger.info("TESTRUN Deployed CSM v2")
+
+    logger.info("TESTRUN Updating to CSM v2")
+    with subprocess.Popen(
+        ['just', "vote-upgrade"],
+        env={
+            **os.environ,
+            'CHAIN': chain,
+            "ANVIL_PORT": str(anvil_port),
+            "RPC_URL": f"http://127.0.0.1:{anvil_port}",  # FIXME: actually unused by the script, remove when fixed
+            'DEPLOY_CONFIG': f'./artifacts/{chain}/deploy-{chain}.json',
+            'UPGRADE_CONFIG': f'./artifacts/local/upgrade-{chain}.json',
+        },
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    ) as process:
+        process.wait()
+        assert process.returncode == 0, "Failed to update to CSM v2"
+        logger.info("TESTRUN Updated to CSM v2")
+
+    os.chdir(original_dir)
+    # TODO: update ABIs in `assets` folder?
+    forked_el_client.provider.make_request("anvil_autoImpersonateAccount", [True])
+
+
+@pytest.fixture()
+def csm_module(web3: Web3, update_csm_to_v2):
     yield CSOracle(web3)
 
 
