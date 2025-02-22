@@ -191,7 +191,7 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
     return _frame_config
 
 
-@pytest.fixture(params=[-2], ids=["fork 2 epochs before initial epoch"])
+@pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])
 def blockstamp_for_forking(
     request, frame_config: FrameConfig, real_cl_client: ConsensusClient, real_finalized_slot: SlotNumber
 ) -> BlockStamp:
