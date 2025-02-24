@@ -10,8 +10,6 @@ from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, Validato
 
 class LogJSONEncoder(json.JSONEncoder): ...
 
-# TODO: Should we log params?
-
 
 @dataclass
 class ValidatorFrameSummary:

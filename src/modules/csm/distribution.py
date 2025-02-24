@@ -95,11 +95,6 @@ class Distribution:
 
         network_perf = self._get_network_performance(frame)
 
-        # TODO: get curves count from the contract
-        # curves_count = self.w3.csm.accounting.get_curves_count(blockstamp.block_hash)
-        curves_count = 2
-        _cached_curve_params = lru_cache(maxsize=curves_count)(self._get_curve_params)
-
         stuck_operators = self._get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
             logger.info({"msg": f"Calculating distribution for {no_id=}"})
@@ -109,7 +104,7 @@ class Distribution:
                 continue
 
             curve_id = self.w3.csm.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
-            perf_coeffs, perf_leeway, reward_share = _cached_curve_params(curve_id, blockstamp)
+            perf_coeffs, perf_leeway, reward_share = self._get_curve_params(curve_id, blockstamp)
 
             sorted_validators = sorted(validators, key=lambda v: v.index)
             for key_number, validator in enumerate(sorted_validators):
@@ -147,6 +142,7 @@ class Distribution:
 
         return rewards_distribution, log
 
+    @lru_cache()
     def _get_curve_params(self, curve_id: int, blockstamp: ReferenceBlockStamp):
         perf_coeffs = self.w3.csm.params.get_performance_coefficients(curve_id, blockstamp.block_hash)
         perf_leeway_data = self.w3.csm.params.get_performance_leeway_data(curve_id, blockstamp.block_hash)
