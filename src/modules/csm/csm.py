@@ -1,8 +1,9 @@
 import logging
 from collections import defaultdict
-from typing import Iterator
+from typing import Iterable
 
 from hexbytes import HexBytes
+from copy import deepcopy
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -15,7 +16,7 @@ from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpoint
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import AttestationsAccumulator, Frame, State
 from src.modules.csm.tree import RewardsTree, StrikesTree, Tree
-from src.modules.csm.types import ReportData, RewardsTreeLeaf, Shares, StrikesList, StrikesTreeLeaf
+from src.modules.csm.types import ReportData, RewardsTreeLeaf, Shares, StrikesList
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
@@ -110,11 +111,8 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_strikes_cid is None) != (prev_strikes_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_strikes_root=} {prev_strikes_cid=}")
 
-        total_distributed, total_rewards, raw_strikes, logs = self.calculate_distribution(blockstamp)
+        total_distributed, total_rewards, strikes_per_frame, logs = self.calculate_distribution(blockstamp)
         log_cid = self.publish_log(logs)
-
-        if not total_distributed and not raw_strikes:
-            logger.info({"msg": "No state changes in the current report"})
 
         rewards_tree_root, rewards_cid = prev_rewards_root, prev_rewards_cid
         strikes_tree_root, strikes_cid = prev_strikes_root, prev_strikes_cid
@@ -131,20 +129,18 @@ class CSOracle(BaseModule, ConsensusModule):
             rewards_tree_root = rewards_tree.root
             rewards_cid = self.publish_tree(rewards_tree)
 
-        if raw_strikes:
-            if prev_strikes_cid and prev_strikes_root != ZERO_HASH:
-                for no_id, pubkey, old_strikes in self.get_accumulated_strikes(prev_strikes_cid, prev_strikes_root):
-                    validator = (no_id, pubkey)
-                    if validator in raw_strikes:
-                        raw_strikes[validator].extend(old_strikes)
+        historical_strikes = {}
+        if prev_strikes_cid and prev_strikes_root != ZERO_HASH:
+            historical_strikes = self.get_accumulated_strikes(prev_strikes_cid, prev_strikes_root)
 
-            strikes = self._process_raw_strikes(raw_strikes, blockstamp)
-            strikes_tree = self.make_strikes_tree(strikes)
-            strikes_tree_root = strikes_tree.root
-            strikes_cid = self.publish_tree(strikes_tree)
-        else:
-            # No strikes (including zeroes) means no validators.
-            pass
+        strikes = self._merge_strikes(
+            historical_strikes,
+            strikes_per_frame,
+            blockstamp,
+        )
+        strikes_tree = self.make_strikes_tree(strikes)
+        strikes_tree_root = strikes_tree.root
+        strikes_cid = self.publish_tree(strikes_tree)
 
         return ReportData(
             self.get_consensus_version(blockstamp),
@@ -250,7 +246,7 @@ class CSOracle(BaseModule, ConsensusModule):
     ) -> tuple[
         Shares,
         defaultdict[NodeOperatorId, Shares],
-        dict[StrikesValidator, list[int]],
+        dict[Frame, dict[StrikesValidator, int]],
         list[FramePerfLog],
     ]:
         """Computes distribution of fee shares at the given timestamp"""
@@ -258,7 +254,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         total_distributed = Shares(0)
         total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
-        strikes: dict[StrikesValidator, list[int]] = defaultdict(list)
+        strikes_per_frame: dict[Frame, dict[StrikesValidator, int]] = {}
         logs: list[FramePerfLog] = []
 
         for frame in self.state.frames:
@@ -275,17 +271,20 @@ class CSOracle(BaseModule, ConsensusModule):
             frame_threshold = self._get_performance_threshold(frame, blockstamp)
             log = FramePerfLog(blockstamp, frame, frame_threshold)
 
-            rewards_in_frame = self._calculate_distribution_in_frame(
+            rewards_in_frame, strikes_in_frame = self._calculate_distribution_in_frame(
                 frame,
                 frame_threshold,
                 rewards_to_distribute_in_frame,
                 operators_to_validators,
-                strikes,
                 log,
             )
             distributed_in_frame = sum(rewards_in_frame.values())
             if not distributed_in_frame:
                 logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
+
+            strikes_per_frame[frame] = strikes_in_frame
+            if not strikes_in_frame:
+                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
             total_distributed += distributed_in_frame
             if total_distributed > total_rewards_to_distribute:
@@ -299,7 +298,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if total_distributed != sum(total_rewards.values()):
             raise InconsistentData(f"Invalid distribution: {sum(total_rewards.values())=} != {total_distributed=}")
 
-        return total_distributed, total_rewards, strikes, logs
+        return total_distributed, total_rewards, strikes_per_frame, logs
 
     def _get_ref_blockstamp_for_frame(
         self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
@@ -318,10 +317,10 @@ class CSOracle(BaseModule, ConsensusModule):
         threshold: float,
         rewards_to_distribute: int,
         operators_to_validators: ValidatorsByNodeOperator,
-        strikes: defaultdict[StrikesValidator, list[int]],
         log: FramePerfLog,
     ):
         participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
+        strikes: dict[StrikesValidator, int] = {}
 
         stuck_operators = self.get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
@@ -340,7 +339,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 )
                 log_operator.validators[validator.index].strikes = validator_strikes
                 pubkey = HexBytes(hex_str_to_bytes(validator.validator.pubkey))
-                strikes[(no_id, pubkey)].insert(0, validator_strikes)
+                if validator_strikes:
+                    strikes[(no_id, pubkey)] = validator_strikes
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
 
@@ -349,7 +349,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         log.distributable = rewards_to_distribute
 
-        return rewards_distribution
+        return rewards_distribution, strikes
 
     def _get_performance_threshold(self, frame: Frame, blockstamp: ReferenceBlockStamp) -> float:
         network_perf = self.state.get_network_aggr(frame).perf
@@ -406,7 +406,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return rewards_distribution
 
-    def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[RewardsTreeLeaf]:
+    def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterable[RewardsTreeLeaf]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = RewardsTree.decode(self.w3.ipfs.fetch(cid))
 
@@ -415,8 +415,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if tree.root != root:
             raise ValueError("Unexpected tree root got from IPFS dump")
 
-        for v in tree.tree.values:
-            yield v["value"]
+        return tree.values
 
     def get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
         l_epoch, _ = frame
@@ -443,7 +442,7 @@ class CSOracle(BaseModule, ConsensusModule):
         )
         return set(stuck_from_digests) | set(stuck_from_events)
 
-    def get_accumulated_strikes(self, cid: CID, root: HexBytes) -> Iterator[StrikesTreeLeaf]:
+    def get_accumulated_strikes(self, cid: CID, root: HexBytes) -> dict[StrikesValidator, StrikesList]:
         logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
         tree = StrikesTree.decode(self.w3.ipfs.fetch(cid))
 
@@ -452,24 +451,37 @@ class CSOracle(BaseModule, ConsensusModule):
         if tree.root != root:
             raise ValueError("Unexpected tree root got from IPFS dump")
 
-        for v in tree.tree.values:
-            yield v["value"]
+        return {(no_id, pubkey): strikes for no_id, pubkey, strikes in tree.values}
 
-    def _process_raw_strikes(
+    def _merge_strikes(
         self,
-        strikes: dict[StrikesValidator, list[int]],
-        blockstamp: BlockStamp,
+        historical_strikes: dict[StrikesValidator, StrikesList],
+        strikes_per_frame: dict[Frame, dict[StrikesValidator, int]],
+        blockstamp: ReferenceBlockStamp,
     ) -> dict[StrikesValidator, StrikesList]:
-        out: dict[StrikesValidator, StrikesList] = {}
+        out = deepcopy(historical_strikes)
 
-        for (no_id, pubkey), raw_strikes in strikes.items():
-            # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
-            if not sum(raw_strikes):
-                continue
-            maxlen = self.w3.csm.get_strikes_params(no_id, blockstamp).lifetime
-            if (no_id, pubkey) in out:
-                raise CSMError(f"Double accounting of strikes for {no_id=}")
-            out[(no_id, pubkey)] = StrikesList(raw_strikes, maxlen=maxlen)
+        for frame in self.state.frames:
+            strikes_in_frame = strikes_per_frame[frame]
+            for key in strikes_in_frame:
+                if key not in out:
+                    out[key] = StrikesList()
+                out[key].push(strikes_in_frame[key])
+
+            _, to_epoch = frame
+            frame_blockstamp = blockstamp
+            if to_epoch != blockstamp.ref_epoch:
+                frame_blockstamp = self._get_ref_blockstamp_for_frame(blockstamp, to_epoch)
+
+            for key in out:
+                no_id, _ = key
+                if key not in strikes_in_frame:
+                    out[key].push(StrikesList.SENTINEL)  # Just shifting...
+                maxlen = self.w3.csm.get_strikes_params(no_id, frame_blockstamp).lifetime
+                out[key].resize(maxlen)
+                # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
+                if not sum(out[key]):
+                    del out[key]
 
         return out
 
