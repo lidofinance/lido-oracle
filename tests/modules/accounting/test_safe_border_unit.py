@@ -11,10 +11,10 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
-FAR_FUTURE_EPOCH = 2**64 - 1
-MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
-EPOCHS_PER_SLASHINGS_VECTOR = 2**13
-SLOTS_PER_EPOCH = 2**5
+FAR_FUTURE_EPOCH = 2 ** 64 - 1
+MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2 ** 8
+EPOCHS_PER_SLASHINGS_VECTOR = 2 ** 13
+SLOTS_PER_EPOCH = 2 ** 5
 SLOT_TIME = 12
 
 
@@ -211,6 +211,45 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
     safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
+
+
+###
+# validator 1:
+# --|-------------|-------|-----|------------->
+#   initiate      slashed exit  withdrawable
+#   exit          epoch   epoch epoch
+
+# validator 2:
+# ------|------------------|---------------|-->
+#       slashed            exit            withdrawable
+#       epoch              epoch           epoch
+#
+#     ^
+#     expected
+#     safe
+#     border
+###
+def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blockstamp, lido_validators):
+    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
+    exit_epoch = non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    validator1 = create_validator_stub(
+        exit_epoch, non_withdrawable_epoch + 200, True
+    )
+
+    validator2 = create_validator_stub(
+        exit_epoch + 1, non_withdrawable_epoch + 15, True
+    )
+    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1])
+    safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
+
+    earliest_slashed_epoch1 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
+
+    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
+    safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
+
+    earliest_slashed_epoch2 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
+    assert earliest_slashed_epoch2 < earliest_slashed_epoch1
 
 
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_border, past_blockstamp):

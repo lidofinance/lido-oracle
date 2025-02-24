@@ -175,18 +175,16 @@ class SafeBorder(Web3Converter):
         """
         Returns the earliest slashed epoch for the given validators rounded to the frame
         """
-        withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
-
-        earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
-        max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
-
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
+        earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
         start_epoch = max(last_finalized_request_id_epoch, earliest_activation_slot)
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
         # or the max possible earliest slashed epoch for the given validators
+        withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
+        max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
         start_frame = self.get_frame_by_epoch(start_epoch)
