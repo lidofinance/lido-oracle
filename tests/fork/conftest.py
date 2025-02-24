@@ -40,6 +40,8 @@ from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, L
 
 logger = logging.getLogger('fork_tests')
 
+# pylint: disable=logging-fstring-interpolation
+
 
 class TestRunningException(Exception):
     pass
