@@ -26,11 +26,11 @@ class BitListFactory(ModelFactory[BitList]):
         
         model = cls.__model__
         return model(
-            __root__=get_serialized_bytearray(
+            __root__=bytes(get_serialized_bytearray(
                 bit_list,
                 bits_count=bits_count or len(bit_list),
                 extra_byte=True,
-            )
+            ))
         )
 
 
