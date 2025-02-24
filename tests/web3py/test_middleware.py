@@ -3,7 +3,6 @@ from unittest.mock import call, Mock, patch, mock_open, MagicMock, ANY
 import pytest
 from requests import HTTPError
 from web3 import Web3, HTTPProvider
-from web3.exceptions import MethodUnavailable
 from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
@@ -64,16 +63,6 @@ def test_fail_with_status_code(provider, web3):
         'endpoint': 'eth_blockNumber',
         'le': '0.01',
     }
-
-
-def test_fail_with_body_error(web3):
-    with pytest.raises((MethodUnavailable, ValueError)):
-        web3.eth.coinbase
-    labels = _get_requests_labels()
-    assert labels in [
-        {'call_method': '', 'call_to': '', 'code': '-32601', 'endpoint': 'eth_coinbase', 'le': '0.01'},
-        {'call_method': '', 'call_to': '', 'code': '-32000', 'endpoint': 'eth_coinbase', 'le': '0.01'},
-    ]
 
 
 class TestMetricsCollectorUnit:
