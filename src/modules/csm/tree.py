@@ -13,28 +13,11 @@ from src.utils.types import hex_str_to_bytes
 class TreeJSONEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, bytes):
-            return f"0x{o.hex()}"
+            return HexBytes(o).hex()
         return super().default(o)
 
 
-class TreeJSONDecoder(JSONDecoder):
-    # NOTE: object_pairs_hook is set unconditionally upon object initialisation, so it's required to
-    # override the __init__ method.
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs, object_pairs_hook=self.__object_pairs_hook)
-
-    @staticmethod
-    def __object_pairs_hook(items: list[tuple[str, Any]]):
-        def try_convert_all_hex_str_to_bytes(obj: Any):
-            if isinstance(obj, dict):
-                return {k: try_convert_all_hex_str_to_bytes(v) for (k, v) in obj.items()}
-            if isinstance(obj, list):
-                return [try_convert_all_hex_str_to_bytes(item) for item in obj]
-            if isinstance(obj, str) and obj.startswith("0x"):
-                return hex_str_to_bytes(obj)
-            return obj
-
-        return {k: try_convert_all_hex_str_to_bytes(v) for k, v in items}
+class TreeJSONDecoder(JSONDecoder): ...
 
 
 class Tree[LeafType: Iterable](ABC):
@@ -51,6 +34,10 @@ class Tree[LeafType: Iterable](ABC):
     @property
     def root(self) -> HexBytes:
         return HexBytes(self.tree.root)
+
+    @property
+    def values(self) -> list[LeafType]:
+        return [v["value"] for v in self.tree.values]
 
     @classmethod
     def decode(cls, content: bytes) -> Self:
@@ -97,8 +84,32 @@ class StrikesTreeJSONEncoder(TreeJSONEncoder):
         return super().default(o)
 
 
+class StrikesTreeJSONDecoder(TreeJSONDecoder):
+    # NOTE: object_pairs_hook is set unconditionally upon object initialisation, so it's required to
+    # override the __init__ method.
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs, object_pairs_hook=self.__object_pairs_hook)
+
+    @staticmethod
+    def __object_pairs_hook(items: list[tuple[str, Any]]):
+        def try_decode_value(key: str, obj: Any):
+            if key != "value":
+                return obj
+            if not isinstance(obj, list) or not len(obj) == 3:
+                raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
+            no_id, pubkey, strikes = obj
+            if not isinstance(pubkey, str) or not pubkey.startswith("0x"):
+                raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
+            if not isinstance(strikes, list):
+                raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
+            return no_id, HexBytes(hex_str_to_bytes(pubkey)), StrikesList(strikes)
+
+        return {k: try_decode_value(k, v) for k, v in items}
+
+
 class StrikesTree(Tree[StrikesTreeLeaf]):
     encoder = StrikesTreeJSONEncoder
+    decoder = StrikesTreeJSONDecoder
 
     @classmethod
     def new(cls, values) -> Self:

@@ -3,9 +3,10 @@ from json import JSONDecoder, JSONEncoder
 from typing import Iterable
 
 import pytest
+from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree, TreeJSONEncoder
+from src.modules.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
 from src.modules.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
 from src.types import NodeOperatorId
 from src.utils.types import hex_str_to_bytes
@@ -78,3 +79,10 @@ class TestStrikesTree(TreeTestBase[StrikesTreeLeaf]):
             (NodeOperatorId(2), hex_str_to_bytes("0x03"), StrikesList([1])),
             (NodeOperatorId(UINT64_MAX), hex_str_to_bytes("0x64"), StrikesList([1, 0, 1])),
         ]
+
+    def test_decoded_types(self, tree: StrikesTree) -> None:
+        decoded = self.cls.decode(tree.encode())
+        no_id, pk, strikes = decoded.values[0]
+        assert isinstance(no_id, int)
+        assert isinstance(pk, HexBytes)
+        assert isinstance(strikes, StrikesList)
