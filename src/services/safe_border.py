@@ -1,4 +1,5 @@
 import math
+import sys
 from typing import Iterable
 
 from eth_typing import HexStr
@@ -148,7 +149,7 @@ class SafeBorder(Web3Converter):
             if not predicted_epoch:
                 return self._find_earliest_slashed_epoch_rounded_to_frame(validators_slashed_non_withdrawable)
 
-            earliest_predicted_epoch = min(earliest_predicted_epoch or float("inf"), predicted_epoch)
+            earliest_predicted_epoch = min(earliest_predicted_epoch or EpochNumber(sys.maxsize), predicted_epoch)
 
         return earliest_predicted_epoch
 
