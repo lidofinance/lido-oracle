@@ -115,16 +115,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if not total_distributed and not raw_strikes:
             logger.info({"msg": "No state changes in the current report"})
-            return ReportData(
-                self.get_consensus_version(blockstamp),
-                blockstamp.ref_slot,
-                tree_root=prev_rewards_root,
-                tree_cid=prev_rewards_cid or "",
-                log_cid=log_cid,
-                distributed=0,
-                strikes_tree_root=prev_strikes_root,
-                strikes_tree_cid=prev_strikes_cid or "",
-            ).as_tuple()
 
         rewards_tree_root, rewards_cid = prev_rewards_root, prev_rewards_cid
         strikes_tree_root, strikes_cid = prev_strikes_root, prev_strikes_cid
@@ -268,7 +258,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         total_distributed = Shares(0)
         total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
-        strikes: dict[StrikesValidator, list[int]] = {}
+        strikes: dict[StrikesValidator, list[int]] = defaultdict(list)
         logs: list[FramePerfLog] = []
 
         for frame in self.state.frames:
@@ -285,11 +275,12 @@ class CSOracle(BaseModule, ConsensusModule):
             frame_threshold = self._get_performance_threshold(frame, blockstamp)
             log = FramePerfLog(blockstamp, frame, frame_threshold)
 
-            rewards_in_frame, strikes = self._calculate_distribution_in_frame(
+            rewards_in_frame = self._calculate_distribution_in_frame(
                 frame,
                 frame_threshold,
                 rewards_to_distribute_in_frame,
                 operators_to_validators,
+                strikes,
                 log,
             )
             distributed_in_frame = sum(rewards_in_frame.values())
@@ -326,10 +317,10 @@ class CSOracle(BaseModule, ConsensusModule):
         threshold: float,
         rewards_to_distribute: int,
         operators_to_validators: ValidatorsByNodeOperator,
+        strikes: defaultdict[StrikesValidator, list[int]],
         log: FramePerfLog,
     ):
         participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
-        strikes: dict[StrikesValidator, list[int]] = defaultdict(list)
 
         stuck_operators = self.get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
@@ -339,9 +330,16 @@ class CSOracle(BaseModule, ConsensusModule):
                 continue
             for validator in validators:
                 duty = self.state.data[frame].get(validator.index)
-                strike = self.process_validator_duty(validator, duty, threshold, participation_shares, log_operator)
+                validator_strikes = self.process_validator_duty(
+                    validator,
+                    duty,
+                    threshold,
+                    participation_shares,
+                    log_operator,
+                )
+                log_operator.validators[validator.index].strikes = validator_strikes
                 pubkey = HexBytes(hex_str_to_bytes(validator.validator.pubkey))
-                strikes[(no_id, pubkey)].insert(0, strike)
+                strikes[(no_id, pubkey)].insert(0, validator_strikes)
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
 
@@ -350,7 +348,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         log.distributable = rewards_to_distribute
 
-        return rewards_distribution, strikes
+        return rewards_distribution
 
     def _get_performance_threshold(self, frame: Frame, blockstamp: ReferenceBlockStamp) -> float:
         network_perf = self.state.get_network_aggr(frame).perf

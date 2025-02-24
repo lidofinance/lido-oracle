@@ -13,12 +13,10 @@ logger = logging.getLogger(__name__)
 class StrikesList(Sequence[int]):
     """Deque-like structure to store strikes"""
 
-    sentinel: int
     data: list[int]
 
     def __init__(self, data: Iterable[int] | None = None, maxlen: int | None = None) -> None:
         self.data = list(data or [])
-        self.sentinel = 0
         if maxlen:
             self.resize(maxlen)
 
@@ -36,7 +34,7 @@ class StrikesList(Sequence[int]):
 
     def resize(self, maxlen: int) -> None:
         """Update maximum length of the list"""
-        self.data = self.data[:maxlen] + [self.sentinel] * (maxlen - len(self.data))
+        self.data = self.data[:maxlen] + [0] * (maxlen - len(self.data))
 
     def push(self, item: int) -> None:
         """Push element at the beginning of the list discarding the last element"""
