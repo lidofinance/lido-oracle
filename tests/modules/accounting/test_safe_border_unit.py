@@ -1,11 +1,12 @@
-import pytest
 from dataclasses import dataclass
-
 from unittest.mock import Mock
+
+import pytest
+
+from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.providers.consensus.types import ValidatorState
 from src.services.safe_border import SafeBorder
 from src.web3py.extensions.lido_validators import Validator
-from src.providers.consensus.types import ValidatorState
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
@@ -75,16 +76,6 @@ def test_calc_validator_slashed_epoch_from_state_undetectable(safe_border):
     validator = create_validator_stub(exit_epoch, withdrawable_epoch)
 
     assert safe_border._predict_earliest_slashed_epoch(validator) is None
-
-
-def test_filter_validators_with_earliest_exit_epoch(safe_border):
-    validators = [
-        create_validator_stub(100, 105),
-        create_validator_stub(102, 107),
-        create_validator_stub(103, 108),
-    ]
-
-    assert safe_border._filter_validators_with_earliest_exit_epoch(validators) == [validators[0]]
 
 
 def test_get_negative_rebase_border_epoch(safe_border, past_blockstamp):

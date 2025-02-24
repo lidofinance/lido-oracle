@@ -6,11 +6,11 @@ from eth_typing import HexStr
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from src.utils.web3converter import Web3Converter
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.slot import get_blockstamp
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
-from src.utils.slot import get_blockstamp
 
 
 class WrongExitPeriod(Exception):
@@ -95,7 +95,8 @@ class SafeBorder(Web3Converter):
 
         latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
 
-        max_negative_rebase = self.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift(self.blockstamp.block_hash)
+        max_negative_rebase = self.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift(
+            self.blockstamp.block_hash)
         earliest_allowable_epoch = self.get_epoch_by_slot(self.blockstamp.ref_slot) - max_negative_rebase
 
         return EpochNumber(max(earliest_allowable_epoch, latest_allowable_epoch))
@@ -135,25 +136,19 @@ class SafeBorder(Web3Converter):
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
         # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
-        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed,
-                                                                                 self.blockstamp.ref_epoch)
+        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed, self.blockstamp.ref_epoch)
 
         if not validators_slashed_non_withdrawable:
             return None
 
-        validators_with_earliest_exit_epoch = self._filter_validators_with_earliest_exit_epoch(
-            validators_slashed_non_withdrawable)
-
         earliest_predicted_epoch = None
-
-        for validator in validators_with_earliest_exit_epoch:
+        for validator in validators_slashed_non_withdrawable:
             predicted_epoch = self._predict_earliest_slashed_epoch(validator)
 
             if not predicted_epoch:
-                return self._find_earliest_slashed_epoch_rounded_to_frame(validators_with_earliest_exit_epoch)
+                return self._find_earliest_slashed_epoch_rounded_to_frame(validators_slashed_non_withdrawable)
 
-            if not earliest_predicted_epoch or earliest_predicted_epoch > predicted_epoch:
-                earliest_predicted_epoch = predicted_epoch
+            earliest_predicted_epoch = min(earliest_predicted_epoch or float("inf"), predicted_epoch)
 
         return earliest_predicted_epoch
 
@@ -226,10 +221,6 @@ class SafeBorder(Web3Converter):
         )
 
         return len(slashed_validators) > 0
-
-    def _filter_validators_with_earliest_exit_epoch(self, validators: list[Validator]) -> list[Validator]:
-        sorted_validators = sorted(validators, key=lambda validator: validator.validator.exit_epoch)
-        return filter_validators_by_exit_epoch(sorted_validators, sorted_validators[0].validator.exit_epoch)
 
     def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
         if len(validators) == 0:
