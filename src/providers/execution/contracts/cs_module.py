@@ -12,19 +12,6 @@ from ..base_interface import ContractInterface
 logger = logging.getLogger(__name__)
 
 
-class NodeOperatorSummary(NamedTuple):
-    """getNodeOperatorSummary response, @see IStakingModule.sol"""
-
-    targetLimitMode: int
-    targetValidatorsCount: int
-    stuckValidatorsCount: int
-    refundedValidatorsCount: int
-    stuckPenaltyEndTimestamp: int
-    totalExitedValidators: int
-    totalDepositedValidators: int
-    depositableValidatorsCount: int
-
-
 class CSModuleContract(ContractInterface):
     abi_path = "./assets/CSModule.json"
 

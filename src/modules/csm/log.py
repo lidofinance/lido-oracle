@@ -25,7 +25,6 @@ class ValidatorFrameSummary:
 @dataclass
 class OperatorFrameSummary:
     distributed: int = 0
-    stuck: bool = False
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
     validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
 

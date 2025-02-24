@@ -55,31 +55,6 @@ class CSM(Module):
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-    def get_operators_with_stucks_in_range(
-        self,
-        l_block: BlockIdentifier,
-        r_block: BlockIdentifier,
-    ) -> Iterator[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
-
-        l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
-        r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
-
-        by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
-
-        events = sorted(
-            get_events_in_range(
-                cast(ContractEvent, self.module.events.StuckSigningKeysCountChanged),
-                l_block_number,
-                r_block_number,
-            ),
-            key=by_no_id,
-        )
-
-        for no_id, group in groupby(events, key=by_no_id):
-            if any(e["args"]["stuckKeysCount"] > 0 for e in group):
-                yield NodeOperatorId(no_id)
-
     def _load_contracts(self) -> None:
         try:
             self.module = cast(

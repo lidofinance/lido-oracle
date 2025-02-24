@@ -78,26 +78,6 @@ def test_calculate_distribution_handles_invalid_distribution(module):
         module.calculate_distribution(blockstamp)
 
 
-def test_calculate_distribution_in_frame_handles_stuck_operator(module):
-    frame = Mock()
-    blockstamp = Mock()
-    rewards_to_distribute = UINT64_MAX
-    operators_to_validators = {(Mock(), NodeOperatorId(1)): [LidoValidatorFactory.build()]}
-    module.state = State()
-    module.state.data = {frame: defaultdict(DutyAccumulator)}
-    module.get_stuck_operators = Mock(return_value={NodeOperatorId(1)})
-    module._get_performance_threshold = Mock()
-
-    rewards_distribution, log = module._calculate_distribution_in_frame(
-        frame, blockstamp, rewards_to_distribute, operators_to_validators
-    )
-
-    assert rewards_distribution[NodeOperatorId(1)] == 0
-    assert log.operators[NodeOperatorId(1)].stuck is True
-    assert log.operators[NodeOperatorId(1)].distributed == 0
-    assert log.operators[NodeOperatorId(1)].validators == defaultdict(ValidatorFrameSummary)
-
-
 def test_calculate_distribution_in_frame_handles_no_any_duties(module):
     frame = Mock()
     blockstamp = Mock()
@@ -109,7 +89,6 @@ def test_calculate_distribution_in_frame_handles_no_any_duties(module):
     module.state.att_data = {frame: defaultdict(DutyAccumulator)}
     module.state.prop_data = {frame: defaultdict(DutyAccumulator)}
     module.state.sync_data = {frame: defaultdict(DutyAccumulator)}
-    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock()
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -117,7 +96,6 @@ def test_calculate_distribution_in_frame_handles_no_any_duties(module):
     )
 
     assert rewards_distribution[node_operator_id] == 0
-    assert log.operators[node_operator_id].stuck is False
     assert log.operators[node_operator_id].distributed == 0
     assert log.operators[node_operator_id].validators == defaultdict(ValidatorFrameSummary)
 
@@ -137,7 +115,6 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     module.state.att_data = {frame: {validator.index: attestation_duty}}
     module.state.prop_data = {frame: {validator.index: proposal_duty}}
     module.state.sync_data = {frame: {validator.index: sync_duty}}
-    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -145,7 +122,6 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     )
 
     assert rewards_distribution[node_operator_id] > 0  # no need to check exact value
-    assert log.operators[node_operator_id].stuck is False
     assert log.operators[node_operator_id].distributed > 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
     assert log.operators[node_operator_id].validators[validator.index].proposal_duty == proposal_duty
@@ -167,7 +143,6 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     module.state.att_data = {frame: {validator.index: attestation_duty}}
     module.state.prop_data = {frame: {validator.index: proposal_duty}}
     module.state.sync_data = {frame: {validator.index: sync_duty}}
-    module.get_stuck_operators = Mock(return_value=set())
     module._get_performance_threshold = Mock(return_value=0.5)
 
     rewards_distribution, log = module._calculate_distribution_in_frame(
@@ -175,7 +150,6 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     )
 
     assert rewards_distribution[node_operator_id] == 0
-    assert log.operators[node_operator_id].stuck is False
     assert log.operators[node_operator_id].distributed == 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
     assert log.operators[node_operator_id].validators[validator.index].proposal_duty == proposal_duty

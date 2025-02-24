@@ -7,8 +7,7 @@ from src.modules.csm.state import DutyAccumulator, Frame, State
 from src.modules.csm.types import Shares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
-from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import get_reference_blockstamp, get_next_non_missed_slot
+from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator, StakingModule
 from src.web3py.types import Web3
@@ -95,13 +94,9 @@ class Distribution:
 
         network_perf = self._get_network_performance(frame)
 
-        stuck_operators = self._get_stuck_operators(frame, blockstamp)
         for (_, no_id), validators in operators_to_validators.items():
             logger.info({"msg": f"Calculating distribution for {no_id=}"})
             log_operator = log.operators[no_id]
-            if no_id in stuck_operators:
-                log_operator.stuck = True
-                continue
 
             curve_id = self.w3.csm.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
             perf_coeffs, perf_leeway, reward_share = self._get_curve_params(curve_id, blockstamp)
@@ -155,31 +150,6 @@ class Distribution:
         sync_perf = self.state.get_sync_network_aggr(frame)
         network_perf = PerformanceCoefficients().calc_performance(att_perf, prop_perf, sync_perf)
         return network_perf
-
-    def _get_stuck_operators(self, frame: Frame, frame_blockstamp: ReferenceBlockStamp) -> set[NodeOperatorId]:
-        l_epoch, _ = frame
-        l_ref_slot = self.converter.get_epoch_first_slot(l_epoch)
-        # NOTE: r_block is guaranteed to be <= ref_slot, and the check
-        # in the inner frames assures the  l_block <= r_block.
-        l_blockstamp = build_blockstamp(
-            get_next_non_missed_slot(
-                self.w3.cc,
-                l_ref_slot,
-                frame_blockstamp.slot_number,
-            )
-        )
-
-        digests = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(
-            self.staking_module, l_blockstamp.block_hash
-        )
-        if not digests:
-            logger.warning("No CSM digest at blockstamp=%s, module was not added yet?", l_blockstamp)
-        stuck_from_digests = (no.id for no in digests if no.stuck_validators_count > 0)
-        stuck_from_events = self.w3.csm.get_operators_with_stucks_in_range(
-            l_blockstamp.block_hash,
-            frame_blockstamp.block_hash,
-        )
-        return set(stuck_from_digests) | set(stuck_from_events)
 
     @staticmethod
     def process_validator_duties(
