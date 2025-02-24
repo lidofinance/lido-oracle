@@ -38,10 +38,10 @@ def test_create_resize_to_larger():
     assert strikes == [1, 2, 3, 0, 0]
 
 
-def test_add_element():
+def test_push_element():
     strikes = StrikesList([1, 2, 3])
     strikes.push(4)
-    assert strikes == [4, 1, 2]
+    assert strikes == [4, 1, 2, 3]
 
 
 def test_is_list_like():
@@ -51,3 +51,5 @@ def test_is_list_like():
     arr = [4, 5]
     arr.extend(strikes)
     assert arr == [4, 5, 1, 2, 3]
+
+    assert sum(strikes) == 6

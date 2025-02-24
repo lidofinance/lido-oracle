@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Literal, Sequence, TypeAlias
+from typing import Final, Iterable, Literal, Sequence, TypeAlias
 
 from hexbytes import HexBytes
 
@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 class StrikesList(Sequence[int]):
     """Deque-like structure to store strikes"""
+
+    SENTINEL: Final = 0
 
     data: list[int]
 
@@ -34,12 +36,11 @@ class StrikesList(Sequence[int]):
 
     def resize(self, maxlen: int) -> None:
         """Update maximum length of the list"""
-        self.data = self.data[:maxlen] + [0] * (maxlen - len(self.data))
+        self.data = self.data[:maxlen] + [self.SENTINEL] * (maxlen - len(self.data))
 
     def push(self, item: int) -> None:
-        """Push element at the beginning of the list discarding the last element"""
+        """Push element at the beginning of the list resizing the list to keep one more item"""
         self.data.insert(0, item)
-        self.data.pop(-1)
 
 
 Shares: TypeAlias = int
