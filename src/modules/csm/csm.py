@@ -284,7 +284,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 log,
             )
             distributed_in_frame = sum(rewards_in_frame.values())
-            logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
+            if not distributed_in_frame:
+                logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
 
             total_distributed += distributed_in_frame
             if total_distributed > total_rewards_to_distribute:
