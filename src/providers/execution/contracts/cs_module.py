@@ -1,5 +1,4 @@
 import logging
-from typing import NamedTuple
 
 from eth_typing import ChecksumAddress
 from web3 import Web3
@@ -10,19 +9,6 @@ from src.constants import UINT64_MAX
 from ..base_interface import ContractInterface
 
 logger = logging.getLogger(__name__)
-
-
-class NodeOperatorSummary(NamedTuple):
-    """getNodeOperatorSummary response, @see IStakingModule.sol"""
-
-    targetLimitMode: int
-    targetValidatorsCount: int
-    stuckValidatorsCount: int
-    refundedValidatorsCount: int
-    stuckPenaltyEndTimestamp: int
-    totalExitedValidators: int
-    totalDepositedValidators: int
-    depositableValidatorsCount: int
 
 
 class CSModuleContract(ContractInterface):
