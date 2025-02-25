@@ -178,7 +178,7 @@ class SafeBorder(Web3Converter):
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
-        earliest_activation_epoch = min((v.validator.activation_epoch for v in validators), default=0)
+        earliest_activation_epoch = self._get_validators_earliest_activation_epoch(validators)
         start_epoch = max(last_finalized_request_id_epoch, earliest_activation_epoch)
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
@@ -205,6 +205,16 @@ class SafeBorder(Web3Converter):
         slot_number = self.get_frame_first_slot(start_frame)
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
+
+    def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
+        if len(validators) == 0:
+            return EpochNumber(0)
+
+        sorted_validators = sorted(
+            validators,
+            key=lambda validator: validator.validator.activation_epoch
+        )
+        return sorted_validators[0].validator.activation_epoch
 
     def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
         """
