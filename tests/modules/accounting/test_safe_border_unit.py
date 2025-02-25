@@ -219,6 +219,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #   initiate      slashed exit  withdrawable
 #   exit          epoch   epoch epoch
 
+
 # validator 2:
 # ------|------------------|---------------|-->
 #       slashed            exit            withdrawable
@@ -230,22 +231,38 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     border
 ###
 def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blockstamp, lido_validators):
+    # in binary search:
+    # start frame = 73
+    # end frame = 101
+
+    # Assume that validator 1 slashed at 84
+    # Assume that validator 2 slashed at 74
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     exit_epoch = non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    safe_border._get_last_finalized_withdrawal_request_slot = Mock(return_value=12)
 
-    validator1 = create_validator_stub(
-        exit_epoch, non_withdrawable_epoch + 200, True
+    # predicted_epoch = None
+    validator1 = ValidatorFactory.build(
+        validator=ValidatorStateFactory.build(
+            slashed=True,
+            exit_epoch=exit_epoch,
+            withdrawable_epoch=non_withdrawable_epoch,
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 25
+        )
     )
 
-    validator2 = create_validator_stub(
-        exit_epoch + 1, non_withdrawable_epoch + 15, True
+    validator2 = ValidatorFactory.build(
+        validator=ValidatorStateFactory.build(
+            slashed=True,
+            exit_epoch=exit_epoch + 1,
+            withdrawable_epoch=non_withdrawable_epoch + 25,
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 20
+        )
     )
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1])
-    earliest_slashed_epoch1 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
-
+    safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 74)
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
-    earliest_slashed_epoch2 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
-    assert earliest_slashed_epoch2 < earliest_slashed_epoch1
+    earliest_slashed_epoch = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
+    assert earliest_slashed_epoch == 740
 
 
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_border, past_blockstamp):
