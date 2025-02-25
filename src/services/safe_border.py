@@ -183,7 +183,7 @@ class SafeBorder(Web3Converter):
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
         # or the max possible earliest slashed epoch for the given validators
-        withdrawable_epoch = min(v.validator.withdrawable_epoch for v in validators)
+        withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
         max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
@@ -276,3 +276,7 @@ def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch:
 
 def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
     return [HexStr(v.validator.pubkey) for v in validators]
+
+
+def get_validators_withdrawable_epochs(validators: Iterable[Validator]) -> list[EpochNumber]:
+    return [v.validator.withdrawable_epoch for v in validators]
