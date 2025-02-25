@@ -187,8 +187,8 @@ class SafeBorder(Web3Converter):
         max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
-        start_frame = self.get_frame_by_epoch(start_epoch)
-        end_frame = self.get_frame_by_epoch(end_epoch)
+        start_frame = self.get_frame_by_epoch(EpochNumber(start_epoch))
+        end_frame = self.get_frame_by_epoch(EpochNumber(end_epoch))
 
         slashed_pubkeys = set(v.validator.pubkey for v in validators)
 
