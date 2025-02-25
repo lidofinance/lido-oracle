@@ -23,7 +23,6 @@ def log(ref_blockstamp: ReferenceBlockStamp, frame: tuple[EpochNumber, EpochNumb
 
 def test_fields_access(log: FramePerfLog):
     log.operators[NodeOperatorId(42)].validators["100500"].slashed = True
-    log.operators[NodeOperatorId(17)].stuck = True
 
 
 def test_log_encode(log: FramePerfLog):
