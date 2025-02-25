@@ -1,8 +1,8 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import NoReturn, Iterable, Literal, Type
-from unittest.mock import Mock, patch, PropertyMock
+from typing import Iterable, Literal, NoReturn, Type
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 from hexbytes import HexBytes
@@ -12,11 +12,11 @@ from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import CurrentFrame, ZERO_HASH
-from src.providers.ipfs import CIDv0, CID
-from src.types import NodeOperatorId, SlotNumber, StakingModuleId
+from src.modules.submodules.types import ZERO_HASH, CurrentFrame
+from src.providers.ipfs import CID, CIDv0
+from src.types import NodeOperatorId, SlotNumber
 from src.web3py.extensions.csm import CSM
-from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
+from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
