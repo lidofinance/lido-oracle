@@ -241,13 +241,9 @@ def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blocks
         exit_epoch + 1, non_withdrawable_epoch + 15, True
     )
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1])
-    safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
-
     earliest_slashed_epoch1 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
 
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
-    safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
-
     earliest_slashed_epoch2 = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
     assert earliest_slashed_epoch2 < earliest_slashed_epoch1
 

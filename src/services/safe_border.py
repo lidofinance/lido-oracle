@@ -178,12 +178,12 @@ class SafeBorder(Web3Converter):
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
-        earliest_activation_slot = self._get_validators_earliest_activation_epoch(validators)
-        start_epoch = max(last_finalized_request_id_epoch, earliest_activation_slot)
+        earliest_activation_epoch = min([v.validator.activation_epoch for v in validators], default=0)
+        start_epoch = max(last_finalized_request_id_epoch, earliest_activation_epoch)
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
         # or the max possible earliest slashed epoch for the given validators
-        withdrawable_epoch = min(get_validators_withdrawable_epochs(validators))
+        withdrawable_epoch = min([v.validator.withdrawable_epoch for v in validators])
         max_possible_earliest_slashed_epoch = EpochNumber(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
         end_epoch = min(self.blockstamp.ref_epoch, max_possible_earliest_slashed_epoch)
 
@@ -220,16 +220,6 @@ class SafeBorder(Web3Converter):
         )
 
         return len(slashed_validators) > 0
-
-    def _get_validators_earliest_activation_epoch(self, validators: list[Validator]) -> EpochNumber:
-        if len(validators) == 0:
-            return EpochNumber(0)
-
-        sorted_validators = sorted(
-            validators,
-            key=lambda validator: validator.validator.activation_epoch
-        )
-        return sorted_validators[0].validator.activation_epoch
 
     def _get_bunker_mode_start_timestamp(self) -> int | None:
         start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
@@ -276,7 +266,3 @@ def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch:
 
 def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
     return [HexStr(v.validator.pubkey) for v in validators]
-
-
-def get_validators_withdrawable_epochs(validators: Iterable[Validator]) -> list[EpochNumber]:
-    return [v.validator.withdrawable_epoch for v in validators]
