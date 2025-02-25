@@ -9,7 +9,7 @@ from src.providers.execution.contracts.cs_parameters_registry import Performance
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator, StakingModule
+from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -17,13 +17,11 @@ logger = logging.getLogger(__name__)
 
 class Distribution:
     w3: Web3
-    staking_module: StakingModule
     converter: Web3Converter
     state: State
 
-    def __init__(self, w3: Web3, staking_module: StakingModule, converter: Web3Converter, state: State):
+    def __init__(self, w3: Web3, converter: Web3Converter, state: State):
         self.w3 = w3
-        self.staking_module = staking_module
         self.converter = converter
         self.state = state
 

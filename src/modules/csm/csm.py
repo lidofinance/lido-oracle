@@ -30,7 +30,7 @@ from src.types import (
 )
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
+from src.web3py.extensions.lido_validators import NodeOperatorId
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -57,13 +57,11 @@ class CSOracle(BaseModule, ConsensusModule):
     COMPATIBLE_ONCHAIN_VERSIONS = [(2, 3)]
 
     report_contract: CSFeeOracleContract
-    staking_module: StakingModule
 
     def __init__(self, w3: Web3):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
-        self.staking_module = self._get_staking_module()
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
@@ -96,7 +94,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
-        distribution = Distribution(self.w3, self.staking_module, self.converter(blockstamp), self.state)
+        distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
         total_distributed_rewards, total_rewards_map, total_rebate, logs = distribution.calculate(blockstamp)
 
         if total_distributed_rewards != sum(total_rewards_map.values()):
@@ -308,12 +306,3 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
-
-    def _get_staking_module(self) -> StakingModule:
-        modules: list[StakingModule] = self.w3.lido_contracts.staking_router.get_staking_modules()
-
-        for mod in modules:
-            if mod.staking_module_address == self.w3.csm.module.address:
-                return mod
-
-        raise NoModuleFound
