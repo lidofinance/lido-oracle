@@ -11,10 +11,10 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
-FAR_FUTURE_EPOCH = 2 ** 64 - 1
-MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2 ** 8
-EPOCHS_PER_SLASHINGS_VECTOR = 2 ** 13
-SLOTS_PER_EPOCH = 2 ** 5
+FAR_FUTURE_EPOCH = 2**64 - 1
+MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
+EPOCHS_PER_SLASHINGS_VECTOR = 2**13
+SLOTS_PER_EPOCH = 2**5
 SLOT_TIME = 12
 
 
@@ -247,7 +247,7 @@ def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blocks
             slashed=True,
             exit_epoch=exit_epoch,
             withdrawable_epoch=non_withdrawable_epoch,
-            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 25
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 25,
         )
     )
 
@@ -256,7 +256,7 @@ def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blocks
             slashed=True,
             exit_epoch=exit_epoch + 1,
             withdrawable_epoch=non_withdrawable_epoch + 25,
-            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 20
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 20,
         )
     )
     safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 74)
