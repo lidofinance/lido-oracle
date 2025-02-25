@@ -97,7 +97,8 @@ class SafeBorder(Web3Converter):
         latest_allowable_epoch = bunker_start_or_last_successful_report_epoch - self.finalization_default_shift
 
         max_negative_rebase = self.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift(
-            self.blockstamp.block_hash)
+            self.blockstamp.block_hash,
+        )
         earliest_allowable_epoch = self.get_epoch_by_slot(self.blockstamp.ref_slot) - max_negative_rebase
 
         return EpochNumber(max(earliest_allowable_epoch, latest_allowable_epoch))
