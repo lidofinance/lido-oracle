@@ -338,8 +338,8 @@ class CSOracle(BaseModule, ConsensusModule):
                     log_operator,
                 )
                 log_operator.validators[validator.index].strikes = validator_strikes
-                pubkey = HexBytes(hex_str_to_bytes(validator.validator.pubkey))
                 if validator_strikes:
+                    pubkey = HexBytes(hex_str_to_bytes(validator.validator.pubkey))
                     strikes[(no_id, pubkey)] = validator_strikes
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
