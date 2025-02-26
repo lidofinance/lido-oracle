@@ -34,7 +34,7 @@ class DutyAccumulator:
         self.assigned += 1
         self.included += 1 if included else 0
 
-    def merge(self, other: 'DutyAccumulator') -> None:
+    def merge(self, other: Self) -> None:
         self.assigned += other.assigned
         self.included += other.included
 
@@ -44,6 +44,14 @@ class Duties:
     attestations: defaultdict[ValidatorIndex, DutyAccumulator]
     proposals: defaultdict[ValidatorIndex, DutyAccumulator]
     syncs: defaultdict[ValidatorIndex, DutyAccumulator]
+
+    def merge(self, other: Self) -> None:
+        for val, duty in other.attestations.items():
+            self.attestations[val].merge(duty)
+        for val, duty in other.proposals.items():
+            self.proposals[val].merge(duty)
+        for val, duty in other.syncs.items():
+            self.syncs[val].merge(duty)
 
 
 type Frame = tuple[EpochNumber, EpochNumber]
@@ -208,14 +216,7 @@ class State:
                 if overlaps(new_frame, frame_to_consume):
                     assert frame_to_consume not in consumed
                     consumed.append(frame_to_consume)
-                    frame_to_consume_data = self.data[frame_to_consume]
-                    new_frame_data = new_data[new_frame]
-                    for val, duty in frame_to_consume_data.attestations.items():
-                        new_frame_data.attestations[val].merge(duty)
-                    for val, duty in frame_to_consume_data.proposals.items():
-                        new_frame_data.proposals[val].merge(duty)
-                    for val, duty in frame_to_consume_data.syncs.items():
-                        new_frame_data.syncs[val].merge(duty)
+                    new_data[new_frame].merge(self.data[frame_to_consume])
         for frame in self.frames:
             if frame in consumed:
                 continue
