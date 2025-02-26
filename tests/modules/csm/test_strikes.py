@@ -16,6 +16,12 @@ def test_create_not_empty():
     assert strikes == [1, 2, 3]
 
 
+def test_eq():
+    assert StrikesList([1, 2, 3]) == StrikesList([1, 2, 3])
+    assert StrikesList([1, 2, 3]) != StrikesList([1, 2])
+    assert StrikesList([1, 2, 3]) == [1, 2, 3]
+
+
 def test_create_maxlen_smaller_than_iterable():
     strikes = StrikesList([1, 2, 3], maxlen=5)
     assert strikes == [1, 2, 3, 0, 0]

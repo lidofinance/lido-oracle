@@ -29,7 +29,9 @@ class StrikesList(Sequence[int]):
         return self.data[index]
 
     def __eq__(self, value: object, /) -> bool:
-        return self.data.__eq__(value)
+        if isinstance(value, StrikesList):
+            return self.data == value.data
+        return self.data == value
 
     def __repr__(self) -> str:
         return repr(self.data)
