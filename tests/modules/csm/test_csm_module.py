@@ -8,10 +8,10 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSOracle
+from src.modules.csm.csm import CSOracle, StrikesValidator
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, Tree
-from src.modules.csm.types import StrikesList
+from src.modules.csm.types import RewardsTreeLeaf, StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID, CIDv0
@@ -369,12 +369,17 @@ def test_collect_data_fulfilled_state(
 
 @dataclass(frozen=True)
 class BuildReportTestParam:
-    prev_tree_root: HexBytes
-    prev_tree_cid: CID | None
-    prev_acc_shares: Iterable[tuple[NodeOperatorId, int]]
+    prev_rewards_tree_root: HexBytes
+    prev_rewards_tree_cid: CID | None
+    prev_acc_shares: Iterable[RewardsTreeLeaf]
+    prev_strikes_tree_root: HexBytes
+    prev_strikes_tree_cid: CID | None
+    prev_acc_strikes: dict[StrikesValidator, StrikesList]
     curr_distribution: Mock
-    curr_tree_root: HexBytes
-    curr_tree_cid: CID | Literal[""]
+    curr_rewards_tree_root: HexBytes
+    curr_rewards_tree_cid: CID | Literal[""]
+    curr_strikes_tree_root: HexBytes
+    curr_strikes_tree_cid: CID | Literal[""]
     curr_log_cid: CID
     expected_make_rewards_tree_call_args: tuple | None
     expected_func_result: tuple
@@ -385,44 +390,67 @@ class BuildReportTestParam:
     [
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=HexBytes(ZERO_HASH),
-                prev_tree_cid=None,
+                prev_rewards_tree_root=HexBytes(ZERO_HASH),
+                prev_rewards_tree_cid=None,
                 prev_acc_shares=[],
+                prev_strikes_tree_root=HexBytes(ZERO_HASH),
+                prev_strikes_tree_cid=None,
+                prev_acc_strikes={},
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
                         0,
                         # shares
                         defaultdict(int),
-                        # log
+                        # strikes
+                        defaultdict(dict),
+                        # logs
                         Mock(),
                     )
                 ),
-                curr_tree_root=HexBytes(ZERO_HASH),
-                curr_tree_cid="",
+                curr_rewards_tree_root=HexBytes(ZERO_HASH),
+                curr_rewards_tree_cid="",
+                curr_strikes_tree_root=HexBytes(ZERO_HASH),
+                curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
-                expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes(ZERO_HASH),
+                    "",
+                    CID("QmLOG"),
+                    0,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
+                ),
             ),
             id="empty_prev_report_and_no_new_distribution",
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=HexBytes(ZERO_HASH),
-                prev_tree_cid=None,
+                prev_rewards_tree_root=HexBytes(ZERO_HASH),
+                prev_rewards_tree_cid=None,
                 prev_acc_shares=[],
+                prev_strikes_tree_root=HexBytes(ZERO_HASH),
+                prev_strikes_tree_cid=None,
+                prev_acc_strikes={},
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
                         6,
                         # shares
                         defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
-                        # log
+                        # strikes
+                        defaultdict(dict),
+                        # logs
                         Mock(),
                     )
                 ),
-                curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
-                curr_tree_cid=CID("QmNEW_TREE"),
+                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(ZERO_HASH),
+                curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
                     ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
@@ -434,27 +462,36 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="empty_prev_report_and_new_distribution",
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
-                prev_tree_cid=CID("QmOLD_TREE"),
+                prev_rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                prev_rewards_tree_cid=CID("QmOLD_TREE"),
                 prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                prev_strikes_tree_root=HexBytes(ZERO_HASH),
+                prev_strikes_tree_cid=None,
+                prev_acc_strikes={},
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
                         6,
                         # shares
                         defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
-                        # log
+                        # strikes
+                        defaultdict(dict),
+                        # logs
                         Mock(),
                     )
                 ),
-                curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
-                curr_tree_cid=CID("QmNEW_TREE"),
+                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(ZERO_HASH),
+                curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
                     ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
@@ -466,27 +503,36 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_new_distribution",
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
-                prev_tree_cid=CID("QmOLD_TREE"),
+                prev_rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                prev_rewards_tree_cid=CID("QmOLD_TREE"),
                 prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                prev_strikes_tree_root=HexBytes(ZERO_HASH),
+                prev_strikes_tree_cid=None,
+                prev_acc_strikes={},
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
                         0,
                         # shares
                         defaultdict(int),
-                        # log
+                        # strikes
+                        defaultdict(dict),
+                        # logs
                         Mock(),
                     )
                 ),
-                curr_tree_root=HexBytes(32),
-                curr_tree_cid="",
+                curr_rewards_tree_root=HexBytes(32),
+                curr_rewards_tree_cid="",
+                curr_strikes_tree_root=HexBytes(ZERO_HASH),
+                curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
@@ -496,6 +542,8 @@ class BuildReportTestParam:
                     CID("QmOLD_TREE"),
                     CID("QmLOG"),
                     0,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
@@ -506,13 +554,18 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
     # mock previous report
-    module.w3.csm.get_rewards_tree_root = Mock(return_value=param.prev_tree_root)
-    module.w3.csm.get_rewards_tree_cid = Mock(return_value=param.prev_tree_cid)
+    module.w3.csm.get_rewards_tree_root = Mock(return_value=param.prev_rewards_tree_root)
+    module.w3.csm.get_rewards_tree_cid = Mock(return_value=param.prev_rewards_tree_cid)
+    module.w3.csm.get_strikes_tree_root = Mock(return_value=param.prev_strikes_tree_root)
+    module.w3.csm.get_strikes_tree_cid = Mock(return_value=param.prev_strikes_tree_cid)
     module.get_accumulated_rewards = Mock(return_value=param.prev_acc_shares)
+    module.get_accumulated_strikes = Mock(return_value=param.prev_acc_strikes)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
-    module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_tree_root))
-    module.publish_tree = Mock(return_value=param.curr_tree_cid)
+    module._merge_strikes = Mock()
+    module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
+    module.make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
+    module.publish_tree = Mock(side_effect=[param.curr_rewards_tree_cid, param.curr_strikes_tree_cid])
     module.publish_log = Mock(return_value=param.curr_log_cid)
 
     report = module.build_report(blockstamp=Mock(ref_slot=100500))
