@@ -147,11 +147,11 @@ class Distribution:
             log.operators[no_id].distributed = no_rewards
 
         distributed_rewards = sum(rewards_distribution.values())
-        rebate_to_protocol = total_rebate_share - distributed_rewards
+        rebate_to_protocol = rewards_to_distribute - distributed_rewards
 
         log.distributable = rewards_to_distribute
         log.distributed_rewards = distributed_rewards
-        log.rebate_to_protocol = rewards_to_distribute - distributed_rewards
+        log.rebate_to_protocol = rebate_to_protocol
 
         return rewards_distribution, distributed_rewards, rebate_to_protocol, log
 

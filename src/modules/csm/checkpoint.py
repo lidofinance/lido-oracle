@@ -295,9 +295,9 @@ class FrameCheckpointProcessor:
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
             validators = []
             # Order of insertion is used to track the positions in the committees.
-            for validator in committee.validators:
-                validators.append(ValidatorDuty(validator_index=validator, included=False))
-            committees[(committee.slot, committee.validator_index)] = validators
+            for validator_index in committee.validators:
+                validators.append(ValidatorDuty(validator_index, included=False))
+            committees[(committee.slot, committee.index)] = validators
         return committees
 
     @timeit(
