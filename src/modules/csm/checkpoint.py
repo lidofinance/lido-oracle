@@ -1,4 +1,5 @@
 import logging
+from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
@@ -112,14 +113,14 @@ type SyncCommittees = dict[SlotNumber, list[ValidatorDuty]]
 type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
 
 
-class SyncCommitteesCache(dict):
+class SyncCommitteesCache(UserDict):
 
     max_size = variables.CSM_ORACLE_MAX_CONCURRENCY
 
-    def __setitem__(self, committee_network_index: int, value: SyncCommittee | None):
+    def __setitem__(self, sync_committee_period: int, value: SyncCommittee | None):
         if len(self) >= self.max_size:
             self.pop(min(self))
-        super().__setitem__(committee_network_index, value)
+        super().__setitem__(sync_committee_period, value)
 
 
 SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
@@ -242,9 +243,9 @@ class FrameCheckpointProcessor:
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
 
-        att_committees = self._prepare_att_committees(EpochNumber(duty_epoch))
-        propose_duties = self._prepare_propose_duties(EpochNumber(duty_epoch), checkpoint_block_roots, checkpoint_slot)
-        sync_committees = self._prepare_sync_committee(EpochNumber(duty_epoch), duty_epoch_roots)
+        att_committees = self._prepare_att_committees(duty_epoch)
+        propose_duties = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
+        sync_committees = self._prepare_sync_committee(duty_epoch, duty_epoch_roots)
         for slot, root in [*duty_epoch_roots, *next_epoch_roots]:
             missed_slot = root is None
             if missed_slot:
@@ -324,8 +325,8 @@ class FrameCheckpointProcessor:
         return duties
 
     def _get_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
-        sync_committee_network_index = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-        if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_network_index):
+        sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+        if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_period):
             return cached_sync_committee
         from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
@@ -338,7 +339,7 @@ class FrameCheckpointProcessor:
             )
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
-        SYNC_COMMITTEES_CACHE[sync_committee_network_index] = sync_committee
+        SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee
         return sync_committee
 
     @timeit(
@@ -356,9 +357,7 @@ class FrameCheckpointProcessor:
         dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
         proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
         for duty in proposer_duties:
-            duties[SlotNumber(int(duty.slot))] = ValidatorDuty(
-                validator_index=ValidatorIndex(int(duty.validator_index)), included=False
-            )
+            duties[duty.slot] = ValidatorDuty(validator_index=duty.validator_index, included=False)
         return duties
 
     def _get_dependent_root_for_proposer_duties(
@@ -384,13 +383,11 @@ class FrameCheckpointProcessor:
                     break
                 dependent_slot = SlotNumber(int(dependent_slot - 1))
         except SlotOutOfRootsRange:
-            dependent_non_missed_slot = SlotNumber(int(
-                get_prev_non_missed_slot(
-                    self.cc,
-                    dependent_slot,
-                    self.finalized_blockstamp.slot_number
-                ).message.slot)
-            )
+            dependent_non_missed_slot = get_prev_non_missed_slot(
+                self.cc,
+                dependent_slot,
+                self.finalized_blockstamp.slot_number
+            ).message.slot
             dependent_root = self.cc.get_block_root(dependent_non_missed_slot).root
             logger.debug(
                 {

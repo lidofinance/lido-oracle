@@ -203,12 +203,12 @@ class BeaconStateView(Nested, FromResponse):
 
 
 @dataclass
-class SyncCommittee(FromResponse):
-    validators: list[str]
+class SyncCommittee(Nested, FromResponse):
+    validators: list[ValidatorIndex]
 
 
 @dataclass
-class ProposerDuties(FromResponse):
+class ProposerDuties(Nested, FromResponse):
     pubkey: str
-    validator_index: str
-    slot: str
+    validator_index: ValidatorIndex
+    slot: SlotNumber
