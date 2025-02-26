@@ -316,10 +316,11 @@ class MidtermSlashingPenalty:
         :param report_ref_epoch: The reference epoch for filtering.
         :return: Filtered list of slashing values.
         """
-        skip_indexes = {
-            i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(midterm_penalty_epoch - EPOCHS_PER_SLASHINGS_VECTOR, report_ref_epoch)
+        obsolete_indexes = {
+            i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)
         }
-        return [slashings[i] for i in skip_indexes if i < len(slashings)]
+
+        return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
     @staticmethod
     def get_bound_with_midterm_epoch_slashed_validators(

@@ -558,18 +558,20 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
         "is_electra_activated",
         "all_slashed_validators",
         "total_balance",
+        "slashings",
         "validators_in_frame",
         "expected_result",
     ),
     [
         # BEFORE ELECTRA
-        (225, False, [], 100 * 32 * 10 ** 9, [], 0),
+        (225, False, [], 100 * 32 * 10 ** 9, [], [], 0),
         (
             # one is slashed
             225,
             lambda _: False,
             simple_validators(0, 0, slashed=True),
             100 * 32 * 10 ** 9,
+            [],
             simple_validators(0, 0, slashed=True),
             0,
         ),
@@ -579,6 +581,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             lambda _: False,
             simple_validators(0, 99, slashed=True),
             100 * 32 * 10 ** 9,
+            [],
             simple_validators(0, 99, slashed=True),
             100 * 32 * 10 ** 9,
         ),
@@ -588,6 +591,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             lambda _: False,
             simple_validators(0, 9, slashed=True),
             100 * 32 * 10 ** 9,
+            [],
             simple_validators(0, 9, slashed=True),
             10 * 9 * 10 ** 9,
         ),
@@ -600,6 +604,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
             100 * 32 * 10 ** 9,
+            [],
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
@@ -613,6 +618,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             [],
             100 * 32 * 10 ** 9,
             [],
+            [],
             0,
         ),
         (
@@ -621,6 +627,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             lambda _: True,
             simple_validators(0, 0, slashed=True),
             100 * 32 * 10 ** 9,
+            [*([0] * 125), 32 * 10 ** 9, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 126))],
             simple_validators(0, 0, slashed=True),
             960_000_000,
         ),
@@ -630,6 +637,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             lambda _: True,
             simple_validators(0, 99, slashed=True),
             100 * 32 * 10 ** 9,
+            [*([32 * 10 ** 9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
             simple_validators(0, 99, slashed=True),
             100 * 32 * 10 ** 9,
         ),
@@ -639,6 +647,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             lambda _: True,
             simple_validators(0, 9, slashed=True),
             100 * 32 * 10 ** 9,
+            [*([64 * 10 ** 9] * 2), *([0] * 10), *([32 * 10 ** 9] * 6), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 20))],
             simple_validators(0, 9, slashed=True),
             96_000_000_000,
         ),
@@ -651,6 +660,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
             100 * 32 * 10 ** 9,
+            [*([32 * 10 ** 9] * 6), *([0] * 219), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 229)), *([32 * 10 ** 9] * 4)],
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
@@ -664,6 +674,7 @@ def test_predict_midterm_penalty_in_frame_post_electra(
     is_electra_activated,
     all_slashed_validators,
     total_balance,
+    slashings,
     validators_in_frame,
     expected_result,
 ):
@@ -673,6 +684,7 @@ def test_predict_midterm_penalty_in_frame_post_electra(
         is_electra_activated=is_electra_activated,
         all_slashed_validators=all_slashed_validators,
         total_balance=total_balance,
+        slashings=slashings,
         midterm_penalized_validators_in_frame=validators_in_frame,
     )
 
