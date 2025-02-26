@@ -9,6 +9,7 @@ from src.modules.csm.types import Shares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
 from src.utils.slot import get_reference_blockstamp
+from src.utils.validator_state import is_active_validator
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -94,14 +95,19 @@ class Distribution:
         network_perf = self._get_network_performance(frame)
 
         for (_, no_id), validators in operators_to_validators.items():
+            active_validators = [v for v in validators if self.state.data[frame].attestations[v.index].assigned > 0]
+            if not active_validators:
+                logger.info({"msg": f"No active validators for {no_id=} in the frame. Skipping"})
+                continue
+
             logger.info({"msg": f"Calculating distribution for {no_id=}"})
             log_operator = log.operators[no_id]
 
             curve_id = self.w3.csm.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
             perf_coeffs, perf_leeway, reward_share = self._get_curve_params(curve_id, blockstamp)
 
-            sorted_validators = sorted(validators, key=lambda v: v.index)
-            for key_number, validator in enumerate(sorted_validators):
+            sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
+            for key_number, validator in enumerate(sorted_active_validators):
                 key_threshold = max(network_perf - perf_leeway.get_for(key_number), 0)
                 key_reward_share = reward_share.get_for(key_number)
 
@@ -165,7 +171,6 @@ class Distribution:
         if attestation is None:
             # It's possible that the validator is not assigned to any duty, hence it's performance
             # is not presented in the aggregates (e.g. exited, pending for activation etc).
-            # TODO: check `sync_aggr` to strike (in case of bad sync performance) after validator exit
             return 0
 
         log_validator = log_operator.validators[validator.index]
