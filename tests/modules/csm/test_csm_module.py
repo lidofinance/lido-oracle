@@ -11,6 +11,7 @@ from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, Tree
+from src.modules.csm.types import StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID, CIDv0
@@ -579,60 +580,147 @@ def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
 
 
 @dataclass(frozen=True)
-class MakeTreeTestParam:
+class RewardsTreeTestParam:
     shares: dict[NodeOperatorId, int]
-    expected_tree_values: tuple | Type[ValueError]
+    expected_tree_values: list | Type[ValueError]
 
 
 @pytest.mark.parametrize(
     "param",
     [
-        pytest.param(MakeTreeTestParam(shares={}, expected_tree_values=ValueError), id="empty"),
+        pytest.param(RewardsTreeTestParam(shares={}, expected_tree_values=ValueError), id="empty"),
+    ],
+)
+def test_make_rewards_tree_negative(module: CSOracle, param: RewardsTreeTestParam):
+    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+
+    with pytest.raises(ValueError):
+        module.make_rewards_tree(param.shares)
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
         pytest.param(
-            MakeTreeTestParam(
+            RewardsTreeTestParam(
                 shares={NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},
-                expected_tree_values=(
-                    {'treeIndex': 4, 'value': (0, 1)},
-                    {'treeIndex': 2, 'value': (1, 2)},
-                    {'treeIndex': 3, 'value': (2, 3)},
-                ),
+                expected_tree_values=[
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                ],
             ),
             id="normal_tree",
         ),
         pytest.param(
-            MakeTreeTestParam(
+            RewardsTreeTestParam(
                 shares={NodeOperatorId(0): 1},
-                expected_tree_values=(
-                    {'treeIndex': 2, 'value': (0, 1)},
-                    {'treeIndex': 1, 'value': (18446744073709551615, 0)},
-                ),
+                expected_tree_values=[
+                    (0, 1),
+                    (UINT64_MAX, 0),
+                ],
             ),
             id="put_stone",
         ),
         pytest.param(
-            MakeTreeTestParam(
+            RewardsTreeTestParam(
                 shares={
                     NodeOperatorId(0): 1,
                     NodeOperatorId(1): 2,
                     NodeOperatorId(2): 3,
-                    NodeOperatorId(18446744073709551615): 0,
+                    NodeOperatorId(UINT64_MAX): 0,
                 },
-                expected_tree_values=(
-                    {'treeIndex': 4, 'value': (0, 1)},
-                    {'treeIndex': 2, 'value': (1, 2)},
-                    {'treeIndex': 3, 'value': (2, 3)},
-                ),
+                expected_tree_values=[
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                ],
             ),
             id="remove_stone",
         ),
     ],
 )
-def test_make_rewards_tree(module: CSOracle, param: MakeTreeTestParam):
+def test_make_rewards_tree(module: CSOracle, param: RewardsTreeTestParam):
+    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+
+    tree = module.make_rewards_tree(param.shares)
+    assert tree.values == param.expected_tree_values
+
+
+@dataclass(frozen=True)
+class StrikesTreeTestParam:
+    strikes: dict[tuple[NodeOperatorId, HexBytes], StrikesList]
+    expected_tree_values: list | Type[ValueError]
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(StrikesTreeTestParam(strikes={}, expected_tree_values=ValueError), id="empty"),
+    ],
+)
+def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestParam):
+    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+
+    with pytest.raises(ValueError):
+        module.make_strikes_tree(param.strikes)
+
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        pytest.param(StrikesTreeTestParam(strikes={}, expected_tree_values=ValueError), id="empty"),
+        pytest.param(
+            StrikesTreeTestParam(
+                strikes={
+                    (NodeOperatorId(0), HexBytes(b"07c0")): StrikesList([1]),
+                    (NodeOperatorId(1), HexBytes(b"07e8")): StrikesList([1, 2]),
+                    (NodeOperatorId(2), HexBytes(b"0682")): StrikesList([1, 2, 3]),
+                },
+                expected_tree_values=[
+                    (NodeOperatorId(0), HexBytes(b"07c0"), StrikesList([1])),
+                    (NodeOperatorId(1), HexBytes(b"07e8"), StrikesList([1, 2])),
+                    (NodeOperatorId(2), HexBytes(b"0682"), StrikesList([1, 2, 3])),
+                ],
+            ),
+            id="normal_tree",
+        ),
+        pytest.param(
+            StrikesTreeTestParam(
+                strikes={
+                    (NodeOperatorId(0), HexBytes(b"07c0")): StrikesList([1]),
+                },
+                expected_tree_values=[
+                    (NodeOperatorId(0), HexBytes(b"07c0"), StrikesList([1])),
+                    (NodeOperatorId(UINT64_MAX), HexBytes(b""), StrikesList()),
+                ],
+            ),
+            id="put_stone",
+        ),
+        pytest.param(
+            StrikesTreeTestParam(
+                strikes={
+                    (NodeOperatorId(0), HexBytes(b"07c0")): StrikesList([1]),
+                    (NodeOperatorId(1), HexBytes(b"07e8")): StrikesList([1, 2]),
+                    (NodeOperatorId(2), HexBytes(b"0682")): StrikesList([1, 2, 3]),
+                    (NodeOperatorId(UINT64_MAX), HexBytes(b"")): StrikesList(),
+                },
+                expected_tree_values=[
+                    (NodeOperatorId(0), HexBytes(b"07c0"), StrikesList([1])),
+                    (NodeOperatorId(1), HexBytes(b"07e8"), StrikesList([1, 2])),
+                    (NodeOperatorId(2), HexBytes(b"0682"), StrikesList([1, 2, 3])),
+                ],
+            ),
+            id="remove_stone",
+        ),
+    ],
+)
+def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     if param.expected_tree_values is ValueError:
         with pytest.raises(ValueError):
-            module.make_rewards_tree(param.shares)
+            module.make_strikes_tree(param.strikes)
     else:
-        tree = module.make_rewards_tree(param.shares)
-        assert tree.tree.values == param.expected_tree_values
+        tree = module.make_strikes_tree(param.strikes)
+        assert tree.values == param.expected_tree_values
