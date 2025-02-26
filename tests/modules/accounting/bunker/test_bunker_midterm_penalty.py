@@ -698,8 +698,8 @@ one_2048eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE_EL
 @pytest.mark.parametrize(
     ("slashings", "active_validators", "expected_penalty", "midterm_penalty_epoch", "report_ref_epoch"),
     [
-        ([], half_electra, 5888),
-        ([], part_electra, 84_928),
+        ([], half_electra, 5888, 1, 1),
+        ([], part_electra, 84_928, 1, 1),
     ],
 )
 def test_get_validator_midterm_penalty_electra(slashings, active_validators, expected_penalty, midterm_penalty_epoch, report_ref_epoch):
