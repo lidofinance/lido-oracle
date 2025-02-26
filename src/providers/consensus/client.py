@@ -3,6 +3,7 @@ from typing import Literal, cast
 
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
+from src import variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
@@ -119,7 +120,7 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
 
-    @lru_cache(maxsize=256)
+    @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
     def get_block_attestations_and_sync(self, state_id: SlotNumber | BlockRoot) -> tuple[list[BlockAttestation], SyncAggregate]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
