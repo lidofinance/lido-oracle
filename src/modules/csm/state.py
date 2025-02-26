@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import batched
 from pathlib import Path
@@ -41,9 +41,9 @@ class DutyAccumulator:
 
 @dataclass
 class Duties:
-    attestations: defaultdict[ValidatorIndex, DutyAccumulator]
-    proposals: defaultdict[ValidatorIndex, DutyAccumulator]
-    syncs: defaultdict[ValidatorIndex, DutyAccumulator]
+    attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+    proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+    syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
 
     def merge(self, other: Self) -> None:
         for val, duty in other.attestations.items():
@@ -201,11 +201,7 @@ class State:
         logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
         new_data: StateData = {}
         for frame in new_frames:
-            new_data[frame] = Duties(
-                attestations=defaultdict(DutyAccumulator),
-                proposals=defaultdict(DutyAccumulator),
-                syncs=defaultdict(DutyAccumulator),
-            )
+            new_data[frame] = Duties()
 
         def overlaps(a: Frame, b: Frame):
             return a[0] <= b[0] and a[1] >= b[1]
@@ -238,17 +234,26 @@ class State:
 
     def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation
-        aggr = self.get_duty_network_aggr(self.data[frame].attestations)
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.attestations)
         logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
     def get_prop_network_aggr(self, frame: Frame) -> DutyAccumulator:
-        aggr = self.get_duty_network_aggr(self.data[frame].proposals)
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.proposals)
         logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
     def get_sync_network_aggr(self, frame: Frame) -> DutyAccumulator:
-        aggr = self.get_duty_network_aggr(self.data[frame].syncs)
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.syncs)
         logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 

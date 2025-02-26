@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.modules.csm.state import State, InvalidState, DutyAccumulator
+from src.modules.csm.state import State, InvalidState, DutyAccumulator, Duties
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 
@@ -80,9 +80,7 @@ def test_is_empty_returns_true_for_empty_state():
 
 def test_is_empty_returns_false_for_non_empty_state():
     state = State()
-    state.att_data = {(0, 31): defaultdict(DutyAccumulator)}
-    state.prop_data = {(0, 31): defaultdict(DutyAccumulator)}
-    state.sync_data = {(0, 31): defaultdict(DutyAccumulator)}
+    state.data = {(0, 31): Duties()}
     assert not state.is_empty
 
 
@@ -150,12 +148,12 @@ def test_increment_att_duty_adds_duty_correctly():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.att_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(1), True)
-    assert state.att_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.att_data[frame][ValidatorIndex(1)].included == 6
+    assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].attestations[ValidatorIndex(1)].included == 6
 
 
 def test_increment_prop_duty_adds_duty_correctly():
@@ -163,12 +161,12 @@ def test_increment_prop_duty_adds_duty_correctly():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.prop_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(1), True)
-    assert state.prop_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.prop_data[frame][ValidatorIndex(1)].included == 6
+    assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].proposals[ValidatorIndex(1)].included == 6
 
 
 def test_increment_sync_duty_adds_duty_correctly():
@@ -176,12 +174,12 @@ def test_increment_sync_duty_adds_duty_correctly():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.sync_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(1), True)
-    assert state.sync_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.sync_data[frame][ValidatorIndex(1)].included == 6
+    assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].syncs[ValidatorIndex(1)].included == 6
 
 
 def test_increment_att_duty_creates_new_validator_entry():
@@ -189,12 +187,12 @@ def test_increment_att_duty_creates_new_validator_entry():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.att_data = {
-        frame: defaultdict(DutyAccumulator),
+    state.data = {
+        frame: Duties(),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(2), True)
-    assert state.att_data[frame][ValidatorIndex(2)].assigned == 1
-    assert state.att_data[frame][ValidatorIndex(2)].included == 1
+    assert state.data[frame].attestations[ValidatorIndex(2)].assigned == 1
+    assert state.data[frame].attestations[ValidatorIndex(2)].included == 1
 
 
 def test_increment_prop_duty_creates_new_validator_entry():
@@ -202,12 +200,12 @@ def test_increment_prop_duty_creates_new_validator_entry():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.prop_data = {
-        frame: defaultdict(DutyAccumulator),
+    state.data = {
+        frame: Duties(),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(2), True)
-    assert state.prop_data[frame][ValidatorIndex(2)].assigned == 1
-    assert state.prop_data[frame][ValidatorIndex(2)].included == 1
+    assert state.data[frame].proposals[ValidatorIndex(2)].assigned == 1
+    assert state.data[frame].proposals[ValidatorIndex(2)].included == 1
 
 
 def test_increment_sync_duty_creates_new_validator_entry():
@@ -215,12 +213,12 @@ def test_increment_sync_duty_creates_new_validator_entry():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.sync_data = {
-        frame: defaultdict(DutyAccumulator),
+    state.data = {
+        frame: Duties(),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(2), True)
-    assert state.sync_data[frame][ValidatorIndex(2)].assigned == 1
-    assert state.sync_data[frame][ValidatorIndex(2)].included == 1
+    assert state.data[frame].syncs[ValidatorIndex(2)].assigned == 1
+    assert state.data[frame].syncs[ValidatorIndex(2)].included == 1
 
 
 def test_increment_att_duty_handles_non_included_duty():
@@ -228,12 +226,12 @@ def test_increment_att_duty_handles_non_included_duty():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.att_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(1), False)
-    assert state.att_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.att_data[frame][ValidatorIndex(1)].included == 5
+    assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].attestations[ValidatorIndex(1)].included == 5
 
 
 def test_increment_prop_duty_handles_non_included_duty():
@@ -241,12 +239,12 @@ def test_increment_prop_duty_handles_non_included_duty():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.prop_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(1), False)
-    assert state.prop_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.prop_data[frame][ValidatorIndex(1)].included == 5
+    assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].proposals[ValidatorIndex(1)].included == 5
 
 
 def test_increment_sync_duty_handles_non_included_duty():
@@ -254,12 +252,12 @@ def test_increment_sync_duty_handles_non_included_duty():
     frame = (0, 31)
     state.frames = [frame]
     duty_epoch, _ = frame
-    state.sync_data = {
-        frame: defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        frame: Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(1), False)
-    assert state.sync_data[frame][ValidatorIndex(1)].assigned == 11
-    assert state.sync_data[frame][ValidatorIndex(1)].included == 5
+    assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
+    assert state.data[frame].syncs[ValidatorIndex(1)].included == 5
 
 
 def test_increment_att_duty_raises_error_for_out_of_range_epoch():
@@ -308,17 +306,21 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
     assert len(state._processed_epochs) == 1
 
 
-def test_init_or_migrate_discards_data_on_version_change():
+def test_migrate_discards_data_on_version_change():
     state = State()
     state._consensus_version = 1
     state.clear = Mock()
     state.commit = Mock()
     state.migrate(0, 63, 32, 2)
+
+    assert state.frames == [(0, 31), (32, 63)]
+    assert state._epochs_to_process == tuple(sequence(0, 63))
+    assert state._consensus_version == 2
     state.clear.assert_called_once()
     state.commit.assert_called_once()
 
 
-def test_init_or_migrate_no_migration_needed():
+def test_migrate_no_migration_needed():
     state = State()
     state._consensus_version = 1
     state.frames = [(0, 31), (32, 63)]
@@ -326,104 +328,113 @@ def test_init_or_migrate_no_migration_needed():
         (0, 31): defaultdict(DutyAccumulator),
         (32, 63): defaultdict(DutyAccumulator),
     }
+    state._epochs_to_process = tuple(sequence(0, 63))
     state.commit = Mock()
     state.migrate(0, 63, 32, 1)
+
+    assert state.frames == [(0, 31), (32, 63)]
+    assert state._epochs_to_process == tuple(sequence(0, 63))
+    assert state._consensus_version == 1
     state.commit.assert_not_called()
 
 
-def test_init_or_migrate_migrates_data():
+def test_migrate_migrates_data():
     state = State()
     state._consensus_version = 1
     state.frames = [(0, 31), (32, 63)]
-    state.att_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-    }
-    state.prop_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-    }
-    state.sync_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
     }
     state.commit = Mock()
     state.migrate(0, 63, 64, 1)
-    assert state.att_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+
+    assert state.data == {
+        (0, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
+        ),
     }
-    assert state.prop_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-    }
-    assert state.sync_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-    }
+    assert state.frames == [(0, 63)]
+    assert state._epochs_to_process == tuple(sequence(0, 63))
+    assert state._consensus_version == 1
     state.commit.assert_called_once()
 
 
-def test_init_or_migrate_invalidates_unmigrated_frames():
+def test_migrate_invalidates_unmigrated_frames():
     state = State()
     state._consensus_version = 1
     state.frames = [(0, 63)]
-    state.att_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
-    }
-    state.prop_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-    }
-    state.sync_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
+    state.data = {
+        (0, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
+        ),
     }
     state.commit = Mock()
     state.migrate(0, 31, 32, 1)
-    assert state.att_data == {
-        (0, 31): defaultdict(DutyAccumulator),
-    }
-    assert state.prop_data == {
-        (0, 31): defaultdict(DutyAccumulator),
-    }
-    assert state.sync_data == {
-        (0, 31): defaultdict(DutyAccumulator),
+
+    assert state.data == {
+        (0, 31): Duties(),
     }
     assert state._processed_epochs == set()
+    assert state.frames == [(0, 31)]
+    assert state._epochs_to_process == tuple(sequence(0, 31))
+    assert state._consensus_version == 1
     state.commit.assert_called_once()
 
 
-def test_init_or_migrate_discards_unmigrated_frame():
+def test_migrate_discards_unmigrated_frame():
     state = State()
     state._consensus_version = 1
     state.frames = [(0, 31), (32, 63), (64, 95)]
-    state.att_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-        (64, 95): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 25)}),
-    }
-    state.prop_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-        (64, 95): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 25)}),
-    }
-    state.sync_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        (64, 95): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 25)}),
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
+        (64, 95): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 25)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 25)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 25)}),
+        ),
     }
     state._processed_epochs = set(sequence(0, 95))
     state.commit = Mock()
     state.migrate(0, 63, 32, 1)
-    assert state.att_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-    }
-    assert state.prop_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-    }
-    assert state.sync_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+
+    assert state.data == {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
     }
     assert state._processed_epochs == set(sequence(0, 63))
+    assert state.frames == [(0, 31), (32, 63)]
+    assert state._epochs_to_process == tuple(sequence(0, 63))
+    assert state._consensus_version == 1
     state.commit.assert_called_once()
 
 
@@ -431,124 +442,123 @@ def test_migrate_frames_data_creates_new_data_correctly():
     state = State()
     state.frames = [(0, 31), (32, 63)]
     new_frames = [(0, 63)]
-    state.att_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
     }
-    state.prop_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-    }
-    state.sync_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-    }
+    state._processed_epochs = set(sequence(0, 20))
+
     state._migrate_frames_data(new_frames)
-    assert state.att_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)})
+
+    assert state.data == {
+        (0, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
+        ),
     }
-    assert state.prop_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)})
-    }
-    assert state.sync_data == {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)})
-    }
+    assert state._processed_epochs == set(sequence(0, 20))
 
 
 def test_migrate_frames_data_handles_no_migration():
     state = State()
     state.frames = [(0, 31)]
     new_frames = [(0, 31)]
-    state.att_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
     }
-    state.prop_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-    }
-    state.sync_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-    }
+    state._processed_epochs = set(sequence(0, 20))
+
     state._migrate_frames_data(new_frames)
-    assert state.att_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})
+
+    assert state.data == {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
     }
-    assert state.prop_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)})
-    }
-    assert state.sync_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)})
-    }
+    assert state._processed_epochs == set(sequence(0, 20))
 
 
 def test_migrate_frames_data_handles_partial_migration():
     state = State()
     state.frames = [(0, 31), (32, 63)]
     new_frames = [(0, 31), (32, 95)]
-    state.att_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
     }
-    state.prop_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-    }
-    state.sync_data = {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-    }
+    state._processed_epochs = set(sequence(0, 20))
+
     state._migrate_frames_data(new_frames)
-    assert state.att_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-        (32, 95): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+
+    assert state.data == {
+        (0, 31): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
+        ),
+        (32, 95): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
+        ),
     }
-    assert state.prop_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-        (32, 95): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-    }
-    assert state.sync_data == {
-        (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        (32, 95): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-    }
+    assert state._processed_epochs == set(sequence(0, 20))
+
 
 def test_migrate_frames_data_handles_no_data():
     state = State()
     state.frames = [(0, 31)]
     new_frames = [(0, 31)]
-    state.att_data = {frame: defaultdict(DutyAccumulator) for frame in state.frames}
-    state.prop_data = {frame: defaultdict(DutyAccumulator) for frame in state.frames}
-    state.sync_data = {frame: defaultdict(DutyAccumulator) for frame in state.frames}
+    state.data = {frame: Duties() for frame in state.frames}
+
     state._migrate_frames_data(new_frames)
-    assert state.att_data == {(0, 31): defaultdict(DutyAccumulator)}
-    assert state.prop_data == {(0, 31): defaultdict(DutyAccumulator)}
-    assert state.sync_data == {(0, 31): defaultdict(DutyAccumulator)}
+
+    assert state.data == {(0, 31): Duties()}
 
 
 def test_migrate_frames_data_handles_wider_old_frame():
     state = State()
     state.frames = [(0, 63)]
     new_frames = [(0, 31), (32, 63)]
-    state.att_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+    state.data = {
+        (0, 63): Duties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
+            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
+            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
+        ),
     }
-    state.prop_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-    }
-    state.sync_data = {
-        (0, 63): defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-    }
+    state._processed_epochs = set(sequence(0, 20))
+
     state._migrate_frames_data(new_frames)
-    assert state.att_data == {
-        (0, 31): defaultdict(DutyAccumulator),
-        (32, 63): defaultdict(DutyAccumulator),
+
+    assert state.data == {
+        (0, 31): Duties(),
+        (32, 63): Duties(),
     }
-    assert state.prop_data == {
-        (0, 31): defaultdict(DutyAccumulator),
-        (32, 63): defaultdict(DutyAccumulator),
-    }
-    assert state.sync_data == {
-        (0, 31): defaultdict(DutyAccumulator),
-        (32, 63): defaultdict(DutyAccumulator),
-    }
+    assert state._processed_epochs == set()
 
 
 def test_validate_raises_error_if_state_not_fulfilled():
@@ -590,10 +600,12 @@ def test_attestation_aggregate_perf():
 
 def test_get_att_network_aggr_computes_correctly():
     state = State()
-    state.att_data = {
-        (0, 31): defaultdict(
-            DutyAccumulator,
-            {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+    state.data = {
+        (0, 31): Duties(
+            attestations=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            )
         )
     }
     aggr = state.get_att_network_aggr((0, 31))
@@ -603,10 +615,12 @@ def test_get_att_network_aggr_computes_correctly():
 
 def test_get_sync_network_aggr_computes_correctly():
     state = State()
-    state.sync_data = {
-        (0, 31): defaultdict(
-            DutyAccumulator,
-            {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+    state.data = {
+        (0, 31): Duties(
+            syncs=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            )
         )
     }
     aggr = state.get_sync_network_aggr((0, 31))
@@ -616,10 +630,12 @@ def test_get_sync_network_aggr_computes_correctly():
 
 def test_get_prop_network_aggr_computes_correctly():
     state = State()
-    state.prop_data = {
-        (0, 31): defaultdict(
-            DutyAccumulator,
-            {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+    state.data = {
+        (0, 31): Duties(
+            proposals=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            )
         )
     }
     aggr = state.get_prop_network_aggr((0, 31))
@@ -629,21 +645,27 @@ def test_get_prop_network_aggr_computes_correctly():
 
 def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.att_data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})}
+    state.data = {
+        (0, 31): Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+    }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_att_network_aggr((0, 31))
 
 
 def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.prop_data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})}
+    state.data = {
+        (0, 31): Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+    }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_prop_network_aggr((0, 31))
 
 
 def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.sync_data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})}
+    state.data = {
+        (0, 31): Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+    }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_sync_network_aggr((0, 31))
 
@@ -668,7 +690,7 @@ def test_get_sync_network_aggr_raises_error_for_missing_frame_data():
 
 def test_get_att_network_aggr_handles_empty_frame_data():
     state = State()
-    state.att_data = {(0, 31): defaultdict(DutyAccumulator)}
+    state.data = {(0, 31): Duties()}
     aggr = state.get_att_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
@@ -676,7 +698,7 @@ def test_get_att_network_aggr_handles_empty_frame_data():
 
 def test_get_prop_network_aggr_handles_empty_frame_data():
     state = State()
-    state.prop_data = {(0, 31): defaultdict(DutyAccumulator)}
+    state.data = {(0, 31): Duties()}
     aggr = state.get_prop_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
@@ -684,7 +706,7 @@ def test_get_prop_network_aggr_handles_empty_frame_data():
 
 def test_get_sync_network_aggr_handles_empty_frame_data():
     state = State()
-    state.sync_data = {(0, 31): defaultdict(DutyAccumulator)}
+    state.data = {(0, 31): Duties()}
     aggr = state.get_sync_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
