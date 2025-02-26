@@ -21,11 +21,6 @@ from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
 @pytest.fixture(autouse=True)
-def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
-
-
-@pytest.fixture(autouse=True)
 def mock_load_state(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(State, "load", Mock())
 

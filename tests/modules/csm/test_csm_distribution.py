@@ -14,11 +14,6 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
-@pytest.fixture(autouse=True)
-def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
-
-
 @pytest.fixture()
 def module(web3, csm: CSM):
     yield CSOracle(web3)
