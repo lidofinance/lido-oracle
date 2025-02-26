@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
+from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EPOCHS_PER_SLASHINGS_VECTOR
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
@@ -225,6 +225,7 @@ def test_is_high_midterm_slashing_penalty_post_electra(
         web3_converter,
         all_validators,
         lido_validators,
+        [],
         report_cl_rebase,
         SlotNumber(0),
     )
@@ -487,6 +488,7 @@ def test_get_future_midterm_penalty_sum_in_frames_post_electra(
         EpochNumber(ref_epoch),
         is_electra_activated,
         all_slashed_validators,
+        [],
         active_validators_count * 32 * 10 ** 9,
         per_frame_validators,
     )
@@ -694,41 +696,19 @@ one_2048eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE_EL
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("bounded_slashed_validators", "active_validators", "expected_penalty"),
+    ("slashings", "active_validators", "expected_penalty", "midterm_penalty_epoch", "report_ref_epoch"),
     [
-        (one_32eth, half_electra, 5888),
-        (one_2048eth, half_electra, 378_080),
-        (one_32eth, part_electra, 84_928),
-        (one_2048eth, part_electra, 5_436_832),
-        (100 * one_32eth, half_electra, 590_752),
-        (100 * one_2048eth, half_electra, 37_809_216),
-        (100 * one_32eth, part_electra, 8_495_072),
-        (100 * one_2048eth, part_electra, 543_686_016),
-        (10_000 * one_32eth, half_electra, 59_076_896),
-        (10_000 * one_2048eth, half_electra, 3_780_922_816),
-        (10_000 * one_32eth, part_electra, 849_509_408),
-        (10_000 * one_2048eth, part_electra, 32_000_000_000),
-    ],
-    ids=[
-        "1 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "1 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "1 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
-        "1 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
-        "100 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "100 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "100 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
-        "100 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
-        "10_000 bounded slashing with 32 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "10_000 bounded slashing with 2048 EB, half active validators with 2048 EB and the rest part with 32 EB",
-        "10_000 bounded slashing with 32 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
-        "10_000 bounded slashing with 2048 EB, 10% active validators with 2048 EB and the rest part with 32 EB",
+        ([], half_electra, 5888),
+        ([], part_electra, 84_928),
     ],
 )
-def test_get_validator_midterm_penalty_electra(bounded_slashed_validators, active_validators, expected_penalty):
+def test_get_validator_midterm_penalty_electra(slashings, active_validators, expected_penalty, midterm_penalty_epoch, report_ref_epoch):
     result = MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
         validator=simple_validators(0, 0)[0],
-        bound_slashed_validators=bounded_slashed_validators,
-        total_balance=sum(v.validator.effective_balance for v in active_validators),
+        slashings=slashings,
+        total_balance=Gwei(sum(v.validator.effective_balance for v in active_validators)),
+        midterm_penalty_epoch=EpochNumber(EPOCHS_PER_SLASHINGS_VECTOR + 10),
+        report_ref_epoch=EpochNumber(0),
     )
 
     assert result == expected_penalty
