@@ -1,9 +1,10 @@
 import logging
 from collections import defaultdict
-from typing import Iterable
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Iterable, Self
 
 from hexbytes import HexBytes
-from copy import deepcopy
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -32,7 +33,6 @@ from src.types import (
 )
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
-from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorId, StakingModule, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -98,55 +98,35 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        prev_rewards_root = self.w3.csm.get_rewards_tree_root(blockstamp)
-        prev_rewards_cid = self.w3.csm.get_rewards_tree_cid(blockstamp)
+        last_report = self._get_last_report(blockstamp)
+        rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
+        strikes_tree_root, strikes_cid = last_report.strikes_tree_root, last_report.strikes_tree_cid
 
-        if (prev_rewards_cid is None) != (prev_rewards_root == ZERO_HASH):
-            raise InconsistentData(f"Got inconsistent previous tree data: {prev_rewards_root=} {prev_rewards_cid=}")
-
-        prev_strikes_root = self.w3.csm.get_strikes_tree_root(blockstamp)
-        prev_strikes_cid = self.w3.csm.get_strikes_tree_cid(blockstamp)
-
-        if (prev_strikes_cid is None) != (prev_strikes_root == ZERO_HASH):
-            raise InconsistentData(f"Got inconsistent previous tree data: {prev_strikes_root=} {prev_strikes_cid=}")
-
-        total_distributed, total_rewards, strikes_per_frame, logs = self.calculate_distribution(blockstamp)
-        log_cid = self.publish_log(logs)
-
-        rewards_tree_root, rewards_cid = prev_rewards_root, prev_rewards_cid
-        strikes_tree_root, strikes_cid = prev_strikes_root, prev_strikes_cid
+        (
+            total_distributed,
+            total_rewards,
+            strikes,
+            logs,
+        ) = self.calculate_distribution(blockstamp, last_report)
 
         if total_distributed:
-            if prev_rewards_cid and prev_rewards_root != ZERO_HASH:
-                # Update cumulative amount of stETH shares for all operators.
-                for no_id, accumulated_rewards in self.get_accumulated_rewards(prev_rewards_cid, prev_rewards_root):
-                    total_rewards[no_id] += accumulated_rewards
-            else:
-                logger.info({"msg": "No previous distribution. Nothing to accumulate"})
-
             rewards_tree = self.make_rewards_tree(total_rewards)
             rewards_tree_root = rewards_tree.root
             rewards_cid = self.publish_tree(rewards_tree)
 
-        historical_strikes = {}
-        if prev_strikes_cid and prev_strikes_root != ZERO_HASH:
-            historical_strikes = self.get_accumulated_strikes(prev_strikes_cid, prev_strikes_root)
+        if strikes:
+            strikes_tree = self.make_strikes_tree(strikes)
+            strikes_tree_root = strikes_tree.root
+            strikes_cid = self.publish_tree(strikes_tree)
 
-        strikes = self._merge_strikes(
-            historical_strikes,
-            strikes_per_frame,
-            blockstamp,
-        )
-        strikes_tree = self.make_strikes_tree(strikes)
-        strikes_tree_root = strikes_tree.root
-        strikes_cid = self.publish_tree(strikes_tree)
+        logs_cid = self.publish_log(logs)
 
         return ReportData(
             self.get_consensus_version(blockstamp),
             blockstamp.ref_slot,
             tree_root=rewards_tree_root,
             tree_cid=rewards_cid or "",
-            log_cid=log_cid,
+            log_cid=logs_cid,
             distributed=total_distributed,
             strikes_tree_root=strikes_tree_root,
             strikes_tree_cid=strikes_cid or "",
@@ -240,20 +220,19 @@ class CSOracle(BaseModule, ConsensusModule):
         return self.state.is_fulfilled
 
     def calculate_distribution(
-        self,
-        blockstamp: ReferenceBlockStamp,
+        self, blockstamp: ReferenceBlockStamp, last_report: "LastReport"
     ) -> tuple[
         Shares,
         defaultdict[NodeOperatorId, Shares],
-        dict[Frame, dict[StrikesValidator, int]],
+        dict[StrikesValidator, StrikesList],
         list[FramePerfLog],
     ]:
         """Computes distribution of fee shares at the given timestamp"""
         operators_to_validators = self.module_validators_by_node_operators(blockstamp)
 
-        total_distributed = Shares(0)
         total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
-        strikes_per_frame: dict[Frame, dict[StrikesValidator, int]] = {}
+        total_distributed = Shares(0)
+        strikes = last_report.strikes
         logs: list[FramePerfLog] = []
 
         for frame in self.state.frames:
@@ -281,7 +260,7 @@ class CSOracle(BaseModule, ConsensusModule):
             if not distributed_in_frame:
                 logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
 
-            strikes_per_frame[frame] = strikes_in_frame
+            self._merge_strikes(strikes, strikes_in_frame, frame_blockstamp)
             if not strikes_in_frame:
                 logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
@@ -297,7 +276,13 @@ class CSOracle(BaseModule, ConsensusModule):
         if total_distributed != sum(total_rewards.values()):
             raise InconsistentData(f"Invalid distribution: {sum(total_rewards.values())=} != {total_distributed=}")
 
-        return total_distributed, total_rewards, strikes_per_frame, logs
+        for no_id, rewards in last_report.rewards:
+            total_rewards[no_id] += rewards
+
+        return total_distributed, total_rewards, strikes, logs
+
+    def _get_last_report(self, blockstamp: BlockStamp) -> "LastReport":
+        return LastReport.load(self.w3, blockstamp)
 
     def _get_ref_blockstamp_for_frame(
         self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
@@ -400,59 +385,26 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return rewards_distribution
 
-    def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterable[RewardsTreeLeaf]:
-        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-        tree = RewardsTree.decode(self.w3.ipfs.fetch(cid))
-
-        logger.info({"msg": "Restored tree from IPFS dump", "root": repr(tree.root)})
-
-        if tree.root != root:
-            raise ValueError("Unexpected tree root got from IPFS dump")
-
-        return tree.values
-
-    def get_accumulated_strikes(self, cid: CID, root: HexBytes) -> dict[StrikesValidator, StrikesList]:
-        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-        tree = StrikesTree.decode(self.w3.ipfs.fetch(cid))
-
-        logger.info({"msg": "Restored tree from IPFS dump", "root": repr(tree.root)})
-
-        if tree.root != root:
-            raise ValueError("Unexpected tree root got from IPFS dump")
-
-        return {(no_id, pubkey): strikes for no_id, pubkey, strikes in tree.values}
-
     def _merge_strikes(
         self,
-        historical_strikes: dict[StrikesValidator, StrikesList],
-        strikes_per_frame: dict[Frame, dict[StrikesValidator, int]],
-        blockstamp: ReferenceBlockStamp,
-    ) -> dict[StrikesValidator, StrikesList]:
-        out = deepcopy(historical_strikes)
+        acc: dict[StrikesValidator, StrikesList],
+        strikes_in_frame: dict[StrikesValidator, int],
+        frame_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        for key in strikes_in_frame:
+            if key not in acc:
+                acc[key] = StrikesList()
+            acc[key].push(strikes_in_frame[key])
 
-        for frame in self.state.frames:
-            strikes_in_frame = strikes_per_frame[frame]
-            for key in strikes_in_frame:
-                if key not in out:
-                    out[key] = StrikesList()
-                out[key].push(strikes_in_frame[key])
-
-            _, to_epoch = frame
-            frame_blockstamp = blockstamp
-            if to_epoch != blockstamp.ref_epoch:
-                frame_blockstamp = self._get_ref_blockstamp_for_frame(blockstamp, to_epoch)
-
-            for key in out:
-                no_id, _ = key
-                if key not in strikes_in_frame:
-                    out[key].push(StrikesList.SENTINEL)  # Just shifting...
-                maxlen = self.w3.csm.get_strikes_params(no_id, frame_blockstamp).lifetime
-                out[key].resize(maxlen)
-                # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
-                if not sum(out[key]):
-                    del out[key]
-
-        return out
+        for key in acc:
+            no_id, _ = key
+            if key not in strikes_in_frame:
+                acc[key].push(StrikesList.SENTINEL)  # Just shifting...
+            maxlen = self.w3.csm.get_strikes_params(no_id, frame_blockstamp).lifetime
+            acc[key].resize(maxlen)
+            # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
+            if not sum(acc[key]):
+                del acc[key]
 
     def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
         if not shares:
@@ -556,3 +508,69 @@ class CSOracle(BaseModule, ConsensusModule):
                 return mod
 
         raise NoModuleFound
+
+
+@dataclass
+class LastReport:
+    w3: Web3
+    blockstamp: BlockStamp
+
+    rewards_tree_root: HexBytes
+    strikes_tree_root: HexBytes
+    rewards_tree_cid: CID | None
+    strikes_tree_cid: CID | None
+
+    @classmethod
+    def load(cls, w3: Web3, blockstamp: BlockStamp) -> Self:
+        rewards_tree_root = w3.csm.get_rewards_tree_root(blockstamp)
+        rewards_tree_cid = w3.csm.get_rewards_tree_cid(blockstamp)
+
+        if (rewards_tree_cid is None) != (rewards_tree_root == ZERO_HASH):
+            raise InconsistentData(f"Got inconsistent previous tree data: {rewards_tree_root=} {rewards_tree_cid=}")
+
+        strikes_tree_root = w3.csm.get_strikes_tree_root(blockstamp)
+        strikes_tree_cid = w3.csm.get_strikes_tree_cid(blockstamp)
+
+        if (strikes_tree_cid is None) != (strikes_tree_root == ZERO_HASH):
+            raise InconsistentData(f"Got inconsistent previous tree data: {strikes_tree_root=} {strikes_tree_cid=}")
+
+        return cls(
+            w3,
+            blockstamp,
+            rewards_tree_root,
+            strikes_tree_root,
+            rewards_tree_cid,
+            strikes_tree_cid,
+        )
+
+    @cached_property
+    def rewards(self) -> Iterable[RewardsTreeLeaf]:
+        if self.rewards_tree_cid is None or self.rewards_tree_root == ZERO_HASH:
+            logger.info({"msg": f"No rewards distribution as of {self.blockstamp=}."})
+            return []
+
+        logger.info({"msg": "Fetching rewards tree by CID from IPFS", "cid": repr(self.rewards_tree_cid)})
+        tree = RewardsTree.decode(self.w3.ipfs.fetch(self.rewards_tree_cid))
+
+        logger.info({"msg": "Restored rewards tree from IPFS dump", "root": repr(tree.root)})
+
+        if tree.root != self.rewards_tree_root:
+            raise ValueError("Unexpected rewards tree root got from IPFS dump")
+
+        return tree.values
+
+    @cached_property
+    def strikes(self) -> dict[StrikesValidator, StrikesList]:
+        if self.strikes_tree_cid is None or self.strikes_tree_root == ZERO_HASH:
+            logger.info({"msg": f"No strikes reported as of {self.blockstamp=}."})
+            return {}
+
+        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(self.strikes_tree_cid)})
+        tree = StrikesTree.decode(self.w3.ipfs.fetch(self.strikes_tree_cid))
+
+        logger.info({"msg": "Restored strikes tree from IPFS dump", "root": repr(tree.root)})
+
+        if tree.root != self.strikes_tree_root:
+            raise ValueError("Unexpected strikes tree root got from IPFS dump")
+
+        return {(no_id, pubkey): strikes for no_id, pubkey, strikes in tree.values}

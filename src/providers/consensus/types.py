@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from ens.ens import HexBytes
 from eth_typing import BlockNumber
+from hexbytes import HexBytes
 from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH

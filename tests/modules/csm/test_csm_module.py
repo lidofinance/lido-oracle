@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSOracle, StrikesValidator
+from src.modules.csm.csm import CSOracle, LastReport, StrikesValidator
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, Tree
 from src.modules.csm.types import RewardsTreeLeaf, StrikesList
@@ -17,6 +17,7 @@ from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID, CIDv0
 from src.types import NodeOperatorId, SlotNumber
 from src.web3py.extensions.csm import CSM
+from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
@@ -369,12 +370,7 @@ def test_collect_data_fulfilled_state(
 
 @dataclass(frozen=True)
 class BuildReportTestParam:
-    prev_rewards_tree_root: HexBytes
-    prev_rewards_tree_cid: CID | None
-    prev_acc_shares: Iterable[RewardsTreeLeaf]
-    prev_strikes_tree_root: HexBytes
-    prev_strikes_tree_cid: CID | None
-    prev_acc_strikes: dict[StrikesValidator, StrikesList]
+    last_report: LastReport
     curr_distribution: Mock
     curr_rewards_tree_root: HexBytes
     curr_rewards_tree_cid: CID | Literal[""]
@@ -390,12 +386,14 @@ class BuildReportTestParam:
     [
         pytest.param(
             BuildReportTestParam(
-                prev_rewards_tree_root=HexBytes(ZERO_HASH),
-                prev_rewards_tree_cid=None,
-                prev_acc_shares=[],
-                prev_strikes_tree_root=HexBytes(ZERO_HASH),
-                prev_strikes_tree_cid=None,
-                prev_acc_strikes={},
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(ZERO_HASH),
+                    rewards_tree_cid=None,
+                    rewards=[],
+                    strikes_tree_root=HexBytes(ZERO_HASH),
+                    strikes_tree_cid=None,
+                    strikes={},
+                ),
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
@@ -429,12 +427,14 @@ class BuildReportTestParam:
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_rewards_tree_root=HexBytes(ZERO_HASH),
-                prev_rewards_tree_cid=None,
-                prev_acc_shares=[],
-                prev_strikes_tree_root=HexBytes(ZERO_HASH),
-                prev_strikes_tree_cid=None,
-                prev_acc_strikes={},
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(ZERO_HASH),
+                    rewards_tree_cid=None,
+                    rewards=[],
+                    strikes_tree_root=HexBytes(ZERO_HASH),
+                    strikes_tree_cid=None,
+                    strikes={},
+                ),
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
@@ -470,18 +470,28 @@ class BuildReportTestParam:
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
-                prev_rewards_tree_cid=CID("QmOLD_TREE"),
-                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
-                prev_strikes_tree_root=HexBytes(ZERO_HASH),
-                prev_strikes_tree_cid=None,
-                prev_acc_strikes={},
+                last_report=Mock(
+                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                    strikes_tree_root=HexBytes(ZERO_HASH),
+                    strikes_tree_cid=None,
+                    strikes={},
+                ),
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
                         6,
                         # shares
-                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
+                        defaultdict(
+                            int,
+                            {
+                                NodeOperatorId(0): 101,
+                                NodeOperatorId(1): 202,
+                                NodeOperatorId(2): 300,
+                                NodeOperatorId(3): 3,
+                            },
+                        ),
                         # strikes
                         defaultdict(dict),
                         # logs
@@ -511,12 +521,14 @@ class BuildReportTestParam:
         ),
         pytest.param(
             BuildReportTestParam(
-                prev_rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
-                prev_rewards_tree_cid=CID("QmOLD_TREE"),
-                prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
-                prev_strikes_tree_root=HexBytes(ZERO_HASH),
-                prev_strikes_tree_cid=None,
-                prev_acc_strikes={},
+                last_report=Mock(
+                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
+                    strikes_tree_root=HexBytes(ZERO_HASH),
+                    strikes_tree_cid=None,
+                    strikes={},
+                ),
                 curr_distribution=Mock(
                     return_value=(
                         # distributed
@@ -550,25 +562,25 @@ class BuildReportTestParam:
         ),
     ],
 )
-def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
+@pytest.mark.usefixtures("csm")
+def test_build_report(module: CSOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
-    # mock previous report
-    module.w3.csm.get_rewards_tree_root = Mock(return_value=param.prev_rewards_tree_root)
-    module.w3.csm.get_rewards_tree_cid = Mock(return_value=param.prev_rewards_tree_cid)
-    module.w3.csm.get_strikes_tree_root = Mock(return_value=param.prev_strikes_tree_root)
-    module.w3.csm.get_strikes_tree_cid = Mock(return_value=param.prev_strikes_tree_cid)
-    module.get_accumulated_rewards = Mock(return_value=param.prev_acc_shares)
-    module.get_accumulated_strikes = Mock(return_value=param.prev_acc_strikes)
+    module._get_last_report = Mock(return_value=param.last_report)
     # mock current frame
     module.calculate_distribution = param.curr_distribution
-    module._merge_strikes = Mock()
     module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
     module.make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
-    module.publish_tree = Mock(side_effect=[param.curr_rewards_tree_cid, param.curr_strikes_tree_cid])
+    module.publish_tree = Mock(
+        side_effect=[
+            param.curr_rewards_tree_cid,
+            param.curr_strikes_tree_cid,
+        ]
+    )
     module.publish_log = Mock(return_value=param.curr_log_cid)
 
-    report = module.build_report(blockstamp=Mock(ref_slot=100500))
+    blockstamp = Mock(ref_slot=100500)
+    report = module.build_report(blockstamp)
 
     assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
@@ -605,7 +617,7 @@ def test_execute_module_processed(module: CSOracle):
 
 
 @pytest.fixture()
-def tree():
+def rewards_tree():
     return RewardsTree.new(
         [
             (NodeOperatorId(0), 0),
@@ -616,20 +628,40 @@ def tree():
     )
 
 
-def test_get_accumulated_shares(module: CSOracle, tree: Tree):
-    encoded_tree = tree.encode()
-    module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+def test_last_report_rewards(web3: Web3, rewards_tree: RewardsTree):
+    encoded_tree = rewards_tree.encode()
+    web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
-    for i, leaf in enumerate(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=tree.root)):
-        assert tuple(leaf) == tree.tree.values[i]["value"]
+    last_report = LastReport(
+        w3=web3,
+        blockstamp=Mock(),
+        rewards_tree_root=rewards_tree.root,
+        strikes_tree_root=Mock(),
+        rewards_tree_cid=CID("QmRT"),
+        strikes_tree_cid=Mock(),
+    )
+
+    for value in rewards_tree.values:
+        assert value in last_report.rewards
+
+    web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
 
 
-def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
-    encoded_tree = tree.encode()
-    module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+def test_get_accumulated_shares_unexpected_root(web3: Web3, rewards_tree: RewardsTree):
+    encoded_tree = rewards_tree.encode()
+    web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
-    with pytest.raises(ValueError):
-        next(module.get_accumulated_rewards(cid=CIDv0("0x100500"), root=HexBytes("0x100500")))
+    last_report = LastReport(
+        w3=web3,
+        blockstamp=Mock(),
+        rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
+        strikes_tree_root=Mock(),
+        rewards_tree_cid=CID("QmRT"),
+        strikes_tree_cid=Mock(),
+    )
+
+    with pytest.raises(ValueError, match="tree root"):
+        last_report.rewards
 
 
 @dataclass(frozen=True)
@@ -722,7 +754,6 @@ def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestPara
 @pytest.mark.parametrize(
     "param",
     [
-        pytest.param(StrikesTreeTestParam(strikes={}, expected_tree_values=ValueError), id="empty"),
         pytest.param(
             StrikesTreeTestParam(
                 strikes={
@@ -771,9 +802,5 @@ def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestPara
 def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
-    if param.expected_tree_values is ValueError:
-        with pytest.raises(ValueError):
-            module.make_strikes_tree(param.strikes)
-    else:
-        tree = module.make_strikes_tree(param.strikes)
-        assert tree.values == param.expected_tree_values
+    tree = module.make_strikes_tree(param.strikes)
+    assert tree.values == param.expected_tree_values
