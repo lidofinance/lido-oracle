@@ -36,7 +36,7 @@ class FrameCheckpoint:
 
 @dataclass
 class ValidatorDuty:
-    index: ValidatorIndex
+    validator_index: ValidatorIndex
     included: bool
 
 
@@ -262,20 +262,20 @@ class FrameCheckpointProcessor:
                 for att_duty in att_committee:
                     self.state.increment_att_duty(
                         duty_epoch,
-                        att_duty.index,
+                        att_duty.validator_index,
                         included=att_duty.included,
                     )
             for sync_committee in sync_committees.values():
                 for sync_duty in sync_committee:
                     self.state.increment_sync_duty(
                         duty_epoch,
-                        sync_duty.index,
+                        sync_duty.validator_index,
                         included=sync_duty.included,
                     )
             for proposer_duty in propose_duties.values():
                 self.state.increment_prop_duty(
                     duty_epoch,
-                    proposer_duty.index,
+                    proposer_duty.validator_index,
                     included=proposer_duty.included
                 )
             self.state.add_processed_epoch(duty_epoch)
@@ -295,8 +295,8 @@ class FrameCheckpointProcessor:
             validators = []
             # Order of insertion is used to track the positions in the committees.
             for validator in committee.validators:
-                validators.append(ValidatorDuty(index=validator, included=False))
-            committees[(committee.slot, committee.index)] = validators
+                validators.append(ValidatorDuty(validator_index=validator, included=False))
+            committees[(committee.slot, committee.validator_index)] = validators
         return committees
 
     @timeit(
@@ -317,7 +317,7 @@ class FrameCheckpointProcessor:
             if missed_slot:
                 continue
             duties[slot] = [
-                ValidatorDuty(index=ValidatorIndex(int(validator)), included=False)
+                ValidatorDuty(validator_index=ValidatorIndex(int(validator)), included=False)
                 for validator in sync_committee.validators
             ]
 
@@ -357,7 +357,7 @@ class FrameCheckpointProcessor:
         proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
         for duty in proposer_duties:
             duties[SlotNumber(int(duty.slot))] = ValidatorDuty(
-                index=ValidatorIndex(int(duty.validator_index)), included=False
+                validator_index=ValidatorIndex(int(duty.validator_index)), included=False
             )
         return duties
 
