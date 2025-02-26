@@ -1,20 +1,20 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable, Literal, NoReturn, Type
+from typing import Literal, NoReturn, Type
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSOracle, LastReport, StrikesValidator
+from src.modules.csm.csm import CSOracle, LastReport
 from src.modules.csm.state import State
-from src.modules.csm.tree import RewardsTree, Tree
-from src.modules.csm.types import RewardsTreeLeaf, StrikesList
+from src.modules.csm.tree import RewardsTree
+from src.modules.csm.types import StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
-from src.providers.ipfs import CID, CIDv0
+from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
 from src.web3py.extensions.csm import CSM
 from src.web3py.types import Web3

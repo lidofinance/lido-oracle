@@ -5,7 +5,7 @@ import pytest
 from web3.types import Wei
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSMError, CSOracle, LastReport
+from src.modules.csm.csm import CSMError, CSOracle
 from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.types import NodeOperatorId, ValidatorIndex
