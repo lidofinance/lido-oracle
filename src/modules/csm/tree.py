@@ -70,7 +70,32 @@ class Tree[LeafType: Iterable](ABC):
         raise NotImplementedError
 
 
+class RewardsTreeJSONDecoder(TreeJSONDecoder):
+    # NOTE: object_pairs_hook is set unconditionally upon object initialisation, so it's required to
+    # override the __init__ method.
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs, object_pairs_hook=self.__object_pairs_hook)
+
+    @staticmethod
+    def __object_pairs_hook(items: list[tuple[str, Any]]):
+        def try_decode_value(key: str, obj: Any):
+            if key != "value":
+                return obj
+            if not isinstance(obj, list) or not len(obj) == 2:
+                raise ValueError(f"Unexpected RewardsTreeLeaf value given {obj=}")
+            no_id, shares = obj
+            if not isinstance(no_id, int):
+                raise ValueError(f"Unexpected RewardsTreeLeaf value given {obj=}")
+            if not isinstance(shares, int):
+                raise ValueError(f"Unexpected RewardsTreeLeaf value given {obj=}")
+            return no_id, shares
+
+        return {k: try_decode_value(k, v) for k, v in items}
+
+
 class RewardsTree(Tree[RewardsTreeLeaf]):
+    decoder = RewardsTreeJSONDecoder
+
     @classmethod
     def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
@@ -98,6 +123,8 @@ class StrikesTreeJSONDecoder(TreeJSONDecoder):
             if not isinstance(obj, list) or not len(obj) == 3:
                 raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
             no_id, pubkey, strikes = obj
+            if not isinstance(no_id, int):
+                raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
             if not isinstance(pubkey, str) or not pubkey.startswith("0x"):
                 raise ValueError(f"Unexpected StrikesTreeLeaf value given {obj=}")
             if not isinstance(strikes, list):

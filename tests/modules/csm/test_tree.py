@@ -39,11 +39,8 @@ class TreeTestBase[LeafType: Iterable](ABC):
 
     def test_encode_decode(self, tree: TreeType):
         decoded = self.cls.decode(tree.encode())
+        assert decoded.values == self.values
         assert decoded.root == tree.root
-
-        json_encode = self.encoder.encode
-        decoded_values = [v["value"] for v in decoded.tree.values]
-        assert json_encode(decoded_values) == json_encode(self.values)
 
     def test_decode_plain_tree_dump(self, tree: TreeType):
         decoded = self.cls.decode(self.encoder.encode(tree.tree.dump()).encode())
