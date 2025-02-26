@@ -1,4 +1,5 @@
 import logging
+import math
 from collections import defaultdict
 from functools import lru_cache
 
@@ -188,9 +189,19 @@ class Distribution:
             log_validator.sync_duty = sync
 
         if performance > threshold:
-            # Count of assigned attestations used as a metrics of time the validator was active in the current frame.
-            # Reward share is a share of the operator's reward the validator should get. It can be less than 1.
-            participation_share = max(int(attestation.assigned * reward_share), 1)
+            #
+            #  - Count of assigned attestations used as a metrics of time the validator was active in the current frame.
+            #  - Reward share is a share of the operator's reward the validator should get, and
+            #    it can be less than 1 due to the value from `CSParametersRegistry`.
+            #    In case of decimal value, the reward should be rounded up in favour of the operator.
+            #
+            #    Example:
+            #     - Validator was 103 epochs active in the frame (assigned 103 attestations)
+            #     - Reward share for this Operator's key is 0.85
+            #    87.55 ≈ 88 of 103 participation shares should be counted for the operator key's reward.
+            #    The rest 15 participation shares should be counted for the protocol's rebate.
+            #
+            participation_share = math.ceil(attestation.assigned * reward_share)
             participation_shares[validator.lido_id.operatorIndex] += participation_share
             rebate_share = attestation.assigned - participation_share
             return rebate_share
