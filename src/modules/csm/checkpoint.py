@@ -133,21 +133,17 @@ class FrameCheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    eip7549_supported: bool
-
     def __init__(
         self,
         cc: ConsensusClient,
         state: State,
         converter: Web3Converter,
         finalized_blockstamp: BlockStamp,
-        eip7549_supported: bool = True,
     ):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
-        self.eip7549_supported = eip7549_supported
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
@@ -246,12 +242,13 @@ class FrameCheckpointProcessor:
         att_committees = self._prepare_att_committees(duty_epoch)
         propose_duties = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
         sync_committees = self._prepare_sync_committee(duty_epoch, duty_epoch_roots)
+
         for slot, root in [*duty_epoch_roots, *next_epoch_roots]:
             missed_slot = root is None
             if missed_slot:
                 continue
             attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
-            process_attestations(attestations, att_committees, self.eip7549_supported)
+            process_attestations(attestations, att_committees)
             if (slot, root) in duty_epoch_roots:
                 propose_duties[slot].included = True
                 process_sync(slot, sync_aggregate, sync_committees)
@@ -409,11 +406,8 @@ def process_sync(slot: SlotNumber, sync_aggregate: SyncAggregate, committees: Sy
 def process_attestations(
     attestations: Iterable[BlockAttestation],
     committees: AttestationCommittees,
-    eip7549_supported: bool = True,
 ) -> None:
     for attestation in attestations:
-        if is_eip7549_attestation(attestation) and not eip7549_supported:
-            raise ValueError("EIP-7549 support is not enabled")
         committee_offset = 0
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
