@@ -7,9 +7,9 @@ from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, Frame, State
 from src.modules.csm.types import Shares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
+from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
 from src.utils.slot import get_reference_blockstamp
-from src.utils.validator_state import is_active_validator
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
 from src.web3py.types import Web3
@@ -22,20 +22,23 @@ class Distribution:
     converter: Web3Converter
     state: State
 
+    total_rewards: Shares
+    total_rewards_map: defaultdict[NodeOperatorId, Shares]
+    total_rebate: Shares
+    logs: list[FramePerfLog]
+
     def __init__(self, w3: Web3, converter: Web3Converter, state: State):
         self.w3 = w3
         self.converter = converter
         self.state = state
+        # Distribution results
+        self.total_rewards = 0
+        self.total_rewards_map = defaultdict[NodeOperatorId, int](int)
+        self.total_rebate = 0
+        self.logs: list[FramePerfLog] = []
 
-    def calculate(
-        self, blockstamp: ReferenceBlockStamp
-    ) -> tuple[Shares, defaultdict[NodeOperatorId, Shares], Shares, list[FramePerfLog]]:
+    def calculate(self, blockstamp: ReferenceBlockStamp) -> None:
         """Computes distribution of fee shares at the given timestamp"""
-        total_distributed_rewards = 0
-        total_rewards_map = defaultdict[NodeOperatorId, int](int)
-        total_rebate = 0
-        logs: list[FramePerfLog] = []
-
         for frame in self.state.frames:
             logger.info({"msg": f"Calculating distribution for {frame=}"})
             _, to_epoch = frame
@@ -43,23 +46,30 @@ class Distribution:
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
             total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
-            rewards_to_distribute_in_frame = total_rewards_to_distribute - (total_distributed_rewards + total_rebate)
+            distributed_so_far = self.total_rewards + self.total_rebate
+            rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
-            rewards_in_frame, log = self._calculate_distribution_in_frame(
+            (
+                rewards_map_in_frame,
+                distributed_rewards_in_frame,
+                rebate_to_protocol_in_frame,
+                frame_log
+            ) = self._calculate_distribution_in_frame(
                 frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators
             )
 
-            total_distributed_rewards += log.distributed_rewards
-            total_rebate += log.rebate_to_protocol
+            self.total_rewards += distributed_rewards_in_frame
+            self.total_rebate += rebate_to_protocol_in_frame
 
-            self.validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute)
+            self.validate_distribution(self.total_rewards, self.total_rebate, total_rewards_to_distribute)
 
-            for no_id, rewards in rewards_in_frame.items():
-                total_rewards_map[no_id] += rewards
+            for no_id, rewards in rewards_map_in_frame.items():
+                self.total_rewards_map[no_id] += rewards
 
-            logs.append(log)
+            self.logs.append(frame_log)
 
-        return total_distributed_rewards, total_rewards_map, total_rebate, logs
+        if self.total_rewards != sum(self.total_rewards_map.values()):
+            raise InconsistentData(f"Invalid distribution: {sum(self.total_rewards_map.values())=} != {self.total_rewards=}")
 
     def _get_frame_blockstamp(self, blockstamp: ReferenceBlockStamp, to_epoch: EpochNumber) -> ReferenceBlockStamp:
         if to_epoch != blockstamp.ref_epoch:
@@ -85,11 +95,11 @@ class Distribution:
         self,
         frame: Frame,
         blockstamp: ReferenceBlockStamp,
-        rewards_to_distribute: int,
+        rewards_to_distribute: Shares,
         operators_to_validators: ValidatorsByNodeOperator,
-    ) -> tuple[dict[NodeOperatorId, int], FramePerfLog]:
+    ) -> tuple[dict[NodeOperatorId, Shares], Shares, Shares, FramePerfLog]:
         total_rebate_share = 0
-        participation_shares: defaultdict[NodeOperatorId, int] = defaultdict(int)
+        participation_shares: defaultdict[NodeOperatorId, Shares] = defaultdict(int)
         log = FramePerfLog(blockstamp, frame)
 
         network_perf = self._get_network_performance(frame)
@@ -136,11 +146,14 @@ class Distribution:
         for no_id, no_rewards in rewards_distribution.items():
             log.operators[no_id].distributed = no_rewards
 
-        log.distributable = rewards_to_distribute
-        log.distributed_rewards = sum(rewards_distribution.values())
-        log.rebate_to_protocol = rewards_to_distribute - log.distributed_rewards
+        distributed_rewards = sum(rewards_distribution.values())
+        rebate_to_protocol = total_rebate_share - distributed_rewards
 
-        return rewards_distribution, log
+        log.distributable = rewards_to_distribute
+        log.distributed_rewards = distributed_rewards
+        log.rebate_to_protocol = rewards_to_distribute - distributed_rewards
+
+        return rewards_distribution, distributed_rewards, rebate_to_protocol, log
 
     @lru_cache()
     def _get_curve_params(self, curve_id: int, blockstamp: ReferenceBlockStamp):
@@ -218,7 +231,7 @@ class Distribution:
         participation_shares: dict[NodeOperatorId, int],
         rebate_share: int,
         rewards_to_distribute: int,
-    ) -> dict[NodeOperatorId, int]:
+    ) -> dict[NodeOperatorId, Shares]:
         rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
         total_shares = rebate_share + sum(participation_shares.values())
 

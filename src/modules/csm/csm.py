@@ -96,15 +96,12 @@ class CSOracle(BaseModule, ConsensusModule):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        total_distributed_rewards, total_rewards_map, total_rebate, logs = distribution.calculate(blockstamp)
+        distribution.calculate(blockstamp)
 
-        if total_distributed_rewards != sum(total_rewards_map.values()):
-            raise InconsistentData(f"Invalid distribution: {sum(total_rewards_map.values())=} != {total_distributed_rewards=}")
+        logs_cid = self.publish_log(distribution.logs)
 
-        logs_cid = self.publish_log(logs)
-
-        if not total_distributed_rewards and not total_rewards_map:
-            logger.info({"msg": f"No rewards distributed in the current frame. {total_rebate=}"})
+        if not distribution.total_rewards and not distribution.total_rewards_map:
+            logger.info({"msg": f"No rewards distributed in the current frame. {distribution.total_rebate=}"})
             return ReportData(
                 self.get_consensus_version(blockstamp),
                 blockstamp.ref_slot,
@@ -112,7 +109,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 tree_cid=prev_cid or "",
                 log_cid=logs_cid,
                 distributed=0,
-                rebate=total_rebate,
+                rebate=distribution.total_rebate,
                 strikes_tree_root=HexBytes(ZERO_HASH),
                 strikes_tree_cid="",
             ).as_tuple()
@@ -120,11 +117,11 @@ class CSOracle(BaseModule, ConsensusModule):
         if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of stETH shares for all operators.
             for no_id, accumulated_rewards in self.get_accumulated_rewards(prev_cid, prev_root):
-                total_rewards_map[no_id] += accumulated_rewards
+                distribution.total_rewards_map[no_id] += accumulated_rewards
         else:
             logger.info({"msg": "No previous distribution. Nothing to accumulate"})
 
-        tree = self.make_tree(total_rewards_map)
+        tree = self.make_tree(distribution.total_rewards_map)
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
@@ -133,8 +130,8 @@ class CSOracle(BaseModule, ConsensusModule):
             tree_root=tree.root,
             tree_cid=tree_cid,
             log_cid=logs_cid,
-            distributed=total_distributed_rewards,
-            rebate=total_rebate,
+            distributed=distribution.total_rewards,
+            rebate=distribution.total_rebate,
             strikes_tree_root=HexBytes(ZERO_HASH),
             strikes_tree_cid="",
         ).as_tuple()
