@@ -519,7 +519,7 @@ def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accountin
     assert isinstance(processing_state, AccountingProcessingState)
     assert processing_state.current_frame_ref_slot == 100
     assert processing_state.processing_deadline_time == 200
-    assert processing_state.main_data_submitted == False
+    assert processing_state.main_data_submitted is False
     assert processing_state.main_data_hash == ZERO_HASH
 
 

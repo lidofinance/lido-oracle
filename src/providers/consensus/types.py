@@ -2,11 +2,13 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from eth_typing import BlockNumber
+from hexbytes import HexBytes
 from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.types import hex_str_to_bytes
 
 
 @dataclass
@@ -135,6 +137,10 @@ class Validator(Nested, FromResponse):
     index: ValidatorIndex
     balance: Gwei
     validator: ValidatorState
+
+    @property
+    def pubkey(self) -> HexBytes:
+        return HexBytes(hex_str_to_bytes(self.validator.pubkey))
 
 
 @dataclass

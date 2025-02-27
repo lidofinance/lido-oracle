@@ -6,8 +6,10 @@ from web3.types import Wei
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSMError, CSOracle
-from src.modules.csm.log import ValidatorFrameSummary
+from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary
 from src.modules.csm.state import AttestationsAccumulator, State
+from src.modules.csm.types import StrikesList
+from src.providers.execution.contracts.cs_parameters_registry import StrikesParams
 from src.types import NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -24,83 +26,153 @@ def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 
-def test_calculate_distribution_handles_single_frame(module):
+def test_calculate_distribution_handles_single_frame(module: CSOracle):
     module.state = Mock()
     module.state.frames = [(1, 2)]
-    blockstamp = Mock()
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
+    last_report = Mock(strikes={}, rewards=[])
     module.module_validators_by_node_operators = Mock()
-    module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
-    module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    module._calculate_distribution_in_frame = Mock(return_value=({NodeOperatorId(1): 500}, Mock()))
+    module._get_performance_threshold = Mock(return_value=1)
+    module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500])
+    module.w3.csm.get_strikes_params = Mock(return_value=StrikesParams(lifetime=6, threshold=Mock()))
+    module._calculate_distribution_in_frame = Mock(
+        return_value=(
+            # rewards
+            {
+                NodeOperatorId(1): 500,
+            },
+            # strikes
+            {
+                (NodeOperatorId(0), b"42"): 1,
+                (NodeOperatorId(2), b"17"): 2,
+            },
+        )
+    )
 
-    total_distributed, total_rewards, logs = module.calculate_distribution(blockstamp)
+    (
+        total_distributed,
+        total_rewards,
+        strikes,
+        logs,
+    ) = module.calculate_distribution(blockstamp, last_report)
 
     assert total_distributed == 500
     assert total_rewards[NodeOperatorId(1)] == 500
+    assert strikes == {
+        (NodeOperatorId(0), b"42"): [1, 0, 0, 0, 0, 0],
+        (NodeOperatorId(2), b"17"): [2, 0, 0, 0, 0, 0],
+    }
     assert len(logs) == 1
 
 
-def test_calculate_distribution_handles_multiple_frames(module):
+def test_calculate_distribution_handles_multiple_frames(module: CSOracle):
     module.state = Mock()
     module.state.frames = [(1, 2), (3, 4), (5, 6)]
     blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
+    last_report = Mock(strikes={}, rewards=[])
     module.module_validators_by_node_operators = Mock()
     module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
-    module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=800)
+    module._get_performance_threshold = Mock(return_value=1)
+    module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500, 1500, 1600])
+    module.w3.csm.get_strikes_params = Mock(return_value=StrikesParams(lifetime=6, threshold=Mock()))
     module._calculate_distribution_in_frame = Mock(
         side_effect=[
-            ({NodeOperatorId(1): 500}, Mock()),
-            ({NodeOperatorId(1): 136}, Mock()),
-            ({NodeOperatorId(1): 164}, Mock()),
+            (
+                # rewards
+                {
+                    NodeOperatorId(1): 500,
+                },
+                # strikes
+                {
+                    (NodeOperatorId(0), b"42"): 1,
+                    (NodeOperatorId(2), b"17"): 2,
+                },
+            ),
+            (
+                # rewards
+                {
+                    NodeOperatorId(1): 136,
+                    NodeOperatorId(3): 777,
+                },
+                # strikes
+                {
+                    (NodeOperatorId(0), b"42"): 3,
+                },
+            ),
+            (
+                # rewards
+                {
+                    NodeOperatorId(1): 164,
+                },
+                # strikes
+                {
+                    (NodeOperatorId(2), b"17"): 4,
+                    (NodeOperatorId(2), b"18"): 1,
+                },
+            ),
         ]
     )
 
-    total_distributed, total_rewards, logs = module.calculate_distribution(blockstamp)
+    (
+        total_distributed,
+        total_rewards,
+        strikes,
+        logs,
+    ) = module.calculate_distribution(blockstamp, last_report)
 
-    assert total_distributed == 800
+    assert total_distributed == 800 + 777
     assert total_rewards[NodeOperatorId(1)] == 800
-    assert len(logs) == 3
+    assert total_rewards[NodeOperatorId(3)] == 777
+    assert strikes == {
+        (NodeOperatorId(0), b"42"): [0, 3, 1, 0, 0, 0],
+        (NodeOperatorId(2), b"17"): [4, 0, 2, 0, 0, 0],
+        (NodeOperatorId(2), b"18"): [1, 0, 0, 0, 0, 0],
+    }
+    assert len(logs) == len(module.state.frames)
     module._get_ref_blockstamp_for_frame.assert_has_calls(
         [call(blockstamp, frame[1]) for frame in module.state.frames[1:]]
     )
 
 
-def test_calculate_distribution_handles_invalid_distribution(module):
+def test_calculate_distribution_handles_invalid_distribution(module: CSOracle):
     module.state = Mock()
     module.state.frames = [(1, 2)]
     blockstamp = Mock()
+    last_report = Mock(strikes={}, rewards=[])
     module.module_validators_by_node_operators = Mock()
     module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
+    module._get_performance_threshold = Mock(return_value=1)
     module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    module._calculate_distribution_in_frame = Mock(return_value=({NodeOperatorId(1): 600}, Mock()))
+    module._calculate_distribution_in_frame = Mock(return_value=({NodeOperatorId(1): 600}, {}))
 
     with pytest.raises(CSMError, match="Invalid distribution"):
-        module.calculate_distribution(blockstamp)
+        module.calculate_distribution(blockstamp, last_report)
 
 
-def test_calculate_distribution_in_frame_handles_no_attestation_duty(module):
+def test_calculate_distribution_in_frame_handles_no_attestation_duty(module: CSOracle):
     frame = Mock()
-    blockstamp = Mock()
+    threshold = 1.0
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
     module.state = State()
     module.state.data = {frame: defaultdict(AttestationsAccumulator)}
-    module._get_performance_threshold = Mock()
+    log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, log = module._calculate_distribution_in_frame(
-        frame, blockstamp, rewards_to_distribute, operators_to_validators
+    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
+        frame, threshold, rewards_to_distribute, operators_to_validators, log
     )
 
     assert rewards_distribution[node_operator_id] == 0
     assert log.operators[node_operator_id].distributed == 0
     assert log.operators[node_operator_id].validators == defaultdict(ValidatorFrameSummary)
+    assert not strikes_in_frame
 
 
-def test_calculate_distribution_in_frame_handles_above_threshold_performance(module):
+def test_calculate_distribution_in_frame_handles_above_threshold_performance(module: CSOracle):
     frame = Mock()
-    blockstamp = Mock()
+    threshold = 0.5
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = False
@@ -109,20 +181,21 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
     module.state = State()
     attestation_duty = AttestationsAccumulator(assigned=10, included=6)
     module.state.data = {frame: {validator.index: attestation_duty}}
-    module._get_performance_threshold = Mock(return_value=0.5)
+    log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, log = module._calculate_distribution_in_frame(
-        frame, blockstamp, rewards_to_distribute, operators_to_validators
+    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
+        frame, threshold, rewards_to_distribute, operators_to_validators, log
     )
 
     assert rewards_distribution[node_operator_id] > 0  # no need to check exact value
     assert log.operators[node_operator_id].distributed > 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
+    assert not strikes_in_frame
 
 
-def test_calculate_distribution_in_frame_handles_below_threshold_performance(module):
+def test_calculate_distribution_in_frame_handles_below_threshold_performance(module: CSOracle):
     frame = Mock()
-    blockstamp = Mock()
+    threshold = 0.5
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = False
@@ -132,14 +205,16 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     attestation_duty = AttestationsAccumulator(assigned=10, included=5)
     module.state.data = {frame: {validator.index: attestation_duty}}
     module._get_performance_threshold = Mock(return_value=0.5)
+    log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, log = module._calculate_distribution_in_frame(
-        frame, blockstamp, rewards_to_distribute, operators_to_validators
+    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
+        frame, threshold, rewards_to_distribute, operators_to_validators, log
     )
 
     assert rewards_distribution[node_operator_id] == 0
     assert log.operators[node_operator_id].distributed == 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
+    assert (node_operator_id, validator.pubkey) in strikes_in_frame
 
 
 def test_performance_threshold_calculates_correctly(module):
@@ -309,3 +384,74 @@ def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
 
     with pytest.raises(ValueError, match="Invalid rewards to distribute"):
         CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+
+
+@pytest.mark.parametrize(
+    ("acc", "strikes_in_frame", "threshold_per_op", "expected"),
+    [
+        pytest.param({}, {}, {}, {}, id="empty_acc_empty_strikes_in_frame"),
+        pytest.param(
+            {},
+            {
+                (NodeOperatorId(42), b"00"): 3,
+                (NodeOperatorId(17), b"01"): 1,
+            },
+            {
+                NodeOperatorId(42): Mock(lifetime=6),
+                NodeOperatorId(17): Mock(lifetime=4),
+            },
+            {
+                (NodeOperatorId(42), b"00"): [3, 0, 0, 0, 0, 0],
+                (NodeOperatorId(17), b"01"): [1, 0, 0, 0],
+            },
+            id="empty_acc_non_empty_strikes_in_frame",
+        ),
+        pytest.param(
+            {
+                (NodeOperatorId(42), b"00"): StrikesList([3, 0, 0, 0, 0, 0]),
+                (NodeOperatorId(17), b"01"): StrikesList([1, 0, 0, 0]),
+            },
+            {},
+            {
+                NodeOperatorId(42): Mock(lifetime=5),
+                NodeOperatorId(17): Mock(lifetime=4),
+            },
+            {
+                (NodeOperatorId(42), b"00"): [0, 3, 0, 0, 0],
+                (NodeOperatorId(17), b"01"): [0, 1, 0, 0],
+            },
+            id="non_empty_acc_empty_strikes_in_frame",
+        ),
+        pytest.param(
+            {
+                (NodeOperatorId(42), b"00"): StrikesList([3, 0, 0, 0, 0, 0]),
+                (NodeOperatorId(17), b"01"): StrikesList([1, 0, 0, 0]),
+            },
+            {
+                (NodeOperatorId(42), b"00"): 2,
+                (NodeOperatorId(18), b"02"): 1,
+            },
+            {
+                NodeOperatorId(42): Mock(lifetime=5),
+                NodeOperatorId(17): Mock(lifetime=4),
+                NodeOperatorId(18): Mock(lifetime=6),
+            },
+            {
+                (NodeOperatorId(42), b"00"): [2, 3, 0, 0, 0],
+                (NodeOperatorId(17), b"01"): [0, 1, 0, 0],
+                (NodeOperatorId(18), b"02"): [1, 0, 0, 0, 0, 0],
+            },
+            id="non_empty_acc_non_empty_strikes_in_frame",
+        ),
+    ],
+)
+def test_merge_strikes(
+    module: CSOracle,
+    acc: dict,
+    strikes_in_frame: dict,
+    threshold_per_op: dict,
+    expected: dict,
+):
+    module.w3.csm.get_strikes_params = Mock(side_effect=lambda no_id, _: threshold_per_op[no_id])
+    module._merge_strikes(acc, strikes_in_frame, frame_blockstamp=Mock())
+    assert acc == expected

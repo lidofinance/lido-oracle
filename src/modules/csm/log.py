@@ -14,6 +14,7 @@ class LogJSONEncoder(json.JSONEncoder): ...
 class ValidatorFrameSummary:
     attestation_duty: AttestationsAccumulator = field(default_factory=AttestationsAccumulator)
     slashed: bool = False
+    strikes: int = 0
 
 
 @dataclass
