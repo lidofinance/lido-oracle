@@ -256,13 +256,13 @@ def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blocks
             slashed=True,
             exit_epoch=exit_epoch + 1,
             withdrawable_epoch=non_withdrawable_epoch + 25,
-            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 20,
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 300,
         )
     )
-    safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 74)
+    safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 45)
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
     earliest_slashed_epoch = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
-    assert earliest_slashed_epoch == 740
+    assert earliest_slashed_epoch == 450
 
 
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_border, past_blockstamp):
