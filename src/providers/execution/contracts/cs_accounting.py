@@ -28,7 +28,7 @@ class CSAccountingContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    @lru_cache
+    @lru_cache()
     def get_bond_curve_id(self, node_operator_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest") -> int:
         """Returns the curve ID"""
 

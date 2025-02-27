@@ -66,9 +66,18 @@ class StrikesParams:
     threshold: int
 
 
+@dataclass
+class CurveParams:
+    perf_coeffs: PerformanceCoefficients
+    perf_leeway_data: PerformanceLeeway
+    reward_share_data: RewardShare
+    strikes_params: StrikesParams
+
+
 class CSParametersRegistryContract(ContractInterface):
     abi_path = "./assets/CSParametersRegistry.json"
 
+    @lru_cache()
     def get_performance_coefficients(
         self,
         curve_id: int,
@@ -86,6 +95,7 @@ class CSParametersRegistryContract(ContractInterface):
         )
         return PerformanceCoefficients(*resp)
 
+    @lru_cache()
     def get_reward_share_data(
         self,
         curve_id: int,
@@ -103,6 +113,7 @@ class CSParametersRegistryContract(ContractInterface):
         )
         return RewardShare(*resp)
 
+    @lru_cache()
     def get_performance_leeway_data(
         self,
         curve_id: int,
@@ -120,7 +131,7 @@ class CSParametersRegistryContract(ContractInterface):
         )
         return PerformanceLeeway(*resp)
 
-    @lru_cache
+    @lru_cache()
     def get_strikes_params(
         self,
         curve_id: int,

@@ -1,11 +1,12 @@
 import logging
 import math
 from collections import defaultdict
-from functools import lru_cache
+from dataclasses import dataclass
 
+from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, Frame, State
-from src.modules.csm.types import Shares
+from src.modules.csm.types import Shares, StrikesList, StrikesValidator
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
@@ -17,6 +18,19 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ValidatorDuties:
+    attestation: DutyAccumulator | None
+    proposal: DutyAccumulator | None
+    sync: DutyAccumulator | None
+
+
+@dataclass
+class ValidatorDutyOutcome:
+    rebate_share: int
+    strikes: int
+
+
 class Distribution:
     w3: Web3
     converter: Web3Converter
@@ -25,6 +39,7 @@ class Distribution:
     total_rewards: Shares
     total_rewards_map: defaultdict[NodeOperatorId, Shares]
     total_rebate: Shares
+    strikes: dict[StrikesValidator, StrikesList]
     logs: list[FramePerfLog]
 
     def __init__(self, w3: Web3, converter: Web3Converter, state: State):
@@ -35,13 +50,18 @@ class Distribution:
         self.total_rewards = 0
         self.total_rewards_map = defaultdict[NodeOperatorId, int](int)
         self.total_rebate = 0
+        self.strikes = {}
         self.logs: list[FramePerfLog] = []
 
-    def calculate(self, blockstamp: ReferenceBlockStamp) -> None:
+    def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> None:
         """Computes distribution of fee shares at the given timestamp"""
+
+        self.strikes.update(last_report.strikes.items())
+
         for frame in self.state.frames:
-            logger.info({"msg": f"Calculating distribution for {frame=}"})
-            _, to_epoch = frame
+            from_epoch, to_epoch = frame
+            logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
+
             frame_blockstamp = self._get_frame_blockstamp(blockstamp, to_epoch)
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
@@ -49,14 +69,21 @@ class Distribution:
             distributed_so_far = self.total_rewards + self.total_rebate
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
+            frame_log = FramePerfLog(blockstamp, frame)
             (
                 rewards_map_in_frame,
                 distributed_rewards_in_frame,
                 rebate_to_protocol_in_frame,
-                frame_log
+                strikes_in_frame
             ) = self._calculate_distribution_in_frame(
-                frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators
+                frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators, frame_log
             )
+            if not distributed_rewards_in_frame:
+                logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
+
+            self._merge_strikes(self.strikes, strikes_in_frame, frame_blockstamp)
+            if not strikes_in_frame:
+                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
             self.total_rewards += distributed_rewards_in_frame
             self.total_rebate += rebate_to_protocol_in_frame
@@ -70,6 +97,9 @@ class Distribution:
 
         if self.total_rewards != sum(self.total_rewards_map.values()):
             raise InconsistentData(f"Invalid distribution: {sum(self.total_rewards_map.values())=} != {self.total_rewards=}")
+
+        for no_id, last_report_rewards in last_report.rewards:
+            self.total_rewards_map[no_id] += last_report_rewards
 
     def _get_frame_blockstamp(self, blockstamp: ReferenceBlockStamp, to_epoch: EpochNumber) -> ReferenceBlockStamp:
         if to_epoch != blockstamp.ref_epoch:
@@ -97,10 +127,11 @@ class Distribution:
         blockstamp: ReferenceBlockStamp,
         rewards_to_distribute: Shares,
         operators_to_validators: ValidatorsByNodeOperator,
-    ) -> tuple[dict[NodeOperatorId, Shares], Shares, Shares, FramePerfLog]:
+        log: FramePerfLog,
+    ) -> tuple[dict[NodeOperatorId, Shares], Shares, Shares, dict[StrikesValidator, int]]:
         total_rebate_share = 0
         participation_shares: defaultdict[NodeOperatorId, Shares] = defaultdict(int)
-        log = FramePerfLog(blockstamp, frame)
+        frame_strikes: dict[StrikesValidator, int] = {}
 
         network_perf = self._get_network_performance(frame)
 
@@ -113,54 +144,46 @@ class Distribution:
             logger.info({"msg": f"Calculating distribution for {no_id=}"})
             log_operator = log.operators[no_id]
 
-            curve_id = self.w3.csm.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
-            perf_coeffs, perf_leeway, reward_share = self._get_curve_params(curve_id, blockstamp)
+            curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
 
             sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
             for key_number, validator in enumerate(sorted_active_validators):
-                key_threshold = max(network_perf - perf_leeway.get_for(key_number), 0)
-                key_reward_share = reward_share.get_for(key_number)
+                key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
+                key_reward_share = curve_params.reward_share_data.get_for(key_number)
 
                 att_duty = self.state.data[frame].attestations.get(validator.index)
                 prop_duty = self.state.data[frame].proposals.get(validator.index)
                 sync_duty = self.state.data[frame].syncs.get(validator.index)
 
-                # TODO: better naming
-                validator_rebate = self.process_validator_duties(
+                duties = ValidatorDuties(att_duty, prop_duty, sync_duty)
+
+                validator_duty_outcome = self.process_validator_duties(
                     validator,
-                    att_duty,
-                    prop_duty,
-                    sync_duty,
+                    duties,
                     key_threshold,
                     key_reward_share,
-                    perf_coeffs,
+                    curve_params.perf_coeffs,
                     participation_shares,
                     log_operator,
                 )
-                total_rebate_share += validator_rebate
+                if validator_duty_outcome.strikes:
+                    frame_strikes[(no_id, validator.pubkey)] = validator_duty_outcome.strikes
+                    log_operator.validators[validator.index].strikes = validator_duty_outcome.strikes
+                total_rebate_share += validator_duty_outcome.rebate_share
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(
             participation_shares, total_rebate_share, rewards_to_distribute
         )
-
-        for no_id, no_rewards in rewards_distribution.items():
-            log.operators[no_id].distributed = no_rewards
-
         distributed_rewards = sum(rewards_distribution.values())
         rebate_to_protocol = rewards_to_distribute - distributed_rewards
 
+        for no_id, no_rewards in rewards_distribution.items():
+            log.operators[no_id].distributed = no_rewards
         log.distributable = rewards_to_distribute
         log.distributed_rewards = distributed_rewards
         log.rebate_to_protocol = rebate_to_protocol
 
-        return rewards_distribution, distributed_rewards, rebate_to_protocol, log
-
-    @lru_cache()
-    def _get_curve_params(self, curve_id: int, blockstamp: ReferenceBlockStamp):
-        perf_coeffs = self.w3.csm.params.get_performance_coefficients(curve_id, blockstamp.block_hash)
-        perf_leeway_data = self.w3.csm.params.get_performance_leeway_data(curve_id, blockstamp.block_hash)
-        reward_share_data = self.w3.csm.params.get_reward_share_data(curve_id, blockstamp.block_hash)
-        return perf_coeffs, perf_leeway_data, reward_share_data
+        return rewards_distribution, distributed_rewards, rebate_to_protocol, frame_strikes
 
     def _get_network_performance(self, frame: Frame) -> float:
         att_perf = self.state.get_att_network_aggr(frame)
@@ -172,19 +195,17 @@ class Distribution:
     @staticmethod
     def process_validator_duties(
         validator: LidoValidator,
-        attestation: DutyAccumulator | None,
-        sync: DutyAccumulator | None,
-        proposal: DutyAccumulator | None,
+        duties: ValidatorDuties,
         threshold: float,
         reward_share: float,
         perf_coeffs: PerformanceCoefficients,
         participation_shares: defaultdict[NodeOperatorId, int],
         log_operator: OperatorFrameSummary,
-    ) -> int:
-        if attestation is None:
+    ) -> ValidatorDutyOutcome:
+        if duties.attestation is None:
             # It's possible that the validator is not assigned to any duty, hence it's performance
             # is not presented in the aggregates (e.g. exited, pending for activation etc).
-            return 0
+            return ValidatorDutyOutcome(rebate_share=0, strikes=0)
 
         log_validator = log_operator.validators[validator.index]
 
@@ -195,16 +216,16 @@ class Distribution:
             # It means that validator was active during the frame and got slashed and didn't meet the exit
             # epoch, so we should not count such validator for operator's share.
             log_validator.slashed = True
-            return 0
+            return ValidatorDutyOutcome(rebate_share=0, strikes=1)
 
-        performance = perf_coeffs.calc_performance(attestation, proposal, sync)
+        performance = perf_coeffs.calc_performance(duties.attestation, duties.proposal, duties.sync)
 
         log_validator.performance = performance
-        log_validator.attestation_duty = attestation
-        if proposal:
-            log_validator.proposal_duty = proposal
-        if sync:
-            log_validator.sync_duty = sync
+        log_validator.attestation_duty = duties.attestation
+        if duties.proposal:
+            log_validator.proposal_duty = duties.proposal
+        if duties.sync:
+            log_validator.sync_duty = duties.sync
 
         if performance > threshold:
             #
@@ -219,12 +240,15 @@ class Distribution:
             #    87.55 ≈ 88 of 103 participation shares should be counted for the operator key's reward.
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
-            participation_share = math.ceil(attestation.assigned * reward_share)
+            participation_share = math.ceil(duties.attestation.assigned * reward_share)
             participation_shares[validator.lido_id.operatorIndex] += participation_share
-            rebate_share = attestation.assigned - participation_share
-            return rebate_share
+            rebate_share = duties.attestation.assigned - participation_share
+            assert rebate_share >= 0, f"Invalid rebate share: {rebate_share=}"
+            return ValidatorDutyOutcome(rebate_share=rebate_share, strikes=0)
 
-        return 0
+        # In case of bad performance the validator should be striked and assigned attestations are not counted for
+        # the operator's reward and rebate, so rewards will be socialized between CSM operators.
+        return ValidatorDutyOutcome(rebate_share=0, strikes=1)
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
@@ -249,3 +273,24 @@ class Distribution:
             raise ValueError(
                 f"Invalid distribution: {total_distributed_rewards + total_rebate} > {total_rewards_to_distribute}"
             )
+
+    def _merge_strikes(
+        self,
+        acc: dict[StrikesValidator, StrikesList],
+        strikes_in_frame: dict[StrikesValidator, int],
+        frame_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        for key in strikes_in_frame:
+            if key not in acc:
+                acc[key] = StrikesList()
+            acc[key].push(strikes_in_frame[key])
+
+        for key in acc:
+            no_id, _ = key
+            if key not in strikes_in_frame:
+                acc[key].push(StrikesList.SENTINEL)  # Just shifting...
+            maxlen = self.w3.csm.get_curve_params(no_id, frame_blockstamp).strikes_params.lifetime
+            acc[key].resize(maxlen)
+            # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
+            if not sum(acc[key]):
+                del acc[key]
