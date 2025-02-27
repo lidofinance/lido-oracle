@@ -654,18 +654,14 @@ def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
 
 def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.data = {
-        (0, 31): Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
-    }
+    state.data = {(0, 31): Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))}
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_prop_network_aggr((0, 31))
 
 
 def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.data = {
-        (0, 31): Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
-    }
+    state.data = {(0, 31): Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))}
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_sync_network_aggr((0, 31))
 

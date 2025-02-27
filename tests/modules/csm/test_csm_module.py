@@ -34,6 +34,7 @@ def module(web3, csm: CSM):
 def test_init(module: CSOracle):
     assert module
 
+
 # Static functions you were dreaming of for so long.
 
 
@@ -408,7 +409,9 @@ class BuildReportTestParam:
                     return_value=Mock(
                         spec=Distribution,
                         total_rewards=6,
-                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
+                        total_rewards_map=defaultdict(
+                            int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}
+                        ),
                         total_rebate=1,
                         logs=[Mock()],
                     )
@@ -440,8 +443,9 @@ class BuildReportTestParam:
                     return_value=Mock(
                         spec=Distribution,
                         total_rewards=6,
-                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2,
-                                                            NodeOperatorId(3): 3}),
+                        total_rewards_map=defaultdict(
+                            int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}
+                        ),
                         total_rebate=1,
                         logs=[Mock()],
                     )

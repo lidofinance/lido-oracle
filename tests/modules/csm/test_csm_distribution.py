@@ -269,7 +269,9 @@ def test_process_validator_duty_handles_slashed_validator():
     prop_duty = DutyAccumulator(assigned=1, included=1)
     sync_duty = DutyAccumulator(assigned=1, included=1)
 
-    CSOracle.process_validator_duty(validator, attestation_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator)
+    CSOracle.process_validator_duty(
+        validator, attestation_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator
+    )
 
     assert participation_shares[validator.lido_id.operatorIndex] == 0
     assert log_operator.validators[validator.index].slashed is True
