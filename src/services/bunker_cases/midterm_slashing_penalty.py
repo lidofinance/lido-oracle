@@ -6,7 +6,7 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
+    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, MAX_EFFECTIVE_BALANCE,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -246,13 +246,32 @@ class MidtermSlashingPenalty:
                     validator, slashings, total_balance, midterm_penalty_epoch, report_ref_epoch
                 )
             else:
-                penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
+                penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_slashings(
                     validator, slashings, total_balance, midterm_penalty_epoch, report_ref_epoch
                 )
         return Gwei(penalty_in_frame)
 
     @staticmethod
     def get_validator_midterm_penalty(
+        validator: LidoValidator,
+        bound_slashed_validators_count: int,
+        total_balance: Gwei,
+    ) -> Gwei:
+        """
+        Calculate midterm penalty for particular validator
+        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings
+        """
+        # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
+        slashings = Gwei(bound_slashed_validators_count * MAX_EFFECTIVE_BALANCE)
+        adjusted_total_slashing_balance = min(slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
+        effective_balance = validator.validator.effective_balance
+        penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
+        penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
+
+        return Gwei(penalty)
+
+    @staticmethod
+    def get_validator_midterm_penalty_slashings(
         validator: LidoValidator,
         slashings: list[Gwei],
         total_balance: Gwei,

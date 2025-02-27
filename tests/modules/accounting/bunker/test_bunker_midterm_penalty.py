@@ -824,7 +824,7 @@ def test_cut_slashings_all_removed():
     ],
 )
 def test_get_validator_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
-    result = MidtermSlashingPenalty.get_validator_midterm_penalty(
+    result = MidtermSlashingPenalty.get_validator_midterm_penalty_slashings(
         simple_validators(0, 0)[0], bounded_slashings_count, active_validators_count * 32 * 10 ** 9
     )
 
