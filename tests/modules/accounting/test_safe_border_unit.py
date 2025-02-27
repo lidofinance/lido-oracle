@@ -214,6 +214,8 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 
 
 ###
+# Test should ensure that there is no filtering applied to the inputs of _find_earliest_slashed_epoch_rounded_to_frame.
+# Previously under some conditions we could trap into situation printed below, because of the exit_epoch filtering.
 # validator 1:
 # --|-------------|-------|-----|------------->
 #   initiate      slashed exit  withdrawable
@@ -230,7 +232,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     safe
 #     border
 ###
-def test_get_earliest_slashed_epoch_slashing_after_exit(safe_border, past_blockstamp, lido_validators):
+def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp, lido_validators):
     # in binary search:
     # start frame = 73
     # end frame = 101
