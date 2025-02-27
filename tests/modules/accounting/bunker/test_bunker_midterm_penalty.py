@@ -141,13 +141,14 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("blockstamp", "all_validators", "lido_validators", "report_cl_rebase", "expected_result"),
+    ("blockstamp", "all_validators", "lido_validators", "slashings", "report_cl_rebase", "expected_result"),
     [
         (
             # no one slashed
             simple_blockstamp(0),
             simple_validators(0, 50),
             simple_validators(0, 9),
+            [0] * EPOCHS_PER_SLASHINGS_VECTOR,
             0,
             False,
         ),
@@ -156,6 +157,7 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(0),
             [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
             simple_validators(0, 9),
+            [*([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 50)), *([32 * 10 ** 9] * 50)],
             0,
             False,
         ),
@@ -167,22 +169,25 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
                 *simple_validators(50, 99, slashed=True, exit_epoch="16084", withdrawable_epoch="16384"),
             ],
             simple_validators(50, 99, slashed=True, exit_epoch="16084", withdrawable_epoch="16384"),
+            [0] * EPOCHS_PER_SLASHINGS_VECTOR,
             0,
             False,
         ),
         (
             # one day since last report, penalty greater than report rebase
-            simple_blockstamp(225 * 32),
+            simple_blockstamp(225 * 32),  # 8160
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
+            [*([0] * 8110), *([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8160))],
             199 * 10 ** 9,
             True,
         ),
         (
             # three days since last report, penalty greater than frame rebase
-            simple_blockstamp(3 * 225 * 32),
+            simple_blockstamp(3 * 225 * 32),  # 24480, 24480 % 8192 = 8092
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
+            [*([0] * 8042), *([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8092))],
             3 * 199 * 10 ** 9,
             True,  # Because penalty is 200 * 10**9 than one frame rebase
         ),
@@ -191,6 +196,7 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
+            [],
             228_571_427_200,
             False,
         ),
@@ -199,13 +205,14 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
+            [],
             228_571_427_200 + 1,
             False,
         ),
     ],
 )
 def test_is_high_midterm_slashing_penalty_post_electra(
-    blockstamp, all_validators, lido_validators, report_cl_rebase, expected_result
+    blockstamp, all_validators, lido_validators, slashings, report_cl_rebase, expected_result
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
@@ -225,7 +232,7 @@ def test_is_high_midterm_slashing_penalty_post_electra(
         web3_converter,
         all_validators,
         lido_validators,
-        [],
+        slashings,
         report_cl_rebase,
         SlotNumber(0),
     )
