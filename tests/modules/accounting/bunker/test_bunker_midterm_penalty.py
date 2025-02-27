@@ -717,16 +717,25 @@ part_electra = [
     *simple_validators(10_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE),
 ]
 
-one_32eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE)
-one_2048eth = simple_validators(0, 0, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA)
-
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("slashings", "active_validators", "expected_penalty", "midterm_penalty_epoch", "report_ref_epoch"),
     [
-        ([], half_electra, 5888, 1, 1),
-        ([], part_electra, 84_928, 1, 1),
+        (
+            [*([MAX_EFFECTIVE_BALANCE] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100)), *([MAX_EFFECTIVE_BALANCE_ELECTRA] * 50)],
+            half_electra,
+            19199968,
+            4010,
+            225
+        ),
+        (
+            [*([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100)), *([32 * 10 ** 9] * 50)],
+            part_electra,
+            8_495_072,
+            4010,
+            225
+        ),
     ],
 )
 def test_get_validator_midterm_penalty_electra(slashings, active_validators, expected_penalty, midterm_penalty_epoch, report_ref_epoch):
@@ -734,8 +743,8 @@ def test_get_validator_midterm_penalty_electra(slashings, active_validators, exp
         validator=simple_validators(0, 0)[0],
         slashings=slashings,
         total_balance=Gwei(sum(v.validator.effective_balance for v in active_validators)),
-        midterm_penalty_epoch=EpochNumber(EPOCHS_PER_SLASHINGS_VECTOR + 10),
-        report_ref_epoch=EpochNumber(0),
+        midterm_penalty_epoch=midterm_penalty_epoch,
+        report_ref_epoch=report_ref_epoch,
     )
 
     assert result == expected_penalty
