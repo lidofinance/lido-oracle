@@ -19,7 +19,6 @@ from src.providers.execution.contracts.cs_parameters_registry import CSParameter
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, NodeOperatorId, SlotNumber
-from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,6 @@ class CSM(Module):
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-    @lru_cache
     def get_strikes_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> StrikesParams:
         curve_id = self.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
         return self.params.get_strikes_params(curve_id, blockstamp.block_hash)
