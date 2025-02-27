@@ -480,7 +480,13 @@ class BuildReportTestParam:
                         spec=Distribution,
                         total_rewards=6,
                         total_rewards_map=defaultdict(
-                            int, {NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3}
+                            int,
+                            {
+                                NodeOperatorId(0): 101,
+                                NodeOperatorId(1): 202,
+                                NodeOperatorId(2): 300,
+                                NodeOperatorId(3): 3,
+                            },
                         ),
                         total_rebate=1,
                         strikes=defaultdict(dict),
