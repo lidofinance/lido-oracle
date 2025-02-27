@@ -290,11 +290,11 @@ class MidtermSlashingPenalty:
         Calculate midterm penalty for particular validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-process_slashings
         """
-        slashings = sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch))
-        adjusted_total_slashing_balance = min(
+        slashings = Gwei(sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)))
+        adjusted_total_slashing_balance = Gwei(min(
             slashings * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
             total_balance,
-        )
+        ))
         effective_balance = validator.validator.effective_balance
         increment = EFFECTIVE_BALANCE_INCREMENT
         penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (total_balance // increment)
