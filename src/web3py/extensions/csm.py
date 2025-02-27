@@ -15,9 +15,10 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, StrikesParams
+from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.types import BlockStamp, SlotNumber
+from src.types import BlockStamp, NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class CSM(Module):
     oracle: CSFeeOracleContract
     accounting: CSAccountingContract
     fee_distributor: CSFeeDistributorContract
+    strikes: CSStrikesContract
     module: CSModuleContract
     params: CSParametersRegistryContract
 
@@ -40,14 +42,27 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
-    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+    def get_rewards_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         return self.fee_distributor.tree_root(blockstamp.block_hash)
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
+    def get_rewards_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         if result == "":
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
+
+    def get_strikes_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+        return self.strikes.tree_root(blockstamp.block_hash)
+
+    def get_strikes_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
+        result = self.strikes.tree_cid(blockstamp.block_hash)
+        if result == "":
+            return None
+        return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
+
+    def get_strikes_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> StrikesParams:
+        curve_id = self.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
+        return self.params.get_strikes_params(curve_id, blockstamp.block_hash)
 
     def _load_contracts(self) -> None:
         try:
@@ -91,6 +106,15 @@ class CSM(Module):
                 CSFeeOracleContract,
                 self.w3.eth.contract(
                     address=self.fee_distributor.oracle(),
+                    ContractFactoryClass=CSFeeOracleContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.strikes = cast(
+                CSStrikesContract,
+                self.w3.eth.contract(
+                    address=self.oracle.strikes(),
                     ContractFactoryClass=CSFeeOracleContract,
                     decode_tuples=True,
                 ),

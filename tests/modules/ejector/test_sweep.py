@@ -1,10 +1,10 @@
 import math
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 import src.modules.ejector.sweep as sweep_module
-from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX, MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
+from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,

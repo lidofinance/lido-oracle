@@ -17,6 +17,7 @@ class ValidatorFrameSummary:
     threshold: float = 0.0
     rewards_share: float = 0.0
     slashed: bool = False
+    strikes: int = 0
     attestation_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
     proposal_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
     sync_duty: DutyAccumulator = field(default_factory=DutyAccumulator)

@@ -1,5 +1,8 @@
 import logging
-from typing import Iterator
+from collections import defaultdict
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Iterable, Self
 
 from hexbytes import HexBytes
 
@@ -12,10 +15,10 @@ from src.metrics.prometheus.csm import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
 from src.modules.csm.distribution import Distribution
-from src.modules.csm.log import FramePerfLog
-from src.modules.csm.state import State
-from src.modules.csm.tree import Tree
-from src.modules.csm.types import ReportData, Shares
+from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
+from src.modules.csm.state import Frame, State
+from src.modules.csm.tree import RewardsTree, StrikesTree, Tree
+from src.modules.csm.types import ReportData, RewardsTreeLeaf, Shares, StrikesList
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
@@ -42,6 +45,9 @@ class NoModuleFound(Exception):
 
 class CSMError(Exception):
     """Unrecoverable error in CSM module"""
+
+
+type StrikesValidator = tuple[NodeOperatorId, HexBytes]
 
 
 class CSOracle(BaseModule, ConsensusModule):
@@ -89,55 +95,42 @@ class CSOracle(BaseModule, ConsensusModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
-        prev_cid = self.w3.csm.get_csm_tree_cid(blockstamp)
+        last_report = self._get_last_report(blockstamp)
+        rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
+        strikes_tree_root, strikes_cid = last_report.strikes_tree_root, last_report.strikes_tree_cid
 
-        if (prev_cid is None) != (prev_root == ZERO_HASH):
-            raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
+        distribution = self.calculate_distribution(blockstamp, last_report)
 
-        distribution = self.calculate_distribution(blockstamp)
+        if distribution.total_rewards:
+            rewards_tree = self.make_rewards_tree(distribution.total_rewards_map)
+            rewards_tree_root = rewards_tree.root
+            rewards_cid = self.publish_tree(rewards_tree)
 
-        logs_cid = self.publish_log(distribution.logs)
-
-        if not distribution.total_rewards and not distribution.total_rewards_map:
-            logger.info({"msg": f"No rewards distributed in the current frame. {distribution.total_rebate=}"})
-            return ReportData(
-                self.get_consensus_version(blockstamp),
-                blockstamp.ref_slot,
-                tree_root=prev_root,
-                tree_cid=prev_cid or "",
-                log_cid=logs_cid,
-                distributed=0,
-                rebate=distribution.total_rebate,
-                strikes_tree_root=HexBytes(ZERO_HASH),
-                strikes_tree_cid="",
-            ).as_tuple()
-
-        if prev_cid and prev_root != ZERO_HASH:
-            # Update cumulative amount of stETH shares for all operators.
-            for no_id, accumulated_rewards in self.get_accumulated_rewards(prev_cid, prev_root):
-                distribution.total_rewards_map[no_id] += accumulated_rewards
+        if distribution.strikes:
+            strikes_tree = self.make_strikes_tree(distribution.strikes)
+            strikes_tree_root = strikes_tree.root
+            strikes_cid = self.publish_tree(strikes_tree)
         else:
-            logger.info({"msg": "No previous distribution. Nothing to accumulate"})
+            strikes_tree_root = HexBytes(ZERO_HASH)
+            strikes_cid = None
 
-        tree = self.make_tree(distribution.total_rewards_map)
-        tree_cid = self.publish_tree(tree)
+        logs_cid = self.publish_log(logs)
 
         return ReportData(
             self.get_consensus_version(blockstamp),
             blockstamp.ref_slot,
-            tree_root=tree.root,
-            tree_cid=tree_cid,
+            tree_root=rewards_tree_root,
+            tree_cid=rewards_cid or "",
             log_cid=logs_cid,
             distributed=distribution.total_rewards,
             rebate=distribution.total_rebate,
-            strikes_tree_root=HexBytes(ZERO_HASH),
-            strikes_tree_cid="",
+            strikes_tree_root=strikes_tree_root,
+            strikes_tree_cid=strikes_cid or "",
         ).as_tuple()
 
-    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> Distribution:
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: "LastReport") -> Distribution:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        distribution.calculate(blockstamp)
+        distribution.calculate(blockstamp, last_report)
         return distribution
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -220,19 +213,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         return self.state.is_fulfilled
 
-    def get_accumulated_rewards(self, cid: CID, root: HexBytes) -> Iterator[tuple[NodeOperatorId, Shares]]:
-        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(cid)})
-        tree = Tree.decode(self.w3.ipfs.fetch(cid))
-
-        logger.info({"msg": "Restored tree from IPFS dump", "root": repr(tree.root)})
-
-        if tree.root != root:
-            raise ValueError("Unexpected tree root got from IPFS dump")
-
-        for v in tree.tree.values:
-            yield v["value"]
-
-    def make_tree(self, shares: dict[NodeOperatorId, Shares]) -> Tree:
+    def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
         if not shares:
             raise ValueError("No shares to build a tree")
 
@@ -246,8 +227,26 @@ class CSOracle(BaseModule, ConsensusModule):
         if stone in shares and len(shares) > 2:
             shares.pop(stone)
 
-        tree = Tree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
-        logger.info({"msg": "New tree built for the report", "root": repr(tree.root)})
+        tree = RewardsTree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+        logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
+        return tree
+
+    def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]):
+        if not strikes:
+            raise ValueError("No strikes to build a tree")
+
+        # XXX: We put a stone here to make sure, that even with only 1 validator in the tree, it's
+        # still possible to report strikes. The CSStrikes contract reverts if the proof's length
+        # is zero, which is the case when the tree has only one leaf.
+        stone = (NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT), HexBytes(b""))
+        strikes[stone] = StrikesList()
+
+        # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
+        if stone in strikes and len(strikes) > 2:
+            strikes.pop(stone)
+
+        tree = StrikesTree.new(tuple((no_id, pubkey, strikes) for ((no_id, pubkey), strikes) in strikes.items()))
+        logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree
 
     def publish_tree(self, tree: Tree) -> CID:
@@ -307,3 +306,81 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
+
+
+@dataclass
+class LastReport:
+    w3: Web3
+    blockstamp: BlockStamp
+
+    rewards_tree_root: HexBytes
+    strikes_tree_root: HexBytes
+    rewards_tree_cid: CID | None
+    strikes_tree_cid: CID | None
+
+    @classmethod
+    def load(cls, w3: Web3, blockstamp: BlockStamp) -> Self:
+        rewards_tree_root = w3.csm.get_rewards_tree_root(blockstamp)
+        rewards_tree_cid = w3.csm.get_rewards_tree_cid(blockstamp)
+
+        if (rewards_tree_cid is None) != (rewards_tree_root == ZERO_HASH):
+            raise InconsistentData(f"Got inconsistent previous tree data: {rewards_tree_root=} {rewards_tree_cid=}")
+
+        strikes_tree_root = w3.csm.get_strikes_tree_root(blockstamp)
+        strikes_tree_cid = w3.csm.get_strikes_tree_cid(blockstamp)
+
+        if (strikes_tree_cid is None) != (strikes_tree_root == ZERO_HASH):
+            raise InconsistentData(f"Got inconsistent previous tree data: {strikes_tree_root=} {strikes_tree_cid=}")
+
+        return cls(
+            w3,
+            blockstamp,
+            rewards_tree_root,
+            strikes_tree_root,
+            rewards_tree_cid,
+            strikes_tree_cid,
+        )
+
+    @cached_property
+    def rewards(self) -> Iterable[RewardsTreeLeaf]:
+        if (self.rewards_tree_cid is None) != (self.rewards_tree_root == ZERO_HASH):
+            raise InconsistentData(
+                "Got inconsistent previous rewards tree data: "
+                f"tree_root={self.rewards_tree_root.hex()} tree_cid={self.rewards_tree_cid=}"
+            )
+
+        if self.rewards_tree_cid is None or self.rewards_tree_root == ZERO_HASH:
+            logger.info({"msg": f"No rewards distribution as of {self.blockstamp=}."})
+            return []
+
+        logger.info({"msg": "Fetching rewards tree by CID from IPFS", "cid": repr(self.rewards_tree_cid)})
+        tree = RewardsTree.decode(self.w3.ipfs.fetch(self.rewards_tree_cid))
+
+        logger.info({"msg": "Restored rewards tree from IPFS dump", "root": repr(tree.root)})
+
+        if tree.root != self.rewards_tree_root:
+            raise ValueError("Unexpected rewards tree root got from IPFS dump")
+
+        return tree.values
+
+    @cached_property
+    def strikes(self) -> dict[StrikesValidator, StrikesList]:
+        if (self.strikes_tree_cid is None) != (self.strikes_tree_root == ZERO_HASH):
+            raise InconsistentData(
+                "Got inconsistent previous strikes tree data: "
+                f"tree_root={self.strikes_tree_root.hex()} tree_cid={self.strikes_tree_cid=}"
+            )
+
+        if self.strikes_tree_cid is None or self.strikes_tree_root == ZERO_HASH:
+            logger.info({"msg": f"No strikes reported as of {self.blockstamp=}."})
+            return {}
+
+        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(self.strikes_tree_cid)})
+        tree = StrikesTree.decode(self.w3.ipfs.fetch(self.strikes_tree_cid))
+
+        logger.info({"msg": "Restored strikes tree from IPFS dump", "root": repr(tree.root)})
+
+        if tree.root != self.strikes_tree_root:
+            raise ValueError("Unexpected strikes tree root got from IPFS dump")
+
+        return {(no_id, pubkey): strikes for no_id, pubkey, strikes in tree.values}

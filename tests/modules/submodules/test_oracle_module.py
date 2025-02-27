@@ -1,5 +1,4 @@
 from unittest.mock import Mock, patch, MagicMock
-from typing import Type
 
 import pytest
 from requests.exceptions import ConnectionError as RequestsConnectionError
