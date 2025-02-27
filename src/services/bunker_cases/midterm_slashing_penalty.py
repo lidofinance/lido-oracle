@@ -311,6 +311,9 @@ class MidtermSlashingPenalty:
         @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
         """
+
+        if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
+            raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
         obsolete_indexes = {
             i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)
         }
