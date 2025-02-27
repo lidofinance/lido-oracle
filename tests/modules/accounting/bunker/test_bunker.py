@@ -174,16 +174,13 @@ class TestIsBunkerMode:
 
     @pytest.fixture
     def mock_get_state(self, bunker: BunkerService, mock_validators) -> BeaconStateView:
-        state = BeaconStateViewFactory.build_with_validators(
-            validators=mock_validators,
-            slashings=[]
-        )
+        state = BeaconStateViewFactory.build_with_validators(validators=mock_validators, slashings=[])
         bunker.w3.cc.get_state_view = Mock(return_value=state)
         return state
 
     @pytest.fixture
     def mock_total_supply(self, bunker: BunkerService) -> None:
-        bunker._get_total_supply = Mock(return_value=15 * 10 ** 18)
+        bunker._get_total_supply = Mock(return_value=15 * 10**18)
 
     @pytest.fixture
     def is_high_midterm_slashing_penalty(self, monkeypatch: pytest.MonkeyPatch) -> Iterable[Mock]:
@@ -210,9 +207,9 @@ class TestIsBunkerMode:
 @pytest.mark.parametrize(
     ("simulated_post_total_pooled_ether", "expected_rebase"),
     [
-        (15 * 10 ** 18, 0),
-        (12 * 10 ** 18, -3 * 10 ** 9),
-        (18 * 10 ** 18, 3 * 10 ** 9),
+        (15 * 10**18, 0),
+        (12 * 10**18, -3 * 10**9),
+        (18 * 10**18, 3 * 10**9),
     ],
 )
 def test_get_cl_rebase_for_frame(
@@ -221,7 +218,7 @@ def test_get_cl_rebase_for_frame(
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):
-    bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10 ** 18)
+    bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10**18)
 
     blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = LidoReportRebase(
