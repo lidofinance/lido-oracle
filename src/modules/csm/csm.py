@@ -118,6 +118,9 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree = self.make_strikes_tree(strikes)
             strikes_tree_root = strikes_tree.root
             strikes_cid = self.publish_tree(strikes_tree)
+        else:
+            strikes_tree_root = HexBytes(ZERO_HASH)
+            strikes_cid = None
 
         logs_cid = self.publish_log(logs)
 
