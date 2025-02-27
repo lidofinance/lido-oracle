@@ -549,6 +549,12 @@ class LastReport:
 
     @cached_property
     def rewards(self) -> Iterable[RewardsTreeLeaf]:
+        if (self.rewards_tree_cid is None) != (self.rewards_tree_root == ZERO_HASH):
+            raise InconsistentData(
+                "Got inconsistent previous rewards tree data: "
+                f"tree_root={self.rewards_tree_root.hex()} tree_cid={self.rewards_tree_cid=}"
+            )
+
         if self.rewards_tree_cid is None or self.rewards_tree_root == ZERO_HASH:
             logger.info({"msg": f"No rewards distribution as of {self.blockstamp=}."})
             return []
@@ -565,6 +571,12 @@ class LastReport:
 
     @cached_property
     def strikes(self) -> dict[StrikesValidator, StrikesList]:
+        if (self.strikes_tree_cid is None) != (self.strikes_tree_root == ZERO_HASH):
+            raise InconsistentData(
+                "Got inconsistent previous strikes tree data: "
+                f"tree_root={self.strikes_tree_root.hex()} tree_cid={self.strikes_tree_cid=}"
+            )
+
         if self.strikes_tree_cid is None or self.strikes_tree_root == ZERO_HASH:
             logger.info({"msg": f"No strikes reported as of {self.blockstamp=}."})
             return {}
