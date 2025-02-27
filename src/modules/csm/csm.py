@@ -232,8 +232,9 @@ class CSOracle(BaseModule, ConsensusModule):
 
         total_rewards = defaultdict[NodeOperatorId, Shares](Shares)
         total_distributed = Shares(0)
-        strikes = last_report.strikes
         logs: list[FramePerfLog] = []
+        strikes: dict[StrikesValidator, StrikesList] = {}
+        strikes.update(last_report.strikes.items())
 
         for frame in self.state.frames:
             from_epoch, to_epoch = frame
