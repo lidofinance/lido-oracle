@@ -277,8 +277,8 @@ class CSOracle(BaseModule, ConsensusModule):
         if total_distributed != sum(total_rewards.values()):
             raise InconsistentData(f"Invalid distribution: {sum(total_rewards.values())=} != {total_distributed=}")
 
-        for no_id, rewards in last_report.rewards:
-            total_rewards[no_id] += rewards
+        for no_id, last_report_rewards in last_report.rewards:
+            total_rewards[no_id] += last_report_rewards
 
         return total_distributed, total_rewards, strikes, logs
 
