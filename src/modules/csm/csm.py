@@ -95,8 +95,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if (prev_cid is None) != (prev_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {prev_root=} {prev_cid=}")
 
-        distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        distribution.calculate(blockstamp)
+        distribution = self.calculate_distribution(blockstamp)
 
         logs_cid = self.publish_log(distribution.logs)
 
@@ -135,6 +134,11 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root=HexBytes(ZERO_HASH),
             strikes_tree_cid="",
         ).as_tuple()
+
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> Distribution:
+        distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
+        distribution.calculate(blockstamp)
+        return distribution
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)

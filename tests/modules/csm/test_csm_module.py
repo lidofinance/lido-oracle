@@ -9,6 +9,7 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle
+from src.modules.csm.distribution import Distribution
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
@@ -382,20 +383,19 @@ class BuildReportTestParam:
                 prev_tree_cid=None,
                 prev_acc_shares=[],
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        0,
-                        # shares
-                        defaultdict(int),
-                        # log
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=0,
+                        total_rewards_map=defaultdict(int),
+                        total_rebate=0,
+                        logs=[Mock()],
                     )
                 ),
                 curr_tree_root=HexBytes(ZERO_HASH),
                 curr_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_tree_call_args=None,
-                expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0),
+                expected_func_result=(1, 100500, HexBytes(ZERO_HASH), "", CID("QmLOG"), 0, 0, HexBytes(ZERO_HASH), ""),
             ),
             id="empty_prev_report_and_no_new_distribution",
         ),
@@ -405,13 +405,12 @@ class BuildReportTestParam:
                 prev_tree_cid=None,
                 prev_acc_shares=[],
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        6,
-                        # shares
-                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
-                        # log
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=6,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
+                        total_rebate=1,
+                        logs=[Mock()],
                     )
                 ),
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -425,6 +424,9 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    1,
+                    HexBytes(ZERO_HASH),
+                    "",
                 ),
             ),
             id="empty_prev_report_and_new_distribution",
@@ -435,13 +437,13 @@ class BuildReportTestParam:
                 prev_tree_cid=CID("QmOLD_TREE"),
                 prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        6,
-                        # shares
-                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(3): 3}),
-                        # log
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=6,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2,
+                                                            NodeOperatorId(3): 3}),
+                        total_rebate=1,
+                        logs=[Mock()],
                     )
                 ),
                 curr_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -457,6 +459,9 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    1,
+                    HexBytes(ZERO_HASH),
+                    "",
                 ),
             ),
             id="non_empty_prev_report_and_new_distribution",
@@ -467,13 +472,12 @@ class BuildReportTestParam:
                 prev_tree_cid=CID("QmOLD_TREE"),
                 prev_acc_shares=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        0,
-                        # shares
-                        defaultdict(int),
-                        # log
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=0,
+                        total_rewards_map=defaultdict(int),
+                        total_rebate=0,
+                        logs=[Mock()],
                     )
                 ),
                 curr_tree_root=HexBytes(32),
@@ -487,6 +491,9 @@ class BuildReportTestParam:
                     CID("QmOLD_TREE"),
                     CID("QmLOG"),
                     0,
+                    0,
+                    HexBytes(ZERO_HASH),
+                    "",
                 ),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
