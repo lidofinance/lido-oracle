@@ -1,5 +1,4 @@
 import math
-import sys
 from typing import Iterable
 
 from eth_typing import HexStr
@@ -150,7 +149,8 @@ class SafeBorder(Web3Converter):
             if not predicted_epoch:
                 return self._find_earliest_slashed_epoch_rounded_to_frame(validators_slashed_non_withdrawable)
 
-            earliest_predicted_epoch = min(earliest_predicted_epoch or EpochNumber(sys.maxsize), predicted_epoch)
+            if not earliest_predicted_epoch or earliest_predicted_epoch > predicted_epoch:
+                earliest_predicted_epoch = predicted_epoch
 
         return earliest_predicted_epoch
 
@@ -177,9 +177,9 @@ class SafeBorder(Web3Converter):
         Returns the earliest slashed epoch for the given validators rounded to the frame
         """
         last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
+        earliest_activation_epoch = min((v.validator.activation_epoch for v in validators), default=0)
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
-        earliest_activation_epoch = min((v.validator.activation_epoch for v in validators), default=0)
         start_epoch = max(last_finalized_request_id_epoch, earliest_activation_epoch)
 
         # We can stop searching for the slashed epoch when we reach the reference epoch
