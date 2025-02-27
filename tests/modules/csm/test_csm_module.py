@@ -10,12 +10,13 @@ from hexbytes import HexBytes
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle, LastReport
 from src.modules.csm.state import State
-from src.modules.csm.tree import RewardsTree
+from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
+from src.utils.types import hex_str_to_bytes
 from src.web3py.extensions.csm import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -616,54 +617,6 @@ def test_execute_module_processed(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
 
 
-@pytest.fixture()
-def rewards_tree():
-    return RewardsTree.new(
-        [
-            (NodeOperatorId(0), 0),
-            (NodeOperatorId(1), 1),
-            (NodeOperatorId(2), 42),
-            (NodeOperatorId(UINT64_MAX), 0),
-        ]
-    )
-
-
-def test_last_report_rewards(web3: Web3, rewards_tree: RewardsTree):
-    encoded_tree = rewards_tree.encode()
-    web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
-
-    last_report = LastReport(
-        w3=web3,
-        blockstamp=Mock(),
-        rewards_tree_root=rewards_tree.root,
-        strikes_tree_root=Mock(),
-        rewards_tree_cid=CID("QmRT"),
-        strikes_tree_cid=Mock(),
-    )
-
-    for value in rewards_tree.values:
-        assert value in last_report.rewards
-
-    web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
-
-
-def test_get_accumulated_shares_unexpected_root(web3: Web3, rewards_tree: RewardsTree):
-    encoded_tree = rewards_tree.encode()
-    web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
-
-    last_report = LastReport(
-        w3=web3,
-        blockstamp=Mock(),
-        rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
-        strikes_tree_root=Mock(),
-        rewards_tree_cid=CID("QmRT"),
-        strikes_tree_cid=Mock(),
-    )
-
-    with pytest.raises(ValueError, match="tree root"):
-        last_report.rewards
-
-
 @dataclass(frozen=True)
 class RewardsTreeTestParam:
     shares: dict[NodeOperatorId, int]
@@ -804,3 +757,151 @@ def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
 
     tree = module.make_strikes_tree(param.strikes)
     assert tree.values == param.expected_tree_values
+
+
+class TestLastReport:
+    @pytest.mark.usefixtures("csm")
+    def test_load(self, web3: Web3):
+        blockstamp = Mock()
+
+        web3.csm.get_rewards_tree_root = Mock(return_value=HexBytes(b"42"))
+        web3.csm.get_rewards_tree_cid = Mock(return_value=CID("QmRT"))
+        web3.csm.get_strikes_tree_root = Mock(return_value=HexBytes(b"17"))
+        web3.csm.get_strikes_tree_cid = Mock(return_value=CID("QmST"))
+
+        last_report = LastReport.load(web3, blockstamp)
+
+        web3.csm.get_rewards_tree_root.assert_called_once_with(blockstamp)
+        web3.csm.get_rewards_tree_cid.assert_called_once_with(blockstamp)
+        web3.csm.get_strikes_tree_root.assert_called_once_with(blockstamp)
+        web3.csm.get_strikes_tree_cid.assert_called_once_with(blockstamp)
+
+        assert last_report.rewards_tree_root == HexBytes(b"42")
+        assert last_report.rewards_tree_cid == CID("QmRT")
+        assert last_report.strikes_tree_root == HexBytes(b"17")
+        assert last_report.strikes_tree_cid == CID("QmST")
+
+    def test_get_rewards_empty(self, web3: Web3):
+        web3.ipfs = Mock(fetch=Mock())
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=HexBytes(ZERO_HASH),
+            strikes_tree_root=Mock(),
+            rewards_tree_cid=None,
+            strikes_tree_cid=Mock(),
+        )
+
+        assert last_report.rewards == []
+        web3.ipfs.fetch.assert_not_called()
+
+    def test_get_rewards_okay(self, web3: Web3, rewards_tree: RewardsTree):
+        encoded_tree = rewards_tree.encode()
+        web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=rewards_tree.root,
+            strikes_tree_root=Mock(),
+            rewards_tree_cid=CID("QmRT"),
+            strikes_tree_cid=Mock(),
+        )
+
+        for value in rewards_tree.values:
+            assert value in last_report.rewards
+
+        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
+
+    def test_get_rewards_unexpected_root(self, web3: Web3, rewards_tree: RewardsTree):
+        encoded_tree = rewards_tree.encode()
+        web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            strikes_tree_root=Mock(),
+            rewards_tree_cid=CID("QmRT"),
+            strikes_tree_cid=Mock(),
+        )
+
+        with pytest.raises(ValueError, match="tree root"):
+            last_report.rewards
+
+        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
+
+    def test_get_strikes_empty(self, web3: Web3):
+        web3.ipfs = Mock(fetch=Mock())
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=Mock(),
+            strikes_tree_root=HexBytes(ZERO_HASH),
+            rewards_tree_cid=Mock(),
+            strikes_tree_cid=None,
+        )
+
+        assert last_report.strikes == {}
+        web3.ipfs.fetch.assert_not_called()
+
+    def test_get_strikes_okay(self, web3: Web3, strikes_tree: StrikesTree):
+        encoded_tree = strikes_tree.encode()
+        web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=Mock(),
+            strikes_tree_root=strikes_tree.root,
+            rewards_tree_cid=Mock(),
+            strikes_tree_cid=CID("QmST"),
+        )
+
+        for no_id, pubkey, value in strikes_tree.values:
+            assert last_report.strikes[(no_id, pubkey)] == value
+
+        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid)
+
+    def test_get_strikes_unexpected_root(self, web3: Web3, strikes_tree: StrikesTree):
+        encoded_tree = strikes_tree.encode()
+        web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
+
+        last_report = LastReport(
+            w3=web3,
+            blockstamp=Mock(),
+            rewards_tree_root=Mock(),
+            strikes_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            rewards_tree_cid=Mock(),
+            strikes_tree_cid=CID("QmRT"),
+        )
+
+        with pytest.raises(ValueError, match="tree root"):
+            last_report.strikes
+
+        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid)
+
+    @pytest.fixture()
+    def rewards_tree(self) -> RewardsTree:
+        return RewardsTree.new(
+            [
+                (NodeOperatorId(0), 0),
+                (NodeOperatorId(1), 1),
+                (NodeOperatorId(2), 42),
+                (NodeOperatorId(UINT64_MAX), 0),
+            ]
+        )
+
+    @pytest.fixture()
+    def strikes_tree(self) -> StrikesTree:
+        return StrikesTree.new(
+            [
+                (NodeOperatorId(0), HexBytes(hex_str_to_bytes("0x00")), StrikesList([0])),
+                (NodeOperatorId(1), HexBytes(hex_str_to_bytes("0x01")), StrikesList([1])),
+                (NodeOperatorId(1), HexBytes(hex_str_to_bytes("0x02")), StrikesList([1])),
+                (NodeOperatorId(2), HexBytes(hex_str_to_bytes("0x03")), StrikesList([1])),
+                (NodeOperatorId(UINT64_MAX), HexBytes(hex_str_to_bytes("0x64")), StrikesList([1, 0, 1])),
+            ]
+        )

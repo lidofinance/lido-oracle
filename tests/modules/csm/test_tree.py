@@ -70,11 +70,11 @@ class TestStrikesTree(TreeTestBase[StrikesTreeLeaf]):
     @property
     def values(self) -> list[StrikesTreeLeaf]:
         return [
-            (NodeOperatorId(0), hex_str_to_bytes("0x00"), StrikesList([0])),
-            (NodeOperatorId(1), hex_str_to_bytes("0x01"), StrikesList([1])),
-            (NodeOperatorId(1), hex_str_to_bytes("0x02"), StrikesList([1])),
-            (NodeOperatorId(2), hex_str_to_bytes("0x03"), StrikesList([1])),
-            (NodeOperatorId(UINT64_MAX), hex_str_to_bytes("0x64"), StrikesList([1, 0, 1])),
+            (NodeOperatorId(0), HexBytes(hex_str_to_bytes("0x00")), StrikesList([0])),
+            (NodeOperatorId(1), HexBytes(hex_str_to_bytes("0x01")), StrikesList([1])),
+            (NodeOperatorId(1), HexBytes(hex_str_to_bytes("0x02")), StrikesList([1])),
+            (NodeOperatorId(2), HexBytes(hex_str_to_bytes("0x03")), StrikesList([1])),
+            (NodeOperatorId(UINT64_MAX), HexBytes(hex_str_to_bytes("0x64")), StrikesList([1, 0, 1])),
         ]
 
     def test_decoded_types(self, tree: StrikesTree) -> None:
