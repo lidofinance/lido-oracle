@@ -351,7 +351,7 @@ class ValidatorExitIterator:
                     no_stats.node_operator.id,
                 )
 
-                if no_stats.predictable_validators and self.exitable_validators[gid]:
+                if self.exitable_validators[gid]:
                     # When found Node Operator
                     self.index += 1
                     result.append((gid, self._eject_validator(gid)))
