@@ -346,6 +346,14 @@ class ValidatorExitIterator:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
+                gid = (
+                    no_stats.node_operator.staking_module.id,
+                    no_stats.node_operator.id,
+                )
+
+                if not self.exitable_validators[gid]:
+                    continue
+
                 if no_stats.predictable_validators:
                     # When found Node Operator
                     self.index += 1
