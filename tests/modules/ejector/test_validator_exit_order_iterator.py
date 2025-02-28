@@ -396,6 +396,11 @@ def test_get_remaining_forced_validators(iterator):
             force_exit_to=9,
             node_operator=NodeOperatorFactory.build(id=4, staking_module=sm),
         ),
+        (1, 5): NodeOperatorStatsFactory.build(
+            predictable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=5, staking_module=sm),
+        ),
     }
 
     iterator.exitable_validators = {
@@ -403,6 +408,7 @@ def test_get_remaining_forced_validators(iterator):
         (1, 2): [LidoValidatorFactory.build(index=5)],
         (1, 3): [LidoValidatorFactory.build(index=3)],
         (1, 4): [LidoValidatorFactory.build(index=4)],
+        (1, 5): [],
     }
 
     def _eject(self, gid):

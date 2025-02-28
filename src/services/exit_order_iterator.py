@@ -351,16 +351,9 @@ class ValidatorExitIterator:
                     no_stats.node_operator.id,
                 )
 
-                if not self.exitable_validators[gid]:
-                    continue
-
-                if no_stats.predictable_validators:
+                if no_stats.predictable_validators and self.exitable_validators[gid]:
                     # When found Node Operator
                     self.index += 1
-                    gid = (
-                        no_stats.node_operator.staking_module.id,
-                        no_stats.node_operator.id,
-                    )
                     result.append((gid, self._eject_validator(gid)))
                     break
 
