@@ -4,11 +4,13 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.accounting.types import LidoReportRebase
+from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
 from src.types import ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp
@@ -19,7 +21,7 @@ class TestIsBunkerMode:
     @pytest.mark.usefixtures(
         "contracts",
         "mock_get_config",
-        "mock_validators",
+        "mock_get_state",
     )
     def test_false_when_no_prev_report(
         self,
@@ -42,7 +44,7 @@ class TestIsBunkerMode:
     @pytest.mark.usefixtures(
         "contracts",
         "mock_get_config",
-        "mock_validators",
+        "mock_get_state",
     )
     def test_true_when_cl_rebase_is_negative(
         self,
@@ -70,7 +72,7 @@ class TestIsBunkerMode:
     @pytest.mark.usefixtures(
         "contracts",
         "mock_get_config",
-        "mock_validators",
+        "mock_get_state",
     )
     def test_true_when_high_midterm_slashing_penalty(
         self,
@@ -98,7 +100,7 @@ class TestIsBunkerMode:
     @pytest.mark.usefixtures(
         "contracts",
         "mock_get_config",
-        "mock_validators",
+        "mock_get_state",
     )
     def test_true_when_abnormal_cl_rebase(
         self,
@@ -127,7 +129,7 @@ class TestIsBunkerMode:
     @pytest.mark.usefixtures(
         "contracts",
         "mock_get_config",
-        "mock_validators",
+        "mock_get_state",
         "mock_total_supply",
     )
     def test_no_bunker_mode_by_default(
@@ -169,6 +171,12 @@ class TestIsBunkerMode:
         bunker.w3.cc.get_validators = Mock(return_value=validators)
         bunker.w3.lido_validators.get_lido_validators = Mock(return_value=validators[:2])
         return validators
+
+    @pytest.fixture
+    def mock_get_state(self, bunker: BunkerService, mock_validators) -> BeaconStateView:
+        state = BeaconStateViewFactory.build_with_validators(validators=mock_validators, slashings=[])
+        bunker.w3.cc.get_state_view = Mock(return_value=state)
+        return state
 
     @pytest.fixture
     def mock_total_supply(self, bunker: BunkerService) -> None:

@@ -3,25 +3,23 @@ import logging
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.validators import (
     ALL_VALIDATORS,
     LIDO_VALIDATORS,
     ALL_SLASHED_VALIDATORS,
     LIDO_SLASHED_VALIDATORS,
 )
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-
 from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
+from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
+from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
 from src.types import BlockStamp, ReferenceBlockStamp, Gwei
 from src.utils.units import wei_to_gwei
 from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +50,9 @@ class BunkerService:
     ) -> bool:
         """If any of cases is True, then bunker mode is ON"""
         bunker_config = self._get_config(blockstamp)
-        all_validators = self.w3.cc.get_validators(blockstamp)
+        state = self.w3.cc.get_state_view(blockstamp)
+        all_validators = state.indexed_validators
+        slashings = state.slashings
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         # Set metrics
@@ -83,6 +83,7 @@ class BunkerService:
             web3_converter,
             all_validators,
             lido_validators,
+            slashings,
             current_report_cl_rebase,
             last_report_ref_slot,
         )
