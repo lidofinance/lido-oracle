@@ -104,9 +104,9 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root = strikes_tree.root
             strikes_cid = self.publish_tree(strikes_tree)
             if strikes_tree_root == last_report.strikes_tree_root:
-                logger.warning({"msg": "Strikes tree root is the same as the previous one"})
+                logger.info({"msg": "Strikes tree root is the same as the previous one"})
             if strikes_cid == last_report.strikes_tree_cid:
-                logger.warning({"msg": "Strikes tree CID is the same as the previous one"})
+                logger.info({"msg": "Strikes tree CID is the same as the previous one"})
         else:
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
