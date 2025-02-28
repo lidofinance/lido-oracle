@@ -26,7 +26,8 @@ class ValidatorDuties:
 
 
 @dataclass
-class ValidatorDutyOutcome:
+class ValidatorDutiesOutcome:
+    participation_share: int
     rebate_share: int
     strikes: int
 
@@ -157,19 +158,19 @@ class Distribution:
 
                 duties = ValidatorDuties(att_duty, prop_duty, sync_duty)
 
-                validator_duty_outcome = self.process_validator_duties(
+                validator_duties_outcome = self.get_validator_duties_outcome(
                     validator,
                     duties,
                     key_threshold,
                     key_reward_share,
                     curve_params.perf_coeffs,
-                    participation_shares,
                     log_operator,
                 )
-                if validator_duty_outcome.strikes:
-                    frame_strikes[(no_id, validator.pubkey)] = validator_duty_outcome.strikes
-                    log_operator.validators[validator.index].strikes = validator_duty_outcome.strikes
-                total_rebate_share += validator_duty_outcome.rebate_share
+                if validator_duties_outcome.strikes:
+                    frame_strikes[(no_id, validator.pubkey)] = validator_duties_outcome.strikes
+                    log_operator.validators[validator.index].strikes = validator_duties_outcome.strikes
+                participation_shares[no_id] += validator_duties_outcome.participation_share
+                total_rebate_share += validator_duties_outcome.rebate_share
 
         rewards_distribution = self.calc_rewards_distribution_in_frame(
             participation_shares, total_rebate_share, rewards_to_distribute
@@ -193,19 +194,18 @@ class Distribution:
         return network_perf
 
     @staticmethod
-    def process_validator_duties(
+    def get_validator_duties_outcome(
         validator: LidoValidator,
         duties: ValidatorDuties,
         threshold: float,
         reward_share: float,
         perf_coeffs: PerformanceCoefficients,
-        participation_shares: defaultdict[NodeOperatorId, int],
         log_operator: OperatorFrameSummary,
-    ) -> ValidatorDutyOutcome:
+    ) -> ValidatorDutiesOutcome:
         if duties.attestation is None or duties.attestation.assigned == 0:
             # It's possible that the validator is not assigned to any duty, hence it's performance
             # is not presented in the aggregates (e.g. exited, pending for activation etc).
-            return ValidatorDutyOutcome(rebate_share=0, strikes=0)
+            return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=0)
 
         log_validator = log_operator.validators[validator.index]
 
@@ -216,7 +216,7 @@ class Distribution:
             # It means that validator was active during the frame and got slashed and didn't meet the exit
             # epoch, so we should not count such validator for operator's share.
             log_validator.slashed = True
-            return ValidatorDutyOutcome(rebate_share=0, strikes=1)
+            return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
 
         performance = perf_coeffs.calc_performance(duties.attestation, duties.proposal, duties.sync)
 
@@ -241,14 +241,13 @@ class Distribution:
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
             participation_share = math.ceil(duties.attestation.assigned * reward_share)
-            participation_shares[validator.lido_id.operatorIndex] += participation_share
             rebate_share = duties.attestation.assigned - participation_share
             assert rebate_share >= 0, f"Invalid rebate share: {rebate_share=}"
-            return ValidatorDutyOutcome(rebate_share=rebate_share, strikes=0)
+            return ValidatorDutiesOutcome(participation_share, rebate_share, strikes=0)
 
         # In case of bad performance the validator should be striked and assigned attestations are not counted for
         # the operator's reward and rebate, so rewards will be socialized between CSM operators.
-        return ValidatorDutyOutcome(rebate_share=0, strikes=1)
+        return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
 
     @staticmethod
     def calc_rewards_distribution_in_frame(

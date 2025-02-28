@@ -309,7 +309,6 @@ def test_process_validator_duty_handles_above_threshold_performance():
     validator.validator.slashed = False
     log_operator = Mock()
     log_operator.validators = defaultdict(ValidatorFrameSummary)
-    participation_shares = defaultdict(int)
     threshold = 0.5
     reward_share = 1
 
@@ -319,19 +318,18 @@ def test_process_validator_duty_handles_above_threshold_performance():
         sync=DutyAccumulator(assigned=10, included=6),
     )
 
-    outcome = Distribution.process_validator_duties(
+    outcome = Distribution.get_validator_duties_outcome(
         validator,
         validator_duties,
         threshold,
         reward_share,
         PerformanceCoefficients(),
-        participation_shares,
         log_operator,
     )
 
     assert outcome.strikes == 0
     assert outcome.rebate_share == 0
-    assert participation_shares[validator.lido_id.operatorIndex] == 10
+    assert outcome.participation_share == 10
     assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
     assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
     assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
@@ -342,7 +340,6 @@ def test_process_validator_duty_handles_below_threshold_performance():
     validator.validator.slashed = False
     log_operator = Mock()
     log_operator.validators = defaultdict(ValidatorFrameSummary)
-    participation_shares = defaultdict(int)
     threshold = 0.5
     reward_share = 1
 
@@ -352,52 +349,18 @@ def test_process_validator_duty_handles_below_threshold_performance():
         sync=DutyAccumulator(assigned=10, included=4),
     )
 
-    outcome = Distribution.process_validator_duties(
+    outcome = Distribution.get_validator_duties_outcome(
         validator,
         validator_duties,
         threshold,
         reward_share,
         PerformanceCoefficients(),
-        participation_shares,
         log_operator,
     )
 
     assert outcome.strikes == 1
     assert outcome.rebate_share == 0
-    assert participation_shares[validator.lido_id.operatorIndex] == 0
-    assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
-    assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
-    assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
-
-
-def test_process_validator_duty_handles_non_empy_participation_shares():
-    validator = LidoValidatorFactory.build()
-    validator.validator.slashed = False
-    log_operator = Mock()
-    log_operator.validators = defaultdict(ValidatorFrameSummary)
-    participation_shares = {validator.lido_id.operatorIndex: 25}
-    threshold = 0.5
-    reward_share = 1
-
-    validator_duties = ValidatorDuties(
-        attestation=DutyAccumulator(assigned=10, included=6),
-        proposal=DutyAccumulator(assigned=10, included=6),
-        sync=DutyAccumulator(assigned=10, included=6),
-    )
-
-    outcome = Distribution.process_validator_duties(
-        validator,
-        validator_duties,
-        threshold,
-        reward_share,
-        PerformanceCoefficients(),
-        participation_shares,
-        log_operator,
-    )
-
-    assert outcome.strikes == 0
-    assert outcome.rebate_share == 0
-    assert participation_shares[validator.lido_id.operatorIndex] == 35
+    assert outcome.participation_share == 0
     assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
     assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
     assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
@@ -407,25 +370,23 @@ def test_process_validator_duty_handles_no_duty_assigned():
     validator = LidoValidatorFactory.build()
     log_operator = Mock()
     log_operator.validators = defaultdict(ValidatorFrameSummary)
-    participation_shares = defaultdict(int)
     threshold = 0.5
     reward_share = 1
 
     validator_duties = ValidatorDuties(attestation=None, proposal=None, sync=None)
 
-    outcome = Distribution.process_validator_duties(
+    outcome = Distribution.get_validator_duties_outcome(
         validator,
         validator_duties,
         threshold,
         reward_share,
         PerformanceCoefficients(),
-        participation_shares,
         log_operator,
     )
 
     assert outcome.strikes == 0
     assert outcome.rebate_share == 0
-    assert participation_shares[validator.lido_id.operatorIndex] == 0
+    assert outcome.participation_share == 0
     assert validator.index not in log_operator.validators
 
 
@@ -434,7 +395,6 @@ def test_process_validator_duty_handles_slashed_validator():
     validator.validator.slashed = True
     log_operator = Mock()
     log_operator.validators = defaultdict(ValidatorFrameSummary)
-    participation_shares = defaultdict(int)
     threshold = 0.5
     reward_share = 1
 
@@ -444,19 +404,18 @@ def test_process_validator_duty_handles_slashed_validator():
         sync=DutyAccumulator(assigned=1, included=1),
     )
 
-    outcome = Distribution.process_validator_duties(
+    outcome = Distribution.get_validator_duties_outcome(
         validator,
         validator_duties,
         threshold,
         reward_share,
         PerformanceCoefficients(),
-        participation_shares,
         log_operator,
     )
 
     assert outcome.strikes == 1
     assert outcome.rebate_share == 0
-    assert participation_shares[validator.lido_id.operatorIndex] == 0
+    assert outcome.participation_share == 0
     assert log_operator.validators[validator.index].slashed is True
 
 
