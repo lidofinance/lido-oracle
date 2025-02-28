@@ -340,7 +340,7 @@ class ValidatorExitIterator:
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
         # Extra validators limited by VEBO report
-        while self.index != self.max_validators_to_exit:
+        while self.index < self.max_validators_to_exit:
             for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
                 if self._no_force_predicate(no_stats) == 0:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
@@ -356,6 +356,8 @@ class ValidatorExitIterator:
                     self.index += 1
                     result.append((gid, self._eject_validator(gid)))
                     break
+            else:
+                break
 
         return result
 
