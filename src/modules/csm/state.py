@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import batched
 from pathlib import Path
@@ -20,8 +20,8 @@ class InvalidState(ValueError):
 
 
 @dataclass
-class AttestationsAccumulator:
-    """Accumulator of attestations duties observed for a validator"""
+class DutyAccumulator:
+    """Accumulator of duties observed for a validator"""
 
     assigned: int = 0
     included: int = 0
@@ -34,9 +34,28 @@ class AttestationsAccumulator:
         self.assigned += 1
         self.included += 1 if included else 0
 
+    def merge(self, other: Self) -> None:
+        self.assigned += other.assigned
+        self.included += other.included
+
+
+@dataclass
+class Duties:
+    attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+    proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+    syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+
+    def merge(self, other: Self) -> None:
+        for val, duty in other.attestations.items():
+            self.attestations[val].merge(duty)
+        for val, duty in other.proposals.items():
+            self.proposals[val].merge(duty)
+        for val, duty in other.syncs.items():
+            self.syncs[val].merge(duty)
+
 
 type Frame = tuple[EpochNumber, EpochNumber]
-type StateData = dict[Frame, defaultdict[ValidatorIndex, AttestationsAccumulator]]
+type StateData = dict[Frame, Duties]
 
 
 class State:
@@ -98,7 +117,11 @@ class State:
 
     @property
     def is_empty(self) -> bool:
-        return not self.data and not self._epochs_to_process and not self._processed_epochs
+        return (
+            not self.data and
+            not self._epochs_to_process and
+            not self._processed_epochs
+        )
 
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
@@ -132,9 +155,17 @@ class State:
                 return epoch_range
         raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
-    def increment_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+    def increment_att_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
         frame = self.find_frame(epoch)
-        self.data[frame][val_index].add_duty(included)
+        self.data[frame].attestations[val_index].add_duty(included)
+
+    def increment_prop_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame].proposals[val_index].add_duty(included)
+
+    def increment_sync_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame].syncs[val_index].add_duty(included)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
@@ -168,7 +199,9 @@ class State:
 
     def _migrate_frames_data(self, new_frames: list[Frame]):
         logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
-        new_data: StateData = {frame: defaultdict(AttestationsAccumulator) for frame in new_frames}
+        new_data: StateData = {}
+        for frame in new_frames:
+            new_data[frame] = Duties()
 
         def overlaps(a: Frame, b: Frame):
             return a[0] <= b[0] and a[1] >= b[1]
@@ -179,9 +212,7 @@ class State:
                 if overlaps(new_frame, frame_to_consume):
                     assert frame_to_consume not in consumed
                     consumed.append(frame_to_consume)
-                    for val, duty in self.data[frame_to_consume].items():
-                        new_data[new_frame][val].assigned += duty.assigned
-                        new_data[new_frame][val].included += duty.included
+                    new_data[new_frame].merge(self.data[frame_to_consume])
         for frame in self.frames:
             if frame in consumed:
                 continue
@@ -201,20 +232,41 @@ class State:
             if epoch not in self._processed_epochs:
                 raise InvalidState(f"Epoch {epoch} missing in processed epochs")
 
-    def get_network_aggr(self, frame: Frame) -> AttestationsAccumulator:
+    def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation
-        included = assigned = 0
         frame_data = self.data.get(frame)
         if frame_data is None:
-            raise ValueError(f"No data for frame {frame} to calculate network aggregate")
-        for validator, acc in frame_data.items():
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.attestations)
+        logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_prop_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.proposals)
+        logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_sync_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self.get_duty_network_aggr(frame_data.syncs)
+        logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    @staticmethod
+    def get_duty_network_aggr(duty_frame_data: defaultdict[ValidatorIndex, DutyAccumulator]) -> DutyAccumulator:
+        included = assigned = 0
+        for validator, acc in duty_frame_data.items():
             if acc.included > acc.assigned:
                 raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
             included += acc.included
             assigned += acc.assigned
-        aggr = AttestationsAccumulator(
+        aggr = DutyAccumulator(
             included=included,
             assigned=assigned,
         )
-        logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr

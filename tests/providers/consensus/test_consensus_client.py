@@ -32,11 +32,14 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 
 
 @pytest.mark.integration
-def test_get_block_attestations(consensus_client: ConsensusClient):
+def test_get_block_attestations_and_sync(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
 
-    attestations = list(consensus_client.get_block_attestations(root))
+    attestations_and_syncs = consensus_client.get_block_attestations_and_sync(root)
+    assert attestations_and_syncs
+    attestations, syncs = attestations_and_syncs
     assert attestations
+    assert syncs
 
 
 @pytest.mark.integration

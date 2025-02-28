@@ -9,6 +9,8 @@ from src.types import NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 
+type StrikesValidator = tuple[NodeOperatorId, HexBytes]
+
 
 class StrikesList(Sequence[int]):
     """Deque-like structure to store strikes"""
@@ -58,6 +60,7 @@ class ReportData:
     tree_cid: CID | Literal[""]
     log_cid: CID
     distributed: int
+    rebate: int
     strikes_tree_root: HexBytes
     strikes_tree_cid: CID | Literal[""]
 
@@ -70,6 +73,7 @@ class ReportData:
             str(self.tree_cid),
             str(self.log_cid),
             self.distributed,
+            self.rebate,
             self.strikes_tree_root,
-            self.strikes_tree_cid,
+            str(self.strikes_tree_cid),
         )

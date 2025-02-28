@@ -15,7 +15,7 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, StrikesParams
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, NodeOperatorId, SlotNumber
@@ -60,9 +60,13 @@ class CSM(Module):
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-    def get_strikes_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> StrikesParams:
+    def get_curve_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> CurveParams:
         curve_id = self.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
-        return self.params.get_strikes_params(curve_id, blockstamp.block_hash)
+        perf_coeffs = self.params.get_performance_coefficients(curve_id, blockstamp.block_hash)
+        perf_leeway_data = self.params.get_performance_leeway_data(curve_id, blockstamp.block_hash)
+        reward_share_data = self.params.get_reward_share_data(curve_id, blockstamp.block_hash)
+        strikes_params = self.params.get_strikes_params(curve_id, blockstamp.block_hash)
+        return CurveParams(perf_coeffs, perf_leeway_data, reward_share_data, strikes_params)
 
     def _load_contracts(self) -> None:
         try:
@@ -115,7 +119,7 @@ class CSM(Module):
                 CSStrikesContract,
                 self.w3.eth.contract(
                     address=self.oracle.strikes(),
-                    ContractFactoryClass=CSFeeOracleContract,
+                    ContractFactoryClass=CSStrikesContract,
                     decode_tuples=True,
                 ),
             )

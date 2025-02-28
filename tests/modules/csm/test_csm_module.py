@@ -9,6 +9,7 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.csm.csm import CSOracle, LastReport
+from src.modules.csm.distribution import Distribution
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
@@ -21,11 +22,6 @@ from src.web3py.extensions.csm import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
-
-
-@pytest.fixture(autouse=True)
-def mock_get_staking_module(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(CSOracle, "_get_staking_module", Mock())
 
 
 @pytest.fixture(autouse=True)
@@ -396,15 +392,13 @@ class BuildReportTestParam:
                     strikes={},
                 ),
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        0,
-                        # shares
-                        defaultdict(int),
-                        # strikes
-                        defaultdict(dict),
-                        # logs
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=0,
+                        total_rewards_map=defaultdict(int),
+                        total_rebate=0,
+                        strikes=defaultdict(dict),
+                        logs=[Mock()],
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(ZERO_HASH),
@@ -419,6 +413,7 @@ class BuildReportTestParam:
                     HexBytes(ZERO_HASH),
                     "",
                     CID("QmLOG"),
+                    0,
                     0,
                     HexBytes(ZERO_HASH),
                     CID(""),
@@ -437,15 +432,15 @@ class BuildReportTestParam:
                     strikes={},
                 ),
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        6,
-                        # shares
-                        defaultdict(int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}),
-                        # strikes
-                        defaultdict(dict),
-                        # logs
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=6,
+                        total_rewards_map=defaultdict(
+                            int, {NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3}
+                        ),
+                        total_rebate=1,
+                        strikes=defaultdict(dict),
+                        logs=[Mock()],
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -463,6 +458,7 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    1,
                     HexBytes(ZERO_HASH),
                     CID(""),
                 ),
@@ -480,11 +476,10 @@ class BuildReportTestParam:
                     strikes={},
                 ),
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        6,
-                        # shares
-                        defaultdict(
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=6,
+                        total_rewards_map=defaultdict(
                             int,
                             {
                                 NodeOperatorId(0): 101,
@@ -493,10 +488,9 @@ class BuildReportTestParam:
                                 NodeOperatorId(3): 3,
                             },
                         ),
-                        # strikes
-                        defaultdict(dict),
-                        # logs
-                        Mock(),
+                        total_rebate=1,
+                        strikes=defaultdict(dict),
+                        logs=[Mock()],
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -514,6 +508,7 @@ class BuildReportTestParam:
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
+                    1,
                     HexBytes(ZERO_HASH),
                     CID(""),
                 ),
@@ -531,15 +526,13 @@ class BuildReportTestParam:
                     strikes={},
                 ),
                 curr_distribution=Mock(
-                    return_value=(
-                        # distributed
-                        0,
-                        # shares
-                        defaultdict(int),
-                        # strikes
-                        defaultdict(dict),
-                        # logs
-                        Mock(),
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=0,
+                        total_rewards_map=defaultdict(int),
+                        total_rebate=0,
+                        strikes=defaultdict(dict),
+                        logs=[Mock()],
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(32),
@@ -554,6 +547,7 @@ class BuildReportTestParam:
                     HexBytes("OLD_TREE_ROOT".encode()),
                     CID("QmOLD_TREE"),
                     CID("QmLOG"),
+                    0,
                     0,
                     HexBytes(ZERO_HASH),
                     CID(""),
