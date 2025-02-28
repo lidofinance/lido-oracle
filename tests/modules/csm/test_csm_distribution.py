@@ -1,16 +1,18 @@
 from collections import defaultdict
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 from web3.types import Wei
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSMError, CSOracle
+from src.modules.csm.csm import CSOracle
+from src.modules.csm.distribution import Distribution, ValidatorDuties
 from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, State
+from src.modules.csm.state import DutyAccumulator, State, Duties
 from src.modules.csm.types import StrikesList
-from src.providers.execution.contracts.cs_parameters_registry import StrikesParams
-from src.types import NodeOperatorId, ValidatorIndex
+from src.providers.execution.contracts.cs_parameters_registry import StrikesParams, PerformanceCoefficients
+from src.providers.execution.exceptions import InconsistentData
+from src.types import NodeOperatorId
 from src.web3py.extensions import CSM
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory
@@ -21,145 +23,183 @@ def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 
-def test_calculate_distribution_handles_single_frame(module: CSOracle):
+def test_calculate_distribution_handles_single_frame(module: CSOracle, monkeypatch):
+    module.converter = Mock()
     module.state = Mock()
     module.state.frames = [(1, 2)]
     blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
     last_report = Mock(strikes={}, rewards=[])
-    module.module_validators_by_node_operators = Mock()
-    module._get_performance_threshold = Mock(return_value=1)
+
     module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500])
-    module.w3.csm.get_strikes_params = Mock(return_value=StrikesParams(lifetime=6, threshold=Mock()))
-    module._calculate_distribution_in_frame = Mock(
-        return_value=(
-            # rewards
-            {
-                NodeOperatorId(1): 500,
-            },
-            # strikes
-            {
-                (NodeOperatorId(0), b"42"): 1,
-                (NodeOperatorId(2), b"17"): 2,
-            },
-        )
-    )
+    module.w3.csm.get_curve_params = Mock(return_value=Mock(strikes_params=StrikesParams(lifetime=6, threshold=Mock())))
+    module.w3.lido_validators = Mock(get_module_validators_by_node_operators=Mock(return_value={}))
 
-    (
-        total_distributed,
-        total_rewards,
-        strikes,
-        logs,
-    ) = module.calculate_distribution(blockstamp, last_report)
-
-    assert total_distributed == 500
-    assert total_rewards[NodeOperatorId(1)] == 500
-    assert strikes == {
-        (NodeOperatorId(0), b"42"): [1, 0, 0, 0, 0, 0],
-        (NodeOperatorId(2), b"17"): [2, 0, 0, 0, 0, 0],
-    }
-    assert len(logs) == 1
-
-
-def test_calculate_distribution_handles_multiple_frames(module: CSOracle):
-    module.state = Mock()
-    module.state.frames = [(1, 2), (3, 4), (5, 6)]
-    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
-    last_report = Mock(strikes={}, rewards=[])
-    module.module_validators_by_node_operators = Mock()
-    module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
-    module._get_performance_threshold = Mock(return_value=1)
-    module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500, 1500, 1600])
-    module.w3.csm.get_strikes_params = Mock(return_value=StrikesParams(lifetime=6, threshold=Mock()))
-    module._calculate_distribution_in_frame = Mock(
-        side_effect=[
-            (
+    monkeypatch.setattr(
+        Distribution,
+        "_calculate_distribution_in_frame",
+        Mock(
+            return_value=(
                 # rewards
                 {
                     NodeOperatorId(1): 500,
                 },
+                # distributed_rewards
+                500,
+                # rebate_to_protocol
+                0,
                 # strikes
                 {
                     (NodeOperatorId(0), b"42"): 1,
                     (NodeOperatorId(2), b"17"): 2,
                 },
-            ),
-            (
-                # rewards
-                {
-                    NodeOperatorId(1): 136,
-                    NodeOperatorId(3): 777,
-                },
-                # strikes
-                {
-                    (NodeOperatorId(0), b"42"): 3,
-                },
-            ),
-            (
-                # rewards
-                {
-                    NodeOperatorId(1): 164,
-                },
-                # strikes
-                {
-                    (NodeOperatorId(2), b"17"): 4,
-                    (NodeOperatorId(2), b"18"): 1,
-                },
-            ),
-        ]
+            )
+        ),
     )
 
-    (
-        total_distributed,
-        total_rewards,
-        strikes,
-        logs,
-    ) = module.calculate_distribution(blockstamp, last_report)
+    distribution = module.calculate_distribution(blockstamp, last_report)
 
-    assert total_distributed == 800 + 777
-    assert total_rewards[NodeOperatorId(1)] == 800
-    assert total_rewards[NodeOperatorId(3)] == 777
-    assert strikes == {
+    assert distribution.total_rewards == 500
+    assert distribution.total_rewards_map[NodeOperatorId(1)] == 500
+    assert distribution.strikes == {
+        (NodeOperatorId(0), b"42"): [1, 0, 0, 0, 0, 0],
+        (NodeOperatorId(2), b"17"): [2, 0, 0, 0, 0, 0],
+    }
+    assert len(distribution.logs) == 1
+
+
+def test_calculate_distribution_handles_multiple_frames(module: CSOracle, monkeypatch):
+    module.converter = Mock()
+    module.state = Mock()
+    module.state.frames = [(1, 2), (3, 4), (5, 6)]
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=2)
+    last_report = Mock(strikes={}, rewards=[])
+
+    module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500, 1500, 1600])
+    module.w3.csm.get_curve_params = Mock(return_value=Mock(strikes_params=StrikesParams(lifetime=6, threshold=Mock())))
+    module.w3.lido_validators = Mock(get_module_validators_by_node_operators=Mock(return_value={}))
+
+    monkeypatch.setattr(Distribution, "_get_ref_blockstamp_for_frame", Mock(return_value=blockstamp))
+    monkeypatch.setattr(
+        Distribution,
+        "_calculate_distribution_in_frame",
+        Mock(
+            side_effect=[
+                (
+                    # rewards
+                    {
+                        NodeOperatorId(1): 500,
+                    },
+                    # distributed_rewards
+                    500,
+                    # rebate_to_protocol
+                    0,
+                    # strikes
+                    {
+                        (NodeOperatorId(0), b"42"): 1,
+                        (NodeOperatorId(2), b"17"): 2,
+                    },
+                ),
+                (
+                    # rewards
+                    {
+                        NodeOperatorId(1): 136,
+                        NodeOperatorId(3): 777,
+                    },
+                    # distributed_rewards
+                    913,
+                    # rebate_to_protocol
+                    0,
+                    # strikes
+                    {
+                        (NodeOperatorId(0), b"42"): 3,
+                    },
+                ),
+                (
+                    # rewards
+                    {
+                        NodeOperatorId(1): 164,
+                    },
+                    # distributed_rewards
+                    164,
+                    # rebate_to_protocol
+                    0,
+                    # strikes
+                    {
+                        (NodeOperatorId(2), b"17"): 4,
+                        (NodeOperatorId(2), b"18"): 1,
+                    },
+                ),
+            ]
+        ),
+    )
+
+    distribution = module.calculate_distribution(blockstamp, last_report)
+
+    assert distribution.total_rewards == 800 + 777
+    assert distribution.total_rewards_map[NodeOperatorId(1)] == 800
+    assert distribution.total_rewards_map[NodeOperatorId(3)] == 777
+    assert distribution.strikes == {
         (NodeOperatorId(0), b"42"): [0, 3, 1, 0, 0, 0],
         (NodeOperatorId(2), b"17"): [4, 0, 2, 0, 0, 0],
         (NodeOperatorId(2), b"18"): [1, 0, 0, 0, 0, 0],
     }
-    assert len(logs) == len(module.state.frames)
-    module._get_ref_blockstamp_for_frame.assert_has_calls(
+    assert len(distribution.logs) == len(module.state.frames)
+    Distribution._get_ref_blockstamp_for_frame.assert_has_calls(
         [call(blockstamp, frame[1]) for frame in module.state.frames[1:]]
     )
 
 
-def test_calculate_distribution_handles_invalid_distribution(module: CSOracle):
+def test_calculate_distribution_handles_invalid_distribution(module: CSOracle, monkeypatch):
+    module.converter = Mock()
     module.state = Mock()
     module.state.frames = [(1, 2)]
     blockstamp = Mock()
     last_report = Mock(strikes={}, rewards=[])
-    module.module_validators_by_node_operators = Mock()
-    module._get_ref_blockstamp_for_frame = Mock(return_value=blockstamp)
-    module._get_performance_threshold = Mock(return_value=1)
-    module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    module._calculate_distribution_in_frame = Mock(return_value=({NodeOperatorId(1): 600}, {}))
 
-    with pytest.raises(CSMError, match="Invalid distribution"):
+    module.w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=[500])
+    module.w3.csm.get_curve_params = Mock(return_value=Mock(strikes_params=StrikesParams(lifetime=6, threshold=Mock())))
+    module.w3.lido_validators = Mock(get_module_validators_by_node_operators=Mock(return_value={}))
+    monkeypatch.setattr(Distribution, "_get_ref_blockstamp_for_frame", Mock(return_value=blockstamp))
+    monkeypatch.setattr(
+        Distribution,
+        "_calculate_distribution_in_frame",
+        Mock(
+            return_value=(
+                # rewards
+                {NodeOperatorId(1): 600},
+                # distributed_rewards
+                500,
+                # rebate_to_protocol
+                0,
+                # strikes
+                {},
+            )
+        ),
+    )
+
+    with pytest.raises(InconsistentData, match="Invalid distribution"):
         module.calculate_distribution(blockstamp, last_report)
 
 
-def test_calculate_distribution_in_frame_handles_no_any_duties(module: CSOracle):
-    frame = Mock()
-    threshold = 1.0
+def test_calculate_distribution_in_frame_handles_no_any_duties(module: CSOracle, monkeypatch):
+    frame = (1, 2)
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
-    module.state = State()
-    module.state.att_data = {frame: defaultdict(DutyAccumulator)}
-    module.state.prop_data = {frame: defaultdict(DutyAccumulator)}
-    module.state.sync_data = {frame: defaultdict(DutyAccumulator)}
-    module._get_performance_threshold = Mock()
+
+    state = State()
+    state.data = {frame: Duties()}
+    state.frames = [frame]
+    blockstamp = Mock()
+
     log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
-        frame, threshold, rewards_to_distribute, operators_to_validators, log
+    distribution = Distribution(module.w3, Mock(), state)
+    rewards_distribution, distributed_rewards, rebate_to_protocol, strikes_in_frame = (
+        distribution._calculate_distribution_in_frame(
+            frame, blockstamp, rewards_to_distribute, operators_to_validators, log
+        )
     )
 
     assert rewards_distribution[node_operator_id] == 0
@@ -170,26 +210,45 @@ def test_calculate_distribution_in_frame_handles_no_any_duties(module: CSOracle)
 
 def test_calculate_distribution_in_frame_handles_above_threshold_performance(module: CSOracle):
     frame = Mock()
-    threshold = 0.5
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = False
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
-    module.state = State()
+    state = State()
     attestation_duty = DutyAccumulator(assigned=10, included=6)
     proposal_duty = DutyAccumulator(assigned=10, included=6)
     sync_duty = DutyAccumulator(assigned=10, included=6)
-    module.state.att_data = {frame: {validator.index: attestation_duty}}
-    module.state.prop_data = {frame: {validator.index: proposal_duty}}
-    module.state.sync_data = {frame: {validator.index: sync_duty}}
-    module._get_performance_threshold = Mock(return_value=0.5)
+    state.data = {
+        frame: Duties(
+            attestations={validator.index: attestation_duty},
+            proposals={validator.index: proposal_duty},
+            syncs={validator.index: sync_duty},
+        )
+    }
+    state.frames = [frame]
+    blockstamp = Mock()
+
     log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
-        frame, threshold, rewards_to_distribute, operators_to_validators, log
+    module.w3.csm.get_curve_params = Mock(
+        return_value=Mock(
+            strikes_params=StrikesParams(lifetime=6, threshold=Mock()),
+            perf_leeway_data=Mock(get_for=Mock(return_value=0.1)),
+            reward_share_data=Mock(get_for=Mock(return_value=1)),
+            perf_coeffs=PerformanceCoefficients(),
+        )
     )
 
+    distribution = Distribution(module.w3, Mock(), state)
+    rewards_distribution, distributed_rewards, rebate_to_protocol, strikes_in_frame = (
+        distribution._calculate_distribution_in_frame(
+            frame, blockstamp, rewards_to_distribute, operators_to_validators, log
+        )
+    )
+
+    assert distributed_rewards > 0
+    assert rebate_to_protocol == 0
     assert rewards_distribution[node_operator_id] > 0  # no need to check exact value
     assert log.operators[node_operator_id].distributed > 0
     assert log.operators[node_operator_id].validators[validator.index].attestation_duty == attestation_duty
@@ -200,24 +259,41 @@ def test_calculate_distribution_in_frame_handles_above_threshold_performance(mod
 
 def test_calculate_distribution_in_frame_handles_below_threshold_performance(module: CSOracle):
     frame = Mock()
-    threshold = 0.5
     rewards_to_distribute = UINT64_MAX
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = False
     node_operator_id = validator.lido_id.operatorIndex
     operators_to_validators = {(Mock(), node_operator_id): [validator]}
-    module.state = State()
+    state = State()
     attestation_duty = DutyAccumulator(assigned=10, included=5)
     proposal_duty = DutyAccumulator(assigned=10, included=5)
     sync_duty = DutyAccumulator(assigned=10, included=5)
-    module.state.att_data = {frame: {validator.index: attestation_duty}}
-    module.state.prop_data = {frame: {validator.index: proposal_duty}}
-    module.state.sync_data = {frame: {validator.index: sync_duty}}
-    module._get_performance_threshold = Mock(return_value=0.5)
+    state.data = {
+        frame: Duties(
+            attestations={validator.index: attestation_duty},
+            proposals={validator.index: proposal_duty},
+            syncs={validator.index: sync_duty},
+        )
+    }
+    state.frames = [frame]
+    blockstamp = Mock()
+
     log = FramePerfLog(Mock(), frame)
 
-    rewards_distribution, strikes_in_frame = module._calculate_distribution_in_frame(
-        frame, threshold, rewards_to_distribute, operators_to_validators, log
+    module.w3.csm.get_curve_params = Mock(
+        return_value=Mock(
+            strikes_params=StrikesParams(lifetime=6, threshold=Mock()),
+            perf_leeway_data=Mock(get_for=Mock(return_value=-0.1)),
+            reward_share_data=Mock(get_for=Mock(return_value=1)),
+            perf_coeffs=PerformanceCoefficients(),
+        )
+    )
+
+    distribution = Distribution(module.w3, Mock(), state)
+    rewards_distribution, distributed_rewards, rebate_to_protocol, strikes_in_frame = (
+        distribution._calculate_distribution_in_frame(
+            frame, blockstamp, rewards_to_distribute, operators_to_validators, log
+        )
     )
 
     assert rewards_distribution[node_operator_id] == 0
@@ -228,51 +304,6 @@ def test_calculate_distribution_in_frame_handles_below_threshold_performance(mod
     assert (node_operator_id, validator.pubkey) in strikes_in_frame
 
 
-def test_performance_threshold_calculates_correctly(module):
-    state = State()
-    state.att_data = {
-        (0, 31): {
-            ValidatorIndex(1): DutyAccumulator(10, 10),
-            ValidatorIndex(2): DutyAccumulator(10, 10),
-        },
-    }
-    module.w3.csm.oracle.perf_leeway_bp.return_value = 500
-    module.state = state
-
-    threshold = module._get_performance_threshold((0, 31), Mock())
-
-    assert threshold == 0.95
-
-
-def test_performance_threshold_handles_zero_leeway(module):
-    state = State()
-    state.data = {
-        (0, 31): {
-            ValidatorIndex(1): DutyAccumulator(10, 10),
-            ValidatorIndex(2): DutyAccumulator(10, 10),
-        },
-    }
-    module.w3.csm.oracle.perf_leeway_bp.return_value = 0
-    module.state = state
-
-    threshold = module._get_performance_threshold((0, 31), Mock())
-
-    assert threshold == 1.0
-
-
-def test_performance_threshold_handles_high_leeway(module):
-    state = State()
-    state.data = {
-        (0, 31): {ValidatorIndex(1): DutyAccumulator(10, 1), ValidatorIndex(2): DutyAccumulator(10, 1)},
-    }
-    module.w3.csm.oracle.perf_leeway_bp.return_value = 5000
-    module.state = state
-
-    threshold = module._get_performance_threshold((0, 31), Mock())
-
-    assert threshold == -0.4
-
-
 def test_process_validator_duty_handles_above_threshold_performance():
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = False
@@ -280,13 +311,30 @@ def test_process_validator_duty_handles_above_threshold_performance():
     log_operator.validators = defaultdict(ValidatorFrameSummary)
     participation_shares = defaultdict(int)
     threshold = 0.5
+    reward_share = 1
 
-    attestation_duty = DutyAccumulator(assigned=10, included=6)
+    validator_duties = ValidatorDuties(
+        attestation=DutyAccumulator(assigned=10, included=6),
+        proposal=DutyAccumulator(assigned=10, included=6),
+        sync=DutyAccumulator(assigned=10, included=6),
+    )
 
-    CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
+    outcome = Distribution.process_validator_duties(
+        validator,
+        validator_duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        participation_shares,
+        log_operator,
+    )
 
+    assert outcome.strikes == 0
+    assert outcome.rebate_share == 0
     assert participation_shares[validator.lido_id.operatorIndex] == 10
-    assert log_operator.validators[validator.index].attestation_duty == attestation_duty
+    assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
+    assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
+    assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
 
 
 def test_process_validator_duty_handles_below_threshold_performance():
@@ -296,13 +344,30 @@ def test_process_validator_duty_handles_below_threshold_performance():
     log_operator.validators = defaultdict(ValidatorFrameSummary)
     participation_shares = defaultdict(int)
     threshold = 0.5
+    reward_share = 1
 
-    attestation_duty = DutyAccumulator(assigned=10, included=4)
+    validator_duties = ValidatorDuties(
+        attestation=DutyAccumulator(assigned=10, included=4),
+        proposal=DutyAccumulator(assigned=10, included=4),
+        sync=DutyAccumulator(assigned=10, included=4),
+    )
 
-    CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
+    outcome = Distribution.process_validator_duties(
+        validator,
+        validator_duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        participation_shares,
+        log_operator,
+    )
 
+    assert outcome.strikes == 1
+    assert outcome.rebate_share == 0
     assert participation_shares[validator.lido_id.operatorIndex] == 0
-    assert log_operator.validators[validator.index].attestation_duty == attestation_duty
+    assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
+    assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
+    assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
 
 
 def test_process_validator_duty_handles_non_empy_participation_shares():
@@ -312,13 +377,30 @@ def test_process_validator_duty_handles_non_empy_participation_shares():
     log_operator.validators = defaultdict(ValidatorFrameSummary)
     participation_shares = {validator.lido_id.operatorIndex: 25}
     threshold = 0.5
+    reward_share = 1
 
-    attestation_duty = DutyAccumulator(assigned=10, included=6)
+    validator_duties = ValidatorDuties(
+        attestation=DutyAccumulator(assigned=10, included=6),
+        proposal=DutyAccumulator(assigned=10, included=6),
+        sync=DutyAccumulator(assigned=10, included=6),
+    )
 
-    CSOracle.process_validator_duty(validator, attestation_duty, threshold, participation_shares, log_operator)
+    outcome = Distribution.process_validator_duties(
+        validator,
+        validator_duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        participation_shares,
+        log_operator,
+    )
 
+    assert outcome.strikes == 0
+    assert outcome.rebate_share == 0
     assert participation_shares[validator.lido_id.operatorIndex] == 35
-    assert log_operator.validators[validator.index].attestation_duty == attestation_duty
+    assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
+    assert log_operator.validators[validator.index].proposal_duty == validator_duties.proposal
+    assert log_operator.validators[validator.index].sync_duty == validator_duties.sync
 
 
 def test_process_validator_duty_handles_no_duty_assigned():
@@ -327,9 +409,22 @@ def test_process_validator_duty_handles_no_duty_assigned():
     log_operator.validators = defaultdict(ValidatorFrameSummary)
     participation_shares = defaultdict(int)
     threshold = 0.5
+    reward_share = 1
 
-    CSOracle.process_validator_duty(validator, None, None, None, threshold, participation_shares, log_operator)
+    validator_duties = ValidatorDuties(attestation=None, proposal=None, sync=None)
 
+    outcome = Distribution.process_validator_duties(
+        validator,
+        validator_duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        participation_shares,
+        log_operator,
+    )
+
+    assert outcome.strikes == 0
+    assert outcome.rebate_share == 0
     assert participation_shares[validator.lido_id.operatorIndex] == 0
     assert validator.index not in log_operator.validators
 
@@ -341,15 +436,26 @@ def test_process_validator_duty_handles_slashed_validator():
     log_operator.validators = defaultdict(ValidatorFrameSummary)
     participation_shares = defaultdict(int)
     threshold = 0.5
+    reward_share = 1
 
-    attestation_duty = DutyAccumulator(assigned=1, included=1)
-    prop_duty = DutyAccumulator(assigned=1, included=1)
-    sync_duty = DutyAccumulator(assigned=1, included=1)
-
-    CSOracle.process_validator_duty(
-        validator, attestation_duty, prop_duty, sync_duty, threshold, participation_shares, log_operator
+    validator_duties = ValidatorDuties(
+        attestation=DutyAccumulator(assigned=1, included=1),
+        proposal=DutyAccumulator(assigned=1, included=1),
+        sync=DutyAccumulator(assigned=1, included=1),
     )
 
+    outcome = Distribution.process_validator_duties(
+        validator,
+        validator_duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        participation_shares,
+        log_operator,
+    )
+
+    assert outcome.strikes == 1
+    assert outcome.rebate_share == 0
     assert participation_shares[validator.lido_id.operatorIndex] == 0
     assert log_operator.validators[validator.index].slashed is True
 
@@ -357,8 +463,11 @@ def test_process_validator_duty_handles_slashed_validator():
 def test_calc_rewards_distribution_in_frame_correctly_distributes_rewards():
     participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 200}
     rewards_to_distribute = Wei(1 * 10**18)
+    rebate_share = 0
 
-    rewards_distribution = CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+    rewards_distribution = Distribution.calc_rewards_distribution_in_frame(
+        participation_shares, rebate_share, rewards_to_distribute
+    )
 
     assert rewards_distribution[NodeOperatorId(1)] == Wei(333333333333333333)
     assert rewards_distribution[NodeOperatorId(2)] == Wei(666666666666666666)
@@ -367,8 +476,11 @@ def test_calc_rewards_distribution_in_frame_correctly_distributes_rewards():
 def test_calc_rewards_distribution_in_frame_handles_zero_participation():
     participation_shares = {NodeOperatorId(1): 0, NodeOperatorId(2): 0}
     rewards_to_distribute = Wei(1 * 10**18)
+    rebate_share = 0
 
-    rewards_distribution = CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+    rewards_distribution = Distribution.calc_rewards_distribution_in_frame(
+        participation_shares, rebate_share, rewards_to_distribute
+    )
 
     assert rewards_distribution[NodeOperatorId(1)] == 0
     assert rewards_distribution[NodeOperatorId(2)] == 0
@@ -377,8 +489,11 @@ def test_calc_rewards_distribution_in_frame_handles_zero_participation():
 def test_calc_rewards_distribution_in_frame_handles_no_participation():
     participation_shares = {}
     rewards_to_distribute = Wei(1 * 10**18)
+    rebate_share = 0
 
-    rewards_distribution = CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+    rewards_distribution = Distribution.calc_rewards_distribution_in_frame(
+        participation_shares, rebate_share, rewards_to_distribute
+    )
 
     assert len(rewards_distribution) == 0
 
@@ -386,8 +501,11 @@ def test_calc_rewards_distribution_in_frame_handles_no_participation():
 def test_calc_rewards_distribution_in_frame_handles_partial_participation():
     participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 0}
     rewards_to_distribute = Wei(1 * 10**18)
+    rebate_share = 0
 
-    rewards_distribution = CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+    rewards_distribution = Distribution.calc_rewards_distribution_in_frame(
+        participation_shares, rebate_share, rewards_to_distribute
+    )
 
     assert rewards_distribution[NodeOperatorId(1)] == Wei(1 * 10**18)
     assert rewards_distribution[NodeOperatorId(2)] == 0
@@ -396,9 +514,10 @@ def test_calc_rewards_distribution_in_frame_handles_partial_participation():
 def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
     participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 200}
     rewards_to_distribute = Wei(-1)
+    rebate_share = 0
 
     with pytest.raises(ValueError, match="Invalid rewards to distribute"):
-        CSOracle.calc_rewards_distribution_in_frame(participation_shares, rewards_to_distribute)
+        Distribution.calc_rewards_distribution_in_frame(participation_shares, rebate_share, rewards_to_distribute)
 
 
 @pytest.mark.parametrize(
@@ -467,6 +586,11 @@ def test_merge_strikes(
     threshold_per_op: dict,
     expected: dict,
 ):
-    module.w3.csm.get_strikes_params = Mock(side_effect=lambda no_id, _: threshold_per_op[no_id])
-    module._merge_strikes(acc, strikes_in_frame, frame_blockstamp=Mock())
+    distribution = Distribution(module.w3, Mock(), Mock())
+    distribution.w3.csm.get_curve_params = Mock(
+        side_effect=lambda no_id, _: Mock(strikes_params=threshold_per_op[no_id])
+    )
+
+    distribution._merge_strikes(acc, strikes_in_frame, frame_blockstamp=Mock())
+
     assert acc == expected

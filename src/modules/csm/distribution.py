@@ -202,7 +202,7 @@ class Distribution:
         participation_shares: defaultdict[NodeOperatorId, int],
         log_operator: OperatorFrameSummary,
     ) -> ValidatorDutyOutcome:
-        if duties.attestation is None:
+        if duties.attestation is None or duties.attestation.assigned == 0:
             # It's possible that the validator is not assigned to any duty, hence it's performance
             # is not presented in the aggregates (e.g. exited, pending for activation etc).
             return ValidatorDutyOutcome(rebate_share=0, strikes=0)
@@ -256,6 +256,9 @@ class Distribution:
         rebate_share: int,
         rewards_to_distribute: int,
     ) -> dict[NodeOperatorId, Shares]:
+        if rewards_to_distribute < 0:
+            raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute=}")
+
         rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
         total_shares = rebate_share + sum(participation_shares.values())
 
