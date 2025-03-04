@@ -241,6 +241,7 @@ class MidtermSlashingPenalty:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             # all validators which were slashed in [midterm_penalty_epoch - EPOCHS_PER_SLASHINGS_VECTOR, midterm_penalty_epoch]
 
+            # frame_ref_epoch - last frame before midterm slashing for validator
             if is_electra_activated(frame_ref_epoch):
                 penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
                     validator, slashings, total_balance, midterm_penalty_epoch, report_ref_epoch
@@ -284,10 +285,14 @@ class MidtermSlashingPenalty:
         """
         # We don't know which balance was at slashing epoch, so we make a pessimistic assumption that it was 32 ETH
         slashings_sum = sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch))
-        adjusted_total_slashing_balance = min(slashings_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, total_balance)
+        adjusted_total_slashing_balance = min(
+            slashings_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
+            total_balance
+        )
         effective_balance = validator.validator.effective_balance
-        penalty_numerator = effective_balance // EFFECTIVE_BALANCE_INCREMENT * adjusted_total_slashing_balance
-        penalty = penalty_numerator // total_balance * EFFECTIVE_BALANCE_INCREMENT
+        increment = EFFECTIVE_BALANCE_INCREMENT
+        penalty_numerator = effective_balance // increment * adjusted_total_slashing_balance
+        penalty = penalty_numerator // total_balance * increment
 
         return Gwei(penalty)
 

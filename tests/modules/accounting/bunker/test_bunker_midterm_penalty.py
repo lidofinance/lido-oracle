@@ -572,7 +572,7 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
     ),
     [
         # BEFORE ELECTRA
-        (225, False, 100 * 32 * 10**9, [], [], 0),
+        (225, lambda _: False, 100 * 32 * 10**9, [], [], 0),
         (
             # one is slashed
             225,
@@ -670,6 +670,7 @@ def test_predict_midterm_penalty_in_frame_post_electra(
     validators_in_frame,
     expected_result,
 ):
+    current_electra = is_electra_activated(1)
     result = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
         report_ref_epoch=EpochNumber(ref_epoch),
         frame_ref_epoch=Mock(),
@@ -679,6 +680,18 @@ def test_predict_midterm_penalty_in_frame_post_electra(
         midterm_penalized_validators_in_frame=validators_in_frame,
     )
 
+    result_opposite = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
+        report_ref_epoch=EpochNumber(ref_epoch),
+        frame_ref_epoch=Mock(),
+        is_electra_activated=lambda _: not current_electra,
+        total_balance=total_balance,
+        slashings=slashings,
+        midterm_penalized_validators_in_frame=validators_in_frame,
+    )
+    if current_electra:
+        assert result >= result_opposite
+    else:
+        assert result_opposite >= result
     assert result == expected_result
 
 
