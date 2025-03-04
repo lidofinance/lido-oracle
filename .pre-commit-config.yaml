@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.12.1  # Use the latest stable version
+    hooks:
+      - id: black
+
+  - repo: local
+    hooks:
+      - id: commit-message-format
+        name: Enforce Conventional Commits
+        entry: .git-hooks/validate-commit-msg.sh
+        language: system
+        stages: [commit-msg]
+      - id: pytest-unit
+        name: Run pytest unit tests
+        entry: poetry run pytest tests -m "not integration and not e2e"
+        language: system
+        pass_filenames: false
+        stages: [commit]
