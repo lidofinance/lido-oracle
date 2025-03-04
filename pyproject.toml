@@ -46,6 +46,7 @@ black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 requests-mock = "^1.12.1"
+pre-commit = "3.8"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -114,6 +115,20 @@ ignore_errors = true  # skipped because of extensive copy-paste from the upstrea
 [tool.black]
 line-length = 120
 skip-string-normalization = true
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
 
 [tool.ruff]
 line-length = 120
