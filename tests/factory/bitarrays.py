@@ -15,23 +15,18 @@ class BitListFactory(ModelFactory[BitList]):
     @classmethod
     def build(
         cls,
-        factory_use_construct: bool = False,
         set_indices: list[int] = [],
         bits_count: int = 0,
-        **kwargs,
     ) -> BitList:
-        bit_list: list[bool] = [False] * (max(set_indices) + 1)
+        bit_list: list[bool] = [False] * (max(set_indices, default=0) + 1)
         for n in set_indices:
             bit_list[n] = True
-        
-        model = cls.__model__
-        return model(
-            __root__=bytes(get_serialized_bytearray(
-                bit_list,
-                bits_count=bits_count or len(bit_list),
-                extra_byte=True,
-            ))
+        bytearray = get_serialized_bytearray(
+            bit_list,
+            bits_count=bits_count or len(bit_list),
+            extra_byte=True,
         )
+        return cls.__model__(bytes(bytearray))
 
 
 def get_serialized_bytearray(value: Sequence[bool], bits_count: int, extra_byte: bool) -> bytearray:

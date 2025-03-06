@@ -26,7 +26,7 @@ from src.web3py.extensions import (
     FallbackProviderModule,
     LazyCSM,
 )
-from src.web3py.middleware import metrics_collector
+from src.web3py.middleware import add_requests_metric_middleware
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ def main(module_name: OracleModule):
     })
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
-    web3.middleware_onion.add(metrics_collector)
+    add_requests_metric_middleware(web3)
 
     logger.info({'msg': 'Sanity checks.'})
 

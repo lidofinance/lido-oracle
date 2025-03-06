@@ -7,7 +7,7 @@ from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
-from src.web3py.middleware import metrics_collector
+from src.web3py.middleware import metrics_collector, add_requests_metric_middleware
 
 pytestmark = pytest.mark.integration
 
@@ -20,7 +20,7 @@ def provider():
 @pytest.fixture()
 def web3(provider):
     web3 = Web3(provider)
-    web3.middleware_onion.add(metrics_collector)
+    add_requests_metric_middleware(web3)
     return web3
 
 
