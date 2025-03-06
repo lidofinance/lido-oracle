@@ -94,7 +94,7 @@ class LidoContract(ContractInterface):
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
                 'stateDiff': {
-                    HexStr(self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): ref_slot,
+                    HexStr('0x' + self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): ref_slot,
                 },
             },
         }
