@@ -136,7 +136,7 @@ def cs_module_contract(web3_provider_integration):
     return get_contract(
         web3_provider_integration,
         CSModuleContract,
-        variables.CSM_MODULE_ADDRESS,
+        "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F",  # mainnet deploy
     )
 
 
