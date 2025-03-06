@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, Frame, State
+from src.modules.csm.state import Frame, State, ValidatorDuties
 from src.modules.csm.types import Shares, StrikesList, StrikesValidator
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
@@ -16,13 +16,6 @@ from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNod
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ValidatorDuties:
-    attestation: DutyAccumulator | None
-    proposal: DutyAccumulator | None
-    sync: DutyAccumulator | None
 
 
 @dataclass
@@ -70,7 +63,7 @@ class Distribution:
             distributed_so_far = self.total_rewards + self.total_rebate
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
-            frame_log = FramePerfLog(blockstamp, frame)
+            frame_log = FramePerfLog(frame_blockstamp, frame)
             (
                 rewards_map_in_frame,
                 distributed_rewards_in_frame,
@@ -148,15 +141,12 @@ class Distribution:
             curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
 
             sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
-            for key_number, validator in enumerate(sorted_active_validators):
+            numbered_validators = enumerate(sorted_active_validators, start=1)
+            for key_number, validator in numbered_validators:
                 key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
                 key_reward_share = curve_params.reward_share_data.get_for(key_number)
 
-                att_duty = self.state.data[frame].attestations.get(validator.index)
-                prop_duty = self.state.data[frame].proposals.get(validator.index)
-                sync_duty = self.state.data[frame].syncs.get(validator.index)
-
-                duties = ValidatorDuties(att_duty, prop_duty, sync_duty)
+                duties = self.state.get_validator_duties(frame, validator.index)
 
                 validator_duties_outcome = self.get_validator_duties_outcome(
                     validator,
@@ -172,25 +162,27 @@ class Distribution:
                 participation_shares[no_id] += validator_duties_outcome.participation_share
                 total_rebate_share += validator_duties_outcome.rebate_share
 
-        rewards_distribution = self.calc_rewards_distribution_in_frame(
+        rewards_distribution_map = self.calc_rewards_distribution_in_frame(
             participation_shares, total_rebate_share, rewards_to_distribute
         )
-        distributed_rewards = sum(rewards_distribution.values())
+        distributed_rewards = sum(rewards_distribution_map.values())
+        # All rewards to distribute can be rebated if no duties were assigned to validators or
+        # all validators were below threshold.
         rebate_to_protocol = rewards_to_distribute - distributed_rewards
 
-        for no_id, no_rewards in rewards_distribution.items():
+        for no_id, no_rewards in rewards_distribution_map.items():
             log.operators[no_id].distributed = no_rewards
         log.distributable = rewards_to_distribute
         log.distributed_rewards = distributed_rewards
         log.rebate_to_protocol = rebate_to_protocol
 
-        return rewards_distribution, distributed_rewards, rebate_to_protocol, frame_strikes
+        return rewards_distribution_map, distributed_rewards, rebate_to_protocol, frame_strikes
 
     def _get_network_performance(self, frame: Frame) -> float:
-        att_perf = self.state.get_att_network_aggr(frame)
-        prop_perf = self.state.get_prop_network_aggr(frame)
-        sync_perf = self.state.get_sync_network_aggr(frame)
-        network_perf = PerformanceCoefficients().calc_performance(att_perf, prop_perf, sync_perf)
+        att_aggr = self.state.get_att_network_aggr(frame)
+        prop_aggr = self.state.get_prop_network_aggr(frame)
+        sync_aggr = self.state.get_sync_network_aggr(frame)
+        network_perf = PerformanceCoefficients().calc_performance(ValidatorDuties(att_aggr, prop_aggr, sync_aggr))
         return network_perf
 
     @staticmethod
@@ -209,17 +201,16 @@ class Distribution:
 
         log_validator = log_operator.validators[validator.index]
 
-        log_validator.threshold = threshold
-        log_validator.rewards_share = reward_share
-
         if validator.validator.slashed is True:
             # It means that validator was active during the frame and got slashed and didn't meet the exit
             # epoch, so we should not count such validator for operator's share.
             log_validator.slashed = True
             return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
 
-        performance = perf_coeffs.calc_performance(duties.attestation, duties.proposal, duties.sync)
+        performance = perf_coeffs.calc_performance(duties)
 
+        log_validator.threshold = threshold
+        log_validator.rewards_share = reward_share
         log_validator.performance = performance
         log_validator.attestation_duty = duties.attestation
         if duties.proposal:
@@ -287,6 +278,7 @@ class Distribution:
                 acc[key] = StrikesList()
             acc[key].push(strikes_in_frame[key])
 
+        keys_to_delete = []
         for key in acc:
             no_id, _ = key
             if key not in strikes_in_frame:
@@ -295,4 +287,7 @@ class Distribution:
             acc[key].resize(maxlen)
             # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
             if not sum(acc[key]):
-                del acc[key]
+                keys_to_delete.append(key)
+
+        for key in keys_to_delete:
+            del acc[key]

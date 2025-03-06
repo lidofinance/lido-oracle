@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.modules.csm.state import State, InvalidState, DutyAccumulator, Duties
+from src.modules.csm.state import State, InvalidState, DutyAccumulator, NetworkDuties
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 
@@ -80,7 +80,7 @@ def test_is_empty_returns_true_for_empty_state():
 
 def test_is_empty_returns_false_for_non_empty_state():
     state = State()
-    state.data = {(0, 31): Duties()}
+    state.data = {(0, 31): NetworkDuties()}
     assert not state.is_empty
 
 
@@ -149,7 +149,7 @@ def test_increment_att_duty_adds_duty_correctly():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(1), True)
     assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
@@ -162,7 +162,7 @@ def test_increment_prop_duty_adds_duty_correctly():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(1), True)
     assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
@@ -175,7 +175,7 @@ def test_increment_sync_duty_adds_duty_correctly():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(1), True)
     assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
@@ -188,7 +188,7 @@ def test_increment_att_duty_creates_new_validator_entry():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(),
+        frame: NetworkDuties(),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(2), True)
     assert state.data[frame].attestations[ValidatorIndex(2)].assigned == 1
@@ -201,7 +201,7 @@ def test_increment_prop_duty_creates_new_validator_entry():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(),
+        frame: NetworkDuties(),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(2), True)
     assert state.data[frame].proposals[ValidatorIndex(2)].assigned == 1
@@ -214,7 +214,7 @@ def test_increment_sync_duty_creates_new_validator_entry():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(),
+        frame: NetworkDuties(),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(2), True)
     assert state.data[frame].syncs[ValidatorIndex(2)].assigned == 1
@@ -227,7 +227,7 @@ def test_increment_att_duty_handles_non_included_duty():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_att_duty(duty_epoch, ValidatorIndex(1), False)
     assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
@@ -240,7 +240,7 @@ def test_increment_prop_duty_handles_non_included_duty():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_prop_duty(duty_epoch, ValidatorIndex(1), False)
     assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
@@ -253,7 +253,7 @@ def test_increment_sync_duty_handles_non_included_duty():
     state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
-        frame: Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
+        frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
     state.increment_sync_duty(duty_epoch, ValidatorIndex(1), False)
     assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
@@ -343,12 +343,12 @@ def test_migrate_migrates_data():
     state._consensus_version = 1
     state.frames = [(0, 31), (32, 63)]
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 63): Duties(
+        (32, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
@@ -358,7 +358,7 @@ def test_migrate_migrates_data():
     state.migrate(0, 63, 64, 1)
 
     assert state.data == {
-        (0, 63): Duties(
+        (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
@@ -375,7 +375,7 @@ def test_migrate_invalidates_unmigrated_frames():
     state._consensus_version = 1
     state.frames = [(0, 63)]
     state.data = {
-        (0, 63): Duties(
+        (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
@@ -385,7 +385,7 @@ def test_migrate_invalidates_unmigrated_frames():
     state.migrate(0, 31, 32, 1)
 
     assert state.data == {
-        (0, 31): Duties(),
+        (0, 31): NetworkDuties(),
     }
     assert state._processed_epochs == set()
     assert state.frames == [(0, 31)]
@@ -399,17 +399,17 @@ def test_migrate_discards_unmigrated_frame():
     state._consensus_version = 1
     state.frames = [(0, 31), (32, 63), (64, 95)]
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 63): Duties(
+        (32, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
         ),
-        (64, 95): Duties(
+        (64, 95): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 25)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 25)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 25)}),
@@ -420,12 +420,12 @@ def test_migrate_discards_unmigrated_frame():
     state.migrate(0, 63, 32, 1)
 
     assert state.data == {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 63): Duties(
+        (32, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
@@ -443,12 +443,12 @@ def test_migrate_frames_data_creates_new_data_correctly():
     state.frames = [(0, 31), (32, 63)]
     new_frames = [(0, 63)]
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 63): Duties(
+        (32, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
@@ -459,7 +459,7 @@ def test_migrate_frames_data_creates_new_data_correctly():
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
-        (0, 63): Duties(
+        (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
@@ -473,7 +473,7 @@ def test_migrate_frames_data_handles_no_migration():
     state.frames = [(0, 31)]
     new_frames = [(0, 31)]
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
@@ -484,7 +484,7 @@ def test_migrate_frames_data_handles_no_migration():
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
@@ -498,12 +498,12 @@ def test_migrate_frames_data_handles_partial_migration():
     state.frames = [(0, 31), (32, 63)]
     new_frames = [(0, 31), (32, 95)]
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 63): Duties(
+        (32, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
@@ -514,12 +514,12 @@ def test_migrate_frames_data_handles_partial_migration():
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
         ),
-        (32, 95): Duties(
+        (32, 95): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
@@ -532,11 +532,11 @@ def test_migrate_frames_data_handles_no_data():
     state = State()
     state.frames = [(0, 31)]
     new_frames = [(0, 31)]
-    state.data = {frame: Duties() for frame in state.frames}
+    state.data = {frame: NetworkDuties() for frame in state.frames}
 
     state._migrate_frames_data(new_frames)
 
-    assert state.data == {(0, 31): Duties()}
+    assert state.data == {(0, 31): NetworkDuties()}
 
 
 def test_migrate_frames_data_handles_wider_old_frame():
@@ -544,7 +544,7 @@ def test_migrate_frames_data_handles_wider_old_frame():
     state.frames = [(0, 63)]
     new_frames = [(0, 31), (32, 63)]
     state.data = {
-        (0, 63): Duties(
+        (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
             proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
             syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
@@ -555,8 +555,8 @@ def test_migrate_frames_data_handles_wider_old_frame():
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
-        (0, 31): Duties(),
-        (32, 63): Duties(),
+        (0, 31): NetworkDuties(),
+        (32, 63): NetworkDuties(),
     }
     assert state._processed_epochs == set()
 
@@ -598,10 +598,37 @@ def test_attestation_aggregate_perf():
     assert aggr.perf == pytest.approx(0.4285, abs=1e-4)
 
 
+def test_get_validator_duties():
+    state = State()
+    state.data = {
+        (0, 31): NetworkDuties(
+            attestations=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            ),
+            proposals=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(7, 1), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            ),
+            syncs=defaultdict(
+                DutyAccumulator,
+                {ValidatorIndex(1): DutyAccumulator(3, 2), ValidatorIndex(2): DutyAccumulator(20, 15)},
+            ),
+        )
+    }
+    duties = state.get_validator_duties((0, 31), ValidatorIndex(1))
+    assert duties.attestation.assigned == 10
+    assert duties.attestation.included == 5
+    assert duties.proposal.assigned == 7
+    assert duties.proposal.included == 1
+    assert duties.sync.assigned == 3
+    assert duties.sync.included == 2
+
+
 def test_get_att_network_aggr_computes_correctly():
     state = State()
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             attestations=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
@@ -616,7 +643,7 @@ def test_get_att_network_aggr_computes_correctly():
 def test_get_sync_network_aggr_computes_correctly():
     state = State()
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             syncs=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
@@ -631,7 +658,7 @@ def test_get_sync_network_aggr_computes_correctly():
 def test_get_prop_network_aggr_computes_correctly():
     state = State()
     state.data = {
-        (0, 31): Duties(
+        (0, 31): NetworkDuties(
             proposals=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
@@ -646,7 +673,7 @@ def test_get_prop_network_aggr_computes_correctly():
 def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
     state.data = {
-        (0, 31): Duties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+        (0, 31): NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
     }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_att_network_aggr((0, 31))
@@ -654,14 +681,18 @@ def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
 
 def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.data = {(0, 31): Duties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))}
+    state.data = {
+        (0, 31): NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+    }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_prop_network_aggr((0, 31))
 
 
 def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
-    state.data = {(0, 31): Duties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))}
+    state.data = {
+        (0, 31): NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
+    }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_sync_network_aggr((0, 31))
 
@@ -686,7 +717,7 @@ def test_get_sync_network_aggr_raises_error_for_missing_frame_data():
 
 def test_get_att_network_aggr_handles_empty_frame_data():
     state = State()
-    state.data = {(0, 31): Duties()}
+    state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_att_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
@@ -694,7 +725,7 @@ def test_get_att_network_aggr_handles_empty_frame_data():
 
 def test_get_prop_network_aggr_handles_empty_frame_data():
     state = State()
-    state.data = {(0, 31): Duties()}
+    state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_prop_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
@@ -702,7 +733,7 @@ def test_get_prop_network_aggr_handles_empty_frame_data():
 
 def test_get_sync_network_aggr_handles_empty_frame_data():
     state = State()
-    state.data = {(0, 31): Duties()}
+    state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_sync_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0

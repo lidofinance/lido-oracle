@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from web3.types import BlockIdentifier
 
 from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX
+from src.modules.csm.state import ValidatorDuties
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -16,17 +17,21 @@ class PerformanceCoefficients:
     blocks_weight: int = 8
     sync_weight: int = 2
 
-    def calc_performance(self, att_aggr, prop_aggr, sync_aggr) -> float:
-        base = self.attestations_weight
-        performance = att_aggr.perf * self.attestations_weight
+    def calc_performance(self, duties: ValidatorDuties) -> float:
+        base = 0
+        performance = 0.0
 
-        if prop_aggr:
+        if duties.attestation:
+            base += self.attestations_weight
+            performance += duties.attestation.perf * self.attestations_weight
+
+        if duties.proposal:
             base += self.blocks_weight
-            performance += prop_aggr.perf * self.blocks_weight
+            performance += duties.proposal.perf * self.blocks_weight
 
-        if sync_aggr:
+        if duties.sync:
             base += self.sync_weight
-            performance += sync_aggr.perf * self.sync_weight
+            performance += duties.sync.perf * self.sync_weight
 
         performance /= base
 
@@ -42,10 +47,14 @@ class RewardShare:
     reward_shares: list[int]
 
     def get_for(self, key_number: int) -> float:
+        if key_number <= 0:
+            raise ValueError("Key number should be greater than 0")
         for i, pivot_number in enumerate(self.key_pivots + [UINT256_MAX]):
             if key_number <= pivot_number:
+                if i >= len(self.reward_shares):
+                    continue
                 return self.reward_shares[i] / TOTAL_BASIS_POINTS
-        raise ValueError(f"Key number {key_number} is out of {self.key_pivots}")
+        raise ValueError(f"Can't find performance leeway for {key_number=}. {self=}")
 
 
 @dataclass
@@ -54,11 +63,14 @@ class PerformanceLeeway:
     performance_leeways: list[int]
 
     def get_for(self, key_number: int) -> float:
+        if key_number <= 0:
+            raise ValueError("Key number should be greater than 0")
         for i, pivot_number in enumerate(self.key_pivots + [UINT256_MAX]):
             if key_number <= pivot_number:
+                if i >= len(self.performance_leeways):
+                    continue
                 return self.performance_leeways[i] / TOTAL_BASIS_POINTS
-        raise ValueError(f"Key number {key_number} is out of {self.key_pivots}")
-
+        raise ValueError(f"Can't find performance leeway for {key_number=}. {self=}")
 
 @dataclass
 class StrikesParams:
