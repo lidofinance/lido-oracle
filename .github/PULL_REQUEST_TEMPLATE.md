@@ -1,11 +1,16 @@
-## What
+## Description
+Describe what this pull request does. Explain the purpose of the changes and the problem they solve.
 
-What the reviewer needs to know about the changes.
+## Related Issue/Task
+- Related task: #[task number] (e.g., #123)
+- Epic: [epic name or link, if applicable]
 
-## Why
+## How Has This Been Tested?
+Describe how you tested the changes:
+- [ ] Local tests (e.g., `pytest`)
+- [ ] Manual testing (describe steps)
+- [ ] Not tested (explain why)
 
-Why do we want to do this.
-
-## How
-
-Describe how the PR solves the problem.
+## Checklist
+- [ ] Documentation updated (if required)
+- [ ] New tests added (if applicable)

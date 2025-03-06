@@ -3,7 +3,7 @@
 COMMIT_MSG_FILE=$1
 COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
 
-REGEX="^(feat|fix|docs|chore|refactor|test)(\(.+\))?: .+"
+REGEX="^(feat|fix|chore)(\(.+\))?: .+"
 
 if ! grep -qE "$REGEX" <<< "$COMMIT_MSG"; then
     echo "❌ ERROR: Commit message does not follow Conventional Commits format!"

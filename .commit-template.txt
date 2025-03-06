@@ -3,13 +3,10 @@
 # Example types:
 # feat:      A new feature
 # fix:       A bug fix
-# refactor:  Code refactoring
-# docs:      Documentation update
 # chore:     Maintenance tasks
-# test:      Adding or updating tests
 #
 # Example commit:
-# feat(auth): Add OAuth2 support
+# feat(VAL-123): Add OAuth2 support
 #
 # Description (optional):
 # - What problem does this solve?
