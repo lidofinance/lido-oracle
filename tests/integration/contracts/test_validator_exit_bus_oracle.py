@@ -14,10 +14,8 @@ def test_vebo(validators_exit_bus_oracle_contract, caplog):
             (
                 'get_last_requested_validator_indices',
                 (1, [1]),
-                lambda response: check_value_type(response, list) and map(lambda val:
-                                                                          check_value_type(val,
-                                                                                           int),
-                                                                          response),
+                lambda response: check_value_type(response, list)
+                and map(lambda val: check_value_type(val, int), response),
             ),
         ],
         caplog,
