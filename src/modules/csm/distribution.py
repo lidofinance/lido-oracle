@@ -166,9 +166,9 @@ class Distribution:
             participation_shares, total_rebate_share, rewards_to_distribute
         )
         distributed_rewards = sum(rewards_distribution_map.values())
-        # All rewards to distribute can be rebated if no duties were assigned to validators or
+        # All rewards to distribute should not be rebated if no duties were assigned to validators or
         # all validators were below threshold.
-        rebate_to_protocol = rewards_to_distribute - distributed_rewards
+        rebate_to_protocol = 0 if not distributed_rewards else rewards_to_distribute - distributed_rewards
 
         for no_id, no_rewards in rewards_distribution_map.items():
             log.operators[no_id].distributed = no_rewards

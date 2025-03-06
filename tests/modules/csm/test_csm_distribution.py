@@ -196,14 +196,14 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    500,
+                    0,
                     # strikes
                     {(NodeOperatorId(1), HexBytes("0x01")): 1},
                 )
             ],
             0,
             {NodeOperatorId(1): 500},
-            500,
+            0,
             {(NodeOperatorId(1), HexBytes("0x01")): [1, 1, 0, 0, 0, 1]},
         ),
         # Multiple frames, some of which are not distributed
@@ -241,15 +241,15 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    500,
+                    0,
                     # strikes
                     {(NodeOperatorId(1), HexBytes("0x01")): 1},
                 ),
                 (
                     # rewards
-                    {NodeOperatorId(1): 700},
+                    {NodeOperatorId(1): 500 + 700},
                     # distributed_rewards
-                    700,
+                    500 + 700,
                     # rebate_to_protocol
                     0,
                     # strikes
@@ -261,14 +261,14 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    300,
+                    0,
                     # strikes
                     {},
                 ),
             ],
-            700,
-            {NodeOperatorId(1): 500 + 700},
-            800,
+            500 + 700,
+            {NodeOperatorId(1): 500 + 500 + 700},
+            0,
             {
                 (NodeOperatorId(1), HexBytes("0x01")): [0, 0, 1, 1, 0, 0],
                 (NodeOperatorId(2), HexBytes("0x02")): [0, 1, 0, 0, 0, 0],
@@ -486,7 +486,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
             # Distributed rewards
             0,
             # Rebate to protocol
-            100,
+            0,
             # Strikes
             {
                 (NodeOperatorId(1), HexBytes('0x01')): 1,
@@ -496,7 +496,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 frame=...,
                 distributable=100,
                 distributed_rewards=0,
-                rebate_to_protocol=100,
+                rebate_to_protocol=0,
                 operators={
                     NodeOperatorId(1): OperatorFrameSummary(
                         distributed=0,
@@ -757,7 +757,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
             # Distributed rewards
             0,
             # Rebate to protocol
-            100,
+            0,
             # Strikes
             {},
             FramePerfLog(
@@ -765,7 +765,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 frame=...,
                 distributable=100,
                 distributed_rewards=0,
-                rebate_to_protocol=100,
+                rebate_to_protocol=0,
                 operators={},
             ),
         ),
