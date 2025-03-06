@@ -1,17 +1,23 @@
 import logging
 import re
-from typing import Any, Callable
+from typing import Any, Callable, Type
+
+from eth_typing import Address, ChecksumAddress
 
 from src.providers.execution.base_interface import ContractInterface
-
+from src.utils.types import hex_str_to_bytes
 
 HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)
 ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
 
+type FuncName = str
+type FuncArgs = tuple
+type FuncResp = Any
+
 
 def check_contract(
     contract: ContractInterface,
-    functions_spec: list[tuple[str, tuple | None, Callable[[Any], None]]],
+    functions_spec: list[tuple[FuncName, FuncArgs | None, Callable[[FuncResp], None]]],
     caplog,
 ):
     caplog.set_level(logging.DEBUG)
@@ -33,5 +39,16 @@ def check_value_re(regrex, value) -> None:
     assert regrex.findall(value)
 
 
-def check_value_type(value, _type) -> None:
-    assert isinstance(value, _type)
+def check_is_instance_of(type_: Type) -> Callable[[FuncArgs], None]:
+    if type_ is Address or type_ is ChecksumAddress:
+        return check_is_address
+    return lambda resp: check_value_type(resp, type_)
+
+
+def check_value_type(value, type_) -> None:
+    assert isinstance(value, type_), f"Got invalid type={type(value)}, expected={repr(type_)}"
+
+
+def check_is_address(resp: FuncResp) -> None:
+    assert isinstance(resp, str), "address should be returned as a string"
+    assert len(hex_str_to_bytes(resp)) == 20, "Got invalid address length"

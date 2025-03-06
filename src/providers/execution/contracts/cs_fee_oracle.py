@@ -25,19 +25,6 @@ class CSFeeOracleContract(BaseOracleContract):
         )
         return resp
 
-    def perf_leeway_bp(self, block_identifier: BlockIdentifier = "latest") -> int:
-        """Performance threshold leeway used to determine underperforming validators"""
-
-        resp = self.functions.avgPerfLeewayBP().call(block_identifier=block_identifier)
-        logger.info(
-            {
-                "msg": "Call `avgPerfLeewayBP()`.",
-                "value": resp,
-                "block_identifier": repr(block_identifier),
-            }
-        )
-        return resp
-
     def strikes(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
         """Return the address of the CSStrikes contract"""
 

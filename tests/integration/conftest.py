@@ -1,11 +1,17 @@
 from typing import cast
 
 import pytest
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
 from src import variables
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
+from src.providers.execution.contracts.cs_accounting import CSAccountingContract
+from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from src.providers.execution.contracts.cs_module import CSModuleContract
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
+from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
@@ -116,4 +122,63 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
         web3_provider_integration,
         BurnerContract,
         lido_locator_contract.burner(),
+    )
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+# ║                                          CSM contracts                                           ║
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+
+@pytest.fixture
+def cs_module_contract(web3_provider_integration):
+    return get_contract(
+        web3_provider_integration,
+        CSModuleContract,
+        variables.CSM_MODULE_ADDRESS,
+    )
+
+
+@pytest.fixture
+def cs_accounting_contract(web3_provider_integration, cs_module_contract):
+    return get_contract(
+        web3_provider_integration,
+        CSAccountingContract,
+        cs_module_contract.accounting(),
+    )
+
+
+@pytest.fixture
+def cs_params_contract(web3_provider_integration, cs_module_contract):
+    return get_contract(
+        web3_provider_integration,
+        CSParametersRegistryContract,
+        cs_module_contract.parameters_registry(),
+    )
+
+
+@pytest.fixture
+def cs_fee_distributor_contract(web3_provider_integration, cs_accounting_contract):
+    return get_contract(
+        web3_provider_integration,
+        CSFeeDistributorContract,
+        cs_accounting_contract.fee_distributor(),
+    )
+
+
+@pytest.fixture
+def cs_fee_oracle_contract(web3_provider_integration, cs_fee_distributor_contract):
+    return get_contract(
+        web3_provider_integration,
+        CSFeeOracleContract,
+        cs_fee_distributor_contract.oracle(),
+    )
+
+
+@pytest.fixture
+def cs_strikes_contract(web3_provider_integration, cs_fee_oracle_contract):
+    return get_contract(
+        web3_provider_integration,
+        CSStrikesContract,
+        cs_fee_oracle_contract.strikes(),
     )
