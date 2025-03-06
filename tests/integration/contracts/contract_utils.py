@@ -5,7 +5,6 @@ from typing import Any, Callable, Type
 from eth_typing import Address, ChecksumAddress
 
 from src.providers.execution.base_interface import ContractInterface
-from src.utils.types import hex_str_to_bytes
 
 HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)
 ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
@@ -35,13 +34,9 @@ def check_contract(
     assert len(functions_spec) == len(log_with_call)
 
 
-def check_value_re(regrex, value) -> None:
-    assert regrex.findall(value)
-
-
 def check_is_instance_of(type_: Type) -> Callable[[FuncArgs], None]:
     if type_ is Address or type_ is ChecksumAddress:
-        return check_is_address
+        return lambda resp: check_is_address(resp) and check_value_type(resp, type_)
     return lambda resp: check_value_type(resp, type_)
 
 
@@ -51,4 +46,8 @@ def check_value_type(value, type_) -> None:
 
 def check_is_address(resp: FuncResp) -> None:
     assert isinstance(resp, str), "address should be returned as a string"
-    assert len(hex_str_to_bytes(resp)) == 20, "Got invalid address length"
+    check_value_re(ADDRESS_REGREX, resp)
+
+
+def check_value_re(regrex, value) -> None:
+    assert regrex.findall(value), f"{value=} doesn't match {regrex=}"
