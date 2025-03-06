@@ -34,6 +34,7 @@ def web3_provider_integration(request):
 
 
 def get_contract(w3, contract_class, address):
+    assert address, "No address given"
     return cast(
         contract_class,
         w3.eth.contract(
