@@ -450,7 +450,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
         (
             # slashed in different frames with determined slashing epochs in different forks
             225,
-            lambda epoch: epoch >= 4500,
+            lambda epoch: epoch >= 4200,
             {
                 (18, 4049): simple_validators(0, 0, slashed=True),
                 (19, 4724): simple_validators(10, 59, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
@@ -468,7 +468,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
         (
             # slashed in different epochs in different frames without determined slashing epochs in different forks
             225,
-            lambda epoch: epoch >= 4500,
+            lambda epoch: epoch >= 4200,
             {
                 (18, 4049): [
                     *simple_validators(0, 5),
