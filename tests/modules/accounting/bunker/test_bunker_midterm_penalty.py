@@ -27,7 +27,7 @@ def simple_validators(
     slashed=False,
     withdrawable_epoch=8192,
     exit_epoch=7892,
-    effective_balance=Gwei(32 * 10 ** 9),
+    effective_balance=Gwei(32 * 10**9),
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
@@ -85,7 +85,7 @@ def simple_validators(
             simple_blockstamp(225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            199 * 10 ** 9,
+            199 * 10**9,
             True,
         ),
         (
@@ -93,7 +93,7 @@ def simple_validators(
             simple_blockstamp(3 * 225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            3 * 199 * 10 ** 9,
+            3 * 199 * 10**9,
             True,
         ),
         (
@@ -101,7 +101,7 @@ def simple_validators(
             simple_blockstamp(225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            200 * 10 ** 9,
+            200 * 10**9,
             False,
         ),
         (
@@ -109,7 +109,7 @@ def simple_validators(
             simple_blockstamp(225 * 32),
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            201 * 10 ** 9,
+            201 * 10**9,
             False,
         ),
     ],
@@ -161,7 +161,7 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(0),
             [*simple_validators(0, 49), *simple_validators(50, 99, slashed=True)],
             simple_validators(0, 9),
-            [*([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 50)), *([32 * 10 ** 9] * 50)],
+            [*([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 50)), *([32 * 10**9] * 50)],
             0,
             False,
         ),
@@ -182,8 +182,8 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(225 * 32),  # 8160
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            [*([0] * 8110), *([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8160))],
-            199 * 10 ** 9,
+            [*([0] * 8110), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8160))],
+            199 * 10**9,
             True,
         ),
         (
@@ -191,8 +191,8 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
             simple_blockstamp(3 * 225 * 32),  # 24480, 24480 % 8192 = 8092
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
             simple_validators(1000, 1049, slashed=True),
-            [*([0] * 8042), *([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8092))],
-            3 * 199 * 10 ** 9,
+            [*([0] * 8042), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8092))],
+            3 * 199 * 10**9,
             True,  # Because penalty is 200 * 10**9 than one frame rebase
         ),
         (
@@ -349,7 +349,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
             {(18, 4050): simple_validators(0, 99, slashed=True)},
             simple_validators(0, 99, slashed=True),
             100,
-            {18: 100 * 32 * 10 ** 9},
+            {18: 100 * 32 * 10**9},
         ),
         (
             # slashed in different frames with determined slashing epochs
@@ -363,7 +363,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
                 *simple_validators(10, 59, slashed=True, exit_epoch="8000", withdrawable_epoch="8417"),
             ],
             100,
-            {18: 10 * 32 * 10 ** 9, 19: 50 * 32 * 10 ** 9},
+            {18: 10 * 32 * 10**9, 19: 50 * 32 * 10**9},
         ),
         (
             # slashed in different epochs in different frames without determined shasling epochs
@@ -385,7 +385,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
                 *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
             ],
             100,
-            {18: 10 * 32 * 10 ** 9, 19: 50 * 32 * 10 ** 9},
+            {18: 10 * 32 * 10**9, 19: 50 * 32 * 10**9},
         ),
     ],
 )
@@ -393,7 +393,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
     ref_epoch, per_frame_validators, all_slashed_validators, active_validators_count, expected_result
 ):
     result = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames_pre_electra(
-        EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10 ** 9, per_frame_validators
+        EpochNumber(ref_epoch), all_slashed_validators, active_validators_count * 32 * 10**9, per_frame_validators
     )
 
     assert result == expected_result
@@ -425,7 +425,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
             225,
             lambda epoch: epoch >= 225,
             {(18, 4049): simple_validators(0, 0, slashed=True)},
-            [*([0] * 224), *([32 * 10 ** 9]), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 225))],
+            [*([0] * 224), *([32 * 10**9]), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 225))],
             50000,
             {18: 1_920_000},
         ),
@@ -434,7 +434,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
             225,
             lambda epoch: epoch >= 4500,
             {(18, 4049): simple_validators(0, 99, slashed=True)},
-            [*([32 * 10 ** 9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
+            [*([32 * 10**9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
             50000,
             {18: 0},
         ),
@@ -443,7 +443,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
             350,
             lambda epoch: epoch >= 225,
             {(18, 4049): simple_validators(0, 99, slashed=True)},
-            [*([0] * 225), *([32 * 10 ** 9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 325))],
+            [*([0] * 225), *([32 * 10**9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 325))],
             50000,
             {18: 19_200_000_000},
         ),
@@ -457,9 +457,9 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
             },
             [
                 *([0] * 100),
-                *([32 * 10 ** 9]),
+                *([32 * 10**9]),
                 *([0] * 10),
-                *([32 * 10 ** 9] * 50),
+                *([32 * 10**9] * 50),
                 *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 161)),
             ],
             50000,
@@ -479,7 +479,7 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
                     *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
                 ],
             },
-            [*([0] * 100), *([32 * 10 ** 9] * 10), *([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160))],
+            [*([0] * 100), *([32 * 10**9] * 10), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160))],
             50000,
             {18: 0, 19: 5_760_000_000},
         ),
@@ -497,7 +497,7 @@ def test_get_future_midterm_penalty_sum_in_frames_post_electra(
         EpochNumber(ref_epoch),
         is_electra_activated,
         slashings,
-        active_validators_count * 32 * 10 ** 9,
+        active_validators_count * 32 * 10**9,
         per_frame_validators,
     )
 
@@ -508,12 +508,12 @@ def test_get_future_midterm_penalty_sum_in_frames_post_electra(
 @pytest.mark.parametrize(
     ("ref_epoch", "all_slashed_validators", "total_balance", "validators_in_frame", "expected_result"),
     [
-        (225, [], 100 * 32 * 10 ** 9, [], 0),
+        (225, [], 100 * 32 * 10**9, [], 0),
         (
             # one is slashed
             225,
             simple_validators(0, 0, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
             simple_validators(0, 0, slashed=True),
             0,
         ),
@@ -521,17 +521,17 @@ def test_get_future_midterm_penalty_sum_in_frames_post_electra(
             # all are slashed
             225,
             simple_validators(0, 99, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
             simple_validators(0, 99, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
         ),
         (
             # several are slashed
             225,
             simple_validators(0, 9, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
             simple_validators(0, 9, slashed=True),
-            10 * 9 * 10 ** 9,
+            10 * 9 * 10**9,
         ),
         (
             # slashed in different epochs in different frames without determined slashing epochs
@@ -540,12 +540,12 @@ def test_get_future_midterm_penalty_sum_in_frames_post_electra(
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
-            10 * 9 * 10 ** 9,
+            10 * 9 * 10**9,
         ),
     ],
 )
@@ -571,13 +571,13 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
     ),
     [
         # BEFORE ELECTRA
-        (225, lambda _: False, 100 * 32 * 10 ** 9, [], [], 0),
+        (225, lambda _: False, 100 * 32 * 10**9, [], [], 0),
         (
             # one is slashed
             225,
             lambda _: False,
-            100 * 32 * 10 ** 9,
-            [*([0] * 125), 32 * 10 ** 9, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 126))],
+            100 * 32 * 10**9,
+            [*([0] * 125), 32 * 10**9, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 126))],
             simple_validators(0, 0, slashed=True),
             0,
         ),
@@ -585,37 +585,37 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             # all are slashed
             225,
             lambda _: False,
-            100 * 32 * 10 ** 9,
-            [*([32 * 10 ** 9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
+            100 * 32 * 10**9,
+            [*([32 * 10**9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
             simple_validators(0, 99, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
         ),
         (
             # several are slashed
             225,
             lambda _: False,
-            100 * 32 * 10 ** 9,
-            [*([64 * 10 ** 9] * 2), *([0] * 10), *([32 * 10 ** 9] * 6), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 18))],
+            100 * 32 * 10**9,
+            [*([64 * 10**9] * 2), *([0] * 10), *([32 * 10**9] * 6), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 18))],
             simple_validators(0, 9, slashed=True),
-            10 * 9 * 10 ** 9,
+            10 * 9 * 10**9,
         ),
         (
             # slashed in different epochs in different frames without determined slashing epochs
             225,
             lambda _: False,
-            100 * 32 * 10 ** 9,
-            [*([32 * 10 ** 9] * 6), *([0] * 219), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 229)), *([32 * 10 ** 9] * 4)],
+            100 * 32 * 10**9,
+            [*([32 * 10**9] * 6), *([0] * 219), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 229)), *([32 * 10**9] * 4)],
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
             ],
-            10 * 9 * 10 ** 9,
+            10 * 9 * 10**9,
         ),
         # AFTER ELECTRA
         (
             225,
             lambda _: True,
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
             [],
             [],
             0,
@@ -624,8 +624,8 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             # one is slashed
             225,
             lambda _: True,
-            100 * 32 * 10 ** 9,
-            [*([0] * 125), 32 * 10 ** 9, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 126))],
+            100 * 32 * 10**9,
+            [*([0] * 125), 32 * 10**9, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 126))],
             simple_validators(0, 0, slashed=True),
             960_000_000,
         ),
@@ -633,17 +633,17 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             # all are slashed
             225,
             lambda _: True,
-            100 * 32 * 10 ** 9,
-            [*([32 * 10 ** 9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
+            100 * 32 * 10**9,
+            [*([32 * 10**9] * 100), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100))],
             simple_validators(0, 99, slashed=True),
-            100 * 32 * 10 ** 9,
+            100 * 32 * 10**9,
         ),
         (
             # several are slashed
             225,
             lambda _: True,
-            100 * 32 * 10 ** 9,
-            [*([64 * 10 ** 9] * 2), *([0] * 10), *([32 * 10 ** 9] * 6), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 18))],
+            100 * 32 * 10**9,
+            [*([64 * 10**9] * 2), *([0] * 10), *([32 * 10**9] * 6), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 18))],
             simple_validators(0, 9, slashed=True),
             96_000_000_000,
         ),
@@ -651,8 +651,8 @@ def test_predict_midterm_penalty_in_frame_pre_electra(
             # slashed in different epochs in different frames without determined slashing epochs
             225,
             lambda _: True,
-            100 * 32 * 10 ** 9,
-            [*([32 * 10 ** 9] * 6), *([0] * 219), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 229)), *([32 * 10 ** 9] * 4)],
+            100 * 32 * 10**9,
+            [*([32 * 10**9] * 6), *([0] * 219), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 229)), *([32 * 10**9] * 4)],
             [
                 *simple_validators(0, 5, slashed=True),
                 *simple_validators(6, 9, slashed=True, exit_epoch="8192", withdrawable_epoch="8197"),
@@ -681,55 +681,64 @@ def test_predict_midterm_penalty_in_frame_post_electra(
 
 def test_midterm_penalty_prediction_in_pectra_transition_can_be_greater_than_before_pectra():
     epoch = EpochNumber(10)
-    slashings = [*([32 * 10 ** 9] * EPOCHS_PER_SLASHINGS_VECTOR)]
-    total_balance = 100000 * 32 * 10 ** 9
+    slashings = [*([32 * 10**9] * EPOCHS_PER_SLASHINGS_VECTOR)]
+    total_balance = 100000 * 32 * 10**9
 
     validators_in_frame = [
         ValidatorFactory.build(
-            balance=32 * 10 ** 9,
+            balance=32 * 10**9,
             validator=ValidatorStateFactory.build(
                 activation_epoch=10,
                 withdrawable_epoch=(EPOCHS_PER_SLASHINGS_VECTOR // 2) + 50,
                 slashed=True,
-                effective_balance=32 * 10 ** 9,
+                effective_balance=32 * 10**9,
             ),
         ),
         ValidatorFactory.build(
-            balance=32 * 10 ** 9,
+            balance=32 * 10**9,
             validator=ValidatorStateFactory.build(
                 activation_epoch=10,
                 withdrawable_epoch=(EPOCHS_PER_SLASHINGS_VECTOR // 2) + 30,
                 slashed=True,
-                effective_balance=32 * 10 ** 9,
+                effective_balance=32 * 10**9,
             ),
         ),
     ]
 
-    midterm_penalty_prediction_electra_not_activated = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
-        report_ref_epoch=EpochNumber(epoch),
-        is_electra_activated=lambda _: False,
-        total_balance=total_balance,
-        slashings=slashings,
-        midterm_penalized_validators_in_frame=validators_in_frame,
+    midterm_penalty_prediction_electra_not_activated = (
+        MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
+            report_ref_epoch=EpochNumber(epoch),
+            is_electra_activated=lambda _: False,
+            total_balance=total_balance,
+            slashings=slashings,
+            midterm_penalized_validators_in_frame=validators_in_frame,
+        )
     )
 
-    midterm_penalty_prediction_electra_activated_second = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
-        report_ref_epoch=EpochNumber(epoch),
-        is_electra_activated=lambda _: True,
-        total_balance=total_balance,
-        slashings=slashings,
-        midterm_penalized_validators_in_frame=validators_in_frame[:1],
+    midterm_penalty_prediction_electra_activated_second = (
+        MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
+            report_ref_epoch=EpochNumber(epoch),
+            is_electra_activated=lambda _: True,
+            total_balance=total_balance,
+            slashings=slashings,
+            midterm_penalized_validators_in_frame=validators_in_frame[:1],
+        )
     )
 
-    midterm_penalty_prediction_electra_not_activated_first = MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
-        report_ref_epoch=EpochNumber(epoch),
-        is_electra_activated=lambda _: False,
-        total_balance=total_balance,
-        slashings=slashings,
-        midterm_penalized_validators_in_frame=validators_in_frame[1:],
+    midterm_penalty_prediction_electra_not_activated_first = (
+        MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
+            report_ref_epoch=EpochNumber(epoch),
+            is_electra_activated=lambda _: False,
+            total_balance=total_balance,
+            slashings=slashings,
+            midterm_penalized_validators_in_frame=validators_in_frame[1:],
+        )
     )
 
-    assert midterm_penalty_prediction_electra_not_activated <= midterm_penalty_prediction_electra_activated_second + midterm_penalty_prediction_electra_not_activated_first
+    assert (
+        midterm_penalty_prediction_electra_not_activated
+        <= midterm_penalty_prediction_electra_activated_second + midterm_penalty_prediction_electra_not_activated_first
+    )
 
 
 # 50% active validators with 2048 EB and the rest part with 32 EB
@@ -760,7 +769,7 @@ part_electra = [
             225,
         ),
         (
-            [*([32 * 10 ** 9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100)), *([32 * 10 ** 9] * 50)],
+            [*([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 100)), *([32 * 10**9] * 50)],
             part_electra,
             8_495_072,
             4010,
@@ -838,7 +847,7 @@ def test_cut_slashings_all_removed():
 )
 def test_get_validator_midterm_penalty(bounded_slashings_count, active_validators_count, expected_penalty):
     result = MidtermSlashingPenalty.get_validator_midterm_penalty(
-        simple_validators(0, 0)[0], bounded_slashings_count, active_validators_count * 32 * 10 ** 9
+        simple_validators(0, 0)[0], bounded_slashings_count, active_validators_count * 32 * 10**9
     )
 
     assert result == expected_penalty
@@ -907,8 +916,8 @@ def test_get_slashed_validators_with_impact_to_midterm_penalties(lido_validators
 @pytest.mark.parametrize(
     ("report_cl_rebase", "blockstamp", "last_report_ref_slot", "expected_result"),
     [
-        (5 * 32 * 10 ** 9, simple_blockstamp(225 * 32), 0, 5 * 32 * 10 ** 9),
-        (7 * 5 * 32 * 10 ** 9, simple_blockstamp(7 * 225 * 32), 0, 5 * 32 * 10 ** 9),
+        (5 * 32 * 10**9, simple_blockstamp(225 * 32), 0, 5 * 32 * 10**9),
+        (7 * 5 * 32 * 10**9, simple_blockstamp(7 * 225 * 32), 0, 5 * 32 * 10**9),
     ],
 )
 def test_get_frame_cl_rebase_from_report_cl_rebase(report_cl_rebase, blockstamp, last_report_ref_slot, expected_result):
