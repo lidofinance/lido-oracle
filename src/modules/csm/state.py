@@ -40,7 +40,14 @@ class DutyAccumulator:
 
 
 @dataclass
-class Duties:
+class ValidatorDuties:
+    attestation: DutyAccumulator | None
+    proposal: DutyAccumulator | None
+    sync: DutyAccumulator | None
+
+
+@dataclass
+class NetworkDuties:
     attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
     proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
     syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
@@ -55,7 +62,7 @@ class Duties:
 
 
 type Frame = tuple[EpochNumber, EpochNumber]
-type StateData = dict[Frame, Duties]
+type StateData = dict[Frame, NetworkDuties]
 
 
 class State:
@@ -201,7 +208,7 @@ class State:
         logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
         new_data: StateData = {}
         for frame in new_frames:
-            new_data[frame] = Duties()
+            new_data[frame] = NetworkDuties()
 
         def overlaps(a: Frame, b: Frame):
             return a[0] <= b[0] and a[1] >= b[1]
@@ -232,12 +239,23 @@ class State:
             if epoch not in self._processed_epochs:
                 raise InvalidState(f"Epoch {epoch} missing in processed epochs")
 
+    def get_validator_duties(self, frame: Frame, validator_index: ValidatorIndex) -> ValidatorDuties:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+
+        att_duty = frame_data.attestations.get(validator_index)
+        prop_duty = frame_data.proposals.get(validator_index)
+        sync_duty = frame_data.syncs.get(validator_index)
+
+        return ValidatorDuties(att_duty, prop_duty, sync_duty)
+
     def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
         # TODO: exclude `active_slashed` validators from the calculation
         frame_data = self.data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame: {frame=}")
-        aggr = self.get_duty_network_aggr(frame_data.attestations)
+        aggr = self._get_duty_network_aggr(frame_data.attestations)
         logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
@@ -245,7 +263,7 @@ class State:
         frame_data = self.data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame: {frame=}")
-        aggr = self.get_duty_network_aggr(frame_data.proposals)
+        aggr = self._get_duty_network_aggr(frame_data.proposals)
         logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
@@ -253,12 +271,12 @@ class State:
         frame_data = self.data.get(frame)
         if frame_data is None:
             raise ValueError(f"No data for frame: {frame=}")
-        aggr = self.get_duty_network_aggr(frame_data.syncs)
+        aggr = self._get_duty_network_aggr(frame_data.syncs)
         logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
         return aggr
 
     @staticmethod
-    def get_duty_network_aggr(duty_frame_data: defaultdict[ValidatorIndex, DutyAccumulator]) -> DutyAccumulator:
+    def _get_duty_network_aggr(duty_frame_data: defaultdict[ValidatorIndex, DutyAccumulator]) -> DutyAccumulator:
         included = assigned = 0
         for validator, acc in duty_frame_data.items():
             if acc.included > acc.assigned:
