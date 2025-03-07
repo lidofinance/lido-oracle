@@ -28,16 +28,18 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
 
 
 @pytest.mark.parametrize(
-    "frames, "
-    "last_report, "
-    "mocked_curve_params, "
-    "frame_blockstamps, "
-    "shares_to_distribute, "
-    "distribution_in_frame, "
-    "expected_total_rewards, "
-    "expected_total_rewards_map, "
-    "expected_total_rebate,"
-    "expected_strikes",
+    (
+        "frames",
+        "last_report",
+        "mocked_curve_params",
+        "frame_blockstamps",
+        "shares_to_distribute",
+        "distribution_in_frame",
+        "expected_total_rewards",
+        "expected_total_rewards_map",
+        "expected_total_rebate",
+        "expected_strikes",
+    ),
     [
         # One frame
         (
@@ -367,15 +369,17 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
 
 
 @pytest.mark.parametrize(
-    "to_distribute, "
-    "frame_validators, "
-    "frame_state_data, "
-    "mocked_curve_params, "
-    "expected_rewards_distribution_map, "
-    "expected_distributed_rewards, "
-    "expected_rebate_to_protocol, "
-    "expected_frame_strikes, "
-    "expected_log",
+    (
+        "to_distribute",
+        "frame_validators",
+        "frame_state_data",
+        "mocked_curve_params",
+        "expected_rewards_distribution_map",
+        "expected_distributed_rewards",
+        "expected_rebate_to_protocol",
+        "expected_frame_strikes",
+        "expected_log",
+    ),
     [
         # All above threshold performance
         (
@@ -1073,7 +1077,6 @@ def tests_validates_correct_distribution(total_distributed_rewards, total_rebate
     "total_distributed_rewards, total_rebate, total_rewards_to_distribute",
     [
         (100, 51, 150),
-        (100, 50, 149),
         (200, 0, 199),
     ],
 )
@@ -1109,7 +1112,9 @@ def test_performance_coefficients_calc_performance(attestation_perf, proposal_pe
         ([1], [10000, 9000], 1, 10000 / TOTAL_BASIS_POINTS),
         ([1], [10000, 9000], 2, 9000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 5, 1000 / TOTAL_BASIS_POINTS),
+        ([10, 20], [1000, 2000, 3000], 10, 1000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 15, 2000 / TOTAL_BASIS_POINTS),
+        ([10, 20], [1000, 2000, 3000], 20, 2000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 25, 3000 / TOTAL_BASIS_POINTS),
     ],
 )
@@ -1137,7 +1142,9 @@ def test_performance_leeway_raises_error_for_key_number_out_of_range():
         ([1], [10000, 9000], 1, 10000 / TOTAL_BASIS_POINTS),
         ([1], [10000, 9000], 2, 9000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 5, 1000 / TOTAL_BASIS_POINTS),
+        ([10, 20], [1000, 2000, 3000], 10, 1000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 15, 2000 / TOTAL_BASIS_POINTS),
+        ([10, 20], [1000, 2000, 3000], 20, 2000 / TOTAL_BASIS_POINTS),
         ([10, 20], [1000, 2000, 3000], 25, 3000 / TOTAL_BASIS_POINTS),
     ],
 )

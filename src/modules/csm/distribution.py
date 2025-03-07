@@ -278,8 +278,7 @@ class Distribution:
                 acc[key] = StrikesList()
             acc[key].push(strikes_in_frame[key])
 
-        keys_to_delete = []
-        for key in acc:
+        for key in list(acc.keys()):
             no_id, _ = key
             if key not in strikes_in_frame:
                 acc[key].push(StrikesList.SENTINEL)  # Just shifting...
@@ -287,7 +286,4 @@ class Distribution:
             acc[key].resize(maxlen)
             # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
             if not sum(acc[key]):
-                keys_to_delete.append(key)
-
-        for key in keys_to_delete:
-            del acc[key]
+                del acc[key]
