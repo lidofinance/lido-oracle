@@ -1,4 +1,5 @@
 import pytest
+from web3.exceptions import ContractLogicError
 
 from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
@@ -10,7 +11,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_is_
 
 
 @pytest.mark.integration
-@pytest.mark.skip("Requires CSMv2 activated on mainnet")  # TODO: Remove the mark with CSM v2 live on mainnet
+@pytest.mark.xfail(raises=ContractLogicError, reason="CSMv2 is not yet live")
 def test_cs_parameters_registry(cs_params_contract, caplog):
     check_contract(
         cs_params_contract,
