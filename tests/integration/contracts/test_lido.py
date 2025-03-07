@@ -1,17 +1,17 @@
 import pytest
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
-from tests.integration.contracts.contract_utils import check_contract, check_value_type
+from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
 
 
 @pytest.mark.integration
-def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_contract, caplog):
+def test_lido_contract_call(lido_contract, accounting_oracle_contract, caplog):
     check_contract(
         lido_contract,
         [
-            ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
-            ('total_supply', None, lambda response: check_value_type(response, int)),
-            ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
+            ('get_buffered_ether', None, check_is_instance_of(int)),
+            ('total_supply', None, check_is_instance_of(int)),
+            ('get_beacon_stat', None, check_is_instance_of(BeaconStat)),
             (
                 'handle_oracle_report',
                 (
@@ -27,7 +27,7 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
                     # Call depends on contract state
                     '0xfdc77ad0ea1ed99b1358beaca0d9c6fa831443f7f4c183302d9e2f76e4c9d0cb',
                 ),
-                lambda response: check_value_type(response, LidoReportRebase),
+                check_is_instance_of(LidoReportRebase),
             ),
         ],
         caplog,
