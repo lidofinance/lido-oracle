@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Self, NewType
+from typing import Self, NewType, List
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
@@ -28,8 +28,9 @@ class ReportData:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
-    finalization_share_rate: int
     is_bunker: bool
+    vaults_values: list[int]
+    vaults_in_out_deltas: list[int]
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -47,8 +48,9 @@ class ReportData:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
-            self.finalization_share_rate,
             self.is_bunker,
+            self.vaults_values,
+            self.vaults_in_out_deltas,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,
@@ -73,7 +75,6 @@ class OracleReportLimits:
     exited_validators_per_day_limit: int
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
-    simulated_share_rate_deviation_bp_limit: int
     max_validator_exit_requests_per_report: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
@@ -132,14 +133,14 @@ class WithdrawalRequestStatus:
 
 
 BunkerMode = NewType('BunkerMode', bool)
-FinalizationShareRate = NewType('FinalizationShareRate', int)
 ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
 type SharesToBurn = int
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
+type WqReport = tuple[BunkerMode, FinalizationBatches]
+type VaultsReport = tuple[list[int], list[int]]
 
 
 @dataclass
@@ -147,3 +148,51 @@ class BeaconStat:
     deposited_validators: int
     beacon_validators: int
     beacon_balance: int
+
+@dataclass(frozen=True)
+class ReportValues:
+    timestamp: int
+    time_elapsed: int
+    cl_validators: int
+    cl_balance: int
+    withdrawal_vault_balance: int
+    el_rewards_vault_balance: int
+    shares_requested_to_burn: int
+    withdrawal_finalization_batches: List[int]
+    vaults_values: List[int]
+    vaults_in_out_deltas: List[int]
+
+@dataclass(frozen=True)
+class StakingRewardsDistribution:
+    recipients: List[ChecksumAddress]
+    module_ids: List[int]
+    modules_fees: List[int]
+    total_fee: int
+    precision_points: int
+
+@dataclass(frozen=True)
+class ReportResults:
+    withdrawals: Wei
+    el_rewards: Wei
+    ether_to_finalize_wq: int
+    shares_to_finalize_wq: int
+    shares_to_burn_for_withdrawals: int
+    total_shares_to_burn: int
+    shares_to_mint_as_fees: int
+    reward_distribution: StakingRewardsDistribution
+    principal_cl_balance: int
+    post_total_shares: int
+    post_total_pooled_ether: int
+    vaults_locked_ether: List[int]
+    vaults_treasury_fee_shares: List[int]
+    total_vaults_treasury_fee_shares: int
+
+@dataclass(frozen=True)
+class VaultSocket:
+    vault: ChecksumAddress
+    share_limit: int
+    shares_minted: int
+    reserve_ratio_bp: int
+    rebalance_threshold_bp: int
+    treasury_fee_bp: int
+    pending_disconnect: bool

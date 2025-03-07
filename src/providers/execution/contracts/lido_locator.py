@@ -26,6 +26,18 @@ class LidoLocatorContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
+    def accounting(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+        response = self.functions.accounting().call(block_identifier=block_identifier)
+
+        logger.debug({
+            'msg': 'Call `accounting()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+        return response
+
+    @lru_cache(maxsize=1)
     def accounting_oracle(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         response = self.functions.accountingOracle().call(block_identifier=block_identifier)
 
@@ -127,6 +139,18 @@ class LidoLocatorContract(ContractInterface):
 
         logger.debug({
             'msg': 'Call `elRewardsVault()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+        return response
+
+    @lru_cache(maxsize=1)
+    def vault_hub(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+        response = self.functions.vaultHub().call(block_identifier=block_identifier)
+
+        logger.debug({
+            'msg': 'Call `vaultHub()`.',
             'value': response,
             'block_identifier': repr(block_identifier),
             'to': self.address,

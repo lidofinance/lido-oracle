@@ -164,7 +164,7 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
         Withdrawal, 'get_finalization_batches', return_value=[]
     ):
-        share_rate, batches = accounting._get_finalization_data(bs)
+        share_rate, batches = accounting._get_finalization_batches(bs)
 
     assert batches == []
     assert share_rate == expected_share_rate
