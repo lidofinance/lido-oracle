@@ -1,4 +1,4 @@
-# <type>(<scope>): <short description>
+# <type>(<task_id>): <short description>
 #
 # Example types:
 # feat:      A new feature
