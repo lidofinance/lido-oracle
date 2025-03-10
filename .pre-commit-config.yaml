@@ -17,6 +17,7 @@ repos:
         language: system
         types: [file, python]
         files: '^(src)/'
+        stages: [commit]
       - id: pytest-unit
         name: Run pytest unit tests
         entry: poetry run pytest tests -m "not integration and not e2e"
