@@ -127,17 +127,20 @@ class TestDataclass:
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("input_data, expected_output", [
-    (b'\xde\xad\xbe\xef', "0xdeadbeef"),
-    ({"key": b'\xca\xfe\xba\xbe'}, {"key": "0xcafebabe"}),
-    ([b'\x00\xff'], ["0x00ff"]),
-    ((b'\x12\x34', b'\xab\xcd'), ("0x1234", "0xabcd")),
-    ({"nested": {"key": b'\x99\x88'}}, {"nested": {"key": "0x9988"}}),
-    ([{"data": b'\xaa\xbb'}], [{"data": "0xaabb"}]),
-    (TestDataclass(field1=b'\x11\x22', field2=42), {"field1": "0x1122", "field2": 42}),
-    ("string", "string"),
-    (12345, 12345),
-    (None, None),
-])
+@pytest.mark.parametrize(
+    "input_data, expected_output",
+    [
+        (b'\xde\xad\xbe\xef', "0xdeadbeef"),
+        ({"key": b'\xca\xfe\xba\xbe'}, {"key": "0xcafebabe"}),
+        ([b'\x00\xff'], ["0x00ff"]),
+        ((b'\x12\x34', b'\xab\xcd'), ("0x1234", "0xabcd")),
+        ({"nested": {"key": b'\x99\x88'}}, {"nested": {"key": "0x9988"}}),
+        ([{"data": b'\xaa\xbb'}], [{"data": "0xaabb"}]),
+        (TestDataclass(field1=b'\x11\x22', field2=42), {"field1": "0x1122", "field2": 42}),
+        ("string", "string"),
+        (12345, 12345),
+        (None, None),
+    ],
+)
 def test_convert_bytes_to_hex(input_data, expected_output):
     assert convert_bytes_to_hex(input_data) == expected_output
