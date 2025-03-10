@@ -29,6 +29,7 @@ json-stream = "^2.3.2"
 lazy-object-proxy = "^1.9.0"
 oz-merkle-tree = {git = "https://github.com/lidofinance/oz-merkle-tree"}
 py-multiformats-cid = "^0.4.4"
+conventional-pre-commit = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"

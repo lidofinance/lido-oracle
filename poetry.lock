@@ -569,6 +569,20 @@ files = [
 ]
 
 [[package]]
+name = "conventional-pre-commit"
+version = "4.0.0"
+description = "A pre-commit hook that checks commit messages for Conventional Commits formatting."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "conventional_pre_commit-4.0.0-py3-none-any.whl", hash = "sha256:41feb4b698056ef607f916227eee6f6464624d3da3d79970830ab3f202ee930c"},
+    {file = "conventional_pre_commit-4.0.0.tar.gz", hash = "sha256:1e34cf1feb77f94ca39cc99cca940e41fd23c8e5a4ea92f3a5102c68941acba4"},
+]
+
+[package.extras]
+dev = ["black", "build", "coverage", "flake8", "pre-commit", "pytest", "setuptools_scm"]
+
+[[package]]
 name = "coverage"
 version = "7.5.3"
 description = "Code coverage measurement for Python"
@@ -2865,4 +2879,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "ff957808298e0c2c9d466f4224b880f304e5fdaec3d38a4448d1a45634ae59e4"
+content-hash = "686e226c8456c06b8b90a5cd905a83d0cec6201e61cf68e7c2691e24e54cc8d1"
