@@ -6,13 +6,13 @@ import logging
 def convert_bytes_to_hex(data):
     if isinstance(data, bytes):
         return '0x' + data.hex()
-    elif dataclasses.is_dataclass(data):
+    if dataclasses.is_dataclass(data):
         return convert_bytes_to_hex(dataclasses.asdict(data))
-    elif isinstance(data, dict):
+    if isinstance(data, dict):
         return {key: convert_bytes_to_hex(value) for key, value in data.items()}
-    elif isinstance(data, list):
+    if isinstance(data, list):
         return [convert_bytes_to_hex(item) for item in data]
-    elif isinstance(data, tuple):
+    if isinstance(data, tuple):
         return tuple(convert_bytes_to_hex(item) for item in data)
     return data
 
