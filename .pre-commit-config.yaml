@@ -11,6 +11,12 @@ repos:
         entry: .git-hooks/validate-commit-msg.sh
         language: system
         stages: [commit-msg]
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [file, python]
+        files: '^(src)/'
       - id: pytest-unit
         name: Run pytest unit tests
         entry: poetry run pytest tests -m "not integration and not e2e"
