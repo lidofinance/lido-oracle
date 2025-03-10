@@ -18,6 +18,13 @@ repos:
         types: [file, python]
         files: '^(src)/'
         stages: [commit]
+      - id: pylint
+        name: pylint
+        entry: poetry run pylint
+        language: system
+        types: [python]
+        files: '^(src|test)/'
+        stages: [commit]
       - id: pytest-unit
         name: Run pytest unit tests
         entry: poetry run pytest tests -m "not integration and not e2e"
