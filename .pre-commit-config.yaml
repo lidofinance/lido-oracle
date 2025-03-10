@@ -9,8 +9,8 @@ repos:
       - id: conventional-pre-commit
         name: Conventional pre-commit
         entry: poetry run conventional-pre-commit
-        stages: [commit-msg]
         language: system
+        stages: [commit-msg]
       - id: mypy
         name: mypy
         entry: poetry run mypy
