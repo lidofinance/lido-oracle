@@ -284,7 +284,7 @@ def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
             # the same midterm epoch
             225,
             simple_validators(0, 9, slashed=True),
-            {(18, 4049): simple_validators(0, 9, slashed=True)},
+            {18: simple_validators(0, 9, slashed=True)},
         ),
         (
             # midterm frames in past
@@ -300,8 +300,8 @@ def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
                 *simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
             ],
             {
-                (18, 4049): simple_validators(0, 9, slashed=True),
-                (19, 4274): simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
+                18: simple_validators(0, 9, slashed=True),
+                19: simple_validators(10, 59, slashed=True, withdrawable_epoch="8417"),
             },
         ),
     ],
