@@ -14,7 +14,7 @@ def convert_bytes_to_hex(data: Any) -> Any:
     if isinstance(data, Iterator):
         return (convert_bytes_to_hex(item) for item in data)
     if isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
-        return type(data)(convert_bytes_to_hex(item) for item in data) # type: ignore[arg-type]
+        return type(data)(convert_bytes_to_hex(item) for item in data)  # type: ignore[arg-type]
     return data
 
 
@@ -22,7 +22,6 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         message = record.msg if isinstance(record.msg, dict) else {'msg': record.getMessage()}
 
-        # convert bytes fields of the message to 0x hex strings
         message = convert_bytes_to_hex(message)
 
         if 'value' in message:
