@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import logging
+from typing import Iterator
 from unittest.mock import Mock
 
 import pytest
@@ -126,6 +127,12 @@ class TestDataclass:
     field2: int
 
 
+def byte_generator():
+    yield b'\xde\xad'
+    yield b'\xbe\xef'
+    yield b'\xca\xfe'
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "input_data, expected_output",
@@ -140,7 +147,15 @@ class TestDataclass:
         ("string", "string"),
         (12345, 12345),
         (None, None),
+        ({b'\xde\xad', b'\xbe\xef'}, {"0xdead", "0xbeef"}),
     ],
 )
 def test_convert_bytes_to_hex(input_data, expected_output):
     assert convert_bytes_to_hex(input_data) == expected_output
+
+
+def test_convert_bytes_to_hex_generator():
+    gen = byte_generator()
+    converted_gen = convert_bytes_to_hex(gen)
+    assert isinstance(converted_gen, Iterator)
+    assert list(converted_gen) == ["0xdead", "0xbeef", "0xcafe"]
