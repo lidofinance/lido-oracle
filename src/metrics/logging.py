@@ -14,7 +14,7 @@ def convert_bytes_to_hex(data: Any) -> Any:
     if isinstance(data, Iterator):
         return (convert_bytes_to_hex(item) for item in data)
     if isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
-        return type(data)(convert_bytes_to_hex(item) for item in data)  # type: ignore[arg-type]
+        return type(data)(convert_bytes_to_hex(item) for item in data)  # type: ignore
     return data
 
 
