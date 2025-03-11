@@ -1,19 +1,20 @@
 import dataclasses
 import json
 import logging
+from typing import Mapping, Iterator, Iterable, Any
 
 
-def convert_bytes_to_hex(data):
+def convert_bytes_to_hex(data: Any) -> Any:
     if isinstance(data, bytes):
         return '0x' + data.hex()
     if dataclasses.is_dataclass(data):
         return convert_bytes_to_hex(dataclasses.asdict(data))
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         return {key: convert_bytes_to_hex(value) for key, value in data.items()}
-    if isinstance(data, list):
-        return [convert_bytes_to_hex(item) for item in data]
-    if isinstance(data, tuple):
-        return tuple(convert_bytes_to_hex(item) for item in data)
+    if isinstance(data, Iterator):
+        return (convert_bytes_to_hex(item) for item in data)
+    if isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
+        return type(data)(convert_bytes_to_hex(item) for item in data)
     return data
 
 
