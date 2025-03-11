@@ -45,10 +45,10 @@ def test_get_filter_non_exitable_validators(iterator):
         }
     )
 
-    filt = iterator.get_filter_non_exitable_validators((1, 1))
+    filt = iterator.get_filter_validators_exit_epoch_set((1, 1))
     assert not filt(LidoValidatorFactory.build(index="1"))
 
-    filt = iterator.get_filter_non_exitable_validators((1, 2))
+    filt = iterator.get_filter_validators_exit_epoch_set((1, 2))
     assert filt(LidoValidatorFactory.build(index="1"))
 
 
