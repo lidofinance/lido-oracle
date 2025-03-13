@@ -130,7 +130,7 @@ class ValidatorExitIterator:
 
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
-            self.exitable_validators[gid] = list(filter(self.get_filter_active_not_requested_lido_validators(gid), validators_list))
+            self.exitable_validators[gid] = list(filter(self.get_can_request_exit_predicate(gid), validators_list))
             self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
@@ -184,7 +184,7 @@ class ValidatorExitIterator:
             Gwei(0),
         )
 
-    def get_filter_active_not_requested_lido_validators(self, gid: NodeOperatorGlobalIndex):
+    def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
         """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
         indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
