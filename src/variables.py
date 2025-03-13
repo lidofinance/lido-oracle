@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from typing import Final
 
@@ -79,6 +80,15 @@ HTTP_REQUEST_RETRY_COUNT_IPFS: Final = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_I
 PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
+# - OpsGenie -
+OPSGENIE_API_KEY: Final[str] = os.getenv('OPSGENIE_API_KEY', '')
+OPSGENIE_API_URL: Final[str] = os.getenv('OPSGENIE_API_URL', '')
+OPSGENIE_DAILY_CHECK_RESPONDERS: Final[list[dict[str, str]]] = (
+    json.loads(opsgenie_daily_check_responders)
+    if (opsgenie_daily_check_responders := os.getenv("OPSGENIE_DAILY_CHECK_RESPONDERS"))
+    else []
+)
+
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
 MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
@@ -155,6 +165,8 @@ PRIVATE_ENV_VARS = {
     'GW3_SECRET_KEY': GW3_SECRET_KEY,
     'PINATA_JWT': PINATA_JWT,
     'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,
+    'OPSGENIE_API_KEY': OPSGENIE_API_KEY,
+    'OPSGENIE_API_URL': OPSGENIE_API_URL,
 }
 
 assert not set(PRIVATE_ENV_VARS.keys()).intersection(set(PUBLIC_ENV_VARS.keys()))

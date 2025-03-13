@@ -6,7 +6,7 @@ from io import BytesIO
 from unittest.mock import patch, MagicMock
 
 import requests
-import requests_mock
+import responses
 import src.metrics.healthcheck_server
 
 from src.metrics.healthcheck_server import pulse, PulseRequestHandler
@@ -15,21 +15,21 @@ from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
 class TestPulseFunction(unittest.TestCase):
 
-    @requests_mock.Mocker()
+    @responses.activate
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
-    def test_pulse_success(self, mock_request):
+    def test_pulse_success(self):
         """Test that pulse successfully pings the healthcheck server."""
-        mock_request.get('http://localhost:8000/pulse/', status_code=HTTPStatus.OK)
+        responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
 
         with patch('logging.Logger.warning') as mock_warning:
             pulse()
             mock_warning.assert_not_called()
 
-    @requests_mock.Mocker()
+    @responses.activate
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
-    def test_pulse_server_not_responding(self, mock_request):
+    def test_pulse_server_not_responding(self):
         """Test that pulse logs a warning when the server is not responding."""
-        mock_request.get('http://localhost:8000/pulse/', exc=requests.ConnectionError)
+        responses.get('http://localhost:8000/pulse/', body=requests.ConnectionError())
 
         with patch('logging.Logger.warning') as mock_warning:
             pulse()
