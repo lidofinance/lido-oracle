@@ -1,0 +1,45 @@
+name: Daily health-checks for third party integrations
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  oracle-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Oracle Check
+        env:
+          OPSGENIE_API_KEY: ${{ secrets.OPSGENIE_API_KEY }}
+          OPSGENIE_API_URL: ${{ secrets.OPSGENIE_API_URL }}
+          OPSGENIE_DAILY_CHECK_RESPONDERS: ${{ secrets.OPSGENIE_DAILY_CHECK_RESPONDERS }}
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          LIDO_LOCATOR_ADDRESS: ${{ secrets.LIDO_LOCATOR_ADDRESS }}
+          CSM_MODULE_ADDRESS: ${{ secrets.CSM_MODULE_ADDRESS }}
+          GW3_ACCESS_KEY: ${{ secrets.GW3_ACCESS_KEY }}
+          GW3_SECRET_KEY: ${{ secrets.GW3_SECRET_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+        run: |
+          cat << EOF > .env
+          OPSGENIE_API_KEY=${OPSGENIE_API_KEY}
+          OPSGENIE_API_URL=${OPSGENIE_API_URL}
+          OPSGENIE_DAILY_CHECK_RESPONDERS=${OPSGENIE_DAILY_CHECK_RESPONDERS}
+          EXECUTION_CLIENT_URI=${EXECUTION_CLIENT_URI}
+          CONSENSUS_CLIENT_URI=${CONSENSUS_CLIENT_URI}
+          KEYS_API_URI=${KEYS_API_URI}
+          LIDO_LOCATOR_ADDRESS=${LIDO_LOCATOR_ADDRESS}
+          CSM_MODULE_ADDRESS=${CSM_MODULE_ADDRESS}
+          GW3_ACCESS_KEY=${GW3_ACCESS_KEY}
+          GW3_SECRET_KEY=${GW3_SECRET_KEY}
+          PINATA_JWT=${PINATA_JWT}
+          EOF
+
+          docker build -t lido-oracle-ci . && docker run --env-file .env --rm lido-oracle-ci check
