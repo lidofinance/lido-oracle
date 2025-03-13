@@ -3,7 +3,8 @@ repos:
     rev: 23.12.1  # Use the latest stable version
     hooks:
       - id: black
-
+        name: Run black on tests
+        files: ^tests/  # ✅ Runs only on the tests folder
   - repo: local
     hooks:
       - id: conventional-pre-commit
