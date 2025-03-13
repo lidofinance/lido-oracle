@@ -153,6 +153,52 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "name": "_timeElapsed",
+        "type": "uint256"
+      },
+      {
+        "name": "_preTotalShares",
+        "type": "uint256"
+      },
+      {
+        "name": "_preTotalEther",
+        "type": "uint256"
+      },
+      {
+        "name": "_postTotalShares",
+        "type": "uint256"
+      },
+      {
+        "name": "_postTotalEther",
+        "type": "uint256"
+      },
+      {
+        "name": "_postInternalShares",
+        "type": "uint256"
+      },
+      {
+        "name": "_postInternalEther",
+        "type": "uint256"
+      },
+      {
+        "name": "_sharesMintedAsFees",
+        "type": "uint256"
+      }
+    ],
+    "name": "emitTokenRebase",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "isStakingPaused",
@@ -1269,44 +1315,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_reportTimestamp",
-        "type": "uint256"
-      },
-      {
-        "name": "_timeElapsed",
-        "type": "uint256"
-      },
-      {
-        "name": "_preTotalShares",
-        "type": "uint256"
-      },
-      {
-        "name": "_preTotalEther",
-        "type": "uint256"
-      },
-      {
-        "name": "_postTotalShares",
-        "type": "uint256"
-      },
-      {
-        "name": "_postTotalEther",
-        "type": "uint256"
-      },
-      {
-        "name": "_sharesMintedAsFees",
-        "type": "uint256"
-      }
-    ],
-    "name": "emitTokenRebase",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "canDeposit",
@@ -1625,6 +1633,33 @@
       }
     ],
     "name": "Unbuffered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postInternalShares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postInternalEther",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "sharesMintedAsFees",
+        "type": "uint256"
+      }
+    ],
+    "name": "InternalShareRateUpdated",
     "type": "event"
   },
   {

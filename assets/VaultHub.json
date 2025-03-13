@@ -2,13 +2,13 @@
   {
     "inputs": [
       {
-        "internalType": "contract ILido",
-        "name": "_stETH",
+        "internalType": "contract ILidoLocator",
+        "name": "_locator",
         "type": "address"
       },
       {
-        "internalType": "address",
-        "name": "_accounting",
+        "internalType": "contract ILido",
+        "name": "_lido",
         "type": "address"
       },
       {
@@ -394,6 +394,17 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      }
+    ],
+    "name": "VaultDepositorNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "beacon",
         "type": "address"
       }
@@ -690,10 +701,23 @@
   },
   {
     "inputs": [],
-    "name": "ACCOUNTING",
+    "name": "DEFAULT_ADMIN_ROLE",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "LIDO",
+    "outputs": [
+      {
+        "internalType": "contract ILido",
         "name": "",
         "type": "address"
       }
@@ -703,12 +727,12 @@
   },
   {
     "inputs": [],
-    "name": "DEFAULT_ADMIN_ROLE",
+    "name": "LIDO_LOCATOR",
     "outputs": [
       {
-        "internalType": "bytes32",
+        "internalType": "contract ILidoLocator",
         "name": "",
-        "type": "bytes32"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -748,19 +772,6 @@
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "STETH",
-    "outputs": [
-      {
-        "internalType": "contract ILido",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -827,13 +838,50 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_postTotalShares",
+        "name": "_reportValuation",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "_postTotalPooledEther",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "uint96",
+            "name": "sharesMinted",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "shareLimit",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint16",
+            "name": "reserveRatioBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "rebalanceThresholdBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "treasuryFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "pendingDisconnect",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct VaultHub.VaultSocket",
+        "name": "socket",
+        "type": "tuple"
       },
       {
         "internalType": "uint256",
@@ -847,7 +895,61 @@
       },
       {
         "internalType": "uint256",
-        "name": "_sharesToMintAsFees",
+        "name": "_postInternalShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_postInternalEther",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sharesToMintAsLidoCoreFees",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateVaultTreasuryFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "treasuryFeeShares",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "vaultsValuations",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_preTotalShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_preTotalPooledEther",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_postInternalShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_postInternalEther",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sharesToMintAsLidoCoreFees",
         "type": "uint256"
       }
     ],
@@ -1160,11 +1262,6 @@
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "_recipient",
-        "type": "address"
-      },
       {
         "internalType": "uint256",
         "name": "_amountOfShares",

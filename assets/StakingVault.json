@@ -8,6 +8,11 @@
       },
       {
         "internalType": "address",
+        "name": "_depositor",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
         "name": "_beaconChainDepositContract",
         "type": "address"
       }
@@ -598,40 +603,6 @@
   {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "_pubkey",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_withdrawalCredentials",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_signature",
-        "type": "bytes"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "computeDepositDataRoot",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "components": [
           {
             "internalType": "bytes",
@@ -662,6 +633,19 @@
     "name": "depositToBeaconChain",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "depositor",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

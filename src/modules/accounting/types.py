@@ -181,6 +181,8 @@ class ReportResults:
     shares_to_mint_as_fees: int
     reward_distribution: StakingRewardsDistribution
     principal_cl_balance: int
+    post_internal_shares: int
+    post_internal_ether: int
     post_total_shares: int
     post_total_pooled_ether: int
     vaults_locked_ether: List[int]

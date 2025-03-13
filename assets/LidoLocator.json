@@ -80,6 +80,11 @@
           },
           {
             "internalType": "address",
+            "name": "predepositGuarantee",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
             "name": "wstETH",
             "type": "address"
           },
@@ -303,6 +308,19 @@
   {
     "inputs": [],
     "name": "postTokenRebaseReceiver",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "predepositGuarantee",
     "outputs": [
       {
         "internalType": "address",

@@ -318,6 +318,16 @@
           },
           {
             "internalType": "uint256",
+            "name": "postInternalShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "postInternalEther",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
             "name": "postTotalShares",
             "type": "uint256"
           },
