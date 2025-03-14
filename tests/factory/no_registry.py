@@ -52,13 +52,13 @@ class StakingModuleFactory(Web3DataclassFactory[StakingModule]):
 
 class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
     index: str = Use(lambda x: next(x), count(1))
-    balance: str = Use(lambda x: x, random.randrange(1, 10 ** 9))
+    balance: str = Use(lambda x: x, random.randrange(1, 10**9))
 
     @classmethod
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
         return cls.build(
             validator=ValidatorStateFactory.build(
-                activation_epoch=faker.pyint(max_value=max_value - 1), effective_balance=Gwei(32 * 10 ** 9)
+                activation_epoch=faker.pyint(max_value=max_value - 1), effective_balance=Gwei(32 * 10**9)
             ),
             **kwargs,
         )
