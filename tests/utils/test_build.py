@@ -6,7 +6,6 @@ from src.utils.build import get_build_info, UNKNOWN_BUILD_INFO
 
 
 class TestGetBuildInfo(unittest.TestCase):
-
     @patch(
         'builtins.open', new_callable=mock_open, read_data='{"version": "1.0.0", "branch": "main", "commit": "abc123"}'
     )

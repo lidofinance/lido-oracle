@@ -479,7 +479,12 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
                     *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
                 ],
             },
-            [*([0] * 100), *([32 * 10**9] * 10), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160))],
+            [
+                *([0] * 100),
+                *([32 * 10**9] * 10),
+                *([32 * 10**9] * 50),
+                *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160)),
+            ],
             50000,
             {18: 0, 19: 5_760_000_000},
         ),
