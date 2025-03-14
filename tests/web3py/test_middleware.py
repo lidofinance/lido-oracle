@@ -66,7 +66,6 @@ def test_fail_with_status_code(provider, web3):
 
 
 class TestMetricsCollectorUnit:
-
     @pytest.fixture
     def mock_web3(self):
         """Mock Web3 instance."""

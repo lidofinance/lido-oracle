@@ -57,7 +57,6 @@ def _create_mock_request_handler(path):
 
 
 class TestPulseRequestHandler(unittest.TestCase):
-
     def setUp(self):
         # Reset _last_pulse to current time before each test
         PulseRequestHandler._last_pulse = datetime.now()
