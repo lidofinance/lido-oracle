@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from dataclasses import dataclass
 from typing import TypeAlias, Literal
@@ -24,5 +23,12 @@ class ReportData:
     distributed: int
 
     def as_tuple(self):
-        return dataclasses.astuple(self, tuple_factory=lambda iterable: tuple(
-            str(value) if isinstance(value, CID) else value for value in iterable))
+        # Tuple with report in correct order
+        return (
+            self.consensus_version,
+            self.ref_slot,
+            self.tree_root,
+            str(self.tree_cid),
+            str(self.log_cid),
+            self.distributed,
+        )
