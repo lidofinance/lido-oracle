@@ -292,7 +292,7 @@ class AbnormalClRebase:
         ref_validators: Sequence[Validator],
     ) -> Gwei:
         """
-        Handle 32 ETH balances of freshly baked validators, who was appeared between epochs
+        Handle 32 ETH balances of freshly baked validators, who appeared between epochs
         Lido validators are counted by public keys that the protocol deposited with 32 ETH,
         so we can safely count the differences in the number of validators when they occur by deposit size.
         Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
