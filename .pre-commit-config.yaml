@@ -21,7 +21,7 @@ repos:
         stages: [commit]
       - id: pylint
         name: pylint
-        entry: poetry run pylint
+        entry: poetry run pylint src tests
         language: system
         types: [python]
         files: '^(src|test)/'
