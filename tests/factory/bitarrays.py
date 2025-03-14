@@ -15,9 +15,10 @@ class BitListFactory(ModelFactory[BitList]):
     @classmethod
     def build(
         cls,
-        set_indices: list[int] = [],
+        set_indices: list[int] = None,
         bits_count: int = 0,
     ) -> BitList:
+        set_indices = set_indices or []
         bit_list: list[bool] = [False] * (max(set_indices, default=0) + 1)
         for n in set_indices:
             bit_list[n] = True

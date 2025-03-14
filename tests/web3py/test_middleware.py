@@ -7,7 +7,7 @@ from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
-from src.web3py.middleware import metrics_collector, add_requests_metric_middleware
+from src.web3py.middleware import add_requests_metric_middleware, Web3MetricsMiddleware
 
 pytestmark = pytest.mark.integration
 
@@ -103,7 +103,8 @@ class TestMetricsCollectorUnit:
         """
         Test the metrics collector for an `eth_call` method.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]
@@ -129,7 +130,8 @@ class TestMetricsCollectorUnit:
         """
         Test the metrics collector for an `eth_getBalance` method.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_getBalance'
         params = ['0x1234567890abcdef', 'latest']
@@ -153,7 +155,8 @@ class TestMetricsCollectorUnit:
         """
         Test that the metrics collector handles the NoActiveProviderError.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]
@@ -175,7 +178,8 @@ class TestMetricsCollectorUnit:
         """
         Test that the metrics collector handles HTTPError correctly.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]
