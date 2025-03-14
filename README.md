@@ -302,6 +302,12 @@ Python version: 3.12
 poetry install
 ```
 
+3. Install pre-commmit hooks
+
+```bash
+poetry run pre-commit install
+```
+
 ## Startup
 
 Required variables for accounting and ejector modules

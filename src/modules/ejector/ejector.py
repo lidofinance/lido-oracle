@@ -123,6 +123,7 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
+            consensus_version=self.get_consensus_version(blockstamp),
             blockstamp=blockstamp,
             seconds_per_slot=chain_config.seconds_per_slot
         ))
