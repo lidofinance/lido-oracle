@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
+
 from web3 import Web3
 from web3.types import BlockIdentifier
 
@@ -7,7 +8,6 @@ from src.providers.execution.base_interface import ContractInterface
 
 
 class TestContractInterface(unittest.TestCase):
-
     def setUp(self):
         # Set up a mock Web3 instance
         self.w3 = MagicMock(spec=Web3)

@@ -1,11 +1,12 @@
-import pytest
 from dataclasses import dataclass
-
 from unittest.mock import Mock
+
+import pytest
+
+from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.providers.consensus.types import ValidatorState
 from src.services.safe_border import SafeBorder
 from src.web3py.extensions.lido_validators import Validator
-from src.providers.consensus.types import ValidatorState
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
@@ -75,16 +76,6 @@ def test_calc_validator_slashed_epoch_from_state_undetectable(safe_border):
     validator = create_validator_stub(exit_epoch, withdrawable_epoch)
 
     assert safe_border._predict_earliest_slashed_epoch(validator) is None
-
-
-def test_filter_validators_with_earliest_exit_epoch(safe_border):
-    validators = [
-        create_validator_stub(100, 105),
-        create_validator_stub(102, 107),
-        create_validator_stub(103, 108),
-    ]
-
-    assert safe_border._filter_validators_with_earliest_exit_epoch(validators) == [validators[0]]
 
 
 def test_get_negative_rebase_border_epoch(safe_border, past_blockstamp):
@@ -222,6 +213,60 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
+###
+# Test should ensure that there is no filtering applied to the inputs of _find_earliest_slashed_epoch_rounded_to_frame.
+# Previously under some conditions we could trap into situation printed below, because of the exit_epoch filtering.
+# validator 1:
+# --|-------------|-------|-----|------------->
+#   initiate      slashed exit  withdrawable
+#   exit          epoch   epoch epoch
+
+
+# validator 2:
+# ------|------------------|---------------|-->
+#       slashed            exit            withdrawable
+#       epoch              epoch           epoch
+#
+#     ^
+#     expected
+#     safe
+#     border
+###
+def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp, lido_validators):
+    # in binary search:
+    # start frame = 73
+    # end frame = 101
+
+    # Assume that validator 1 slashed at 84
+    # Assume that validator 2 slashed at 74
+    non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
+    exit_epoch = non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    safe_border._get_last_finalized_withdrawal_request_epoch = Mock(return_value=0)
+
+    # predicted_epoch = None
+    validator1 = ValidatorFactory.build(
+        validator=ValidatorStateFactory.build(
+            slashed=True,
+            exit_epoch=exit_epoch,
+            withdrawable_epoch=non_withdrawable_epoch,
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 25,
+        )
+    )
+
+    validator2 = ValidatorFactory.build(
+        validator=ValidatorStateFactory.build(
+            slashed=True,
+            exit_epoch=exit_epoch + 1,
+            withdrawable_epoch=non_withdrawable_epoch + 25,
+            activation_epoch=exit_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 300,
+        )
+    )
+    safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 45)
+    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
+    earliest_slashed_epoch = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
+    assert earliest_slashed_epoch == 450
+
+
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_border, past_blockstamp):
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=None)
     safe_border.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=past_blockstamp.ref_slot)
@@ -235,7 +280,7 @@ def test_get_bunker_start_or_last_successful_report_epoch(safe_border, past_bloc
     assert safe_border._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
 
 
-def test_get_last_finalized_withdrawal_request_slot(safe_border):
+def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     timestamp = 1677230000
 
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=3)
@@ -245,15 +290,14 @@ def test_get_last_finalized_withdrawal_request_slot(safe_border):
 
     slot = (timestamp - safe_border.chain_config.genesis_time) // safe_border.chain_config.seconds_per_slot
     epoch = slot // safe_border.chain_config.slots_per_epoch
-    first_slot = epoch * safe_border.chain_config.slots_per_epoch
 
-    assert safe_border._get_last_finalized_withdrawal_request_slot() == first_slot
+    assert safe_border._get_last_finalized_withdrawal_request_epoch() == epoch
 
 
-def test_get_last_finalized_withdrawal_request_slot_no_requests(safe_border):
+def test_get_last_finalized_withdrawal_request_epoch_no_requests(safe_border):
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=0)
 
-    assert safe_border._get_last_finalized_withdrawal_request_slot() == 0
+    assert safe_border._get_last_finalized_withdrawal_request_epoch() == 0
 
 
 def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):

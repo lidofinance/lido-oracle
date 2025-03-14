@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Protocol
 
 from eth_typing import BlockNumber
@@ -177,6 +178,7 @@ class BeaconStateView(Nested, FromResponse):
     slot: SlotNumber
     validators: list[ValidatorState]
     balances: list[Gwei]
+    slashings: list[Gwei]
 
     # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
@@ -184,7 +186,7 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
 
-    @property
+    @cached_property
     def indexed_validators(self) -> list[Validator]:
         return [
             Validator(

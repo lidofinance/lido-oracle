@@ -130,7 +130,7 @@ class ValidatorExitIterator:
 
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
-            self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
+            self.exitable_validators[gid] = list(filter(self.get_can_request_exit_predicate(gid), validators_list))
             self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
@@ -184,7 +184,7 @@ class ValidatorExitIterator:
             Gwei(0),
         )
 
-    def get_filter_non_exitable_validators(self, gid: NodeOperatorGlobalIndex):
+    def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
         """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
         indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
@@ -340,21 +340,24 @@ class ValidatorExitIterator:
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
         # Extra validators limited by VEBO report
-        while self.index != self.max_validators_to_exit:
+        while self.index < self.max_validators_to_exit:
             for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
                 if self._no_force_predicate(no_stats) == 0:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
-                if no_stats.predictable_validators:
+                gid = (
+                    no_stats.node_operator.staking_module.id,
+                    no_stats.node_operator.id,
+                )
+
+                if self.exitable_validators[gid]:
                     # When found Node Operator
                     self.index += 1
-                    gid = (
-                        no_stats.node_operator.staking_module.id,
-                        no_stats.node_operator.id,
-                    )
                     result.append((gid, self._eject_validator(gid)))
                     break
+            else:
+                break
 
         return result
 

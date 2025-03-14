@@ -43,10 +43,10 @@ def test_get_filter_non_exitable_validators(iterator):
         }
     )
 
-    filt = iterator.get_filter_non_exitable_validators((1, 1))
+    filt = iterator.get_can_request_exit_predicate((1, 1))
     assert not filt(LidoValidatorFactory.build(index="1"))
 
-    filt = iterator.get_filter_non_exitable_validators((1, 2))
+    filt = iterator.get_can_request_exit_predicate((1, 2))
     assert filt(LidoValidatorFactory.build(index="1"))
 
 
@@ -394,6 +394,11 @@ def test_get_remaining_forced_validators(iterator):
             force_exit_to=9,
             node_operator=NodeOperatorFactory.build(id=4, staking_module=sm),
         ),
+        (1, 5): NodeOperatorStatsFactory.build(
+            predictable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=5, staking_module=sm),
+        ),
     }
 
     iterator.exitable_validators = {
@@ -401,6 +406,7 @@ def test_get_remaining_forced_validators(iterator):
         (1, 2): [LidoValidatorFactory.build(index=5)],
         (1, 3): [LidoValidatorFactory.build(index=3)],
         (1, 4): [LidoValidatorFactory.build(index=4)],
+        (1, 5): [],
     }
 
     def _eject(self, gid):
@@ -424,6 +430,61 @@ def test_get_remaining_forced_validators(iterator):
 
     vals = iterator.get_remaining_forced_validators()
     assert len(vals) == 1
+
+
+@pytest.mark.unit
+def test_get_remaining_forced_validators_all_predictable(iterator):
+    iterator.max_validators_to_exit = 10
+    iterator.index = 5
+    sm = StakingModuleFactory.build(id=1)
+
+    iterator.node_operators_stats = {
+        (1, 1): NodeOperatorStatsFactory.build(
+            predictable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=sm),
+        ),
+        (1, 2): NodeOperatorStatsFactory.build(
+            predictable_validators=10,
+            force_exit_to=9,
+            node_operator=NodeOperatorFactory.build(id=2, staking_module=sm),
+        ),
+    }
+
+    iterator.exitable_validators = {
+        (1, 1): [],
+        (1, 2): [],
+    }
+
+    vals = iterator.get_remaining_forced_validators()
+
+    assert len(vals) == 0
+
+
+def test_get_remaining_forced_validators_no_node_operators(iterator):
+    iterator.node_operators_stats = {}
+    vals = iterator.get_remaining_forced_validators()
+    assert len(vals) == 0
+
+
+def test_get_remaining_forced_validators_no_more_place_in_report(iterator):
+    iterator.max_validators_to_exit = 10
+    iterator.index = 10
+
+    iterator.node_operators_stats = {
+        (1, 1): NodeOperatorStatsFactory.build(
+            predictable_validators=10,
+            force_exit_to=5,
+            node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
+        ),
+    }
+
+    iterator.exitable_validators = {
+        (1, 1): [LidoValidatorFactory.build(index=5)],
+    }
+
+    vals = iterator.get_remaining_forced_validators()
+    assert len(vals) == 0
 
 
 def test_lowest_validators_index_predicate(iterator):

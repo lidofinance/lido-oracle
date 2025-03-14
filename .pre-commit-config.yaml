@@ -1,0 +1,34 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.12.1  # Use the latest stable version
+    hooks:
+      - id: black
+        name: Run black on tests
+        files: ^tests/  # ✅ Runs only on the tests folder
+  - repo: local
+    hooks:
+      - id: conventional-pre-commit
+        name: Conventional pre-commit
+        entry: poetry run conventional-pre-commit
+        language: system
+        stages: [commit-msg]
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [file, python]
+        files: '^(src)/'
+        stages: [commit]
+      - id: pylint
+        name: pylint
+        entry: poetry run pylint
+        language: system
+        types: [python]
+        files: '^(src|test)/'
+        stages: [commit]
+      - id: pytest-unit
+        name: Run pytest unit tests
+        entry: poetry run pytest tests -m "not integration and not e2e"
+        language: system
+        pass_filenames: false
+        stages: [commit]
