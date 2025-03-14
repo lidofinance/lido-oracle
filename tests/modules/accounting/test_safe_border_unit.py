@@ -241,7 +241,7 @@ def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, pa
     # Assume that validator 2 slashed at 74
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     exit_epoch = non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-    safe_border._get_last_finalized_withdrawal_request_slot = Mock(return_value=12)
+    safe_border._get_last_finalized_withdrawal_request_epoch = Mock(return_value=0)
 
     # predicted_epoch = None
     validator1 = ValidatorFactory.build(
