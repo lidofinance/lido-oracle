@@ -1,10 +1,10 @@
 import math
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 import src.modules.ejector.sweep as sweep_module
-from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX, MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
+from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,
@@ -54,6 +54,7 @@ def fake_beacon_state_view():
     return BeaconStateViewFactory.build_with_validators(
         validators=validators,
         pending_partial_withdrawals=pending_partial_withdrawals,
+        slashings=[],
     )
 
 
@@ -88,11 +89,12 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
 def test_only_validators_withdrawals():
     """Test when there are only validators eligible for withdrawals."""
 
-    mock_state = BeaconStateView(
+    mock_state = BeaconStateViewFactory.build(
         slot=32,
         validators=ValidatorStateFactory.batch(2, effective_balance=32_000_000_000, withdrawable_epoch=0),
         balances=[32_000_000_000] * 2,
         pending_partial_withdrawals=[],
+        slashings=[],
     )
     result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
     assert result == 2
@@ -101,11 +103,12 @@ def test_only_validators_withdrawals():
 def test_combined_withdrawals():
     """Test when there are both partial and full withdrawals."""
 
-    mock_state = BeaconStateView(
+    mock_state = BeaconStateViewFactory.build(
         slot=32,
         validators=ValidatorStateFactory.batch(10, effective_balance=32_000_000_000, exit_epoch=123),
         balances=[32_000_000_001] * 10,
         pending_partial_withdrawals=[],
+        slashings=[],
     )
     result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
     assert result == 10

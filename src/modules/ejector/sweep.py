@@ -50,6 +50,12 @@ def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_
     - All pending_partial_withdrawals are executed before full and partial withdrawals, and the result
         is immediately reflected in the validators' balances;
     - The limit MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
+
+    It is assumed that MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
+    Even with an extremely low rate of active validators (~0.17% or about 3,500 out of 2,000,000),
+    the probability of encountering fewer than 16 MAX_WITHDRAWALS_PER_PAYLOAD active validators
+    in any group of 16,384 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP consecutive validators is less than 1%.
+    This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
     """
     pending_partial_withdrawals = get_pending_partial_withdrawals(state)
     validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
