@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from dataclasses import dataclass
 from typing import TypeAlias, Literal
@@ -8,7 +9,6 @@ from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
-
 
 Shares: TypeAlias = int
 RewardTreeLeaf: TypeAlias = tuple[NodeOperatorId, Shares]
@@ -22,3 +22,7 @@ class ReportData:
     tree_cid: CID | Literal[""]
     log_cid: CID
     distributed: int
+
+    def as_tuple(self):
+        return dataclasses.astuple(self, tuple_factory=lambda iterable: tuple(
+            str(value) if isinstance(value, CID) else value for value in iterable))

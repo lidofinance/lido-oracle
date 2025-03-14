@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from collections import defaultdict
 from typing import Iterator
@@ -111,14 +110,14 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
-            return dataclasses.astuple(ReportData(
+            return ReportData(
                 consensus_version=self.get_consensus_version(blockstamp),
                 ref_slot=blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
                 log_cid=log_cid,
                 distributed=0,
-            ))
+            ).as_tuple()
 
         if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of shares for all operators.
@@ -130,14 +129,14 @@ class CSOracle(BaseModule, ConsensusModule):
         tree = self.make_tree(shares)
         tree_cid = self.publish_tree(tree)
 
-        return dataclasses.astuple(ReportData(
+        return ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
             ref_slot=blockstamp.ref_slot,
             tree_root=tree.root,
             tree_cid=tree_cid,
             log_cid=log_cid,
             distributed=distributed,
-        ))
+        ).as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
