@@ -16,20 +16,9 @@ RewardTreeLeaf: TypeAlias = tuple[NodeOperatorId, Shares]
 
 @dataclass
 class ReportData:
-    consensusVersion: int
+    consensus_version: int
     ref_slot: SlotNumber
     tree_root: HexBytes
     tree_cid: CID | Literal[""]
     log_cid: CID
     distributed: int
-
-    def as_tuple(self):
-        # Tuple with report in correct order
-        return (
-            self.consensusVersion,
-            self.ref_slot,
-            self.tree_root,
-            str(self.tree_cid),
-            str(self.log_cid),
-            self.distributed,
-        )
