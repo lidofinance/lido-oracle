@@ -29,7 +29,7 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
-InitialEpochIsYetToArriveRevert = '0x' + Web3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
+InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
 
 
 class ConsensusModule(ABC):
