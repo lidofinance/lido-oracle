@@ -1,5 +1,4 @@
 import os
-import json
 from pathlib import Path
 from typing import Final
 
@@ -83,11 +82,6 @@ PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 # - OpsGenie -
 OPSGENIE_API_KEY: Final[str] = os.getenv('OPSGENIE_API_KEY', '')
 OPSGENIE_API_URL: Final[str] = os.getenv('OPSGENIE_API_URL', '')
-OPSGENIE_DAILY_CHECK_RESPONDERS: Final[list[dict[str, str]]] = (
-    json.loads(opsgenie_daily_check_responders)
-    if (opsgenie_daily_check_responders := os.getenv("OPSGENIE_DAILY_CHECK_RESPONDERS"))
-    else []
-)
 
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
