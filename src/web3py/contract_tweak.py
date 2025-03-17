@@ -135,8 +135,8 @@ class ContractFunction(_ContractFunction):
             state_override,
             ccip_read_enabled,
             self.decode_tuples,
-            *self.args,
-            **self.kwargs,
+            *self.args or (),
+            **self.kwargs or {},
         )
 
 
