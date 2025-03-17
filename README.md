@@ -204,7 +204,6 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                        |
 | `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False    | `<api-key>`                                |
 | `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False    | `http://localhost:8080`                    |
-| `OPSGENIE_DAILY_CHECK_RESPONDERS`                      | List of responders for alerts created via OpsGenie API.                                                                                                                  | False    | `[{"username": "<email>","type": "user"}]` |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
