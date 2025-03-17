@@ -29,9 +29,10 @@ from web3.types import (
     ABIElementIdentifier,
     TxParams,
 )
+from web3.utils import get_abi_element
 
 
-def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
+def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-many-positional-arguments
     w3: "Web3",
     address: ChecksumAddress,
     normalizers: Tuple[Callable[..., Any], ...],
@@ -69,8 +70,12 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg
     )
 
     if fn_abi is None:
-        fn_abi = Contract._find_matching_fn_abi(
-            contract_abi, w3.codec, function_identifier, args, kwargs
+        fn_abi = get_abi_element(
+            contract_abi,
+            function_identifier,
+            *args,
+            abi_codec=w3.codec,
+            **kwargs,
         )
 
     output_types = get_abi_output_types(fn_abi)

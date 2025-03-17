@@ -173,7 +173,14 @@ class Accounting(BaseModule, ConsensusModule):
         wq_part = self._calculate_wq_report(blockstamp)
 
         extra_data_part = self._calculate_extra_data_report(blockstamp)
-        report_data = self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part)
+        report_data = self._combine_report_parts(
+            consensus_version,
+            blockstamp,
+            report_rebase_part=rebase_part,
+            report_modules_part=modules_part,
+            report_wq_part=wq_part,
+            extra_data=extra_data_part,
+        )
         self._update_metrics(report_data)
         return report_data
 
@@ -371,6 +378,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _combine_report_parts(
         consensus_version: int,
         blockstamp: ReferenceBlockStamp,
+        *,
         report_rebase_part: RebaseReport,
         report_modules_part: tuple[list[StakingModuleId], list[int]],
         report_wq_part: WqReport,
