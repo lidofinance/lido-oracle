@@ -15,7 +15,6 @@ from tests.factory.no_registry import (
     PendingDepositFactory,
 )
 
-
 blockstamp = ReferenceBlockStampFactory.build()
 
 
@@ -38,23 +37,6 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 
     for v in lido_validators:
         assert v.lido_id.key == v.validator.pubkey
-
-
-@pytest.mark.unit
-def calculate_total_eth1_bridge_deposits_amount(web3, lido_validators, contracts):
-    lido_validators = LidoValidatorFactory.batch(30)
-    lido_validators.extend(LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(5))
-    pending_deposits = [
-        *PendingDepositFactory.generate_for_validators(lido_validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.generate_for_validators(lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.batch(10),
-    ]
-
-    pending_deposits_sum = web3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
-        lido_validators, pending_deposits
-    )
-
-    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT * 5
 
 
 @pytest.mark.unit
