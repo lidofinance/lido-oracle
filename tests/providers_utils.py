@@ -72,7 +72,7 @@ class UpdateResponses:
             self.responses = previous_responses
 
 
-class ResponseFromFile(JSONBaseProvider, FromFile):
+class ResponseFromFile(JSONBaseProvider, FromFile):  # pylint: disable=abstract-method
     allowed_requests_cache: dict[RPCEndpoint, RPCResponse]
 
     def __init__(self, mock_path: Path, **kwargs):
@@ -127,6 +127,7 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     def _get(
         self,
         endpoint: str,
+        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
@@ -162,6 +163,7 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def _get(
         self,
         endpoint: str,
+        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,

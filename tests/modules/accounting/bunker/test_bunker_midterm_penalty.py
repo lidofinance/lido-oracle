@@ -133,12 +133,12 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
         blockstamp,
         2,
         lambda _: True,  # doesn't matter because consensus version == 2
-        web3_converter,
-        all_validators,
-        lido_validators,
-        [],
-        report_cl_rebase,
-        SlotNumber(0),
+        web3_converter=web3_converter,
+        all_validators=all_validators,
+        lido_validators=lido_validators,
+        slashings=[],
+        current_report_cl_rebase=report_cl_rebase,
+        last_report_ref_slot=SlotNumber(0),
     )
     assert result == expected_result
 
@@ -233,12 +233,12 @@ def test_is_high_midterm_slashing_penalty_post_electra(
         blockstamp,
         3,
         lambda _: True,
-        web3_converter,
-        all_validators,
-        lido_validators,
-        slashings,
-        report_cl_rebase,
-        SlotNumber(0),
+        web3_converter=web3_converter,
+        all_validators=all_validators,
+        lido_validators=lido_validators,
+        slashings=slashings,
+        current_report_cl_rebase=report_cl_rebase,
+        last_report_ref_slot=SlotNumber(0),
     )
     assert result == expected_result
 

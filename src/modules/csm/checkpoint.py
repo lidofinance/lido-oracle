@@ -121,6 +121,7 @@ class FrameCheckpointProcessor:
         state: State,
         converter: Web3Converter,
         finalized_blockstamp: BlockStamp,
+        *,
         eip7549_supported: bool = True,
     ):
         self.cc = cc

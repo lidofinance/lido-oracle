@@ -16,7 +16,7 @@ repos:
         name: mypy
         entry: poetry run mypy
         language: system
-        types: [file, python]
+        types: [python]
         files: '^(src)/'
         stages: [commit]
       - id: pylint

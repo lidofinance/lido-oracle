@@ -374,7 +374,7 @@ def hash_consensus_bin():
 
 
 @pytest.fixture()
-def new_hash_consensus(
+def new_hash_consensus(  # pylint: disable=too-many-positional-arguments
     forked_el_client,
     real_cl_client,
     frame_config,

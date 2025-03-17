@@ -7,14 +7,12 @@ from urllib.parse import urljoin, urlparse
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
-
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
-
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +75,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     def _get(
         self,
         endpoint: str,
+        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
@@ -93,7 +92,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
+                return self._get_without_fallbacks(host, endpoint, path_params=path_params, query_params=query_params, stream=stream)
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -116,6 +115,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         self,
         host: str,
         endpoint: str,
+        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,

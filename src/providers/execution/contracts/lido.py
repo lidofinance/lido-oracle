@@ -1,7 +1,8 @@
 import logging
 
 from eth_typing import ChecksumAddress, HexStr
-from web3.types import Wei, BlockIdentifier, StateOverrideParams
+from web3 import Web3
+from web3.types import Wei, BlockIdentifier, StateOverride, StateOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
@@ -86,17 +87,17 @@ class LidoContract(ContractInterface):
         ref_slot: HexStr,
         block_identifier: BlockIdentifier = 'latest',
     ) -> LidoReportRebase:
-        state_override: dict[ChecksumAddress, StateOverrideParams] = {
-            accounting_oracle_address: {
+        state_override: StateOverride = {
+            accounting_oracle_address: StateOverrideParams(
                 # Fix: insufficient funds for gas * price + value
-                'balance': Wei(100 * 10**18),
+                balance=Wei(100 * 10**18),
                 # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
-                'stateDiff': {
-                    HexStr('0x' + self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): ref_slot,
-                },
-            },
+                stateDiff={
+                    Web3.to_hex(primitive=self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot")): ref_slot,
+                }
+            ),
         }
 
         response = self.functions.handleOracleReport(
