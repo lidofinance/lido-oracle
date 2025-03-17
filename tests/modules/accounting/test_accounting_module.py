@@ -1,4 +1,4 @@
-from typing import Any, Iterable, cast
+from typing import Iterable, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,6 +6,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
@@ -20,8 +21,7 @@ from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import LidoReportRebaseFactory
-from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
-from tests.web3_extentions.test_lido_validators import blockstamp
+from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory, PendingDepositFactory
 
 
 @pytest.fixture(autouse=True)
@@ -99,15 +99,44 @@ def test_get_updated_modules_stats(accounting: Accounting):
 
 @pytest.mark.unit
 @pytest.mark.usefixtures("lido_validators")
-def test_get_consensus_lido_state(accounting: Accounting):
+def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
-    assert balance == sum((int(val.balance) for val in validators))
+    assert balance == sum(val.balance for val in validators)
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("lido_validators")
+def test_get_consensus_lido_state_post_electra(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+    validators = [
+        *[LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(3)],
+        *[LidoValidatorFactory.build_not_active_vals(bs.ref_epoch) for _ in range(3)],
+        *[LidoValidatorFactory.build_active_vals(bs.ref_epoch) for _ in range(2)],
+        *[LidoValidatorFactory.build_exit_vals(bs.ref_epoch) for _ in range(2)],
+    ]
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    accounting.w3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_deposits=[
+                *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
+                *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
+            ]
+        )
+    )
+
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=bs.ref_epoch))
+    count, balance = accounting._get_consensus_lido_state(bs)
+
+    assert count == 10
+    assert balance == sum(val.balance for val in validators) + 3 * LIDO_DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit
@@ -157,7 +186,7 @@ def test_get_slots_elapsed_from_initialize(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build(ref_slot=100)
     slots_elapsed = accounting._get_slots_elapsed_from_last_report(bs)
 
-    assert slots_elapsed == 100 - 32 * 2
+    assert slots_elapsed == 100 - 32 * 2 + 1
 
 
 @pytest.mark.unit

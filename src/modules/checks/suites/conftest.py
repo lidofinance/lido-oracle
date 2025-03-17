@@ -64,13 +64,13 @@ def web3():
 def blockstamp(web3, finalized_blockstamp, request):
     epochs_per_frame = request.param
     cc_config = web3.cc.get_config_spec()
-    slots_per_frame = epochs_per_frame * int(cc_config.SLOTS_PER_EPOCH)
+    slots_per_frame = epochs_per_frame * cc_config.SLOTS_PER_EPOCH
     last_report_ref_slot = SlotNumber(finalized_blockstamp.slot_number - slots_per_frame)
 
     return get_reference_blockstamp(
         web3.cc,
         last_report_ref_slot,
-        ref_epoch=EpochNumber(last_report_ref_slot // int(cc_config.SLOTS_PER_EPOCH)),
+        ref_epoch=EpochNumber(last_report_ref_slot // cc_config.SLOTS_PER_EPOCH),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
     )
 
@@ -84,7 +84,7 @@ def finalized_blockstamp(web3):
     return get_reference_blockstamp(
         web3.cc,
         bs.slot_number,
-        ref_epoch=EpochNumber(bs.slot_number // int(cc_config.SLOTS_PER_EPOCH)),
+        ref_epoch=EpochNumber(bs.slot_number // cc_config.SLOTS_PER_EPOCH),
         last_finalized_slot_number=bs.slot_number,
     )
 

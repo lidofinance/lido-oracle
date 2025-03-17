@@ -4,14 +4,14 @@ from typing import Iterator
 
 from more_itertools import ilen
 
-from src.constants import TOTAL_BASIS_POINTS
+from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.providers.consensus.types import Validator
 from src.services.validator_state import LidoValidatorStateService
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
+from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
 from src.utils.validator_state import is_on_exit, get_validator_age
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +28,14 @@ class NodeOperatorStats:
     module_stats: StakingModuleStats
 
     predictable_validators: int = 0
+    predictable_effective_balance: Gwei = Gwei(0)
     delayed_validators: int = 0
     total_age: int = 0
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
 
 
-class ValidatorExitIteratorV2:
+class ValidatorExitIterator:
     """
     To determine which validators to request for exit, the VEBO selects one entry
     from the sorted list of exitable Lido validators until the demand in WQ is covered by
@@ -60,10 +61,19 @@ class ValidatorExitIteratorV2:
 
     max_validators_to_exit: int = 0
     no_penetration_threshold: float = 0
-    eth_validators_count: int = 0
 
-    def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp, seconds_per_slot: int):
+    eth_validators_count: int = 0
+    eth_validators_effective_balance: Gwei = Gwei(0)
+
+    def __init__(
+        self,
+        w3: Web3,
+        consensus_version: int,
+        blockstamp: ReferenceBlockStamp,
+        seconds_per_slot: int,
+    ):
         self.w3 = w3
+        self.consensus_version = consensus_version
         self.blockstamp = blockstamp
         self.seconds_per_slot = seconds_per_slot
 
@@ -120,8 +130,8 @@ class ValidatorExitIteratorV2:
 
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
-            self.exitable_validators[gid] = list(filter(self.get_filter_non_exitable_validators(gid), validators_list))
-            self.exitable_validators[gid].sort(key=lambda val: int(val.index))
+            self.exitable_validators[gid] = list(filter(self.get_can_request_exit_predicate(gid), validators_list))
+            self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -138,6 +148,9 @@ class ValidatorExitIteratorV2:
             self.total_lido_validators += no_predictable_validators
             self.module_stats[gid[0]].predictable_validators += no_predictable_validators
             self.node_operators_stats[gid].predictable_validators = no_predictable_validators
+            self.node_operators_stats[gid].predictable_effective_balance = (
+                self._calculate_effective_balance_non_exiting_validators(validators) + transient_validators_count * LIDO_DEPOSIT_AMOUNT
+            )
 
             self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
             self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
@@ -159,13 +172,25 @@ class ValidatorExitIteratorV2:
 
         self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
 
-    def get_filter_non_exitable_validators(self, gid: NodeOperatorGlobalIndex):
+        self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(self.w3.cc.get_validators(self.blockstamp))
+
+    @staticmethod
+    def _calculate_effective_balance_non_exiting_validators(validators: list[Validator]) -> Gwei:
+        return sum(
+            (
+                v.validator.effective_balance for v in validators
+                if not is_on_exit(v)
+            ),
+            Gwei(0),
+        )
+
+    def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
         """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
         indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
-            requested_to_exit = int(validator.index) <= indexes[gid]
+            requested_to_exit = validator.index <= indexes[gid]
             return not is_on_exit(validator) and not requested_to_exit
 
         return is_validator_exitable
@@ -182,8 +207,8 @@ class ValidatorExitIteratorV2:
         for gid, validators_list in lido_validators.items():
 
             def is_delayed(validator: LidoValidator) -> bool:
-                requested_to_exit = int(validator.index) <= last_requested_to_exit[gid]
-                recently_requested_to_exit = int(validator.index) in recent_requests[gid]
+                requested_to_exit = validator.index <= last_requested_to_exit[gid]
+                recently_requested_to_exit = validator.index in recent_requests[gid]
                 return requested_to_exit and not recently_requested_to_exit and not is_on_exit(validator)
 
             result[gid] = ilen(val for val in validators_list if is_delayed(val))
@@ -199,21 +224,24 @@ class ValidatorExitIteratorV2:
         return result
 
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
-        validator = self.exitable_validators[gid].pop(0)
+        lido_validator = self.exitable_validators[gid].pop(0)
 
         # Total validators
         self.eth_validators_count -= 1
+        self.eth_validators_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
         # Change lido total
         self.total_lido_validators -= 1
         # Change module total
         self.module_stats[gid[0]].predictable_validators -= 1
         # Change node operator stats
         self.node_operators_stats[gid].predictable_validators -= 1
-        self.node_operators_stats[gid].total_age -= get_validator_age(validator, self.blockstamp.ref_epoch)
+        self.node_operators_stats[gid].predictable_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
+        self.node_operators_stats[gid].total_age -= get_validator_age(lido_validator, self.blockstamp.ref_epoch)
 
         logger.debug({
             'msg': 'Iterator state change. Eject validator.',
             'eth_validators_count': self.eth_validators_count,
+            'eth_validators_effective_balance': self.eth_validators_effective_balance,
             'total_lido_validators': self.total_lido_validators,
             'no_gid': gid[0],
             'module_stats': self.module_stats[gid[0]].predictable_validators,
@@ -221,7 +249,7 @@ class ValidatorExitIteratorV2:
             'no_stats_total_age': self.node_operators_stats[gid].total_age,
         })
 
-        return validator
+        return lido_validator
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
@@ -232,7 +260,9 @@ class ValidatorExitIteratorV2:
             - self._stake_weight_coefficient_predicate(
                 node_operator,
                 self.eth_validators_count,
+                self.eth_validators_effective_balance,
                 self.no_penetration_threshold,
+                self.consensus_version > 2 and self.w3.cc.is_electra_activated(self.blockstamp.ref_epoch),
             ),
             - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),
@@ -240,14 +270,14 @@ class ValidatorExitIteratorV2:
 
     @staticmethod
     def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.force_exit_to,
         )
 
     @staticmethod
     def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIteratorV2._get_expected_validators_diff(
+        return ValidatorExitIterator._get_expected_validators_diff(
             node_operator.predictable_validators,
             node_operator.soft_exit_to,
         )
@@ -263,12 +293,7 @@ class ValidatorExitIteratorV2:
         """
         The higher coefficient the higher priority to eject validator
         """
-        priority_exit_share_threshold = node_operator.module_stats.staking_module.priority_exit_share_threshold
-
-        # ToDo: remove after upgrade to sr v2
-        priority_exit_share_threshold = priority_exit_share_threshold if priority_exit_share_threshold is not None else TOTAL_BASIS_POINTS
-
-        max_share_rate = priority_exit_share_threshold / TOTAL_BASIS_POINTS
+        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
 
         max_validators_count = int(max_share_rate * self.total_lido_validators)
         return max(node_operator.module_stats.predictable_validators - max_validators_count, 0)
@@ -277,13 +302,19 @@ class ValidatorExitIteratorV2:
     def _stake_weight_coefficient_predicate(
         node_operator: NodeOperatorStats,
         total_validators: int,
+        total_effective_balance: Gwei,
         no_penetration: float,
+        is_post_pectra: bool,
     ) -> int:
         """
         The higher coefficient the higher priority to eject validator
         """
-        if total_validators * no_penetration < node_operator.predictable_validators:
-            return node_operator.total_age
+        if is_post_pectra:
+            if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
+                return node_operator.total_age
+        else:
+            if total_validators * no_penetration < node_operator.predictable_validators:
+                return node_operator.total_age
 
         return 0
 
@@ -296,7 +327,7 @@ class ValidatorExitIteratorV2:
         # If NO doesn't have exitable validators - sorting by validators index doesn't matter
         first_val_index = 0
         if validators:
-            first_val_index = int(validators[0].index)
+            first_val_index = validators[0].index
 
         return first_val_index
 
@@ -309,21 +340,24 @@ class ValidatorExitIteratorV2:
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
         # Extra validators limited by VEBO report
-        while self.index != self.max_validators_to_exit:
+        while self.index < self.max_validators_to_exit:
             for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
                 if self._no_force_predicate(no_stats) == 0:
                     # The current and all subsequent NOs in the list has no forced validators to exit. Cycle done
                     return result
 
-                if no_stats.predictable_validators:
+                gid = (
+                    no_stats.node_operator.staking_module.id,
+                    no_stats.node_operator.id,
+                )
+
+                if self.exitable_validators[gid]:
                     # When found Node Operator
                     self.index += 1
-                    gid = (
-                        no_stats.node_operator.staking_module.id,
-                        no_stats.node_operator.id,
-                    )
                     result.append((gid, self._eject_validator(gid)))
                     break
+            else:
+                break
 
         return result
 

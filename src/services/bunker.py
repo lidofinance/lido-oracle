@@ -1,23 +1,25 @@
 import logging
 
-from src.constants import TOTAL_BASIS_POINTS, GWEI_TO_WEI
+from web3.types import Wei
+
+from src.constants import TOTAL_BASIS_POINTS
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.validators import (
     ALL_VALIDATORS,
     LIDO_VALIDATORS,
     ALL_SLASHED_VALIDATORS,
     LIDO_SLASHED_VALIDATORS,
 )
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-
 from src.modules.accounting.types import LidoReportRebase
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
+from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
+from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
 from src.types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.utils.units import wei_to_gwei
+from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,9 @@ class BunkerService:
     ) -> bool:
         """If any of cases is True, then bunker mode is ON"""
         bunker_config = self._get_config(blockstamp)
-        all_validators = self.w3.cc.get_validators(blockstamp)
+        state = self.w3.cc.get_state_view(blockstamp)
+        all_validators = state.indexed_validators
+        slashings = state.slashings
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
         # Set metrics
@@ -70,8 +74,18 @@ class BunkerService:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
 
+        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
+        web3_converter = Web3Converter(chain_config, frame_config)
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
-            blockstamp, frame_config, chain_config, all_validators, lido_validators, current_report_cl_rebase, last_report_ref_slot
+            blockstamp,
+            consensus_version,
+            self.w3.cc.is_electra_activated,
+            web3_converter,
+            all_validators,
+            lido_validators,
+            slashings,
+            current_report_cl_rebase,
+            last_report_ref_slot,
         )
         if high_midterm_slashing_penalty:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
@@ -92,11 +106,11 @@ class BunkerService:
         """
         logger.info({"msg": "Getting CL rebase for frame"})
         before_report_total_pooled_ether = self.w3.lido_contracts.lido.total_supply(blockstamp.block_hash)
+        rebase_diff = Wei(simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether)
 
-        # Can't use from_wei - because rebase can be negative
-        frame_cl_rebase = (simulated_cl_rebase.post_total_pooled_ether - before_report_total_pooled_ether) // GWEI_TO_WEI
+        frame_cl_rebase = wei_to_gwei(rebase_diff)
         logger.info({"msg": f"Simulated CL rebase for frame: {frame_cl_rebase} Gwei"})
-        return Gwei(frame_cl_rebase)
+        return frame_cl_rebase
 
     def _get_config(self, blockstamp: BlockStamp) -> BunkerConfig:
         """Get config values from OracleDaemonConfig contract"""

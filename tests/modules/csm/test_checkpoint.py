@@ -1,9 +1,11 @@
 from copy import deepcopy
-from typing import Iterator, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from faker import Faker
 
+import src.modules.csm.checkpoint as checkpoint_module
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
@@ -15,7 +17,9 @@ from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
+from src.types import EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
+from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
     BlockAttestationFactory,
@@ -204,12 +208,12 @@ def test_checkpoints_processor_select_block_roots_out_of_range(
 def mock_get_attestation_committees(consensus_client):
     def _get_attestation_committees(finalized_slot, epoch):
         committees = []
-        validators = [v for v in range(0, 2048 * 32)]
-        for i in range(epoch * 32, epoch * 32 + 32):  # 1 epoch = 32 slots.
-            for j in range(0, 64):  # 64 committees per slot
+        validators = [ValidatorIndex(v) for v in range(0, 2048 * 32)]
+        for slot in range(epoch * 32, epoch * 32 + 32):  # 1 epoch = 32 slots.
+            for committee_idx in range(0, 64):  # 64 committees per slot
                 committee = deepcopy(cast(SlotAttestationCommittee, SlotAttestationCommitteeFactory.build()))
-                committee.slot = i
-                committee.index = j
+                committee.slot = SlotNumber(slot)
+                committee.index = committee_idx
                 # 32 validators per committee
                 committee.validators = [validators.pop() for _ in range(32)]
                 committees.append(committee)
@@ -233,8 +237,8 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
     for index, (committee_id, validators) in enumerate(committees.items()):
         slot, committee_index = committee_id
         committee_from_raw = raw[index]
-        assert int(slot) == committee_from_raw.slot
-        assert int(committee_index) == committee_from_raw.index
+        assert slot == committee_from_raw.slot
+        assert committee_index == committee_from_raw.index
         assert len(validators) == 32
         for validator in validators:
             assert validator.included is False
@@ -254,16 +258,17 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 0
     attestation.data.index = 0
-    attestation.aggregation_bits = '0x' + 'f' * 32
+    attestation.aggregation_bits = BitListFactory.build(set_indices=[i for i in range(32)]).hex()
     # the same but with no included attestations in bits
     attestation2 = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation2.data.slot = 0
     attestation2.data.index = 0
-    attestation2.aggregation_bits = '0x' + '0' * 32
+    attestation2.aggregation_bits = BitListFactory.build(set_indices=[]).hex()
     process_attestations([attestation, attestation2], committees)
     for index, validators in enumerate(committees.values()):
         for validator in validators:
             # only the first attestation is accounted
+            # slot = 0 and committee = 0
             if index == 0:
                 assert validator.included is True
             else:
@@ -294,18 +299,50 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
 
 
 @pytest.fixture()
-def mock_get_block_attestations(consensus_client):
+def mock_get_block_attestations(consensus_client, faker: Faker):
     def _get_block_attestations(root):
+        slot = faker.random_int()
         attestations = []
         for i in range(0, 64):
             attestation = deepcopy(cast(BlockAttestation, BlockAttestationFactory.build()))
-            attestation.data.slot = root[2:]
-            attestation.data.index = str(i)
+            attestation.data.slot = SlotNumber(slot)
+            attestation.data.index = i
             attestation.aggregation_bits = '0x' + 'f' * 32
             attestations.append(attestation)
         return attestations
 
     consensus_client.get_block_attestations = Mock(side_effect=_get_block_attestations)
+
+
+@pytest.mark.usefixtures(
+    "mock_get_state_block_roots",
+    "mock_get_attestation_committees",
+    "mock_get_block_attestations",
+    "mock_get_config_spec",
+)
+def test_checkpoints_processor_no_eip7549_support(
+    consensus_client,
+    converter,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    state = State()
+    state.migrate(EpochNumber(0), EpochNumber(255), 1)
+    processor = FrameCheckpointProcessor(
+        consensus_client,
+        state,
+        converter,
+        Mock(),
+        eip7549_supported=False,
+    )
+    roots = processor._get_block_roots(SlotNumber(0))
+    with monkeypatch.context():
+        monkeypatch.setattr(
+            checkpoint_module,
+            "is_eip7549_attestation",
+            Mock(return_value=True),
+        )
+        with pytest.raises(ValueError, match="support is not enabled"):
+            processor._check_duty(0, roots[:64])
 
 
 def test_checkpoints_processor_check_duty(
@@ -317,7 +354,7 @@ def test_checkpoints_processor_check_duty(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -342,7 +379,7 @@ def test_checkpoints_processor_process(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,
@@ -367,7 +404,7 @@ def test_checkpoints_processor_exec(
     converter,
 ):
     state = State()
-    state.migrate(0, 255)
+    state.migrate(0, 255, 1)
     finalized_blockstamp = ...
     processor = FrameCheckpointProcessor(
         consensus_client,

@@ -4,7 +4,6 @@ from time import sleep
 from typing import cast
 
 from eth_abi import encode
-from eth_typing import BlockIdentifier
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
@@ -19,7 +18,7 @@ from src.metrics.prometheus.business import (
     FRAME_DEADLINE_SLOT,
     ORACLE_MEMBER_INFO
 )
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
+from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.utils.blockstamp import build_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -65,11 +64,15 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = int(self.w3.cc.get_genesis().genesis_time)
+        genesis_time = self.w3.cc.get_genesis().genesis_time
         GENESIS_TIME.set(genesis_time)
-        if any((config.genesis_time != genesis_time,
-                config.seconds_per_slot != int(cc_config.SECONDS_PER_SLOT),
-                config.slots_per_epoch != int(cc_config.SLOTS_PER_EPOCH))):
+        if any(
+            (
+                config.genesis_time != genesis_time,
+                config.seconds_per_slot != cc_config.SECONDS_PER_SLOT,
+                config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH,
+            )
+        ):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
                              f'Contract config: {config}\n'
                              f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
@@ -86,6 +89,10 @@ class ConsensusModule(ABC):
     def _get_consensus_contract_members(self, blockstamp: BlockStamp):
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_members(blockstamp.block_hash)
+
+    @lru_cache(maxsize=1)
+    def get_consensus_version(self, blockstamp: BlockStamp):
+        return self.report_contract.get_consensus_version(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
@@ -133,6 +140,10 @@ class ConsensusModule(ABC):
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         if variables.ACCOUNT:
+            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
+                self.w3.eth.get_balance(variables.ACCOUNT.address)
+            )
+
             try:
                 (
                     # Current frame's reference slot.
@@ -157,7 +168,11 @@ class ConsensusModule(ABC):
                 if revert.data != InitialEpochIsYetToArriveRevert:
                     raise revert
 
-            is_submit_member = self._is_submit_member(blockstamp)
+            is_submit_member = self.report_contract.has_role(
+                self.report_contract.submit_data_role(blockstamp.block_hash),
+                variables.ACCOUNT.address,
+                blockstamp.block_hash
+            )
 
             if not is_member and not is_submit_member:
                 raise IsNotMemberException(
@@ -179,16 +194,6 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
-
-    def _is_submit_member(self, blockstamp: BlockStamp) -> bool:
-        if not variables.ACCOUNT:
-            return True
-
-        return self.report_contract.has_role(
-            self.report_contract.submit_data_role(blockstamp.block_hash),
-            variables.ACCOUNT.address,
-            blockstamp.block_hash
-        )
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
@@ -229,31 +234,37 @@ class ConsensusModule(ABC):
 
         return bs
 
-    def _check_contract_versions(self, blockstamp: ReferenceBlockStamp):
+    def _check_compatability(self, blockstamp: BlockStamp):
         """
         Check if Oracle can process report on reference blockstamp.
         """
-        self._check_compatability(blockstamp.block_hash)
-        self._check_compatability('latest')
-
-    def _check_compatability(self, block_tag: BlockIdentifier):
-        contract_version = self.report_contract.get_contract_version(block_tag)
-        consensus_version = self.report_contract.get_consensus_version(block_tag)
+        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
+        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
         compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
 
         if not compatibility:
             raise IncompatibleOracleVersion(
-                f'Incompatible Oracle version. Block tag: {repr(block_tag)}. '
+                f'Incompatible Oracle version. Block tag: {repr(blockstamp.block_hash)}. '
                 f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
                 f'Got ({contract_version}, {consensus_version})'
+            )
+
+        contract_version_latest = self.report_contract.get_contract_version('latest')
+        consensus_version_latest = self.report_contract.get_consensus_version('latest')
+
+        if not (contract_version == contract_version_latest and consensus_version == consensus_version_latest):
+            raise ContractVersionMismatch(
+                'The Oracle can\'t process the report on the reference blockstamp. '
+                f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
+                'further processing report can lead to unexpected behavior.'
             )
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
         # Make sure module is compatible with contracts on reference and latest blockstamps.
-        self._check_contract_versions(blockstamp)
+        self._check_compatability(blockstamp)
 
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
@@ -292,7 +303,7 @@ class ConsensusModule(ABC):
                 logger.info({'msg': 'Consensus reached with provided hash.'})
                 return None
 
-        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
+        consensus_version = self.get_consensus_version(blockstamp)
 
         logger.info({'msg': f'Send report hash. Consensus version: [{consensus_version}]'})
         self._send_report_hash(blockstamp, report_hash, consensus_version)
@@ -401,12 +412,6 @@ class ConsensusModule(ABC):
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
-
-        if variables.ACCOUNT:
-            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
-                self.w3.eth.get_balance(variables.ACCOUNT.address)
-            )
-
         return bs
 
     @lru_cache(maxsize=1)

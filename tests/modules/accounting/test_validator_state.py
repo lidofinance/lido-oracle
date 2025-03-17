@@ -5,11 +5,11 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import StakingModuleId, NodeOperatorId
+from src.services.validator_state import LidoValidatorStateService
+from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
@@ -46,6 +46,9 @@ def lido_validators(web3):
         last_deposit_at=1676386968,
         last_deposit_block=89677,
         exited_validators_count=0,
+        priority_exit_share_threshold=0,
+        max_deposits_per_block=0,
+        min_deposit_block_distance=0,
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
@@ -86,24 +89,23 @@ def lido_validators(web3):
             lido_id=LidoKey(
                 key=pubkey,
                 depositSignature="",
-                operatorIndex=-1,
+                operatorIndex=NodeOperatorId(-1),
                 used=True,
                 moduleAddress="",
             ),
             **asdict(
                 Validator(
-                    index=str(index),
-                    balance="0",
-                    status="",
+                    index=ValidatorIndex(index),
+                    balance=Gwei(0),
                     validator=ValidatorState(
                         pubkey=pubkey,
                         withdrawal_credentials="0x1",
-                        effective_balance="0",
+                        effective_balance=0,
                         slashed=False,
-                        activation_eligibility_epoch="0",
-                        activation_epoch=str(activation_epoch),
-                        exit_epoch=str(exit_epoch),
-                        withdrawable_epoch="0",
+                        activation_eligibility_epoch=EpochNumber(0),
+                        activation_epoch=EpochNumber(activation_epoch),
+                        exit_epoch=EpochNumber(exit_epoch),
+                        withdrawable_epoch=EpochNumber(0),
                     ),
                 )
             ),
@@ -162,3 +164,45 @@ def test_get_lido_new_exited_validators(web3, validator_state):
     exited_validators = validator_state.get_lido_newly_exited_validators(blockstamp)
     # We didn't expect the second validator because total_exited_validators hasn't changed
     assert exited_validators == {(1, 0): 3}
+
+
+@pytest.mark.unit
+def test_get_recently_requested_validators_by_operator(monkeypatch, web3, validator_state):
+    mocked_events = [
+        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
+        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+    ]
+    mock_get_events_in_past = Mock(return_value=mocked_events)
+    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
+    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+
+    global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
+
+    assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
+    mock_get_events_in_past.assert_called_once_with(
+        web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
+        to_blockstamp=blockstamp,
+        for_slots=7200,
+        seconds_per_slot=12,
+    )
+
+
+@pytest.mark.unit
+def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, chain_config, validator_state):
+    mocked_events = [
+        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
+        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+    ]
+    mock_get_events_in_past = Mock(return_value=mocked_events)
+    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
+    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+
+    blockstamp = ReferenceBlockStampFactory.build(
+        ref_slot=15392,
+        ref_epoch=481,
+    )
+    recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
+        blockstamp, chain_config
+    )
+
+    assert [int(v.index) for v in recently_requested_validators] == [1, 5, 6]
