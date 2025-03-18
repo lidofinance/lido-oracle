@@ -14,7 +14,6 @@ from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
 
 class TestPulseFunction(unittest.TestCase):
-
     @requests_mock.Mocker()
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_success(self, mock_request):
@@ -57,7 +56,6 @@ def _create_mock_request_handler(path):
 
 
 class TestPulseRequestHandler(unittest.TestCase):
-
     def setUp(self):
         # Reset _last_pulse to current time before each test
         PulseRequestHandler._last_pulse = datetime.now()

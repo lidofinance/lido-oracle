@@ -8,27 +8,21 @@ from src.providers.consensus.types import (
     Checkpoint,
 )
 from src.services.bunker_cases.types import BunkerConfig
-from tests.factory.web3_factory import Web3Factory
+from tests.factory.web3_factory import Web3DataclassFactory
 
 
-class ChainConfigFactory(Web3Factory):
-    __model__ = ChainConfig
-
+class ChainConfigFactory(Web3DataclassFactory[ChainConfig]):
     slots_per_epoch = 32
     seconds_per_slot = 12
     genesis_time = 0
 
 
-class FrameConfigFactory(Web3Factory):
-    __model__ = FrameConfig
-
+class FrameConfigFactory(Web3DataclassFactory[FrameConfig]):
     initial_epoch = 0
     epochs_per_frame = 10
 
 
-class OracleReportLimitsFactory(Web3Factory):
-    __model__ = OracleReportLimits
-
+class OracleReportLimitsFactory(Web3DataclassFactory[OracleReportLimits]):
     churn_validators_per_day_limit = 0
     appeared_validators_per_day_limit = 0
     annual_balance_increase_bp_limit = 0
@@ -40,29 +34,23 @@ class OracleReportLimitsFactory(Web3Factory):
     max_positive_token_rebase = 0
 
 
-class BunkerConfigFactory(Web3Factory):
-    __model__ = BunkerConfig
+class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):
+    ...
 
 
-class BeaconSpecResponseFactory(Web3Factory):
-    __model__ = BeaconSpecResponse
-
+class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
 
 
-class SlotAttestationCommitteeFactory(Web3Factory):
-    __model__ = SlotAttestationCommittee
-
+class SlotAttestationCommitteeFactory(Web3DataclassFactory[SlotAttestationCommittee]):
     slot = 0
     index = 0
     validators = []
 
 
-class BlockAttestationFactory(Web3Factory):
-    __model__ = BlockAttestationResponse
-
+class BlockAttestationFactory(Web3DataclassFactory[BlockAttestationResponse]):
     aggregation_bits = "0x"
     committee_bits = None
     data = AttestationData(

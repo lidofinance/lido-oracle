@@ -133,12 +133,12 @@ def test_is_high_midterm_slashing_penalty_pre_electra(
         blockstamp,
         2,
         lambda _: True,  # doesn't matter because consensus version == 2
-        web3_converter,
-        all_validators,
-        lido_validators,
-        [],
-        report_cl_rebase,
-        SlotNumber(0),
+        web3_converter=web3_converter,
+        all_validators=all_validators,
+        lido_validators=lido_validators,
+        slashings=[],
+        current_report_cl_rebase=report_cl_rebase,
+        last_report_ref_slot=SlotNumber(0),
     )
     assert result == expected_result
 
@@ -233,12 +233,12 @@ def test_is_high_midterm_slashing_penalty_post_electra(
         blockstamp,
         3,
         lambda _: True,
-        web3_converter,
-        all_validators,
-        lido_validators,
-        slashings,
-        report_cl_rebase,
-        SlotNumber(0),
+        web3_converter=web3_converter,
+        all_validators=all_validators,
+        lido_validators=lido_validators,
+        slashings=slashings,
+        current_report_cl_rebase=report_cl_rebase,
+        last_report_ref_slot=SlotNumber(0),
     )
     assert result == expected_result
 
@@ -479,7 +479,12 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
                     *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
                 ],
             },
-            [*([0] * 100), *([32 * 10**9] * 10), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160))],
+            [
+                *([0] * 100),
+                *([32 * 10**9] * 10),
+                *([32 * 10**9] * 50),
+                *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160)),
+            ],
             50000,
             {18: 0, 19: 5_760_000_000},
         ),

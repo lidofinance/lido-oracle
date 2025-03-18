@@ -8,7 +8,7 @@ def convert_bytes_to_hex(data: Any) -> Any:
     if isinstance(data, bytes):
         return '0x' + data.hex()
     if dataclasses.is_dataclass(data):
-        return convert_bytes_to_hex(dataclasses.asdict(data))
+        return convert_bytes_to_hex(dataclasses.asdict(data))  # type: ignore[arg-type]
     if isinstance(data, Mapping):
         return {key: convert_bytes_to_hex(value) for key, value in data.items()}
     if isinstance(data, Iterator):

@@ -12,9 +12,11 @@ def test_ipfs_upload():
         def _upload(self, *args):
             return self.cid
 
-        def fetch(self, cid: CID) -> bytes: ...
+        def fetch(self, cid: CID) -> bytes:
+            ...
 
-        def pin(self, cid: CID) -> None: ...
+        def pin(self, cid: CID) -> None:
+            ...
 
     cid = TestIPFSProvider('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB').upload(b'hello world')
 

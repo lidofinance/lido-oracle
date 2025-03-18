@@ -16,12 +16,12 @@ repos:
         name: mypy
         entry: poetry run mypy
         language: system
-        types: [file, python]
+        types: [python]
         files: '^(src)/'
         stages: [commit]
       - id: pylint
         name: pylint
-        entry: poetry run pylint
+        entry: poetry run pylint src tests
         language: system
         types: [python]
         files: '^(src|test)/'
