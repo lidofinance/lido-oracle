@@ -390,34 +390,12 @@ def test_calculate_cl_rebase_between_blocks(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(40), 98001157445),
-        (simple_ref_blockstamp(20), 77999899300),
-    ],
-)
-def test_get_lido_validators_balance_with_vault_pre_electra(
-    abnormal_case,
-    mock_get_withdrawal_vault_balance,
-    blockstamp,
-    expected_result,
-):
-    lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
-
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
-    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
-
-    assert result == expected_result
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("blockstamp", "expected_result"),
-    [
         (simple_ref_blockstamp(50), 66001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
 )
-def test_get_lido_validators_balance_with_vault_post_electra(
+def test_get_lido_validators_balance_with_vault(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
     blockstamp,
@@ -426,7 +404,6 @@ def test_get_lido_validators_balance_with_vault_post_electra(
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
-    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch))
     result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
 
     assert result == expected_result

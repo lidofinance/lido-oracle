@@ -74,32 +74,7 @@ def test_hex_bitlist_to_list():
 
 
 @pytest.mark.unit
-def test_attested_indices_pre_electra():
-    committees = {
-        ("42", "20"): [Mock(index=20000 + i) for i in range(130)],
-        ("42", "22"): [Mock(index=22000 + i) for i in range(131)],
-    }
-    process_attestations(
-        [
-            Mock(
-                data=Mock(slot="42", index="20"),
-                aggregation_bits="0000000000000000000030",
-                committee_bits=None,
-            ),
-            Mock(
-                data=Mock(slot="42", index="22"),
-                aggregation_bits="0004000c",
-                committee_bits=None,
-            ),
-        ],
-        committees,  # type: ignore
-    )
-    vals = [v for v in chain(*committees.values()) if v.included is True]
-    assert [v.index for v in vals] == [20084, 22010, 22026]
-
-
-@pytest.mark.unit
-def test_attested_indices_post_electra():
+def test_attested_indices():
     committees = {
         (42, 20): [Mock(index=20000 + i) for i in range(130)],
         (42, 22): [Mock(index=22000 + i) for i in range(131)],
@@ -138,32 +113,7 @@ def test_derive_attestation_version():
 
 
 @pytest.mark.unit
-def test_get_committee_indices_pre_electra():
-    att: BlockAttestation = Mock(
-        data=Mock(index=0),
-        aggregation_bits="",
-        committee_bits=None,
-    )
-    assert get_committee_indices(att) == [0]
-
-    att: BlockAttestation = Mock(
-        data=Mock(index=42),
-        aggregation_bits="",
-        committee_bits=None,
-    )
-    assert get_committee_indices(att) == [42]
-
-    att: BlockAttestation = Mock(
-        data=Mock(index=42),
-        aggregation_bits="",
-        committee_bits="0xff",
-    )
-    with pytest.raises(ValueError, match="invalid attestation"):
-        get_committee_indices(att)
-
-
-@pytest.mark.unit
-def test_get_committee_indices_post_electra():
+def test_get_committee_indices():
     att: BlockAttestation = Mock(data=Mock(index=0), aggregation_bits="", committee_bits="")
     assert get_committee_indices(att) == []
 

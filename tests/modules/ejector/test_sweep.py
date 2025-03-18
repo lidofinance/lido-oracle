@@ -8,7 +8,7 @@ from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,
-    get_sweep_delay_in_epochs_post_electra,
+    get_sweep_delay_in_epochs,
     get_validators_withdrawals,
 )
 from src.modules.submodules.types import ChainConfig
@@ -19,7 +19,7 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
 
 
 @pytest.mark.unit
-def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
+def test_get_sweep_delay_in_epochs(monkeypatch):
     # Create mock objects for state and spec
     state = Mock(spec=BeaconStateView)
     spec = Mock(spec=ChainConfig)
@@ -32,7 +32,7 @@ def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
             Mock(return_value=predicted_withdrawals),
         )
         # Calculate delay
-        result = get_sweep_delay_in_epochs_post_electra(state, spec)
+        result = get_sweep_delay_in_epochs(state, spec)
 
         # Assert the delay calculation is correct
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
