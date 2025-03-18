@@ -225,10 +225,6 @@ def test_no_predicate(iterator):
         ),
     )
 
-    result = iterator._no_predicate(node_operator_1)
-
-    assert result == (1, -50, -75, -185, 0, -100, 10)
-
     node_operator_2 = NodeOperatorStatsFactory.build(
         predictable_validators=2000,
         predictable_effective_balance=Gwei(100 * 32 * 10**9),
@@ -242,19 +238,6 @@ def test_no_predicate(iterator):
             staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
         ),
     )
-
-    result = iterator._no_predicate(node_operator_2)
-    assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
-
-    iterator.consensus_version = 3
-    iterator.w3.cc.is_electra_activated = Mock(return_value=False)
-
-    # Check works with old alg before pectra
-    result = iterator._no_predicate(node_operator_2)
-    assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
-
-    iterator.w3.cc.is_electra_activated = Mock(return_value=True)
-
     # Check after pectra
     result = iterator._no_predicate(node_operator_2)
     assert result == (0, -1950, -1975, -185, 0, -2000, 20)
@@ -355,14 +338,7 @@ def test_stake_weight_coefficient_predicate(iterator):
 
     sorted_nos = sorted(
         nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000, 10000 * 32 * 10**9, 0.1, False),
-    )
-
-    assert [nos[1], nos[2], nos[0]] == sorted_nos
-
-    sorted_nos = sorted(
-        nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000, 10000 * 32 * 10**9, 0.1, True),
+        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000 * 32 * 10**9, 0.1),
     )
 
     assert [nos[1], nos[2], nos[0]] == sorted_nos

@@ -26,7 +26,7 @@ class Withdrawal:
     amount: int
 
 
-def get_sweep_delay_in_epochs_post_electra(state: BeaconStateView, spec: ChainConfig) -> int:
+def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
     """
     This method predicts the average withdrawal delay in epochs.
     It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
