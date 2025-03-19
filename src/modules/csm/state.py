@@ -149,6 +149,7 @@ class State:
         return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame)]
 
     def clear(self) -> None:
+        self.frames = []
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
