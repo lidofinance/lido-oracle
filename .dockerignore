@@ -1,3 +1,5 @@
+Dockerfile
+RECORD
 __pycache__
 *.pyc
 *.pyo
