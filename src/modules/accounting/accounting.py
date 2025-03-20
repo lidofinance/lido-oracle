@@ -374,10 +374,10 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_batches = self._get_finalization_batches(blockstamp)
         return is_bunker, finalization_batches
 
-    # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
+    # fetches vaults_values, vaults_in_out_deltas from the contract and beacon chain
     def _calculate_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
-        validators = self.w3.cc.get_validators(blockstamp)
-        return self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
+        vaults_values, vaults_in_out_deltas = self.w3.staking_vaults.get_vaults_state(blockstamp)
+        return vaults_values, vaults_in_out_deltas
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
