@@ -1,8 +1,8 @@
-import pytest
-
 from unittest.mock import Mock
 
-from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX, LIDO_DEPOSIT_AMOUNT
+import pytest
+
+from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
@@ -11,7 +11,7 @@ from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory, PendingDepositFactory
+from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -412,7 +412,7 @@ def test_get_lido_validators_balance_with_vault_pre_electra(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(50), 98001157445),
+        (simple_ref_blockstamp(50), 66001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
@@ -424,13 +424,6 @@ def test_get_lido_validators_balance_with_vault_post_electra(
     expected_result,
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
-    abnormal_case.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            pending_deposits=PendingDepositFactory.generate_for_validators(
-                lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT
-            )
-        )
-    )
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch))

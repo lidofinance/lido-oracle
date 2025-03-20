@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import FAR_FUTURE_EPOCH, GENESIS_SLOT, LIDO_DEPOSIT_AMOUNT
+from src.constants import GENESIS_SLOT
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.keys.types import LidoKey
 from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
-from src.utils.dataclass import Nested, FromResponse
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import Nested, FromResponse
 
 logger = logging.getLogger(__name__)
 
@@ -152,36 +152,6 @@ class LidoValidatorsProvider(Module):
                 ))
 
         return lido_validators
-
-    @staticmethod
-    def calculate_total_eth1_bridge_deposits_amount(lido_validators: list[LidoValidator], pending_deposits: list[PendingDeposit]) -> Gwei:
-        total_eth1_bridge_deposits_amount = 0
-        for v in lido_validators:
-            if (
-                # The oracle reports the number of validators in the registry and their total balance.
-                # During and shortly after the Electra fork activation, validators may be added to
-                # the registry without having ETH in their balance. The deposited ETH will be placed
-                # in the pending_deposits queue.
-                #
-                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/fork.md#upgrading-the-state
-                # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
-
-                # Validator is not activated
-                v.validator.activation_epoch == FAR_FUTURE_EPOCH and
-
-                # It has unexpected balance for non-activated validator
-                v.validator.effective_balance < LIDO_DEPOSIT_AMOUNT
-            ):
-                # Pending deposits may contain:
-                # - Deposit requests:      https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#deposit-requests
-                # - Eth1 bridge deposits:  https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-apply_deposit
-                # - Excess active balance: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-queue_excess_active_balance
-                #
-                # For a NON ACTIVATED validator, there couldn't be any deposits that are excess ACTIVE balance.
-                # So for this validator, there could be only two types of deposits: deposit requests and Eth1 bridge deposits.
-                total_eth1_bridge_deposits_amount += LidoValidatorsProvider.sum_eth1_bridge_deposits_amount(v, pending_deposits)
-
-        return Gwei(total_eth1_bridge_deposits_amount)
 
     @staticmethod
     def sum_eth1_bridge_deposits_amount(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
