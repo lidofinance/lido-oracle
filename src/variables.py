@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Final
+from packaging.version import Version
 
 from eth_account import Account
 
@@ -88,6 +89,8 @@ HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECONDS", 3000))
 
 CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
+
+ALLOWED_KAPI_VERSION = Version('1.5.0')
 
 
 def check_all_required_variables(module: OracleModule):
