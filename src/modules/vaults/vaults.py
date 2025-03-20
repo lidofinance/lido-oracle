@@ -1,11 +1,14 @@
+import json
 from typing import Protocol, List
 
 from web3.contract.contract import ContractFunction
+
 from src.providers.consensus.types import Validator
+from src.providers.ipfs import IPFSProvider, CID
 from src.types import BlockStamp
 from src.web3py.types import Web3
 from oz_merkle_tree import StandardMerkleTree
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 
 class VaultRunner(Protocol):
@@ -66,6 +69,7 @@ def get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultToBalan
         if validators.get(vault_address) is not None:
             for validator in validators[vault_address]:
                 validator.balance = validator.balance * 10 ** 9
+                validator.validator.effective_balance = validator.validator.effective_balance * 10 ** 9
 
             result[vault_address].validators = validators[vault_address]
 
@@ -73,10 +77,28 @@ def get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultToBalan
 
 
 class Vaults:
-    def __init__(self, vault_runner: VaultRunner, cl: ClClient, w3: Web3):
+    def __init__(self, vault_runner: VaultRunner, cl: ClClient, w3: Web3, ipfs_client: IPFSProvider):
         self.vault_runner = vault_runner
         self.cl = cl
         self.w3 = w3
+        self.ipfs_client = ipfs_client
+
+    def handle(self, bs: BlockStamp):
+        # TODO
+        #  get_prev_merkle_root from blockchain
+        #  by hash - get from ipfs prev report
+
+        vaults_to_balance = self.get_vault_addresses()
+        vaults_to_validators = self.get_validators(bs, vaults_to_balance)
+
+        vaults_valuation = get_vaults_valuation(vaults_to_balance, vaults_to_validators)
+        merkle_tree = get_merkle_tree(vaults_valuation)
+
+        proofs_cid = self.publish_proofs(merkle_tree, bs, vaults_to_balance, vaults_to_validators)
+        print(proofs_cid)
+
+        tree_cid = self.publish_tree(merkle_tree, bs, proofs_cid)
+        print(tree_cid)
 
     def get_vault_addresses(self) -> VaultToBalanceWeiMap:
         vault_count =  self.vault_runner.vaultsCount().call()
@@ -101,3 +123,41 @@ class Vaults:
                     result[vault_adr].append(validator)
 
         return result
+
+    def publish_tree(self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID) -> CID:
+        def encoder(o):
+            if isinstance(o, bytes):
+                return f"0x{o.hex()}"
+            raise TypeError(f"Object of type {type(o)} is not JSON serializable")
+
+        dumped_tree = tree.dump()
+        dumped_tree.update({
+            "merkleTreeRoot": f"0x{tree.root.hex()}",
+            "refSlof": bs.slot_number,
+            "proofsCID": str(proofs_cid)
+        })
+
+        dumped_tree_str = json.dumps(dumped_tree, default=encoder)
+
+        cid = self.ipfs_client.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
+
+        return cid
+
+    def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults_to_balance: VaultToBalanceWeiMap, vaults_to_validators: VaultToValidatorsMap) -> CID:
+        data = get_vault_to_proof_map(tree, vaults_to_balance, vaults_to_validators)
+
+        def encoder(o):
+            if hasattr(o, "__dataclass_fields__"):
+                return asdict(o)
+            raise TypeError(f"Object of type {type(o)} is not JSON serializable")
+
+        result = dict()
+        result['merkleTreeRoot'] = f"0x{tree.root.hex()}"
+        result['refSlot'] = bs.slot_number
+        result['proofs'] = data
+
+        dumped_proofs = json.dumps(result, default=encoder)
+
+        cid = self.ipfs_client.publish(dumped_proofs.encode('utf-8'), 'proofs.json')
+
+        return cid
