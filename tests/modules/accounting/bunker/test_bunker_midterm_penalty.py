@@ -479,7 +479,12 @@ def test_get_future_midterm_penalty_sum_in_frames_pre_electra(
                     *simple_validators(30, 59, slashed=True, exit_epoch="8417", withdrawable_epoch="8419"),
                 ],
             },
-            [*([0] * 100), *([32 * 10**9] * 10), *([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160))],
+            [
+                *([0] * 100),
+                *([32 * 10**9] * 10),
+                *([32 * 10**9] * 50),
+                *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 160)),
+            ],
             50000,
             {18: 0, 19: 5_760_000_000},
         ),
@@ -799,6 +804,7 @@ def test_cut_slashings_basic():
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
     expected_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)}
+    assert midterm_penalty_epoch not in expected_indexes
     expected = [slashings[i] for i in range(EPOCHS_PER_SLASHINGS_VECTOR) if i not in expected_indexes]
 
     assert result == expected, f"Expected {expected}, but got {result}"
