@@ -7,24 +7,41 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.modules.csm.state import State, InvalidState, DutyAccumulator, NetworkDuties
+from src.modules.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 
 
+@pytest.fixture()
+def state_file_path(tmp_path: Path) -> Path:
+    return (tmp_path / "mock").with_suffix(State.EXTENSION)
+
+
 @pytest.fixture(autouse=True)
-def remove_state_files():
-    state_file = Path("/tmp/state.pkl")
-    state_buf = Path("/tmp/state.buf")
-    state_file.unlink(missing_ok=True)
-    state_buf.unlink(missing_ok=True)
-    yield
-    state_file.unlink(missing_ok=True)
-    state_buf.unlink(missing_ok=True)
+def mock_state_file(state_file_path: Path):
+    State.file = Mock(return_value=state_file_path)
 
 
-def test_load_restores_state_from_file(monkeypatch):
-    monkeypatch.setattr("src.modules.csm.state.State.file", lambda _=None: Path("/tmp/state.pkl"))
+class TestCachePathConfigurable:
+    @pytest.fixture()
+    def mock_state_file(self):
+        # NOTE: Overrides file-level mock_state_file to check the mechanic.
+        pass
+
+    @pytest.fixture()
+    def cache_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        monkeypatch.setattr(variables, "CACHE_PATH", tmp_path)
+        return tmp_path
+
+    def test_file_returns_correct_path(self, cache_path: Path):
+        assert State.file() == cache_path / "cache.pkl"
+
+    def test_buffer_returns_correct_path(self, cache_path: Path):
+        state = State()
+        assert state.buffer == cache_path / "cache.buf"
+
+
+def test_load_restores_state_from_file():
     state = State()
     state.data = {
         (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -34,43 +51,32 @@ def test_load_restores_state_from_file(monkeypatch):
     assert loaded_state.data == state.data
 
 
-def test_load_returns_new_instance_if_file_not_found(monkeypatch):
-    monkeypatch.setattr("src.modules.csm.state.State.file", lambda: Path("/non/existent/path"))
+def test_load_returns_new_instance_if_file_not_found(state_file_path: Path):
+    assert not state_file_path.exists()
     state = State.load()
     assert state.is_empty
 
 
-def test_load_returns_new_instance_if_empty_object(monkeypatch, tmp_path):
-    with open('/tmp/state.pkl', "wb") as f:
+def test_load_returns_new_instance_if_empty_object(state_file_path: Path):
+    with open(state_file_path, "wb") as f:
         pickle.dump(None, f)
-    monkeypatch.setattr("src.modules.csm.state.State.file", lambda: Path("/tmp/state.pkl"))
     state = State.load()
     assert state.is_empty
 
 
-def test_commit_saves_state_to_file(monkeypatch):
+def test_commit_saves_state_to_file(state_file_path: Path, monkeypatch: pytest.MonkeyPatch):
     state = State()
     state.data = {
         (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
     }
-    monkeypatch.setattr("src.modules.csm.state.State.file", lambda _: Path("/tmp/state.pkl"))
-    monkeypatch.setattr("os.replace", Mock(side_effect=os.replace))
-    state.commit()
-    with open("/tmp/state.pkl", "rb") as f:
-        loaded_state = pickle.load(f)
-    assert loaded_state.data == state.data
-    os.replace.assert_called_once_with(Path("/tmp/state.buf"), Path("/tmp/state.pkl"))
-
-
-def test_file_returns_correct_path(monkeypatch):
-    monkeypatch.setattr(variables, "CACHE_PATH", Path("/tmp"))
-    assert State.file() == Path("/tmp/cache.pkl")
-
-
-def test_buffer_returns_correct_path(monkeypatch):
-    monkeypatch.setattr(variables, "CACHE_PATH", Path("/tmp"))
-    state = State()
-    assert state.buffer == Path("/tmp/cache.buf")
+    with monkeypatch.context() as mp:
+        os_replace_mock = Mock(side_effect=os.replace)
+        mp.setattr("os.replace", os_replace_mock)
+        state.commit()
+        with open(state_file_path, "rb") as f:
+            loaded_state = pickle.load(f)
+        assert loaded_state.data == state.data
+        os_replace_mock.assert_called_once_with(state_file_path.with_suffix(".buf"), state_file_path)
 
 
 def test_is_empty_returns_true_for_empty_state():

@@ -431,7 +431,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ValidatorIndex(1): ValidatorFrameSummary(
                                 performance=0.6,
                                 threshold=0.5,
-                                rewards_share=1,
+                                rewards_share=1.0,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=6),
@@ -509,7 +509,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ValidatorIndex(1): ValidatorFrameSummary(
                                 performance=0.5,
                                 threshold=0.65,
-                                rewards_share=1,
+                                rewards_share=1.0,
                                 slashed=False,
                                 strikes=1,
                                 attestation_duty=DutyAccumulator(assigned=10, included=5),
@@ -707,14 +707,18 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                         ),
                         NodeOperatorId(5): OperatorFrameSummary(
                             distributed=47,
-                            performance_coefficients=PerformanceCoefficients(),
+                            performance_coefficients=PerformanceCoefficients(
+                                attestations_weight=1,
+                                blocks_weight=0,
+                                sync_weight=0,
+                            ),
                             validators=defaultdict(
                                 ValidatorFrameSummary,
                                 {
                                     ValidatorIndex(7): ValidatorFrameSummary(
                                         performance=1.0,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1,
+                                        rewards_share=1.0,
                                         slashed=False,
                                         strikes=0,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
