@@ -139,6 +139,7 @@ class Distribution:
             log_operator = log.operators[no_id]
 
             curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
+            log_operator.performance_coefficients = curve_params.perf_coeffs
 
             sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
             numbered_validators = enumerate(sorted_active_validators, start=1)
