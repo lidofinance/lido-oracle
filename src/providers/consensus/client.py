@@ -3,6 +3,7 @@ from typing import Literal, cast
 
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
+from src import variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
@@ -17,6 +18,9 @@ from src.providers.consensus.types import (
     BeaconSpecResponse,
     GenesisResponse,
     SlotAttestationCommittee,
+    ProposerDuties,
+    SyncCommittee,
+    SyncAggregate,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
@@ -48,6 +52,8 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_HEADER = 'eth/v1/beacon/headers/{}'
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
+    API_GET_SYNC_COMMITTEE = 'eth/v1/beacon/states/{}/sync_committees'
+    API_GET_PROPOSER_DUTIES = 'eth/v1/validator/duties/proposer/{}'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
@@ -114,11 +120,8 @@ class ConsensusClient(HTTPProvider):
             raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
 
-    @lru_cache(maxsize=256)
-    def get_block_attestations(
-        self,
-        state_id: SlotNumber | BlockRoot,
-    ) -> list[BlockAttestation]:
+    @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
+    def get_block_attestations_and_sync(self, state_id: SlotNumber | BlockRoot) -> tuple[list[BlockAttestation], SyncAggregate]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
@@ -127,7 +130,11 @@ class ConsensusClient(HTTPProvider):
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockV2")
-        return [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
+
+        attestations = [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
+        sync = SyncAggregate.from_response(**data["message"]["body"]["sync_aggregate"])
+
+        return cast(list[BlockAttestation], attestations), sync
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
@@ -158,6 +165,33 @@ class ConsensusClient(HTTPProvider):
             else:
                 raise error
         return cast(list[SlotAttestationCommittee], data)
+
+    def get_sync_committee(self, blockstamp: BlockStamp, epoch: EpochNumber) -> SyncCommittee:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees"""
+        data, _ = self._get(
+            self.API_GET_SYNC_COMMITTEE,
+            path_params=(blockstamp.state_root,),
+            query_params={'epoch': epoch},
+            force_raise=self.__raise_on_prysm_error,
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getSyncCommittees")
+        return SyncCommittee.from_response(**data)
+
+    @list_of_dataclasses(ProposerDuties.from_response)
+    def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties"""
+        # It is recommended by spec to use the dependent root to ensure the epoch is correct
+        proposer_data, proposer_meta = self._get(self.API_GET_PROPOSER_DUTIES, path_params=(epoch,))
+        if not isinstance(proposer_data, list):
+            raise ValueError("Expected list response from getProposerDuties")
+        response_dependent_root = proposer_meta['dependent_root']
+        if response_dependent_root != expected_dependent_root:
+            raise ValueError(
+                "Dependent root for proposer duties request mismatch: "
+                f"{response_dependent_root=} is not {expected_dependent_root=}. Probably, CL node is not fully synced"
+            )
+        return proposer_data
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:

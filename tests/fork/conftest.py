@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 import time
 from contextlib import contextmanager
@@ -6,6 +7,7 @@ from pathlib import Path
 from typing import cast, get_args
 
 import pytest
+import xdist
 from _pytest.nodes import Item
 from eth_account import Account
 from faker.proxy import Faker
@@ -15,7 +17,7 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import ipfs_providers, logger
+from src.main import ipfs_providers
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
 from src.modules.submodules.types import FrameConfig
@@ -36,7 +38,9 @@ from src.variables import (
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
 
-logger = logger.getChild("fork")
+logger = logging.getLogger('fork_tests')
+
+# pylint: disable=logging-fstring-interpolation
 
 
 class TestRunningException(Exception):
@@ -54,6 +58,12 @@ def pytest_collection_modifyitems(items: list[Item]):
                         reason="fork tests are take a lot of time and skipped if any other tests are selected"
                     )
                 )
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if xdist.is_xdist_worker(session):
+        return
+    subprocess.run(['rm', '-rf', './testruns'], check=True)
 
 
 #
@@ -97,10 +107,15 @@ def set_cache_path(monkeypatch, testrun_path):
         yield
 
 
-@pytest.fixture
-def testrun_path(worker_id, testrun_uid):
-    path = f"./testrun_{worker_id}_{testrun_uid}"
-    subprocess.run(['mkdir', path], check=True)
+@pytest.fixture(scope='session')
+def testruns_folder_path():
+    return Path("./testruns")
+
+
+@pytest.fixture()
+def testrun_path(testruns_folder_path, worker_id, testrun_uid):
+    path = testruns_folder_path / f"{worker_id}_{testrun_uid}"
+    subprocess.run(['mkdir', '-p', path], check=True)
     yield path
     subprocess.run(['rm', '-rf', path], check=True)
 
@@ -178,7 +193,7 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
     return _frame_config
 
 
-@pytest.fixture(params=[-2], ids=["fork 2 epochs before initial epoch"])
+@pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])
 def blockstamp_for_forking(
     request, frame_config: FrameConfig, real_cl_client: ConsensusClient, real_finalized_slot: SlotNumber
 ) -> BlockStamp:
@@ -194,12 +209,16 @@ def blockstamp_for_forking(
 
 
 @pytest.fixture()
-def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str):
-    port = Faker().random_int(min=10000, max=20000)
+def anvil_port():
+    return Faker().random_int(min=10000, max=20000)
+
+
+@pytest.fixture()
+def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvil_port: int):
     cli_params = [
         'anvil',
         '--port',
-        str(port),
+        str(anvil_port),
         '--config-out',
         f'{testrun_path}/localhost.json',
         '--auto-impersonate',
@@ -210,8 +229,8 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str):
     ]
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
-        logger.info(f"TESTRUN Started fork on {port=} from {blockstamp_for_forking.block_number=}")
-        web3 = Web3(MultiProvider([f'http://127.0.0.1:{port}'], request_kwargs={'timeout': 5 * 60}))
+        logger.info(f"TESTRUN Started fork on {anvil_port=} from {blockstamp_for_forking.block_number=}")
+        web3 = Web3(MultiProvider([f'http://127.0.0.1:{anvil_port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.middleware_onion.add(construct_simple_cache_middleware())
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
