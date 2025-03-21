@@ -8,11 +8,13 @@ from src.web3py.extensions import (
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
+    StakingVaults,
 )
 
 
 class Web3(_Web3):
     lido_contracts: LidoContracts
+    staking_vaults: StakingVaults
     lido_validators: LidoValidatorsProvider
     transaction: TransactionUtils
     cc: ConsensusClientModule

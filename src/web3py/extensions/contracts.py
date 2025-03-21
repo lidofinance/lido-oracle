@@ -8,6 +8,7 @@ from web3.types import Wei
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
+from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
@@ -30,6 +31,7 @@ class LidoContracts(Module):
 
     lido_locator: LidoLocatorContract
     lido: LidoContract
+    accounting: AccountingContract
     accounting_oracle: AccountingOracleContract
     staking_router: StakingRouterContract
     validators_exit_bus_oracle: ExitBusOracleContract
@@ -71,6 +73,15 @@ class LidoContracts(Module):
             self.w3.eth.contract(
                 address=self.lido_locator.lido(),
                 ContractFactoryClass=LidoContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.accounting: AccountingContract = cast(
+            AccountingContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.accounting(),
+                ContractFactoryClass=AccountingContract,
                 decode_tuples=True,
             ),
         )
