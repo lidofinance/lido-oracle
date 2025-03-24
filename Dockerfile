@@ -1,11 +1,15 @@
 FROM python:3.12.4-slim as base
 
+ARG SOURCE_DATE_EPOCH
+
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     libffi-dev=3.4.4-1 \
     g++=4:12.2.0-3 \
     curl=7.88.1-10+deb12u12 \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /var/cache/* \
+ && rm -rf /var/log/*
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -14,7 +18,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
-    VENV_PATH="/.venv"
+    VENV_PATH="/.venv" \
+    CFLAGS="-g0 -O2 -ffile-prefix-map=/src=."
 
 ENV PATH="$VENV_PATH/bin:$PATH"
 
@@ -25,7 +30,12 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --only main --no-root
+RUN poetry config --local installer.no-binary lru-dict && \
+    poetry install --only main --no-root --no-cache && \
+    find "$VENV_PATH" -type d -name '.git' -exec rm -rf {} + && \
+    find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/RECORD \; && \
+    find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/WHEEL \; && \
+    find "$VENV_PATH" -name '__pycache__' -exec rm -rf {} +
 
 
 FROM base as production
