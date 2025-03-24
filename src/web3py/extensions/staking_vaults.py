@@ -84,26 +84,30 @@ class StakingVaults(Module):
     @lru_cache(maxsize=1)
     def _get_validator_cl_balance(self, blockstamp: BlockStamp, vault_withdrawal_credentials: str) -> int:
         """
-        Returns the CL balance of the validator with the given withdrawal credentials.
+        Returns the total CL balance of all validators with the given withdrawal credentials.
         """
         validators = self._get_validators(blockstamp)
+        total_balance = 0
+        
         for validator in validators:
             if validator.validator.withdrawal_credentials == vault_withdrawal_credentials:
-                return Web3.to_wei(int(validator.balance), 'gwei')
+                total_balance += Web3.to_wei(int(validator.balance), 'gwei')
         
-        return 0
+        return total_balance
 
     @lru_cache(maxsize=1)
     def _get_validator_pending_balance(self, blockstamp: BlockStamp, vault_withdrawal_credentials: str) -> int:
         """
-        Returns the pending balance of the validator with the given withdrawal credentials.
+        Returns the total pending balance of all validators with the given withdrawal credentials.
         """
         pending_deposits = self._get_pending_deposits(blockstamp)
+        total_pending = 0
+        
         for pending_deposit in pending_deposits:
             if pending_deposit.withdrawal_credentials == vault_withdrawal_credentials:
-                return Web3.to_wei(int(pending_deposit.amount), 'gwei')
+                total_pending += Web3.to_wei(int(pending_deposit.amount), 'gwei')
         
-        return 0
+        return total_pending
 
     @lru_cache(maxsize=1)
     def _get_vault_value(self, vault: StakingVaultContract, blockstamp: BlockStamp) -> int:
