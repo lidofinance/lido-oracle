@@ -83,7 +83,7 @@ class LastReport:
             logger.info({"msg": f"No strikes reported as of {self.blockstamp=}."})
             return {}
 
-        logger.info({"msg": "Fetching tree by CID from IPFS", "cid": repr(self.strikes_tree_cid)})
+        logger.info({"msg": "Fetching strikes tree by CID from IPFS", "cid": repr(self.strikes_tree_cid)})
         tree = StrikesTree.decode(self.w3.ipfs.fetch(self.strikes_tree_cid))
 
         logger.info({"msg": "Restored strikes tree from IPFS dump", "root": repr(tree.root)})
