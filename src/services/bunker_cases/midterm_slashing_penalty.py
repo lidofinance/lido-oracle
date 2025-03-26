@@ -16,7 +16,7 @@ from src.web3py.extensions.lido_validators import LidoValidator
 
 logger = logging.getLogger(__name__)
 
-type SlashedValidatorsFrameBuckets = dict[tuple[FrameNumber, EpochNumber], list[LidoValidator]]
+type SlashedValidatorsFrameBuckets = dict[FrameNumber, list[LidoValidator]]
 
 
 class MidtermSlashingPenalty:
@@ -159,9 +159,7 @@ class MidtermSlashingPenalty:
                 # We need midterm penalties only from future frames
                 continue
             frame_number = web3_converter.get_frame_by_epoch(midterm_penalty_epoch)
-            frame_ref_slot = SlotNumber(web3_converter.get_frame_first_slot(frame_number) - 1)
-            frame_ref_epoch = web3_converter.get_epoch_by_slot(frame_ref_slot)
-            buckets[(frame_number, frame_ref_epoch)].append(validator)
+            buckets[frame_number].append(validator)
 
         return buckets
 
@@ -174,7 +172,7 @@ class MidtermSlashingPenalty:
     ) -> dict[FrameNumber, Gwei]:
         """Calculate sum of midterm penalties in each frame"""
         per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
-        for (frame_number, _), validators_in_future_frame in per_frame_validators.items():
+        for frame_number, validators_in_future_frame in per_frame_validators.items():
             per_frame_midterm_penalty_sum[frame_number] = (
                 MidtermSlashingPenalty.predict_midterm_penalty_in_frame_pre_electra(
                     ref_epoch, all_slashed_validators, total_balance, validators_in_future_frame
@@ -212,11 +210,10 @@ class MidtermSlashingPenalty:
     ) -> dict[FrameNumber, Gwei]:
         """Calculate sum of midterm penalties in each frame"""
         per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
-        for (frame_number, frame_ref_epoch), validators_in_future_frame in per_frame_validators.items():
+        for frame_number, validators_in_future_frame in per_frame_validators.items():
             per_frame_midterm_penalty_sum[frame_number] = (
                 MidtermSlashingPenalty.predict_midterm_penalty_in_frame_post_electra(
                     ref_epoch,
-                    frame_ref_epoch,
                     is_electra_activated,
                     slashings,
                     total_balance,
@@ -229,7 +226,6 @@ class MidtermSlashingPenalty:
     @staticmethod
     def predict_midterm_penalty_in_frame_post_electra(
         report_ref_epoch: EpochNumber,
-        frame_ref_epoch: EpochNumber,
         is_electra_activated: Callable[[EpochNumber], bool],
         slashings: list[Gwei],
         total_balance: Gwei,
@@ -239,9 +235,7 @@ class MidtermSlashingPenalty:
         penalty_in_frame = 0
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
-            # all validators which were slashed in [midterm_penalty_epoch - EPOCHS_PER_SLASHINGS_VECTOR, midterm_penalty_epoch]
-
-            if is_electra_activated(frame_ref_epoch):
+            if is_electra_activated(midterm_penalty_epoch):
                 penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty_electra(
                     validator, slashings, total_balance, midterm_penalty_epoch, report_ref_epoch
                 )

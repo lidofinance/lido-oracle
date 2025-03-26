@@ -17,6 +17,7 @@ from src.providers.consensus.types import (
     BeaconSpecResponse,
     GenesisResponse,
     SlotAttestationCommittee,
+    PendingDeposit,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
@@ -173,6 +174,12 @@ class ConsensusClient(HTTPProvider):
 
     def get_validators_no_cache(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view_no_cache(blockstamp).indexed_validators
+
+    def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        return self.get_state_view(blockstamp).pending_deposits
+
+    def get_pending_deposits_no_cache(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        return self.get_state_view_no_cache(blockstamp).pending_deposits
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
