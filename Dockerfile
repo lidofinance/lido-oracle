@@ -30,6 +30,8 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
+
+# Building lru-dict from source for reproducible .so files by enforcing consistent CFLAGS across builds
 RUN poetry config --local installer.no-binary lru-dict && \
     poetry install --only main --no-root --no-cache && \
     find "$VENV_PATH" -type d -name '.git' -exec rm -rf {} + && \
