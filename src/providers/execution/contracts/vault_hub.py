@@ -43,4 +43,12 @@ class VaultHubContract(ContractInterface):
             'to': self.address,
         })
 
-        return response
+        return VaultSocket(
+            response.vault,
+            response.shareLimit,
+            response.sharesMinted,
+            response.reserveRatioBP,
+            response.rebalanceThresholdBP,
+            response.treasuryFeeBP,
+            response.pendingDisconnect
+        )

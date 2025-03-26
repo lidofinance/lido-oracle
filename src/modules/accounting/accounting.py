@@ -31,6 +31,7 @@ from src.metrics.prometheus.accounting import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from src.providers.ipfs import CID
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -170,7 +171,7 @@ class Accounting(BaseModule, ConsensusModule):
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
-        vaults_part = self._calculate_vaults_report(blockstamp)
+        vaults_part = self._handle_vaults_report(blockstamp)
 
         extra_data_part = self._calculate_extra_data_report(blockstamp)
         report_data = self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, vaults_part, extra_data_part)
@@ -275,7 +276,7 @@ class Accounting(BaseModule, ConsensusModule):
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
-        vaults_values, vaults_in_out_deltas = self._calculate_vaults_report(blockstamp)
+        vaults_values, vaults_in_out_deltas = self._handle_vaults_report(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
@@ -375,9 +376,28 @@ class Accounting(BaseModule, ConsensusModule):
         return is_bunker, finalization_batches
 
     # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
-    def _calculate_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
+    # uploads tree's root, vaults' proofs
+    def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         validators = self.w3.cc.get_validators(blockstamp)
-        return self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
+        vaults_values, vaults_net_cash_flows, tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
+
+        merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
+
+        proof_cid: CID | None = None
+        try:
+            proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
+            logger.info({'msg': "Vault's proof ipfs", 'ipfs': proof_cid})
+        except Exception as e:
+            logger.error({'msg': "Could not publish proofs", 'error': e})
+
+        try:
+            if proof_cid is not None:
+                proof_tree = self.w3.staking_vaults.publish_tree(merkle_tree, blockstamp, proof_cid)
+                logger.info({'msg': "Tree's proof ipfs", 'ipfs': proof_tree, 'treeHex': f"0x{merkle_tree.root.hex()}"})
+        except Exception as e:
+            logger.error({'msg': "Could not publish tree", 'error': e})
+
+        return vaults_values, vaults_net_cash_flows
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)

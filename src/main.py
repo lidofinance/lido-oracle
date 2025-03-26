@@ -81,9 +81,11 @@ def main(module_name: OracleModule):
 
     check_providers_chain_ids(web3, cc, kac)
 
+    staking_vault = StakingVaults(web3, ipfs)
+
     web3.attach_modules({
         'lido_contracts': LidoContracts,
-        'staking_vaults': StakingVaults,
+        'staking_vaults': lambda: staking_vault,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'csm': LazyCSM,

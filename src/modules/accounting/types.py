@@ -29,8 +29,8 @@ class ReportData:
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_values: list[int]
-    vaults_in_out_deltas: list[int]
+    vaults_values: list[int] # -> TODO replace to TreeHash
+    vaults_in_out_deltas: list[int] # TODO replace to Cid
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -140,8 +140,7 @@ type SharesToBurn = int
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches]
-type VaultsReport = tuple[list[int], list[int]]
-
+type VaultTreeNode = tuple[str, int, int, int, int]
 
 @dataclass
 class BeaconStat:
@@ -198,3 +197,18 @@ class VaultSocket:
     rebalance_threshold_bp: int
     treasury_fee_bp: int
     pending_disconnect: bool
+
+@dataclass
+class VaultData:
+    vault_ind: int
+    balance_wei: int
+    in_out_delta: int
+    shares_minted: int
+    fee: int
+    address: ChecksumAddress
+    withdrawal_credentials: str
+    socket: VaultSocket
+
+VaultsMap = dict[ChecksumAddress, VaultData]
+type VaultsReport = tuple[list[int], list[int]]
+type VaultsData = tuple[list[int], list[int], list[VaultTreeNode], VaultsMap]
