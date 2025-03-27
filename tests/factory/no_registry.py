@@ -33,7 +33,7 @@ class ValidatorStateFactory(Web3DataclassFactory[ValidatorState]):
         return super().build(**kwargs)
 
 
-class ValidatorFactory(Web3DataclassFactory[Validator]):
+class ValidatorFactory(Web3DataclassFactory[Validator]):  # noqa: E701
     ...
 
 

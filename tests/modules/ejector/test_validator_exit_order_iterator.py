@@ -15,8 +15,7 @@ from tests.factory.no_registry import (
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
-class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]):
-    ...
+class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]): ...
 
 
 class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
