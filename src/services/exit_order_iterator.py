@@ -259,10 +259,8 @@ class ValidatorExitIterator:
             - self._max_share_rate_coefficient_predicate(node_operator),
             - self._stake_weight_coefficient_predicate(
                 node_operator,
-                self.eth_validators_count,
                 self.eth_validators_effective_balance,
                 self.no_penetration_threshold,
-                self.consensus_version > 2 and self.w3.cc.is_electra_activated(self.blockstamp.ref_epoch),
             ),
             - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),
@@ -301,20 +299,14 @@ class ValidatorExitIterator:
     @staticmethod
     def _stake_weight_coefficient_predicate(
         node_operator: NodeOperatorStats,
-        total_validators: int,
         total_effective_balance: Gwei,
         no_penetration: float,
-        is_post_pectra: bool,
     ) -> int:
         """
         The higher coefficient the higher priority to eject validator
         """
-        if is_post_pectra:
-            if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
-                return node_operator.total_age
-        else:
-            if total_validators * no_penetration < node_operator.predictable_validators:
-                return node_operator.total_age
+        if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
+            return node_operator.total_age
 
         return 0
 

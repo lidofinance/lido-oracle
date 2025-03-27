@@ -5,7 +5,6 @@ from typing import Protocol
 from eth_typing import BlockNumber
 from web3.types import Timestamp
 
-from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
 
@@ -17,7 +16,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
-    ELECTRA_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
 
 @dataclass
