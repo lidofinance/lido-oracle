@@ -1,3 +1,5 @@
+from packaging.version import Version
+
 from src.types import Gwei, SlotNumber
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
@@ -47,3 +49,5 @@ TOTAL_BASIS_POINTS = 10000
 GWEI_TO_WEI = 10**9
 MAX_BLOCK_GAS_LIMIT = 30_000_000
 UINT64_MAX = 2**64 - 1
+
+ALLOWED_KAPI_VERSION = Version('1.5.0')

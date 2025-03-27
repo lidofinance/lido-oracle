@@ -6,6 +6,7 @@ import responses
 from packaging.version import Version
 from web3 import Web3
 
+from src import constants
 import src.providers.keys.client as keys_api_client_module
 from src import variables
 from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
@@ -82,7 +83,7 @@ class TestIntegrationKeysAPIClient:
     ):
         status = keys_api_client.get_status()
 
-        assert Version(status.appVersion) >= variables.ALLOWED_KAPI_VERSION
+        assert Version(status.appVersion) >= constants.ALLOWED_KAPI_VERSION
         assert status.chainId == 1
 
     def test_check_providers_consistency__mainnet(self, keys_api_client):
