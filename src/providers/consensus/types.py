@@ -153,15 +153,6 @@ class SlotAttestationCommittee(Nested, FromResponse):
 
 
 @dataclass
-class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
-    amount: Gwei
-    signature: str
-    slot: SlotNumber
-
-
-@dataclass
 class PendingPartialWithdrawal(Nested):
     validator_index: ValidatorIndex
     amount: Gwei
@@ -183,7 +174,6 @@ class BeaconStateView(Nested, FromResponse):
     # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
-    pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
 
     @cached_property
