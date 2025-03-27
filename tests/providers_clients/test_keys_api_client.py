@@ -8,9 +8,8 @@ from eth_typing import HexStr
 from packaging.version import Version
 from web3 import Web3
 
-from src import variables
-from src import constants
 import src.providers.keys.client as keys_api_client_module
+from src import constants
 from src import variables
 from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
@@ -18,7 +17,11 @@ from src.types import StakingModuleAddress
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
+@pytest.mark.usefixtures(
+    "contracts",
+)
 @pytest.mark.integration
+@pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:
 
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
@@ -78,13 +81,11 @@ class TestIntegrationKeysAPIClient:
         keys_api_client,
         empty_blockstamp,
     ):
-        csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
-
         csm_module_operators_keys = keys_api_client.get_module_operators_keys(
-            module_address=csm_module_address, blockstamp=empty_blockstamp
+            module_address=variables.CSM_MODULE_ADDRESS, blockstamp=empty_blockstamp
         )
 
-        assert csm_module_operators_keys['module']['stakingModuleAddress'] == csm_module_address
+        assert csm_module_operators_keys['module']['stakingModuleAddress'] == variables.CSM_MODULE_ADDRESS
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
@@ -93,7 +94,7 @@ class TestIntegrationKeysAPIClient:
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
-            assert operator['moduleAddress'] == csm_module_address
+            assert operator['moduleAddress'] == variables.CSM_MODULE_ADDRESS
 
     def test_get_status__response_version_is_allowed(
         self,
@@ -209,11 +210,11 @@ class TestUnitKeysAPIClient:
         keys_api_client,
         empty_blockstamp,
     ):
-        csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        module_address = cast('0xdtestest', StakingModuleAddress)
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(csm_module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
             json={
-                'data': {'keys': [], 'module': {'stakingModuleAddress': csm_module_address, 'id': 1}, 'operators': []},
+                'data': {'keys': [], 'module': {'stakingModuleAddress': str(module_address), 'id': 1}, 'operators': []},
                 'meta': {
                     'elBlockSnapshot': {
                         'blockNumber': 0,
@@ -225,7 +226,7 @@ class TestUnitKeysAPIClient:
             },
         )
 
-        result = keys_api_client.get_module_operators_keys(csm_module_address, empty_blockstamp)
+        result = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
 
         assert len(result['keys']) == 0
         assert len(result['operators']) == 0
@@ -234,11 +235,11 @@ class TestUnitKeysAPIClient:
     def test_get_module_operators_keys__outdated_block__raises_keys_outdated_exception(
         self, keys_api_client, empty_blockstamp, monkeypatch
     ):
-        csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        module_address = cast('0xdtestest', StakingModuleAddress)
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(csm_module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
             json={
-                'data': {'keys': [], 'module': {'stakingModuleAddress': csm_module_address, 'id': 1}, 'operators': []},
+                'data': {'keys': [], 'module': {'stakingModuleAddress': str(module_address), 'id': 1}, 'operators': []},
                 'meta': {
                     'elBlockSnapshot': {
                         'blockNumber': -1,
@@ -253,27 +254,27 @@ class TestUnitKeysAPIClient:
 
         with monkeypatch.context() as m, pytest.raises(KeysOutdatedException):
             m.setattr(keys_api_client_module, 'sleep', sleep_mock)
-            keys_api_client.get_module_operators_keys(csm_module_address, empty_blockstamp)
+            keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
 
         assert sleep_mock.call_count == keys_api_client.retry_count - 1
 
     @responses.activate
     def test_get_module_operators_keys__server_error__raises_kapi_client_error(self, keys_api_client, empty_blockstamp):
-        csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        module_address = cast('0xdtestest', StakingModuleAddress)
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(csm_module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
             status=500,
             json={'error': 'Internal Server Error'},
         )
 
         with pytest.raises(KAPIClientError):
-            keys_api_client.get_module_operators_keys(csm_module_address, empty_blockstamp)
+            keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
 
     @responses.activate
     def test_get_module_operators_keys__two_calls__one_http_request_cached(self, keys_api_client, empty_blockstamp):
-        csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        module_address = cast('0xdtestest', StakingModuleAddress)
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(csm_module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
             json={
                 'data': {
                     'keys': [
@@ -281,19 +282,19 @@ class TestUnitKeysAPIClient:
                             'key': '',
                             'used': True,
                             'operatorIndex': 0,
-                            'moduleAddress': csm_module_address,
+                            'moduleAddress': str(module_address),
                             'depositSignature': '',
                         }
                     ],
-                    'module': {'stakingModuleAddress': csm_module_address, 'id': 1},
-                    'operators': [{'index': 0, 'rewardAddress': '0xabcdef', 'moduleAddress': csm_module_address}],
+                    'module': {'stakingModuleAddress': str(module_address), 'id': 1},
+                    'operators': [{'index': 0, 'rewardAddress': '0xabcdef', 'moduleAddress': str(module_address)}],
                 },
                 'meta': {'elBlockSnapshot': {'blockNumber': 0}},
             },
         )
 
-        result1 = keys_api_client.get_module_operators_keys(csm_module_address, empty_blockstamp)
-        result2 = keys_api_client.get_module_operators_keys(csm_module_address, empty_blockstamp)
+        result1 = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
+        result2 = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
 
         assert result1 == result2
         assert len(responses.calls) == 1
