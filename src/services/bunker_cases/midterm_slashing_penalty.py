@@ -25,7 +25,6 @@ class MidtermSlashingPenalty:
         blockstamp: ReferenceBlockStamp,
         consensus_version: int,
         is_electra_activated: Callable[[EpochNumber], bool],
-        *,
         web3_converter: Web3Converter,
         all_validators: list[Validator],
         lido_validators: list[LidoValidator],

@@ -127,7 +127,6 @@ class ResponseFromFileHTTPProvider(HTTPProvider, Module, FromFile):
     def _get(
         self,
         endpoint: str,
-        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
@@ -163,7 +162,6 @@ class UpdateResponsesHTTPProvider(HTTPProvider, Module, UpdateResponses):
     def _get(
         self,
         endpoint: str,
-        *,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,

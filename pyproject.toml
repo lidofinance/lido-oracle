@@ -36,6 +36,7 @@ base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pydantic = "^2.4.0"
 pytest-cov = "^4.0.0"
+polyfactory = "^2.19.0"
 # {{{ stubs for mypy
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
@@ -100,6 +101,7 @@ disable = [
     "invalid-envvar-default",
     "global-statement",
     "redefined-outer-name",
+    "too-many-positional-arguments",
 ]
 
 [tool.mypy]
