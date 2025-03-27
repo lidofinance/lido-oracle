@@ -1,23 +1,53 @@
+import re
 from typing import cast
 from unittest import mock
 
 import pytest
 import responses
+from eth_typing import HexStr
 from packaging.version import Version
 from web3 import Web3
 
+from src import variables
 from src import constants
 import src.providers.keys.client as keys_api_client_module
 from src import variables
 from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
 from src.types import StakingModuleAddress
-from src.utils.keys import is_valid_bls_public_key, is_valid_bls_signature
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 @pytest.mark.integration
 class TestIntegrationKeysAPIClient:
+
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
+    BLS_PUBLIC_KEY_SIZE = 48
+    BLS_SIGNATURE_SIZE = 96
+    BLS_PUBLIC_KEY_PATTERN = re.compile(r'^0x[0-9a-fA-F]{96}$')
+    BLS_SIGNATURE_PATTERN = re.compile(r'^0x[0-9a-fA-F]{192}$')
+
+    def _is_valid_hex_format(self, value: HexStr, pattern: re.Pattern, expected_bytes: int) -> bool:
+        if not isinstance(value, str) or pattern.match(value) is None:
+            return False
+        try:
+            bytes_value = Web3.to_bytes(hexstr=value)
+            return len(bytes_value) == expected_bytes
+        except ValueError:
+            return False
+
+    def _is_valid_bls_public_key(self, value: HexStr) -> bool:
+        return self._is_valid_hex_format(value, self.BLS_PUBLIC_KEY_PATTERN, self.BLS_PUBLIC_KEY_SIZE)
+
+    def _is_valid_bls_signature(self, value: HexStr) -> bool:
+        return self._is_valid_hex_format(value, self.BLS_SIGNATURE_PATTERN, self.BLS_SIGNATURE_SIZE)
+
+    def _assert_lido_key(self, lido_key: LidoKey):
+        assert lido_key.operatorIndex >= 0
+        assert Web3.is_address(lido_key.moduleAddress)
+        assert self._is_valid_bls_public_key(lido_key.key)
+        assert self._is_valid_bls_signature(lido_key.depositSignature)
+
     @pytest.fixture
     def keys_api_client(self):
         return KeysAPIClient(
@@ -31,34 +61,22 @@ class TestIntegrationKeysAPIClient:
     def empty_blockstamp(self):
         return ReferenceBlockStampFactory.build(block_number=0)
 
-    @pytest.fixture
-    def w3(self):
-        return Web3()
-
-    def _assert_lido_key(self, lido_key: LidoKey, w3: Web3):
-        assert lido_key.operatorIndex >= 0
-        assert w3.is_address(lido_key.moduleAddress)
-        assert is_valid_bls_public_key(lido_key.key)
-        assert is_valid_bls_signature(lido_key.depositSignature)
-
     def test_get_used_lido_keys__all_used_keys__response_data_is_valid(
         self,
         keys_api_client,
         empty_blockstamp,
-        w3,
     ):
         keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
 
         assert len(keys) > 0
         for lido_key in keys:
             assert lido_key.used is True
-            self._assert_lido_key(lido_key, w3)
+            self._assert_lido_key(lido_key)
 
     def test_get_module_operators_keys__csm_module__response_data_is_valid(
         self,
         keys_api_client,
         empty_blockstamp,
-        w3,
     ):
         csm_module_address = cast(StakingModuleAddress, '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
@@ -71,10 +89,10 @@ class TestIntegrationKeysAPIClient:
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
         for lido_key in csm_module_operators_keys['keys']:
-            self._assert_lido_key(lido_key, w3)
+            self._assert_lido_key(lido_key)
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
-            assert w3.is_address(operator['rewardAddress'])
+            assert Web3.is_address(operator['rewardAddress'])
             assert operator['moduleAddress'] == csm_module_address
 
     def test_get_status__response_version_is_allowed(
@@ -94,7 +112,7 @@ class TestIntegrationKeysAPIClient:
 
 @pytest.mark.unit
 class TestUnitKeysAPIClient:
-    KEYS_API_MOCK_URL = 'http://localhost:8000/'
+    KEYS_API_MOCK_URL = 'http://mock:1234/'
 
     @pytest.fixture()
     def keys_api_client(self):
