@@ -34,7 +34,7 @@ class OracleReportLimitsFactory(Web3DataclassFactory[OracleReportLimits]):
     max_positive_token_rebase = 0
 
 
-class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):
+class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
     ...
 
 

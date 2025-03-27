@@ -1,12 +1,14 @@
 repos:
-  - repo: https://github.com/psf/black
-    rev: 23.12.1  # Use the latest stable version
-    hooks:
-      - id: black
-        name: Run black on tests
-        files: ^tests/  # ✅ Runs only on the tests folder
   - repo: local
     hooks:
+      - id: black-only-tests
+        name: Run Black on tests/ using Poetry
+        entry: poetry run black tests
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
       - id: conventional-pre-commit
         name: Conventional pre-commit
         entry: poetry run conventional-pre-commit

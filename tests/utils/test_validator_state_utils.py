@@ -40,9 +40,7 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
                 Validator(
                     '0',
                     '1',
-                    ValidatorState(
-                        '0x0', '', str(32 * 10**9), False, FAR_FUTURE_EPOCH, 15000, 15001, FAR_FUTURE_EPOCH
-                    ),
+                    ValidatorState('0x0', '', str(32 * 10**9), False, FAR_FUTURE_EPOCH, 15000, 15001, FAR_FUTURE_EPOCH),
                 ),
                 Validator(
                     '1',
