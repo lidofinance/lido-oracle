@@ -3,7 +3,7 @@ FROM python:3.12.4-slim as base
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     libffi-dev=3.4.4-1 \
     g++=4:12.2.0-3 \
-    curl=7.88.1-10+deb12u8 \
+    curl=7.88.1-10+deb12u12 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
