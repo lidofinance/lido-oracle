@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import GENESIS_SLOT
-from src.providers.consensus.types import Validator, PendingDeposit
+from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress, Gwei
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import Nested, FromResponse
 
@@ -152,20 +151,6 @@ class LidoValidatorsProvider(Module):
                 ))
 
         return lido_validators
-
-    @staticmethod
-    def sum_eth1_bridge_deposits_amount(validator: LidoValidator, pending_deposits: list[PendingDeposit]) -> Gwei:
-        """
-        Return the total amount of pending deposit requests for the validator.
-        """
-        res = sum(
-            deposit.amount for deposit in pending_deposits
-            if (
-                deposit.pubkey == validator.validator.pubkey and
-                deposit.slot == GENESIS_SLOT
-            )
-        )
-        return Gwei(res)
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:

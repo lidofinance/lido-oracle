@@ -12,10 +12,8 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
-    MIN_ACTIVATION_BALANCE,
-    GWEI_TO_WEI,
 )
-from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
@@ -141,14 +139,6 @@ class LidoValidatorFactory(Web3Factory):
             ),
             **kwargs,
         )
-
-
-class PendingDepositFactory(Web3Factory):
-    __model__ = PendingDeposit
-
-    @classmethod
-    def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return cls.batch_with('pubkey', [v.validator.pubkey for v in validators], **kwargs)
 
 
 class NodeOperatorFactory(Web3Factory):
