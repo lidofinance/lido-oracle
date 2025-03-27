@@ -37,7 +37,7 @@ def test_all_fallbacks_bad():
 
 
 def test_first_fallback_bad():
-    def _simple_get(host, endpoint, **kwargs):
+    def _simple_get(host, endpoint, *_):
         if host == 'http://localhost:1':
             raise Exception('Bad host')  # pylint: disable=broad-exception-raised
         return host, endpoint
@@ -60,9 +60,7 @@ def test_force_raise():
     provider._get_without_fallbacks = Mock(side_effect=_simple_get)
     with pytest.raises(CustomError):
         provider._get('test', force_raise=lambda _: CustomError())
-    provider._get_without_fallbacks.assert_called_once_with(
-        'http://localhost:1', 'test', path_params=None, query_params=None, stream=False
-    )
+    provider._get_without_fallbacks.assert_called_once_with('http://localhost:1', 'test', None, None, False)
 
 
 @pytest.mark.unit
