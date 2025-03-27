@@ -9,7 +9,8 @@ from web3 import Web3
 from web3.module import Module
 
 from src.modules.accounting.types import VaultsReport, VaultTreeNode, VaultData, VaultsMap, VaultsData
-from src.providers.consensus.types import Validator
+from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -36,17 +37,19 @@ VaultToValidators = dict[ChecksumAddress, list[Validator]]
 class StakingVaults(Module):
     w3: Web3
     ipfs_client: IPFSProvider
+    cl: ConsensusClient
 
     lido_locator: LidoLocatorContract
     vault_hub: VaultHubContract
 
     abi_path: Optional[str] = None
 
-    def __init__(self, w3: Web3, ipfs_client: IPFSProvider,  abi_path: Optional[str] = None) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs_client: IPFSProvider,  abi_path: Optional[str] = None) -> None:
         super().__init__(w3)
 
         self.w3: Web3 = w3
         self.ipfs_client = ipfs_client
+        self.cl = cl
 
         if abi_path is not None:
             self.abi_path = abi_path
@@ -98,11 +101,18 @@ class StakingVaults(Module):
 
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
         vault_count = self.vault_hub.get_vaults_count(blockstamp)
+        pending_deposits = self.cl.get_pending_deposits(blockstamp)
+        deposit_map = dict[str, int]()
+
+        for deposit in pending_deposits:
+            if deposit.withdrawal_credentials not in deposit_map:
+                deposit_map[deposit.withdrawal_credentials] = 0
+
+            deposit_map[deposit.withdrawal_credentials] += Web3.to_wei(int(deposit.amount), 'gwei')
 
         vaults = VaultsMap()
         for vault_ind in range(vault_count):
             vault_socket = self.vault_hub.vault_socket(vault_ind, blockstamp)
-            print(vault_socket)
 
             balance_wei = self.w3.eth.get_balance(
                 self.w3.to_checksum_address(vault_socket.vault),
@@ -113,6 +123,10 @@ class StakingVaults(Module):
             vault_in_out_delta = vault.in_out_delta(blockstamp)
             vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp)
 
+            pending_deposit = 0
+            if vault_withdrawal_credentials in deposit_map:
+                pending_deposit = deposit_map[vault_withdrawal_credentials]
+
             fee = 0
             vaults[vault_socket.vault] = VaultData(
                 vault_ind,
@@ -120,6 +134,7 @@ class StakingVaults(Module):
                 vault_in_out_delta,
                 vault_socket.shares_minted,
                 fee,
+                pending_deposit,
                 vault_socket.vault,
                 vault_withdrawal_credentials,
                 vault_socket
@@ -187,7 +202,7 @@ class StakingVaults(Module):
         for vault_address in vaults:
             vault = vaults[vault_address]
 
-            vaults_values[vault.vault_ind] = vault.balance_wei
+            vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
             vaults_net_cash_flows[vault.vault_ind] = vault.in_out_delta
 
             if vault_address in vaults_validators:

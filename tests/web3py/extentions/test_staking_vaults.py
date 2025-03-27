@@ -9,7 +9,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockRoot, SlotNumber
 from src.utils.blockstamp import build_blockstamp
-from src.web3py.extensions import StakingVaults
+from src.web3py.extensions import StakingVaults, ConsensusClientModule
 
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI')
 CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI')
@@ -21,16 +21,15 @@ class TestStakingVaults:
     def setup_method(self):
         w3 = Web3(Web3.HTTPProvider(EXECUTION_CLIENT_URI))
 
-        self.cc = ConsensusClient(hosts=[CONSENSUS_CLIENT_URI], request_timeout=5 * 60, retry_total=1,
-                                  retry_backoff_factor=1)
+        self.cc = ConsensusClientModule([CONSENSUS_CLIENT_URI], w3)
 
         self.ipfs_client = MultiIPFSProvider(ipfs_providers(), retries=3)
 
-        self.StakingVaults = StakingVaults(w3, self.ipfs_client,'./../../../assets/')
+        self.StakingVaults = StakingVaults(w3, self.cc, self.ipfs_client,'./../../../assets/')
 
     def test_manual_vault_report(self):
         # block_root = BlockRoot(self.cc.get_block_root('finalized').root)
-        slot_number = 7270944
+        slot_number = 7278944
         block_details = self.cc.get_block_details(SlotNumber(slot_number))
 
         bs = build_blockstamp(block_details)
@@ -48,5 +47,5 @@ class TestStakingVaults:
         print(proof_tree)
 
         got = f"0x{merkle_tree.root.hex()}"
-        expected = '0x946f1d0dbf7dd495286dd9555bdeca50a68d78786131a38545d5375b03b860aa'
+        expected = '0xd832e823b84db9ba0d7ba52b3647953c65ae0f86b81949a31605492ebe46f93a'
         assert got == expected

@@ -205,6 +205,7 @@ class VaultData:
     in_out_delta: int
     shares_minted: int
     fee: int
+    pending_deposit: int
     address: ChecksumAddress
     withdrawal_credentials: str
     socket: VaultSocket
