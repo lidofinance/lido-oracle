@@ -29,8 +29,6 @@ json-stream = "^2.3.2"
 lazy-object-proxy = "^1.9.0"
 oz-merkle-tree = {git = "https://github.com/lidofinance/oz-merkle-tree"}
 py-multiformats-cid = "^0.4.4"
-pydantic = "^2.4.0"
-polyfactory = "^2.19.0"
 conventional-pre-commit = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -44,7 +42,7 @@ types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 # }}}
 hypothesis = "^6.68.2"
-black = "^23.12.1"
+black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 requests-mock = "^1.12.1"
