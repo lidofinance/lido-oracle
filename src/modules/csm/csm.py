@@ -210,7 +210,8 @@ class CSOracle(BaseModule, ConsensusModule):
                 logger.info({"msg": "Checkpoints were prepared for an outdated epochs range, stop processing"})
                 raise ValueError("Outdated checkpoint")
             processor.exec(checkpoint)
-
+            # Reset BaseOracle cycle timeout to avoid timeout errors during long checkpoints processing
+            self._reset_cycle_timeout()
         return self.state.is_fulfilled
 
     def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
