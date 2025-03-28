@@ -63,11 +63,10 @@ def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int
     os.chdir(prepared_csm_repo)
 
     with subprocess.Popen(
-        ['just', '_deploy-impl', '--broadcast'],
+        ['just', '_deploy-impl', '--broadcast', '--private-key', deployer],
         env={
             **os.environ,
             "ANVIL_PORT": str(anvil_port),
-            'DEPLOYER_PRIVATE_KEY': deployer,
             'CHAIN': chain,
         },
         stdout=subprocess.DEVNULL,
