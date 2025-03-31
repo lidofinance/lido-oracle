@@ -120,11 +120,5 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
         )
 
 
-class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
-    @classmethod
-    def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return [cls.build(pubkey=v.validator.pubkey, **kwargs) for v in validators]
-
-
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
     id: int = Use(lambda x: next(x), count(1))
