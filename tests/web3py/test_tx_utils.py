@@ -22,7 +22,6 @@ def fake_transaction_utils():
 
 @pytest.mark.unit
 class TestTransactionUtils:
-
     def test_check_and_send_transaction_dry_mode(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
