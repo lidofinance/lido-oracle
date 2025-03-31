@@ -296,6 +296,12 @@ class MidtermSlashingPenalty:
         """
         Calculate midterm penalty for particular validator
         https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-process_slashings
+
+        According to Ethereum consensus specs:
+        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+        Validator slashing occurs during `process_block`, while `process_slashings` runs inside `process_epoch`.
+        As a result, the `slashings` array does not get updated within the same `midterm_penalty_epoch`,
+        meaning that slashing events from this epoch are excluded from the aggregated slashing sum.
         """
         slashings_sum = sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch))
         adjusted_total_slashing_balance = min(
