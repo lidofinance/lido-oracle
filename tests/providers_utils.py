@@ -1,5 +1,6 @@
 import json
 import os
+from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Sequence, Callable
@@ -71,21 +72,28 @@ class UpdateResponses:
             self.responses = previous_responses
 
 
-class ResponseFromFile(JSONBaseProvider, FromFile):
-    def __init__(self, mock_path: Path):
-        JSONBaseProvider.__init__(self)
+class ResponseFromFile(JSONBaseProvider, FromFile):  # pylint: disable=abstract-method
+    allowed_requests_cache: dict[RPCEndpoint, RPCResponse]
+
+    def __init__(self, mock_path: Path, **kwargs):
+        self.allowed_requests_cache = defaultdict()
+        JSONBaseProvider.__init__(self, **kwargs)
         FromFile.__init__(self, mock_path)
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        if self.cache_allowed_requests and method in self.cacheable_requests and method in self.allowed_requests_cache:
+            return self.allowed_requests_cache[method]
         for response in self.responses:
             if response["method"] == method and json.dumps(response["params"]) == json.dumps(params):
+                if self.cache_allowed_requests and method in self.cacheable_requests:
+                    self.allowed_requests_cache[method] = response["response"]
                 return response["response"]
         raise NoMockException('There is no mock for response')
 
 
 class UpdateResponsesProvider(MultiProvider, UpdateResponses):
     def __init__(self, mock_path: Path, host):
-        MultiProvider.__init__(self, host)
+        MultiProvider.__init__(self, host, cache_allowed_requests=True)
         UpdateResponses.__init__(self)
         self.from_file = ResponseFromFile(mock_path)
 

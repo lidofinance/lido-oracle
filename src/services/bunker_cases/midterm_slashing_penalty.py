@@ -83,10 +83,7 @@ class MidtermSlashingPenalty:
         frame_cl_rebase = MidtermSlashingPenalty.get_frame_cl_rebase_from_report_cl_rebase(
             web3_converter, current_report_cl_rebase, blockstamp, last_report_ref_slot
         )
-        if max_lido_midterm_penalty > frame_cl_rebase:
-            return True
-
-        return False
+        return max_lido_midterm_penalty > frame_cl_rebase
 
     @staticmethod
     def get_slashed_validators_with_impact_on_midterm_penalties(
