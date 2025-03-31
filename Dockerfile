@@ -1,4 +1,4 @@
-FROM python:3.12.4-slim as base
+FROM python:3.12.4-slim AS base
 
 ARG SOURCE_DATE_EPOCH
 
@@ -23,7 +23,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 ENV PATH="$VENV_PATH/bin:$PATH"
 
-FROM base as builder
+FROM base AS builder
 
 ENV POETRY_VERSION=1.3.2
 RUN pip install --no-cache-dir poetry==$POETRY_VERSION
@@ -40,7 +40,7 @@ RUN poetry config --local installer.no-binary lru-dict && \
     find "$VENV_PATH" -name '__pycache__' -exec rm -rf {} +
 
 
-FROM base as production
+FROM base AS production
 
 COPY --from=builder $VENV_PATH $VENV_PATH
 WORKDIR /app
@@ -48,8 +48,8 @@ COPY . .
 
 RUN apt-get clean && find /var/lib/apt/lists/ -type f -delete && chown -R www-data /app/
 
-ENV PROMETHEUS_PORT 9000
-ENV HEALTHCHECK_SERVER_PORT 9010
+ENV PROMETHEUS_PORT=9000
+ENV HEALTHCHECK_SERVER_PORT=9010
 
 EXPOSE $PROMETHEUS_PORT
 USER www-data
