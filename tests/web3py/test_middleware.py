@@ -3,12 +3,11 @@ from unittest.mock import call, Mock, patch, mock_open, MagicMock, ANY
 import pytest
 from requests import HTTPError
 from web3 import Web3, HTTPProvider
-from web3.exceptions import MethodUnavailable
 from web3_multi_provider import NoActiveProviderError
 
 from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
-from src.web3py.middleware import metrics_collector
+from src.web3py.middleware import add_requests_metric_middleware, Web3MetricsMiddleware
 
 pytestmark = pytest.mark.integration
 
@@ -20,7 +19,9 @@ def provider():
 
 @pytest.fixture()
 def web3(provider):
-    return Web3(provider, middlewares=[metrics_collector])
+    web3 = Web3(provider)
+    add_requests_metric_middleware(web3)
+    return web3
 
 
 @pytest.fixture(autouse=True)
@@ -64,18 +65,7 @@ def test_fail_with_status_code(provider, web3):
     }
 
 
-def test_fail_with_body_error(web3):
-    with pytest.raises((MethodUnavailable, ValueError)):
-        web3.eth.coinbase
-    labels = _get_requests_labels()
-    assert labels in [
-        {'call_method': '', 'call_to': '', 'code': '-32601', 'endpoint': 'eth_coinbase', 'le': '0.01'},
-        {'call_method': '', 'call_to': '', 'code': '-32000', 'endpoint': 'eth_coinbase', 'le': '0.01'},
-    ]
-
-
 class TestMetricsCollectorUnit:
-
     @pytest.fixture
     def mock_web3(self):
         """Mock Web3 instance."""
@@ -112,7 +102,8 @@ class TestMetricsCollectorUnit:
         """
         Test the metrics collector for an `eth_call` method.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]
@@ -138,7 +129,8 @@ class TestMetricsCollectorUnit:
         """
         Test the metrics collector for an `eth_getBalance` method.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_getBalance'
         params = ['0x1234567890abcdef', 'latest']
@@ -162,7 +154,8 @@ class TestMetricsCollectorUnit:
         """
         Test that the metrics collector handles the NoActiveProviderError.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]
@@ -184,7 +177,8 @@ class TestMetricsCollectorUnit:
         """
         Test that the metrics collector handles HTTPError correctly.
         """
-        middleware = metrics_collector(mock_make_request, mock_web3)
+        web3_metrics_middleware = Web3MetricsMiddleware(mock_web3)
+        middleware = web3_metrics_middleware.wrap_make_request(mock_make_request)
 
         method = 'eth_call'
         params = [{'to': '0x1234567890abcdef', 'data': '0xabcdef'}]

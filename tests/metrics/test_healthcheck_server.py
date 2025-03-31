@@ -7,8 +7,8 @@ from unittest.mock import patch, MagicMock
 
 import requests
 import responses
-import src.metrics.healthcheck_server
 
+import src.metrics.healthcheck_server
 from src.metrics.healthcheck_server import pulse, PulseRequestHandler
 from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
@@ -57,7 +57,6 @@ def _create_mock_request_handler(path):
 
 
 class TestPulseRequestHandler(unittest.TestCase):
-
     def setUp(self):
         # Reset _last_pulse to current time before each test
         PulseRequestHandler._last_pulse = datetime.now()
