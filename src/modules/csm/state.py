@@ -63,6 +63,7 @@ class NetworkDuties:
 
 type Frame = tuple[EpochNumber, EpochNumber]
 type StateData = dict[Frame, NetworkDuties]
+type SlashingsData = dict[ValidatorIndex, EpochNumber]
 
 
 class State:
@@ -77,6 +78,8 @@ class State:
     """
     frames: list[Frame]
     data: StateData
+    # TODO: fetch slashings from l_epoch_first block state to have it in State initially
+    slashings: SlashingsData
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
@@ -88,6 +91,7 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
+        self.slashings = {}
 
     EXTENSION = ".pkl"
 
@@ -174,6 +178,9 @@ class State:
     def increment_sync_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
         frame = self.find_frame(epoch)
         self.data[frame].syncs[val_index].add_duty(included)
+
+    def add_slashing(self, val_index: ValidatorIndex, epoch: EpochNumber) -> None:
+        self.slashings[val_index] = epoch
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
