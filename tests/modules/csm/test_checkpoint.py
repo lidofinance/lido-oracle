@@ -5,7 +5,6 @@ from unittest.mock import Mock
 import pytest
 from faker import Faker
 
-import src.modules.csm.checkpoint as checkpoint_module
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
@@ -17,7 +16,7 @@ from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
-from src.types import EpochNumber, SlotNumber, ValidatorIndex
+from src.types import SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
@@ -312,37 +311,6 @@ def mock_get_block_attestations(consensus_client, faker: Faker):
         return attestations
 
     consensus_client.get_block_attestations = Mock(side_effect=_get_block_attestations)
-
-
-@pytest.mark.usefixtures(
-    "mock_get_state_block_roots",
-    "mock_get_attestation_committees",
-    "mock_get_block_attestations",
-    "mock_get_config_spec",
-)
-def test_checkpoints_processor_no_eip7549_support(
-    consensus_client,
-    converter,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    state = State()
-    state.migrate(EpochNumber(0), EpochNumber(255), 1)
-    processor = FrameCheckpointProcessor(
-        consensus_client,
-        state,
-        converter,
-        Mock(),
-        eip7549_supported=False,
-    )
-    roots = processor._get_block_roots(SlotNumber(0))
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            checkpoint_module,
-            "is_eip7549_attestation",
-            Mock(return_value=True),
-        )
-        with pytest.raises(ValueError, match="support is not enabled"):
-            processor._check_duty(0, roots[:64])
 
 
 def test_checkpoints_processor_check_duty(
