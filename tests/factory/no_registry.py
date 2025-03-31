@@ -13,7 +13,7 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
 )
-from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
+from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
@@ -118,12 +118,6 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
             ),
             **kwargs,
         )
-
-
-class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
-    @classmethod
-    def generate_for_validators(cls, validators: list[Validator], **kwargs):
-        return [cls.build(pubkey=v.validator.pubkey, **kwargs) for v in validators]
 
 
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
