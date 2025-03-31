@@ -5,7 +5,7 @@ reproducible-build-oracle:
 	docker buildx use oracle-buildkit
 	docker buildx build \
 		--platform linux/amd64 \
-		--build-arg SOURCE_DATE_EPOCH=$(shell git log -1 --pretty=%ct) \
+		--build-arg SOURCE_DATE_EPOCH=0 \
 		--no-cache \
 		--output type=docker,name=oracle-reproducible-container:local,rewrite-timestamp=true \
 		-t oracle-reproducible-container:local \
