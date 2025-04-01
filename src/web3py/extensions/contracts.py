@@ -17,6 +17,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
@@ -38,7 +39,7 @@ class LidoContracts(Module):
     withdrawal_queue_nft: WithdrawalQueueNftContract
     oracle_report_sanity_checker: OracleReportSanityCheckerContract
     oracle_daemon_config: OracleDaemonConfigContract
-    burner: BurnerContract
+    vault_hub: VaultHubContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -145,6 +146,15 @@ class LidoContracts(Module):
             self.w3.eth.contract(
                 address=self.lido_locator.staking_router(),
                 ContractFactoryClass=StakingRouterContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.vault_hub: VaultHubContract = cast(
+            VaultHubContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.vault_hub(),
+                ContractFactoryClass=VaultHubContract,
                 decode_tuples=True,
             ),
         )

@@ -1,21 +1,18 @@
 import json
 import logging
-import os
-from typing import cast, Optional, List
+from typing import cast, List
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
-
 from web3 import Web3
+
 from web3.module import Module
 
 from src.modules.accounting.types import VaultTreeNode, VaultData, VaultsMap, VaultsData
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 
-from src import variables
 from src.providers.ipfs import CID, IPFSProvider
 from src.types import BlockStamp
 from dataclasses import dataclass, asdict
@@ -38,63 +35,22 @@ class StakingVaults(Module):
     w3: Web3
     ipfs_client: IPFSProvider
     cl: ConsensusClient
-
-    lido_locator: LidoLocatorContract
     vault_hub: VaultHubContract
 
-    abi_path: Optional[str] = None
-
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs_client: IPFSProvider,  abi_path: Optional[str] = None) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: IPFSProvider, vault_hub: VaultHubContract) -> None:
         super().__init__(w3)
 
-        self.w3: Web3 = w3
-        self.ipfs_client = ipfs_client
+        self.w3 = w3
+        self.ipfs_client = ipfs
         self.cl = cl
-
-        if abi_path is not None:
-            self.abi_path = abi_path
-
-        self._load_vaults_contracts()
-
-    def _load_vaults_contracts(self):
-        lido_locator = LidoLocatorContract
-        vault_hub = VaultHubContract
-        if self.abi_path is not None:
-            lido_locator.abi_path = self.abi_path + os.path.basename(LidoLocatorContract.abi_path)
-            vault_hub.abi_path = self.abi_path + os.path.basename(VaultHubContract.abi_path)
-
-        self.lido_locator: LidoLocatorContract = cast(
-            lido_locator,
-            self.w3.eth.contract(
-                address=variables.LIDO_LOCATOR_ADDRESS,
-                ContractFactoryClass=lido_locator,
-                decode_tuples=True,
-            ),
-        )
-
-        self.vault_hub: VaultHubContract = cast(
-            vault_hub,
-            self.w3.eth.contract(
-                address=self.lido_locator.vault_hub(),
-                ContractFactoryClass=vault_hub,
-                decode_tuples=True,
-            ),
-        )
+        self.vault_hub = vault_hub
 
     def _load_vault(self, address: ChecksumAddress) -> StakingVaultContract:
-        """
-        Returns the StakingVaultContract instance by the given address.
-        """
-
-        contract = StakingVaultContract
-        if self.abi_path is not None:
-            contract.abi_path = self.abi_path + os.path.basename(StakingVaultContract.abi_path)
-
         return cast(
-            contract,
+            StakingVaultContract,
             self.w3.eth.contract(
                 address=address,
-                ContractFactoryClass=contract,
+                ContractFactoryClass=StakingVaultContract,
                 decode_tuples=True,
             ),
         )
