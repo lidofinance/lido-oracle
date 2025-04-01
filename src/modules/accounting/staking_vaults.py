@@ -8,9 +8,9 @@ from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
 
-from src.modules.accounting.types import VaultsReport, VaultTreeNode, VaultData, VaultsMap, VaultsData
+from src.modules.accounting.types import VaultTreeNode, VaultData, VaultsMap, VaultsData
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import Validator, PendingDeposit
+from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract

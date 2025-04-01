@@ -10,6 +10,7 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
+from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
@@ -19,7 +20,6 @@ from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.extensions import (
     LidoContracts,
-    StakingVaults,
     TransactionUtils,
     ConsensusClientModule,
     KeysAPIClientModule,
