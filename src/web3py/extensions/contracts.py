@@ -39,6 +39,7 @@ class LidoContracts(Module):
     withdrawal_queue_nft: WithdrawalQueueNftContract
     oracle_report_sanity_checker: OracleReportSanityCheckerContract
     oracle_daemon_config: OracleDaemonConfigContract
+    burner: BurnerContract
     vault_hub: VaultHubContract
 
     def __init__(self, w3: Web3):
