@@ -15,8 +15,12 @@ class ChecksModule:
         - Checks configs in CSM oracle module
         - Checks with special blockstamp value (6300 slots in the past)
     """
+
     def execute_module(self):
-        return pytest.main([
-            'src/modules/checks/suites',
-            '-c', 'src/modules/checks/pytest.ini',
-        ])
+        return pytest.main(
+            [
+                'src/modules/checks/suites',
+                '-c',
+                'src/modules/checks/pytest.ini',
+            ]
+        )

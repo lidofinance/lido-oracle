@@ -6,7 +6,8 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, MAX_EFFECTIVE_BALANCE,
+    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
+    MAX_EFFECTIVE_BALANCE,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -324,9 +325,7 @@ class MidtermSlashingPenalty:
 
         if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
             raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
-        obsolete_indexes = {
-            i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)
-        }
+        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)}
 
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 

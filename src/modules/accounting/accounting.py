@@ -12,24 +12,23 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     ReportData,
-    LidoReportRebase,
     GenericExtraData,
     WqReport,
     RebaseReport,
     BunkerMode,
-    FinalizationShareRate,
     ValidatorsCount,
     ValidatorsBalance,
     AccountingProcessingState,
     ReportValues,
-    ReportResults, VaultsReport,
+    ReportResults,
+    VaultsReport,
 )
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -39,7 +38,14 @@ from src.services.bunker import BunkerService
 from src.providers.ipfs import CID
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.types import (
+    BlockStamp,
+    Gwei,
+    ReferenceBlockStamp,
+    StakingModuleId,
+    NodeOperatorGlobalIndex,
+    FinalizationBatches,
+)
 from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
@@ -59,6 +65,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
+
     COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
 
     def __init__(self, w3: Web3):
@@ -223,8 +230,12 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+        total_lido_balance = lido_validators_state_balance = sum(
+            (validator.balance for validator in lido_validators), Gwei(0)
+        )
+        logger.info(
+            {'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance}
+        )
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     def _get_finalization_batches(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:
@@ -250,7 +261,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return FinalizationShareRate(share_rate), batches
+        return batches
 
     @lru_cache(maxsize=1)
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportResults:
@@ -278,7 +289,7 @@ class Accounting(BaseModule, ConsensusModule):
         chain_conf = self.get_chain_config(blockstamp)
 
         withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
-        withdrawal_finalization_batches: list[int] = [] # For initial calculation we assume no withdrawals
+        withdrawal_finalization_batches: list[int] = []  # For initial calculation we assume no withdrawals
 
         report = ReportValues(
             # Accounting contract has sanity check that timestamp is not in the future.
@@ -364,7 +375,13 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
-        return validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn
+        return (
+            validators_count,
+            cl_balance,
+            withdrawal_vault_balance,
+            el_rewards_vault_balance,
+            shares_requested_to_burn,
+        )
 
     # calculates is_bunker, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
@@ -376,7 +393,9 @@ class Accounting(BaseModule, ConsensusModule):
     # uploads tree's root, vaults' proofs
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         validators = self.w3.cc.get_validators(blockstamp)
-        vaults_values, vaults_net_cash_flows, tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
+        vaults_values, vaults_net_cash_flows, tree_data, vaults = self.w3.staking_vaults.get_vaults_data(
+            validators, blockstamp
+        )
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
 
@@ -384,14 +403,14 @@ class Accounting(BaseModule, ConsensusModule):
         try:
             proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
             logger.info({'msg': "Vault's proof ipfs", 'ipfs': proof_cid})
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error({'msg': "Could not publish proofs", 'error': e})
 
         try:
             if proof_cid is not None:
                 proof_tree = self.w3.staking_vaults.publish_tree(merkle_tree, blockstamp, proof_cid)
                 logger.info({'msg': "Tree's proof ipfs", 'ipfs': proof_tree, 'treeHex': f"0x{merkle_tree.root.hex()}"})
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error({'msg': "Could not publish tree", 'error': e})
 
         return vaults_values, vaults_net_cash_flows
@@ -420,9 +439,11 @@ class Accounting(BaseModule, ConsensusModule):
         report_modules_part: tuple[list[StakingModuleId], list[int]],
         report_wq_part: WqReport,
         report_vaults_part: VaultsReport,
-        extra_data: ExtraData
+        extra_data: ExtraData,
     ) -> ReportData:
-        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
+        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
+            report_rebase_part
+        )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
         is_bunker, finalization_batches = report_wq_part
         vaults_values, vaults_in_out_deltas = report_vaults_part

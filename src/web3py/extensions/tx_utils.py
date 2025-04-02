@@ -72,15 +72,13 @@ class TransactionUtils(Module):
                 max(
                     self.w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
                     variables.MIN_PRIORITY_FEE,
-                )
+                ),
             )
         )
 
         params: TxParams = {
             "from": account.address,
-            "maxFeePerGas": Wei(
-                latest_block["baseFeePerGas"] * 2 + max_priority_fee
-            ),
+            "maxFeePerGas": Wei(latest_block["baseFeePerGas"] * 2 + max_priority_fee),
             "maxPriorityFeePerGas": max_priority_fee,
             "nonce": self.w3.eth.get_transaction_count(account.address),
         }

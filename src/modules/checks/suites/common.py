@@ -1,4 +1,5 @@
 """Common checks"""
+
 import pytest
 
 from src.main import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test

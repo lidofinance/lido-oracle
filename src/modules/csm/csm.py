@@ -215,7 +215,9 @@ class CSOracle(BaseModule, ConsensusModule):
         except MinStepIsNotReached:
             return False
 
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported=eip7549_supported)
+        processor = FrameCheckpointProcessor(
+            self.w3.cc, self.state, converter, blockstamp, eip7549_supported=eip7549_supported
+        )
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):

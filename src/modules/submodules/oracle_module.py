@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class ModuleExecuteDelay(Enum):
     """Signals from execute_module method"""
+
     NEXT_SLOT = 0
     NEXT_FINALIZED_EPOCH = 1
 
@@ -72,10 +73,12 @@ class BaseModule(ABC):
 
             # Check if the blockstamp is below the threshold and exit early
             if blockstamp.slot_number <= self._slot_threshold:
-                logger.info({
-                    'msg': 'Skipping the report. Waiting for new finalized slot.',
-                    'slot_threshold': self._slot_threshold,
-                })
+                logger.info(
+                    {
+                        'msg': 'Skipping the report. Waiting for new finalized slot.',
+                        'slot_threshold': self._slot_threshold,
+                    }
+                )
                 return
 
             self.refresh_contracts_if_address_change()
@@ -87,10 +90,12 @@ class BaseModule(ABC):
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise error
         except ContractVersionMismatch as error:
-            logger.error({
-                'msg': 'The oracle can\'t submit a report, because the contract\'s consensus version has changed.',
-                'error': str(error),
-            })
+            logger.error(
+                {
+                    'msg': 'The oracle can\'t submit a report, because the contract\'s consensus version has changed.',
+                    'error': str(error),
+                }
+            )
         except DecoratorTimeoutError as error:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(error)})
         except NoActiveProviderError as error:

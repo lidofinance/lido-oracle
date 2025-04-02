@@ -19,12 +19,14 @@ class StakingVaultContract(ContractInterface):
         """
         response = self.functions.withdrawalCredentials().call(block_identifier=blockstamp.block_hash)
 
-        logger.info({
-            'msg': 'Call `withdrawalCredentials().',
-            'value': response,
-            'block_identifier': repr(blockstamp.block_hash),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `withdrawalCredentials().',
+                'value': response,
+                'block_identifier': repr(blockstamp.block_hash),
+                'to': self.address,
+            }
+        )
 
         return bytes_to_hex_str(response)
 
@@ -35,11 +37,13 @@ class StakingVaultContract(ContractInterface):
         """
         response = self.functions.inOutDelta().call(block_identifier=blockstamp.block_hash)
 
-        logger.info({
-            'msg': 'Call `inOutDelta().',
-            'value': response,
-            'block_identifier': repr(blockstamp.block_hash),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `inOutDelta().',
+                'value': response,
+                'block_identifier': repr(blockstamp.block_hash),
+                'to': self.address,
+            }
+        )
 
         return response

@@ -37,6 +37,7 @@ class BunkerService:
     For more info about bunker mode see:
     https://research.lido.fi/t/withdrawals-for-lido-on-ethereum-bunker-mode-design-and-implementation/
     """
+
     def __init__(self, w3: Web3):
         self.w3 = w3
 

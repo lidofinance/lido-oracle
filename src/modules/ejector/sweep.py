@@ -130,7 +130,9 @@ def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
     return withdrawals
 
 
-def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int) -> List[Withdrawal]:
+def get_validators_withdrawals(
+    state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int
+) -> List[Withdrawal]:
     """
     This method returns fully and partial withdrawals that can be performed for validators
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals

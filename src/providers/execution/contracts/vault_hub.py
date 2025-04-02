@@ -19,12 +19,14 @@ class VaultHubContract(ContractInterface):
         """
         response = self.functions.vaultsCount().call(block_identifier=blockstamp.block_hash)
 
-        logger.info({
-            'msg': 'Call `vaultsCount().',
-            'value': response,
-            'block_identifier': repr(blockstamp.block_hash),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `vaultsCount().',
+                'value': response,
+                'block_identifier': repr(blockstamp.block_hash),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -36,12 +38,14 @@ class VaultHubContract(ContractInterface):
 
         response = self.functions.vaultSocket(vault_id).call(block_identifier=blockstamp.block_hash)
 
-        logger.info({
-            'msg': 'Call `vaultSocket(vault_id).',
-            'value': response,
-            'block_identifier': repr(blockstamp.block_hash),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `vaultSocket(vault_id).',
+                'value': response,
+                'block_identifier': repr(blockstamp.block_hash),
+                'to': self.address,
+            }
+        )
 
         return VaultSocket(
             response.vault,
@@ -50,5 +54,5 @@ class VaultHubContract(ContractInterface):
             response.reserveRatioBP,
             response.rebalanceThresholdBP,
             response.treasuryFeeBP,
-            response.pendingDisconnect
+            response.pendingDisconnect,
         )

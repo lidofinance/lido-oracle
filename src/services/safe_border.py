@@ -32,17 +32,14 @@ class SafeBorder(Web3Converter):
     2. Negative rebase border
     3. Associated slashing border
     """
+
     chain_config: ChainConfig
     frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
     converter: Web3Converter
 
     def __init__(
-        self,
-        w3: Web3,
-        blockstamp: ReferenceBlockStamp,
-        chain_config: ChainConfig,
-        frame_config: FrameConfig
+        self, w3: Web3, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig, frame_config: FrameConfig
     ) -> None:
         super().__init__(chain_config, frame_config)
 
@@ -57,10 +54,13 @@ class SafeBorder(Web3Converter):
         self._retrieve_constants()
 
     def _retrieve_constants(self):
-        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash)
+        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
+            self.blockstamp.block_hash
+        )
 
         self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+            limits_list.request_timestamp_margin
+            / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
         )
 
     @duration_meter()
@@ -137,7 +137,9 @@ class SafeBorder(Web3Converter):
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
         # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
-        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed, self.blockstamp.ref_epoch)
+        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(
+            validators_slashed, self.blockstamp.ref_epoch
+        )
 
         if not validators_slashed_non_withdrawable:
             return None
@@ -223,7 +225,9 @@ class SafeBorder(Web3Converter):
         return len(slashed_validators) > 0
 
     def _get_bunker_mode_start_timestamp(self) -> int | None:
-        start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
+        start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(
+            self.blockstamp.block_hash
+        )
 
         if start_timestamp > self.blockstamp.block_timestamp:
             return None
@@ -231,12 +235,16 @@ class SafeBorder(Web3Converter):
         return start_timestamp
 
     def _get_last_finalized_withdrawal_request_epoch(self) -> EpochNumber:
-        last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
+        last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(
+            self.blockstamp.block_hash
+        )
         if last_finalized_request_id == 0:
             # request with id: 0 is reserved by protocol. No requests were finalized.
             return EpochNumber(0)
 
-        last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(last_finalized_request_id)
+        last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(
+            last_finalized_request_id
+        )
 
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
@@ -249,7 +257,8 @@ class SafeBorder(Web3Converter):
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
-            self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
+            self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch
+        )
 
 
 def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator]:

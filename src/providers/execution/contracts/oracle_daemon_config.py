@@ -17,12 +17,14 @@ class OracleDaemonConfigContract(ContractInterface):
     def _get(self, param: str, block_identifier: BlockIdentifier = 'latest') -> int:
         response = Web3.to_int(self.functions.get(param).call(block_identifier=block_identifier))
 
-        logger.info({
-            'msg': f'Call `get({param})`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': f'Call `get({param})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)

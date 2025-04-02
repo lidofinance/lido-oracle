@@ -35,6 +35,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
+
     PROMETHEUS_HISTOGRAM: Histogram
     request_timeout: int
 
@@ -130,7 +131,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
-                    stream=stream
+                    stream=stream,
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})

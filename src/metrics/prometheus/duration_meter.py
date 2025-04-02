@@ -27,8 +27,7 @@ def duration_meter[T]():
                     logger.debug(
                         {
                             "msg": f"Task '{full_name}' finished",
-                            "duration (sec)": stop
-                            - t._start,  # pylint: disable=protected-access
+                            "duration (sec)": stop - t._start,  # pylint: disable=protected-access
                         }
                     )
 

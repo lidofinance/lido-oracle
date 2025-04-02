@@ -29,8 +29,8 @@ class ReportData:
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_values: list[int] # -> TODO replace to TreeHash
-    vaults_in_out_deltas: list[int] # TODO replace to Cid
+    vaults_values: list[int]  # -> TODO replace to TreeHash
+    vaults_in_out_deltas: list[int]  # TODO replace to Cid
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -142,11 +142,13 @@ type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBal
 type WqReport = tuple[BunkerMode, FinalizationBatches]
 type VaultTreeNode = tuple[str, int, int, int, int]
 
+
 @dataclass
 class BeaconStat:
     deposited_validators: int
     beacon_validators: int
     beacon_balance: int
+
 
 @dataclass(frozen=True)
 class ReportValues:
@@ -161,6 +163,7 @@ class ReportValues:
     vaults_values: List[int]
     vaults_in_out_deltas: List[int]
 
+
 @dataclass(frozen=True)
 class StakingRewardsDistribution:
     recipients: List[ChecksumAddress]
@@ -168,6 +171,7 @@ class StakingRewardsDistribution:
     modules_fees: List[int]
     total_fee: int
     precision_points: int
+
 
 @dataclass(frozen=True)
 class ReportResults:
@@ -188,6 +192,7 @@ class ReportResults:
     vaults_treasury_fee_shares: List[int]
     total_vaults_treasury_fee_shares: int
 
+
 @dataclass(frozen=True)
 class VaultSocket:
     vault: ChecksumAddress
@@ -197,6 +202,7 @@ class VaultSocket:
     rebalance_threshold_bp: int
     treasury_fee_bp: int
     pending_disconnect: bool
+
 
 @dataclass
 class VaultData:
@@ -209,6 +215,7 @@ class VaultData:
     address: ChecksumAddress
     withdrawal_credentials: str
     socket: VaultSocket
+
 
 VaultsMap = dict[ChecksumAddress, VaultData]
 type VaultsReport = tuple[list[int], list[int]]

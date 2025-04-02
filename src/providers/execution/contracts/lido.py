@@ -56,12 +56,14 @@ class LidoContract(ContractInterface):
             )
         except ValueError as error:
             # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
-            logger.warning({
-                'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
-                'error': repr(error),
-            })
+            logger.warning(
+                {
+                    'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
+                    'error': repr(error),
+                }
+            )
             hex_ref_slot = HexStr(hex(ref_slot))
-            
+
             return self._handle_oracle_report(
                 timestamp,
                 time_elapsed,
@@ -97,7 +99,7 @@ class LidoContract(ContractInterface):
                 # setting up `lastProcessingRefSlot` directly.
                 stateDiff={
                     Web3.to_hex(primitive=self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot")): ref_slot,
-                }
+                },
             ),
         }
 
@@ -119,23 +121,25 @@ class LidoContract(ContractInterface):
 
         response = LidoReportRebase(*response)
 
-        logger.info({
-            'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
-                timestamp,
-                time_elapsed,
-                validators_count,
-                cl_balance,
-                withdrawal_vault_balance,
-                el_rewards,
-                shares_to_burn,
-                [],
-                0,
-            ),
-            'state_override': repr(state_override),
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                    timestamp,
+                    time_elapsed,
+                    validators_count,
+                    cl_balance,
+                    withdrawal_vault_balance,
+                    el_rewards,
+                    shares_to_burn,
+                    [],
+                    0,
+                ),
+                'state_override': repr(state_override),
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -148,12 +152,14 @@ class LidoContract(ContractInterface):
         """
         response = self.functions.getBufferedEther().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getBufferedEther()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getBufferedEther()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -166,12 +172,14 @@ class LidoContract(ContractInterface):
         """
         response = self.functions.totalSupply().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `totalSupply()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `totalSupply()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -186,10 +194,12 @@ class LidoContract(ContractInterface):
         response = self.functions.getBeaconStat().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, BeaconStat)
 
-        logger.info({
-            'msg': 'Call `getBeaconStat()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getBeaconStat()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response

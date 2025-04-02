@@ -24,12 +24,14 @@ class HashConsensusContract(ContractInterface):
         """
         response = self.functions.getMembers().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getMembers()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getMembers()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -42,12 +44,14 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getChainConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, ChainConfig)
 
-        logger.debug({
-            'msg': 'Call `getChainConfig()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.debug(
+            {
+                'msg': 'Call `getChainConfig()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -67,12 +71,14 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getCurrentFrame().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, CurrentFrame)
 
-        logger.info({
-            'msg': 'Call `getCurrentFrame()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getCurrentFrame()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -84,12 +90,14 @@ class HashConsensusContract(ContractInterface):
         """
         response = self.functions.getInitialRefSlot().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getInitialRefSlot()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getInitialRefSlot()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -105,17 +113,21 @@ class HashConsensusContract(ContractInterface):
         response = self.functions.getFrameConfig().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, FrameConfig)
 
-        logger.debug({
-            'msg': 'Call `getFrameConfig()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.debug(
+            {
+                'msg': 'Call `getFrameConfig()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
     @lru_cache(maxsize=1)
-    def get_consensus_state_for_member(self, address: ChecksumAddress, block_identifier: BlockIdentifier = 'latest') -> tuple:
+    def get_consensus_state_for_member(
+        self, address: ChecksumAddress, block_identifier: BlockIdentifier = 'latest'
+    ) -> tuple:
         """
         Returns the extended information related to an oracle committee member with the
         given address and the current consensus state. Provides all the information needed for
@@ -123,12 +135,14 @@ class HashConsensusContract(ContractInterface):
         """
         response = self.functions.getConsensusStateForMember(address).call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': f'Call `getConsensusStateForMember({address})`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': f'Call `getConsensusStateForMember({address})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -147,12 +161,14 @@ class HashConsensusContract(ContractInterface):
         """
         tx = self.functions.submitReport(ref_slot, report_hash, consensus_version)
 
-        logger.info({
-            'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
-                ref_slot,
-                report_hash.hex(),
-                consensus_version,
-            ),
-        })
+        logger.info(
+            {
+                'msg': 'Build `submitReport({}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                    ref_slot,
+                    report_hash.hex(),
+                    consensus_version,
+                ),
+            }
+        )
 
         return tx

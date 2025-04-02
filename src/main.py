@@ -10,7 +10,6 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
@@ -36,14 +35,16 @@ logger = logging.getLogger(__name__)
 
 def main(module_name: OracleModule):
     build_info = get_build_info()
-    logger.info({
-        'msg': 'Oracle startup.',
-        'variables': {
-            **build_info,
-            'module': module_name,
-            **variables.PUBLIC_ENV_VARS,
-        },
-    })
+    logger.info(
+        {
+            'msg': 'Oracle startup.',
+            'variables': {
+                **build_info,
+                'module': module_name,
+                **variables.PUBLIC_ENV_VARS,
+            },
+        }
+    )
     ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 
@@ -54,11 +55,13 @@ def main(module_name: OracleModule):
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(FallbackProviderModule(
-        variables.EXECUTION_CLIENT_URI,
-        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-        cache_allowed_requests=True,
-    ))
+    web3 = Web3(
+        FallbackProviderModule(
+            variables.EXECUTION_CLIENT_URI,
+            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+            cache_allowed_requests=True,
+        )
+    )
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
@@ -83,16 +86,18 @@ def main(module_name: OracleModule):
 
     staking_vault = StakingVaults(web3, cc, ipfs, LidoContracts.vault_hub)
 
-    web3.attach_modules({
-        'lido_contracts': LidoContracts,
-        'staking_vaults': lambda: staking_vault, # type: ignore[dict-item]
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        'csm': LazyCSM,
-        'cc': lambda: cc,  # type: ignore[dict-item]
-        'kac': lambda: kac,  # type: ignore[dict-item]
-        'ipfs': lambda: ipfs,  # type: ignore[dict-item]
-    })
+    web3.attach_modules(
+        {
+            'lido_contracts': LidoContracts,
+            'staking_vaults': lambda: staking_vault,  # type: ignore[dict-item]
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            'csm': LazyCSM,
+            'cc': lambda: cc,  # type: ignore[dict-item]
+            'kac': lambda: kac,  # type: ignore[dict-item]
+            'ipfs': lambda: ipfs,  # type: ignore[dict-item]
+        }
+    )
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     add_requests_metric_middleware(web3)

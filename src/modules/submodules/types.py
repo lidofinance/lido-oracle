@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from src.types import SlotNumber
 
 
-ZERO_HASH = bytes([0]*32)
+ZERO_HASH = bytes([0] * 32)
 
 
 @dataclass

@@ -93,11 +93,14 @@ class ConsensusClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
-        data, meta_data = cast(tuple[dict, dict], self._get(
-            self.API_GET_BLOCK_HEADER,
-            path_params=(state_id,),
-            force_raise=self.__raise_last_missed_slot_error,
-        ))
+        data, meta_data = cast(
+            tuple[dict, dict],
+            self._get(
+                self.API_GET_BLOCK_HEADER,
+                path_params=(state_id,),
+                force_raise=self.__raise_last_missed_slot_error,
+            ),
+        )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
@@ -136,7 +139,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         committee_index: int | None = None,
-        slot: SlotNumber | None = None
+        slot: SlotNumber | None = None,
     ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
         try:
@@ -144,7 +147,7 @@ class ConsensusClient(HTTPProvider):
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
-                force_raise=self.__raise_on_prysm_error
+                force_raise=self.__raise_on_prysm_error,
             )
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getEpochCommittees")
@@ -162,11 +165,14 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
-        streamed_json = cast(TransientStreamingJSONObject, self._get(
-            self.API_GET_STATE,
-            path_params=(state_id,),
-            stream=True,
-        ))
+        streamed_json = cast(
+            TransientStreamingJSONObject,
+            self._get(
+                self.API_GET_STATE,
+                path_params=(state_id,),
+                stream=True,
+            ),
+        )
         return list(streamed_json['data']['block_roots'])
 
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
@@ -236,7 +242,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         index: int | None = None,
-        slot: SlotNumber | None = None
+        slot: SlotNumber | None = None,
     ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number

@@ -8,12 +8,10 @@ from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
 
-from src.modules.accounting.types import (VaultData, VaultsData, VaultsMap,
-                                          VaultTreeNode)
+from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.providers.execution.contracts.staking_vault import \
-    StakingVaultContract
+from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp

@@ -1,13 +1,14 @@
 import logging
 
 from eth_typing import ChecksumAddress, HexStr
-from web3.types import BlockIdentifier, Wei, CallOverrideParams
+from web3.types import BlockIdentifier, Wei, StateOverrideParams, StateOverride
 
 from src.modules.accounting.types import ReportValues, ReportResults
 from src.providers.execution.base_interface import ContractInterface
 from src.types import SlotNumber
 
 logger = logging.getLogger(__name__)
+
 
 class AccountingContract(ContractInterface):
     abi_path = './assets/Accounting.json'
@@ -39,10 +40,12 @@ class AccountingContract(ContractInterface):
             )
         except ValueError as error:
             # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
-            logger.warning({
-                'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
-                'error': repr(error),
-            })
+            logger.warning(
+                {
+                    'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
+                    'error': repr(error),
+                }
+            )
             hex_ref_slot = HexStr(hex(ref_slot))
 
             return self._handle_oracle_report(
@@ -53,16 +56,16 @@ class AccountingContract(ContractInterface):
             )
 
     def _handle_oracle_report(
-            self,
-            payload: ReportValues,
-            accounting_oracle_address: ChecksumAddress,
-            ref_slot: HexStr,
-            block_identifier: BlockIdentifier = 'latest',
+        self,
+        payload: ReportValues,
+        accounting_oracle_address: ChecksumAddress,
+        ref_slot: HexStr,
+        block_identifier: BlockIdentifier = 'latest',
     ) -> ReportResults:
-        state_override: dict[ChecksumAddress, CallOverrideParams] = {
+        state_override: StateOverride = {
             accounting_oracle_address: {
                 # Fix: insufficient funds for gas * price + value
-                'balance': Wei(100 * 10 ** 18),
+                'balance': Wei(100 * 10**18),
                 # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
                 # properly process negative rebase sanity checks. Since current simulation skips call to AO,
                 # setting up `lastProcessingRefSlot` directly.
@@ -93,24 +96,26 @@ class AccountingContract(ContractInterface):
 
         response = ReportResults(*response)
 
-        logger.info({
-            'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format( # pylint: disable=consider-using-f-string
-                payload.timestamp,
-                payload.time_elapsed,
-                payload.cl_validators,
-                payload.cl_balance,
-                payload.withdrawal_vault_balance,
-                payload.el_rewards_vault_balance,
-                payload.shares_requested_to_burn,
-                payload.withdrawal_finalization_batches,
-                payload.vaults_values,
-                payload.vaults_in_out_deltas
-            ),
-            'state_override': repr(state_override),
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `handleOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                    payload.timestamp,
+                    payload.time_elapsed,
+                    payload.cl_validators,
+                    payload.cl_balance,
+                    payload.withdrawal_vault_balance,
+                    payload.el_rewards_vault_balance,
+                    payload.shares_requested_to_burn,
+                    payload.withdrawal_finalization_batches,
+                    payload.vaults_values,
+                    payload.vaults_in_out_deltas,
+                ),
+                'state_override': repr(state_override),
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
 
@@ -146,23 +151,25 @@ class AccountingContract(ContractInterface):
 
         response = ReportResults(*response)
 
-        logger.info({
-            'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format( # pylint: disable=consider-using-f-string
-                payload.timestamp,
-                payload.time_elapsed,
-                payload.cl_validators,
-                payload.cl_balance,
-                payload.withdrawal_vault_balance,
-                payload.el_rewards_vault_balance,
-                payload.shares_requested_to_burn,
-                payload.withdrawal_finalization_batches,
-                payload.vaults_values,
-                payload.vaults_in_out_deltas,
-                withdrawal_share_rate
-            ),
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                    payload.timestamp,
+                    payload.time_elapsed,
+                    payload.cl_validators,
+                    payload.cl_balance,
+                    payload.withdrawal_vault_balance,
+                    payload.el_rewards_vault_balance,
+                    payload.shares_requested_to_burn,
+                    payload.withdrawal_finalization_batches,
+                    payload.vaults_values,
+                    payload.vaults_in_out_deltas,
+                    withdrawal_share_rate,
+                ),
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
 
         return response
