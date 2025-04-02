@@ -13,7 +13,7 @@ from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 
-from src.providers.ipfs import CID, IPFSProvider
+from src.providers.ipfs import CID, IPFSProvider, MultiIPFSProvider
 from src.types import BlockStamp
 from dataclasses import dataclass, asdict
 
@@ -33,11 +33,11 @@ VaultToValidators = dict[ChecksumAddress, list[Validator]]
 
 class StakingVaults(Module):
     w3: Web3
-    ipfs_client: IPFSProvider
+    ipfs_client: MultiIPFSProvider
     cl: ConsensusClient
     vault_hub: VaultHubContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: IPFSProvider, vault_hub: VaultHubContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, vault_hub: VaultHubContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
@@ -77,7 +77,9 @@ class StakingVaults(Module):
 
             vault = self._load_vault(vault_socket.vault)
             vault_in_out_delta = vault.in_out_delta(blockstamp)
+            print(vault_in_out_delta)
             vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp)
+            print(vault_withdrawal_credentials)
 
             pending_deposit = 0
             if vault_withdrawal_credentials in deposit_map:
