@@ -9,14 +9,13 @@ from src.types import NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 
-
 Shares: TypeAlias = int
 RewardTreeLeaf: TypeAlias = tuple[NodeOperatorId, Shares]
 
 
 @dataclass
 class ReportData:
-    consensusVersion: int
+    consensus_version: int
     ref_slot: SlotNumber
     tree_root: HexBytes
     tree_cid: CID | Literal[""]
@@ -26,7 +25,7 @@ class ReportData:
     def as_tuple(self):
         # Tuple with report in correct order
         return (
-            self.consensusVersion,
+            self.consensus_version,
             self.ref_slot,
             self.tree_root,
             str(self.tree_cid),
