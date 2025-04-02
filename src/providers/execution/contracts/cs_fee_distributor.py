@@ -3,7 +3,7 @@ import logging
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.types import BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
 from ..base_interface import ContractInterface
 
@@ -26,7 +26,7 @@ class CSFeeDistributorContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    def shares_to_distribute(self, block_identifier: BlockIdentifier = "latest") -> int:
+    def shares_to_distribute(self, block_identifier: BlockIdentifier = "latest") -> Wei:
         """Returns the amount of shares that are pending to be distributed"""
 
         resp = self.functions.pendingSharesToDistribute().call(block_identifier=block_identifier)

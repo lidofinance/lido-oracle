@@ -3,11 +3,13 @@ from functools import cached_property
 from typing import Protocol
 
 from eth_typing import BlockNumber
+from hexbytes import HexBytes
 from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.types import hex_str_to_bytes
 
 
 @dataclass
@@ -105,9 +107,15 @@ type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
 
 
 @dataclass
+class SyncAggregate(FromResponse):
+    sync_committee_bits: str
+
+
+@dataclass
 class BeaconBlockBody(Nested, FromResponse):
     execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
+    sync_aggregate: SyncAggregate
 
 
 @dataclass
@@ -136,6 +144,10 @@ class Validator(Nested, FromResponse):
     index: ValidatorIndex
     balance: Gwei
     validator: ValidatorState
+
+    @property
+    def pubkey(self) -> HexBytes:
+        return HexBytes(hex_str_to_bytes(self.validator.pubkey))
 
 
 @dataclass
@@ -196,3 +208,15 @@ class BeaconStateView(Nested, FromResponse):
             )
             for (i, v) in enumerate(self.validators)
         ]
+
+
+@dataclass
+class SyncCommittee(Nested, FromResponse):
+    validators: list[ValidatorIndex]
+
+
+@dataclass
+class ProposerDuties(Nested, FromResponse):
+    pubkey: str
+    validator_index: ValidatorIndex
+    slot: SlotNumber

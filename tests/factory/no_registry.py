@@ -12,8 +12,6 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
-    MIN_ACTIVATION_BALANCE,
-    GWEI_TO_WEI,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.keys.types import LidoKey

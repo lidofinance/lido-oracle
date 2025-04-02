@@ -1,17 +1,13 @@
 import logging
 from functools import partial
-from itertools import groupby
 from time import sleep
-from typing import Callable, Iterator, cast
+from typing import cast
 
-from eth_typing import BlockNumber
 from hexbytes import HexBytes
 from lazy_object_proxy import Proxy
 from web3 import Web3
-from web3.contract.contract import ContractEvent
 from web3.exceptions import Web3Exception
 from web3.module import Module
-from web3.types import BlockIdentifier, EventData
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
@@ -19,10 +15,10 @@ from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
+from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
+from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.types import BlockStamp, SlotNumber
-from src.utils.events import get_events_in_range
-from src.web3py.extensions.lido_validators import NodeOperatorId
+from src.types import BlockStamp, NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +27,11 @@ class CSM(Module):
     w3: Web3
 
     oracle: CSFeeOracleContract
+    accounting: CSAccountingContract
     fee_distributor: CSFeeDistributorContract
+    strikes: CSStrikesContract
     module: CSModuleContract
+    params: CSParametersRegistryContract
 
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
@@ -43,39 +42,31 @@ class CSM(Module):
         FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
         return result
 
-    def get_csm_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+    def get_rewards_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
         return self.fee_distributor.tree_root(blockstamp.block_hash)
 
-    def get_csm_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
+    def get_rewards_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
         result = self.fee_distributor.tree_cid(blockstamp.block_hash)
         if result == "":
             return None
         return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-    def get_operators_with_stucks_in_range(
-        self,
-        l_block: BlockIdentifier,
-        r_block: BlockIdentifier,
-    ) -> Iterator[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
+    def get_strikes_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
+        return self.strikes.tree_root(blockstamp.block_hash)
 
-        l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
-        r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
+    def get_strikes_tree_cid(self, blockstamp: BlockStamp) -> CID | None:
+        result = self.strikes.tree_cid(blockstamp.block_hash)
+        if result == "":
+            return None
+        return CIDv0(result) if is_cid_v0(result) else CIDv1(result)
 
-        by_no_id: Callable[[EventData], int] = lambda e: e["args"]["nodeOperatorId"]
-
-        events = sorted(
-            get_events_in_range(
-                cast(ContractEvent, self.module.events.StuckSigningKeysCountChanged),
-                l_block_number,
-                r_block_number,
-            ),
-            key=by_no_id,
-        )
-
-        for no_id, group in groupby(events, key=by_no_id):
-            if any(e["args"]["stuckKeysCount"] > 0 for e in group):
-                yield NodeOperatorId(no_id)
+    def get_curve_params(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> CurveParams:
+        curve_id = self.accounting.get_bond_curve_id(no_id, blockstamp.block_hash)
+        perf_coeffs = self.params.get_performance_coefficients(curve_id, blockstamp.block_hash)
+        perf_leeway_data = self.params.get_performance_leeway_data(curve_id, blockstamp.block_hash)
+        reward_share_data = self.params.get_reward_share_data(curve_id, blockstamp.block_hash)
+        strikes_params = self.params.get_strikes_params(curve_id, blockstamp.block_hash)
+        return CurveParams(perf_coeffs, perf_leeway_data, reward_share_data, strikes_params)
 
     def _load_contracts(self) -> None:
         try:
@@ -88,7 +79,16 @@ class CSM(Module):
                 ),
             )
 
-            accounting = cast(
+            self.params = cast(
+                CSParametersRegistryContract,
+                self.w3.eth.contract(
+                    address=self.module.parameters_registry(),
+                    ContractFactoryClass=CSParametersRegistryContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.accounting = cast(
                 CSAccountingContract,
                 self.w3.eth.contract(
                     address=self.module.accounting(),
@@ -100,7 +100,7 @@ class CSM(Module):
             self.fee_distributor = cast(
                 CSFeeDistributorContract,
                 self.w3.eth.contract(
-                    address=accounting.fee_distributor(),
+                    address=self.accounting.fee_distributor(),
                     ContractFactoryClass=CSFeeDistributorContract,
                     decode_tuples=True,
                 ),
@@ -111,6 +111,15 @@ class CSM(Module):
                 self.w3.eth.contract(
                     address=self.fee_distributor.oracle(),
                     ContractFactoryClass=CSFeeOracleContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            self.strikes = cast(
+                CSStrikesContract,
+                self.w3.eth.contract(
+                    address=self.oracle.strikes(),
+                    ContractFactoryClass=CSStrikesContract,
                     decode_tuples=True,
                 ),
             )
