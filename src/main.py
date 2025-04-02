@@ -85,7 +85,7 @@ def main(module_name: OracleModule):
 
     web3.attach_modules({
         'lido_contracts': LidoContracts,
-        'staking_vaults': lambda: staking_vault,
+        'staking_vaults': lambda: staking_vault, # type: ignore[dict-item]
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'csm': LazyCSM,

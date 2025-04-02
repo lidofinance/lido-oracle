@@ -387,14 +387,14 @@ class Accounting(BaseModule, ConsensusModule):
         try:
             proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
             logger.info({'msg': "Vault's proof ipfs", 'ipfs': proof_cid})
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.error({'msg': "Could not publish proofs", 'error': e})
 
         try:
             if proof_cid is not None:
                 proof_tree = self.w3.staking_vaults.publish_tree(merkle_tree, blockstamp, proof_cid)
                 logger.info({'msg': "Tree's proof ipfs", 'ipfs': proof_tree, 'treeHex': f"0x{merkle_tree.root.hex()}"})
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.error({'msg': "Could not publish tree", 'error': e})
 
         return vaults_values, vaults_net_cash_flows

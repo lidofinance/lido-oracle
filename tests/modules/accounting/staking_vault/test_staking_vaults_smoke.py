@@ -19,8 +19,11 @@ from src.web3py.extensions import ConsensusClientModule
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI')
 CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI')
 
+
 @pytest.mark.skip(reason="Skipping all tests in this class on CI. Cause it's used for local testing")
 class TestStakingVaultsSmoke:
+    cc: ConsensusClientModule
+    ipfs_client: MultiIPFSProvider
 
     def setup_method(self):
         w3 = Web3(Web3.HTTPProvider(EXECUTION_CLIENT_URI))
@@ -58,7 +61,7 @@ class TestStakingVaultsSmoke:
 
         validators = self.cc.get_validators_no_cache(bs)
 
-        vaults_values, vaults_net_cash_flows, tree_data, vaults = self.StakingVaults.get_vaults_data(validators, bs)
+        _, _, tree_data, _ = self.StakingVaults.get_vaults_data(validators, bs)
         merkle_tree = self.StakingVaults.get_merkle_tree(tree_data)
         print(f"0x{merkle_tree.root.hex()}")
 

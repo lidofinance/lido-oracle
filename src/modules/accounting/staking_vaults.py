@@ -1,23 +1,25 @@
 import json
 import logging
-from typing import cast, List
+from dataclasses import asdict, dataclass
+from typing import List, cast, Any
+
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
-
 from web3.module import Module
 
-from src.modules.accounting.types import VaultTreeNode, VaultData, VaultsMap, VaultsData
+from src.modules.accounting.types import (VaultData, VaultsData, VaultsMap,
+                                          VaultTreeNode)
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.providers.execution.contracts.staking_vault import StakingVaultContract
+from src.providers.execution.contracts.staking_vault import \
+    StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
-
-from src.providers.ipfs import CID, IPFSProvider, MultiIPFSProvider
+from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
-from dataclasses import dataclass, asdict
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class VaultProof:
@@ -29,7 +31,9 @@ class VaultProof:
     leaf: str
     proof: List[str]
 
+
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
+
 
 class StakingVaults(Module):
     w3: Web3
@@ -71,8 +75,7 @@ class StakingVaults(Module):
             vault_socket = self.vault_hub.vault_socket(vault_ind, blockstamp)
 
             balance_wei = self.w3.eth.get_balance(
-                self.w3.to_checksum_address(vault_socket.vault),
-                block_identifier=blockstamp.block_hash
+                self.w3.to_checksum_address(vault_socket.vault), block_identifier=blockstamp.block_hash
             )
 
             vault = self._load_vault(vault_socket.vault)
@@ -95,7 +98,7 @@ class StakingVaults(Module):
                 pending_deposit,
                 vault_socket.vault,
                 vault_withdrawal_credentials,
-                vault_socket
+                vault_socket,
             )
 
         return vaults
@@ -124,7 +127,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultsMap) -> dict[str, VaultProof]:
-        result = dict()
+        result = {}
         for v in merkle_tree.values:
             vault_address = v["value"][0]
             vault_valuation_wei = v["value"][1]
@@ -144,7 +147,7 @@ class StakingVaults(Module):
                 fee=vault_fee,
                 sharesMinted=vault_shares_minted,
                 leaf=leaf,
-                proof=proof
+                proof=proof,
             )
 
         return result
@@ -172,19 +175,21 @@ class StakingVaults(Module):
 
                 vaults_values[vault.vault_ind] += vault_cl_balance_wei
 
-            tree_data[vault.vault_ind] = [
+            tree_data[vault.vault_ind] = (
                 vault_address,
                 vaults_values[vault.vault_ind],
                 vault.in_out_delta,
                 vault.fee,
                 vault.shares_minted,
-            ]
+            )
 
-            logger.info({
-                'msg': f'Vault values for vault: {vault.address}.',
-                'vault_in_out_delta': vault.in_out_delta,
-                'vault_value': vaults_values[vault.vault_ind],
-            })
+            logger.info(
+                {
+                    'msg': f'Vault values for vault: {vault.address}.',
+                    'vault_in_out_delta': vault.in_out_delta,
+                    'vault_value': vaults_values[vault.vault_ind],
+                }
+            )
 
         return vaults_values, vaults_net_cash_flows, tree_data, vaults
 
@@ -196,11 +201,12 @@ class StakingVaults(Module):
                 return asdict(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
-        result = dict()
-        result['merkleTreeRoot'] = f"0x{tree.root.hex()}"
-        result['refSlot'] = bs.slot_number
-        result['proofs'] = data
-        result['block_number'] = bs.block_number
+        result: dict[str, Any] = {
+            "merkleTreeRoot": f"0x{tree.root.hex()}",
+            "refSlot": bs.slot_number,
+            "proofs": data,
+            "block_number": bs.block_number,
+        }
 
         dumped_proofs = json.dumps(result, default=encoder)
         print(dumped_proofs)
@@ -215,8 +221,8 @@ class StakingVaults(Module):
                 return f"0x{o.hex()}"
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
-        dumped_tree = tree.dump()
-        dumped_tree.update({
+        output = {
+            **dict(tree.dump()),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlof": bs.slot_number,
             "blockNumber": bs.block_number,
@@ -227,10 +233,11 @@ class StakingVaults(Module):
                 "2": "in_out_delta",
                 "3": "fee",
                 "4": "shares_minted",
-            }
-        })
+            },
+        }
 
-        dumped_tree_str = json.dumps(dumped_tree, default=encoder)
+        dumped_tree_str = json.dumps(output, default=encoder)
+        print(dumped_tree_str)
 
         cid = self.ipfs_client.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
 
