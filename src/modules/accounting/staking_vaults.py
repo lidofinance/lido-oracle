@@ -5,7 +5,6 @@ from typing import List, cast, Any
 
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
-from web3 import Web3
 from web3.module import Module
 
 from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode
@@ -15,6 +14,7 @@ from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,13 @@ class StakingVaults(Module):
     cl: ConsensusClient
     vault_hub: VaultHubContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, vault_hub: VaultHubContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider) -> None:
         super().__init__(w3)
 
         self.w3 = w3
         self.ipfs_client = ipfs
         self.cl = cl
-        self.vault_hub = vault_hub
+        self.vault_hub = w3.lido_contracts.vault_hub
 
     def _load_vault(self, address: ChecksumAddress) -> StakingVaultContract:
         return cast(
