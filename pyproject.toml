@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "5.0.0"
+version = "5.1.0"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
 authors = [
     "Dmitry Chernukhin",
@@ -59,8 +59,9 @@ markers = [
     "possible_integration: tests with using providers, but can be run using mocks",
     "e2e: complex tests with using providers and real Ethereum network",
     "fork: tests with using forked Ethereum network",
+    "mainnet: tests that depends on mainnet"
 ]
-addopts = "-s -vv --pdbcls pudb.debugger:Debugger"
+addopts = "-s -vv"
 
 [tool.coverage.run]
 branch = true
