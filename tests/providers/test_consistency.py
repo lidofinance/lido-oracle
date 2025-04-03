@@ -7,7 +7,6 @@ from src.providers.consistency import ProviderConsistencyModule, NotHealthyProvi
 
 
 class TestProviderConsistencyModule(unittest.TestCase):
-
     def setUp(self):
         # Set up a concrete subclass for testing
         class TestProviderConsistencyModule(ProviderConsistencyModule):

@@ -1,9 +1,12 @@
+import dataclasses
 import json
 import logging
+from typing import Iterator
 from unittest.mock import Mock
+
 import pytest
 
-from src.metrics.logging import JsonFormatter
+from src.metrics.logging import JsonFormatter, convert_bytes_to_hex
 
 
 @pytest.fixture
@@ -116,3 +119,43 @@ def test_format_empty_message(log_record):
     )
 
     assert formatted_output == expected_output
+
+
+@dataclasses.dataclass
+class TestDataclass:
+    field1: bytes
+    field2: int
+
+
+def byte_generator():
+    yield b'\xde\xad'
+    yield b'\xbe\xef'
+    yield b'\xca\xfe'
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "input_data, expected_output",
+    [
+        (b'\xde\xad\xbe\xef', "0xdeadbeef"),
+        ({"key": b'\xca\xfe\xba\xbe'}, {"key": "0xcafebabe"}),
+        ([b'\x00\xff'], ["0x00ff"]),
+        ((b'\x12\x34', b'\xab\xcd'), ("0x1234", "0xabcd")),
+        ({"nested": {"key": b'\x99\x88'}}, {"nested": {"key": "0x9988"}}),
+        ([{"data": b'\xaa\xbb'}], [{"data": "0xaabb"}]),
+        (TestDataclass(field1=b'\x11\x22', field2=42), {"field1": "0x1122", "field2": 42}),
+        ("string", "string"),
+        (12345, 12345),
+        (None, None),
+        ({b'\xde\xad', b'\xbe\xef'}, {"0xdead", "0xbeef"}),
+    ],
+)
+def test_convert_bytes_to_hex(input_data, expected_output):
+    assert convert_bytes_to_hex(input_data) == expected_output
+
+
+def test_convert_bytes_to_hex_generator():
+    gen = byte_generator()
+    converted_gen = convert_bytes_to_hex(gen)
+    assert isinstance(converted_gen, Iterator)
+    assert list(converted_gen) == ["0xdead", "0xbeef", "0xcafe"]

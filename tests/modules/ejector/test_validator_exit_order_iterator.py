@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.services.exit_order_iterator import ValidatorExitIterator, NodeOperatorStats, StakingModuleStats
+from src.services.exit_order_iterator import ValidatorExitIterator, StakingModuleStats, NodeOperatorStats
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -12,16 +12,13 @@ from tests.factory.no_registry import (
     StakingModuleFactory,
     LidoValidatorFactory,
 )
-from tests.factory.web3_factory import Web3Factory
+from tests.factory.web3_factory import Web3DataclassFactory
 
 
-class ModuleStatsFactory(Web3Factory):
-    __model__ = StakingModuleStats
+class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]): ...
 
 
-class NodeOperatorStatsFactory(Web3Factory):
-    __model__ = NodeOperatorStats
-
+class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
     node_operator = NodeOperatorFactory
     module_stats = ModuleStatsFactory
 

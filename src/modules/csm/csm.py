@@ -111,8 +111,8 @@ class CSOracle(BaseModule, ConsensusModule):
         if not distributed and not shares:
             logger.info({"msg": "No shares distributed in the current frame"})
             return ReportData(
-                self.get_consensus_version(blockstamp),
-                blockstamp.ref_slot,
+                consensus_version=self.get_consensus_version(blockstamp),
+                ref_slot=blockstamp.ref_slot,
                 tree_root=prev_root,
                 tree_cid=prev_cid or "",
                 log_cid=log_cid,
@@ -130,8 +130,8 @@ class CSOracle(BaseModule, ConsensusModule):
         tree_cid = self.publish_tree(tree)
 
         return ReportData(
-            self.get_consensus_version(blockstamp),
-            blockstamp.ref_slot,
+            consensus_version=self.get_consensus_version(blockstamp),
+            ref_slot=blockstamp.ref_slot,
             tree_root=tree.root,
             tree_cid=tree_cid,
             log_cid=log_cid,
@@ -215,7 +215,7 @@ class CSOracle(BaseModule, ConsensusModule):
         except MinStepIsNotReached:
             return False
 
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported)
+        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported=eip7549_supported)
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):

@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 
 from web3.exceptions import ContractCustomError
@@ -102,16 +103,16 @@ class Ejector(BaseModule, ConsensusModule):
         data, data_format = encode_data(validators)
 
         report_data = ReportData(
-            self.get_consensus_version(blockstamp),
-            blockstamp.ref_slot,
-            len(validators),
-            data_format,
-            data,
+            consensus_version=self.get_consensus_version(blockstamp),
+            ref_slot=blockstamp.ref_slot,
+            requests_count=len(validators),
+            data_format=data_format,
+            data=data,
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
 
-        return report_data.as_tuple()
+        return dataclasses.astuple(report_data)
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
