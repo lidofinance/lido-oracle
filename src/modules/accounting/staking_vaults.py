@@ -217,6 +217,8 @@ class StakingVaults(Module):
         def encoder(o):
             if isinstance(o, bytes):
                 return f"0x{o.hex()}"
+            if isinstance(o, CID):
+                return str(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
         output = {
