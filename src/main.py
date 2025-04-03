@@ -1,7 +1,6 @@
 import sys
 from typing import Iterator, cast
 
-from eth_typing import HexStr, ChecksumAddress, HexAddress
 from packaging.version import Version
 from prometheus_client import start_http_server
 
@@ -14,7 +13,6 @@ from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
