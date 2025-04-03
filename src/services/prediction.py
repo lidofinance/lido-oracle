@@ -69,7 +69,7 @@ class RewardsPredictionService:
             total_rewards += (
                 event['postCLBalance']
                 + event['withdrawalsWithdrawn']
-                - event['preCLBalance']
+                - event['preClBalance']
                 + event['executionLayerRewardsWithdrawn']
             )
             time_spent += event['timeElapsed']
