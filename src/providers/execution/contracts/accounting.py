@@ -29,51 +29,6 @@ class AccountingContract(ContractInterface):
         while passing empty `_withdrawalFinalizationBatches` and `_simulatedShareRate` == 0, plugging the returned values
         to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
-        hex_ref_slot = HexStr('0x' + ref_slot.to_bytes(32).hex())
-
-        try:
-            return self._handle_oracle_report(
-                payload,
-                accounting_oracle_address,
-                hex_ref_slot,
-                block_identifier,
-            )
-        except ValueError as error:
-            # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
-            logger.warning(
-                {
-                    'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
-                    'error': repr(error),
-                }
-            )
-            hex_ref_slot = HexStr(hex(ref_slot))
-
-            return self._handle_oracle_report(
-                payload,
-                accounting_oracle_address,
-                hex_ref_slot,
-                block_identifier,
-            )
-
-    def _handle_oracle_report(
-        self,
-        payload: ReportValues,
-        accounting_oracle_address: ChecksumAddress,
-        ref_slot: HexStr,
-        block_identifier: BlockIdentifier = 'latest',
-    ) -> ReportResults:
-        state_override: StateOverride = {
-            accounting_oracle_address: {
-                # Fix: insufficient funds for gas * price + value
-                'balance': Wei(100 * 10**18),
-                # Fix: Sanity checker uses `lastProcessingRefSlot` from AccountingOracle to
-                # properly process negative rebase sanity checks. Since current simulation skips call to AO,
-                # setting up `lastProcessingRefSlot` directly.
-                'stateDiff': {
-                    HexStr(self.w3.keccak(text="lido.BaseOracle.lastProcessingRefSlot").hex()): ref_slot,
-                },
-            },
-        }
 
         report = (
             payload.timestamp,
@@ -91,7 +46,6 @@ class AccountingContract(ContractInterface):
         response = self.functions.handleOracleReport(report).call(
             transaction={'from': accounting_oracle_address},
             block_identifier=block_identifier,
-            state_override=state_override,
         )
 
         response = ReportResults(*response)
@@ -110,7 +64,6 @@ class AccountingContract(ContractInterface):
                     payload.vaults_values,
                     payload.vaults_in_out_deltas,
                 ),
-                'state_override': repr(state_override),
                 'value': response,
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
