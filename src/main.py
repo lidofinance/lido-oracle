@@ -1,6 +1,7 @@
 import sys
 from typing import Iterator, cast
 
+from eth_typing import HexStr, ChecksumAddress, HexAddress
 from packaging.version import Version
 from prometheus_client import start_http_server
 
@@ -13,6 +14,7 @@ from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
@@ -84,7 +86,16 @@ def main(module_name: OracleModule):
 
     check_providers_chain_ids(web3, cc, kac)
 
-    staking_vault = StakingVaults(web3, cc, ipfs)
+    vault_hub = cast(
+        VaultHubContract,
+        web3.eth.contract(
+            address=ChecksumAddress(HexAddress(HexStr('0x33532749B2e74CE7e4e222a70Df89b7a1523AF67'))),
+            ContractFactoryClass=VaultHubContract,
+            decode_tuples=True,
+        ),
+    )
+
+    staking_vault = StakingVaults(web3, cc, ipfs, vault_hub)
 
     web3.attach_modules(
         {
