@@ -17,6 +17,15 @@ class Kubo(IPFSProvider):
     PORT_GATEWAY = 8080
     PORT_RPC = 5001
 
+    # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
+    RPC_UNIXFS_ADD_ARGS: dict[str, int | str] = {
+        "chunker": "size-262144",
+        "hash": "sha2-256",
+        "cid-version": 0,
+        "trickle": "false",
+        "raw-leaves": "false",
+    }
+
     def __init__(self, host: str, *, timeout: int) -> None:
         super().__init__()
         self.host = host
@@ -36,10 +45,10 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
 
         url = f"{self.host}:{self.PORT_RPC}/api/v0/add"
-        name = name or "file"
+        name = name or "file"  # The name doesn't make any difference.
 
         try:
-            resp = requests.post(url, files={name: content}, timeout=self.timeout)
+            resp = requests.post(url, files={name: content}, params=self.RPC_UNIXFS_ADD_ARGS, timeout=self.timeout)
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
