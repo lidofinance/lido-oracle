@@ -1,12 +1,13 @@
 import logging
 from typing import Iterator
+
 from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
-from src.providers.execution.exceptions import InconsistentEvents
 
-from src.types import ReferenceBlockStamp
 from src import variables
+from src.providers.execution.exceptions import InconsistentEvents
+from src.types import ReferenceBlockStamp
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ def get_events_in_range(event: ContractEvent, l_block: BlockNumber, r_block: Blo
 
         logger.info({"msg": f"Fetching {event.event_name} events in range [{l_block}:{to_block}]"})
 
-        for e in event.get_logs(fromBlock=l_block, toBlock=to_block):
+        for e in event.get_logs(from_block=l_block, to_block=to_block):
             if not l_block <= e["blockNumber"] <= to_block:
                 raise InconsistentEvents
             yield e
