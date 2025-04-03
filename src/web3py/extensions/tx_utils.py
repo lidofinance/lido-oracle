@@ -1,5 +1,6 @@
 import logging
 
+from eth_account.datastructures import SignedTransaction
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
 from hexbytes import HexBytes
@@ -112,9 +113,9 @@ class TransactionUtils(Module):
         account: LocalAccount,
     ) -> TxReceipt | None:
         tx = transaction.build_transaction(params)
-        signed_tx = self.w3.eth.account.sign_transaction(tx, account.key)
+        signed_tx: SignedTransaction = self.w3.eth.account.sign_transaction(tx, account.key)
 
-        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         logger.info({"msg": "Transaction sent.", "value": tx_hash.hex()})
 
         return self._handle_sent_transaction(tx_hash)
