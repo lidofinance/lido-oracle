@@ -8,6 +8,7 @@ import pytest
 from src import variables
 from src.main import ipfs_providers
 from src.providers.ipfs import GW3, IPFSError, IPFSProvider, Kubo, Pinata, PublicIPFS
+from src.providers.ipfs.cid import CIDv0
 
 
 @pytest.fixture()
@@ -52,3 +53,24 @@ def check_csm_requires_ipfs_provider():
     providers = [p for p in ipfs_providers() if not isinstance(p, PublicIPFS)]
     if not providers:
         pytest.fail("CSM oracle requires IPFS provider with pinnig support")
+
+
+@pytest.fixture()
+def well_known_content() -> tuple[str, CIDv0]:
+    rnd = random.getstate()
+    random.seed("KNOWN")
+    data = "".join(random.choice(string.ascii_letters) for _ in range(544 * 1024))
+    random.setstate(rnd)
+    return data, CIDv0("QmTDcDoauLrFR2YGS9L6iRSdsmgqzxsrhuDeVQkGAgqA1f")
+
+
+@pytest.mark.parametrize("provider", providers())
+def check_ipfs_provider_returns_expected_cid(provider: IPFSProvider, well_known_content: tuple[str, CIDv0]):
+    """Checks that configured IPFS providers return the expected CID"""
+
+    content, cid = well_known_content
+    assert len(content.encode()) > 256 * 1024, "Too small content length to check"
+
+    new_cid = provider.publish(content.encode())
+    if new_cid != cid:
+        raise IPFSError(f"Invalid CID, got={new_cid}, expected={cid}")
