@@ -5,7 +5,6 @@ from eth_typing import HexStr, ChecksumAddress, HexAddress
 from packaging.version import Version
 from prometheus_client import start_http_server
 
-from src import constants
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
@@ -82,26 +81,14 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
-        raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
+    if Version(kac.get_status().appVersion) < Version('1.5.0'):
+        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
 
     check_providers_chain_ids(web3, cc, kac)
-
-    vault_hub = cast(
-        VaultHubContract,
-        web3.eth.contract(
-            address=ChecksumAddress(HexAddress(HexStr('0x33532749B2e74CE7e4e222a70Df89b7a1523AF67'))),
-            ContractFactoryClass=VaultHubContract,
-            decode_tuples=True,
-        ),
-    )
-
-    staking_vault = StakingVaults(web3, cc, ipfs, vault_hub)
 
     web3.attach_modules(
         {
             'lido_contracts': LidoContracts,
-            'staking_vaults': lambda: staking_vault,  # type: ignore[dict-item]
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
             'csm': LazyCSM,
@@ -110,6 +97,8 @@ def main(module_name: OracleModule):
             'ipfs': lambda: ipfs,  # type: ignore[dict-item]
         }
     )
+
+    web3.staking_vaults = StakingVaults(web3, cc, ipfs, web3.lido_contracts.vault_hub)
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     add_requests_metric_middleware(web3)
