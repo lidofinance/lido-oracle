@@ -35,6 +35,7 @@
             "attestations": [
               {
                 "aggregation_bits": "0xfffebdffffd7f7ffbbfffdffffffffbf7bbffef7bfd3fffffafffefffbff776bfff57fe7ffdfff7edffffdebfffefffffffffcfbffffedfff53fffefffffbfafff7d7ff7f9ffbff7fdd7fefbe6dfd7f7ffff7fbfebfd7efff5ffefffff7f7dfffffbff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "47",
@@ -52,6 +53,7 @@
               },
               {
                 "aggregation_bits": "0xfffffbfffff5fffefff7ffcfffbffffc7fbbbefffff7dffffeeffeefbfffef7ee3fefbfffdfdf6fffeffffddffeefffdf77ff6fdfffdeffff777ffffebdff7eff3fefdebffffbffdffdef7f3ff5bffff4dff7576bfbf7ffff7efeffedddffd9fffdfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "27",
@@ -69,6 +71,7 @@
               },
               {
                 "aggregation_bits": "0xfefff3ffffafebdfffffeffffdf7fffdbeb7ffdf7f3fffffefffeff3fffffffeb5ffeefdfffffb5ff77fddfff777efffffdfbf3ffff6dbf6fff1fddd5fdff76e7e7ffffff7ffffd73dfffeefdfffffffe5f7fffb6fffdffbffbf77ddfef3fffedeebf71d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "21",
@@ -86,6 +89,7 @@
               },
               {
                 "aggregation_bits": "0xf7fffefffbefffdf7ebdff77bdf3edbffbfefff7effedfb7fffffffffeffd97ff57fff7ffbd77efdeffffbffffddb9ffefbff3beddfaffdfaff7affb3eff777bdff7fffffffdeffdf6ffffe7dfff6f7e7bf7feffffdffffe7ffffffdffffe5def5ef5f19",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "0",
@@ -103,6 +107,7 @@
               },
               {
                 "aggregation_bits": "0xdfa3cbefffffdffffbfbbf7ffffbef9ffffdd7fefbffffeffffdfcedf7fbdefff6dfbefdff7fffd7bbffff73efff6ff7bff7d7feffeffefdefffff6feff7dffffefcf6fb3f7bfffcfb4effffbffdfdfdef7dfb7ffcc3ffebfff7ffdfff7efff7fffdff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "4",
@@ -120,6 +125,7 @@
               },
               {
                 "aggregation_bits": "0xfffe75fd7b6fffbfffffdfdfffffff7fffffffbf7edfeff9ff8c7ddfffffff7fff7fed6ffffdfe77bfbbfe7f9fffffffff5febffffeeffb7ffd7f7dfbdffeb9fff6335fffeffdf5ffbfaffffffffbffd7f7fffd6fff9fbf3d3ffdfbfe9f5bf697fffff1b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "17",
@@ -137,6 +143,7 @@
               },
               {
                 "aggregation_bits": "0xfdf7dff9ffbeffbb7bd7ffbffbdffefffeddbff7ebffdf7ff9dbbafdf7fffbffef7beffdfff3bffb7ddbffefffffebe7fbbfff17ff7ff7ffbffffffffbfffceeaaefefffbfbfefffdfeef7fef6fdebefffffbfbdffdaffaffffaffffefffffef39fdff0b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "52",
@@ -154,6 +161,7 @@
               },
               {
                 "aggregation_bits": "0xdff7dff7ffff2befbffffffff67fbbefff7b7ff67dfafffdf3dffffbeffffffbbfefffefb7fa7effebfff4ffafffffeefdfffebf5feff64fb37ff5bf7eeffd0ffdfeff7fefedffb7efead7fffbff7fff7ffffeff77f67befffffef3ff7efefdffffff70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "18",
@@ -171,6 +179,7 @@
               },
               {
                 "aggregation_bits": "0xdeffffffed7fdb7ff7ddb77fdbffdfffff7bffdfffbff7ebbfffbdf58ffffefffffdf7ffffeeffebf1ffefffffff7fff4ffdb3fbdd9fbffdf5ddfff7efe7337fffffffffcedfe7ff7cff0febf3fe7e7fffbffff7ff7bbbfffffbffffd76cfbffff3fff0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "10",
@@ -188,6 +197,7 @@
               },
               {
                 "aggregation_bits": "0xfffff3fcfffeffbfff6fbfffff3f6ee7f5bf7bfff76fff5fbcffe2fbffbfffafffffffcfffbfdffefdff9d7f7cffbdff5bf7f7fdefefdf5fef7d7ef7feef6fffffffdfffff97bfdff7ffb7bfefffffeff7cfffffffe5efffff7efbdffb7257ff7eef6f17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "31",
@@ -205,6 +215,7 @@
               },
               {
                 "aggregation_bits": "0xfffcffffecf7ffeffff6deab7fdfff7bfdeffcf7feffedfddfeffff7e9db7dfdf7ffefb8fefbf7fffdfdbcf7dfbaffbdffbefffffdf3dfffeffddeffbadf78bfbf7fd7ffedbfeffffffbff7f7df6feeefffef6ffebfff7fefffff9fdffebfdbf7fffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "45",
@@ -222,6 +233,7 @@
               },
               {
                 "aggregation_bits": "0x7effdffffe77ffffb6fffff5ac3ff7fdff5ffdf7ffffebbeffedfbffffbffeefed6fdbbfe3ffedf6ffeeeffebf7ffffffffbff7f7bffeffffbf77ffdff3e7fff7fddf7ff3f6fffcdff4f92f9ffffff7efff9ffbdffffff6ebdfeffb6fbfffdb3fffdde0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "46",
@@ -239,6 +251,7 @@
               },
               {
                 "aggregation_bits": "0x2fffff77efff17fefffbffeffff7fefd7affe5ffedffecffbbfdeddfffffdf7ffeffbffbfff37f7dfffdcf1f97ffaffffff7fd7ffffdfff6a7f7fedbfcfdfdf9ebffc7fba7cf7fffffffdda7b6fffffd7ff7ffbfdeebefffdffff7dfb9fffffbdff7ff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "49",
@@ -256,6 +269,7 @@
               },
               {
                 "aggregation_bits": "0xfbffffffdbffdffffffffdeefbeaffd7fbfdbfffeef7fffd7efeefd7ff66ffffffbfffff76fff77fffff7cffffebdbff7cffbbdf7bfff3a7ff8dffffffafdf5ffbdfefffffdffbffdfabd7fc37ffdfef3bff7d6fffebf7e7dcfff7fffe9b7ffef9d9ff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "2",
@@ -273,6 +287,7 @@
               },
               {
                 "aggregation_bits": "0xffebaf9f377ff6f7f7ffbfdefef3ffbffffffafb77fc77fffefffafffcefffbfffebffff5ffffcdfb3fffe5ffbbbffffff7bbebf9f7eebfffef7fffbdddffaffb8bf6ffffbfbfd5fffdfbedef7efeffb77dfffefdfe7ff9fffbbfffffbfdffffffaeff0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "54",
@@ -290,6 +305,7 @@
               },
               {
                 "aggregation_bits": "0xfdff3ff77fffbeffff77ffbfdffadffb5ef62faef5ff6f7ff9fbfee7ffbfddefff6befda7fbf7fffff7aff7b7ffbf7feffffdffaef67ffe7cffdfffff72ffbddd9fdffbfffefefbffffdfffbf7d5f7dcdfffff7effffdb7fbff7feff7ffffdf3ffffef0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "24",
@@ -307,6 +323,7 @@
               },
               {
                 "aggregation_bits": "0x7bf0dfdfbfbf7dbfbfd7dbffffffff7ecffffbdef7fffefff7ffffbeff7fffdfcfdbbfdfffeefffefffefbbfb6fbbffdfbffebedbafffffffff5fff7fdefbfefffcd7ffd7fffd7ffe37fffdcd9dffdfdf1f7b7dfd9fff2fff4f3f77d9efffffffedff71e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "23",
@@ -324,6 +341,7 @@
               },
               {
                 "aggregation_bits": "0xd7fff7d77fbf6ff77fbffef3fdaeefdedffbfe7efbbfffbffdffbfffffff7bfff7bffffe7dff9cfbdedfffff8edaffffffaefddeffbef7fffffd7f9cfffffffaffeffdefbfffffbfae3dfeff6fb7fdf7eb7fbbdafe7eeffbffdfdffdffdbb8ffdffffa0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "20",
@@ -341,6 +359,7 @@
               },
               {
                 "aggregation_bits": "0xdffffcdffff77ceff3fbffffffbffff5ddffc7ffeffdffdfab75fffff7efbe7ddbf3fbd79bdfcbfdf3ffefffefffffb7affaffadfdfdfffdff67fffd7ff7fbffffbdfebf3ffefffffff7ff96dcbfb7bf6fbffffe97fbfff5bfdff7efdbdfffbf9fbfdf1e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "43",
@@ -358,6 +377,7 @@
               },
               {
                 "aggregation_bits": "0xaffe7d3f87fbbfbffb9fddff7f9ffbfffdbeffffefeff7fff7dbbffbeff4fffedfbfff1fbfffff36ffddbdfbffeffefdfbffef7ffcfcebffffbfffb3fbeeff6ff73fbffdfbfffd2bf2efbffe7dfffffeffff8bfd5dfdfbfbfffaff7fffbfb7fffdfdef13",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "11",
@@ -375,6 +395,7 @@
               },
               {
                 "aggregation_bits": "0xfffffbffbbefd7dbfffffdaff7ff7fba757fafffbffffcfbd7fe7bf3ffffd7dbdffbf79efb7fffffbffffdeeefef7ff9ffffdec7dfbffbfff7ffaf7f8f9ffffffffefefebf3c9fffffffe7df3efaedfffffebeefafdffffebffdaff77f7ddee5fdedff0c",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "42",
@@ -392,6 +413,7 @@
               },
               {
                 "aggregation_bits": "0xfffbf7ffff7ffffffbff77bfffeffefefdf4fffdefbfdffbcf7f97f7f5fcef7f3dfff5ff6fefbd7ffbbf5cfc7ffbdbdd55fbeefb2fe7dfdf7fbd7bffff7f3fff7ffffffffeff5f7fdff9ff7ffcfffbf77fafffdff8fbfff7ffef3ec7fff77feeb79d7f1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "25",
@@ -409,6 +431,7 @@
               },
               {
                 "aggregation_bits": "0x5ffffe7ebe7fffbdefdb95bffff3dfdff9fffbefffd5f90fbbfaff7fbf7fffefbdafffeff7ec7f3ffffff6f59fbffbf5ffffdbdfffff7bfffffff9feffebdbfdf6779bddfebfbffffd7ffecf7fb3ffbf7fbb7fff7fe9ffbfeeffffddfffffebfff7fe40f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "48",
@@ -426,6 +449,7 @@
               },
               {
                 "aggregation_bits": "0xffffffff65fed7f3fcff7fbfffedffaeafdfefdfdff7dffffedcdfe77567fffdffefbdffffdabeeddf5ebfffffdfcffdbfb9ffffefffffafffaffff5dff8eff7fdebefff7ff7ffffefffbffbfed8fb6fbbbbd72fb5ffcafcff7fff7fbfffffe5ffeabf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "53",
@@ -443,6 +467,7 @@
               },
               {
                 "aggregation_bits": "0xdff6fe777edfef7fafffffdff7fffd6fbdfefebc9fed7ff67ff5fafffefbfff6fefbffbffffeffefd3fffeeffddeff57fffdffef6f8bcfffcbbdff77fbf6df5ff7ffff777f6f7fefef7fdf9dfddfbe57b7eefdfffedff7ff7eebbff6fbffdfbdfffffe1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "63",
@@ -460,6 +485,7 @@
               },
               {
                 "aggregation_bits": "0xffbfb7fbfff79e7be6ffe6bfff56f7ffff7fffffb79ffbeb43fbcdf7ffddfffeffbffe7fffe7e715fffbdfafffffffbdbfbdfd3ffbfffbfdf7ffbeddf9fffdfeff7dffffdfbbefdfffffdf7dfe7f5ef3ffffb3fc9fef3fffe9df7e7dfc7fde5fffe5ff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "8",
@@ -477,6 +503,7 @@
               },
               {
                 "aggregation_bits": "0xdbffebfff7dbdfff1bdfceffd7bfdff7fbfdefffffd9ff5fffeffffbffdff677ffdfafdfdafffffbff5f7bffffefeffff6ddffefb9dff6eaff3dff5fffffebf72fbddadfeffffbbf7dffd7ed2ffbb7f57bcfe7efff9ff6fbffafbdfda7fbeefefeffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "44",
@@ -494,6 +521,7 @@
               },
               {
                 "aggregation_bits": "0xf3da7feffffffdfd7adfffffbbf7f76df6fdcafffffffe7ffffaffc77befeff9bfef7cef5fffffbdd7fffdfffffffdbeffff6fbffdffbfcb3fffeffcb1bfcff7fffb7bdcabbbfdffffffeedefffdbfbffeffb78bfe7d577bbf9fbdf7efddfffffffafc1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "15",
@@ -511,6 +539,7 @@
               },
               {
                 "aggregation_bits": "0xfeff2fbfbb93af6dd73ad3bdbddeffffe9fe9ffadffafffbfffbfdaffebfff4bffffff7ffeb4ebfffdcfffd9ffffba7df0ffffffdffaffff7ffffedfbf7ffc5f39ff9fdfffdfffeffef9feff7fae4f7fff7ffffb7fdae7b7effffffe5fffffffddffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "50",
@@ -528,6 +557,7 @@
               },
               {
                 "aggregation_bits": "0xef4fffffbd77ffff7ffffffafa7fec51efdeefffbfbfe7d67c3ddfffbfddfb771ffd79ff5ffefffffdffdfffff5fffef6777fffdfff7fb7b5ffd7ffe5de7fbfd5bed9fefffdf3dfffd5dbf3ffbfcfffbffaff3fffafabffdfb7effffff7ddfdef7ff7f1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "39",
@@ -545,6 +575,7 @@
               },
               {
                 "aggregation_bits": "0xfcf7fdfecf7fdfff73ffff9f7fefff7f8f79f9eff7bbd7ffbe7faffeffdfddff7ff2eeffffffe47ffdfeffdfbcbf7fdbbf7e76fbfe5fefffe7cffff7fbfffe97fffeefbb7bfff6ffffaef4dfcfc3fffbffdfffdd9fdfef69ffeb76ffbff7ffbfffffda1b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "37",
@@ -562,6 +593,7 @@
               },
               {
                 "aggregation_bits": "0x7fffe7faeffdfdef6dfbbfebdffeffeb8ffcfafeffbefffeffeffebfff93ddefdfdfbff7ddf57ffbf7fbefffefbbf5effffffffffff7ff7bf5fdeebfcadb5d7fa6fa5ef73fdf3e7d7fff3bbfafeffdffffffdfff7fd56fffbfffbeafecdfefefdfeffe1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "6",
@@ -579,6 +611,7 @@
               },
               {
                 "aggregation_bits": "0x7ffff7feedbdcfbffdfdbdfb7fffbf9f7adbff7ffffebfdfffedbffcffbf65fcd7ff6feffb8fdabfeffe7dc3efffefff9fedf7bfffedfffcfefffefffdebfdffb7f7df9b3ffedeffffdafff7feffaf779dffffeffff83f77b9fdfa79ebdfff7ffffbff0b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "60",
@@ -596,6 +629,7 @@
               },
               {
                 "aggregation_bits": "0xd7ff7bbfdffdffff9ffffee77b7bffcfffebf7fdb9febfddeff7ebffffbf7fea3fffffbf7fefff79fbff35fffd7effedfdeefffff6ffdaff9b75ffdf7fabbeef9beeeefeffff6ffff77d73bf9febb7ef9fdfd9ffeffffedff3efffebb7bffffdf7dfa60f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "32",
@@ -613,6 +647,7 @@
               },
               {
                 "aggregation_bits": "0x1f5def67ff5fceb7ffdedfff3ffbffff7a3ffff5fafbfaffff7fb7fff2afffbff9fff5bfefdfb7bff7dfedfe74ffddfdf6fbfe6ff7f4efbfffbafffe6fbbfffdfff7ffd5dffffed7b7ffffffdf779fade2fbbffddffff97fbdffff7ffbdfffe5f7ffdf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "62",
@@ -630,6 +665,7 @@
               },
               {
                 "aggregation_bits": "0xfbaf7dfafeff7eefefbffff7a3f1b7fffebd7ffe7fbfdcffbfdf3dfc7efffffffdf6fb7aeafffffbdffdff7fbebbfb67f9ffafebe8a5fe73fff3fffbfdfff7b7ff5dfffbbffefff7f7f9dff7fdf9bfefff7fffa0e7f7f7fdffffeffbffdfbbebfff7bf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "35",
@@ -647,6 +683,7 @@
               },
               {
                 "aggregation_bits": "0xdefbf6dbf7fecdcf3f7efdfdfbffeed7f7efefe9cfffefefebffffb5bdfedf7cb7efdbdffef7bfffe3fbff6ffb7ffffbfff7f75fef7ffffff6fefb4fff7fe3567efffffdf7fffbfd6efff5edd7fffdff6ffeb7f9ffdd6ebf7ddbfbfff3fefffb5fffff0e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "30",
@@ -664,6 +701,7 @@
               },
               {
                 "aggregation_bits": "0x7d7ffbfb7afbffcdf67ef6b7fffffdfe3ffbfd76fbbfd6ffff7ffff7f9fffe3ffcdfd7bfd5f7f6febffbf9f6fffd65fb71ff6fffbb7f3e7afbf6ef7ffdff7fffd7fffff9dffdfcfbffffffdfdbfffffffde7b7e3fe97fffffbeff7fc97feedffff5f6f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "5",
@@ -681,6 +719,7 @@
               },
               {
                 "aggregation_bits": "0xfffdeebefafd9fee7ffff6bdfbfbffeef7f7ffeffffffff79ee7ffeffcd7ffefffffaff6faffeddbfdff5efffdebff6feffde6cfae7edde7ffb9ffddffdfffdee2febfebfffcdbf7bff7ffbdfefbbf7fe3ebee7fffffeeefffbbebfc7fdfdbffffd6fb09",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "28",
@@ -698,6 +737,7 @@
               },
               {
                 "aggregation_bits": "0x7fffa8fdfe6f3ff7b3ff0de97ffbbbf3ffffbffbefff6f77fed7ffbfdf7faf76dfbfffeffe777fbac1fdffdffffbdfedfffbffefef737bffd7dfdffeffff3cffeff7fefe7f6ff67fddfffdbfeeffffeffb5fdfff77ffd3fcbff773f7df9f3f7f7feffe1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "57",
@@ -715,6 +755,7 @@
               },
               {
                 "aggregation_bits": "0xbeffbeaf6fbff7fffbffffdffffff7fffd37fbfefff7fcdeae7ff79fbefff8fe5dfaffdccefbffaffedaaebfffefff7bbebfebf6eedb56ffeffbddf7ed5fbfdff7fbffff73ffffff7eefffffff7e79fd7ffdfbb7ddffbfd7effdfd5dbdfff2f7df57fd0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "1",
@@ -732,6 +773,7 @@
               },
               {
                 "aggregation_bits": "0xfed7ffaccefdfffffdcf7ff7afe97f9beffefffdbb7fff5fbfff7edef7bbf77f7f9dff5b7b5feffbfbdffe7dfcbfff7f9ff7fcfffbff6dff7fef7fe79edbefbfefdefffdebfffd4fffffdbffb48fdfffffa3bbefffd77e7fbf6ffedffdbdffff5effff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "26",
@@ -749,6 +791,7 @@
               },
               {
                 "aggregation_bits": "0xff7f9d7cf5f4fffffe7e79fdefffee7fefffefebfd3ffff7ffdff53edff3ffadedabdddfffbfbfdfdf7bbdffffdee7fdff9dffefeffd7ef7fefdf7fbdfdfcfbf7f7fffebfeefffffdede67fff739fff9ffffffddf7fbefdfafce9f9d5ff7ffdfecf4fd17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "19",
@@ -766,6 +809,7 @@
               },
               {
                 "aggregation_bits": "0xefffedfffdef6f8f7ffeb3ffbf7ff7fd7feb7effefeffddffafdc63fdbf7ff77feffffffff7ff3fe3bd7fffdf7f23bff3cbd8fbbeffff7fafd39fffda7ffb7efbf7f7bfff6fffdffffffdff3cff3dbbdff5dfaf7ff7fff0febffefcdf7fbfff7f7d3ff0b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "38",
@@ -783,6 +827,7 @@
               },
               {
                 "aggregation_bits": "0xbfffffbfceff5fffffff90bfcbfeebff7fdfbfff517ff76f75ff5c7bbd7dfdff9b7bf3f57e7febcddbffcfffedddf2fff7bdfffffff55efbeffdfbffffebffafbf0eff7efffdff73fb9fffffffeff7ffffeffdff5eb7f5df9ff77bfbfebeff7bffdf7f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "58",
@@ -800,6 +845,7 @@
               },
               {
                 "aggregation_bits": "0xffff7ffefd6cffccfdf9f7edbf7fb3fffee35fffffffbf7ffd77e4feffedfefffffbdfefff33dfdefd5fefdeff7fde7ffffef76fafcf8fafffbfb92b7f7efebffa5effdb5fc7bf7ffffff7fffddfff7d7f7ffe6f9ffefebbfffbffafedfee767fdef7f1e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "13",
@@ -817,6 +863,7 @@
               },
               {
                 "aggregation_bits": "0xed5bf7ed7ff7b5ffffe9dffe3d7fbedf3dfffafff7e27ffeffffdf7fdffeffbbfddf776efefdeff7dff7cfafeffeaeffb7fbedffb6ffffe6faf3b7fdeffff77fbfffffd5fefd76faff63dfcffe66ddfcffeffff7ff6eefdfbfffcfffdef6ffff7edebf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "40",
@@ -834,6 +881,7 @@
               },
               {
                 "aggregation_bits": "0xfe6d7fbbff3df3d7fea9fdf9fff5ff6fda5b5ffbeff7b3ffffefeff7dff3ef4f7ffff457fcffffdff7ffffbdf6feffeff4ffbb7deffffaffffdffbffffaef7df7eff7ffbfdff7ffeefb9ffef7f62b77dffbfbfff77f3b3fd7ffea7f9efe7f7bf7bfff90f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "9",
@@ -851,6 +899,7 @@
               },
               {
                 "aggregation_bits": "0xeffd7fbfeffefffb7ddffebeeff7737db7fffff39ffeb7feebeffb7eff93f6ebbf76dfe7ccdcff9e4ffef6eb7ff6efffbfffedfbbfff67fdfdf7bbfffbff87fbf2fd7f7ffffdf7dfffbffffe7f5e7fff7b9effefffffdbfc99ffdfff5dffdffe6b7f7f1b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "41",
@@ -868,6 +917,7 @@
               },
               {
                 "aggregation_bits": "0x7ffedfeadfeffb7deefdfbfffd7efb63d37f7dfefffbacffbedffffc5df4fffbfeffbfecffdfff7f739d6ffcaf9fdfb7ffefeefff5bbfeefffb7ff7f6bffb5bedf6fbffffeb3bbbf7f77f5ffbfff77dffffffefbffff7dfffff7fbfc57ff77edfeabae0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "14",
@@ -885,6 +935,7 @@
               },
               {
                 "aggregation_bits": "0xfdf57ff8d3fddffef753f667ebf7feeffff7ffffff7a7bf77ffdfff7efbf4dbbdfbffffce9dffbef3bfdcffffdfdfed77f6ebfe7bffb7fbfef3bf5febfeff7ff39fffdf78df3f756ffffff7fffedfeebebfffffaffbefeff7fefbbff3fff46befffeef0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "56",
@@ -902,6 +953,7 @@
               },
               {
                 "aggregation_bits": "0xbfed7d7ffdfbfebff977fbffff7bf97efbfeeffe3feffaf3eebfffff5ffbfbf5fffafefbffeeeffe3fff7f3fffb7ffdfdff9fcff7f77fc65fff75d3fdff9ffbfffebffeffd9deffbffbf9df78f7ddff9efb5f7fffbded7df39fecf9ffef4ff6fe7efd71f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "59",
@@ -919,6 +971,7 @@
               },
               {
                 "aggregation_bits": "0x7bbaffefefffee9ff7fbffffd75ffbefebfabfdf57eecdffed7f2fffbbf7fb3fffecf7ffaeebffbbffdff7fffafe7ffefbda7fff9dafff6edbafaef9dddff0c7fe7fdfbff73dff7ffffbfbff7efaffffef7edddf7fdfdfff77fffffb9bffadfaaff3ff1b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "33",
@@ -936,6 +989,7 @@
               },
               {
                 "aggregation_bits": "0xdbefceff3d34867fffe7ffed3ffded8fedfbfffeb8ffef3cdbfcffdf7ffffff7ff7fdf73df7ffffffcbfbfcb8fdf7fffffffdffffefef7fffef2cffbfff7ffe7ff6dfbdee7bea7ffdfbf7fdffeb7ffbffeedafecdf7f7f7fffdfbeff5f9fffff0f7fb50d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "36",
@@ -953,6 +1007,7 @@
               },
               {
                 "aggregation_bits": "0xfed9b3f7bb63affffd5ffb7fff5fdfffff7fcfe67eff3b4f177fdffffe7ffffdafb37effd77bdefbff6fff6efdfb2dfffdffffffbbf5ff7df7ebfbfef77aff3fffcbfccffebffd7b9ffbfbfffdffd577f3ff7fddfffdedfe96fffaabbeffffefbdffff0a",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "3",
@@ -970,6 +1025,7 @@
               },
               {
                 "aggregation_bits": "0xddfeffbfd17fafefbee7effb1cf27ff7ffbffdeffffbfd7ff7fe7d7dbd74ff7fefecfefebfbb5dff7bfff65ffffadf7fffabfbfffffbfff3ba34fdfffdbdfefffddebf6fffdfe5ff1ff67fbfcffdefefde7fcddf7effbfee77eff7fd6faffefff7befb0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "7",
@@ -987,6 +1043,7 @@
               },
               {
                 "aggregation_bits": "0xefffefdefd7fffd78ff7ffebbedbf7fb77bcfde6ff7fcf7fe7eff57deffdfebfddfdf77fdbbfdfe5ebbb8f5e7bf7fedfffffff5dffbebeff9feffebfbffdebfeeff53ffdfff9fd6f6ffebcf7ead7ddf7f67ebf3dbfffd7ff5bffffd5f3fdfadcdfffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "51",
@@ -1004,6 +1061,7 @@
               },
               {
                 "aggregation_bits": "0xddcf7fffffffdfffeff7fe753fbf773fb99dbaffb97fddf6fffffdffd3ffcffd7fefff3ffcffbfecedf7bffffffeafffbbfff37efc4fffb8ffbfff7fefb77fbeffbb3f77f7cf3ab6b79ffffffefffefeff7ffe2744ffdfffdbf77eeb5dffdf7eb77fba0e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "22",
@@ -1021,6 +1079,7 @@
               },
               {
                 "aggregation_bits": "0xcbeef16bf3f9dffddd3ffde5fb7d7fff3edea7ffb3cfffcfffeff7ff7ffbf7ffffefcbedf6ffaefe1ffffbbbf7ffbffdeffffeeffdafffe7b9fbf9bff99bfdf7ffffbfc7fbdf7eb5fbf9f3fdd4fffb3bfffdbbffcdbec26fdffbfeffaeeefd7fffdfff1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "55",
@@ -1038,6 +1097,7 @@
               },
               {
                 "aggregation_bits": "0xdbfffffff67f3efefff4fdfffe72f7abffbdffffff3f7ffbd6eff9fefbe3dfffcd77bff5fa7dfadfef6f5fd735fff3edffff267c2ffe2effedffdbedbbffb7f5fecbffedaeffffef7f12ebffffffadfbdff8fedefffff7ffdef7de3fdbffff7d7fb5ff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "61",
@@ -1055,6 +1115,7 @@
               },
               {
                 "aggregation_bits": "0x9dff5e77f77ff7abbd7dbfff957f7ef7fbbd99d7fffff53ffdfef7dbffef9dacfffff7e7773f7fffffed7a9f9ffffdfffffbfd7fbfefbfe1ffffff1bde7ffbfbdffffff7eef8e3ab1defed7fbfbffffbf7faff6f7debbec7cfff6da7fdf7df9ffbfeed0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "16",
@@ -1072,6 +1133,7 @@
               },
               {
                 "aggregation_bits": "0xa6fdfffe6ff77fedfdffbffbb76f7fbafffdf57ffdeffe7569cbbbedff76feffbfa2ef5fff9ffffafbffc385fdd9bfefefeffeaf7f4f97fbbfedf7f5bffdf7ffbf7fffefebff5aafff65efdefffdbbefe3ebbefbdebdfffbff9fdbd7dfffffdfcff7df1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "29",
@@ -1089,6 +1151,7 @@
               },
               {
                 "aggregation_bits": "0x9c7fffffff7f78ff6f3ed7efdfcfffde6ff719a7dffdff77fd7ffefb7f2fdf5791fefff77fffbfdff7feaefebef6feb3ffff3ef9bfafdfeffe7bbcedffeadcff76efefafef5deb7ffff373fdff7f77fb5b7ff7db7ffaff9f7fffffdfef6fddecfffddf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "34",
@@ -1106,6 +1169,7 @@
               },
               {
                 "aggregation_bits": "0xfffdb7efffafedf9dbff7fdfbbbeffbfef3ffe19ffad7f9bfdfd7f567fdbfcfbfaf9f6ffdfeb37ff3dffbdff5bfefa4ffffff73ffdeff7bf9fffff7fdfc557dff7ff7be9dff7773f377bffb9fefdbfbdfff5a73affb7e77fdfffffaebffeffb1bee7fe0c",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541631",
                   "index": "12",
@@ -1123,6 +1187,7 @@
               },
               {
                 "aggregation_bits": "0xdaffeffefeffffdffbf7dffff77ffffff3ff7effeffff76fbdff7efffdffffcffdcffff5fff7bdfbfbbfffeff3ffffffffbfdeafffffdfffffffffffbf7ffffbfff77effbfffeffffffbff9fddfffdf7fffdefceffbffbf7fffff7fbebffde7fdf7ff70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "25",
@@ -1140,6 +1205,7 @@
               },
               {
                 "aggregation_bits": "0x7ffffbff1effffffbfbfefefffdfbfffdfff7bff7fffdfb9dfdff67ffffffff777bfffffffffffffffebf7fefdfffdffdfffffffffffebfff5eefffffdfd7fbff7fbfff7ffffffffffbfdffff9daefe7e7ff6f7ffffff9bb6fd73fffffffffbfff7a3f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "21",
@@ -1157,6 +1223,7 @@
               },
               {
                 "aggregation_bits": "0xebfbf7ffffdfdff3ff5fffbffffbf73ff96bbebc6ffff7ffbd7efbf7ffff76efffffdd3ff7fffffffff3ff6f7fff75ffffffffdbfffff7ffff7ffffffffeffbefffffffff3f7ffffb7ffffedffff7fffdff7ff3fffdbf7f79fefffffeffbffbfffbfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "48",
@@ -1174,6 +1241,7 @@
               },
               {
                 "aggregation_bits": "0xffefffffffefbf7fdfefffafff6fffbfffdffdffffffeffff7fdbeffe6cfff77fffeffdeffdfffedf6dfff7fe9fffffbfdbdffeeffffff7fff5ff9fcffffffbfffffbffdd7ffffd7ffdffff9dafdfdffffe7ffcefdfbfbf7f77ffffffffdbffffcffff1b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "4",
@@ -1191,6 +1259,7 @@
               },
               {
                 "aggregation_bits": "0xffaffef7defffff9ff7ffffffffffffffffbfffefeff773fff3fff77eff5ffebffffeefdfffed7fffbfbdfbfffeffeeebfd7fefdffffffffff7ffbf7e7ff73b7ffffffefffbfff7ff9fbff77dbfb7ffffffbffbfffddcffeffffffad7ffffbefdbffff1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "58",
@@ -1208,6 +1277,7 @@
               },
               {
                 "aggregation_bits": "0xf6feffeffffdffff7bdf7f7f7f7fefff7fdfff7fffffffffffefdffffffff7effdfdffeddff6ffbffdfdfb3fbaffffffbf7f7fffffeffffff7ffefdffdf9ddff7fbdf7fffbf7bebf7dffff5eff6ffffbb7eff97ff7feffbefbfffffedffffb7fffffdb0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "43",
@@ -1225,6 +1295,7 @@
               },
               {
                 "aggregation_bits": "0xf9bffdffff7ff7f7ffbffbe9efefffbffeffff7fffffdffffffb7ff7f7ffffffff7ddff3dffffffffa3bfff5fff7f7defffdfefbfffffffff5fffbfdfdff7fffffffffffffff7fffffef6bdaffffeffef7fffffffb7fb927beffdfff59ffff7fddbbe70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "15",
@@ -1242,6 +1313,7 @@
               },
               {
                 "aggregation_bits": "0xffffeffefdaf7fffbfffbffffffffffffef7fcfffff97ffbb77bf5fffd9ffc57feffefbffcffdaffff7ffff7bddfef5ffffdff7ffff7ffcffdbfdfb9ddffffff7ff9fddffff5ffffbfffffffddefbfffffffffa7ffdffffffecffdfffffedfffffbfff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "62",
@@ -1259,6 +1331,7 @@
               },
               {
                 "aggregation_bits": "0xf7ffdbff7fdffefefbfbbfbfffccffffffffeef2f7ffdfffff6efffffffdf9f7fe1ddffffff1fffffaffffefffffffefbfbffff5fff7ffffffef77dbffbef7bffffdeffffffb7ffffbfeaf7fefdffffffff7dbfff1ffffffdb5fffff7bcff7ffffffff1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "29",
@@ -1276,6 +1349,7 @@
               },
               {
                 "aggregation_bits": "0xfff75ff7fffdff7fffffffadfdfefeafffffffffbffffffbffeff7f7ffffeffffffffd7fbfffffffffbff6efffbfb9ff6fffbffffffffe3dbdf17fffff6fff3fffffffdfbddfbfdf5fbffef7ffffff5ffdffffdffffffeffe6fd5bffbdbbff6ff7f7ee0e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "12",
@@ -1293,6 +1367,7 @@
               },
               {
                 "aggregation_bits": "0xffffebffbffffefdd7fdbfff7ffaffeffffedfffdfdffff7ffdfffeeffdf77fffbffffdfbbffffeff7fefffffffeff67efbffdbdfdff7ffdff977effffbffdf3fff7fffb3dfffbdddfee7fbfffdfbfffeaff7fffffffefb7dff7ffbb7fbfebbfffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "41",
@@ -1310,6 +1385,7 @@
               },
               {
                 "aggregation_bits": "0xbf7f7ffffffbdff7ddbbffff9ffdffffdbfffbf3dff5fffdffff7dffff7ffefffffdfbffffffffedfffffeffffff3edfdfefcff7ffedfaffffbefbf6dfffffff8feddafaff7bfffbffffeff3fffeff9affffdf6bff2fff3ffffffffffffbeffeffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "45",
@@ -1327,6 +1403,7 @@
               },
               {
                 "aggregation_bits": "0xfffdcffeffffdffffdfdd77ffffebbfeffe6effffdfeffe47ffefceffcff7fffffbeffffbbffeff7ebddfff3efb7fff7ffefbfdfde7ffbfffffffffeffbdbf7cffbfff77f7ffef7fbfffffffff7fffefffffedfffffeffeebfdffffefefffdfffff9ff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "52",
@@ -1344,6 +1421,7 @@
               },
               {
                 "aggregation_bits": "0xf7fff8ffaff9fffbdfffffdfbbfffffffeff9ff7ffffffa76ffdfff7bfffffffbffffffff7bff3ff7b6ffebffbefffff6fffdffffbfffffdffffb9ffdffeffffefffffffff7effffdd7fd7ffbedefbbffff77db7ffffedef7ffdedffdfed7f7df7fcbf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "38",
@@ -1361,6 +1439,7 @@
               },
               {
                 "aggregation_bits": "0xffffcaedfffffefefdfffbb9fdfdfffffbffff3ffffdfbffbfffffffdfffffe7bfff3fffff7fddf78e9f77f7bfffffdffef7fff6ffff9ffcfffff7f7ffffffafbbfeffffbffff7fff7af9befffffffffffdfe7fb7fcfeffff7efeff7b7ffff3f7ff7fe1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "18",
@@ -1378,6 +1457,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffbebffffff757bfffbfeeebbfffdee37ffefbfceefdfff7ffeffffdfffcff7fffedfbffcfffeffffbbdfdbffffffdf97ddefffffffd6dfffffffffff7ffffffff7fe7cffff7bfdcebff7fefffffffffdebfe9ffffefffefdffebfffffdffcfff0e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "47",
@@ -1395,6 +1475,7 @@
               },
               {
                 "aggregation_bits": "0xfeff9ffbfeb9fbbedfedf7ffadeffff57f3ffffffff7ffefefffebbeffffffffffffff9fbfbff9f7dfffffdffd5fbff7fff9fffdfeffaff9ffeffffdffffff5ffdbef7bee777efdf71bfffff7dfffff7fffffffffffffffffffff9fbfbfffff9fefdf71f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "33",
@@ -1412,6 +1493,7 @@
               },
               {
                 "aggregation_bits": "0xeff7fffff9fdeb9fefffcff7f777ffff7fffbe7efb7fbbffbf79fffe7fbfffffdfbfffffffffeffefbbfefff7dbeff7f5fe7b6feedff7dfbfffffffff7ffff5ffffffffffffdf7fffffeffdfc9ffefffefebffe9ffbfffffffd7dfbfffffb9ffbf7fbf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "14",
@@ -1429,6 +1511,7 @@
               },
               {
                 "aggregation_bits": "0xfdeefffffffdfffffffebffdefff7ff6ffffffffbbf7fffbfffdfffbbfbefddf7fdfef9bfbffdfbf7fffff77ffffbbffffff7fffffffffdf8bffbdefaffbfffffff7feff7fbf7fffebefffff77ffefff7ffdf7dfdefdfdbfeefdfffff4f87fbdeffb7d0e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "56",
@@ -1446,6 +1529,7 @@
               },
               {
                 "aggregation_bits": "0xbff3fffffff77ffffdbfffffffffefffdf9ed767fffbdfffffffdfffffffbfffbadfffdffbfffbf7f5f6fffffff7fbffbeefffdfedfbffdfbfdfbff5afffffdfbfcfb7ff7ffff6efbfefffff7d7ffeff9efbef3f7ffff7fffffffffbdedffefefffeaf0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "2",
@@ -1463,6 +1547,7 @@
               },
               {
                 "aggregation_bits": "0xd7ffff7fffdffffffbfafbff6bfff7ffffdfffdf7ffeffffffb6fdbfc777d7f7fff7bff7ffbfffeff5ffffefd6fbfff7bf67fff6f77dbbfaf7feffbff7eff7ffffdf5fedfbfffbff7f7fffffff77fffbeffaffffffffefdfffffffff7dfffffebfb9ff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "5",
@@ -1480,6 +1565,7 @@
               },
               {
                 "aggregation_bits": "0xffff5ffbfbdfeefffdfffeddffffefffefffffffffdfeeffddffffdffffeae7fffffdfedfffeffddfdfffe7f7fbfbedfffffdffd1afffddffbfffffefafffaed5efdfffdffbfffdffdffebfb7ffb6ffffff7ffdffffefffd7fffffff3ffafafffdf6eb1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "60",
@@ -1497,6 +1583,7 @@
               },
               {
                 "aggregation_bits": "0xdffffb7deffefeefffbffdfbfffd7fffffefcdffffdfbffffffffbffff6fdffffffffaf97ffdff3ffbfff7fdfdffbbffffeebff3aeaffffffffbe7d4ffbfbfdbfddb7dbfbef75fffdefefffdf77ffdfffffffffefefffff7fefff9ffffffffdffd7fff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "6",
@@ -1514,6 +1601,7 @@
               },
               {
                 "aggregation_bits": "0x5ddff7ffbffffeffbfdfffffd7fdf27fffcfffffefdffdff7fcfefff7ffedf7ffedafffdfeffffbfbabbfffffedfffff7fdfffff7affffefffdfdfbefbfffffbff7ff7feffafffffecdffdfaff7fffff7fbffdff6fffefeff7fffbefbf9fffffeeff750f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "13",
@@ -1531,6 +1619,7 @@
               },
               {
                 "aggregation_bits": "0xffbfffbffff7fffff3f7dfffffe67ffefbffffcffffe5fdcf77ffbfffffdff7ffdf7fb7ffffffffeff7f7ffffdfffddfffffffbfffffffbf7dffbffffffef7fbfffd7fdf9ffffeadfffffffefdefbfbff97ffb7fdddeffce7c2feff3fbeb5ffbfffff70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "41",
@@ -1548,6 +1637,7 @@
               },
               {
                 "aggregation_bits": "0xfafffdffffde2f7f7fffdfff5f7f7fffffff7ff7effffefffbbffcd7bf7fdb9fff7ffffffbfffdfbfdb25effeffffffffbff7ff7be7aff7bfffdffdf7ffffdfffffffb7de5fffffd3ffff67ffcfffbefbfdeffff7ffbfefdefffffddfff7ff7fffffef0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "33",
@@ -1565,6 +1655,7 @@
               },
               {
                 "aggregation_bits": "0xfefffef6efffdffbfdefffffd7f7bffffffcfdffffd9bfef7fdef7fbebfffdf7dffffeb6fe76efffffff6f7befeff7bfeffdf3feffbffffdffdfffff7fffbbbefbffff7fffebffe2ef3ffff7fffdbfffffffbf7fffbfeee7fffbfffdffffddfffbffef1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "57",
@@ -1582,6 +1673,7 @@
               },
               {
                 "aggregation_bits": "0x5ffbff7bff7ebfdffffffdefffefdf7fbffffffcffdfffffffffffdfe7fdbdadefffffeefffffffbdefefbff7fbbfffdfff77fffffdffda777f3ef7ffffeaffffbfbfffe6ff7ffff7feffffbfd7bffeff6ffbfdff3fffe6fbffeff7ffffebffeebcbdf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "19",
@@ -1599,6 +1691,7 @@
               },
               {
                 "aggregation_bits": "0xfddfffbffb7ffffffffffefffefffff7feff3effeff9e3ddff7fffbfbbffbffbdbfbfbdfff3e5ffdfdfd7faffbfffffbe6b7ffbffff7fffefbffdfee3efeebfbe7ffffff7efffff9dfffbff67bfffbffeffff7f7edfdffffefdefffffffff7ffdfffdf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "9",
@@ -1616,6 +1709,7 @@
               },
               {
                 "aggregation_bits": "0xfdf7dff7dfbef7efffffffd7fffff7fefff7f7ffefaffbdaff739fdbffffffffffffddfff7bffaffdffefffb757effff37f7efefeffffef77ffffdeff7fcfff7dd7fdffffffffabffbfffefff7fffbd6fdefffcffffff7fedfbdffffff9feffbffaf7f1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "23",
@@ -1633,6 +1727,7 @@
               },
               {
                 "aggregation_bits": "0xbfff7bfffffef7fffff7fefd7fde77ebf9feffdbfbfffbbfeffb7b7effefeff7effdffdfbdf7ffeffffffbaff7edbffbfeffff57bfffffffffff3ff3ffffff77bdfbfffedfcffefbfaf9fdfffffffdfeffbfff7fffffb3fdeff7fffffffdf7df3fffdf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "16",
@@ -1650,6 +1745,7 @@
               },
               {
                 "aggregation_bits": "0xffbdfbffffffffdfffdfbfbfeffffeffbfcffffbfffef5ffff7ffefbefffefbf7bdffe1ecffffb7ffdfdfdfafd3fffffff7fbffffffdff7fffff67fffbfdfffdfdffdffffebf4fff7dfffdfdffff9ffff9effff7f7fffdff7eefff7f3fc7f787ff7eef0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "17",
@@ -1667,6 +1763,7 @@
               },
               {
                 "aggregation_bits": "0xfff7fbe7fffffebff77e7ffffffbf9affffffbbfdfffbfffbffebdffff7ffd3f6bdfffbf8fffdfcdfffefeefef73fffeefffffffff7fbbffff3fdff33ff77fff6fffdbbdff5ff77fffffeffffefabffbffeff37ffdfffdffffb7fbffffffffffffffef18",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "35",
@@ -1684,6 +1781,7 @@
               },
               {
                 "aggregation_bits": "0xfdf6fffffff9bf7ef7bef7ffffdffefff72fffbde767fbfffffeffeffdf7ffdffefffeefff7effebfffadfffbffff7fffdfefff7fbffeffff3f9f7fff7ffcffffffffffffd7d7feffd73f7ffff7f3fffbbfff3ffff7e7ffffebf7bfaffbffe7fd7d7ff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "5",
@@ -1701,6 +1799,7 @@
               },
               {
                 "aggregation_bits": "0xbfffbdf76defbddb9ffe7ffbfffffbfbff7df7ffdffeffbffff6fffffffbffef5fffefbffdfff7f98effebbfffeafffff7fffffffb7effffffffffefffffffffffbaf6dfdfdbeffff7effffedffffdff73ffbfffedfebeff7be5f7f7ffff4fffff7f7b0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "40",
@@ -1718,6 +1817,7 @@
               },
               {
                 "aggregation_bits": "0xffbfbffbfdefbf3f6dffffefff5fff7f7b7bfbffffeffefffffffa7effffffffff7b9fb7ff77bdf7feffe5ffffffff7bffbffbeffffffdffefeffbffffdfbddffe7dfef9ffbeeeff7fb7fefffbf9f7ffbf7fbdffbf7ffffdfffffd79deffffff3ffff91b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "44",
@@ -1735,6 +1835,7 @@
               },
               {
                 "aggregation_bits": "0xbfdfbfbffbffadfffff7fffbb6ffffe7df7f7afffffe7ddfffbfefffffeffff7febfffebffffbd77fbbefdffffbfffffbfedfd6f7f7feafffff7ffffe77fff5f7ffbfffffe7eff7fff7bbeddffff5fefffc7bebefffffff9f7ffffefff7ffdfffeffde1e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "24",
@@ -1752,6 +1853,7 @@
               },
               {
                 "aggregation_bits": "0xf4f7ff7ffefff7ffffffdbeffffff7dfd3fe3abffffffe7ebffffef7ffffefff7fbfb7777eedffffcfe7fffff8bdb5f6bffffdfffdffeff7f9bd7fbffff6f7ffff7ffffd5f7fffbffafffefff7effb8fdfffffffeffffdfbfffffdfffff7fff7ffdff70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "1",
@@ -1769,6 +1871,7 @@
               },
               {
                 "aggregation_bits": "0x7efff7bffdffffefdfbfffffebf3fdeefe73f77fdd7e7ffff7dff67ff7fffeffffffff7fffdfffffffb7fffff1effceffcbfffff7dfffff9fff5ffdeffd7ffffff7e7dfffffcfdffffdbfffefffff3ff7f7fbfbfeff1ff7efd3efdfeffcfbfffff3eff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "3",
@@ -1786,6 +1889,7 @@
               },
               {
                 "aggregation_bits": "0xcfbf8fffe6fffd7ffdd2ffee7dffff3fbff7efdffe7ff3bfffffffffebefffffdf7fffffffbdfafbf7fbfffffff77ffbffffdef7fffefbffefffffabfffffdffbfeffdfefeffffffeffffdfffee7f37fbdffdfbfefff77fba7f6fdfbfb6ebbffdffbff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "42",
@@ -1803,6 +1907,7 @@
               },
               {
                 "aggregation_bits": "0x7dedbffffffebfffff7dbfdffffdfffcffffffffff7deffffcfffcf7fefeffdfeebefffbcfbdffdffddff9dffbebedffffefbfefffffefdfdfffffffff97fff7f7deeffddeffef9ffbfff7fbfffffffbbfffdfa9ffd3fefbffffffdfbffdbe5d7ddfff1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "25",
@@ -1820,6 +1925,7 @@
               },
               {
                 "aggregation_bits": "0xfffeffff7bdeffffdefbdfb7fffeffffffeff7dbd5fff7fdfeff7fffbfffffafdf7ff3bfffeff9bb7fef7fdf7fffffddffdfaffbdfdffdfffbffbeb3dfffffcf7ffbaf3d7bffffff1fd7bfff9ffffbfdffffefdefdcffffffffafffbffddffff7ffff70b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "29",
@@ -1837,6 +1943,7 @@
               },
               {
                 "aggregation_bits": "0xbff7dbff7effefdfffbbf6fffdff77dff7ffdffd7effff7fe7ffffffffffddfeff6dff7ff7fefffbb7affffefdfbf7ff6cff4ff7ffffffefbef7febffdffff5cffdfb7dbf7bfffbbfeffffefffefddef7ff7fffff7ff7fffef77fd2ffffffffcfbfef71b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "51",
@@ -1854,6 +1961,7 @@
               },
               {
                 "aggregation_bits": "0xdefffb4ffffffffbfebbbbbffffdfffffffdffeffffdfdff9fffffffb67dffffbbff7e2fffffffff7ffffff9fffffffdfeffaffdfffffdebffffbff2ffeffafbfffffd9be7fffdfdf7bf5f7ef7fdfffbfdfdfeff6ffff5cbff3f7fdf97f7debbdf76ef1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "27",
@@ -1871,6 +1979,7 @@
               },
               {
                 "aggregation_bits": "0xdf7ffd7ffeffbb7f5f7ffdffff73f95dffffeffeffdfefffdffeffffffffeffff5fbfbfffeefffedff7ffbeff7babfff736ffe7bfffff7fdf9ffcf7fb37df6fffeeffbefff7fbdfbfdffffef7f9fffefd7ffb5fffffbffffffdff77ffef6fddfbfffeb1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "50",
@@ -1888,6 +1997,7 @@
               },
               {
                 "aggregation_bits": "0x7ff7fbfbf9ffffffffffffbffcdffffffb3bdffffdfff7ffaffdffdffff7eff7fffffdf3ff7ffdf7f39fdfdffddffffafefffffed3dfff5fffefadffeffff7ffffdfffffadfffffffef77f6ff677fef7e7ffbfe9d85fdffff5d77efbb7fff9ffffffdf0a",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "37",
@@ -1905,6 +2015,7 @@
               },
               {
                 "aggregation_bits": "0xffdbd7fffff7e76fdf75fff3fbfffbf7fdffffffffbf7f5ffebdfff7fffdeff7efff7e3fdeffffff7fdfbfbfff7fdfbff7f2ffd7bfffffffffebff5beffffdefffc7cfbdeffffbff5dffd7fffeff8fffffc7ffdf1fff7fffffffaeef7ef8ffffffbf6f1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "21",
@@ -1922,6 +2033,7 @@
               },
               {
                 "aggregation_bits": "0xdffdf7dfbfafdfc7ffffffe7f77ffefdffffefffdbf7f7fffdaff3ffeff2ff7fdffe7bfff7ffdfedfffdffbfffff7eeffaf7fbffff77ff3dfb6f7b7fff5ffaef7ffffef7fd6f9fffffafffff7dfffda7fbbbfbdffffb7befffffefdfbffffffe47ffff1e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "53",
@@ -1939,6 +2051,7 @@
               },
               {
                 "aggregation_bits": "0xffdfbfeffe7ffff5d53ff7fe3ffffe65effe77ffdff7ffdffffffbffaff6effbfefef7ffee7e76ffbc7bfffeffefdffbdfffeffbfb37bf7effe7dffffffffdfff5fffffffffebfef7fff7ff9fbf7fcdffff77bffffff7bfdfffff3ffffff9ffffdbec70f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "22",
@@ -1956,6 +2069,7 @@
               },
               {
                 "aggregation_bits": "0xfdf7ffffbbceedffeffbebef5fdffffdedffff7b57ebff5edffefbfffeffdffffffa6ffff9d9dfffffefeffbfbdefff7ffffff3ffffffffeffdfffbefffff6fffbfbfffefebbe7ffe7af7f7fefff477fd73fdfebcfdffffdfeddf7fff7ffdfcfe7dfff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "26",
@@ -1973,6 +2087,7 @@
               },
               {
                 "aggregation_bits": "0xffdeffbbdedfdfffffd97bffe9ffffff7fff8fffdffe5ffffdfdfffef4fbfeffffff7faffffffedbeefc7ffef7ef7ffef7fffd97ffffeff8fffffffffdff7ffffbbfcffedffffffaaf77e7fffefee79fbff7ffbbff7ff6ffd9fdeffefdfce5bff72ffd0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "3",
@@ -1990,6 +2105,7 @@
               },
               {
                 "aggregation_bits": "0xffd6fdff7fefbfbd7fd6ffbffdfdfdf7feffbd6fef5dfffffffffff6fbf6dffbe7dff777ffafffff94bf77effff7f7feffbf6fffffbbffcfff7f7fffffffffff2ffff7ff7fffffefbfffcddff6efffdff9effddc7f5dd7ef961ffff6fffbff3cffffff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "6",
@@ -2007,6 +2123,7 @@
               },
               {
                 "aggregation_bits": "0xfbcffdd7fbfddf8ffd9ffff753fff9fdffffffbff7ffefd67efffff7fdffffff6eff57fff9defffef7bfefff3ffffbb6fbbbfffbffeffb7ffffebbfffffe7edfdd76fbd7fffff7fbfeffff9f6f7deffbfbfffffffd3bfffeeaffffff7ffbedeffa7bbf0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "23",
@@ -2024,6 +2141,7 @@
               },
               {
                 "aggregation_bits": "0xfcbf7ffff5f7fdeefffffdbff7ffefad77ddff7fffebfeb7dfd3ff7fffffffd1dfbdbbf6fdf7eef78efbfffbffffeffdfff5fd3feddfbf7fbfffbed7fff9fdfbfffdefdff3ff9f7fff7fff7fff7ffffedfff7f7fffe7ff7fde77ff7fdfecdffff6fbfe0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "49",
@@ -2041,6 +2159,7 @@
               },
               {
                 "aggregation_bits": "0xfdfaffff7fadfefdffff6e3fbd1fdbdff5fdbed7fffb7ff7fffcfb6fed3fffffbeffefbffdfdffbfffbde7f77d7fbeeeffd77d7fff7f9fffdfefbfbffd6fffffbfbffffffdff7befdfcfffffff9fddf5feefff7fffffef5febffffdf9fffb2fdbff7ff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "50",
@@ -2058,6 +2177,7 @@
               },
               {
                 "aggregation_bits": "0xeff6fffd5bff7ffff3fffffffbfeffffbfffb1dfffffbfef5ffff6fffbf77bebfffbf7ed6f7fdffedfff377dafffffefeeffffd777b7f977eafbbffffffffff6efff5dff3ffbff87dffff3efeffefbfb7fffb3ff7d7fbffaeffecfffff7d59ffdfffbf09",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "18",
@@ -2075,6 +2195,7 @@
               },
               {
                 "aggregation_bits": "0xc9b7bddcfeffff7ffdfef7efbebfefffff7dfffdfdfffdb7fffdbfffdffffbbfb7fefe75fffdfbffefffe77fffffbedbfeff7effef7fffeefffffeddffb62bfeff7f77fff6ff3d77ffeff7ff7eeaabfffefffffbf6fef5ffb7bb6faf7f7ffecdedffff17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "48",
@@ -2092,6 +2213,7 @@
               },
               {
                 "aggregation_bits": "0xf4fdffffbf3f7fff77ffefffbfffffdffff7faff7bba5ffbffff9f7cdfffffd6f7ffcffbdb7ff5f7f77facfefaff1fff7e9efff99dffbfdfbdf6ffdc7b7effdb7ffffffbefe5f9f7bff7efeffffefffdefffbff799fe0ff7f77bffdddd7feffcffef570f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "55",
@@ -2109,6 +2231,7 @@
               },
               {
                 "aggregation_bits": "0xfeffffffdfbfeffffb9df9fbfffeffdfb7fdfdffdfbef766fdfffefeffcf4f9feffa7efaeabbeffff1ffed7fffffbbf5fd97fe6b4effddcfffbfeeed7bbbfcffdf777cbfdf7fefffff3bf3e63fbbcbafdff7ff65faffb7f77fffedfdb5fff915fffffe09",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "36",
@@ -2126,6 +2249,7 @@
               },
               {
                 "aggregation_bits": "0xb3b7c9ef7d71d37997c92bbf375bf9eff7befd34dbf7fdf7fffa7bfbdfeb7d6f78e6fe8edaff3ffd9adf4fb70f7f7fed5eddff765bbf3f77f3beedf6e3bffedc0fdf73dffd1f3cfa66f753fefeb7aad5afbffeebbddffd564f7ef333cfbcbeffeb7d3e0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "14",
@@ -2143,6 +2267,7 @@
               },
               {
                 "aggregation_bits": "0xf1dd73ffe8df317e75cdd18f36cfffe7e77eebff436957ddfae5aafef7eef7bfcef577df5738cb317b4fff769fdfef7ffe4dff6b9997effffbe7edf87fe6bed3dffaeff9df93cd67eb7f7bbdfafbf5fb5b67e95adb3dfcba7fabe7d77eeafbee7edabf0d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541627",
                   "index": "58",
@@ -2160,6 +2285,7 @@
               },
               {
                 "aggregation_bits": "0x3ee3e16be9d737bdb6baa8e9aff3e613edeae7f774a7edfcfefdcbbb7ef743395fe5fbf3fc6c29de73ffaf25cedc27e2f787b7d53ff69f35e0abf7d9a637d1ebefb5eb9b776f4ff523fdb7db77b6ee7ecd2f63337df7e695bef74762eb55fdfdff1f9a17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541629",
                   "index": "51",
@@ -2177,6 +2303,7 @@
               },
               {
                 "aggregation_bits": "0x3e2aa26408c1d481c7233feb97c1000a4a38915d00a0ca059cf4368eff76188f04faa6c1c2c08fe04b05d65100bd3271023495480b3b84234a3bc092b677fd2f6f203ad2707128a030941051cb8208a3a0278e23e7e39f4ec41448cc0e54761a6f2c090c",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541628",
                   "index": "20",
@@ -2194,6 +2321,7 @@
               },
               {
                 "aggregation_bits": "0x008402011422401800410a0042d80cba2ad01ac01a20528f0c901a0623209c084a280b0800821500cc400280a088408c033a10b04248480320061005140102108824242b8019006a12301820908a19000444021a49c1e8302860819c02132800618d4810",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541629",
                   "index": "51",
@@ -2502,6 +2630,7 @@
             "attestations": [
               {
                 "aggregation_bits": "0xffffffffffff7fffffffffdffddfffffffffffffffb7ffffffffffffffffffffffffefffff7ffffbfbdfffffffbf7fffffffffffffeffffffffffffffffbfffffffdfefffffffdffffffffffffffefdffbdf7ffffffefffdfffff7dffeffffffffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "19",
@@ -2519,6 +2648,7 @@
               },
               {
                 "aggregation_bits": "0xffffdff7fffffffffffffffffffffffffbfffffffffffbfffff3fffffffffffbbfffef7fffdfffffffffffef7ffb3fffdfffffdfff7effffdbf6ffeffffffffff7fffffffffffffdfffffffffff5ffffffffffffffffffffeffffff77f5ffefffffff71f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "33",
@@ -2536,6 +2666,7 @@
               },
               {
                 "aggregation_bits": "0xffffffff7dfffffffffffffffffeffffffffffffffffffffbcfbffdffffffffffffffefffbfffffdefffffffffffffefffffffffffffffeffffffffffffffbff7fffffffffffbfeffffffffffbfffbf7ffffffffffffffffffffffffffffffffbfffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "21",
@@ -2553,6 +2684,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "18",
@@ -2570,6 +2702,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "30",
@@ -2587,6 +2720,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "11",
@@ -2604,6 +2738,7 @@
               },
               {
                 "aggregation_bits": "0xffefffffdfffffd7fbbfbffffffffffffffffffffbfffffffffdfff7ff7f7bfffffffff7fffffffffffffff7ffffffffffffffffffedffffffffffdfffffddeffffffffffffffffffffffdfffffffffffefffffffffffffffffffefffffffffbffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "15",
@@ -2621,6 +2756,7 @@
               },
               {
                 "aggregation_bits": "0xfffdffffffffffffbffffff9ffebffbf5fbfefffffffffffffeffffffbfffefffdfffffef7ffffffffdfffffffffffffffffffffff9ffdffffffff7fffeeffffffffdff7fffe7f5fffcffffffffffffffffffffffbffff7afffffff5ffffffffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "61",
@@ -2638,6 +2774,7 @@
               },
               {
                 "aggregation_bits": "0x10000200402000000000000000040040200840000100000020100000100000000040000000000040000800000801000800020000000000000000000000040200000000000000000020000000000200000008000040000402000000004000000000200010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "61",
@@ -2655,6 +2792,7 @@
               },
               {
                 "aggregation_bits": "0xffffffffffffffff7ffdfbfffbff9effffffffffbf7fffffbfdfffdfffffffffffffffffffffffff7fb7bfffffffffbfffffffcbb5fdffffbfffffffffbffbffffffffffafffbffffebfefffffffffbcfffffffffffffffffefdfeeefffffbfff7ffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "18",
@@ -2672,6 +2810,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "22",
@@ -2689,6 +2828,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "38",
@@ -2706,6 +2846,7 @@
               },
               {
                 "aggregation_bits": "0xfdfffff7fffffffdffffff7ffffffffffffefffffff5fffffffbffffbfffffbffffffbfffffff7fbffffffefffffffffffffffffffffffff9feeffffffffffffffffffffdfffffbfffffffffdffffffdfffffffffdfbfeffbfefffbfd7fdfaffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "39",
@@ -2723,6 +2864,7 @@
               },
               {
                 "aggregation_bits": "0xffff3ffffffeefffdfffffeefffffbfffffbbffffffffffeb7ffffff7ffff7fffffdfffffffdfffffffffffffffbffffef9fffffffffffdfffefebfffff77f7ffbffffffffffffefeffffffffbfff7ffeffbffff7bffffffffffffffffffffffbf7ffb1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "12",
@@ -2740,6 +2882,7 @@
               },
               {
                 "aggregation_bits": "0xffefe6fffbfafdfdffbfffffbffffffbedffffff7fffbffffffffbfdffdfffffffffff7fb7ffffeffffffdfffdffffbff7ff7f77ffffbffffffbfd7fffffffffffefffbffdfff7fffffffff7ffffffffffffebffffffffdfffffbfffffffffffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "2",
@@ -2757,6 +2900,7 @@
               },
               {
                 "aggregation_bits": "0x7fbfffffffdffffffbffffeffffffffffffffdfdfffffffddfffffdf7fffffeffff7dffffffffffffffdffffffefffffdfffbfffffffffffbfffff9fffbffeffffffffffffffffffffffefffffbffffffffffffffffffffff7fffffffffffffbffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "5",
@@ -2774,6 +2918,7 @@
               },
               {
                 "aggregation_bits": "0xfffbfbfa7ffffffffffeeffff7ff7ffffffffef7fffff7ffffffffffffeffeffffffffbffffff7ff7ff7fffffffefffffffffff7fffffffeffffffffffffffeffbfbffdfdfffffffbdffffffffbfffbffff7fffffedfbfdffffffeffeffffffeffffbf17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "0",
@@ -2791,6 +2936,7 @@
               },
               {
                 "aggregation_bits": "0xffffcfffff77ffbfebff7ffeffffffffffff7ffbfffffffffffffff7fff7fff7fefffdf7fefdffffefffffffffffffbeffffffffffffffffffffffffffffffffeffffffffffffffffffffbfdffffffffffffbfeffffffffeffffffffffffff7fffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "62",
@@ -2808,6 +2954,7 @@
               },
               {
                 "aggregation_bits": "0xfffeffffffffdffdfefff7feffffffffffffffff7ffff7f7ffffffffdffb7ffff7ffffdffffff77ffff77feffffffffffff7ffffbfffbfffffb5ffffc7e7ffffff7ff7fdffffffffffefdeffffffbffbfffff7bffbfdf77ffff7ffffff7fffffffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "52",
@@ -2825,6 +2972,7 @@
               },
               {
                 "aggregation_bits": "0xf6bdffffefffffffffbfffdfdfbfffffffffffffffffffffffeffdffffff6feffffffffffffffffdffafffff7fffffdfbffffffdfffffffff7fffffffffff7fffff7dfffffffffff7feff7f7fffffaffbffffffff7fefffff7ffbf7f5fefffffdfffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "3",
@@ -2842,6 +2990,7 @@
               },
               {
                 "aggregation_bits": "0xbffeefdffffffffffffffffffffffffffedfffffffffff7fffffefebebffffffffffffbfffffefffefffeffffffffffffdfefffffffdffffffdffbffffffdfffeffeffcdf77fffffefdfdfffbfffeffffffffffffffffffff7fffdfffdfffffeffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "22",
@@ -2859,6 +3008,7 @@
               },
               {
                 "aggregation_bits": "0xdf3dffffffcffdffbff7ffeffffffbffffb7fdb5adff77bffffffefffeffffffefdfffffbf7fbfffffff9fefeffff7ffdfffdf7ffbffffffff7ffb7ffbffbffffebfefbfffffffffdffbfffffffffffffffbfffdfffffffffffffffbfffff7fff7ffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "41",
@@ -2876,6 +3026,7 @@
               },
               {
                 "aggregation_bits": "0xfffbbffffff77ffffdffffffffffffffffefffff7bfefbfff97ffffefffefffffbfffbdffedfffeffffffefffffffbfffffffffffbffffffffffdffffffffffffffffbffffffffffb7fffffffffdffffffbffffffffffffffffefffffffffdfeffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "29",
@@ -2893,6 +3044,7 @@
               },
               {
                 "aggregation_bits": "0xffff7fffffffffffffffffffffffffffffffffedf6ffffffffbffffffffffbdfffffffefffffffffffffffffeffffeffffffffebffffff7fffdffffbfffffffffffffff3ff7fffffffff7ffffbfffff7fffffffffffffffffffffffffeffffffffffff1e",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "4",
@@ -2910,6 +3062,7 @@
               },
               {
                 "aggregation_bits": "0xffefffffffffffffffbffffffffffbffffffffdffffffefff6bfdfffffffeffffffffffffffffff77ffffcfffbfbff7b7fffffffffffffffffff7fffffffffffffffffffdfffffffffffffff7efffffffff9fffffff7ffffffffffff7ffffffffffffe0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "34",
@@ -2927,6 +3080,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffffffdfffffffffffffffeffffffffffffffff7ffffffffffffffffdfffffffffbfffdffffffffffff7fffebfdfffffff7fbdfffdffdffefffffffffffbffffffffffffdfffbffffffffffffffdfffffdffffbffffeff7ffff6fefbfff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "9",
@@ -2944,6 +3098,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffd7ffffffffffffffffffffffdffffe9ffffffffffffffff7ffffffffdffbffffffffffdffffffbfffffffffbf7fffffff7ffffff7ffffffff7fffffbfbdfeffffffbfdffeffffffff7ff7effff7dfffffffbbfffffffffbffefffdfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "27",
@@ -2961,6 +3116,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "47",
@@ -2978,6 +3134,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffd7f7ffffffbffffbff7ffffffffffffffbfffffffffffffefffffffb7fffffbfffffffffff7fffffffffffffffff7ffdffffffffffffffeffffffffcffffffffd7f7fffefffffbfffffefb7efffffffffffffff9ffffffdff3fffffff7fff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "43",
@@ -2995,6 +3152,7 @@
               },
               {
                 "aggregation_bits": "0xfbf7ffffffffffffffffffffffffefffffff7ffffdefff7ffbffffffffdfffffffffffffd7fffffdefffbfffe7fffffffffffffebffffffffffffdfffffffbf5ffffffff7ffbffffffdffffffff7fffbefbeffffb7ffefffef7dff7efffffffffefbff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "38",
@@ -3012,6 +3170,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffbbfffffffffdffbffffffffddfbdfffffffbffaffffff7dfffbfffffffffffffffffffffbf7ff7bffffffffbfff7ffdbfffffffffffffffffbffffffffbfffbffffbffbfffdfffdffefffbffe7ffbfffffffffffffdfbfffbfdfbfffffdf7fd17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "37",
@@ -3029,6 +3188,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffff7fffffffdfffffbdf7fff7fb7fffffffffdffefffffffffffffffbfbffffffffffffffefe7fffdfffffefffffffffffffbffffffeffcfffffffffcfffffdbffffffff7ffffffeffffffffff7ffbfbf7bfefffffff7ffffffffffffd1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "20",
@@ -3046,6 +3206,7 @@
               },
               {
                 "aggregation_bits": "0xffffffffff7fbf7fffffffbef7efffffffdfffdffdfffefdffffffefdfffefbffffdffffffbafffdbffffffbffffdfffffffedfffefafffeffffffffffffffefffffff7fffdfdffffffffffbfffffffffffffffffffefef6fffffffbffbfffffffffbb1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "14",
@@ -3063,6 +3224,7 @@
               },
               {
                 "aggregation_bits": "0xdedfffffffffffffffefffffffffffdffef7fffffffffff77bffffffffe7fffdddfffffffffdffffbfeff7bfffffb7ffffffff7fffedffffffffffffdfffffffffffffffffbffffff6ffffffffffff76bfdffffffffffffffbf7fffbffdfffffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "55",
@@ -3080,6 +3242,7 @@
               },
               {
                 "aggregation_bits": "0xffffffdffdfffffffffffffffbfdffffffffffffffbfffbfefffffffffffff7fffffffffffffdffbffffbfffeffbffffffdffffffdffffff7bfffffffffffffffffafffff77fffff7fff7bfffffffffffbfffffffeffffffffbffffffffeefff7f3fff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "28",
@@ -3097,6 +3260,7 @@
               },
               {
                 "aggregation_bits": "0xffffffdffffedffffddf7fffff7ffffdffffffffffffffffffffffff7fffffffffffffffeffffff7f7ffffffffffefffffffffffffdffffffefefff7f7ffffbbbfffffffffffffffffffffffffffbfffbffffffffffdfffffffffffffffeffffffffdf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "25",
@@ -3114,6 +3278,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffdfffef3ffafffffffff7fffffdfff7fffffafff7ffffffbfffff77bffffffffeffffffbfffbffbf7ff7efeb7ffefbfff3ffdffbeeeffedffffff6fffffffffdfbffffddfffde7bff7fbffffffe7ffffbf97ffff3fbff9fffbfbff3fffffff9f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "17",
@@ -3131,6 +3296,7 @@
               },
               {
                 "aggregation_bits": "0x20268c690004828ea35012cb03c04242434c091104aa440049223002d59f0280c2223020bd0283c13046984d2420892800203001e44210e24a000a90805100148518346d1481305111c190410a2042a354418510c581a0c10a901230180303003c30470b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "17",
@@ -3148,6 +3314,7 @@
               },
               {
                 "aggregation_bits": "0xfffffff7ffffffffffdffffdfffffffeffffffffbffff7f7fdfb75fffffffedfbfff7ffff7ffdfff77fffffdffcffdffff7fffffffffbfffffefffeffffefff7fffffffbffff7fff7bffffffffffffffbbffff6ffb7fffff9bffffffefffffffbffbff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "60",
@@ -3165,6 +3332,7 @@
               },
               {
                 "aggregation_bits": "0xffdfbffff7fffffffefffefffffffffffffffdfffefffdefefff7ffff5fffeffffbfffffffffff77ffdfffffffffffffffbff7ffffffffff7f7ffffffefffffffff7fffbffffffffeffffffffffff7fffffefffefbfffffffffffffffbffffffffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "48",
@@ -3182,6 +3350,7 @@
               },
               {
                 "aggregation_bits": "0xfbffffffffbffeffffffffbfffffffffdf6dbfffffffffffffffff7ffffffffffffffb7fffffffeffdffffefffff7f3fefbffff7fffffbfffffdffff7fffdffffffdfffffffffffffeffffffffffffffff7ffffffffeff3fff7ffffffff7fdfffdf7fe1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "24",
@@ -3199,6 +3368,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffef7fffffffbfffffffdfffffbfffbfffffffffffffffeffffff7ffffffffffef5cffbedfffffffffff7f7dfeffffdfffffffffffbdfff7ffbfffffb6fffffffffffdfffff9fffbfffdffffffffffff77efbeffffffffffffffe7ffeffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "36",
@@ -3216,6 +3386,7 @@
               },
               {
                 "aggregation_bits": "0xfbbffdffffffffe77fffdffffbffff7ffffffffffff7ffefcff7f3fffffffff7fffdfffffffffffffffffffffffffdfff7ff7ffdffbf7fefffd7fffffbff7fffff7ffffffbfffffbfaffffffffffffffbfffff7fffbffeffffffffefffff3feffbffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "54",
@@ -3233,6 +3404,7 @@
               },
               {
                 "aggregation_bits": "0xffff7ffffffffffbffffffedffeffeffffffffffdbffbbffdffffbf7fffff7ffdffffffffffdff6fffff7fffdffffffffdfeffffbffff7ffffffffffffffffffbf7fffffffbfffff7ff7ffffffffffffffffffffffdeffffffffffffffbfffeffffeff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "53",
@@ -3250,6 +3422,7 @@
               },
               {
                 "aggregation_bits": "0xfffff7fbfefffbffffffffffeff7ffdfffffefeff7ffe7ffffffffffffffffffffd6ffffffff7fffffffffffffffffdffffbfefffefffefeffffbff5ffffffdfdfffffffffffffdfffbefdfffffffbffdfff7fffffffffffffdefffff7ff77feffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "49",
@@ -3267,6 +3440,7 @@
               },
               {
                 "aggregation_bits": "0xfdfffff3f7efdfffffffffeffffdffffffbfffdffef7ffffdfff7ffffbfffeffffbf7fffffff7fbff7fffffffbfffefdfffffffeffdfffffffffffffffffffb3ffffffef7fffbffffffffffff7fdfffffffdfffffbffffffeeffffffffffffffffffef0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "7",
@@ -3284,6 +3458,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffffffffffffdffffffffff5fffffffeffffbffff7ffbfff7fffffffffbfdfffbdffffdeffffffffffffffffffffdfffffff5ffffbfbffffffffffffffffffffffffffffffff7fbfffffffffffff5ffffffbfffdffddffffffffeff9fbf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "6",
@@ -3301,6 +3476,7 @@
               },
               {
                 "aggregation_bits": "0xffffff3ffbfffff75fffff3feeffdff3ffdfffbfebffeffffffeefff7fffffffffffffffdbfffff7fffffffffffff77bf7ffffffffff7fffbffdffffffbdfffbffffffdffffffffeefffff6fdfffffffeb7ffffffffffffff7fffffffffff7f3ffff7f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "58",
@@ -3318,6 +3494,7 @@
               },
               {
                 "aggregation_bits": "0xffffffffff7ffffdffffffffffbffffffff7ffffffffffffbffffbfb7fffef7bffffffd7bffdfffffffffffffffffffffefffffefffffffffeffffffbeffbfffbfffff7ff7fffffcffdffffffefffffffffffffbfffffeffdffffffdfffbfffffffffb0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "44",
@@ -3335,6 +3512,7 @@
               },
               {
                 "aggregation_bits": "0xfdfffffffffffffffffffffffffedffef7ffffff7fffff7fbfffffffbffffffffbf7fffffdffffffdefffffffffffbfffbbf7fffffdffffffffffffffbf7f3fffffbfbffffffffffffff7ffffdfffff6fffffffbfffffffdfffffffffffffffdfffeff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "47",
@@ -3352,6 +3530,7 @@
               },
               {
                 "aggregation_bits": "0xfffbffffffffbfffffbfff7fffefbffe7fffffffffffdfeffcfffffff7ffffff75fffdfffff7fbfffdfffffffffddffddfefffffffbfdfffffffffffffffdffffffffffffffbfffbf3ffffffffffefdffff7bffffffffffffffffff5ffffefffff7fff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "10",
@@ -3369,6 +3548,7 @@
               },
               {
                 "aggregation_bits": "0xff7ffffff7ffffffffffdfff7f7ffffffffffffffffffdfeefff7fffdfefffdffffffffffdfeffff7ffffffffffffb7fffffffffffffffffffffeffffdffffffffffffffffffffffffffffffffffdffbdef7fffef7df7fd7ffeffff7fddfffff7fffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "32",
@@ -3386,6 +3566,7 @@
               },
               {
                 "aggregation_bits": "0xffffffffffffffebff7ff5fffffffffffbeffffdffffbfffffffffffffffffffffffffffffcfffffffffdf7fffffffffffffeffffffffffffffff7ffffffffefffffffffffffffffffdfffffffff7fffffdfffffffffbdffffbfffffffffffffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "8",
@@ -3403,6 +3584,7 @@
               },
               {
                 "aggregation_bits": "0xf7bffffefff7dbf7fffff7fffffffffbffffffffffff7fffffffffb77ffffffffbfff7fbfeffffdfffffffffffffffffbffffffbffffffffffffffffffffffffcffffffffffffffffffdf7fffffeffffffffffffffffeffffffffff7fffffffd7fffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "30",
@@ -3420,6 +3602,7 @@
               },
               {
                 "aggregation_bits": "0xfedffdbfffff7ffffbfffffffffffff7fff7fb3edf7ffffbffffffffbffffffbffffffbfffffffefffffffffffdf7ffbfbfffffffffffffffffeefffffffffbfffffeff5fff7fffffffffffffffffdffffbfffffdfffffdffffffaffdfffbfffffdfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "31",
@@ -3437,6 +3620,7 @@
               },
               {
                 "aggregation_bits": "0xfffdfffffffffffeffefffffffffcffffffdff6fbdffffffffaffff7fffffeffff5fffffff7fffff7f7fffffffffffffffff7fbfbffffffefffbfffffdfffbffbffeffffbffbbfffffffffffff7df7fffefffff7fbfffffffffffffffdfffffef7cfff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "11",
@@ -3454,6 +3638,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffafffffffffffff7ffdff7ffffffd7ffff9ffffffffffffeff7ff7ffdfffffffffffffbffffffffdfffffff7efffffffffffefffeffffdfff7ffbfffffffffffffffffbfffffffffffffffff7ffffffff7ffeffd5fffffffbffffffffffffb1d",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "35",
@@ -3471,6 +3656,7 @@
               },
               {
                 "aggregation_bits": "0xfffffbfffffffdffffffffffffffbfefdfff77fffff7fffffbfffffbffffbfdffffffffffffffffffffffffffffffffffbfffafffffff7fffdfffdffffffffffffffdbf7bffefeff7fffffffffffffffffffffffffffffffffffffffffeefffdffdfff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "42",
@@ -3488,6 +3674,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "57",
@@ -3505,6 +3692,7 @@
               },
               {
                 "aggregation_bits": "0xbffbfbffffffffefffffffffffffffffffffffffffffffffffffe6fffffffffffffffffffffff7fffffffffffffffffdfffffffffffffffffffffbfffffffffffdffffbfffffffffffffffdfffffffffffffffffffffffffffffffffffff7fffffffff0b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "46",
@@ -3522,6 +3710,7 @@
               },
               {
                 "aggregation_bits": "0xffff7ffffdff7ffefffffff7ff7ffffffeffffcffefdfeff7ffffffffffffffffffffbffffbfff9fefffeffbfffefefffcdff7fffffffefffffff7bffbefffff7ffffffebffffffffdfefdff7fffbfffffffffbffffbfffbfffffffefeffdffffffe6f0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "1",
@@ -3539,6 +3728,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "3",
@@ -3556,6 +3746,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffff7ffffffb7ffffbffffffffffffff7fff5fffffffffffffffeeffffbfdffffefffffffffff5ffffffffffdfff7fffffffffffffffffffff7efffbfeff7fffffff7bfeffbffffbfefffffffbefde7fffefffffffbfffff7fffffffbfffedffb1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "63",
@@ -3573,6 +3764,7 @@
               },
               {
                 "aggregation_bits": "0xfffdfbffffffffffffffffffffffffffefefffffff77ffffffffffffffffffeffffffff7ffff7ffff7fffffffffffffdfffffffffedffdfffe7faffffffffffdffeffffffffffff7ffff7fbfdffffbfffffffffffffffffbffffffffffdeefffffffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "45",
@@ -3590,6 +3782,7 @@
               },
               {
                 "aggregation_bits": "0xfdffff7bdffff7fb7fffbffffffefffdfffffffff7ffffbfffbffffff7f7fefffffffd6fffffff7ffffffffffffcffffff73ffefffaf7f7fffff7ffaffd7fef7fffffffffff67fffbedf5ff7afeff7fbffffffffffbfffffffffbfffbf7ffdffff77ff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "16",
@@ -3607,6 +3800,7 @@
               },
               {
                 "aggregation_bits": "0xfffefffffebffffffff6ffffffffffffffdffffdfff7fffffffdfffffdfffeffffff9edffffffadfffefff7bfffddf7fffffefbbffffffffffffffcffffdffbfff7ffffbfbffffefffffffffffffbffff7ffffefbffffffffffefff7ffffffff7fffdf17",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "57",
@@ -3624,6 +3818,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffffffffffffdfffffffffffffdfffffffffffbfdffffffffff7ffff7bbfffffffffefefdfffbffffffff7fffffffffdffffffff7ffffbffffbfbffffffffffffffffdffff77fffffffff7ffffff7fffdffbf7fffffefffbfffffffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "40",
@@ -3641,6 +3836,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "40",
@@ -3658,6 +3854,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffbffffffffffffffffffffffffffeffdfffffff7dffffffdffffffffffffffffffffffffffffffffffffd7ffbfffefffffffffeffffffffffff7fffffbbffdfdffffffffffffffdffffffffffffefd7fff27ffffffffdffefffdffffffffbfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "51",
@@ -3675,6 +3872,7 @@
               },
               {
                 "aggregation_bits": "0xfffffbff7ffdffff77feffffffffffff7ff7ffffdffffefff7fffffffdfffffffffffbdffffffffbffffffffbfffffbfffffffcffff7ffffd7fbfff7ffffffffeefeffffffffffffffbdeffff5ffbfffffffeffffdfffffff7ffdffffdffffffffffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "26",
@@ -3692,6 +3890,7 @@
               },
               {
                 "aggregation_bits": "0xffffffdfffffdfffffebfffffbeffffffffffffffedfffffffffffbffffffff7ffffffffffffe5feffffffffbffffffffff7fffffef7fffff6fffffefff9ffffefffffffafffff7fffbcff7fbffbfffffffff7fffffdffffffffbbffffffffffeefffb0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "50",
@@ -3709,6 +3908,7 @@
               },
               {
                 "aggregation_bits": "0xfff7fffbffffffffffdfef9fff79ffffedfffff7fffbffefffffffffffffffffffffff7fffffffffffffffefffdfffbffeffffffffffffffeffffeffffefdfffff7fffffffafffffffd7f77ffff7fffffffffffffffffffbffffeffffffdfffdfffd7f0b",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "13",
@@ -3726,6 +3926,7 @@
               },
               {
                 "aggregation_bits": "0xffffff7f7ffffffffdffffffff7fff7bfffff7fffbffff7fffffffffffffffdff7fff7fffbdfffff7ffffffbdff5ffffeffffffffffdfffffe7ff7ffdffbfffbffffffffffffffffffffffffffbffbffffbffffffffffffbffeffbff7ffffffffcffff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "56",
@@ -3743,6 +3944,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "35",
@@ -3760,6 +3962,7 @@
               },
               {
                 "aggregation_bits": "0xfffffffffffffeffffffffffffffbffffffedffd3ffffffffffdfffffdffffffffffeffdffffffffffbfffffffdffffffffe7fffffbfdfffffffffffffbffffffffefeffffffffffffffffff5fbfff7ff7eff7bffdef7fffffdafaffffffeffddf7fbf0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "23",
@@ -3777,6 +3980,7 @@
               },
               {
                 "aggregation_bits": "0x040000000401840000000000100004000101012080100100020040040000000000144182001080000060000040201f202400000048410100000001000002000000010000011000280000800820022800000000408c808000302021020000100020000108",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "23",
@@ -3794,6 +3998,7 @@
               },
               {
                 "aggregation_bits": "0xfeffffbffffffffffffbfffffffffffffff7ffdfffedffdffffffff5fffffffffffffffffffff7fffffafffffffffffffffffffffbffbffffffff7fffffffff7fffffffffffffffffffbbfbfdbfffffbf7fff7fffffffbffffffdfbffd7fffefffdfff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541624",
                   "index": "59",
@@ -3811,6 +4016,7 @@
               },
               {
                 "aggregation_bits": "0x000040000088440080000000020202000000480000108000010000242004204002000020000000022800000000000004910000000000021000c00002000005380040000080000808010004a0400040000004204400010000a00800000001000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "6",
@@ -3828,6 +4034,7 @@
               },
               {
                 "aggregation_bits": "0x00001800000004810000900000020200000001100020040800001000800002000801200000000000000000440400000000000000000000000000000000000000040002000000000001020008000000400020400000008004000120000000000000000208",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "39",
@@ -3845,6 +4052,7 @@
               },
               {
                 "aggregation_bits": "0x2000000400000000000000001000000040000000000040000000010400001000000000000000000000000000000000004011000000002000000000000000000000000400000000002400000000000020000001000000000000000008000000000000000a",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "32",
@@ -3862,6 +4070,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "41",
@@ -3879,6 +4088,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000200000000000000000000000008000010000008000000804000000020001120000000000000100000000020100000002000000000000000000200200000080000000080000000000000000000000008000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "14",
@@ -3896,6 +4106,7 @@
               },
               {
                 "aggregation_bits": "0x08000000000000000000400000004000000040000041000000010000002050000000000000000400000800200000000004008000000000400000000801850000008000000000000010000000000000000010000000000000000001000000002800000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "53",
@@ -3913,6 +4124,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "37",
@@ -3930,6 +4142,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "12",
@@ -3947,6 +4160,7 @@
               },
               {
                 "aggregation_bits": "0x000004000000000000000080000000000000000000000001104000000400208040000004002202400300200000e0000000a84000804000040040080800100000088200000000000000000000000020000081806001000004800028000800010000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "15",
@@ -3964,6 +4178,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000100000000000010000000004000000040000000008000000001000000048000000004000080020800000000000000000000000008000000080010084000200080200000020000020008000000008000000000000001800002000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "2",
@@ -3981,6 +4196,7 @@
               },
               {
                 "aggregation_bits": "0x001400000000000000030040820020080000400000000002000400000000c00000000000000800020200130010000010000a0800000020080000000018000001010020080000000400000000000000002000004040100000000042000001000810000011",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "54",
@@ -3998,6 +4214,7 @@
               },
               {
                 "aggregation_bits": "0x08000004000000004001020010010002002020004000002140021584442a08480220048058808000274000280000020040400d02004004100540010400020500281000114000002400028000100008100820000030000000004608000000002280004109",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "41",
@@ -4015,6 +4232,7 @@
               },
               {
                 "aggregation_bits": "0xfff7eef3fbfffefdffffffbfffff5fffffbffffdfffffffffffffefff5ffffffdffffefffffffffbffffffffffffffffbfffbfffdfffffffffffffffffffffffbffffffffff7ffffffffff7fffff7feffffffffffffffffffffffffffffffffffff7ff0f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "8",
@@ -4032,6 +4250,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "5",
@@ -4049,6 +4268,7 @@
               },
               {
                 "aggregation_bits": "0x9400800000000101000080000080100000000002000000082000021000040500000040000000000400030800000200004000000004042002000000000000100002080000404000000008000020000100052000008d000040000100400000000000001014",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "17",
@@ -4066,6 +4286,7 @@
               },
               {
                 "aggregation_bits": "0x0000000000000000000001000004000000000500000000000000000000060010400000000004000000001080003000001000900000000000000400400080004015000000a00000200000140004000000000a000140802000020100000040000001000009",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "43",
@@ -4083,6 +4304,7 @@
               },
               {
                 "aggregation_bits": "0x00080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "8",
@@ -4100,6 +4322,7 @@
               },
               {
                 "aggregation_bits": "0x00110205200001020000000000000000001000000002000010004000000680000030020400000800400080011000101000001000000400200002000000000000000000000000000000000000000000000220004000000002030000000000000080000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "34",
@@ -4117,6 +4340,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "14",
@@ -4134,6 +4358,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "26",
@@ -4151,6 +4376,7 @@
               },
               {
                 "aggregation_bits": "0x0000000000100000000200000000000000002040200080020000000000000000200008000010040022000000010000202000000000000000000000000020000081000002804000100002600200400000400000002100000001004000000000004200a008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "57",
@@ -4168,6 +4394,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "29",
@@ -4185,6 +4412,7 @@
               },
               {
                 "aggregation_bits": "0xdffffffffeffffffff7fffffffffdfffffffffffffff7fffddfffffffbfefffe7ffb7feffffffffffffffffffffffdfffffffffffff7fffffffffffffffffffffffffffbfffffffffffdfffffffffffffbfffffffffff7ffbdfffffdffffffffffffdf1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "40",
@@ -4202,6 +4430,7 @@
               },
               {
                 "aggregation_bits": "0x00000013010000400800000008400000000000000040004000004000200600000000004001000020000000800030000004108000000000000010001000000000010000000000000085000000010080000000000000000000000000010000020002080012",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "13",
@@ -4219,6 +4448,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "43",
@@ -4236,6 +4466,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "32",
@@ -4253,6 +4484,7 @@
               },
               {
                 "aggregation_bits": "0x04004200000002000000100000000000000000002181080800040000000040802002000000c000000010000000040080000000100002000000001100080020080000040000100010000000000000000000000200000800010000a8000002000380288014",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "42",
@@ -4270,6 +4502,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000040000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "33",
@@ -4287,6 +4520,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "55",
@@ -4304,6 +4538,7 @@
               },
               {
                 "aggregation_bits": "0x20000000000000000000000004000004000000040000000000200000000000280000000000200800000002000008c00000000000000000000000000001000000002000008000000000000000000000008000800180020000040000000000004040008808",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "0",
@@ -4321,6 +4556,7 @@
               },
               {
                 "aggregation_bits": "0x0000000000000101000004210100000000024220000000040008000000010011000000000000000060000000000000008008000000001001200000011000800002800000080001004010000100400100000000000001020002000000000000000800000c",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "24",
@@ -4338,6 +4574,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "28",
@@ -4355,6 +4592,7 @@
               },
               {
                 "aggregation_bits": "0x0000220810000100000000000000808000000000000002080020090010100000c004500000220014002001100010000000200400000000004000040000004100000001000080000000000010000000000000000000000000100008000200200000800010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "31",
@@ -4372,6 +4610,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000240000000004000008000000000000010000000000000008000800020000000000100002000200401000000080000000000000801100000008408000020000000000000010000810000000400000000410000100000400400000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "47",
@@ -4389,6 +4628,7 @@
               },
               {
                 "aggregation_bits": "0x7ffffffdffffffff7ffffff7fffffffffffff7bffffffeffffff7ffffffffffffffffffffbfbbffffffffeff7fffffffffffffffffffbffbfeffffffefffbfffffefbffbffffffebffffffffffffffffffbaffdffffffbffeffffffbfffffffffeffff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "29",
@@ -4406,6 +4646,7 @@
               },
               {
                 "aggregation_bits": "0x020008000000200000001040200004000000000004200008100009000200000120420c000000000000000002001000000001000000004000000010002000400001008000200000182003002020000c200849012000000000120880000201000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "22",
@@ -4423,6 +4664,7 @@
               },
               {
                 "aggregation_bits": "0x24400004002000000090000020000000000040080000000000208050220100000000000000000000000002440000010008800000248000002000008000100000000240000400100100000900000001400000000000000010200020000c00000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "5",
@@ -4440,6 +4682,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000803008000000000000000000000004300000801000000200000000840000082004000000040000000000000001200400000000200400000002000000040040022000082000000000000800000002000000028000000000044182000400808",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "37",
@@ -4457,6 +4700,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "54",
@@ -4474,6 +4718,7 @@
               },
               {
                 "aggregation_bits": "0x00001000000000000400080100440001000000482080480000000001000000000000000000010000100440208000000000000400000000000010000220001000005000180004000000000000000041020008045000060200000000000000000300000108",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "63",
@@ -4491,6 +4736,7 @@
               },
               {
                 "aggregation_bits": "0x00200900000020100000000000000000000000000000400000014200000000000000200008000000000010000000c00040000000000048000000000000000000000820000002000000000000140020000000000002000000001000000100000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "10",
@@ -4508,6 +4754,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "51",
@@ -4525,6 +4772,7 @@
               },
               {
                 "aggregation_bits": "0x04002020048000000000000884800000100000000000400800040240000010000000000000020000000000000000000000400004100100000120000000400200100010082000000000000040806000010000000008000803000000000002000002000008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "26",
@@ -4542,6 +4790,7 @@
               },
               {
                 "aggregation_bits": "0x00000004001000020200100000000000001000000010000010001000000000000000000400200000000000000000802000000000000010000000000000040000010000000000000000000280000228000000000000000000200000000010020008200410",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "52",
@@ -4559,6 +4808,7 @@
               },
               {
                 "aggregation_bits": "0x01202000000000000000000101000000000000040000000240000000000800000084000091000000010000040800800002400004000000000000020000000200000080000000400030004000100000000002000000800000500000020000002000019014",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "46",
@@ -4576,6 +4826,7 @@
               },
               {
                 "aggregation_bits": "0x00000010402004000000000000000000040010000000000050000808000000000000040040000200000000000100000002000040004000004010000000000404000000001084000000000200002080040102000800000000000000000000080140108011",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "11",
@@ -4593,6 +4844,7 @@
               },
               {
                 "aggregation_bits": "0x0060900210850008245884d1011014c1da48d12048043100244c08483001096000122008245504b042805a0c0008980a04040000040117418c854390104801444402321c22033dd001403000087900002000904023aa682100a335408aca940414048c15",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "21",
@@ -4610,6 +4862,7 @@
               },
               {
                 "aggregation_bits": "0xf7fffffedffbffefffbfffffffffffffffffdffffefffffffffffffffefffff7fffffffbeffffbfffaff7fffbfffeffffdfffff7ffffbeffdffffffffffffff7ffffffffffeffffffef7afe7ffffffff6ff7ffbffffffffffffbff3fffebbff3fff7ff1f",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "9",
@@ -4627,6 +4880,7 @@
               },
               {
                 "aggregation_bits": "0x00000400000000200000000400000001010118010000000080120000008910000000002008020000800000004080000000002008000800800080000800040010200080000000000000000000008000000000804002400000000000000000200202000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "3",
@@ -4644,6 +4898,7 @@
               },
               {
                 "aggregation_bits": "0x00001044400200070000001000040000000840004000000000010000900000800008c00001010200000000600000000101000003000001000000000800000003000008000038201000000000018080480000084000000000022002000000209020201008",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "16",
@@ -4661,6 +4916,7 @@
               },
               {
                 "aggregation_bits": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010",
+                "committee_bits": "0x01",
                 "data": {
                   "slot": "1541623",
                   "index": "48",

@@ -89,19 +89,13 @@ class AttestationData(Nested, FromResponse):
 class BlockAttestationResponse(Nested, FromResponse):
     aggregation_bits: str
     data: AttestationData
-    committee_bits: str | None = None
-
-
-class BlockAttestationPhase0(Protocol):
-    aggregation_bits: str
-    data: AttestationData
-
-
-class BlockAttestationEIP7549(BlockAttestationPhase0):
     committee_bits: str
 
 
-type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
+class BlockAttestation(Protocol):
+    aggregation_bits: str
+    committee_bits: str
+    data: AttestationData
 
 
 @dataclass
