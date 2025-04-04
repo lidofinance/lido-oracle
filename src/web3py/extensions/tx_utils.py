@@ -2,8 +2,8 @@ import logging
 
 from eth_account.datastructures import SignedTransaction
 from eth_account.signers.local import LocalAccount
-from web3 import Web3
 from hexbytes import HexBytes
+from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
@@ -12,7 +12,6 @@ from web3.types import TxReceipt, Wei, TxParams, BlockData
 from src import variables, constants
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
-
 
 logger = logging.getLogger(__name__)
 
