@@ -24,8 +24,8 @@ def events():
 
 @pytest.fixture()
 def contract_event(events):
-    def get_logs(fromBlock, toBlock):
-        return [e for e in events if fromBlock <= e['blockNumber'] <= toBlock]
+    def get_logs(from_block, to_block):
+        return [e for e in events if from_block <= e['blockNumber'] <= to_block]
 
     return Mock(get_logs=Mock(side_effect=get_logs))
 
@@ -61,13 +61,13 @@ def test_get_events_in_range(contract_event):
     events = list(get_events_in_range(contract_event, 10, 28))
     assert len(events) == 4
     assert contract_event.get_logs.call_args_list == [
-        ({'fromBlock': 10, 'toBlock': 12},),
-        ({'fromBlock': 13, 'toBlock': 15},),
-        ({'fromBlock': 16, 'toBlock': 18},),
-        ({'fromBlock': 19, 'toBlock': 21},),
-        ({'fromBlock': 22, 'toBlock': 24},),
-        ({'fromBlock': 25, 'toBlock': 27},),
-        ({'fromBlock': 28, 'toBlock': 28},),
+        ({'from_block': 10, 'to_block': 12},),
+        ({'from_block': 13, 'to_block': 15},),
+        ({'from_block': 16, 'to_block': 18},),
+        ({'from_block': 19, 'to_block': 21},),
+        ({'from_block': 22, 'to_block': 24},),
+        ({'from_block': 25, 'to_block': 27},),
+        ({'from_block': 28, 'to_block': 28},),
     ]
 
 
@@ -75,7 +75,7 @@ def test_get_events_in_range(contract_event):
 def test_get_events_in_range_single_block(contract_event):
     events = list(get_events_in_range(contract_event, 25, 25))
     assert len(events) == 1
-    assert contract_event.get_logs.call_args == ({'fromBlock': 25, 'toBlock': 25},)
+    assert contract_event.get_logs.call_args == ({'from_block': 25, 'to_block': 25},)
 
 
 @pytest.mark.unit

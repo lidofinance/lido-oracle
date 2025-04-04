@@ -10,7 +10,6 @@ from _pytest.nodes import Item
 from eth_account import Account
 from faker.proxy import Faker
 from web3 import Web3
-from web3.middleware import construct_simple_cache_middleware
 from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
@@ -211,9 +210,14 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str):
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
         logger.info(f"TESTRUN Started fork on {port=} from {blockstamp_for_forking.block_number=}")
-        web3 = Web3(MultiProvider([f'http://127.0.0.1:{port}'], request_kwargs={'timeout': 5 * 60}))
+        web3 = Web3(
+            MultiProvider(
+                endpoint_urls=[f'http://127.0.0.1:{port}'],
+                request_kwargs={'timeout': 5 * 60},
+                cache_allowed_requests=True,
+            )
+        )
         tweak_w3_contracts(web3)
-        web3.middleware_onion.add(construct_simple_cache_middleware())
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
         web3.provider.make_request(RPCEndpoint('evm_setAutomine'), [True])
         # TODO: tx execution should somehow change corresponding block on CL
@@ -370,7 +374,7 @@ def hash_consensus_bin():
 
 
 @pytest.fixture()
-def new_hash_consensus(
+def new_hash_consensus(  # pylint: disable=too-many-positional-arguments
     forked_el_client,
     real_cl_client,
     frame_config,

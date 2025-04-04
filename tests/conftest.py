@@ -6,7 +6,6 @@ import pytest
 from _pytest.fixtures import FixtureRequest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
-from web3.middleware import construct_simple_cache_middleware
 from web3.types import Timestamp
 
 import src.variables
@@ -50,7 +49,7 @@ def update_responses_provider(responses_path) -> UpdateResponsesProvider:
 
 @pytest.fixture()
 def mock_provider(responses_path) -> ResponseFromFile:
-    provider = ResponseFromFile(responses_path)
+    provider = ResponseFromFile(responses_path, cache_allowed_requests=True)
     return provider
 
 
@@ -66,7 +65,6 @@ def provider(request, responses_path) -> UpdateResponsesProvider | ResponseFromF
 def web3(provider) -> Web3:
     web3 = Web3(provider)
     tweak_w3_contracts(web3)
-    web3.middleware_onion.add(construct_simple_cache_middleware())
 
     with provider.use_mock(Path('common/chainId.json')):
         _ = web3.eth.chain_id
@@ -120,6 +118,7 @@ def csm(web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
+    src.variables.CSM_MODULE_ADDRESS = "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
 
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment

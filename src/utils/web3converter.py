@@ -46,7 +46,8 @@ class Web3Converter:
         return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
 
     def get_epoch_by_timestamp(self, timestamp: int) -> EpochNumber:
-        return EpochNumber(self.get_slot_by_timestamp(timestamp) // self.chain_config.slots_per_epoch)
+        slot = self.get_slot_by_timestamp(timestamp)
+        return self.get_epoch_by_slot(slot)
 
     def get_slot_by_timestamp(self, timestamp: int) -> SlotNumber:
         return SlotNumber((timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot)

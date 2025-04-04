@@ -7,14 +7,12 @@ from urllib.parse import urljoin, urlparse
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
-
 from prometheus_client import Histogram
 from requests import Session, JSONDecodeError
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
-
 
 logger = logging.getLogger(__name__)
 

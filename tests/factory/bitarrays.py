@@ -1,41 +1,33 @@
 from typing import Sequence
 
-from pydantic import BaseModel
-from pydantic_factories import ModelFactory
+from polyfactory.factories.pydantic_factory import ModelFactory
+from pydantic import RootModel
 
 
-class BitList(BaseModel):
-    __root__: bytes
+class BitList(RootModel):
+    root: bytes
 
     def hex(self) -> str:
-        return f"0x{self.__root__.hex()}"
+        return f"0x{self.root.hex()}"
 
 
-class BitListFactory(ModelFactory):
-    __model__ = BitList
-
+class BitListFactory(ModelFactory[BitList]):
     @classmethod
     def build(
         cls,
-        factory_use_construct: bool = False,
-        set_indices: list[int] = [],
+        set_indices: list[int] = None,
         bits_count: int = 0,
-        **kwargs,
     ) -> BitList:
-        bit_list: list[bool] = []
-        for n in sorted(set_indices):
-            while len(bit_list) < n:
-                bit_list += [False]
-            bit_list += [True]
-
-        model = cls._get_model()
-        return model(
-            __root__=get_serialized_bytearray(
-                bit_list,
-                bits_count=bits_count or len(bit_list),
-                extra_byte=True,
-            )
+        set_indices = set_indices or []
+        bit_list: list[bool] = [False] * (max(set_indices, default=0) + 1)
+        for n in set_indices:
+            bit_list[n] = True
+        bytearray = get_serialized_bytearray(
+            bit_list,
+            bits_count=bits_count or len(bit_list),
+            extra_byte=True,
         )
+        return cls.__model__(bytes(bytearray))
 
 
 def get_serialized_bytearray(value: Sequence[bool], bits_count: int, extra_byte: bool) -> bytearray:
