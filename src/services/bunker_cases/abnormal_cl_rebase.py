@@ -181,9 +181,7 @@ class AbnormalClRebase:
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )
 
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
-            ref_blockstamp, self.lido_validators
-        )
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
 
         prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
             prev_blockstamp, prev_lido_validators

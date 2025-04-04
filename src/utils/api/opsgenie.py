@@ -30,7 +30,7 @@ class OpsGenieAPI:
         self,
         payload: dict,
     ) -> None:
-        """ Payload fields
+        """Payload fields
 
         https://docs.opsgenie.com/docs/alert-api#create-alert
 
@@ -53,9 +53,7 @@ class OpsGenieAPI:
             )
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.warning(
-                {'msg': f'OpsGenie is not available: {e}.'}
-            )
+            self.logger.warning({'msg': f'OpsGenie is not available: {e}.'})
 
 
 @functools.lru_cache(maxsize=1)

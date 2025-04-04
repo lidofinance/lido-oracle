@@ -29,7 +29,9 @@ class StakingRouterContract(ContractInterface):
         )
         return response
 
-    def get_all_node_operator_digests(self, module: StakingModule, block_identifier: BlockIdentifier = 'latest') -> list[NodeOperator]:
+    def get_all_node_operator_digests(
+        self, module: StakingModule, block_identifier: BlockIdentifier = 'latest'
+    ) -> list[NodeOperator]:
         """
         Returns node operator digests for each node operator in staking module
         """
@@ -43,13 +45,15 @@ class StakingRouterContract(ContractInterface):
                 EL_REQUESTS_BATCH_SIZE,
             ).call(block_identifier=block_identifier)
 
-            logger.info({
-                'msg': f'Call `getNodeOperatorDigests({module.id}, {i * EL_REQUESTS_BATCH_SIZE}, {EL_REQUESTS_BATCH_SIZE})`.',
-                # Too long response
-                'len': len(nos),
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            })
+            logger.info(
+                {
+                    'msg': f'Call `getNodeOperatorDigests({module.id}, {i * EL_REQUESTS_BATCH_SIZE}, {EL_REQUESTS_BATCH_SIZE})`.',
+                    # Too long response
+                    'len': len(nos),
+                    'block_identifier': repr(block_identifier),
+                    'to': self.address,
+                }
+            )
 
             i += 1
             response.extend(nos)
@@ -67,10 +71,12 @@ class StakingRouterContract(ContractInterface):
         """
         response = self.functions.getStakingModules().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getStakingModules()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getStakingModules()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response

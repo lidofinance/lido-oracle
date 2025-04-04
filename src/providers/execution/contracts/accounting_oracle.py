@@ -22,12 +22,14 @@ class AccountingOracleContract(BaseOracleContract):
         """
         response = self.functions.getProcessingState().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, AccountingProcessingState)
-        logger.info({
-            'msg': 'Call `getProcessingState()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getProcessingState()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     def submit_report_extra_data_empty(self) -> ContractFunction:

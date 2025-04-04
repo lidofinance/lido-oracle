@@ -13,7 +13,7 @@ from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
-    ORACLE_MEMBER_INFO
+    ORACLE_MEMBER_INFO,
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
@@ -43,6 +43,7 @@ class ConsensusModule(ABC):
 
     report_contract should contain getConsensusContract method.
     """
+
     report_contract: BaseOracleContract
 
     # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
@@ -73,18 +74,23 @@ class ConsensusModule(ABC):
                 config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH,
             )
         ):
-            raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
-                             f'Contract config: {config}\n'
-                             f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
+            raise ValueError(
+                'Contract chain config is not compatible with Beacon chain.\n'
+                f'Contract config: {config}\n'
+                f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}'
+            )
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> HashConsensusContract:
-        return cast(HashConsensusContract, self.w3.eth.contract(
-            address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
-            ContractFactoryClass=HashConsensusContract,
-            decode_tuples=True,
-        ))
+        return cast(
+            HashConsensusContract,
+            self.w3.eth.contract(
+                address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
+                ContractFactoryClass=HashConsensusContract,
+                decode_tuples=True,
+            ),
+        )
 
     def _get_consensus_contract_members(self, blockstamp: BlockStamp):
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -171,7 +177,7 @@ class ConsensusModule(ABC):
             is_submit_member = self.report_contract.has_role(
                 self.report_contract.submit_data_role(blockstamp.block_hash),
                 variables.ACCOUNT.address,
-                blockstamp.block_hash
+                blockstamp.block_hash,
             )
 
             if not is_member and not is_submit_member:
@@ -295,8 +301,12 @@ class ConsensusModule(ABC):
         if not member_info.is_fast_lane:
             # Check if current slot is newer than (member slot + slots_delay)
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
-                logger.info({'msg': f'Member is not in fast lane, so report will be postponed '
-                                    f'for [{member_info.fast_lane_length_slot}] slots.'})
+                logger.info(
+                    {
+                        'msg': f'Member is not in fast lane, so report will be postponed '
+                        f'for [{member_info.fast_lane_length_slot}] slots.'
+                    }
+                )
                 return None
 
             if HexBytes(member_info.current_frame_consensus_report) == report_hash:
@@ -318,11 +328,13 @@ class ConsensusModule(ABC):
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
             msg = 'Oracle`s hash differs from consensus report hash.'
-            logger.error({
-                'msg': msg,
-                'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
-                'report_hash': report_hash.hex(),
-            })
+            logger.error(
+                {
+                    'msg': msg,
+                    'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
+                    'report_hash': report_hash.hex(),
+                }
+            )
             return
 
         if self.is_main_data_submitted(latest_blockstamp):

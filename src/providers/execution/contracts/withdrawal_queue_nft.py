@@ -19,12 +19,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         Returns the amount of stETH in the queue yet to be finalized
         """
         response = self.functions.unfinalizedStETH().call(block_identifier=block_identifier)
-        logger.info({
-            'msg': 'Call `unfinalizedStETH()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `unfinalizedStETH()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -36,12 +38,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         """
         response = self.functions.bunkerModeSinceTimestamp().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `bunkerModeSinceTimestamp()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `bunkerModeSinceTimestamp()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -52,16 +56,20 @@ class WithdrawalQueueNftContract(ContractInterface):
         """
         response = self.functions.getLastFinalizedRequestId().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getLastFinalizedRequestId()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getLastFinalizedRequestId()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
-    def get_withdrawal_status(self, request_id: int, block_identifier: BlockIdentifier = 'latest') -> WithdrawalRequestStatus:
+    def get_withdrawal_status(
+        self, request_id: int, block_identifier: BlockIdentifier = 'latest'
+    ) -> WithdrawalRequestStatus:
         """
         Returns status for requests with provided ids
         request_id: id of request to check status
@@ -69,12 +77,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         response = self.functions.getWithdrawalStatus([request_id]).call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response[0], WithdrawalRequestStatus)
 
-        logger.info({
-            'msg': f'Call `getWithdrawalStatus({[request_id]})`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': f'Call `getWithdrawalStatus({[request_id]})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -85,12 +95,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         """
         response = self.functions.getLastRequestId().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getLastRequestId()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getLastRequestId()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -99,12 +111,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         Returns whether the withdrawal queue is paused
         """
         response = self.functions.isPaused().call(block_identifier=block_identifier)
-        logger.info({
-            'msg': 'Call `isPaused()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `isPaused()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -114,12 +128,14 @@ class WithdrawalQueueNftContract(ContractInterface):
         """
         response = self.functions.MAX_BATCHES_LENGTH().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `MAX_BATCHES_LENGTH()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `MAX_BATCHES_LENGTH()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
 
     @lru_cache(maxsize=1)
@@ -144,15 +160,17 @@ class WithdrawalQueueNftContract(ContractInterface):
         ).call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, BatchState)
 
-        logger.info({
-            'msg': 'Call `calculateFinalizationBatches({}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
-                share_rate,
-                timestamp,
-                max_batch_request_count,
-                batch_state,
-            ),
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `calculateFinalizationBatches({}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                    share_rate,
+                    timestamp,
+                    max_batch_request_count,
+                    batch_state,
+                ),
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response

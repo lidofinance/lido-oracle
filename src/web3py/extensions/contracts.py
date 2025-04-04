@@ -8,6 +8,7 @@ from web3.types import Wei
 
 from src import variables
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
+from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
@@ -16,6 +17,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
@@ -30,6 +32,7 @@ class LidoContracts(Module):
 
     lido_locator: LidoLocatorContract
     lido: LidoContract
+    accounting: AccountingContract
     accounting_oracle: AccountingOracleContract
     staking_router: StakingRouterContract
     validators_exit_bus_oracle: ExitBusOracleContract
@@ -37,6 +40,7 @@ class LidoContracts(Module):
     oracle_report_sanity_checker: OracleReportSanityCheckerContract
     oracle_daemon_config: OracleDaemonConfigContract
     burner: BurnerContract
+    vault_hub: VaultHubContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -60,7 +64,7 @@ class LidoContracts(Module):
         self.lido_locator: LidoLocatorContract = cast(
             LidoLocatorContract,
             self.w3.eth.contract(
-                address=variables.LIDO_LOCATOR_ADDRESS, # type: ignore
+                address=variables.LIDO_LOCATOR_ADDRESS,  # type: ignore
                 ContractFactoryClass=LidoLocatorContract,
                 decode_tuples=True,
             ),
@@ -71,6 +75,15 @@ class LidoContracts(Module):
             self.w3.eth.contract(
                 address=self.lido_locator.lido(),
                 ContractFactoryClass=LidoContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.accounting: AccountingContract = cast(
+            AccountingContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.accounting(),
+                ContractFactoryClass=AccountingContract,
                 decode_tuples=True,
             ),
         )
@@ -138,23 +151,40 @@ class LidoContracts(Module):
             ),
         )
 
+        self.vault_hub: VaultHubContract = cast(
+            VaultHubContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.vault_hub(),
+                ContractFactoryClass=VaultHubContract,
+                decode_tuples=True,
+            ),
+        )
+
     # --- Contract methods ---
     @lru_cache(maxsize=1)
     def get_withdrawal_balance(self, blockstamp: BlockStamp) -> WithdrawalVaultBalance:
         return self.get_withdrawal_balance_no_cache(blockstamp)
 
     def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> WithdrawalVaultBalance:
-        return WithdrawalVaultBalance(Wei(self.w3.eth.get_balance(
-            self.lido_locator.withdrawal_vault(blockstamp.block_hash),
-            block_identifier=blockstamp.block_hash,
-        )))
+        return WithdrawalVaultBalance(
+            Wei(
+                self.w3.eth.get_balance(
+                    self.lido_locator.withdrawal_vault(blockstamp.block_hash),
+                    block_identifier=blockstamp.block_hash,
+                )
+            )
+        )
 
     @lru_cache(maxsize=1)
     def get_el_vault_balance(self, blockstamp: BlockStamp) -> ELVaultBalance:
-        return ELVaultBalance(Wei(self.w3.eth.get_balance(
-            self.lido_locator.el_rewards_vault(blockstamp.block_hash),
-            block_identifier=blockstamp.block_hash,
-        )))
+        return ELVaultBalance(
+            Wei(
+                self.w3.eth.get_balance(
+                    self.lido_locator.el_rewards_vault(blockstamp.block_hash),
+                    block_identifier=blockstamp.block_hash,
+                )
+            )
+        )
 
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:

@@ -160,13 +160,15 @@ def pytest_runtest_logreport(report) -> None:
         if report.failed:
             check_name = report.nodeid
             reason = str(report.longrepr) if report.longrepr else 'Unknown failure reason'
-            opsgenie_api.send_opsgenie_alert({
-                'message': f'Oracle check: {check_name}',
-                'description': f'Reason: {reason}',
-                'priority': opsgenie_api.AlertPriority.MINOR.value,
-                'tags': ['oracle_checks', 'oracle'],
-                'details': {'alertname': 'OracleDailyChecks'},
-            })
+            opsgenie_api.send_opsgenie_alert(
+                {
+                    'message': f'Oracle check: {check_name}',
+                    'description': f'Reason: {reason}',
+                    'priority': opsgenie_api.AlertPriority.MINOR.value,
+                    'tags': ['oracle_checks', 'oracle'],
+                    'details': {'alertname': 'OracleDailyChecks'},
+                }
+            )
 
     if report.when == 'teardown':
         print()

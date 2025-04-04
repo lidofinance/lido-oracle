@@ -43,7 +43,9 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
 def sort_validators_to_eject(
     validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]],
 ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-    def _nog_validator_key(no_validator: tuple[NodeOperatorGlobalIndex, LidoValidator]) -> tuple[int, int, ValidatorIndex]:
+    def _nog_validator_key(
+        no_validator: tuple[NodeOperatorGlobalIndex, LidoValidator]
+    ) -> tuple[int, int, ValidatorIndex]:
         (module_id, no_id), validator = no_validator
         return module_id, no_id, validator.index
 

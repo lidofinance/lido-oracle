@@ -1,4 +1,5 @@
 """Execution node"""
+
 import pytest
 
 from src.providers.execution.contracts.deposit_contract import DepositContract
@@ -7,20 +8,23 @@ from src.utils.events import get_events_in_range
 get_deposit_count_abi = {
     "inputs": [],
     "name": "get_deposit_count",
-    "outputs": [
-        {'internalType': "bytes", 'name': "", 'type': "bytes"}
-    ],
+    "outputs": [{'internalType': "bytes", 'name': "", 'type': "bytes"}],
     "stateMutability": "view",
-    "type": "function"
+    "type": "function",
 }
 
-deposit_event_abi = {'anonymous': False, 'inputs': [
-    {'indexed': False, 'internalType': "bytes", 'name': "pubkey", 'type': "bytes"},
-    {'indexed': False, 'internalType': "bytes", 'name': "withdrawal_credentials", 'type': "bytes"},
-    {'indexed': False, 'internalType': "bytes", 'name': "amount", 'type': "bytes"},
-    {'indexed': False, 'internalType': "bytes", 'name': "signature", 'type': "bytes"},
-    {'indexed': False, 'internalType': "bytes", 'name': "index", 'type': "bytes"}
-], 'name': "DepositEvent", 'type': "event"}
+deposit_event_abi = {
+    'anonymous': False,
+    'inputs': [
+        {'indexed': False, 'internalType': "bytes", 'name': "pubkey", 'type': "bytes"},
+        {'indexed': False, 'internalType': "bytes", 'name': "withdrawal_credentials", 'type': "bytes"},
+        {'indexed': False, 'internalType': "bytes", 'name': "amount", 'type': "bytes"},
+        {'indexed': False, 'internalType': "bytes", 'name': "signature", 'type': "bytes"},
+        {'indexed': False, 'internalType': "bytes", 'name': "index", 'type': "bytes"},
+    ],
+    'name': "DepositEvent",
+    'type': "event",
+}
 
 
 @pytest.fixture
