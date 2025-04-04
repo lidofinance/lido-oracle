@@ -74,12 +74,9 @@ class BunkerService:
             logger.info({"msg": "Bunker ON. CL rebase is negative"})
             return True
 
-        consensus_version = self.w3.lido_contracts.accounting_oracle.get_consensus_version(blockstamp.block_hash)
         web3_converter = Web3Converter(chain_config, frame_config)
         high_midterm_slashing_penalty = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
             blockstamp,
-            consensus_version,
-            self.w3.cc.is_electra_activated,
             web3_converter=web3_converter,
             all_validators=all_validators,
             lido_validators=lido_validators,
