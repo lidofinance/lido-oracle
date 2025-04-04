@@ -119,26 +119,7 @@ class AccountingContract(ContractInterface):
                     payload.vaults_in_out_deltas,
                     withdrawal_share_rate,
                 ),
-                'value': {
-                    'withdrawals': response.withdrawals,
-                    'el_rewards': response.el_rewards,
-                    'ether_to_finalize_wq': response.ether_to_finalize_wq,
-                    'shares_to_finalize_wq': response.shares_to_finalize_wq,
-                    'shares_to_burn_for_withdrawals': response.shares_to_burn_for_withdrawals,
-                    'total_shares_to_burn': response.total_shares_to_burn,
-                    'shares_to_mint_as_fees': response.shares_to_mint_as_fees,
-                    'post_internal_shares': response.post_internal_shares,
-                    'post_internal_ether': response.post_internal_ether,
-                    'post_total_shares': response.post_total_shares,
-                    'post_total_pooled_ether': response.post_total_pooled_ether,
-                    'reward_distribution': {
-                        'recipients': response.reward_distribution.recipients,
-                        'moduleIds': response.reward_distribution.module_ids,
-                        'modulesFees': response.reward_distribution.modules_fees,
-                        'totalFee': response.reward_distribution.total_fee,
-                        'precisionPoints': response.reward_distribution.precision_points,
-                    }
-                },
+                'value': str(response),
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
             }
