@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 class OracleReportSanityCheckerContract(ContractInterface):
     abi_path = './assets/OracleReportSanityChecker.json'
 
-    @lru_cache(maxsize=1)
     def get_oracle_report_limits(self, block_identifier: BlockIdentifier = 'latest') -> OracleReportLimits:
         """
         Returns the limits list for the Lido's oracle report sanity checks

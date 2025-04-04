@@ -347,7 +347,7 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
-        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
+        orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits()
         return stuck_validators, exited_validators, orl
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
