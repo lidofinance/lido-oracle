@@ -5,7 +5,7 @@ from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX, 
+    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
