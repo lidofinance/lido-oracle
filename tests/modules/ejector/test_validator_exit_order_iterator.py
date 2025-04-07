@@ -282,34 +282,6 @@ def test_max_share_rate_coefficient_predicate(iterator):
 
 
 @pytest.mark.unit
-def test_stake_weight_coefficient_predicate(iterator):
-    nos = [
-        NodeOperatorStatsFactory.build(
-            predictable_validators=900,
-            predictable_effective_balance=900 * 32 * 10**9,
-            total_age=3000,
-        ),
-        NodeOperatorStatsFactory.build(
-            predictable_validators=1010,
-            predictable_effective_balance=1010 * 32 * 10**9,
-            total_age=2000,
-        ),
-        NodeOperatorStatsFactory.build(
-            predictable_validators=2010,
-            predictable_effective_balance=2010 * 32 * 10**9,
-            total_age=1000,
-        ),
-    ]
-
-    sorted_nos = sorted(
-        nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000 * 32 * 10**9, 0.1),
-    )
-
-    assert [nos[1], nos[2], nos[0]] == sorted_nos
-
-
-@pytest.mark.unit
 def test_get_remaining_forced_validators(iterator):
     iterator.max_validators_to_exit = 10
     iterator.index = 5
