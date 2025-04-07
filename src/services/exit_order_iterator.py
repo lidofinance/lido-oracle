@@ -55,7 +55,6 @@ class ValidatorExitIterator:
     exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
 
     max_validators_to_exit: int = 0
-    no_penetration_threshold: float = 0
 
     eth_validators_effective_balance: Gwei = Gwei(0)
 
@@ -156,10 +155,7 @@ class ValidatorExitIterator:
             self.blockstamp.block_hash,
         ).max_validator_exit_requests_per_report
 
-        self.no_penetration_threshold = self.w3.lido_contracts.oracle_daemon_config.node_operator_network_penetration_threshold_bp(
-            block_identifier=self.blockstamp.block_hash,
-        ) / TOTAL_BASIS_POINTS
-
+        self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
         self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(self.w3.cc.get_validators(self.blockstamp))
 
     @staticmethod
@@ -221,11 +217,6 @@ class ValidatorExitIterator:
             - self._no_force_predicate(node_operator),
             - self._no_soft_predicate(node_operator),
             - self._max_share_rate_coefficient_predicate(node_operator),
-            - self._stake_weight_coefficient_predicate(
-                node_operator,
-                self.eth_validators_effective_balance,
-                self.no_penetration_threshold,
-            ),
             - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),
         )
@@ -259,19 +250,6 @@ class ValidatorExitIterator:
 
         max_validators_count = int(max_share_rate * self.total_lido_validators)
         return max(node_operator.module_stats.predictable_validators - max_validators_count, 0)
-
-    @staticmethod
-    def _stake_weight_coefficient_predicate(
-        node_operator: NodeOperatorStats,
-        total_effective_balance: Gwei,
-        no_penetration: float,
-    ) -> int:
-        """
-        The higher coefficient the higher priority to eject validator
-        """
-        if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
-            return node_operator.total_age
-        return 0
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         validators = self.exitable_validators[(

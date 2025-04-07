@@ -26,11 +26,6 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
                 lambda response: check_value_type(response, int),
             ),
             (
-                'node_operator_network_penetration_threshold_bp',
-                None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
-            ),
-            (
                 'prediction_duration_in_slots',
                 None,
                 lambda response: check_value_type(response, int),

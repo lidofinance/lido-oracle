@@ -151,7 +151,6 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
-    iterator.no_penetration_threshold = 0.1
     iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator._load_blockchain_state = Mock()
 
