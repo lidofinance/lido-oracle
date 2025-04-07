@@ -1,6 +1,0 @@
-FROM ipfs/kubo:v0.34.0
-
-COPY ./010-pin-cids.sh /container-init.d/
-COPY ./entrypoint.sh /
-
-ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
