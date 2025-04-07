@@ -63,12 +63,10 @@ class ValidatorExitIterator:
     def __init__(
         self,
         w3: Web3,
-        consensus_version: int,
         blockstamp: ReferenceBlockStamp,
         seconds_per_slot: int,
     ):
         self.w3 = w3
-        self.consensus_version = consensus_version
         self.blockstamp = blockstamp
         self.seconds_per_slot = seconds_per_slot
 

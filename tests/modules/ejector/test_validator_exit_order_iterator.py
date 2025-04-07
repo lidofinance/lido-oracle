@@ -27,7 +27,6 @@ class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
 def iterator(web3, contracts, lido_validators):
     return ValidatorExitIterator(
         web3,
-        2,
         ReferenceBlockStampFactory.build(),
         12,
     )
@@ -190,6 +189,10 @@ def test_no_predicate(iterator):
         ),
     )
 
+    result = iterator._no_predicate(node_operator_1)
+
+    assert result == (-50, -75, -185, -100, 10)
+
     node_operator_2 = NodeOperatorStatsFactory.build(
         predictable_validators=2000,
         predictable_effective_balance=Gwei(100 * 32 * 10**9),
@@ -204,10 +207,10 @@ def test_no_predicate(iterator):
     )
 
     result = iterator._no_predicate(node_operator_2)
-    assert result == (-1950, -1975, -185, 0, -2000, 20)
+    assert result == (-1950, -1975, -185, -2000, 20)
 
     result = iterator._no_predicate(node_operator_1)
-    assert result == (-50, -75, -185, -1000, -100, 10)
+    assert result == (-50, -75, -185, -100, 10)
 
 
 @pytest.mark.unit
