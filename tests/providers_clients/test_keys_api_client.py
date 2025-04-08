@@ -103,12 +103,12 @@ class TestIntegrationKeysAPIClient:
         status = keys_api_client.get_status()
 
         assert Version(status.appVersion) >= constants.ALLOWED_KAPI_VERSION
-        assert status.chainId == 1
+        assert status.chainId == variables.CHAIN_ID
 
     def test_check_providers_consistency__mainnet(self, keys_api_client):
         chain_id = keys_api_client.check_providers_consistency()
 
-        assert chain_id == 1
+        assert chain_id == variables.CHAIN_ID
 
 
 @pytest.mark.unit

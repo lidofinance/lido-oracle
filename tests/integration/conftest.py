@@ -18,11 +18,11 @@ from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQue
 @pytest.fixture
 def web3_provider_integration(request):
     # Some tests can be executed only on mainnet, because of not trivial selected params
-    variables.LIDO_LOCATOR_ADDRESS = '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb'
+    variables.LIDO_LOCATOR_ADDRESS = variables.LIDO_LOCATOR_ADDRESS
 
     w3 = Web3(HTTPProvider(variables.EXECUTION_CLIENT_URI[0], request_kwargs={'timeout': 3600}))
 
-    assert w3.eth.chain_id == 1
+    assert w3.eth.chain_id == variables.CHAIN_ID
 
     return w3
 

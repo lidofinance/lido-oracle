@@ -9,6 +9,7 @@ from hexbytes import HexBytes
 from web3.types import Timestamp
 
 import src.variables
+from src import variables
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -117,8 +118,8 @@ def csm(web3):
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
-    src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
-    src.variables.CSM_MODULE_ADDRESS = "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+    src.variables.LIDO_LOCATOR_ADDRESS = variables.LIDO_LOCATOR_ADDRESS
+    src.variables.CSM_MODULE_ADDRESS = variables.CSM_MODULE_ADDRESS
 
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment
