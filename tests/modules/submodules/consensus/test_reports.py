@@ -44,7 +44,22 @@ def test_process_report_main(consensus, tx_utils, caplog):
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=1,
+        ref_slot=2,
+        validators_count=3,
+        cl_balance_gwei=4,
+        staking_module_ids_with_exited_validators=[5, 6],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=9,
+        el_rewards_vault_balance=10,
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        vaults_values=[],
+        vaults_in_out_deltas=[],
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     consensus.build_report = Mock(return_value=report_data)
 
@@ -58,7 +73,24 @@ def test_process_report_main(consensus, tx_utils, caplog):
 # ----- Hash calculations ----------
 @pytest.mark.unit
 def test_hash_calculations(consensus):
-    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    rd = ReportData(
+        consensus_version=1,
+        ref_slot=2,
+        validators_count=3,
+        cl_balance_gwei=4,
+        staking_module_ids_with_exited_validators=[5, 6],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=9,
+        el_rewards_vault_balance=10,
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        vaults_values=[],
+        vaults_in_out_deltas=[],
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
+    )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
     assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
@@ -180,7 +212,22 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=1,
+        ref_slot=2,
+        validators_count=3,
+        cl_balance_gwei=4,
+        staking_module_ids_with_exited_validators=[5, 6],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=9,
+        el_rewards_vault_balance=10,
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        vaults_values=[],
+        vaults_in_out_deltas=[],
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
@@ -222,7 +269,22 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=1,
+        ref_slot=2,
+        validators_count=3,
+        cl_balance_gwei=4,
+        staking_module_ids_with_exited_validators=[5, 6],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=9,
+        el_rewards_vault_balance=10,
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        vaults_values=[],
+        vaults_in_out_deltas=[],
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
