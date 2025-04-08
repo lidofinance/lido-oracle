@@ -445,8 +445,6 @@ def test_simulate_rebase_after_report(
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
-    accounting.w3.lido_contracts.accounting.handle_oracle_report = Mock(return_value=ReportResultsFactory.build())  # type: ignore
-
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
     assert isinstance(out, ReportResults), "simulate_rebase_after_report returned unexpected value"
 
