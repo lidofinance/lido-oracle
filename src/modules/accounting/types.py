@@ -91,15 +91,6 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
-
-@dataclass(frozen=True)
-class LidoReportRebase:
-    post_total_pooled_ether: int
-    post_total_shares: int
-    withdrawals: Wei
-    el_reward: Wei
-
-
 @dataclass
 class BatchState:
     remaining_eth_budget: int

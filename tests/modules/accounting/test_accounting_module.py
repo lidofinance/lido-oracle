@@ -10,7 +10,7 @@ from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
 from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import LidoReportRebase, AccountingProcessingState
+from src.modules.accounting.types import AccountingProcessingState, ReportResults
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
 from src.services.withdrawal import Withdrawal
@@ -19,7 +19,7 @@ from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
-from tests.factory.contract_responses import LidoReportRebaseFactory
+from tests.factory.contract_responses import ReportResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
 
 
@@ -139,7 +139,7 @@ def test_get_consensus_lido_state(accounting: Accounting):
     ],
 )
 def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, post_total_shares, expected_share_rate):
-    lido_rebase = LidoReportRebaseFactory.build(
+    lido_rebase = ReportResultsFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
     )
@@ -445,10 +445,8 @@ def test_simulate_rebase_after_report(
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
-    accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
-
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
-    assert isinstance(out, LidoReportRebase), "simulate_rebase_after_report returned unexpected value"
+    assert isinstance(out, ReportResults), "simulate_rebase_after_report returned unexpected value"
 
 
 @pytest.mark.unit

@@ -4,6 +4,7 @@ import pytest
 from web3 import Web3, HTTPProvider
 
 from src import variables
+from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
@@ -12,6 +13,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 
 
@@ -66,6 +68,15 @@ def accounting_oracle_contract(web3_provider_integration, lido_locator_contract)
 
 
 @pytest.fixture
+def accounting_contract(web3_provider_integration, lido_locator_contract) -> AccountingContract:
+    return get_contract(
+        web3_provider_integration,
+        AccountingContract,
+        lido_locator_contract.accounting(),
+    )
+
+
+@pytest.fixture
 def staking_router_contract(web3_provider_integration, lido_locator_contract) -> StakingRouterContract:
     return get_contract(
         web3_provider_integration,
@@ -116,4 +127,13 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
         web3_provider_integration,
         BurnerContract,
         lido_locator_contract.burner(),
+    )
+
+
+@pytest.fixture
+def vault_hub_contract(web3_provider_integration, lido_locator_contract):
+    return get_contract(
+        web3_provider_integration,
+        VaultHubContract,
+        lido_locator_contract.vault_hub(),
     )
