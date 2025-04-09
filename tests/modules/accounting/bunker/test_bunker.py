@@ -2,8 +2,9 @@ from typing import Iterable, Sequence
 from unittest.mock import Mock
 
 import pytest
+from web3.types import Wei
 
-from src.modules.accounting.types import ReportResults
+from src.modules.accounting.types import ReportResults, StakingRewardsDistribution
 from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
 from src.types import ReferenceBlockStamp
@@ -222,10 +223,28 @@ def test_get_cl_rebase_for_frame(
 
     blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = ReportResults(
-        withdrawals=0,
-        el_rewards=0,
+        withdrawals=Wei(0),
+        el_rewards=Wei(0),
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
+        ether_to_finalize_wq=0,
+        shares_to_finalize_wq=0,
+        shares_to_burn_for_withdrawals=0,
+        total_shares_to_burn=0,
+        shares_to_mint_as_fees=0,
+        reward_distribution=StakingRewardsDistribution(
+            recipients=[],
+            module_ids=[],
+            modules_fees=[],
+            total_fee=0,
+            precision_points=0,
+        ),
+        principal_cl_balance=0,
+        post_internal_shares=0,
+        post_internal_ether=0,
+        vaults_locked_ether=[],
+        vaults_treasury_fee_shares=[],
+        total_vaults_treasury_fee_shares=0,
     )
 
     result = bunker.get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)

@@ -145,6 +145,26 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     lido_rebase = ReportResultsFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
+        withdrawals=Wei(0),
+        el_rewards=Wei(0),
+        ether_to_finalize_wq=0,
+        shares_to_finalize_wq=0,
+        shares_to_burn_for_withdrawals=0,
+        total_shares_to_burn=0,
+        shares_to_mint_as_fees=0,
+        reward_distribution=StakingRewardsDistribution(
+            recipients=[],
+            module_ids=[],
+            modules_fees=[],
+            total_fee=0,
+            precision_points=0,
+        ),
+        principal_cl_balance=0,
+        post_internal_shares=0,
+        post_internal_ether=0,
+        vaults_locked_ether=[],
+        vaults_treasury_fee_shares=[],
+        total_vaults_treasury_fee_shares=[],
     )
 
     accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())
@@ -157,15 +177,9 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
             Withdrawal, 'get_finalization_batches', return_value=[]
     ):
-        share_rate, batches = accounting._get_finalization_batches(bs)
+        batches = accounting._get_finalization_batches(bs)
 
     assert batches == []
-    assert share_rate == expected_share_rate
-
-    if post_total_pooled_ether > post_total_shares:
-        assert share_rate > 10 ** 27
-    else:
-        assert share_rate <= 10 ** 27
 
 
 @pytest.mark.unit
@@ -533,7 +547,6 @@ def test_simulate_rebase_after_report(
 
     accounting.w3.lido_contracts.accounting = Mock()
 
-
     accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(return_value=ReportResults(
         withdrawals=Wei(0),
         el_rewards=Wei(0),
@@ -543,11 +556,11 @@ def test_simulate_rebase_after_report(
         total_shares_to_burn=0,
         shares_to_mint_as_fees=0,
         reward_distribution=StakingRewardsDistribution(
-                recipients=[],
-                module_ids=[],
-                modules_fees=[],
-                total_fee=0,
-                precision_points=0
+            recipients=[],
+            module_ids=[],
+            modules_fees=[],
+            total_fee=0,
+            precision_points=0
         ),
         principal_cl_balance=0,
         post_internal_shares=0,
