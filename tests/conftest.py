@@ -8,7 +8,7 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
-import src.variables
+import src
 from src import variables
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
