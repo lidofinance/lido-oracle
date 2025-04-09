@@ -11,8 +11,17 @@ from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
 from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import AccountingProcessingState, ReportResults, VaultData, VaultSocket, VaultsReport, \
-    VaultsData, VaultTreeNode, VaultsMap, StakingRewardsDistribution
+from src.modules.accounting.types import (
+    AccountingProcessingState,
+    ReportResults,
+    VaultData,
+    VaultSocket,
+    VaultsReport,
+    VaultsData,
+    VaultTreeNode,
+    VaultsMap,
+    StakingRewardsDistribution,
+)
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
 from src.providers.consensus.types import Validator, ValidatorState
@@ -60,7 +69,7 @@ def frame_config() -> FrameConfig:
 def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.get_blockstamp_for_report = Mock(return_value=None)
     assert (
-            accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ), "execute_module should wait for the next finalized epoch"
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
 
@@ -68,7 +77,7 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.process_report = Mock(return_value=None)
     accounting.process_extra_data = Mock(return_value=None)
     assert (
-            accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
+        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
     accounting.process_report.assert_called_once_with(bs)
@@ -136,9 +145,9 @@ def test_get_consensus_lido_state(accounting: Accounting):
 @pytest.mark.parametrize(
     ("post_total_pooled_ether", "post_total_shares", "expected_share_rate"),
     [
-        (15 * 10 ** 18, 15 * 10 ** 18, 1 * 10 ** 27),
-        (12 * 10 ** 18, 15 * 10 ** 18, 8 * 10 ** 26),
-        (18 * 10 ** 18, 14 * 10 ** 18, 1285714285714285714285714285),
+        (15 * 10**18, 15 * 10**18, 1 * 10**27),
+        (12 * 10**18, 15 * 10**18, 8 * 10**26),
+        (18 * 10**18, 14 * 10**18, 1285714285714285714285714285),
     ],
 )
 def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, post_total_shares, expected_share_rate):
@@ -175,7 +184,7 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     bs = ReferenceBlockStampFactory.build()
 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
-            Withdrawal, 'get_finalization_batches', return_value=[]
+        Withdrawal, 'get_finalization_batches', return_value=[]
     ):
         batches = accounting._get_finalization_batches(bs)
 
@@ -242,11 +251,11 @@ class TestAccountingProcessExtraData:
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
     def test_no_submit_if_can_submit_is_false(
-            self,
-            accounting: Accounting,
-            submit_extra_data_mock: Mock,
-            ref_bs: ReferenceBlockStamp,
-            bs: BlockStamp,
+        self,
+        accounting: Accounting,
+        submit_extra_data_mock: Mock,
+        ref_bs: ReferenceBlockStamp,
+        bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=False)
@@ -259,11 +268,11 @@ class TestAccountingProcessExtraData:
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
     def test_submit_if_can_submit_is_true(
-            self,
-            accounting: Accounting,
-            submit_extra_data_mock: Mock,
-            ref_bs: ReferenceBlockStamp,
-            bs: BlockStamp,
+        self,
+        accounting: Accounting,
+        submit_extra_data_mock: Mock,
+        ref_bs: ReferenceBlockStamp,
+        bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=True)
@@ -277,10 +286,10 @@ class TestAccountingProcessExtraData:
 
 class TestAccountingSubmitExtraData:
     def test_submit_extra_data_non_empty(
-            self,
-            accounting: Accounting,
-            ref_bs: ReferenceBlockStamp,
-            chain_config: ChainConfig,
+        self,
+        accounting: Accounting,
+        ref_bs: ReferenceBlockStamp,
+        chain_config: ChainConfig,
     ):
         extra_data = bytes(32)
 
@@ -296,10 +305,10 @@ class TestAccountingSubmitExtraData:
 
     @pytest.mark.unit
     def test_submit_extra_data_empty(
-            self,
-            accounting: Accounting,
-            ref_bs: ReferenceBlockStamp,
-            chain_config: ChainConfig,
+        self,
+        accounting: Accounting,
+        ref_bs: ReferenceBlockStamp,
+        chain_config: ChainConfig,
     ):
         accounting.get_extra_data = Mock(return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
@@ -324,11 +333,11 @@ class TestAccountingSubmitExtraData:
     ],
 )
 def test_can_submit_extra_data(
-        accounting: Accounting,
-        extra_data_submitted: bool,
-        main_data_submitted: bool,
-        expected: bool,
-        bs: BlockStamp,
+    accounting: Accounting,
+    extra_data_submitted: bool,
+    main_data_submitted: bool,
+    expected: bool,
+    bs: BlockStamp,
 ):
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
         return_value=Mock(
@@ -354,11 +363,11 @@ def test_can_submit_extra_data(
     ],
 )
 def test_is_contract_reportable(
-        accounting: Accounting,
-        main_data_submitted: bool,
-        can_submit_extra_data: bool,
-        expected: bool,
-        bs: BlockStamp,
+    accounting: Accounting,
+    main_data_submitted: bool,
+    can_submit_extra_data: bool,
+    expected: bool,
+    bs: BlockStamp,
 ):
     accounting.is_main_data_submitted = Mock(return_value=main_data_submitted)
     accounting.can_submit_extra_data = Mock(return_value=can_submit_extra_data)
@@ -370,8 +379,8 @@ def test_is_contract_reportable(
 
 @pytest.mark.unit
 def test_is_main_data_submitted(
-        accounting: Accounting,
-        bs: BlockStamp,
+    accounting: Accounting,
+    bs: BlockStamp,
 ):
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
         return_value=Mock(main_data_submitted=False)
@@ -390,8 +399,8 @@ def test_is_main_data_submitted(
 
 @pytest.mark.unit
 def test_build_report(
-        accounting: Accounting,
-        ref_bs: ReferenceBlockStamp,
+    accounting: Accounting,
+    ref_bs: ReferenceBlockStamp,
 ):
     REPORT = object()
 
@@ -410,9 +419,9 @@ def test_build_report(
 
 @pytest.mark.unit
 def test_get_shares_to_burn(
-        accounting: Accounting,
-        bs: BlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
+    accounting: Accounting,
+    bs: BlockStamp,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     shares_data = Mock(cover_shares=42, non_cover_shares=17)
     call_mock = accounting.w3.lido_contracts.burner.get_shares_requested_to_burn = Mock(return_value=shares_data)
@@ -420,7 +429,7 @@ def test_get_shares_to_burn(
     out = accounting.get_shares_to_burn(bs)
 
     assert (
-            out == shares_data.cover_shares + shares_data.non_cover_shares
+        out == shares_data.cover_shares + shares_data.non_cover_shares
     ), "get_shares_to_burn returned unexpected value"
     call_mock.assert_called_once()
 
@@ -450,9 +459,9 @@ def test_simulate_full_rebase(accounting: Accounting, ref_bs: ReferenceBlockStam
 
 @pytest.mark.unit
 def test_simulate_rebase_after_report(
-        accounting: Accounting,
-        ref_bs: ReferenceBlockStamp,
-        chain_config: ChainConfig,
+    accounting: Accounting,
+    ref_bs: ReferenceBlockStamp,
+    chain_config: ChainConfig,
 ):
     # NOTE: we don't test the actual rebase calculation here, just the logic of the method
     accounting.get_chain_config = Mock(return_value=chain_config)
@@ -496,47 +505,49 @@ def test_simulate_rebase_after_report(
     vaults_net_cash_flows: list[int] = [33000000000000000000, 2500000000000000000]
     tree_data: list[VaultTreeNode] = [
         ('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60', 99786510875371698360, 33000000000000000000, 0, 0),
-        ('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db', 2500000000000000000, 2500000000000000000, 0, 1)
+        ('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db', 2500000000000000000, 2500000000000000000, 0, 1),
     ]
     vaults: VaultsMap = {
-        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultData(vault_ind=0,
-                                                                                                     balance_wei=66951606691371698360,
-                                                                                                     in_out_delta=33000000000000000000,
-                                                                                                     shares_minted=0,
-                                                                                                     fee=0,
-                                                                                                     pending_deposit=0,
-                                                                                                     address='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
-                                                                                                     withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
-                                                                                                     socket=VaultSocket(
-                                                                                                         vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
-                                                                                                         share_limit=10000,
-                                                                                                         shares_minted=0,
-                                                                                                         reserve_ratio_bp=1000,
-                                                                                                         rebalance_threshold_bp=800,
-                                                                                                         treasury_fee_bp=500,
-                                                                                                         pending_disconnect=False)),
-        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(vault_ind=1,
-                                                                                                     balance_wei=2500000000000000000,
-                                                                                                     in_out_delta=2500000000000000000,
-                                                                                                     shares_minted=1,
-                                                                                                     fee=0,
-                                                                                                     pending_deposit=0,
-                                                                                                     address='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
-                                                                                                     withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
-                                                                                                     socket=VaultSocket(
-                                                                                                         vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
-                                                                                                         share_limit=10000,
-                                                                                                         shares_minted=1,
-                                                                                                         reserve_ratio_bp=1000,
-                                                                                                         rebalance_threshold_bp=800,
-                                                                                                         treasury_fee_bp=500,
-                                                                                                         pending_disconnect=False))}
-    mock_vaults_data: VaultsData = (
-        vaults_values,
-        vaults_net_cash_flows,
-        tree_data,
-        vaults
-    )
+        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultData(
+            vault_ind=0,
+            balance_wei=66951606691371698360,
+            in_out_delta=33000000000000000000,
+            shares_minted=0,
+            fee=0,
+            pending_deposit=0,
+            address='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+            withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
+            socket=VaultSocket(
+                vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+                share_limit=10000,
+                shares_minted=0,
+                reserve_ratio_bp=1000,
+                rebalance_threshold_bp=800,
+                treasury_fee_bp=500,
+                pending_disconnect=False,
+            ),
+        ),
+        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(
+            vault_ind=1,
+            balance_wei=2500000000000000000,
+            in_out_delta=2500000000000000000,
+            shares_minted=1,
+            fee=0,
+            pending_deposit=0,
+            address='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+            withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
+            socket=VaultSocket(
+                vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+                share_limit=10000,
+                shares_minted=1,
+                reserve_ratio_bp=1000,
+                rebalance_threshold_bp=800,
+                treasury_fee_bp=500,
+                pending_disconnect=False,
+            ),
+        ),
+    }
+    mock_vaults_data: VaultsData = (vaults_values, vaults_net_cash_flows, tree_data, vaults)
     accounting.w3.staking_vaults = Mock()
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
     accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
@@ -547,30 +558,28 @@ def test_simulate_rebase_after_report(
 
     accounting.w3.lido_contracts.accounting = Mock()
 
-    accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(return_value=ReportResults(
-        withdrawals=Wei(0),
-        el_rewards=Wei(0),
-        ether_to_finalize_wq=0,
-        shares_to_finalize_wq=0,
-        shares_to_burn_for_withdrawals=0,
-        total_shares_to_burn=0,
-        shares_to_mint_as_fees=0,
-        reward_distribution=StakingRewardsDistribution(
-            recipients=[],
-            module_ids=[],
-            modules_fees=[],
-            total_fee=0,
-            precision_points=0
-        ),
-        principal_cl_balance=0,
-        post_internal_shares=0,
-        post_internal_ether=0,
-        post_total_shares=0,
-        post_total_pooled_ether=0,
-        vaults_locked_ether=[0],
-        vaults_treasury_fee_shares=[0],
-        total_vaults_treasury_fee_shares=0
-    ))
+    accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(
+        return_value=ReportResults(
+            withdrawals=Wei(0),
+            el_rewards=Wei(0),
+            ether_to_finalize_wq=0,
+            shares_to_finalize_wq=0,
+            shares_to_burn_for_withdrawals=0,
+            total_shares_to_burn=0,
+            shares_to_mint_as_fees=0,
+            reward_distribution=StakingRewardsDistribution(
+                recipients=[], module_ids=[], modules_fees=[], total_fee=0, precision_points=0
+            ),
+            principal_cl_balance=0,
+            post_internal_shares=0,
+            post_internal_ether=0,
+            post_total_shares=0,
+            post_total_pooled_ether=0,
+            vaults_locked_ether=[0],
+            vaults_treasury_fee_shares=[0],
+            total_vaults_treasury_fee_shares=0,
+        )
+    )
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
     assert isinstance(out, ReportResults), "simulate_rebase_after_report returned unexpected value"
@@ -594,10 +603,10 @@ def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: 
 
 @pytest.mark.unit
 def test_is_bunker(
-        accounting: Accounting,
-        ref_bs: ReferenceBlockStamp,
-        chain_config: ChainConfig,
-        frame_config: FrameConfig,
+    accounting: Accounting,
+    ref_bs: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+    frame_config: FrameConfig,
 ):
     CL_REBASE = object()
     BUNKER = object()
