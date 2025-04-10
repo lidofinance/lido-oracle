@@ -101,6 +101,7 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
 @pytest.mark.unit
 def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
+    ejector.w3.lido_contracts.get_ejector_last_processing_ref_slot = Mock(return_value=ref_blockstamp)
     result = ejector.build_report(ref_blockstamp)
     _, ref_slot, _, _, data = result
     assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
@@ -108,6 +109,7 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
 
     ejector.build_report(ref_blockstamp)
     ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
+    ejector.w3.lido_contracts.get_ejector_last_processing_ref_slot.assert_called_once()
 
 
 class SimpleIterator:
@@ -197,7 +199,8 @@ class TestGetValidatorsToEject:
             assert result == [validators[0], *validators[2:]], "Unexpected validators to eject"
 
 
-@pytest.mark.unit
+@pytest.mark.mainnet
+@pytest.mark.possible_integration
 @pytest.mark.usefixtures("contracts")
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
@@ -565,7 +568,8 @@ class TestChurnLimit:
             ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
 
-@pytest.mark.unit
+@pytest.mark.mainnet
+@pytest.mark.possible_integration
 def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state(blockstamp.block_hash)
     assert isinstance(result, EjectorProcessingState), "Unexpected processing state response"

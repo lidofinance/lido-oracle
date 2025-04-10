@@ -35,8 +35,10 @@ def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_a
 @pytest.mark.unit
 def test_returns_empty_batch_if_there_is_no_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=False)
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused = Mock(return_value=False)
     result = subject.get_finalization_batches(True, 100, 0, 0)
 
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused.assert_called_once_with(subject.blockstamp.block_hash)
     assert result == []
 
 
@@ -45,6 +47,7 @@ def test_returns_empty_batch_if_paused(subject: Withdrawal):
     subject.w3.lido_contracts.withdrawal_queue_nft.is_paused = Mock(return_value=True)
     result = subject.get_finalization_batches(True, 100, 0, 0)
 
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused.assert_called_once_with(subject.blockstamp.block_hash)
     assert result == []
 
 
@@ -52,11 +55,15 @@ def test_returns_empty_batch_if_paused(subject: Withdrawal):
 def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=True)
     subject._get_available_eth = Mock(return_value=100)
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused = Mock(return_value=False)
 
     subject.safe_border_service.get_safe_border_epoch = Mock(return_value=0)
     subject._calculate_finalization_batches = Mock(return_value=[1, 2, 3])
 
-    assert subject.get_finalization_batches(True, 100, 0, 0) == [1, 2, 3]
+    result = subject.get_finalization_batches(True, 100, 0, 0)
+
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused.assert_called_once_with(subject.blockstamp.block_hash)
+    assert result == [1, 2, 3]
 
 
 @pytest.mark.unit
@@ -67,6 +74,7 @@ def test_no_available_eth_to_cover_wc(subject: Withdrawal):
 
     result = subject.get_finalization_batches(False, 100, 0, 0)
 
+    subject.w3.lido_contracts.withdrawal_queue_nft.is_paused.assert_called_once_with(subject.blockstamp.block_hash)
     assert result == []
 
 

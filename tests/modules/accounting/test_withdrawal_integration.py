@@ -26,6 +26,8 @@ def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_a
     return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
 
 
+@pytest.mark.mainnet
+@pytest.mark.integration
 def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)
