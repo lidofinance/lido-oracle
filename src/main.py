@@ -1,7 +1,10 @@
 import argparse
+import os
 import sys
 from typing import Iterator, cast
 
+import requests
+from eth_typing import HexStr
 from packaging.version import Version
 from prometheus_client import start_http_server
 
@@ -124,16 +127,48 @@ def main(module_name: OracleModule):
         instance.cycle_handler()
 
 
-def run_on_refslot(module_name: OracleModule, slot: int):
+def get_transactions(contract_address, selector: str, limit: int = 10):
+    etherscan_key = os.getenv('ETHERSCAN_API_KEY')
+    if etherscan_key is None:
+        raise ValueError('ETHERSCAN_API_KEY is not set')
+    url = f"https://api.etherscan.io/api?module=account&action=txlist&address={contract_address}&sort=desc&apikey={etherscan_key}"
+
+    response = requests.get(url, timeout=30)
+    data = response.json()
+
+    if data["status"] != "1":
+        logger.error("Error fetching transactions: %s", data["message"])
+        return []
+
+    transactions = data["result"]
+    successful_transactions = [tx for tx in transactions if tx.get("txreceipt_status") == "1"]
+    return [tx for tx in successful_transactions if tx["input"].startswith(selector)][:limit]
+
+
+def run_on_refslot(module_name: OracleModule):
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name)
     instance.check_contract_configs()
+    submit_report_fn = instance.report_contract.get_function_by_name("submitReportData")
+    selector = HexStr(submit_report_fn.selector)
 
-    block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(slot + 3 * 32)).root)
-    block_details = w3.cc.get_block_details(block_root)
-    bs = build_blockstamp(block_details)
+    txs = get_transactions(instance.report_contract.address, selector)
+    if not txs:
+        print("No submitReportData transactions found!")
+        sys.exit(0)
 
-    instance.refresh_contracts_and_run_cycle(bs)
+    print(f"✅ Found {len(txs)} submitReportData calls")
+
+    for tx in txs:
+        tx_hash = tx["hash"]
+        _, data = instance.report_contract.decode_function_input(tx["input"])
+        refslot = int(data['data']['refslot'])
+        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
+        print(data)
+        block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
+        block_details = w3.cc.get_block_details(block_root)
+        bs = build_blockstamp(block_details)
+        instance.refresh_contracts_and_run_cycle(bs)
 
 
 def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
@@ -186,13 +221,6 @@ def parse_args():
         default=None,
         help="Module name to check for a refslot execution."
     )
-    check_parser.add_argument(
-        "--refslot",
-        "-r",
-        type=str,
-        default=None,
-        help="Refslot parameter for the check module. If it is set it will run oracle on a specific refslot."
-    )
     for mod in OracleModule:
         if mod == OracleModule.CSM:
             continue
@@ -210,14 +238,14 @@ if __name__ == '__main__':
 
     module = OracleModule(args.module)
     if module is OracleModule.CHECK:
-        if args.refslot is None and args.name is None:
+        if args.name is None:
             errors = variables.check_uri_required_variables()
             variables.raise_from_errors(errors)
             sys.exit(execute_checks())
         else:
             errors = variables.check_all_required_variables(module)
             variables.raise_from_errors(errors)
-            run_on_refslot(args.name, args.refslot)
+            run_on_refslot(args.name)
             sys.exit(0)
 
     errors = variables.check_all_required_variables(module)
