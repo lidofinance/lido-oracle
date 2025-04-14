@@ -1,3 +1,4 @@
+import argparse
 import sys
 from typing import Iterator, cast
 
@@ -10,11 +11,12 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
 from src.modules.accounting.accounting import Accounting
-from src.modules.checks.checks_module import ChecksModule
+from src.modules.checks.checks_module import execute_checks
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
-from src.types import OracleModule
+from src.types import OracleModule, BlockRoot, SlotNumber
+from src.utils.blockstamp import build_blockstamp
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -33,25 +35,7 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
-def main(module_name: OracleModule):
-    build_info = get_build_info()
-    logger.info({
-        'msg': 'Oracle startup.',
-        'variables': {
-            **build_info,
-            'module': module_name,
-            **variables.PUBLIC_ENV_VARS,
-        },
-    })
-    ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
-    BUILD_INFO.info(build_info)
-
-    logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
-    start_pulse_server()
-
-    logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
-    start_http_server(variables.PROMETHEUS_PORT)
-
+def _construct_web3() -> Web3:
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(FallbackProviderModule(
         variables.EXECUTION_CLIENT_URI,
@@ -92,9 +76,10 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     add_requests_metric_middleware(web3)
+    return web3
 
-    logger.info({'msg': 'Sanity checks.'})
 
+def _construct_module(web3: Web3, module_name: OracleModule) -> Accounting | Ejector | CSOracle:
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
@@ -108,18 +93,47 @@ def main(module_name: OracleModule):
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
+    logger.info({'msg': 'Sanity checks.'})
     instance.check_contract_configs()
+    return instance
 
+
+def main(module_name: OracleModule):
+    build_info = get_build_info()
+    logger.info({
+        'msg': 'Oracle startup.',
+        'variables': {
+            **build_info,
+            'module': module_name,
+            **variables.PUBLIC_ENV_VARS,
+        },
+    })
+    ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
+    BUILD_INFO.info(build_info)
+
+    logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
+    start_pulse_server()
+
+    logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
+    start_http_server(variables.PROMETHEUS_PORT)
+    web3 = _construct_web3()
+    instance: Accounting | Ejector | CSOracle = _construct_module(web3, module_name)
     if variables.DAEMON:
         instance.run_as_daemon()
     else:
         instance.cycle_handler()
 
 
-def check():
-    logger.info({'msg': 'Check oracle is ready to work in the current environment.'})
+def run_on_refslot(module_name: OracleModule, slot: int):
+    w3 = _construct_web3()
+    instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name)
+    instance.check_contract_configs()
 
-    return ChecksModule().execute_module()
+    block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(slot + 3 * 32)).root)
+    block_details = w3.cc.get_block_details(block_root)
+    bs = build_blockstamp(block_details)
+
+    instance.refresh_contracts_and_run_cycle(bs)
 
 
 def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
@@ -155,19 +169,56 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
     yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
 
+def parse_args():
+    """
+    Parse command-line arguments using argparse.
+    The 'module' argument is restricted to valid OracleModule values.
+    """
+    valid_modules = [str(item) for item in OracleModule]
+
+    parser = argparse.ArgumentParser(description="Run the Oracle module process.")
+    subparsers = parser.add_subparsers(dest="module", required=True, help=f"Module to run. One of: {valid_modules}")
+    check_parser = subparsers.add_parser("check", help="Run the check module.")
+    check_parser.add_argument(
+        "--name",
+        "-n",
+        type=str,
+        default=None,
+        help="Module name to check for a refslot execution."
+    )
+    check_parser.add_argument(
+        "--refslot",
+        "-r",
+        type=str,
+        default=None,
+        help="Refslot parameter for the check module. If it is set it will run oracle on a specific refslot."
+    )
+    for mod in OracleModule:
+        if mod == OracleModule.CSM:
+            continue
+        subparsers.add_parser(mod.value(), help=f"Run the {mod.value()} module.")
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    module_name_arg = sys.argv[-1]
-    if module_name_arg not in OracleModule:
-        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {module_name_arg}.'
+    args = parse_args()
+    if args.module not in OracleModule:
+        msg = f'Last arg should be one of {[str(item) for item in OracleModule]}, received {args.module}.'
         logger.error({'msg': msg})
         raise ValueError(msg)
 
-    module = OracleModule(module_name_arg)
+    module = OracleModule(args.module)
     if module is OracleModule.CHECK:
-        errors = variables.check_uri_required_variables()
-        variables.raise_from_errors(errors)
-
-        sys.exit(check())
+        if args.refslot is None and args.name is None:
+            errors = variables.check_uri_required_variables()
+            variables.raise_from_errors(errors)
+            sys.exit(execute_checks())
+        else:
+            errors = variables.check_all_required_variables(module)
+            variables.raise_from_errors(errors)
+            run_on_refslot(args.name, args.refslot)
+            sys.exit(0)
 
     errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)

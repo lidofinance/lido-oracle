@@ -9,7 +9,6 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from src import variables
 from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
-
 _last_pulse = datetime.now()
 logger = logging.getLogger(__name__)
 
@@ -50,6 +49,7 @@ def start_pulse_server():
     If bot didn't call pulse for a while (5 minutes but should be changed individually)
     Docker healthcheck fails to do request
     """
+    logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
     server = HTTPServer(('localhost', variables.HEALTHCHECK_SERVER_PORT), RequestHandlerClass=PulseRequestHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

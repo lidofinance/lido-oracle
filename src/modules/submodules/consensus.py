@@ -390,8 +390,7 @@ class ConsensusModule(ABC):
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
-        report_hash = self.w3.keccak(encoded)
-        return report_hash
+        return self.w3.keccak(encoded)
 
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
