@@ -15,17 +15,17 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
             (
                 'handle_oracle_report',
                 (
-                    1721995211,  # timestamp
+                    1744632011,  # timestamp
                     86400,
-                    368840,
-                    9820580681659522000000000,
-                    1397139100547000000000,
+                    389746,
+                    9303747261167584000000000,
+                    1337759360109000000000,
                     119464421677104745350,
                     0,
                     accounting_oracle_contract.address,
                     20390705,
                     # Call depends on contract state
-                    '0xfdc77ad0ea1ed99b1358beaca0d9c6fa831443f7f4c183302d9e2f76e4c9d0cb',
+                    '0xfbd1037bb43913198d5c8415a1d059afde09bf0dc56e250f5ff2bd2410c16dd2',
                 ),
                 lambda response: check_value_type(response, LidoReportRebase),
             ),
