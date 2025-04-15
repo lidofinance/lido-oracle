@@ -58,7 +58,7 @@ class StakingVaults(Module):
         )
 
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
-        vault_count = self.vault_hub.get_vaults_count(blockstamp)
+        vault_count = self.vault_hub.get_vaults_count(blockstamp.block_number)
         pending_deposits = self.cl.get_pending_deposits(blockstamp)
         deposit_map = dict[str, int]()
 
@@ -70,16 +70,16 @@ class StakingVaults(Module):
 
         vaults = VaultsMap()
         for vault_ind in range(vault_count):
-            vault_socket = self.vault_hub.vault_socket(vault_ind, blockstamp)
+            vault_socket = self.vault_hub.vault_socket(vault_ind, blockstamp.block_number)
 
             balance_wei = self.w3.eth.get_balance(
                 self.w3.to_checksum_address(vault_socket.vault), block_identifier=blockstamp.block_hash
             )
 
             vault = self._load_vault(vault_socket.vault)
-            vault_in_out_delta = vault.in_out_delta(blockstamp)
+            vault_in_out_delta = vault.in_out_delta(blockstamp.block_number)
             print(vault_in_out_delta)
-            vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp)
+            vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp.block_number)
             print(vault_withdrawal_credentials)
 
             pending_deposit = 0
