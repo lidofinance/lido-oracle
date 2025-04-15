@@ -13,13 +13,13 @@ from web3.module import Module
 from web3.types import BlockIdentifier, EventData
 
 from src import variables
+from src.custom_types import BlockStamp, SlotNumber
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
 from src.utils.lazy_object_proxy import LazyObjectProxy
 from src.web3py.extensions.lido_validators import NodeOperatorId

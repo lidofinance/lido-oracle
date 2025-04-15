@@ -8,6 +8,7 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
+from src.custom_types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
@@ -19,7 +20,6 @@ from src.modules.submodules.exceptions import IsNotMemberException, Incompatible
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
@@ -44,6 +44,7 @@ class ConsensusModule(ABC):
     report_contract should contain getConsensusContract method.
     """
     report_contract: BaseOracleContract
+    run_past: bool = False
 
     # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
     COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
@@ -191,9 +192,22 @@ class ConsensusModule(ABC):
             current_frame_member_report=current_frame_member_report,
             deadline_slot=current_frame.report_processing_deadline_slot,
         )
-        logger.debug({'msg': 'Fetch member info.', 'value': mi})
+        logger.info({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
+
+    def _calculate_reference_blockstamp(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp:
+        converter = self._get_web3_converter(last_finalized_blockstamp)
+        member_info = self.get_member_info(self._get_latest_blockstamp())
+
+        bs = get_reference_blockstamp(
+            cc=self.w3.cc,
+            ref_slot=member_info.current_frame_ref_slot,
+            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+        )
+        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
+        return bs
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
@@ -202,6 +216,8 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed reference slot blockstamp in case contract is reportable.
         """
+        if self.run_past:
+            return self._calculate_reference_blockstamp(last_finalized_blockstamp)
         latest_blockstamp = self._get_latest_blockstamp()
 
         # Check if contract is currently reportable
@@ -210,7 +226,6 @@ class ConsensusModule(ABC):
             return None
 
         member_info = self.get_member_info(latest_blockstamp)
-        logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if current slot is higher than member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
@@ -222,17 +237,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return None
 
-        converter = self._get_web3_converter(last_finalized_blockstamp)
-
-        bs = get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
-            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
-        )
-        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
-
-        return bs
+        return self._calculate_reference_blockstamp(last_finalized_blockstamp)
 
     def _check_compatability(self, blockstamp: BlockStamp):
         """

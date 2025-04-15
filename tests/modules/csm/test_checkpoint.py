@@ -6,6 +6,7 @@ import pytest
 from faker import Faker
 
 import src.modules.csm.checkpoint as checkpoint_module
+from src.custom_types import EpochNumber, SlotNumber, ValidatorIndex
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
@@ -17,7 +18,6 @@ from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
-from src.types import EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (

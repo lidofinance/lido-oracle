@@ -1,9 +1,8 @@
 from eth_typing import HexStr
 
-from src.types import ValidatorIndex
+from src.custom_types import ValidatorIndex
 from src.utils.types import hex_str_to_bytes
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
-
 
 DATA_FORMAT_LIST = 1
 

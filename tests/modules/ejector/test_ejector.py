@@ -14,6 +14,7 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import (
     Ejector,
@@ -25,7 +26,6 @@ from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId

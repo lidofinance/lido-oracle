@@ -1,8 +1,8 @@
 import pytest
 
 from src.constants import UINT64_MAX
+from src.custom_types import NodeOperatorId
 from src.modules.csm.tree import StandardMerkleTree, Tree, TreeJSONEncoder
-from src.types import NodeOperatorId
 
 
 @pytest.fixture()

@@ -3,6 +3,7 @@ import logging
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
+from src.custom_types import BlockStamp, ReferenceBlockStamp, Gwei
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.validators import (
     ALL_VALIDATORS,
@@ -16,7 +17,6 @@ from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.services.bunker_cases.types import BunkerConfig
 from src.services.safe_border import filter_slashed_validators
-from src.types import BlockStamp, ReferenceBlockStamp, Gwei
 from src.utils.units import wei_to_gwei
 from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3

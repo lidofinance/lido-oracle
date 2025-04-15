@@ -9,6 +9,7 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.custom_types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.ejector import (
@@ -27,7 +28,6 @@ from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContr
 from src.services.exit_order_iterator import ValidatorExitIterator
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import (
@@ -66,9 +66,9 @@ class Ejector(BaseModule, ConsensusModule):
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, run_past: bool = False):
         self.report_contract: ExitBusOracleContract = w3.lido_contracts.validators_exit_bus_oracle
-
+        self.run_past = run_past
         super().__init__(w3)
 
         self.prediction_service = RewardsPredictionService(w3)

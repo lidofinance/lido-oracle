@@ -14,8 +14,8 @@ from src.constants import (
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
     SHARD_COMMITTEE_PERIOD,
 )
+from src.custom_types import EpochNumber, Gwei
 from src.providers.consensus.types import Validator, ValidatorState
-from src.types import EpochNumber, Gwei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:

@@ -8,13 +8,13 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
+from src.custom_types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
 from src.providers.ipfs import CIDv0, CID
-from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory

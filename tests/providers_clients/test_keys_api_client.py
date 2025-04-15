@@ -11,9 +11,9 @@ from web3 import Web3
 import src.providers.keys.client as keys_api_client_module
 from src import constants
 from src import variables
+from src.custom_types import StakingModuleAddress
 from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
-from src.types import StakingModuleAddress
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 

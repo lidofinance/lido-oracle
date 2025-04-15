@@ -11,13 +11,13 @@ from web3.exceptions import Web3Exception
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
+from src.custom_types import SlotNumber, BlockStamp, BlockRoot
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KeysOutdatedException
-from src.types import SlotNumber, BlockStamp, BlockRoot
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData

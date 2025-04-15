@@ -4,12 +4,12 @@ import sys
 from typing import Iterator, cast
 
 import requests
-from eth_typing import HexStr
 from packaging.version import Version
 from prometheus_client import start_http_server
 
 from src import constants
 from src import variables
+from src.custom_types import OracleModule, BlockRoot, SlotNumber
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
@@ -18,7 +18,6 @@ from src.modules.checks.checks_module import execute_checks
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
-from src.types import OracleModule, BlockRoot, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -82,17 +81,17 @@ def _construct_web3() -> Web3:
     return web3
 
 
-def _construct_module(web3: Web3, module_name: OracleModule) -> Accounting | Ejector | CSOracle:
+def _construct_module(web3: Web3, module_name: OracleModule, run_past: bool = False) -> Accounting | Ejector | CSOracle:
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
-        instance = Accounting(web3)
+        instance = Accounting(web3, run_past)
     elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
-        instance = Ejector(web3)
+        instance = Ejector(web3, run_past)
     elif module_name == OracleModule.CSM:
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
-        instance = CSOracle(web3)
+        instance = CSOracle(web3, run_past)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
@@ -147,28 +146,30 @@ def get_transactions(contract_address, selector: str, limit: int = 10):
 
 def run_on_refslot(module_name: OracleModule):
     w3 = _construct_web3()
-    instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name)
+    instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
     instance.check_contract_configs()
     submit_report_fn = instance.report_contract.get_function_by_name("submitReportData")
-    selector = HexStr(submit_report_fn.selector)
+    selector = '0x' + w3.keccak(text=submit_report_fn.abi_element_identifier)[:4].hex()
+    logger.info("Manual Selector: %s", selector)
 
     txs = get_transactions(instance.report_contract.address, selector)
     if not txs:
-        print("No submitReportData transactions found!")
+        logger.info("No submitReportData transactions found!")
         sys.exit(0)
 
-    print(f"✅ Found {len(txs)} submitReportData calls")
+    logger.info("Found %d submitReportData calls", len(txs))
 
     for tx in txs:
         tx_hash = tx["hash"]
         _, data = instance.report_contract.decode_function_input(tx["input"])
-        refslot = int(data['data']['refslot'])
-        print(f"🔹 Tx: {tx_hash} → X: {refslot}")
-        print(data)
+        refslot = int(data['data']['refSlot'])
+        print(f"Tx: {tx_hash} → X: {refslot}")
+        logger.info(data)
         block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
         block_details = w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         instance.refresh_contracts_and_run_cycle(bs)
+        instance = _construct_module(w3, module_name, True)
 
 
 def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
@@ -222,9 +223,9 @@ def parse_args():
         help="Module name to check for a refslot execution."
     )
     for mod in OracleModule:
-        if mod == OracleModule.CSM:
+        if mod == OracleModule.CHECK:
             continue
-        subparsers.add_parser(mod.value(), help=f"Run the {mod.value()} module.")
+        subparsers.add_parser(mod.value, help=f"Run the {mod.value} module.")
 
     return parser.parse_args()
 

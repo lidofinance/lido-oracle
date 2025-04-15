@@ -9,9 +9,9 @@ from src.constants import (
     MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD,
 )
+from src.custom_types import Gwei
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
-from src.types import Gwei
 from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,

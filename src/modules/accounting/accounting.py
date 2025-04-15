@@ -8,6 +8,7 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
+from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
@@ -36,7 +37,6 @@ from src.providers.execution.contracts.accounting_oracle import AccountingOracle
 from src.services.bunker import BunkerService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
@@ -59,8 +59,9 @@ class Accounting(BaseModule, ConsensusModule):
     """
     COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, run_past: bool = False):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
+        self.run_past = run_past
         super().__init__(w3)
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)

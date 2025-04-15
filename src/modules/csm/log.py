@@ -2,9 +2,9 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
+from src.custom_types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 from src.modules.csm.state import AttestationsAccumulator
 from src.modules.csm.types import Shares
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
 
 class LogJSONEncoder(json.JSONEncoder): ...

@@ -4,9 +4,9 @@ from eth_typing import ChecksumAddress, HexStr
 from web3 import Web3
 from web3.types import Wei, BlockIdentifier, StateOverride, StateOverrideParams
 
+from src.custom_types import SlotNumber
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
-from src.types import SlotNumber
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -60,7 +60,6 @@ class LidoContract(ContractInterface):
                 'error': repr(error),
             })
             hex_ref_slot = HexStr(hex(ref_slot))
-            
             return self._handle_oracle_report(
                 timestamp,
                 time_elapsed,

@@ -6,13 +6,13 @@ from eth_typing import HexStr
 from more_itertools import ilen
 
 from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
+from src.custom_types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_STUCK_VALIDATORS,
     ACCOUNTING_EXITED_VALIDATORS,
     ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.submodules.types import ChainConfig
-from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str

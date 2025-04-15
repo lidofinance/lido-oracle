@@ -7,11 +7,11 @@ from typing import Iterable, Sequence, TypeGuard
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT
+from src.custom_types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
-from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
