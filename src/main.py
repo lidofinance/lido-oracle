@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from typing import Iterator, cast
+from typing import Iterator, cast, Optional
 
 import requests
 from packaging.version import Version
@@ -81,17 +81,17 @@ def _construct_web3() -> Web3:
     return web3
 
 
-def _construct_module(web3: Web3, module_name: OracleModule, run_past: bool = False) -> Accounting | Ejector | CSOracle:
+def _construct_module(web3: Web3, module_name: OracleModule, refslot: Optional[int] = None) -> Accounting | Ejector | CSOracle:
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
-        instance = Accounting(web3, run_past)
+        instance = Accounting(web3, refslot)
     elif module_name == OracleModule.EJECTOR:
         logger.info({'msg': 'Initialize Ejector module.'})
-        instance = Ejector(web3, run_past)
+        instance = Ejector(web3, refslot)
     elif module_name == OracleModule.CSM:
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
-        instance = CSOracle(web3, run_past)
+        instance = CSOracle(web3, refslot)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
@@ -169,7 +169,7 @@ def run_on_refslot(module_name: OracleModule):
         block_details = w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         instance.refresh_contracts_and_run_cycle(bs)
-        instance = _construct_module(w3, module_name, True)
+        instance = _construct_module(w3, module_name, refslot)
 
 
 def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):

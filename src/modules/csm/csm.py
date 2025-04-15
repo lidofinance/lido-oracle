@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Iterator
+from typing import Iterator, Optional
 
 from hexbytes import HexBytes
 
@@ -64,10 +64,10 @@ class CSOracle(BaseModule, ConsensusModule):
     report_contract: CSFeeOracleContract
     module_id: StakingModuleId
 
-    def __init__(self, w3: Web3, run_past: bool = False):
+    def __init__(self, w3: Web3, refslot: Optional[int] = None):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
-        self.run_past = run_past
+        self.refslot = refslot
         super().__init__(w3)
         self.module_id = self._get_module_id()
 

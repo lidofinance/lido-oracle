@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import cast
+from typing import cast, Optional
 
 from eth_abi import encode
 from hexbytes import HexBytes
@@ -44,7 +44,7 @@ class ConsensusModule(ABC):
     report_contract should contain getConsensusContract method.
     """
     report_contract: BaseOracleContract
-    run_past: bool = False
+    refslot: Optional[int] = None
 
     # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
     COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
@@ -200,9 +200,12 @@ class ConsensusModule(ABC):
         converter = self._get_web3_converter(last_finalized_blockstamp)
         member_info = self.get_member_info(self._get_latest_blockstamp())
 
+        refslot = member_info.current_frame_ref_slot
+        if self.refslot:
+            refslot = self.refslot
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
+            ref_slot=refslot,
             ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
         )
@@ -216,7 +219,7 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed reference slot blockstamp in case contract is reportable.
         """
-        if self.run_past:
+        if self.refslot:
             return self._calculate_reference_blockstamp(last_finalized_blockstamp)
         latest_blockstamp = self._get_latest_blockstamp()
 
@@ -410,7 +413,10 @@ class ConsensusModule(ABC):
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        root = self.w3.cc.get_block_root('head').root
+        if self.refslot:
+            root = self.w3.cc.get_block_root(SlotNumber(self.refslot + 3 * 32)).root
+        else:
+            root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})

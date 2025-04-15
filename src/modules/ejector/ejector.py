@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from typing import Optional
 
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
@@ -66,9 +67,9 @@ class Ejector(BaseModule, ConsensusModule):
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
-    def __init__(self, w3: Web3, run_past: bool = False):
+    def __init__(self, w3: Web3, refslot: Optional[int] = None):
         self.report_contract: ExitBusOracleContract = w3.lido_contracts.validators_exit_bus_oracle
-        self.run_past = run_past
+        self.refslot = refslot
         super().__init__(w3)
 
         self.prediction_service = RewardsPredictionService(w3)

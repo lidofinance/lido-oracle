@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
 from time import sleep
+from typing import Optional
 
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
@@ -59,9 +60,9 @@ class Accounting(BaseModule, ConsensusModule):
     """
     COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
 
-    def __init__(self, w3: Web3, run_past: bool = False):
+    def __init__(self, w3: Web3, refslot: Optional[int] = None):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
-        self.run_past = run_past
+        self.refslot = refslot
         super().__init__(w3)
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
