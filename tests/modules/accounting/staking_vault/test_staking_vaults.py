@@ -128,11 +128,12 @@ class TestStakingVaults:
             ),
         ]
 
-        _, _, tree_data, _ = self.staking_vaults.get_vaults_data(validators, bs)
+        tree_data, _ = self.staking_vaults.get_vaults_data(validators, bs)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x8947e4ef0354707240394a85ca9c2dcad15f52c773a955a0b827f50f5afbb93b'
         assert got == expected
+        assert len(merkle_tree.root) == 32
 
         # proof_cid = self.StakingVaults.publish_proofs(merkle_tree, bs, vaults)
         # print(proof_cid)

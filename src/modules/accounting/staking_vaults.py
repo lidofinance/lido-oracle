@@ -189,7 +189,7 @@ class StakingVaults(Module):
                 }
             )
 
-        return vaults_values, vaults_net_cash_flows, tree_data, vaults
+        return tree_data, vaults
 
     def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults: VaultsMap) -> CID:
         data = self.get_vault_to_proof_map(tree, vaults)

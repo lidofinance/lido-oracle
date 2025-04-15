@@ -29,8 +29,8 @@ class ReportData:
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_values: list[int]  # -> TODO replace to TreeHash
-    vaults_in_out_deltas: list[int]  # TODO replace to Cid
+    tree_root: bytes
+    tree_cid: str
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -49,8 +49,8 @@ class ReportData:
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.is_bunker,
-            self.vaults_values,
-            self.vaults_in_out_deltas,
+            self.tree_root,
+            self.tree_cid,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,
@@ -140,6 +140,7 @@ class BeaconStat:
     beacon_validators: int
     beacon_balance: int
 
+bytes32 = bytes(32)
 
 @dataclass(frozen=True)
 class ReportValues:
@@ -151,8 +152,10 @@ class ReportValues:
     el_rewards_vault_balance: int
     shares_requested_to_burn: int
     withdrawal_finalization_batches: List[int]
-    vaults_values: List[int]
-    vaults_in_out_deltas: List[int]
+    vaults_total_treasury_fees_shares: int
+    vaults_total_deficit: int
+    vaults_data_tree_root: bytes32
+    vaults_data_tree_cid: str
 
 
 @dataclass(frozen=True)
@@ -209,5 +212,5 @@ class VaultData:
 
 
 VaultsMap = dict[ChecksumAddress, VaultData]
-type VaultsReport = tuple[list[int], list[int]]
-type VaultsData = tuple[list[int], list[int], list[VaultTreeNode], VaultsMap]
+type VaultsReport = tuple[bytes, str]
+type VaultsData = tuple[list[VaultTreeNode], VaultsMap]

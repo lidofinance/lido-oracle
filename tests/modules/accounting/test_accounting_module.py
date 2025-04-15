@@ -16,7 +16,6 @@ from src.modules.accounting.types import (
     ReportResults,
     VaultData,
     VaultSocket,
-    VaultsReport,
     VaultsData,
     VaultTreeNode,
     VaultsMap,
@@ -547,7 +546,7 @@ def test_simulate_rebase_after_report(
             ),
         ),
     }
-    mock_vaults_data: VaultsData = (vaults_values, vaults_net_cash_flows, tree_data, vaults)
+    mock_vaults_data: VaultsData = (tree_data, vaults)
     accounting.w3.staking_vaults = Mock()
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
     accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')

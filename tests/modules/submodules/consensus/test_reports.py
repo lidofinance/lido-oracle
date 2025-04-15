@@ -2,9 +2,12 @@ from unittest.mock import Mock
 
 import pytest
 from hexbytes import HexBytes
+from web3.types import Wei
+
 from src import variables
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
+from src.types import SlotNumber, Gwei, StakingModuleId
 from tests.conftest import Account
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -45,17 +48,17 @@ def test_process_report_main(consensus, tx_utils, caplog):
     consensus._send_report_hash = Mock()
     report_data = ReportData(
         consensus_version=1,
-        ref_slot=2,
+        ref_slot=SlotNumber(2),
         validators_count=3,
-        cl_balance_gwei=4,
-        staking_module_ids_with_exited_validators=[5, 6],
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
-        withdrawal_vault_balance=9,
-        el_rewards_vault_balance=10,
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
-        vaults_values=[],
-        vaults_in_out_deltas=[],
+        tree_root=bytes([0]),
+        tree_cid="tree_cid",
         is_bunker=True,
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
@@ -75,17 +78,17 @@ def test_process_report_main(consensus, tx_utils, caplog):
 def test_hash_calculations(consensus):
     rd = ReportData(
         consensus_version=1,
-        ref_slot=2,
+        ref_slot=SlotNumber(2),
         validators_count=3,
-        cl_balance_gwei=4,
-        staking_module_ids_with_exited_validators=[5, 6],
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
-        withdrawal_vault_balance=9,
-        el_rewards_vault_balance=10,
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
-        vaults_values=[],
-        vaults_in_out_deltas=[],
+        tree_root=bytes([0]),
+        tree_cid="tree_cid",
         is_bunker=True,
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
@@ -213,17 +216,17 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
         consensus_version=1,
-        ref_slot=2,
+        ref_slot=SlotNumber(2),
         validators_count=3,
-        cl_balance_gwei=4,
-        staking_module_ids_with_exited_validators=[5, 6],
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
-        withdrawal_vault_balance=9,
-        el_rewards_vault_balance=10,
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
-        vaults_values=[],
-        vaults_in_out_deltas=[],
+        tree_root=bytes([0]),
+        tree_cid="tree_cid",
         is_bunker=True,
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
@@ -270,17 +273,17 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
         consensus_version=1,
-        ref_slot=2,
+        ref_slot=SlotNumber(2),
         validators_count=3,
-        cl_balance_gwei=4,
-        staking_module_ids_with_exited_validators=[5, 6],
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
-        withdrawal_vault_balance=9,
-        el_rewards_vault_balance=10,
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
-        vaults_values=[],
-        vaults_in_out_deltas=[],
+        tree_root=bytes([0]),
+        tree_cid="tree_cid",
         is_bunker=True,
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),

@@ -28,14 +28,13 @@ from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportValues,
     ReportResults,
-    VaultsReport,
+    VaultsReport
 )
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
-from src.providers.ipfs import CID
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
 from src.types import (
@@ -196,8 +195,8 @@ class Accounting(BaseModule, ConsensusModule):
         return report_data
 
     def _get_newly_exited_validators_by_modules(
-        self,
-        blockstamp: ReferenceBlockStamp,
+            self,
+            blockstamp: ReferenceBlockStamp,
     ) -> tuple[list[StakingModuleId], list[int]]:
         """
         Calculate exited validators count in all modules.
@@ -210,8 +209,8 @@ class Accounting(BaseModule, ConsensusModule):
 
     @staticmethod
     def get_updated_modules_stats(
-        staking_modules: list[StakingModule],
-        exited_validators_by_no: dict[NodeOperatorGlobalIndex, int],
+            staking_modules: list[StakingModule],
+            exited_validators_by_no: dict[NodeOperatorGlobalIndex, int],
     ) -> tuple[list[StakingModuleId], list[int]]:
         """Returns exited validators count by node operators that should be updated."""
         module_stats: dict[StakingModuleId, int] = defaultdict(int)
@@ -276,15 +275,15 @@ class Accounting(BaseModule, ConsensusModule):
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
     def simulate_rebase_after_report(
-        self,
-        blockstamp: ReferenceBlockStamp,
-        el_rewards: Wei,
+            self,
+            blockstamp: ReferenceBlockStamp,
+            el_rewards: Wei,
     ) -> ReportResults:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
-        vaults_values, vaults_in_out_deltas = self._handle_vaults_report(blockstamp)
+        tree_root, tree_cid = self._handle_vaults_report(blockstamp)
 
         chain_conf = self.get_chain_config(blockstamp)
 
@@ -305,8 +304,10 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards,  # el_rewards_vault_balance
             self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
             withdrawal_finalization_batches,
-            vaults_values,
-            vaults_in_out_deltas,
+            0,  # vaults_total_treasury_fees_shares,
+            0,  # vaults_total_deficit,
+            tree_root,  # vaults_data_tree_root
+            str(tree_cid),  # vaults_data_tree_cid
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
@@ -393,27 +394,19 @@ class Accounting(BaseModule, ConsensusModule):
     # uploads tree's root, vaults' proofs
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         validators = self.w3.cc.get_validators(blockstamp)
-        vaults_values, vaults_net_cash_flows, tree_data, vaults = self.w3.staking_vaults.get_vaults_data(
+        tree_data, vaults = self.w3.staking_vaults.get_vaults_data(
             validators, blockstamp
         )
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
 
-        proof_cid: CID | None = None
-        try:
-            proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
-            logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error({'msg': "Could not publish proofs", 'error': e})
+        proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
+        logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
 
-        try:
-            if proof_cid is not None:
-                proof_tree = self.w3.staking_vaults.publish_tree(merkle_tree, blockstamp, proof_cid)
-                logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(proof_tree), 'treeHex': f"0x{merkle_tree.root.hex()}"})
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error({'msg': "Could not publish tree", 'error': e})
+        tree_cid = self.w3.staking_vaults.publish_tree(merkle_tree, blockstamp, proof_cid)
+        logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
-        return vaults_values, vaults_net_cash_flows
+        return merkle_tree.root, str(tree_cid)
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -433,20 +426,20 @@ class Accounting(BaseModule, ConsensusModule):
 
     @staticmethod
     def _combine_report_parts(
-        consensus_version: int,
-        blockstamp: ReferenceBlockStamp,
-        report_rebase_part: RebaseReport,
-        report_modules_part: tuple[list[StakingModuleId], list[int]],
-        report_wq_part: WqReport,
-        report_vaults_part: VaultsReport,
-        extra_data: ExtraData,
+            consensus_version: int,
+            blockstamp: ReferenceBlockStamp,
+            report_rebase_part: RebaseReport,
+            report_modules_part: tuple[list[StakingModuleId], list[int]],
+            report_wq_part: WqReport,
+            report_vaults_part: VaultsReport,
+            extra_data: ExtraData,
     ) -> ReportData:
         validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
             report_rebase_part
         )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
         is_bunker, finalization_batches = report_wq_part
-        vaults_values, vaults_in_out_deltas = report_vaults_part
+        tree_root, tree_cid = report_vaults_part
 
         return ReportData(
             consensus_version=consensus_version,
@@ -459,8 +452,8 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            vaults_values=vaults_values,
-            vaults_in_out_deltas=vaults_in_out_deltas,
+            tree_root=tree_root,
+            tree_cid=tree_cid,
             is_bunker=is_bunker,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,

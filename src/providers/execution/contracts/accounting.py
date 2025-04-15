@@ -33,8 +33,10 @@ class AccountingContract(ContractInterface):
             payload.el_rewards_vault_balance,
             payload.shares_requested_to_burn,
             payload.withdrawal_finalization_batches,
-            payload.vaults_values,
-            payload.vaults_in_out_deltas,
+            payload.vaults_total_treasury_fees_shares,
+            payload.vaults_total_deficit,
+            payload.vaults_data_tree_root,
+            payload.vaults_data_tree_cid,
         )
 
         response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(
@@ -45,7 +47,7 @@ class AccountingContract(ContractInterface):
 
         logger.info(
             {
-                'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                     payload.timestamp,
                     payload.time_elapsed,
                     payload.cl_validators,
@@ -54,8 +56,10 @@ class AccountingContract(ContractInterface):
                     payload.el_rewards_vault_balance,
                     payload.shares_requested_to_burn,
                     payload.withdrawal_finalization_batches,
-                    payload.vaults_values,
-                    payload.vaults_in_out_deltas,
+                    payload.vaults_total_treasury_fees_shares,
+                    payload.vaults_total_deficit,
+                    payload.vaults_data_tree_root,
+                    payload.vaults_data_tree_cid,
                     withdrawal_share_rate,
                 ),
                 'value': str(response),
