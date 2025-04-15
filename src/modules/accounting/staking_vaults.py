@@ -224,8 +224,9 @@ class StakingVaults(Module):
         output = {
             **dict(tree.dump()),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
-            "refSlof": bs.slot_number,
+            "refSlot": bs.slot_number,
             "blockNumber": bs.block_number,
+            "timestamp": bs.block_timestamp,
             "proofsCID": str(proofs_cid),
             "leafIndexToData": {
                 "0": "vault_address",
