@@ -2,8 +2,7 @@
 
 ### Init scripts
 
-Kubo [executes
-scripts](https://github.com/ipfs/kubo/blob/fd50eb0fc385ec35cc2269646182920849b3c9b5/bin/container_daemon#L53)
+Kubo [executes scripts](https://github.com/ipfs/kubo/blob/fd50eb0fc385ec35cc2269646182920849b3c9b5/bin/container_daemon#L53)
 found in the `/container-init.d/` in alphabetical order.
 
 #### `./010-set-conf.sh`
@@ -17,5 +16,6 @@ found in the `/container-init.d/` in alphabetical order.
 - Fetches the latest CSM CIDs to pin locally from github source
 - Pins all the files locally
 
-The script is used to bootstrap CIDs produced by CSM oracle. CRON job created to make sure the node
-pins the latest set of CIDs.
+The script is used to bootstrap CIDs produced by CSM oracle.
+
+CRON job created via entrypoint to make sure the node pins the latest set of CIDs.
