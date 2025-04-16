@@ -5,6 +5,7 @@ ENV API_PORT 5001
 
 ENV CHAIN mainnet
 
+COPY ./_pin-cids /usr/local/bin/_pin-cids
 COPY ./010-set-conf.sh /container-init.d/
 COPY ./020-pin-cids.sh /container-init.d/
 

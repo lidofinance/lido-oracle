@@ -8,7 +8,7 @@ set -e
 
 INIT_DIR=/container-init.d
 CRONTABS=$INIT_DIR/crontabs
-BOOTSTRAP_SCRIPT=$INIT_DIR/020-pin-cids.sh
+BOOTSTRAP_SCRIPT=/usr/local/bin/_pin-cids
 
 if [ ! -e $CRONTABS ]; then mkdir -p $CRONTABS; fi
 if [ ! -e $BOOTSTRAP_SCRIPT ]; then echo "Make sure $BOOTSTRAP_SCRIPT is mounted" && exit 1; fi
