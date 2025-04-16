@@ -36,6 +36,7 @@ jobs:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          TEST_CONSENSUS_CLIENT_URI: ${{ secrets.TEST_CONSENSUS_CLIENT_URI }}
 
   linters:
     runs-on: ubuntu-latest

@@ -268,8 +268,10 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
         for validator in validators:
             # only the first attestation is accounted
             # slot = 0 and committee = 0
-            expected = index == 0
-            assert validator.included is expected
+            if index == 0:
+                assert validator.included is True
+            else:
+                assert validator.included is False
 
 
 def test_checkpoints_processor_process_attestations_undefined_committee(
