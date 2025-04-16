@@ -168,6 +168,7 @@ def run_on_refslot(module_name: OracleModule):
         block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
         block_details = w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
+        instance.refslot = refslot
         instance.refresh_contracts_and_run_cycle(bs)
         instance = _construct_module(w3, module_name, refslot)
 
