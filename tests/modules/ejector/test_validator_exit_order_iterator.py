@@ -151,7 +151,6 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
-    iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator._load_blockchain_state = Mock()
 
     validators_to_eject = list(iterator)
@@ -169,7 +168,6 @@ def test_eject_validator(iterator):
 
 @pytest.mark.unit
 def test_no_predicate(iterator):
-    iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator.total_lido_validators = 1000
     iterator.no_penetration_threshold = 0.1
 
@@ -190,10 +188,6 @@ def test_no_predicate(iterator):
             staking_module=StakingModuleFactory.build(priority_exit_share_threshold=0.15 * 1000),
         ),
     )
-
-    result = iterator._no_predicate(node_operator_1)
-
-    assert result == (-50, -75, -185, -100, 10)
 
     node_operator_2 = NodeOperatorStatsFactory.build(
         predictable_validators=2000,

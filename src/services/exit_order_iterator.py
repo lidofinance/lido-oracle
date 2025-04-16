@@ -56,8 +56,6 @@ class ValidatorExitIterator:
 
     max_validators_to_exit: int = 0
 
-    eth_validators_effective_balance: Gwei = Gwei(0)
-
     def __init__(
         self,
         w3: Web3,
@@ -155,9 +153,6 @@ class ValidatorExitIterator:
             self.blockstamp.block_hash,
         ).max_validator_exit_requests_per_report
 
-        self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
-        self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(self.w3.cc.get_validators(self.blockstamp))
-
     @staticmethod
     def _calculate_effective_balance_non_exiting_validators(validators: list[Validator]) -> Gwei:
         return sum(
@@ -190,7 +185,6 @@ class ValidatorExitIterator:
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
 
-        self.eth_validators_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
         # Change lido total
         self.total_lido_validators -= 1
         # Change module total
@@ -202,7 +196,6 @@ class ValidatorExitIterator:
 
         logger.debug({
             'msg': 'Iterator state change. Eject validator.',
-            'eth_validators_effective_balance': self.eth_validators_effective_balance,
             'total_lido_validators': self.total_lido_validators,
             'no_gid': gid[0],
             'module_stats': self.module_stats[gid[0]].predictable_validators,
