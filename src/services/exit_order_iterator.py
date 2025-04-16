@@ -262,7 +262,7 @@ class ValidatorExitIterator:
                 self.eth_validators_count,
                 self.eth_validators_effective_balance,
                 self.no_penetration_threshold,
-                self.consensus_version > 2 and self.w3.cc.is_electra_activated(self.blockstamp.ref_epoch),
+                self.consensus_version > 2,
             ),
             - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),

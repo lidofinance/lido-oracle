@@ -244,15 +244,6 @@ def test_no_predicate(iterator):
     assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
 
     iterator.consensus_version = 3
-    iterator.w3.cc.is_electra_activated = Mock(return_value=False)
-
-    # Check works with old alg before pectra
-    result = iterator._no_predicate(node_operator_2)
-    assert result == (0, -1950, -1975, -185, -1000, -2000, 20)
-
-    iterator.w3.cc.is_electra_activated = Mock(return_value=True)
-
-    # Check after pectra
     result = iterator._no_predicate(node_operator_2)
     assert result == (0, -1950, -1975, -185, 0, -2000, 20)
 
