@@ -62,7 +62,6 @@ class ValidatorExitIterator:
     max_validators_to_exit: int = 0
     no_penetration_threshold: float = 0
 
-    eth_validators_count: int = 0
     eth_validators_effective_balance: Gwei = Gwei(0)
 
     def __init__(
@@ -170,8 +169,6 @@ class ValidatorExitIterator:
             block_identifier=self.blockstamp.block_hash,
         ) / TOTAL_BASIS_POINTS
 
-        self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
-
         self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(self.w3.cc.get_validators(self.blockstamp))
 
     @staticmethod
@@ -205,7 +202,6 @@ class ValidatorExitIterator:
 
         result = {}
         for gid, validators_list in lido_validators.items():
-
             def is_delayed(validator: LidoValidator) -> bool:
                 requested_to_exit = validator.index <= last_requested_to_exit[gid]
                 recently_requested_to_exit = validator.index in recent_requests[gid]
@@ -226,8 +222,6 @@ class ValidatorExitIterator:
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
 
-        # Total validators
-        self.eth_validators_count -= 1
         self.eth_validators_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
         # Change lido total
         self.total_lido_validators -= 1
@@ -240,7 +234,6 @@ class ValidatorExitIterator:
 
         logger.debug({
             'msg': 'Iterator state change. Eject validator.',
-            'eth_validators_count': self.eth_validators_count,
             'eth_validators_effective_balance': self.eth_validators_effective_balance,
             'total_lido_validators': self.total_lido_validators,
             'no_gid': gid[0],
@@ -259,10 +252,8 @@ class ValidatorExitIterator:
             - self._max_share_rate_coefficient_predicate(node_operator),
             - self._stake_weight_coefficient_predicate(
                 node_operator,
-                self.eth_validators_count,
                 self.eth_validators_effective_balance,
                 self.no_penetration_threshold,
-                self.consensus_version > 2 and self.w3.cc.is_electra_activated(self.blockstamp.ref_epoch),
             ),
             - node_operator.predictable_validators,
             self._lowest_validator_index_predicate(node_operator),
@@ -301,21 +292,14 @@ class ValidatorExitIterator:
     @staticmethod
     def _stake_weight_coefficient_predicate(
         node_operator: NodeOperatorStats,
-        total_validators: int,
         total_effective_balance: Gwei,
         no_penetration: float,
-        is_post_pectra: bool,
     ) -> int:
         """
         The higher coefficient the higher priority to eject validator
         """
-        if is_post_pectra:
-            if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
-                return node_operator.total_age
-        else:
-            if total_validators * no_penetration < node_operator.predictable_validators:
-                return node_operator.total_age
-
+        if total_effective_balance * no_penetration < node_operator.predictable_effective_balance:
+            return node_operator.total_age
         return 0
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
