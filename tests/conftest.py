@@ -1,154 +1,84 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Final
 from unittest.mock import Mock
 
 import pytest
-from _pytest.fixtures import FixtureRequest
+from eth_tester import EthereumTester
+from eth_tester.backends.mock import MockBackend
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from web3 import EthereumTesterProvider
 from web3.types import Timestamp
 
 import src.variables
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
-from src.variables import CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI, KEYS_API_URI
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
-from src.web3py.types import Web3
-from tests.providers_utils import (
-    ResponseFromFile,
-    ResponseFromFileConsensusClientModule,
-    ResponseFromFileKeysAPIClientModule,
-    UpdateResponsesConsensusClientModule,
-    UpdateResponsesKeysAPIClientModule,
-    UpdateResponsesProvider,
+from src.web3py.extensions import (
+    ConsensusClientModule,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
 )
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--update-responses",
-        action="store_true",
-        default=False,
-        help="Update responses from web3 providers. "
-        "New responses will be added to the files, unused responses will be removed.",
-    )
-
+from src.web3py.types import Web3
+from unittest.mock import patch
 
 @pytest.fixture()
-def responses_path(request: FixtureRequest) -> Path:
-    return Path(request.node.parent.name) / (request.node.name + '.json')
-
-
-# ----- Web3 Provider Mock -----
-@pytest.fixture()
-def update_responses_provider(responses_path) -> UpdateResponsesProvider:
-    provider = UpdateResponsesProvider(responses_path, EXECUTION_CLIENT_URI)
-    yield provider
-    provider.save_responses(responses_path)
-
-
-@pytest.fixture()
-def mock_provider(responses_path) -> ResponseFromFile:
-    provider = ResponseFromFile(responses_path, cache_allowed_requests=True)
-    return provider
-
-
-@pytest.fixture()
-def provider(request, responses_path) -> UpdateResponsesProvider | ResponseFromFile:
-    if request.config.getoption("--update-responses"):
-        return request.getfixturevalue("update_responses_provider")
-
-    return request.getfixturevalue("mock_provider")
-
-
-@pytest.fixture()
-def web3(provider) -> Web3:
-    web3 = Web3(provider)
+def web3():
+    mock_backend = MockBackend()
+    tester = EthereumTester(backend=mock_backend)
+    web3 = Web3(provider=EthereumTesterProvider(tester))
     tweak_w3_contracts(web3)
-
-    with provider.use_mock(Path('common/chainId.json')):
-        _ = web3.eth.chain_id
+    web3.attach_modules(
+        {
+            'lido_contracts': lambda: Mock(),
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            'csm': LazyCSM,
+            'cc': lambda: ConsensusClientModule('http://localhost:8080', web3),  # TODO: to mock
+            'kac': lambda: KeysAPIClientModule('http://localhost:8080', web3),  # TODO: to mock
+            'ipfs': lambda: Mock(),
+        }
+    )
     yield web3
 
 
-# ---- Consensus Client Mock ----
 @pytest.fixture()
-def update_responses_cl_client(web3, responses_path) -> UpdateResponsesConsensusClientModule:
-    path = responses_path.with_suffix('.cl.json')
-    client = UpdateResponsesConsensusClientModule(path, CONSENSUS_CLIENT_URI, web3)
-    yield client
-    client.save_responses(path)
+def consensus_client(request, web3):
+    # TODO: Deprecated, will be removed in next PR
+    pass
 
 
 @pytest.fixture()
-def consensus_client(request, responses_path, web3):
-    if request.config.getoption("--update-responses"):
-        client = request.getfixturevalue("update_responses_cl_client")
-    else:
-        client = ResponseFromFileConsensusClientModule(responses_path.with_suffix('.cl.json'), web3)
-    web3.attach_modules({"cc": lambda: client})
-
-
-# ---- Keys API Client Mock ----
-@pytest.fixture()
-def update_responses_ka_client(web3, responses_path) -> UpdateResponsesKeysAPIClientModule:
-    path = responses_path.with_suffix('.ka.json')
-    client = UpdateResponsesKeysAPIClientModule(path, KEYS_API_URI, web3)
-    yield client
-    client.save_responses(path)
-
-
-@pytest.fixture()
-def keys_api_client(request, responses_path, web3):
-    if request.config.getoption("--update-responses"):
-        client = request.getfixturevalue("update_responses_ka_client")
-    else:
-        client = ResponseFromFileKeysAPIClientModule(responses_path.with_suffix('.ka.json'), web3)
-    web3.attach_modules({"kac": lambda: client})
+def keys_api_client(request, web3):
+    # TODO: Deprecated, will be removed in next PR
+    pass
 
 
 @pytest.fixture()
 def csm(web3):
-    mock = Mock()
-    web3.attach_modules({"csm": lambda: mock})
-    return mock
+    # TODO: Deprecated, will be removed in next PR
+    pass
 
 
-# ---- Lido contracts ----
 @pytest.fixture()
-def contracts(web3, provider):
+def contracts(web3):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
     src.variables.CSM_MODULE_ADDRESS = "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
 
-    with provider.use_mock(Path('common/contracts.json')):
-        # First contracts deployment
-        web3.attach_modules(
-            {
-                'lido_contracts': LidoContracts,
-            }
-        )
 
-
-# ---- Transaction Utils
 @pytest.fixture()
 def tx_utils(web3):
-    web3.attach_modules(
-        {
-            'transaction': TransactionUtils,
-        }
-    )
+    # TODO: Deprecated, will be removed in next PR
+    pass
 
 
-# ---- Lido validators ----
 @pytest.fixture()
-def lido_validators(web3, consensus_client, keys_api_client):
-    web3.attach_modules(
-        {
-            'lido_validators': LidoValidatorsProvider,
-        }
-    )
+def lido_validators(web3):
+    # TODO: Deprecated, will be removed in next PR
+    pass
 
 
 def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:

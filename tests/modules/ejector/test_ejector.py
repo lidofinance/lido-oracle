@@ -127,7 +127,6 @@ class SimpleIterator:
 
 class TestGetValidatorsToEject:
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_no_validators_to_eject(
         self,
         ejector: Ejector,
@@ -159,7 +158,6 @@ class TestGetValidatorsToEject:
             assert result == [], "Unexpected validators to eject"
 
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_simple(
         self,
         ejector: Ejector,
@@ -198,7 +196,6 @@ class TestGetValidatorsToEject:
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("contracts")
 def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
     result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
     assert result == 8362187000000000000, "Unexpected unfinalized stETH"
@@ -363,7 +360,6 @@ def test_get_total_active_balance(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client", "lido_validators")
 def test_get_withdrawable_lido_validators_balance(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
@@ -414,7 +410,7 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     assert result == (MAX_EFFECTIVE_BALANCE + 1) * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
-@pytest.mark.usefixtures("contracts")
+@pytest.mark.unit
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=3)
     ejector.w3.lido_contracts.get_el_vault_balance = Mock(return_value=17)
@@ -442,7 +438,6 @@ class TestChurnLimit:
             yield
 
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
@@ -450,7 +445,6 @@ class TestChurnLimit:
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_validators_less_than_min_churn(
         self,
         ejector: Ejector,
@@ -464,7 +458,6 @@ class TestChurnLimit:
             ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_basic(
         self,
         ejector: Ejector,
@@ -488,7 +481,6 @@ def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
 def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.cc.get_validators = Mock(
         return_value=[

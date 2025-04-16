@@ -11,7 +11,6 @@ from tests.conftest import get_blockstamp_by_state
 
 
 @pytest.mark.possible_integration
-@pytest.mark.usefixtures("consensus_client")
 def test_get_first_non_missed_slot(web3):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     ref_slot = SlotNumber(finalized_blockstamp.slot_number - 225)
@@ -26,7 +25,6 @@ def test_get_first_non_missed_slot(web3):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
 def test_get_third_non_missed_slot_backward(web3):
     def get_block_header(_):
         setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
@@ -48,7 +46,6 @@ def test_get_third_non_missed_slot_backward(web3):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
 def test_get_third_non_missed_slot_forward(web3):
     def get_block_header(_):
         setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
@@ -71,7 +68,6 @@ def test_get_third_non_missed_slot_forward(web3):
 
 @pytest.mark.unit
 @pytest.mark.possible_integration
-@pytest.mark.usefixtures("consensus_client")
 def test_all_slots_are_missed(web3):
     finalized_blockstamp = get_blockstamp_by_state(web3, 'finalized')
     web3.cc.get_block_header = Mock(side_effect=NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text"))
