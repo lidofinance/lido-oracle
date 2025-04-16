@@ -229,7 +229,7 @@ class ValidatorExitIterator:
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
-            self._no_force_predicate(node_operator),
+            - self._no_force_predicate(node_operator),
             - self._no_soft_predicate(node_operator),
             - self._max_share_rate_coefficient_predicate(node_operator),
             - self._stake_weight_coefficient_predicate(
