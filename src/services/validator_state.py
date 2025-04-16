@@ -174,8 +174,7 @@ class LidoValidatorStateService:
         """
         Returns validators indexes that were asked to exit in last {{validator_delayed_timeout_in_slots}} slots.
         """
-        exiting_keys_delayed_border_in_slots = self.w3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots(
-            blockstamp.block_hash)
+        exiting_keys_delayed_border_in_slots = self.w3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots(blockstamp.block_hash)
 
         events = get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
