@@ -62,7 +62,6 @@ class ValidatorExitIterator:
     max_validators_to_exit: int = 0
     no_penetration_threshold: float = 0
 
-    eth_validators_count: int = 0
     eth_validators_effective_balance: Gwei = Gwei(0)
 
     def __init__(
@@ -170,10 +169,7 @@ class ValidatorExitIterator:
             block_identifier=self.blockstamp.block_hash,
         ) / TOTAL_BASIS_POINTS
 
-        self.eth_validators_count = ilen(v for v in self.w3.cc.get_validators(self.blockstamp) if not is_on_exit(v))
-
-        self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(
-            self.w3.cc.get_validators(self.blockstamp))
+        self.eth_validators_effective_balance = self._calculate_effective_balance_non_exiting_validators(self.w3.cc.get_validators(self.blockstamp))
 
     @staticmethod
     def _calculate_effective_balance_non_exiting_validators(validators: list[Validator]) -> Gwei:
@@ -226,8 +222,6 @@ class ValidatorExitIterator:
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
 
-        # Total validators
-        self.eth_validators_count -= 1
         self.eth_validators_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
         # Change lido total
         self.total_lido_validators -= 1
@@ -240,7 +234,6 @@ class ValidatorExitIterator:
 
         logger.debug({
             'msg': 'Iterator state change. Eject validator.',
-            'eth_validators_count': self.eth_validators_count,
             'eth_validators_effective_balance': self.eth_validators_effective_balance,
             'total_lido_validators': self.total_lido_validators,
             'no_gid': gid[0],

@@ -201,7 +201,6 @@ def test_no_predicate(iterator):
     iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator.total_lido_validators = 1000
     iterator.no_penetration_threshold = 0.1
-    iterator.eth_validators_count = 10000
 
     iterator.exitable_validators = {
         (1, 1): [LidoValidatorFactory.build(index=10)],
