@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterator
 
 from more_itertools import ilen
 
@@ -29,7 +28,6 @@ class NodeOperatorStats:
 
     predictable_validators: int = 0
     predictable_effective_balance: Gwei = Gwei(0)
-    delayed_validators: int = 0
     total_age: int = 0
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
@@ -45,7 +43,6 @@ class ValidatorExitIterator:
 
     | Sorting | Module                                      | Node Operator                                         | Validator              |
     | ------- | ------------------------------------------- | ----------------------------------------------------- | ---------------------- |
-    | V       |                                             | Lowest number of delayed validators                   |                        |
     | V       |                                             | Highest number of targeted validators to boosted exit |                        |
     | V       |                                             | Highest number of targeted validators to smooth exit  |                        |
     | V       | Highest deviation from the exit share limit |                                                       |                        |
@@ -87,7 +84,7 @@ class ValidatorExitIterator:
         self.exitable_validators = {}
 
     @duration_meter()
-    def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+    def __iter__(self) -> 'ValidatorExitIterator':
         self.index = 0
         self.total_lido_validators = 0
         self._reset_attributes()
@@ -135,7 +132,6 @@ class ValidatorExitIterator:
 
     def _calculate_lido_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
-        delayed_validators = self._get_delayed_validators()
 
         for gid, validators in self.exitable_validators.items():
 
@@ -152,7 +148,6 @@ class ValidatorExitIterator:
                 self._calculate_effective_balance_non_exiting_validators(validators) + transient_validators_count * LIDO_DEPOSIT_AMOUNT
             )
 
-            self.node_operators_stats[gid].delayed_validators = delayed_validators[gid]
             self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
 
             if self.node_operators_stats[gid].node_operator.is_target_limit_active == NodeOperatorLimitMode.FORCE:
@@ -195,26 +190,6 @@ class ValidatorExitIterator:
 
         return is_validator_exitable
 
-    def _get_delayed_validators(self) -> dict[NodeOperatorGlobalIndex, int]:
-        last_requested_to_exit = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
-        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
-        recent_requests = self.lvs.get_recently_requested_validators_by_operator(
-            self.seconds_per_slot,
-            self.blockstamp,
-        )
-
-        result = {}
-        for gid, validators_list in lido_validators.items():
-
-            def is_delayed(validator: LidoValidator) -> bool:
-                requested_to_exit = validator.index <= last_requested_to_exit[gid]
-                recently_requested_to_exit = validator.index in recent_requests[gid]
-                return requested_to_exit and not recently_requested_to_exit and not is_on_exit(validator)
-
-            result[gid] = ilen(val for val in validators_list if is_delayed(val))
-
-        return result
-
     def calculate_validators_age(self, validators: list[LidoValidator]) -> int:
         result = 0
 
@@ -253,7 +228,6 @@ class ValidatorExitIterator:
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
-            node_operator.delayed_validators,
             - self._no_force_predicate(node_operator),
             - self._no_soft_predicate(node_operator),
             - self._max_share_rate_coefficient_predicate(node_operator),
