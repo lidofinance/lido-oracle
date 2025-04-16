@@ -103,7 +103,7 @@ def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
@@ -267,7 +267,7 @@ class TestAccountingSubmitExtraData:
     ):
         extra_data = bytes(32)
 
-        accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+        accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
         accounting.get_extra_data = Mock(return_value=Mock(extra_data_list=[extra_data]))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
