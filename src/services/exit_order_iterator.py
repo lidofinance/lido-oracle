@@ -1,8 +1,6 @@
 import logging
 from dataclasses import dataclass
 
-from more_itertools import ilen
-
 from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.providers.consensus.types import Validator
