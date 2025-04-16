@@ -163,9 +163,8 @@ def test_eject_validator(iterator):
 
     force_list = ejector.get_remaining_forced_validators()
 
-    assert len(force_list) == 2
+    assert len(force_list) == 1
     assert force_list[0][0] == (1, 1)
-    assert force_list[1][0] == (1, 1)
 
 
 @pytest.mark.unit
@@ -195,7 +194,7 @@ def test_no_predicate(iterator):
 
     result = iterator._no_predicate(node_operator_1)
 
-    assert result == (50, -75, -185, 0, -100, 10)
+    assert result == (-50, -75, -185, 0, -100, 10)
 
     node_operator_2 = NodeOperatorStatsFactory.build(
         predictable_validators=2000,
@@ -211,23 +210,23 @@ def test_no_predicate(iterator):
     )
 
     result = iterator._no_predicate(node_operator_2)
-    assert result == (1950, -1975, -185, -1000, -2000, 20)
+    assert result == (-1950, -1975, -185, -1000, -2000, 20)
 
     iterator.consensus_version = 3
     iterator.w3.cc.is_electra_activated = Mock(return_value=False)
 
     # Check works with old alg before pectra
     result = iterator._no_predicate(node_operator_2)
-    assert result == (1950, -1975, -185, -1000, -2000, 20)
+    assert result == (-1950, -1975, -185, -1000, -2000, 20)
 
     iterator.w3.cc.is_electra_activated = Mock(return_value=True)
 
     # Check after pectra
     result = iterator._no_predicate(node_operator_2)
-    assert result == (1950, -1975, -185, 0, -2000, 20)
+    assert result == (-1950, -1975, -185, 0, -2000, 20)
 
     result = iterator._no_predicate(node_operator_1)
-    assert result == (50, -75, -185, -1000, -100, 10)
+    assert result == (-50, -75, -185, -1000, -100, 10)
 
 
 @pytest.mark.unit

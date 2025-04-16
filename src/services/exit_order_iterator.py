@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterator
 
 from more_itertools import ilen
 
@@ -85,7 +84,7 @@ class ValidatorExitIterator:
         self.exitable_validators = {}
 
     @duration_meter()
-    def __iter__(self) -> Iterator[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+    def __iter__(self) -> 'ValidatorExitIterator':
         self.index = 0
         self.total_lido_validators = 0
         self._reset_attributes()
