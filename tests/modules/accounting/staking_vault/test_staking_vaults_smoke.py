@@ -9,6 +9,7 @@ from web3 import Web3
 from src import variables
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
+from src.modules.submodules.types import ChainConfig
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import MultiIPFSProvider

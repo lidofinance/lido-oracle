@@ -8,7 +8,8 @@ from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
 
-from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode
+from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode, LatestReportData
+from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
@@ -57,6 +58,47 @@ class StakingVaults(Module):
             ),
         )
 
+    def get_vaults_data(self, validators: list[Validator], blockstamp: BlockStamp) -> VaultsData:
+        vaults = self.get_vaults(blockstamp)
+        vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
+
+        vaults_values = [0] * len(vaults)
+        vaults_net_cash_flows = [0] * len(vaults)
+        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
+
+        for vault_address in vaults:
+            vault = vaults[vault_address]
+
+            vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
+            vaults_net_cash_flows[vault.vault_ind] = vault.in_out_delta
+
+            if vault_address in vaults_validators:
+                vault_validators = vaults_validators[vault_address]
+
+                vault_cl_balance_wei = 0
+                for validator in vault_validators:
+                    vault_cl_balance_wei += Web3.to_wei(int(validator.balance), 'gwei')
+
+                vaults_values[vault.vault_ind] += vault_cl_balance_wei
+
+            tree_data[vault.vault_ind] = (
+                vault_address,
+                vaults_values[vault.vault_ind],
+                vault.in_out_delta,
+                vault.fee,
+                vault.shares_minted,
+            )
+
+            logger.info(
+                {
+                    'msg': f'Vault values for vault: {vault.address}.',
+                    'vault_in_out_delta': vault.in_out_delta,
+                    'vault_value': vaults_values[vault.vault_ind],
+                }
+            )
+
+        return tree_data, vaults
+
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
         vault_count = self.vault_hub.get_vaults_count(blockstamp.block_number)
         pending_deposits = self.cl.get_pending_deposits(blockstamp)
@@ -78,9 +120,8 @@ class StakingVaults(Module):
 
             vault = self._load_vault(vault_socket.vault)
             vault_in_out_delta = vault.in_out_delta(blockstamp.block_number)
-            print(vault_in_out_delta)
+
             vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp.block_number)
-            print(vault_withdrawal_credentials)
 
             pending_deposit = 0
             if vault_withdrawal_credentials in deposit_map:
@@ -150,47 +191,6 @@ class StakingVaults(Module):
 
         return result
 
-    def get_vaults_data(self, validators: list[Validator], blockstamp: BlockStamp) -> VaultsData:
-        vaults = self.get_vaults(blockstamp)
-        vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
-
-        vaults_values = [0] * len(vaults)
-        vaults_net_cash_flows = [0] * len(vaults)
-        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
-
-        for vault_address in vaults:
-            vault = vaults[vault_address]
-
-            vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
-            vaults_net_cash_flows[vault.vault_ind] = vault.in_out_delta
-
-            if vault_address in vaults_validators:
-                vault_validators = vaults_validators[vault_address]
-
-                vault_cl_balance_wei = 0
-                for validator in vault_validators:
-                    vault_cl_balance_wei += Web3.to_wei(int(validator.balance), 'gwei')
-
-                vaults_values[vault.vault_ind] += vault_cl_balance_wei
-
-            tree_data[vault.vault_ind] = (
-                vault_address,
-                vaults_values[vault.vault_ind],
-                vault.in_out_delta,
-                vault.fee,
-                vault.shares_minted,
-            )
-
-            logger.info(
-                {
-                    'msg': f'Vault values for vault: {vault.address}.',
-                    'vault_in_out_delta': vault.in_out_delta,
-                    'vault_value': vaults_values[vault.vault_ind],
-                }
-            )
-
-        return tree_data, vaults
-
     def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults: VaultsMap) -> CID:
         data = self.get_vault_to_proof_map(tree, vaults)
 
@@ -213,7 +213,9 @@ class StakingVaults(Module):
 
         return cid
 
-    def publish_tree(self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID) -> CID:
+    def publish_tree(
+        self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str, chain_config: ChainConfig
+    ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):
                 return f"0x{o.hex()}"
@@ -226,8 +228,9 @@ class StakingVaults(Module):
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.slot_number,
             "blockNumber": bs.block_number,
-            "timestamp": bs.block_timestamp,
+            "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
             "proofsCID": str(proofs_cid),
+            "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {
                 "0": "vault_address",
                 "1": "valuation_wei",
@@ -238,8 +241,10 @@ class StakingVaults(Module):
         }
 
         dumped_tree_str = json.dumps(output, default=encoder)
-        print(dumped_tree_str)
 
         cid = self.ipfs_client.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
 
         return cid
+
+    def get_current_report_cid(self, bs: BlockStamp) -> LatestReportData:
+        return self.vault_hub.get_report(block_identifier=bs.block_number)

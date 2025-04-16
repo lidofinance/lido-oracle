@@ -140,7 +140,9 @@ class BeaconStat:
     beacon_validators: int
     beacon_balance: int
 
+
 bytes32 = bytes(32)
+
 
 @dataclass(frozen=True)
 class ReportValues:
@@ -209,6 +211,13 @@ class VaultData:
     address: ChecksumAddress
     withdrawal_credentials: str
     socket: VaultSocket
+
+
+@dataclass
+class LatestReportData:
+    timestamp: int
+    tree_root: bytes
+    cid: str
 
 
 VaultsMap = dict[ChecksumAddress, VaultData]

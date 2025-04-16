@@ -2,7 +2,7 @@ import logging
 
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import VaultSocket
+from src.modules.accounting.types import VaultSocket, LatestReportData
 from src.providers.execution.base_interface import ContractInterface
 
 from src.utils.cache import global_lru_cache as lru_cache
@@ -56,4 +56,22 @@ class VaultHubContract(ContractInterface):
             response.rebalanceThresholdBP,
             response.treasuryFeeBP,
             response.pendingDisconnect,
+        )
+
+    def get_report(self, block_identifier: BlockIdentifier = 'latest'):
+        response = self.functions.latestReportData.call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `latestReportData().',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+
+        return LatestReportData(
+            response.timestamp,
+            response.treeRoot,
+            response.reportCid,
         )
