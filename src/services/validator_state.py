@@ -4,9 +4,7 @@ from functools import reduce
 
 from eth_typing import HexStr
 
-from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.metrics.prometheus.accounting import (
-    ACCOUNTING_STUCK_VALIDATORS,
     ACCOUNTING_EXITED_VALIDATORS,
 )
 from src.modules.submodules.types import ChainConfig
@@ -29,57 +27,6 @@ class LidoValidatorStateService:
 
     def __init__(self, w3: Web3):
         self.w3 = w3
-
-    def get_lido_newly_stuck_validators(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> OperatorsValidatorCount:
-        lido_validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-        ejected_index = self.get_operators_with_last_exited_validator_indexes(blockstamp)
-        recently_requested_to_exit_pubkeys = self.get_last_requested_to_exit_pubkeys(blockstamp, chain_config)
-
-        result = {}
-
-        for global_no_index, validators in lido_validators_by_no.items():
-            def sum_stuck_validators(total: int, validator: LidoValidator) -> int:
-                # If validator index is higher than ejected index - we didn't request this validator to exit
-                if validator.index > ejected_index[global_no_index]:
-                    return total
-
-                # If validator don't have FAR_FUTURE_EPOCH, then it's already going to exit
-                if validator.validator.exit_epoch != FAR_FUTURE_EPOCH:
-                    return total
-
-                # If validator's pub key in recent events, node operator has still time to eject these validators
-                if validator.lido_id.key in recently_requested_to_exit_pubkeys:
-                    return total
-
-                validator_available_to_exit_epoch = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD
-                delinquent_timeout_in_slots = self.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots(
-                    blockstamp.block_hash,
-                )
-
-                last_slot_to_exit = validator_available_to_exit_epoch * chain_config.slots_per_epoch + delinquent_timeout_in_slots
-
-                if blockstamp.ref_slot <= last_slot_to_exit:
-                    return total
-
-                return total + 1
-
-            result[global_no_index] = reduce(
-                sum_stuck_validators,
-                validators,
-                0,
-            )
-
-        # Find only updated states for Node Operator
-        node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
-
-        for operator in node_operators:
-            global_index = (operator.staking_module.id, operator.id)
-            ACCOUNTING_STUCK_VALIDATORS.labels(*global_index).set(result[global_index])
-            # If amount of stuck validators weren't changed skip report for operator
-            if result[global_index] == operator.stuck_validators_count:
-                del result[global_index]
-
-        return result
 
     def get_last_requested_to_exit_pubkeys(self, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig) -> set[HexStr]:
         exiting_keys_stuck_border_in_slots = self.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots(
