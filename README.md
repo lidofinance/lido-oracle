@@ -272,7 +272,6 @@ Special metrics for accounting oracle:
 | accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
 | accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
 | accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
-| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
 
 Special metrics for ejector oracle:
 

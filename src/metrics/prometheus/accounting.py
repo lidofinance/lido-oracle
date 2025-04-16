@@ -32,10 +32,3 @@ ACCOUNTING_EXITED_VALIDATORS = Gauge(
     ["module_id", "no_id"],
     namespace=PROMETHEUS_PREFIX,
 )
-
-ACCOUNTING_DELAYED_VALIDATORS = Gauge(
-    "accounting_delayed_validators",
-    "Reported delayed validators count",
-    ["module_id", "no_id"],
-    namespace=PROMETHEUS_PREFIX,
-)
