@@ -4,6 +4,7 @@ from typing import Iterator, cast
 from packaging.version import Version
 from prometheus_client import start_http_server
 
+from src import constants
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
@@ -74,8 +75,8 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < Version('1.5.0'):
-        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
+    if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
+        raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
 
     check_providers_chain_ids(web3, cc, kac)
 

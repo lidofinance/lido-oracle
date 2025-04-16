@@ -118,6 +118,7 @@ def csm(web3):
 @pytest.fixture()
 def contracts(web3, provider):
     src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
+    src.variables.CSM_MODULE_ADDRESS = "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
 
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment

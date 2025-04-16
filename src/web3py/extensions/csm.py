@@ -6,7 +6,6 @@ from typing import Callable, Iterator, cast
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
-from lazy_object_proxy import Proxy
 from web3 import Web3
 from web3.contract.contract import ContractEvent
 from web3.exceptions import Web3Exception
@@ -22,6 +21,7 @@ from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
+from src.utils.lazy_object_proxy import LazyObjectProxy
 from src.web3py.extensions.lido_validators import NodeOperatorId
 
 logger = logging.getLogger(__name__)
@@ -57,8 +57,6 @@ class CSM(Module):
         l_block: BlockIdentifier,
         r_block: BlockIdentifier,
     ) -> Iterator[NodeOperatorId]:
-        """Returns node operators assumed to be stuck for the given frame (defined by the block identifiers)"""
-
         l_block_number = self.w3.eth.get_block(l_block).get("number", BlockNumber(0))
         r_block_number = self.w3.eth.get_block(r_block).get("number", BlockNumber(0))
 
@@ -123,5 +121,5 @@ class CSM(Module):
 class LazyCSM(CSM):
     """A wrapper around CSM module to achieve lazy-loading behaviour"""
 
-    def __new__(cls, w3: Web3):
-        return Proxy(partial(CSM, w3))  # type: ignore
+    def __new__(cls, w3: Web3) -> 'LazyCSM':
+        return LazyObjectProxy(partial(CSM, w3))  # type: ignore

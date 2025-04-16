@@ -2,6 +2,7 @@ import logging
 
 from eth_typing import ChecksumAddress, HexStr
 from web3 import Web3
+from web3.exceptions import Web3RPCError
 from web3.types import Wei, BlockIdentifier, StateOverride, StateOverrideParams
 
 from src.modules.accounting.types import LidoReportRebase, BeaconStat
@@ -53,7 +54,7 @@ class LidoContract(ContractInterface):
                 hex_ref_slot,
                 block_identifier,
             )
-        except ValueError as error:
+        except Web3RPCError as error:
             # {'code': -32602, 'message': 'invalid argument 2: hex number with leading zero digits'}
             logger.warning({
                 'msg': 'Request failed. This is expected behaviour from Erigon nodes. Try another request format.',
