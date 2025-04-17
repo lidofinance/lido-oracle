@@ -9,7 +9,7 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
-from tests.conftest import get_testnet_cl_endpoint
+from tests.conftest import TESTNET_CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -30,7 +30,7 @@ def test_get_block_root(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': get_testnet_cl_endpoint()}],
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_block_details(consensus_client: ConsensusClient, web3):
@@ -43,7 +43,7 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': get_testnet_cl_endpoint()}],
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_block_attestations(consensus_client: ConsensusClient):
@@ -57,7 +57,7 @@ def test_get_block_attestations(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': get_testnet_cl_endpoint()}],
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_attestation_committees(consensus_client: ConsensusClient):
@@ -81,7 +81,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': get_testnet_cl_endpoint()}],
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_validators(consensus_client: ConsensusClient):
@@ -100,7 +100,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': get_testnet_cl_endpoint()}],
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_state_view(consensus_client: ConsensusClient):
