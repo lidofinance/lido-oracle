@@ -15,7 +15,7 @@ KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
 GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
 GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
-KUBO_HOST: Final[str] = os.getenv('KUBO_HOST', '')
+KUBO_HOST: Final = os.getenv('KUBO_HOST')
 
 # - Account -
 ACCOUNT = None
@@ -98,9 +98,6 @@ def check_all_required_variables(module: OracleModule):
 
     if module is OracleModule.CSM and not CSM_MODULE_ADDRESS:
         errors.append('CSM_MODULE_ADDRESS')
-
-    if not KUBO_HOST:
-        errors.append('KUBO_HOST')
 
     return errors
 

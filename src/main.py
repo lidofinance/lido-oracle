@@ -139,10 +139,11 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
 
 
 def ipfs_providers() -> Iterator[IPFSProvider]:
-    yield Kubo(
-        variables.KUBO_HOST,
-        timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-    )
+    if variables.KUBO_HOST:
+        yield Kubo(
+            variables.KUBO_HOST,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
 
     if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
         yield GW3(
