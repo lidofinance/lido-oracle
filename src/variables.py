@@ -16,6 +16,8 @@ GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
 GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
 KUBO_HOST: Final = os.getenv('KUBO_HOST')
+KUBO_GATEWAY_PORT: Final = int(os.getenv('KUBO_GATEWAY_PORT', 8080))
+KUBO_RPC_PORT: Final = int(os.getenv('KUBO_RPC_PORT', 5001))
 
 # - Account -
 ACCOUNT = None
