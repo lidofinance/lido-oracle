@@ -6,7 +6,7 @@ import pytest
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import EpochNumber, SlotNumber
+from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
 from tests.conftest import TESTNET_CONSENSUS_CLIENT_URI
@@ -110,11 +110,8 @@ def test_get_state_view(consensus_client: ConsensusClient):
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number
-
-    epoch = EpochNumber(state_view.slot // 32)
-    if consensus_client.is_electra_activated(epoch):
-        assert state_view.earliest_exit_epoch != 0
-        assert state_view.exit_balance_to_consume >= 0
+    assert state_view.earliest_exit_epoch != 0
+    assert state_view.exit_balance_to_consume >= 0
 
 
 @pytest.mark.unit
