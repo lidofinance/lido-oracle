@@ -25,8 +25,8 @@ from tests.providers_utils import (
     UpdateResponsesProvider,
 )
 
-# Primary usage of TEST_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
-TEST_CONSENSUS_CLIENT_URI: Final = os.getenv('TEST_CONSENSUS_CLIENT_URI', '').split(',')
+# Primary usage of TESTNET_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
+TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
 
 
 def pytest_addoption(parser):

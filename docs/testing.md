@@ -20,4 +20,4 @@ To run tests with a coverage report, run `pytest --cov=src tests` in the root di
 
 | Name                        | Description                                | Required | Example value           |
 |-----------------------------|--------------------------------------------|----------|-------------------------|
-| `TEST_CONSENSUS_CLIENT_URI` | URI of the Consensus client node for tests | False    | `http://localhost:8545` |
+| `TESTNET_CONSENSUS_CLIENT_URI` | URI of the Consensus client node for tests | False    | `http://localhost:8545` |
