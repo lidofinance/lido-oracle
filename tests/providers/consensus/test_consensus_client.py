@@ -5,12 +5,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from src import variables
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
+from tests.conftest import TEST_CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -30,7 +30,7 @@ def test_get_block_root(consensus_client: ConsensusClient):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': variables.TEST_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': TEST_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_block_details(consensus_client: ConsensusClient, web3):
@@ -42,7 +42,7 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': variables.TEST_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': TEST_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_block_attestations(consensus_client: ConsensusClient):
@@ -55,7 +55,7 @@ def test_get_block_attestations(consensus_client: ConsensusClient):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': variables.TEST_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': TEST_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_attestation_committees(consensus_client: ConsensusClient):
@@ -78,7 +78,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': variables.TEST_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': TEST_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_validators(consensus_client: ConsensusClient):
@@ -96,7 +96,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': variables.TEST_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': TEST_CONSENSUS_CLIENT_URI}],
     indirect=True,
 )
 def test_get_state_view(consensus_client: ConsensusClient):

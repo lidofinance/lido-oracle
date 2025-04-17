@@ -1,5 +1,7 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 from unittest.mock import Mock
 
 import pytest
@@ -22,6 +24,9 @@ from tests.providers_utils import (
     UpdateResponsesKeysAPIClientModule,
     UpdateResponsesProvider,
 )
+
+# Primary usage of TEST_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
+TEST_CONSENSUS_CLIENT_URI: Final = os.getenv('TEST_CONSENSUS_CLIENT_URI', '').split(',')
 
 
 def pytest_addoption(parser):

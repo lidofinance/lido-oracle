@@ -12,8 +12,6 @@ EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
 
-TEST_CONSENSUS_CLIENT_URI: Final = os.getenv('TEST_CONSENSUS_CLIENT_URI', '').split(',')
-
 GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
 GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
