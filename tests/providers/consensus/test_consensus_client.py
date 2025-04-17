@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 """Simple tests for the consensus client responses validity."""
-
+import os
+from typing import Final
 from unittest.mock import Mock
 
 import pytest
@@ -10,8 +11,10 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
-from tests.conftest import TESTNET_CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
+
+# Primary usage of TESTNET_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
+TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
 
 
 @pytest.fixture
