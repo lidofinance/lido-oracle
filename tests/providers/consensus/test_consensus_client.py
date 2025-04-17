@@ -1,7 +1,5 @@
 # pylint: disable=protected-access
 """Simple tests for the consensus client responses validity."""
-import os
-from typing import Final
 from unittest.mock import Mock
 
 import pytest
@@ -11,10 +9,8 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
+from tests.conftest import get_testnet_cl_endpoint
 from tests.factory.blockstamp import BlockStampFactory
-
-# Primary usage of TESTNET_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
-TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
 
 
 @pytest.fixture
@@ -34,7 +30,7 @@ def test_get_block_root(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': get_testnet_cl_endpoint()}],
     indirect=True,
 )
 def test_get_block_details(consensus_client: ConsensusClient, web3):
@@ -47,7 +43,7 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': get_testnet_cl_endpoint()}],
     indirect=True,
 )
 def test_get_block_attestations(consensus_client: ConsensusClient):
@@ -61,7 +57,7 @@ def test_get_block_attestations(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': get_testnet_cl_endpoint()}],
     indirect=True,
 )
 def test_get_attestation_committees(consensus_client: ConsensusClient):
@@ -85,7 +81,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': get_testnet_cl_endpoint()}],
     indirect=True,
 )
 def test_get_validators(consensus_client: ConsensusClient):
@@ -104,7 +100,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 @pytest.mark.testnet
 @pytest.mark.parametrize(
     'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    [{'endpoint': get_testnet_cl_endpoint()}],
     indirect=True,
 )
 def test_get_state_view(consensus_client: ConsensusClient):
