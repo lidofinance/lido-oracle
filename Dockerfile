@@ -33,8 +33,8 @@ RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
 
-RUN python -m venv "$VENV_PATH" && \
-    poetry install --only main --no-root --no-cache && \
+RUN python3 -m venv "$VENV_PATH" && \
+    VIRTUAL_ENV="$VENV_PATH" poetry install --only main --no-root --no-cache && \
     find "$VENV_PATH" -type d -name '.git' -exec rm -rf {} + && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/RECORD \; && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/WHEEL \; && \
@@ -53,7 +53,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends -qq \
 
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --with dev
+RUN python3 -m venv "$VENV_PATH" && \
+    VIRTUAL_ENV="$VENV_PATH" poetry install --no-root --with dev
 
 FROM base AS production
 
@@ -74,4 +75,4 @@ HEALTHCHECK --interval=10s --timeout=3s \
 
 WORKDIR /app/
 
-ENTRYPOINT ["python3", "-m", "src.main"]
+ENTRYPOINT ["/opt/venv/bin/python3", "-m", "src.main"]
