@@ -59,7 +59,8 @@ markers = [
     "possible_integration: tests with using providers, but can be run using mocks",
     "e2e: complex tests with using providers and real Ethereum network",
     "fork: tests with using forked Ethereum network",
-    "mainnet: tests that depends on mainnet"
+    "mainnet: tests that depends on mainnet",
+    "testnet: tests that depends on testnet",
 ]
 addopts = "-s -vv"
 
