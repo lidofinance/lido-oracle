@@ -299,16 +299,14 @@ def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch
                     {
                         "postCLBalance": Wei(24),
                         "withdrawalsWithdrawn": Wei(0),
-                        # TODO: revert on next update
-                        "preClBalance": Wei(0),
+                        "preCLBalance": Wei(0),
                         "executionLayerRewardsWithdrawn": Wei(0),
                         "timeElapsed": 12,
                     },
                     {
                         "postCLBalance": Wei(0),
                         "withdrawalsWithdrawn": Wei(0),
-                        # TODO: revert on next update
-                        "preClBalance": Wei(0),
+                        "preCLBalance": Wei(0),
                         "executionLayerRewardsWithdrawn": Wei(12),
                         "timeElapsed": 12,
                     },
