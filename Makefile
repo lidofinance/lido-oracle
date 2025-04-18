@@ -15,7 +15,8 @@ reproducible-build-oracle:
 DEV_CONTAINER_NAME = oracle-dev-container
 DEV_IMAGE = lidofinance/oracle:dev
 DEV_WORKDIR = /app
-EXEC_CMD = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv -it $(DEV_CONTAINER_NAME)
+EXEC_CMD = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv $(DEV_CONTAINER_NAME)
+EXEC_CMD_INTERACTIVE = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv -it $(DEV_CONTAINER_NAME)
 
 up:
 	@if [ -z "$$(docker ps -q -f name=$(DEV_CONTAINER_NAME))" ]; then \
@@ -36,10 +37,10 @@ rebuild:
 	$(MAKE) up
 
 sh: up
-	$(EXEC_CMD) bash
+	$(EXEC_CMD_INTERACTIVE) bash
 
 ipython: up
-	$(EXEC_CMD) ipython
+	$(EXEC_CMD_INTERACTIVE) ipython
 
 poetry-lock: up
 	$(EXEC_CMD) poetry lock --no-update
@@ -54,12 +55,24 @@ lint: up
 test: up
 	$(EXEC_CMD) pytest $(ORACLE_TEST_PATH)
 
-# You can use pre-commit with git inside container,
-# but if you are using SSH/GPG, you should use local git, even if your development setup in container
-precommit-install: up
-	$(EXEC_CMD) pre-commit install
-
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
 run-module: up
 	$(EXEC_CMD) python -m src.main $(ORACLE_MODULE)
+
+install-pre-commit:
+	@echo "Creating pre-commit hook..."
+	@echo '#!/bin/sh' > .git/hooks/pre-commit
+	@echo '# Auto-generated pre-commit hook' >> .git/hooks/pre-commit
+	@echo 'make lint' >> .git/hooks/pre-commit
+	@echo 'if [ $$? -ne 0 ]; then' >> .git/hooks/pre-commit
+	@echo '    echo "Linting failed!"' >> .git/hooks/pre-commit
+	@echo '    exit 1' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@echo 'make test' >> .git/hooks/pre-commit
+	@echo 'if [ $$? -ne 0 ]; then' >> .git/hooks/pre-commit
+	@echo '    echo "Tests failed!"' >> .git/hooks/pre-commit
+	@echo '    exit 1' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed successfully"

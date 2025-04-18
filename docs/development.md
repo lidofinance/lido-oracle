@@ -10,7 +10,7 @@ Using Docker allows you to develop in an environment that closely mirrors produc
 
 1. Install Docker  
 2. Run the command `make up` to build the image and start the container. (`make` is likely already installed on your system as a standard build tool on Unix-like environments. If not, you can [download it here](https://www.gnu.org/software/make/).)  
-3. Run `make precommit-install` to install pre-commit hooks into the container. If you plan to use Git outside the container, install `pre-commit` locally instead.
+3. Run `make install-pre-commit` to install pre-commit hooks. The hook will be installed on your host machine, but tests and linting will run inside the container.
 
 You can find the full list of available Make commands [here](https://github.com/lidofinance/lido-oracle/blob/develop/Makefile).
 
