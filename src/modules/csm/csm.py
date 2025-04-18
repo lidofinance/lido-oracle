@@ -59,7 +59,8 @@ class CSOracle(BaseModule, ConsensusModule):
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 2)]
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 2
 
     report_contract: CSFeeOracleContract
     module_id: StakingModuleId
@@ -86,6 +87,9 @@ class CSOracle(BaseModule, ConsensusModule):
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+        if not self._check_compatability(report_blockstamp):
+            return ModuleExecuteDelay.NEXT_SLOT
 
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT

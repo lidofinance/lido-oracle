@@ -57,7 +57,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
-    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 3)]
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 3
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -74,6 +75,9 @@ class Accounting(BaseModule, ConsensusModule):
 
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+        if not self._check_compatability(report_blockstamp):
+            return ModuleExecuteDelay.NEXT_SLOT
 
         self.process_report(report_blockstamp)
         # Third phase of report. Specific for accounting.

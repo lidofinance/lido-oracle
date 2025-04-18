@@ -78,6 +78,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
+    ejector._check_compatability = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"

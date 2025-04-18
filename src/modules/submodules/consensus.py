@@ -45,8 +45,8 @@ class ConsensusModule(ABC):
     """
     report_contract: BaseOracleContract
 
-    # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
-    COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
+    COMPATIBLE_CONTRACT_VERSION: int
+    COMPATIBLE_CONSENSUS_VERSION: int
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -54,8 +54,9 @@ class ConsensusModule(ABC):
         if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-        if getattr(self, "COMPATIBLE_ONCHAIN_VERSIONS", None) is None:
-            raise NotImplementedError('COMPATIBLE_ONCHAIN_VERSIONS attribute should be set.')
+        for var in ('COMPATIBLE_CONTRACT_VERSION', 'COMPATIBLE_CONSENSUS_VERSION'):
+            if getattr(self, var, None) is None:
+                raise NotImplementedError(f'{var} attribute should be set.')
 
     def check_contract_configs(self):
         root = self.w3.cc.get_block_root('head').root
@@ -234,38 +235,41 @@ class ConsensusModule(ABC):
 
         return bs
 
-    def _check_compatability(self, blockstamp: BlockStamp):
+    def _check_compatability(self, blockstamp: BlockStamp) -> bool:
         """
         Check if Oracle can process report on reference blockstamp.
+
+        Returns if Oracle can proceed with calculations or should spin up waiting for a protocol upgrade
         """
         contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
         consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
-        compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
+        compatibility = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version >= self.COMPATIBLE_CONSENSUS_VERSION
 
         if not compatibility:
             raise IncompatibleOracleVersion(
                 f'Incompatible Oracle version. Block tag: {repr(blockstamp.block_hash)}. '
-                f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
+                f'Expected Contract version: {self.COMPATIBLE_CONTRACT_VERSION}. '
+                f'Expected Consensus versions: {self.COMPATIBLE_CONSENSUS_VERSION}, '
                 f'Got ({contract_version}, {consensus_version})'
             )
 
         contract_version_latest = self.report_contract.get_contract_version('latest')
         consensus_version_latest = self.report_contract.get_consensus_version('latest')
 
-        if not (contract_version == contract_version_latest and consensus_version == consensus_version_latest):
+        if contract_version != contract_version_latest:
             raise ContractVersionMismatch(
                 'The Oracle can\'t process the report on the reference blockstamp. '
                 f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
                 'further processing report can lead to unexpected behavior.'
             )
+        ready_to_report = consensus_version_latest == consensus_version and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
+        logger.info({'msg': 'Should Oracle wait for an upgrade.', 'wait_upgrade': f'{not ready_to_report}'})
+        return ready_to_report
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
-        # Make sure module is compatible with contracts on reference and latest blockstamps.
-        self._check_compatability(blockstamp)
-
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 

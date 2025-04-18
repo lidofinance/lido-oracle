@@ -62,7 +62,8 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 3)]
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 3
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
@@ -82,6 +83,9 @@ class Ejector(BaseModule, ConsensusModule):
 
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+        if not self._check_compatability(report_blockstamp):
+            return ModuleExecuteDelay.NEXT_SLOT
 
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
