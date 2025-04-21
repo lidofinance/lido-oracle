@@ -193,7 +193,7 @@ class ReportResults:
 class VaultSocket:
     vault: ChecksumAddress
     share_limit: int
-    shares_minted: int
+    liability_shares: int
     reserve_ratio_bp: int
     rebalance_threshold_bp: int
     treasury_fee_bp: int
@@ -205,7 +205,7 @@ class VaultData:
     vault_ind: int
     balance_wei: int
     in_out_delta: int
-    shares_minted: int
+    liability_shares: int
     fee: int
     pending_deposit: int
     address: ChecksumAddress

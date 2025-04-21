@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class VaultProof:
     id: int
-    valuationWei: int
+    totalValueWei: int
     inOutDelta: int
     fee: int
-    sharesMinted: int
+    liabilityShares: int
     leaf: str
     proof: List[str]
 
@@ -89,7 +89,7 @@ class StakingVaults(Module):
                 vaults_values[vault.vault_ind],
                 vault.in_out_delta,
                 vault.fee,
-                vault.shares_minted,
+                vault.liability_shares,
             )
 
             logger.info(
@@ -138,7 +138,7 @@ class StakingVaults(Module):
                 vault_ind,
                 balance_wei,
                 vault_in_out_delta,
-                vault_socket.shares_minted,
+                vault_socket.liability_shares,
                 fee,
                 pending_deposit,
                 vault_socket.vault,
@@ -175,10 +175,10 @@ class StakingVaults(Module):
         result = {}
         for v in merkle_tree.values:
             vault_address = v["value"][0]
-            vault_valuation_wei = v["value"][1]
+            vault_total_value_wei = v["value"][1]
             vault_in_out_delta = v["value"][2]
             vault_fee = v["value"][3]
-            vault_shares_minted = v["value"][4]
+            vault_liability_shares = v["value"][4]
 
             leaf = f"0x{merkle_tree.leaf(v["value"]).hex()}"
             proof = []
@@ -187,10 +187,10 @@ class StakingVaults(Module):
 
             result[vault_address] = VaultProof(
                 id=vaults[vault_address].vault_ind,
-                valuationWei=vault_valuation_wei,
+                totalValueWei=vault_total_value_wei,
                 inOutDelta=vault_in_out_delta,
                 fee=vault_fee,
-                sharesMinted=vault_shares_minted,
+                liabilityShares=vault_liability_shares,
                 leaf=leaf,
                 proof=proof,
             )
@@ -220,7 +220,8 @@ class StakingVaults(Module):
         return cid
 
     def publish_tree(
-        self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str, chain_config: ChainConfig
+            self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
+            chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):
@@ -239,10 +240,10 @@ class StakingVaults(Module):
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {
                 "0": "vault_address",
-                "1": "valuation_wei",
+                "1": "total_value_wei",
                 "2": "in_out_delta",
                 "3": "fee",
-                "4": "shares_minted",
+                "4": "liability_shares",
             },
         }
 

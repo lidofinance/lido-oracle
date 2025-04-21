@@ -34,7 +34,7 @@ class TestStakingVaults:
             VaultSocket(
                 vault=vault_adr_0,
                 share_limit=10000,
-                shares_minted=0,
+                liability_shares=0,
                 reserve_ratio_bp=1000,
                 rebalance_threshold_bp=800,
                 treasury_fee_bp=500,
@@ -43,7 +43,7 @@ class TestStakingVaults:
             VaultSocket(
                 vault=vault_adr_1,
                 share_limit=10000,
-                shares_minted=1,
+                liability_shares=1,
                 reserve_ratio_bp=1000,
                 rebalance_threshold_bp=800,
                 treasury_fee_bp=500,
