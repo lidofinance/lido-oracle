@@ -51,9 +51,9 @@ class VaultHubContract(ContractInterface):
         return VaultSocket(
             response.vault,
             response.shareLimit,
-            response.sharesMinted,
+            response.liabilityShares,
             response.reserveRatioBP,
-            response.rebalanceThresholdBP,
+            response.forcedRebalanceThresholdBP,
             response.treasuryFeeBP,
             response.pendingDisconnect,
         )
