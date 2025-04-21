@@ -1,7 +1,8 @@
 import os
+import socket
 from dataclasses import dataclass
 from typing import Final
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from eth_tester import EthereumTester
@@ -18,12 +19,29 @@ from src.web3py.extensions import (
     ConsensusClientModule,
     KeysAPIClientModule,
     LazyCSM,
-    LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from unittest.mock import patch
+
+
+@pytest.fixture(autouse=True)
+def disable_network_for_unit(request):
+    if request.node.get_closest_marker('unit'):
+
+        def blocked_connect(*args, **kwargs):
+            msg = (
+                'Network access deprecated in unit test! '
+                'Use mocks instead of real network calls. '
+                f'Attempted connection: args={args}, kwargs={kwargs}'
+            )
+            pytest.fail(msg)
+
+        with patch.object(socket.socket, 'connect', blocked_connect):
+            yield
+    else:
+        yield
+
 
 @pytest.fixture()
 def web3():
