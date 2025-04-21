@@ -242,9 +242,6 @@ def test_get_cl_rebase_for_frame(
         principal_cl_balance=0,
         post_internal_shares=0,
         post_internal_ether=0,
-        vaults_locked_ether=[],
-        vaults_treasury_fee_shares=[],
-        total_vaults_treasury_fee_shares=0,
     )
 
     result = bunker.get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)

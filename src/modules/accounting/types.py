@@ -29,6 +29,8 @@ class ReportData:
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
+    vaults_total_treasury_fees_shares: int
+    vaults_total_deficit: int
     tree_root: bytes
     tree_cid: str
     extra_data_format: int
@@ -49,6 +51,8 @@ class ReportData:
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.is_bunker,
+            self.vaults_total_treasury_fees_shares,
+            self.vaults_total_deficit,
             self.tree_root,
             self.tree_cid,
             self.extra_data_format,
@@ -184,9 +188,6 @@ class ReportResults:
     post_internal_ether: int
     post_total_shares: int
     post_total_pooled_ether: int
-    vaults_locked_ether: List[int]
-    vaults_treasury_fee_shares: List[int]
-    total_vaults_treasury_fee_shares: int
 
 
 @dataclass(frozen=True)

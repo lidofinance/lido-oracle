@@ -170,9 +170,6 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
         principal_cl_balance=0,
         post_internal_shares=0,
         post_internal_ether=0,
-        vaults_locked_ether=[],
-        vaults_treasury_fee_shares=[],
-        total_vaults_treasury_fee_shares=[],
     )
 
     accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())

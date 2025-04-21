@@ -457,6 +457,9 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
+            # TODO: fees and deficit are not implemented yet
+            vaults_total_treasury_fees_shares=0,
+            vaults_total_deficit=0,
             tree_root=tree_root,
             tree_cid=tree_cid,
             is_bunker=is_bunker,
