@@ -73,10 +73,7 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if not report_blockstamp:
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-
-        if not self._check_compatability(report_blockstamp):
+        if not report_blockstamp or not self._check_compatability(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)

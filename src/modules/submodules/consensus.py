@@ -257,13 +257,13 @@ class ConsensusModule(ABC):
         contract_version_latest = self.report_contract.get_contract_version('latest')
         consensus_version_latest = self.report_contract.get_consensus_version('latest')
 
-        if contract_version != contract_version_latest:
+        if contract_version != contract_version_latest or consensus_version != consensus_version_latest:
             raise ContractVersionMismatch(
                 'The Oracle can\'t process the report on the reference blockstamp. '
                 f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
                 'further processing report can lead to unexpected behavior.'
             )
-        ready_to_report = consensus_version_latest == consensus_version and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
+        ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
         logger.info({'msg': 'Should Oracle wait for an upgrade.', 'wait_upgrade': f'{not ready_to_report}'})
         return ready_to_report
 
@@ -306,11 +306,8 @@ class ConsensusModule(ABC):
             if HexBytes(member_info.current_frame_consensus_report) == report_hash:
                 logger.info({'msg': 'Consensus reached with provided hash.'})
                 return None
-
-        consensus_version = self.get_consensus_version(blockstamp)
-
-        logger.info({'msg': f'Send report hash. Consensus version: [{consensus_version}]'})
-        self._send_report_hash(blockstamp, report_hash, consensus_version)
+        logger.info({'msg': f'Send report hash. Consensus version: [{self.COMPATIBLE_CONTRACT_VERSION}]'})
+        self._send_report_hash(blockstamp, report_hash, self.COMPATIBLE_CONTRACT_VERSION)
         return None
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
@@ -349,12 +346,9 @@ class ConsensusModule(ABC):
         if self.is_main_data_submitted(latest_blockstamp):
             logger.info({'msg': 'Main data already submitted.'})
             return
-
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-
-        logger.info({'msg': f'Send report data. Contract version: [{contract_version}]'})
+        logger.info({'msg': f'Send report data. Contract version: [{self.COMPATIBLE_CONTRACT_VERSION}]'})
         # If data already submitted transaction will be locally reverted, no need to check status manually
-        self._submit_report(report_data, contract_version)
+        self._submit_report(report_data, self.COMPATIBLE_CONTRACT_VERSION)
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
         latest_blockstamp = self._get_latest_blockstamp()
