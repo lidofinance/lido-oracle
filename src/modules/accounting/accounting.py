@@ -397,6 +397,8 @@ class Accounting(BaseModule, ConsensusModule):
         tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
+        if len(tree_data) == 0:
+            return bytes(0), ''
 
         proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
         logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})

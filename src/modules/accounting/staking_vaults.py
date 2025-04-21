@@ -60,6 +60,9 @@ class StakingVaults(Module):
 
     def get_vaults_data(self, validators: list[Validator], blockstamp: BlockStamp) -> VaultsData:
         vaults = self.get_vaults(blockstamp)
+        if len(vaults) == 0:
+            return [], {}
+
         vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
 
         vaults_values = [0] * len(vaults)
@@ -101,6 +104,9 @@ class StakingVaults(Module):
 
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
         vault_count = self.vault_hub.get_vaults_count(blockstamp.block_number)
+        if vault_count == 0:
+            return {}
+
         pending_deposits = self.cl.get_pending_deposits(blockstamp)
         deposit_map = dict[str, int]()
 
