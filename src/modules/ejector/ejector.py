@@ -85,7 +85,7 @@ class Ejector(BaseModule, ConsensusModule):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         if not self._check_compatability(report_blockstamp):
-            return ModuleExecuteDelay.NEXT_SLOT
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
