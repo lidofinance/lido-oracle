@@ -306,8 +306,8 @@ class ConsensusModule(ABC):
             if HexBytes(member_info.current_frame_consensus_report) == report_hash:
                 logger.info({'msg': 'Consensus reached with provided hash.'})
                 return None
-        logger.info({'msg': f'Send report hash. Consensus version: [{self.COMPATIBLE_CONTRACT_VERSION}]'})
-        self._send_report_hash(blockstamp, report_hash, self.COMPATIBLE_CONTRACT_VERSION)
+        logger.info({'msg': f'Send report hash. Consensus version: [{self.COMPATIBLE_CONSENSUS_VERSION}]'})
+        self._send_report_hash(blockstamp, report_hash, self.COMPATIBLE_CONSENSUS_VERSION)
         return None
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
