@@ -244,7 +244,7 @@ class ConsensusModule(ABC):
         contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
         consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
-        compatibility = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version >= self.COMPATIBLE_CONSENSUS_VERSION
+        compatibility = contract_version <= self.COMPATIBLE_CONTRACT_VERSION and consensus_version <= self.COMPATIBLE_CONSENSUS_VERSION
 
         if not compatibility:
             raise IncompatibleOracleVersion(
