@@ -69,9 +69,7 @@ class StakingVaults(Module):
         vaults_net_cash_flows = [0] * len(vaults)
         tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
-        for vault_address in vaults:
-            vault = vaults[vault_address]
-
+        for vault_address, vault in vaults.items():
             vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
             vaults_net_cash_flows[vault.vault_ind] = vault.in_out_delta
 
