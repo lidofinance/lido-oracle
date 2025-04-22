@@ -9,11 +9,12 @@ from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
 from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import BeaconSpecResponse
+from src.providers.consensus.types import BeaconSpecResponse, BlockDetailsResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
-from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
+from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory, \
+    BlockDetailsResponseFactory
 
 
 @pytest.fixture()
@@ -67,7 +68,11 @@ def set_report_account(monkeypatch):
 
 @pytest.mark.unit
 def test_get_latest_blockstamp(consensus, set_no_account):
+    consensus.w3.cc.get_state_block_roots.return_value = "0x0000000000000000000000000000000000000000"
+    consensus.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build()
+
     bs = consensus._get_latest_blockstamp()
+
     assert isinstance(bs, BlockStamp)
 
 

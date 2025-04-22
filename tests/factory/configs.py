@@ -6,6 +6,7 @@ from src.providers.consensus.types import (
     BlockAttestationResponse,
     AttestationData,
     Checkpoint,
+    BlockDetailsResponse,
 )
 from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3DataclassFactory
@@ -60,3 +61,12 @@ class BlockAttestationFactory(Web3DataclassFactory[BlockAttestationResponse]):
         source=Checkpoint("0", "0x"),
         target=Checkpoint("0", "0x"),
     )
+
+
+class BlockDetailsResponseFactory(Web3DataclassFactory[BlockDetailsResponse]):
+
+    @classmethod
+    def build(cls, **kwargs) -> BlockDetailsResponse:
+        instance = super().build(**kwargs)
+        instance.message.body.execution_payload.block_hash = "0x0000000000000000000000000000000000000000"
+        return instance
