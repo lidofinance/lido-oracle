@@ -1,484 +1,160 @@
-import logging
-from abc import ABC, abstractmethod
-from time import sleep
-from typing import cast
+import math
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import List
 
-from eth_abi import encode
-from hexbytes import HexBytes
-from web3.exceptions import ContractCustomError
-
-from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
-from src.metrics.prometheus.business import (
-    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
-    FRAME_CURRENT_REF_SLOT,
-    FRAME_DEADLINE_SLOT,
-    ORACLE_MEMBER_INFO,
+from src.constants import (
+    FAR_FUTURE_EPOCH,
+    MIN_ACTIVATION_BALANCE,
+    MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
+    MAX_WITHDRAWALS_PER_PAYLOAD,
 )
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
-from src.utils.blockstamp import build_blockstamp
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_reference_blockstamp
-from src.utils.web3converter import Web3Converter
-from src.web3py.types import Web3
-
-logger = logging.getLogger(__name__)
-
-# Initial epoch is in the future. Revert signature: '0xcd0883ea'
-InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
+from src.modules.submodules.types import ChainConfig
+from src.providers.consensus.types import BeaconStateView
+from src.types import Gwei
+from src.utils.validator_state import (
+    is_fully_withdrawable_validator,
+    is_partially_withdrawable_validator,
+    get_max_effective_balance,
+)
+from src.utils.web3converter import epoch_from_slot
 
 
-class ConsensusModule(ABC):
+@dataclass
+class Withdrawal:
+    validator_index: int
+    amount: int
+
+
+def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
     """
-    Module that works with Hash Consensus Contract.
-
-    Do next things:
-    - Calculate report blockstamp if contract is reportable
-    - Calculates and sends report hash
-    - Decides in what order Oracles should report
-
-    report_contract should contain getConsensusContract method.
+    This method predicts the average withdrawal delay in epochs.
+    It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
     """
 
-    report_contract: BaseOracleContract
+    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state, spec.slots_per_epoch)
+    full_sweep_cycle_in_epochs = math.ceil(
+        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch
+    )
 
-    # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
-    COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
+    return full_sweep_cycle_in_epochs // 2
 
-    def __init__(self, w3: Web3):
-        self.w3 = w3
 
-        if getattr(self, "report_contract", None) is None:
-            raise NotImplementedError('report_contract attribute should be set.')
+def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_epoch: int) -> int:
+    """
+    This method predicts the number of withdrawals that can be performed in a single sweep cycle.
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 
-        if getattr(self, "COMPATIBLE_ONCHAIN_VERSIONS", None) is None:
-            raise NotImplementedError('COMPATIBLE_ONCHAIN_VERSIONS attribute should be set.')
+    The prediction is based on the following assumptions:
+    - All pending_partial_withdrawals have reached withdrawable_epoch and do not have any processing delays;
+    - All pending_partial_withdrawals are executed before full and partial withdrawals, and the result
+        is immediately reflected in the validators' balances;
+    - The limit MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
 
-    def check_contract_configs(self):
-        root = self.w3.cc.get_block_root('head').root
-        block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
+    It is assumed that MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
+    Even with an extremely low rate of active validators (~0.17% or about 3,500 out of 2,000,000),
+    the probability of encountering fewer than 16 MAX_WITHDRAWALS_PER_PAYLOAD active validators
+    in any group of 16,384 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP consecutive validators is less than 1%.
+    This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
+    """
+    pending_partial_withdrawals = get_pending_partial_withdrawals(state)
+    validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
 
-        config = self.get_chain_config(bs)
-        cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
-        GENESIS_TIME.set(genesis_time)
-        if any(
-            (
-                config.genesis_time != genesis_time,
-                config.seconds_per_slot != cc_config.SECONDS_PER_SLOT,
-                config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH,
-            )
-        ):
-            raise ValueError(
-                'Contract chain config is not compatible with Beacon chain.\n'
-                f'Contract config: {config}\n'
-                f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}'
-            )
+    pending_partial_withdrawals_number = len(pending_partial_withdrawals)
+    validators_withdrawals_number = len(validators_withdrawals)
 
-    # ----- Web3 data requests -----
-    @lru_cache(maxsize=1)
-    def _get_consensus_contract(self, blockstamp: BlockStamp) -> HashConsensusContract:
-        return cast(
-            HashConsensusContract,
-            self.w3.eth.contract(
-                address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
-                ContractFactoryClass=HashConsensusContract,
-                decode_tuples=True,
-            ),
-        )
+    # Each payload can have no more than MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    # pending partials out of MAX_WITHDRAWALS_PER_PAYLOAD
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    #
+    #
+    # No partials:   [0 1 2 3], [4 5 6 7], [8 9 0 1], ...
+    #                 ^                         ^ cycle
+    # With partials: [p p 0 1], [p p 2 3], [p p 4 5], [p p 6 7], [p p 8 9], [p p 0 1], ...
+    #                     ^                                                      ^ cycle
+    # [ ] - payload
+    # 0-9 - index of validator being withdrawn
+    #   p - pending partial withdrawal
+    #
+    # Thus, the ratio of the maximum number of `pending_partial_withdrawals` to the remaining number
+    # of `validators_withdrawals` in a single payload is calculated as:
+    #
+    # pending_partial_withdrawals                  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    # ---------------------------- = ------------------------------------------------------------------------
+    #    validators_withdrawals      MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
 
-    def _get_consensus_contract_members(self, blockstamp: BlockStamp):
-        consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.get_members(blockstamp.block_hash)
+    partial_withdrawals_max_ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (
+        MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    )
 
-    @lru_cache(maxsize=1)
-    def get_consensus_version(self, blockstamp: BlockStamp):
-        return self.report_contract.get_consensus_version(blockstamp.block_hash)
+    pending_partial_withdrawals_max_number_in_cycle = math.ceil(
+        validators_withdrawals_number * partial_withdrawals_max_ratio
+    )
 
-    @lru_cache(maxsize=1)
-    def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
-        consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.get_chain_config(blockstamp.block_hash)
+    pending_partial_withdrawals_number_in_cycle = min(
+        pending_partial_withdrawals_number, pending_partial_withdrawals_max_number_in_cycle
+    )
 
-    @lru_cache(maxsize=1)
-    def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
-        consensus_contract = self._get_consensus_contract(blockstamp)
+    withdrawals_number = validators_withdrawals_number + pending_partial_withdrawals_number_in_cycle
 
-        try:
-            return consensus_contract.get_current_frame(blockstamp.block_hash)
-        except ContractCustomError as revert:
-            if revert.data != InitialEpochIsYetToArriveRevert:
-                raise revert
+    return withdrawals_number
 
-        converter = self._get_web3_converter(blockstamp)
 
-        # If initial epoch is not yet arrived then current frame is the first frame
-        # ref_slot is last slot of previous frame
-        return CurrentFrame(
-            ref_slot=converter.get_frame_last_slot(FrameNumber(0 - 1)),
-            report_processing_deadline_slot=converter.get_frame_last_slot(FrameNumber(0)),
-        )
+def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
+    """
+    This method returns withdrawals that can be performed from `state.pending_partial_withdrawals`
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    """
+    withdrawals: List[Withdrawal] = []
 
-    @lru_cache(maxsize=1)
-    def get_initial_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
-        consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.get_initial_ref_slot(blockstamp.block_hash)
+    for withdrawal in state.pending_partial_withdrawals:
+        # if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
+        #     break
+        #
+        # These checks from the original method are omitted. It is assumed that `withdrawable_epoch`
+        # has arrived for all `pending_partial_withdrawals`
+        index = withdrawal.validator_index
+        validator = state.validators[index]
+        has_sufficient_effective_balance = validator.effective_balance >= MIN_ACTIVATION_BALANCE
+        has_excess_balance = state.balances[index] > MIN_ACTIVATION_BALANCE
 
-    @lru_cache(maxsize=1)
-    def get_frame_config(self, blockstamp: BlockStamp) -> FrameConfig:
-        consensus_contract = self._get_consensus_contract(blockstamp)
-        return consensus_contract.get_frame_config(blockstamp.block_hash)
-
-    @lru_cache(maxsize=1)
-    def get_member_info(self, blockstamp: BlockStamp) -> MemberInfo:
-        consensus_contract = self._get_consensus_contract(blockstamp)
-
-        # Defaults for dry mode
-        current_frame = self.get_initial_or_current_frame(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
-        is_member = is_submit_member = is_fast_lane = True
-        last_member_report_ref_slot = SlotNumber(0)
-        current_frame_consensus_report = current_frame_member_report = ZERO_HASH
-
-        if variables.ACCOUNT:
-            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
-                self.w3.eth.get_balance(variables.ACCOUNT.address)
-            )
-
-            try:
-                (
-                    # Current frame's reference slot.
-                    _,  # current_frame_ref_slot
-                    # Consensus report for the current frame, if any. Zero bytes otherwise.
-                    current_frame_consensus_report,
-                    # Whether the provided address is a member of the oracle committee.
-                    is_member,
-                    # Whether the oracle committee member is in the fast line members subset of the current reporting frame.
-                    is_fast_lane,
-                    # Whether the oracle committee member is allowed to submit a report at the moment of the call.
-                    _,  # can_report
-                    # The last reference slot for which the member submitted a report.
-                    last_member_report_ref_slot,
-                    # The hash reported by the member for the current frame, if any.
-                    current_frame_member_report,
-                ) = consensus_contract.get_consensus_state_for_member(
-                    variables.ACCOUNT.address,
-                    blockstamp.block_hash,
+        if validator.exit_epoch == FAR_FUTURE_EPOCH and has_sufficient_effective_balance and has_excess_balance:
+            withdrawable_balance = min(state.balances[index] - MIN_ACTIVATION_BALANCE, withdrawal.amount)
+            withdrawals.append(
+                Withdrawal(
+                    validator_index=index,
+                    amount=withdrawable_balance,
                 )
-            except ContractCustomError as revert:
-                if revert.data != InitialEpochIsYetToArriveRevert:
-                    raise revert
-
-            is_submit_member = self.report_contract.has_role(
-                self.report_contract.submit_data_role(blockstamp.block_hash),
-                variables.ACCOUNT.address,
-                blockstamp.block_hash,
             )
 
-            if not is_member and not is_submit_member:
-                raise IsNotMemberException(
-                    'Provided Account is not part of Oracle\'s members and has no submit role. '
-                    'For dry mode remove MEMBER_PRIV_KEY from variables.'
+    return withdrawals
+
+
+def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int) -> List[Withdrawal]:
+    """
+    This method returns fully and partial withdrawals that can be performed for validators
+    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    """
+    epoch = epoch_from_slot(state.slot, slots_per_epoch)
+    withdrawals = []
+    partially_withdrawn_map: dict[int, int] = defaultdict(int)
+
+    for withdrawal in partial_withdrawals:
+        partially_withdrawn_map[withdrawal.validator_index] += withdrawal.amount
+
+    for validator_index, validator in enumerate(state.indexed_validators):
+        partially_withdrawn_balance = Gwei(partially_withdrawn_map.get(validator_index, 0))
+        balance = Gwei(state.balances[validator_index] - partially_withdrawn_balance)
+
+        if is_fully_withdrawable_validator(validator.validator, balance, epoch):
+            withdrawals.append(Withdrawal(validator_index=validator_index, amount=balance))
+        elif is_partially_withdrawable_validator(validator.validator, balance):
+            max_effective_balance = get_max_effective_balance(validator.validator)
+            withdrawals.append(
+                Withdrawal(
+                    validator_index=validator_index,
+                    amount=balance - max_effective_balance,
                 )
-
-        mi = MemberInfo(
-            is_report_member=is_member,
-            is_submit_member=is_submit_member,
-            is_fast_lane=is_fast_lane,
-            last_report_ref_slot=last_member_report_ref_slot,
-            fast_lane_length_slot=frame_config.fast_lane_length_slots,
-            current_frame_consensus_report=current_frame_consensus_report,
-            current_frame_ref_slot=current_frame.ref_slot,
-            current_frame_member_report=current_frame_member_report,
-            deadline_slot=current_frame.report_processing_deadline_slot,
-        )
-        logger.debug({'msg': 'Fetch member info.', 'value': mi})
-
-        return mi
-
-    # ----- Calculation reference slot for report -----
-    def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
-        """
-        Get blockstamp that should be used to build and send report for current frame.
-        Returns:
-            Non-missed reference slot blockstamp in case contract is reportable.
-        """
-        latest_blockstamp = self._get_latest_blockstamp()
-
-        # Check if contract is currently reportable
-        if not self.is_contract_reportable(latest_blockstamp):
-            logger.info({'msg': 'Contract is not reportable.'})
-            return None
-
-        member_info = self.get_member_info(latest_blockstamp)
-        logger.info({'msg': 'Fetch member info.', 'value': member_info})
-
-        # Check if current slot is higher than member slot
-        if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
-            logger.info({'msg': 'Reference slot is not yet finalized.'})
-            return None
-
-        # Check latest block didn't miss the deadline.
-        if latest_blockstamp.slot_number >= member_info.deadline_slot:
-            logger.info({'msg': 'Deadline missed.'})
-            return None
-
-        converter = self._get_web3_converter(last_finalized_blockstamp)
-
-        bs = get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
-            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
-        )
-        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
-
-        return bs
-
-    def _check_compatability(self, blockstamp: BlockStamp):
-        """
-        Check if Oracle can process report on reference blockstamp.
-        """
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-        consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
-
-        compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
-
-        if not compatibility:
-            raise IncompatibleOracleVersion(
-                f'Incompatible Oracle version. Block tag: {repr(blockstamp.block_hash)}. '
-                f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
-                f'Got ({contract_version}, {consensus_version})'
             )
 
-        contract_version_latest = self.report_contract.get_contract_version('latest')
-        consensus_version_latest = self.report_contract.get_consensus_version('latest')
-
-        if not (contract_version == contract_version_latest and consensus_version == consensus_version_latest):
-            raise ContractVersionMismatch(
-                'The Oracle can\'t process the report on the reference blockstamp. '
-                f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
-                'further processing report can lead to unexpected behavior.'
-            )
-
-    # ----- Working with report -----
-    def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
-        """Builds and sends report for current frame with provided blockstamp."""
-        # Make sure module is compatible with contracts on reference and latest blockstamps.
-        self._check_compatability(blockstamp)
-
-        report_data = self.build_report(blockstamp)
-        logger.info({'msg': 'Build report.', 'value': report_data})
-
-        report_hash = self._encode_data_hash(report_data)
-        logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
-        # We need to check whether report has unexpected data before sending.
-        # otherwise we have to check it manually.
-        if not self.is_reporting_allowed(blockstamp):
-            logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
-            return
-
-        self._process_report_hash(blockstamp, report_hash)
-        # Even if report hash transaction was failed we have to check if we can report data for current frame
-        self._process_report_data(blockstamp, report_data, report_hash)
-
-    def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
-        latest_blockstamp, member_info = self._get_latest_data()
-
-        if not member_info.is_report_member:
-            logger.info({'msg': 'Account can`t submit report hash.'})
-            return None
-
-        if HexBytes(member_info.current_frame_member_report) == report_hash:
-            logger.info({'msg': 'Account already submitted provided hash.'})
-            return None
-
-        if not member_info.is_fast_lane:
-            # Check if current slot is newer than (member slot + slots_delay)
-            if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
-                logger.info(
-                    {
-                        'msg': f'Member is not in fast lane, so report will be postponed '
-                        f'for [{member_info.fast_lane_length_slot}] slots.'
-                    }
-                )
-                return None
-
-            if HexBytes(member_info.current_frame_consensus_report) == report_hash:
-                logger.info({'msg': 'Consensus reached with provided hash.'})
-                return None
-
-        consensus_version = self.get_consensus_version(blockstamp)
-
-        logger.info({'msg': f'Send report hash. Consensus version: [{consensus_version}]'})
-        self._send_report_hash(blockstamp, report_hash, consensus_version)
-        return None
-
-    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
-        latest_blockstamp, member_info = self._get_latest_data()
-
-        if member_info.current_frame_consensus_report == ZERO_HASH:
-            logger.info({'msg': 'Quorum is not ready.'})
-            return
-
-        if HexBytes(member_info.current_frame_consensus_report) != report_hash:
-            msg = 'Oracle`s hash differs from consensus report hash.'
-            logger.error(
-                {
-                    'msg': msg,
-                    'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
-                    'report_hash': report_hash.hex(),
-                }
-            )
-            return
-
-        if self.is_main_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Main data already submitted.'})
-            return
-
-        slots_to_sleep = self._get_slot_delay_before_data_submit(latest_blockstamp)
-        if slots_to_sleep:
-            chain_configs = self.get_chain_config(blockstamp)
-
-            logger.info({'msg': f'Sleep for {slots_to_sleep} slots before sending data.'})
-            for _ in range(slots_to_sleep):
-                sleep(chain_configs.seconds_per_slot)
-
-                latest_blockstamp, member_info = self._get_latest_data()
-                if self.is_main_data_submitted(latest_blockstamp):
-                    logger.info({'msg': 'Main data already submitted.'})
-                    return
-
-        if self.is_main_data_submitted(latest_blockstamp):
-            logger.info({'msg': 'Main data already submitted.'})
-            return
-
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-
-        logger.info({'msg': f'Send report data. Contract version: [{contract_version}]'})
-        # If data already submitted transaction will be locally reverted, no need to check status manually
-        self._submit_report(report_data, contract_version)
-
-    def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
-        latest_blockstamp = self._get_latest_blockstamp()
-        logger.debug({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
-
-        member_info = self.get_member_info(latest_blockstamp)
-        logger.debug({'msg': 'Get current member info.', 'value': member_info})
-
-        # Set member info metrics
-        ORACLE_MEMBER_INFO.info(
-            {
-                'is_report_member': str(member_info.is_report_member),
-                'is_submit_member': str(member_info.is_submit_member),
-                'is_fast_lane': str(member_info.is_fast_lane),
-            }
-        )
-        ORACLE_MEMBER_LAST_REPORT_REF_SLOT.set(member_info.last_report_ref_slot or 0)
-
-        # Set frame metrics
-        FRAME_CURRENT_REF_SLOT.set(member_info.current_frame_ref_slot)
-        FRAME_DEADLINE_SLOT.set(member_info.deadline_slot)
-
-        return latest_blockstamp, member_info
-
-    def _encode_data_hash(self, report_data: tuple) -> HexBytes:
-        # The Accounting Oracle and Ejector Bus has same named method to report data
-        report_function_name = 'submitReportData'
-
-        report_function_abi = next(x for x in self.report_contract.abi if x.get('name') == report_function_name)
-
-        # First input is ReportData structure
-        report_data_abi = report_function_abi['inputs'][0]['components']  # type: ignore
-
-        # Transform abi to string
-        report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))  # type: ignore
-
-        # Transform str abi to tuple, because ReportData is struct
-        encoded = encode([f'({report_str_abi})'], [report_data])
-
-        report_hash = self.w3.keccak(encoded)
-        return report_hash
-
-    def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
-        consensus_contract = self._get_consensus_contract(blockstamp)
-
-        tx = consensus_contract.submit_report(blockstamp.ref_slot, report_hash, consensus_version)
-
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
-
-    def _submit_report(self, report: tuple, contract_version: int):
-        tx = self.report_contract.submit_report_data(report, contract_version)
-
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
-
-    def _get_latest_blockstamp(self) -> BlockStamp:
-        root = self.w3.cc.get_block_root('head').root
-        block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
-        logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
-        ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
-        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
-        return bs
-
-    @lru_cache(maxsize=1)
-    def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
-        """
-        Fast lane offchain implementation for report data
-        If the member was added in the current frame,
-        the result of _get_slot_delay_before_data_submit may be inconsistent for different latest blocks, but it's ok.
-
-        Do not use ref blockstamp here because new oracle member will fail is_member check,
-        because it wasn't in quorum on ref_slot.
-
-        Returns in slots time to sleep before data report.
-        """
-        member = self.get_member_info(blockstamp)
-        if member.is_submit_member or variables.ACCOUNT is None:
-            return 0
-
-        members, _ = self._get_consensus_contract_members(blockstamp)
-
-        mem_position = members.index(variables.ACCOUNT.address)
-
-        converter = self._get_web3_converter(blockstamp)
-
-        current_frame_number = converter.get_frame_by_slot(blockstamp.slot_number)
-        current_position = current_frame_number % len(members)
-
-        sleep_count = mem_position - current_position
-        if sleep_count < 0:
-            sleep_count += len(members)
-
-        # 1 - is default delay for non submit members.
-        total_delay = (1 + sleep_count) * variables.SUBMIT_DATA_DELAY_IN_SLOTS
-
-        logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
-        return total_delay
-
-    def _get_web3_converter(self, blockstamp: BlockStamp) -> Web3Converter:
-        chain_config = self.get_chain_config(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
-        return Web3Converter(chain_config, frame_config)
-
-    @abstractmethod
-    @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        """Returns ReportData struct with calculated data."""
-
-    @abstractmethod
-    def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        """Returns if main data already submitted"""
-
-    @abstractmethod
-    def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        """Returns true if contract is ready for report"""
-
-    @abstractmethod
-    def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
-        """Check if collected build output is unexpected and need to be checked manually."""
+    return withdrawals

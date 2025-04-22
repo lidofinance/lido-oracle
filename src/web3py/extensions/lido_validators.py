@@ -77,19 +77,15 @@ class NodeOperator(Nested):
 
     @classmethod
     def from_response(cls, data, staking_module):
-        (
-            _id,
-            is_active,
-            (
-                is_target_limit_active,
-                target_validators_count,
-                stuck_validators_count,
-                refunded_validators_count,
-                stuck_penalty_end_timestamp,
-                total_exited_validators,
-                total_deposited_validators,
-                depositable_validators_count,
-            ),
+        _id, is_active, (
+            is_target_limit_active,
+            target_validators_count,
+            stuck_validators_count,
+            refunded_validators_count,
+            stuck_penalty_end_timestamp,
+            total_exited_validators,
+            total_deposited_validators,
+            depositable_validators_count,
         ) = data
 
         return cls(
@@ -137,10 +133,8 @@ class LidoValidatorsProvider(Module):
 
         # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
         if keys_count_received < stats.deposited_validators:
-            raise CountOfKeysDiffersException(
-                f'Keys API Service returned lesser keys ({keys_count_received}) '
-                f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router'
-            )
+            raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({keys_count_received}) '
+                                              f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router')
 
     @staticmethod
     def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
@@ -151,12 +145,10 @@ class LidoValidatorsProvider(Module):
 
         for key in keys:
             if key.key in validators_keys_dict:
-                lido_validators.append(
-                    LidoValidator(
-                        lido_id=key,
-                        **asdict(validators_keys_dict[key.key]),
-                    )
-                )
+                lido_validators.append(LidoValidator(
+                    lido_id=key,
+                    **asdict(validators_keys_dict[key.key]),
+                ))
 
         return lido_validators
 
@@ -171,7 +163,8 @@ class LidoValidatorsProvider(Module):
         }
 
         staking_module_address = {
-            operator.staking_module.staking_module_address: operator.staking_module.id for operator in no_operators
+            operator.staking_module.staking_module_address: operator.staking_module.id
+            for operator in no_operators
         }
 
         for validator in merged_validators:
@@ -183,18 +176,18 @@ class LidoValidatorsProvider(Module):
             if global_no_id in no_validators:
                 no_validators[global_no_id].append(validator)
             else:
-                logger.warning(
-                    {
-                        'msg': f'Got global node operator id: {global_no_id}, '
-                        f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
-                    }
-                )
+                logger.warning({
+                    'msg': f'Got global node operator id: {global_no_id}, '
+                           f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
+                })
 
         return no_validators
 
     @lru_cache(maxsize=1)
     def get_module_validators_by_node_operators(
-        self, module_address: StakingModuleAddress, blockstamp: BlockStamp
+        self,
+        module_address: StakingModuleAddress,
+        blockstamp: BlockStamp
     ) -> ValidatorsByNodeOperator:
         """
         Get module validators by querying the KeysAPI for the module keys.
@@ -241,9 +234,7 @@ class LidoValidatorsProvider(Module):
 
         modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         for module in modules:
-            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(
-                module, blockstamp.block_hash
-            )
+            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
 
         return result
 

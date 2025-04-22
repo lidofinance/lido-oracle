@@ -48,7 +48,11 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
     max_effective_balance = get_max_effective_balance(validator)
     has_max_effective_balance = validator.effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
-    return has_execution_withdrawal_credential(validator) and has_max_effective_balance and has_excess_balance
+    return (
+        has_execution_withdrawal_credential(validator)
+        and has_max_effective_balance
+        and has_excess_balance
+    )
 
 
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
@@ -81,7 +85,9 @@ def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, ep
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator
     """
     return (
-        has_execution_withdrawal_credential(validator) and validator.withdrawable_epoch <= epoch and balance > Gwei(0)
+        has_execution_withdrawal_credential(validator)
+        and validator.withdrawable_epoch <= epoch
+        and balance > Gwei(0)
     )
 
 

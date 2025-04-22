@@ -32,7 +32,7 @@ CHURN_LIMIT_QUOTIENT = 2**16
 MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = Gwei(2**7 * 10**9)
 MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
-SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
+SLOTS_PER_HISTORICAL_ROOT = 2**13 # 8192
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3

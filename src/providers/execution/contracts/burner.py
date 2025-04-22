@@ -22,12 +22,10 @@ class BurnerContract(ContractInterface):
         response = self.functions.getSharesRequestedToBurn().call(block_identifier=block_identifier)
 
         response = named_tuple_to_dataclass(response, SharesRequestedToBurn)
-        logger.info(
-            {
-                'msg': 'Call `getSharesRequestedToBurn()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `getSharesRequestedToBurn()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
         return response

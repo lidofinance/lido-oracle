@@ -30,7 +30,6 @@ class ExtraDataService:
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
     """
-
     @classmethod
     def collect(
         cls,
@@ -71,7 +70,7 @@ class ExtraDataService:
                 operator_ids = []
                 vals_count = []
 
-                for (_, no_id), validators_count in nos_in_batch:
+                for ((_, no_id), validators_count) in nos_in_batch:
                     operator_ids.append(no_id)
                     vals_count.append(validators_count)
 
@@ -108,10 +107,12 @@ class ExtraDataService:
                 tx_body += payload.module_id.to_bytes(ExtraDataLengths.MODULE_ID)
                 tx_body += len(payload.node_operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
                 tx_body += b''.join(
-                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID) for no_id in payload.node_operator_ids
+                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID)
+                    for no_id in payload.node_operator_ids
                 )
                 tx_body += b''.join(
-                    count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT) for count in payload.vals_counts
+                    count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT)
+                    for count in payload.vals_counts
                 )
 
                 index += 1

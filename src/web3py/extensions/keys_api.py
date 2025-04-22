@@ -5,7 +5,7 @@ from src.providers.keys.client import KeysAPIClient
 from src.variables import (
     HTTP_REQUEST_TIMEOUT_KEYS_API,
     HTTP_REQUEST_RETRY_COUNT_KEYS_API,
-    HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API,
+    HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API
 )
 
 
@@ -17,6 +17,6 @@ class KeysAPIClientModule(KeysAPIClient, Module):
             hosts,
             HTTP_REQUEST_TIMEOUT_KEYS_API,
             HTTP_REQUEST_RETRY_COUNT_KEYS_API,
-            HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API,
+            HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API
         )
         super(Module, self).__init__()

@@ -32,7 +32,6 @@ class KeysAPIClient(HTTPProvider):
 
     Keys API specification can be found here https://keys-api.lido.fi/api/static/index.html
     """
-
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
     PROVIDER_EXCEPTION = KAPIClientError
 
@@ -54,9 +53,7 @@ class KeysAPIClient(HTTPProvider):
             if i != self.retry_count - 1:
                 sleep(self.backoff_factor)
 
-        raise KeysOutdatedException(
-            f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.'
-        )
+        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
 
     @lru_cache(maxsize=1)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
@@ -64,9 +61,7 @@ class KeysAPIClient(HTTPProvider):
         return list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
 
     @lru_cache(maxsize=1)
-    def get_module_operators_keys(
-        self, module_address: StakingModuleAddress, blockstamp: BlockStamp
-    ) -> ModuleOperatorsKeys:
+    def get_module_operators_keys(self, module_address: StakingModuleAddress, blockstamp: BlockStamp) -> ModuleOperatorsKeys:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """

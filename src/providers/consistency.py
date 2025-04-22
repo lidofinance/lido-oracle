@@ -19,7 +19,6 @@ class ProviderConsistencyModule(ABC):
     def get_all_providers(self) -> [any]:
     def _get_chain_id_with_provider(self, int) -> int:
     """
-
     def check_providers_consistency(self) -> int | None:
         chain_id = None
 
@@ -32,10 +31,8 @@ class ProviderConsistencyModule(ABC):
             if chain_id is None:
                 chain_id = curr_chain_id
             elif chain_id != curr_chain_id:
-                raise InconsistentProviders(
-                    f'Different chain ids detected for {provider_index=}. '
-                    f'Expected {curr_chain_id=}, got {chain_id=}.'
-                )
+                raise InconsistentProviders(f'Different chain ids detected for {provider_index=}. '
+                                            f'Expected {curr_chain_id=}, got {chain_id=}.')
 
         return chain_id
 

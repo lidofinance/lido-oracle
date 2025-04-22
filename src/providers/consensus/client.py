@@ -17,12 +17,11 @@ from src.providers.consensus.types import (
     BeaconSpecResponse,
     GenesisResponse,
     SlotAttestationCommittee,
-    PendingDeposit,
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import list_of_dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +52,6 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
-
-    @lru_cache(maxsize=1)
-    def is_electra_activated(self, epoch: EpochNumber) -> bool:
-        spec = self.get_config_spec()
-        return epoch >= spec.ELECTRA_FORK_EPOCH
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
@@ -93,14 +87,11 @@ class ConsensusClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
-        data, meta_data = cast(
-            tuple[dict, dict],
-            self._get(
-                self.API_GET_BLOCK_HEADER,
-                path_params=(state_id,),
-                force_raise=self.__raise_last_missed_slot_error,
-            ),
-        )
+        data, meta_data = cast(tuple[dict, dict], self._get(
+            self.API_GET_BLOCK_HEADER,
+            path_params=(state_id,),
+            force_raise=self.__raise_last_missed_slot_error,
+        ))
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getBlockHeader")
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
@@ -139,7 +130,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         committee_index: int | None = None,
-        slot: SlotNumber | None = None,
+        slot: SlotNumber | None = None
     ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
         try:
@@ -147,7 +138,7 @@ class ConsensusClient(HTTPProvider):
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
-                force_raise=self.__raise_on_prysm_error,
+                force_raise=self.__raise_on_prysm_error
             )
             if not isinstance(data, list):
                 raise ValueError("Expected list response from getEpochCommittees")
@@ -165,14 +156,11 @@ class ConsensusClient(HTTPProvider):
 
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
-        streamed_json = cast(
-            TransientStreamingJSONObject,
-            self._get(
-                self.API_GET_STATE,
-                path_params=(state_id,),
-                stream=True,
-            ),
-        )
+        streamed_json = cast(TransientStreamingJSONObject, self._get(
+            self.API_GET_STATE,
+            path_params=(state_id,),
+            stream=True,
+        ))
         return list(streamed_json['data']['block_roots'])
 
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
@@ -180,12 +168,6 @@ class ConsensusClient(HTTPProvider):
 
     def get_validators_no_cache(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view_no_cache(blockstamp).indexed_validators
-
-    def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
-        return self.get_state_view(blockstamp).pending_deposits
-
-    def get_pending_deposits_no_cache(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
-        return self.get_state_view_no_cache(blockstamp).pending_deposits
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
@@ -242,7 +224,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         index: int | None = None,
-        slot: SlotNumber | None = None,
+        slot: SlotNumber | None = None
     ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number

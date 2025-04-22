@@ -24,13 +24,10 @@ class Nested:
                 field_type = field.type.__args__[0]
                 if is_dataclass(field_type):
                     factory = self.__get_dataclass_factory(field_type)
-                    setattr(
-                        self,
-                        field.name,
-                        field.type.__origin__(
-                            map(lambda x: factory(**x) if not is_dataclass(x) else x, getattr(self, field.name))
-                        ),
-                    )
+                    setattr(self, field.name,
+                            field.type.__origin__(map(
+                                lambda x: factory(**x) if not is_dataclass(x) else x,
+                                getattr(self, field.name))))
                 elif self.__is_numberish_type(field_type):
                     setattr(self, field.name, field.type.__origin__(int(v) for v in getattr(self, field.name)))
             elif is_dataclass(field.type) and not is_dataclass(getattr(self, field.name)):
@@ -71,11 +68,10 @@ class FromResponse:
         return cls(**{k: v for k, v in kwargs.items() if k in class_field_names})
 
 
-def list_of_dataclasses[
-    T
-](_dataclass_factory: Callable[..., T]) -> Callable[[Callable[..., Sequence]], Callable[..., list[T]]]:
+def list_of_dataclasses[T](
+    _dataclass_factory: Callable[..., T]
+) -> Callable[[Callable[..., Sequence]], Callable[..., list[T]]]:
     """Decorator to transform list of dicts from func response to list of dataclasses"""
-
     def decorator(func: Callable[..., Sequence]) -> Callable[..., list[T]]:
         @functools.wraps(func)
         def wrapper_decorator(*args, **kwargs):
@@ -94,7 +90,6 @@ def list_of_dataclasses[
                 return list(map(lambda x: named_tuple_to_dataclass(x, _dataclass_factory), list_of_elements))
 
             raise DecodeToDataclassException(f'Type {type(list_of_elements[0])} is not supported.')
-
         return wrapper_decorator
 
     return decorator

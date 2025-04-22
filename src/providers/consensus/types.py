@@ -5,7 +5,6 @@ from typing import Protocol
 from eth_typing import BlockNumber
 from web3.types import Timestamp
 
-from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
 
@@ -17,7 +16,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
-    ELECTRA_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
 
 @dataclass
@@ -89,19 +87,13 @@ class AttestationData(Nested, FromResponse):
 class BlockAttestationResponse(Nested, FromResponse):
     aggregation_bits: str
     data: AttestationData
-    committee_bits: str | None = None
-
-
-class BlockAttestationPhase0(Protocol):
-    aggregation_bits: str
-    data: AttestationData
-
-
-class BlockAttestationEIP7549(BlockAttestationPhase0):
     committee_bits: str
 
 
-type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
+class BlockAttestation(Protocol):
+    aggregation_bits: str
+    committee_bits: str
+    data: AttestationData
 
 
 @dataclass
@@ -160,15 +152,6 @@ class PendingPartialWithdrawal(Nested):
 
 
 @dataclass
-class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
-    amount: Gwei
-    signature: str
-    slot: SlotNumber
-
-
-@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -183,7 +166,6 @@ class BeaconStateView(Nested, FromResponse):
     # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
-    pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
 
     @cached_property
