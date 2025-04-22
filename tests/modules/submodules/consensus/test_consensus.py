@@ -81,10 +81,20 @@ def test_get_latest_blockstamp(consensus, set_no_account):
 def test_get_member_info_with_account(consensus, set_report_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        True,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = False
+
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
-
     assert member_info.is_report_member
     assert not member_info.is_submit_member
     assert member_info.is_fast_lane
