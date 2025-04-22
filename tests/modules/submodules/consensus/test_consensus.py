@@ -119,6 +119,16 @@ def test_get_member_info_without_account(consensus, set_no_account):
 def test_get_member_info_no_member_account(consensus, set_not_member_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        False,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = False
 
     with pytest.raises(IsNotMemberException):
         consensus.get_member_info(bs)
