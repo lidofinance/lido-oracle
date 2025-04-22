@@ -4,6 +4,7 @@ from typing import Iterator, cast
 from packaging.version import Version
 from prometheus_client import start_http_server
 
+from src import constants
 from src import variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
@@ -35,16 +36,14 @@ logger = logging.getLogger(__name__)
 
 def main(module_name: OracleModule):
     build_info = get_build_info()
-    logger.info(
-        {
-            'msg': 'Oracle startup.',
-            'variables': {
-                **build_info,
-                'module': module_name,
-                **variables.PUBLIC_ENV_VARS,
-            },
-        }
-    )
+    logger.info({
+        'msg': 'Oracle startup.',
+        'variables': {
+            **build_info,
+            'module': module_name,
+            **variables.PUBLIC_ENV_VARS,
+        },
+    })
     ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 
@@ -55,13 +54,11 @@ def main(module_name: OracleModule):
     start_http_server(variables.PROMETHEUS_PORT)
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(
-        FallbackProviderModule(
-            variables.EXECUTION_CLIENT_URI,
-            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-            cache_allowed_requests=True,
-        )
-    )
+    web3 = Web3(FallbackProviderModule(
+        variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
+    ))
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
@@ -79,22 +76,20 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < Version('1.5.0'):
-        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
+    if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
+        raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
 
     check_providers_chain_ids(web3, cc, kac)
 
-    web3.attach_modules(
-        {
-            'lido_contracts': LidoContracts,
-            'lido_validators': LidoValidatorsProvider,
-            'transaction': TransactionUtils,
-            'csm': LazyCSM,
-            'cc': lambda: cc,  # type: ignore[dict-item]
-            'kac': lambda: kac,  # type: ignore[dict-item]
-            'ipfs': lambda: ipfs,  # type: ignore[dict-item]
-        }
-    )
+    web3.attach_modules({
+        'lido_contracts': LidoContracts,
+        'lido_validators': LidoValidatorsProvider,
+        'transaction': TransactionUtils,
+        'csm': LazyCSM,
+        'cc': lambda: cc,  # type: ignore[dict-item]
+        'kac': lambda: kac,  # type: ignore[dict-item]
+        'ipfs': lambda: ipfs,  # type: ignore[dict-item]
+    })
 
     web3.staking_vaults = StakingVaults(web3, cc, ipfs, web3.lido_contracts.vault_hub)
 

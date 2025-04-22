@@ -17,6 +17,7 @@ from src.providers.consensus.types import (
     BeaconSpecResponse,
     GenesisResponse,
     SlotAttestationCommittee,
+    PendingDeposit
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
@@ -196,6 +197,12 @@ class ConsensusClient(HTTPProvider):
                 raise
 
         return BeaconStateView.from_response(**data)
+
+    def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        return self.get_state_view(blockstamp).pending_deposits
+
+    def get_pending_deposits_no_cache(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        return self.get_state_view_no_cache(blockstamp).pending_deposits
 
     def _get_state_by_state_id(self, state_id: StateRoot | SlotNumber) -> dict:
         data, _ = self._get(
