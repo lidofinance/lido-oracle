@@ -165,7 +165,7 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 @pytest.mark.unit
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     blockstamp = ReferenceBlockStampFactory.build(slot_number=1)
-    member_info = MemberInfoFactory.build(is_report_member=True)
+    member_info = MemberInfoFactory.build(is_report_member=True, current_frame_ref_slot=2)
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
 
@@ -225,14 +225,14 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
 
 
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog, set_no_account):
-    bs = ReferenceBlockStampFactory.build()
-    member_info = consensus.get_member_info(bs)
-    member_info.deadline_slot = bs.slot_number - 1
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=2)
+    member_info = MemberInfoFactory.build(is_report_member=True, current_frame_ref_slot=1, deadline_slot=1)
     consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
 
-    consensus.get_blockstamp_for_report(bs)
+    consensus.get_blockstamp_for_report(blockstamp)
+
     assert "Deadline missed" in caplog.messages[-1]
 
 
@@ -299,15 +299,19 @@ def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: Consens
 
 
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    member_info = consensus.get_member_info(latest_blockstamp)
-    member_info.is_fast_lane = False
-    member_info.current_frame_ref_slot += 1
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=2)
+    member_info = MemberInfoFactory.build(
+        is_report_member=True,
+        is_fast_lane=False,
+        current_frame_ref_slot=1,
+    )
     consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus._get_consensus_contract(blockstamp).get_chain_config.return_value = ChainConfigFactory.build()
+    consensus.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build()
 
-    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    blockstamp = consensus.get_blockstamp_for_report(blockstamp)
     assert isinstance(blockstamp, BlockStamp)
 
 
