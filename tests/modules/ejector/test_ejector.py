@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 from web3.exceptions import ContractCustomError
 
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src import constants
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
@@ -25,7 +26,7 @@ from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
@@ -88,25 +89,28 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 @pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
+    ejector.report_contract.abi = ExitBusOracleContract.load_abi(ExitBusOracleContract.abi_path)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=3)
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
-    assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
-    ), "execute_module should wait for the next slot"
+
+    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+
+    assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
 
 
 @pytest.mark.unit
 def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
-    result = ejector.build_report(ref_blockstamp)
-    _, ref_slot, _, _, data = result
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_last_processing_ref_slot.return_value = SlotNumber(0)
+
+    _, ref_slot, _, _, data = ejector.build_report(ref_blockstamp)
+    ejector.build_report(ref_blockstamp)
+
     assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
     assert data == b"", "Unexpected encoded data"
-
-    ejector.build_report(ref_blockstamp)
     ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
 
 
