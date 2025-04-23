@@ -201,8 +201,6 @@ class ConsensusClient(HTTPProvider):
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
 
-    def get_pending_deposits_no_cache(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
-        return self.get_state_view_no_cache(blockstamp).pending_deposits
 
     def _get_state_by_state_id(self, state_id: StateRoot | SlotNumber) -> dict:
         data, _ = self._get(

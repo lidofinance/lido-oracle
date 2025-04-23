@@ -120,8 +120,11 @@ def csm(web3):
 # ---- Lido contracts ----
 @pytest.fixture()
 def contracts(web3, provider):
-    src.variables.LIDO_LOCATOR_ADDRESS = variables.LIDO_LOCATOR_ADDRESS
-    src.variables.CSM_MODULE_ADDRESS = variables.CSM_MODULE_ADDRESS
+    if not src.variables.LIDO_LOCATOR_ADDRESS:
+        src.variables.LIDO_LOCATOR_ADDRESS = '0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589'
+
+    if src.variables.CSM_MODULE_ADDRESS:
+        src.variables.CSM_MODULE_ADDRESS = '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F'
 
     with provider.use_mock(Path('common/contracts.json')):
         # First contracts deployment

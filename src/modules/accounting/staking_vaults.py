@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from typing import List, cast, Any
 
@@ -106,13 +107,10 @@ class StakingVaults(Module):
             return {}
 
         pending_deposits = self.cl.get_pending_deposits(blockstamp)
-        deposit_map = dict[str, int]()
+        pending_deposit_map: dict[str, int] = defaultdict(int)
 
         for deposit in pending_deposits:
-            if deposit.withdrawal_credentials not in deposit_map:
-                deposit_map[deposit.withdrawal_credentials] = 0
-
-            deposit_map[deposit.withdrawal_credentials] += Web3.to_wei(int(deposit.amount), 'gwei')
+            pending_deposit_map[deposit.withdrawal_credentials] += Web3.to_wei(int(deposit.amount), 'gwei')
 
         vaults = VaultsMap()
         for vault_ind in range(vault_count):
@@ -127,10 +125,6 @@ class StakingVaults(Module):
 
             vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp.block_number)
 
-            pending_deposit = 0
-            if vault_withdrawal_credentials in deposit_map:
-                pending_deposit = deposit_map[vault_withdrawal_credentials]
-
             fee = 0
             vaults[vault_socket.vault] = VaultData(
                 vault_ind,
@@ -138,7 +132,7 @@ class StakingVaults(Module):
                 vault_in_out_delta,
                 vault_socket.liability_shares,
                 fee,
-                pending_deposit,
+                pending_deposit_map[vault_withdrawal_credentials],
                 vault_socket.vault,
                 vault_withdrawal_credentials,
                 vault_socket,
@@ -148,19 +142,18 @@ class StakingVaults(Module):
 
     @staticmethod
     def connect_vault_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
-        wc_vault_map = dict[str, VaultData]()
-        for vault_pk in vault_addresses:
-            wc_vault_map[vault_addresses[vault_pk].withdrawal_credentials] = vault_addresses[vault_pk]
+        wc_vault_map: dict[str, VaultData] = {
+            vault_data.withdrawal_credentials: vault_data
+            for vault_data in vault_addresses.values()
+        }
 
-        result = VaultToValidators()
+        result: VaultToValidators = defaultdict(list)
         for validator in validators:
-            if validator.validator.withdrawal_credentials in wc_vault_map:
-                vault = wc_vault_map[validator.validator.withdrawal_credentials]
+            wc = validator.validator.withdrawal_credentials
 
-                if vault.address not in result:
-                    result[vault.address] = [validator]
-                else:
-                    result[vault.address].append(validator)
+            if wc in wc_vault_map:
+                vault = wc_vault_map[validator.validator.withdrawal_credentials]
+                result[vault.address].append(validator)
 
         return result
 
@@ -211,7 +204,6 @@ class StakingVaults(Module):
         }
 
         dumped_proofs = json.dumps(result, default=encoder)
-        print(dumped_proofs)
 
         cid = self.ipfs_client.publish(dumped_proofs.encode('utf-8'), 'proofs.json')
 
