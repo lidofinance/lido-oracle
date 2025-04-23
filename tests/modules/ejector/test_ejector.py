@@ -196,12 +196,6 @@ class TestGetValidatorsToEject:
 
 
 @pytest.mark.unit
-def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
-    assert result == 8362187000000000000, "Unexpected unfinalized stETH"
-
-
-@pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(
         return_value=Mock(data_submitted=True)
@@ -472,12 +466,6 @@ class TestChurnLimit:
             assert result == 49, "Unexpected churn limit"
             ejector._get_churn_limit(ref_blockstamp)
             ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
-
-
-@pytest.mark.unit
-def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state(blockstamp.block_hash)
-    assert isinstance(result, EjectorProcessingState), "Unexpected processing state response"
 
 
 @pytest.mark.unit

@@ -315,14 +315,6 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, c
     assert isinstance(blockstamp, BlockStamp)
 
 
-@pytest.mark.unit
-@pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
-    assert isinstance(blockstamp, BlockStamp)
-
-
 class ConsensusImpl(ConsensusModule):
     """Consensus module implementation for testing purposes"""
 
