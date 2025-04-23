@@ -264,8 +264,8 @@ class ConsensusModule(ABC):
                 'further processing report can lead to unexpected behavior.'
             )
         ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
-    if not ready_to_report:
-        logger.info({'msg': 'Some message that Oracle waits for contacts to be updated'})
+        if not ready_to_report:
+            logger.info({'msg': 'Some message that Oracle waits for contacts to be updated'})
         return ready_to_report
 
     # ----- Working with report -----
