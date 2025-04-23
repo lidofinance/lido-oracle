@@ -23,14 +23,12 @@ class ExitBusOracleContract(BaseOracleContract):
         Returns whether the contract is paused.
         """
         response = self.functions.isPaused().call(block_identifier=block_identifier)
-        logger.info(
-            {
-                'msg': 'Call `isPaused()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `isPaused()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
         return response
 
     @lru_cache(maxsize=1)
@@ -40,14 +38,12 @@ class ExitBusOracleContract(BaseOracleContract):
         """
         response = self.functions.getProcessingState().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, EjectorProcessingState)
-        logger.info(
-            {
-                'msg': 'Call `getProcessingState()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `getProcessingState()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
         return response
 
     def get_last_requested_validator_indices(
@@ -69,14 +65,12 @@ class ExitBusOracleContract(BaseOracleContract):
                 no_list,
             ).call(block_identifier=block_identifier)
 
-            logger.info(
-                {
-                    'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {len(no_list)})`.',
-                    'len': len(response),
-                    'block_identifier': repr(block_identifier),
-                    'to': self.address,
-                }
-            )
+            logger.info({
+                'msg': f'Call `getLastRequestedValidatorIndices({module_id}, {len(no_list)})`.',
+                'len': len(response),
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            })
 
             result.extend(response)
 

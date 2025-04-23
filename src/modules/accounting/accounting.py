@@ -12,7 +12,7 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
@@ -37,14 +37,7 @@ from src.providers.execution.contracts.accounting_oracle import AccountingOracle
 from src.services.bunker import BunkerService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import (
-    BlockStamp,
-    Gwei,
-    ReferenceBlockStamp,
-    StakingModuleId,
-    NodeOperatorGlobalIndex,
-    FinalizationBatches,
-)
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
@@ -229,12 +222,10 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_lido_balance = lido_validators_state_balance = sum(
-            (validator.balance for validator in lido_validators), Gwei(0)
-        )
+        total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info(
-            {'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance}
-        )
+            {'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     def _get_finalization_batches(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:

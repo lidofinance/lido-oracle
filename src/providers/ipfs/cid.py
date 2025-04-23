@@ -6,10 +6,12 @@ class CID(UserString):
         return f"{self.__class__.__name__}({self.data})"
 
 
-class CIDv0(CID): ...
+class CIDv0(CID):
+    ...
 
 
-class CIDv1(CID): ...
+class CIDv1(CID):
+    ...
 
 
 # @see https://github.com/multiformats/cid/blob/master/README.md#decoding-algorithm

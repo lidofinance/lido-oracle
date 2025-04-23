@@ -86,10 +86,14 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-man
         # Provide a more helpful error message than the one provided by
         # eth-abi-utils
         is_missing_code_error = (
-            return_data in ACCEPTABLE_EMPTY_STRINGS and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
+            return_data in ACCEPTABLE_EMPTY_STRINGS
+            and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
         )
         if is_missing_code_error:
-            msg = "Could not transact with/call contract function, is contract deployed correctly and chain synced?"
+            msg = (
+                "Could not transact with/call contract function, is contract "
+                "deployed correctly and chain synced?"
+            )
         else:
             msg = (
                 f"Could not decode contract function call to {function_identifier} "

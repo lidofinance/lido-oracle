@@ -1,21 +1,23 @@
 # pylint: disable=protected-access
 """Simple tests for the consensus client responses validity."""
-
 from unittest.mock import Mock
 
 import pytest
 
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
-from src.types import EpochNumber, SlotNumber
+from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
+from tests.conftest import TESTNET_CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
 
 
 @pytest.fixture
-def consensus_client():
-    return ConsensusClient(CONSENSUS_CLIENT_URI, 5 * 60, 5, 5)
+def consensus_client(request):
+    params = getattr(request, 'param', {})
+    rpc_endpoint = params.get('endpoint', CONSENSUS_CLIENT_URI)
+    return ConsensusClient(rpc_endpoint, 5 * 60, 5, 5)
 
 
 @pytest.mark.integration
@@ -25,6 +27,12 @@ def test_get_block_root(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
+@pytest.mark.parametrize(
+    'consensus_client',
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    indirect=True,
+)
 def test_get_block_details(consensus_client: ConsensusClient, web3):
     root = consensus_client.get_block_root('head').root
     block_details = consensus_client.get_block_details(root)
@@ -32,6 +40,12 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
+@pytest.mark.parametrize(
+    'consensus_client',
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    indirect=True,
+)
 def test_get_block_attestations(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
 
@@ -40,6 +54,12 @@ def test_get_block_attestations(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
+@pytest.mark.parametrize(
+    'consensus_client',
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    indirect=True,
+)
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
@@ -58,6 +78,12 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
+@pytest.mark.parametrize(
+    'consensus_client',
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    indirect=True,
+)
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
@@ -71,6 +97,12 @@ def test_get_validators(consensus_client: ConsensusClient):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
+@pytest.mark.parametrize(
+    'consensus_client',
+    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
+    indirect=True,
+)
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
@@ -78,11 +110,8 @@ def test_get_state_view(consensus_client: ConsensusClient):
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number
-
-    epoch = EpochNumber(state_view.slot // 32)
-    if consensus_client.is_electra_activated(epoch):
-        assert state_view.earliest_exit_epoch != 0
-        assert state_view.exit_balance_to_consume >= 0
+    assert state_view.earliest_exit_epoch != 0
+    assert state_view.exit_balance_to_consume >= 0
 
 
 @pytest.mark.unit

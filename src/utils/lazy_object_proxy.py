@@ -21,7 +21,6 @@ class LazyObjectProxy(Generic[WrappedType]):
         def wrapper(self: 'LazyObjectProxy[WrappedType]', *args: Any, **kwargs: Any) -> Any:
             self._setup()  # pylint: disable=protected-access
             return method(self._wrapped_obj, *args, **kwargs)  # pylint: disable=protected-access
-
         return wrapper
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -55,4 +54,6 @@ class LazyObjectProxy(Generic[WrappedType]):
     __len__ = _proxy_method(len)
     __contains__ = _proxy_method(operator.contains)
 
-    __class__ = property(_proxy_method(operator.attrgetter("__class__")))  # type: ignore[assignment]
+    __class__ = property(  # type: ignore[assignment]
+        _proxy_method(operator.attrgetter("__class__"))
+    )

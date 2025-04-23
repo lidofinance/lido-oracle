@@ -19,9 +19,7 @@ class ValidatorFrameSummary:
 @dataclass
 class OperatorFrameSummary:
     distributed: int = 0
-    validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(
-        default_factory=lambda: defaultdict(ValidatorFrameSummary)
-    )
+    validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
     stuck: bool = False
 
 

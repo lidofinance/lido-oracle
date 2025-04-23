@@ -3,14 +3,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-from typing import Iterable, Sequence, TypeGuard
+from typing import Iterable, Sequence
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT
 from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
+from src.providers.consensus.types import BlockAttestation
 from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.timeit import timeit
@@ -113,21 +113,17 @@ class FrameCheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    eip7549_supported: bool
-
     def __init__(
         self,
         cc: ConsensusClient,
         state: State,
         converter: Web3Converter,
         finalized_blockstamp: BlockStamp,
-        eip7549_supported: bool = True,
     ):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
-        self.eip7549_supported = eip7549_supported
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
@@ -203,7 +199,7 @@ class FrameCheckpointProcessor:
         committees = self._prepare_committees(duty_epoch)
         for root in block_roots:
             attestations = self.cc.get_block_attestations(root)
-            process_attestations(attestations, committees, self.eip7549_supported)
+            process_attestations(attestations, committees)
 
         with lock:
             for committee in committees.values():
@@ -240,11 +236,8 @@ class FrameCheckpointProcessor:
 def process_attestations(
     attestations: Iterable[BlockAttestation],
     committees: Committees,
-    eip7549_supported: bool = True,
 ) -> None:
     for attestation in attestations:
-        if is_eip7549_attestation(attestation) and not eip7549_supported:
-            raise ValueError("EIP-7549 support is not enabled")
         committee_offset = 0
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
@@ -255,18 +248,7 @@ def process_attestations(
 
 
 def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
-    if is_eip7549_attestation(attestation):
-        return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
-    return [attestation.data.index]
-
-
-def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationEIP7549]:
-    # @see https://eips.ethereum.org/EIPS/eip-7549
-    has_committee_bits = getattr(attestation, "committee_bits") is not None
-    has_zero_index = attestation.data.index == 0
-    if has_committee_bits and not has_zero_index:
-        raise ValueError(f"Got invalid {attestation=}")
-    return has_committee_bits and has_zero_index
+    return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
 
 
 def get_set_indices(bits: Sequence[bool]) -> list[int]:

@@ -26,7 +26,7 @@ class Withdrawal:
     amount: int
 
 
-def get_sweep_delay_in_epochs_post_electra(state: BeaconStateView, spec: ChainConfig) -> int:
+def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
     """
     This method predicts the average withdrawal delay in epochs.
     It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
@@ -130,9 +130,7 @@ def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
     return withdrawals
 
 
-def get_validators_withdrawals(
-    state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int
-) -> List[Withdrawal]:
+def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int) -> List[Withdrawal]:
     """
     This method returns fully and partial withdrawals that can be performed for validators
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
