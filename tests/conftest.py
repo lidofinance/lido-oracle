@@ -2,7 +2,7 @@ import os
 import socket
 from dataclasses import dataclass
 from typing import Final
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from eth_tester import EthereumTester

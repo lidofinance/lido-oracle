@@ -1,20 +1,20 @@
-from unittest.mock import Mock, patch, MagicMock
-from typing import Type
+from http import HTTPStatus
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import responses
 from eth_utils import add_0x_prefix
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
-
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
+from src import variables
+from src.modules.submodules.exceptions import IncompatibleOracleVersion, IsNotMemberException
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src import variables
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
@@ -60,9 +60,12 @@ def test_receive_last_finalized_slot(oracle):
 
 
 @pytest.mark.unit
+@responses.activate
 def test_cycle_handler_run_once_per_slot(oracle, contracts, web3):
     web3.lido_contracts.has_contract_address_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
+    responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
+
     oracle.cycle_handler()
     assert oracle.call_count == 1
     assert web3.lido_contracts.has_contract_address_changed.call_count == 1
