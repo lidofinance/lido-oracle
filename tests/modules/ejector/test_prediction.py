@@ -246,16 +246,15 @@ def test_get_rewards_no_matching_events(web3, contracts):
         slot_number=SlotNumber(100000),
         block_hash=None,
     )
-
     cc = ChainConfig(
         slots_per_epoch=32,
         seconds_per_slot=12,
         genesis_time=0,
     )
-
     web3.lido_contracts.lido.events = MagicMock()
     web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = []
     web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = []
+    web3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots.return_value = 12
 
     p = RewardsPredictionService(web3)
 
