@@ -9,12 +9,16 @@ from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
 from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import BeaconSpecResponse, BlockDetailsResponse
+from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.conftest import get_blockstamp_by_state, Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
-from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory, \
-    BlockDetailsResponseFactory
+from tests.factory.configs import (
+    BeaconSpecResponseFactory,
+    ChainConfigFactory,
+    FrameConfigFactory,
+    BlockDetailsResponseFactory,
+)
 
 
 @pytest.fixture()
@@ -138,10 +142,20 @@ def test_get_member_info_no_member_account(consensus, set_not_member_account):
 def test_get_member_info_submit_only_account(consensus, set_submit_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        False,  # is_member
+        False,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = True
+
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
-
     assert not member_info.is_report_member
     assert member_info.is_submit_member
     assert not member_info.is_fast_lane
