@@ -19,6 +19,7 @@ from tests.factory.configs import (
     FrameConfigFactory,
     BlockDetailsResponseFactory,
 )
+from tests.factory.member_info import MemberInfoFactory
 
 
 @pytest.fixture()
@@ -161,16 +162,15 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
     assert not member_info.is_fast_lane
 
 
-# ------ Get block for report tests ----------
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
-    bs = ReferenceBlockStampFactory.build()
-    current_frame = consensus.get_initial_or_current_frame(bs)
-    previous_blockstamp = get_blockstamp_by_state(web3, current_frame.ref_slot - 1)
-    consensus._get_latest_blockstamp = Mock(return_value=previous_blockstamp)
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=1)
+    member_info = MemberInfoFactory.build(is_report_member=True)
+    consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
 
-    consensus.get_blockstamp_for_report(previous_blockstamp)
+    consensus.get_blockstamp_for_report(blockstamp)
+
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
 
 
