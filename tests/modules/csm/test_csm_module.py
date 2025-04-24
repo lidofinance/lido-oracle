@@ -35,10 +35,12 @@ def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 
+@pytest.mark.unit
 def test_init(module: CSOracle):
     assert module
 
 
+@pytest.mark.unit
 def test_stuck_operators(module: CSOracle, csm: CSM):
     module.module = Mock()  # type: ignore
     module.module_id = StakingModuleId(1)
@@ -83,7 +85,8 @@ def test_stuck_operators(module: CSOracle, csm: CSM):
     assert stuck == {NodeOperatorId(2), NodeOperatorId(4), NodeOperatorId(5), NodeOperatorId(6), NodeOperatorId(1337)}
 
 
-def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, caplog: pytest.LogCaptureFixture):
+@pytest.mark.unit
+def test_stuck_operators_left_border_before_enact(module: CSOracle, caplog: pytest.LogCaptureFixture):
     module.module = Mock()  # type: ignore
     module.module_id = StakingModuleId(3)
     module.w3.cc = Mock()
@@ -132,9 +135,10 @@ def test_stuck_operators_left_border_before_enact(module: CSOracle, csm: CSM, ca
     assert caplog.messages[0].startswith("No CSM digest at blockstamp")
 
 
-def test_calculate_distribution(module: CSOracle, csm: CSM):
-    csm.fee_distributor.shares_to_distribute = Mock(return_value=10_000)
-    csm.oracle.perf_leeway_bp = Mock(return_value=500)
+@pytest.mark.unit
+def test_calculate_distribution(module: CSOracle):
+    module.w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=10_000)
+    module.w3.csm.oracle.perf_leeway_bp = Mock(return_value=500)
 
     module.module_validators_by_node_operators = Mock(
         return_value={
@@ -360,7 +364,8 @@ class FrameTestParam:
         ),
     ],
 )
-def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoReturn, param: FrameTestParam):
+@pytest.mark.unit
+def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, param: FrameTestParam):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
             initial_epoch=slot_to_epoch(param.initial_ref_slot),
@@ -369,7 +374,7 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
         )
     )
 
-    csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
+    module.w3.csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
     module.get_initial_or_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(param.current_ref_slot),
@@ -478,9 +483,9 @@ class CollectDataTestParam:
         ),
     ],
 )
+@pytest.mark.unit
 def test_collect_data(
     module: CSOracle,
-    csm: CSM,
     param: CollectDataTestParam,
     mock_chain_config: NoReturn,
     mock_frame_config: NoReturn,
@@ -505,8 +510,9 @@ def test_collect_data(
     assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
 
 
+@pytest.mark.unit
 def test_collect_data_outdated_checkpoint(
-    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
@@ -529,8 +535,9 @@ def test_collect_data_outdated_checkpoint(
     assert len(msg), "Expected message not found in logs"
 
 
+@pytest.mark.unit
 def test_collect_data_fulfilled_state(
-    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
@@ -686,7 +693,8 @@ class BuildReportTestParam:
         ),
     ],
 )
-def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
+@pytest.mark.unit
+def test_build_report(module: CSOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
     # mock previous report
@@ -705,6 +713,7 @@ def test_build_report(csm: CSM, module: CSOracle, param: BuildReportTestParam):
     assert report == param.expected_func_result
 
 
+@pytest.mark.unit
 def test_execute_module_not_collected(module: CSOracle):
     module.collect_data = Mock(return_value=False)
 
@@ -714,6 +723,7 @@ def test_execute_module_not_collected(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
+@pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
@@ -724,6 +734,7 @@ def test_execute_module_no_report_blockstamp(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
+@pytest.mark.unit
 def test_execute_module_processed(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
@@ -748,6 +759,7 @@ def tree():
     )
 
 
+@pytest.mark.unit
 def test_get_accumulated_shares(module: CSOracle, tree: Tree):
     encoded_tree = tree.encode()
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
@@ -756,6 +768,7 @@ def test_get_accumulated_shares(module: CSOracle, tree: Tree):
         assert tuple(leaf) == tree.tree.values[i]["value"]
 
 
+@pytest.mark.unit
 def test_get_accumulated_shares_unexpected_root(module: CSOracle, tree: Tree):
     encoded_tree = tree.encode()
     module.w3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
@@ -813,6 +826,7 @@ class MakeTreeTestParam:
         ),
     ],
 )
+@pytest.mark.unit
 def test_make_tree(module: CSOracle, param: MakeTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 

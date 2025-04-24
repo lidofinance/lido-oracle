@@ -77,9 +77,7 @@ def web3():
         mock_contract = Mock(spec=contract_factory_class)
         mock_contract.address = DUMMY_ADDRESS
         mock_contract.decode_tuples = decode_tuples
-        mock_contract.abi = contract_factory_class.load_abi(
-            contract_factory_class.abi_path
-        )
+        mock_contract.abi = contract_factory_class.load_abi(contract_factory_class.abi_path)
 
         return mock_contract
 
