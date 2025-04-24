@@ -183,7 +183,7 @@ def test_calculate_distribution(module: CSOracle, csm: CSM):
             ValidatorIndex(12): AttestationsAccumulator(included=1000, assigned=1000),
         }
     )
-    module.state.migrate(EpochNumber(100), EpochNumber(500), 1)
+    module.state.migrate(EpochNumber(100), EpochNumber(500), 2)
 
     _, shares, log = module.calculate_distribution(blockstamp=Mock())
 
@@ -728,6 +728,7 @@ def test_execute_module_processed(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
+    module._check_compatability = Mock(return_value=True)
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),

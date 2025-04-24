@@ -171,10 +171,10 @@ class TestStateTransition:
     def test_new_frame_requires_discarding_state(self, l_epoch_old, r_epoch_old, l_epoch_new, r_epoch_new):
         state = State()
         state.clear = Mock(side_effect=state.clear)
-        state.migrate(l_epoch_old, r_epoch_old, 1)
+        state.migrate(l_epoch_old, r_epoch_old, 2)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new, 1)
+        state.migrate(l_epoch_new, r_epoch_new, 2)
         state.clear.assert_called_once()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
@@ -190,10 +190,10 @@ class TestStateTransition:
         state = State()
         state.clear = Mock(side_effect=state.clear)
 
-        state.migrate(l_epoch_old, r_epoch_old, 1)
+        state.migrate(l_epoch_old, r_epoch_old, 2)
         state.clear.assert_not_called()
 
-        state.migrate(l_epoch_new, r_epoch_new, 1)
+        state.migrate(l_epoch_new, r_epoch_new, 2)
         state.clear.assert_not_called()
 
         assert state.unprocessed_epochs == set(sequence(l_epoch_new, r_epoch_new))
