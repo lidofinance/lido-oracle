@@ -218,7 +218,6 @@ class VaultData:
     pending_deposit: int
     address: ChecksumAddress
     withdrawal_credentials: str
-    socket: VaultSocket
 
 
 @dataclass
@@ -227,6 +226,13 @@ class LatestReportData:
     tree_root: bytes
     cid: str
 
+@dataclass
+class VaultInfo:
+    vault: ChecksumAddress
+    balance: int
+    in_out_delta: int
+    withdrawal_credentials: str
+    liability_shares: int
 
 VaultsMap = dict[ChecksumAddress, VaultData]
 type VaultsReport = tuple[bytes, str]

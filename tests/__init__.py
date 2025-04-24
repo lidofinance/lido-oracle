@@ -6,5 +6,5 @@ if os.path.exists(".env"):
             line = line.strip()
             if line.startswith("#") or not line:
                 continue
-            key, value = line.split("=")
+            key, value = line.split("=", 1)
             os.environ[key] = value

@@ -67,12 +67,10 @@ class StakingVaults(Module):
         vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
 
         vaults_values = [0] * len(vaults)
-        vaults_net_cash_flows = [0] * len(vaults)
         tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
             vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
-            vaults_net_cash_flows[vault.vault_ind] = vault.in_out_delta
 
             if vault_address in vaults_validators:
                 vault_validators = vaults_validators[vault_address]
@@ -102,8 +100,8 @@ class StakingVaults(Module):
         return tree_data, vaults
 
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
-        vault_count = self.vault_hub.get_vaults_count(blockstamp.block_number)
-        if vault_count == 0:
+        vaults = self.vault_hub.get_all_vaults(block_identifier=blockstamp.block_number)
+        if len(vaults) == 0:
             return {}
 
         pending_deposits = self.cl.get_pending_deposits(blockstamp)
@@ -112,33 +110,24 @@ class StakingVaults(Module):
         for deposit in pending_deposits:
             pending_deposit_map[deposit.withdrawal_credentials] += Web3.to_wei(int(deposit.amount), 'gwei')
 
-        vaults = VaultsMap()
-        for vault_ind in range(vault_count):
-            vault_socket = self.vault_hub.vault_socket(vault_ind, blockstamp.block_number)
-
-            balance_wei = self.w3.eth.get_balance(
-                self.w3.to_checksum_address(vault_socket.vault), block_identifier=blockstamp.block_hash
-            )
-
-            vault = self._load_vault(vault_socket.vault)
-            vault_in_out_delta = vault.in_out_delta(blockstamp.block_number)
-
-            vault_withdrawal_credentials = vault.withdrawal_credentials(blockstamp.block_number)
+        out = VaultsMap()
+        for vault_ind in range(len(vaults)):
+            vault = vaults[vault_ind]
+            vault_withdrawal_credentials = vault.withdrawal_credentials
 
             fee = 0
-            vaults[vault_socket.vault] = VaultData(
+            out[vault.vault] = VaultData(
                 vault_ind,
-                balance_wei,
-                vault_in_out_delta,
-                vault_socket.liability_shares,
+                vault.balance,
+                vault.in_out_delta,
+                vault.liability_shares,
                 fee,
                 pending_deposit_map[vault_withdrawal_credentials],
-                vault_socket.vault,
-                vault_withdrawal_credentials,
-                vault_socket,
+                vault.vault,
+                vault.withdrawal_credentials,
             )
 
-        return vaults
+        return out
 
     @staticmethod
     def connect_vault_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:

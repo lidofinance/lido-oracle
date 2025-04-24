@@ -1,11 +1,13 @@
 import logging
+from typing import List
 
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import VaultSocket, LatestReportData
+from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.types import bytes_to_hex_str
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +77,49 @@ class VaultHubContract(ContractInterface):
             response.treeRoot,
             response.reportCid,
         )
+
+    def get_vaults(self, block_identifier: BlockIdentifier = 'latest', offset: int = 0, limit: int = 1_000) -> List[VaultInfo]:
+        """
+            Returns the Vaults
+        """
+        response = self.functions.batchVaultsInfo(offset, limit).call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `batchVaultsInfo(offset, limit).',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+
+        out: List[VaultInfo] = []
+        for vault in response:
+            out.append(VaultInfo(
+                vault.vault,
+                vault.balance,
+                vault.inOutDelta,
+                bytes_to_hex_str(vault.withdrawalCredentials),
+                vault.liabilityShares
+            ))
+
+        return out
+
+    def get_all_vaults(self, block_identifier: BlockIdentifier = 'latest', limit: int = 1_000) -> List[VaultInfo]:
+        """
+        Fetch all vaults using pagination via `get_vaults` in batches of `page_size`.
+        """
+        vaults: List[VaultInfo] = []
+        offset = 0
+
+        total_count = self.get_vaults_count(block_identifier)
+
+        while offset < total_count:
+            batch = self.get_vaults(block_identifier=block_identifier, offset=offset, limit=limit)
+            if not batch:
+                break
+            vaults.extend(batch)
+            offset += limit
+
+        return vaults
+
