@@ -4,7 +4,7 @@ from typing import TypeAlias, Literal
 
 from hexbytes import HexBytes
 
-from src.custom_types import NodeOperatorId, SlotNumber
+from src.types import NodeOperatorId, SlotNumber
 from src.providers.ipfs import CID
 
 logger = logging.getLogger(__name__)

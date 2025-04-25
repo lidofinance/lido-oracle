@@ -3,10 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.custom_types import ReferenceBlockStamp
 from src.modules.accounting.types import LidoReportRebase
 from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
+from src.types import ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory

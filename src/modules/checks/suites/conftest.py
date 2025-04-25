@@ -4,7 +4,7 @@ from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
-from src.custom_types import EpochNumber, SlotNumber, BlockRoot
+from src.types import EpochNumber, SlotNumber, BlockRoot
 from src.utils.api import opsgenie_api
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp

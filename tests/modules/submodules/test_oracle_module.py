@@ -6,7 +6,7 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
-from src.custom_types import BlockStamp
+from src.types import BlockStamp
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse

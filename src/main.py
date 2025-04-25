@@ -4,12 +4,12 @@ import sys
 from typing import Iterator, cast, Optional
 
 import requests
+from hexbytes import HexBytes
 from packaging.version import Version
 from prometheus_client import start_http_server
 
 from src import constants
 from src import variables
-from src.custom_types import OracleModule, BlockRoot, SlotNumber
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
@@ -18,6 +18,7 @@ from src.modules.checks.checks_module import execute_checks
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
+from src.types import OracleModule, BlockRoot, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -145,16 +146,16 @@ def get_transactions(contract_address, selector: str, limit: int = 10):
 
 
 def run_on_refslot(module_name: OracleModule):
+    logging.getLogger().setLevel(logging.WARNING)
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
     instance.check_contract_configs()
     submit_report_fn = instance.report_contract.get_function_by_name("submitReportData")
     selector = '0x' + w3.keccak(text=submit_report_fn.abi_element_identifier)[:4].hex()
-    logger.info("Manual Selector: %s", selector)
 
     txs = get_transactions(instance.report_contract.address, selector)
     if not txs:
-        logger.info("No submitReportData transactions found!")
+        logger.error("No submitReportData transactions found!")
         sys.exit(0)
 
     logger.info("Found %d submitReportData calls", len(txs))
@@ -163,13 +164,18 @@ def run_on_refslot(module_name: OracleModule):
         tx_hash = tx["hash"]
         _, data = instance.report_contract.decode_function_input(tx["input"])
         refslot = int(data['data']['refSlot'])
-        print(f"Tx: {tx_hash} → X: {refslot}")
-        logger.info(data)
+        print(f"Tx: {tx_hash} → slot: {refslot}")
+        print([HexBytes(v.hex()) if isinstance(v, bytes) else v for v in data['data'].values()])
         block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
         block_details = w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         instance.refslot = refslot
-        instance.refresh_contracts_and_run_cycle(bs)
+        instance.refresh_contracts_if_address_change()
+        report_blockstamp = instance.get_blockstamp_for_report(bs)
+        report = instance.build_report(report_blockstamp)
+
+
+        print(report)
         instance = _construct_module(w3, module_name, refslot)
 
 

@@ -5,7 +5,7 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 import src.services.prediction as prediction_module
-from src.custom_types import BlockNumber, SlotNumber
+from src.types import BlockNumber, SlotNumber
 from src.modules.submodules.types import ChainConfig
 from src.services.prediction import RewardsPredictionService
 from tests.factory.blockstamp import ReferenceBlockStampFactory

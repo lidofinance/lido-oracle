@@ -6,7 +6,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
 from src import variables
-from src.custom_types import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.providers.execution.exceptions import InconsistentEvents
 
 logger = logging.getLogger(__name__)

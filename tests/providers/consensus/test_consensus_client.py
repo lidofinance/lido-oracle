@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.custom_types import EpochNumber, SlotNumber
+from src.types import EpochNumber, SlotNumber
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.utils.blockstamp import build_blockstamp

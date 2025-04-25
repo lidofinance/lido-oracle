@@ -7,7 +7,7 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
 )
-from src.custom_types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.providers.consensus.types import Validator
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter

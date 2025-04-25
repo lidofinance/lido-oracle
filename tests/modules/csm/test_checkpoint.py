@@ -6,7 +6,7 @@ import pytest
 from faker import Faker
 
 import src.modules.csm.checkpoint as checkpoint_module
-from src.custom_types import EpochNumber, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, SlotNumber, ValidatorIndex
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,

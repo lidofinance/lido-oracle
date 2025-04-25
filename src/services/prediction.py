@@ -2,7 +2,7 @@ import logging
 
 from web3.types import EventData, Wei
 
-from src.custom_types import ReferenceBlockStamp
+from src.types import ReferenceBlockStamp
 from src.modules.submodules.types import ChainConfig
 from src.providers.execution.exceptions import InconsistentEvents
 from src.utils.cache import global_lru_cache as lru_cache

@@ -4,7 +4,7 @@ from typing import Final
 
 from eth_account import Account
 
-from src.custom_types import OracleModule
+from src.types import OracleModule
 from src.utils.env import from_file_or_env
 
 # - Providers-

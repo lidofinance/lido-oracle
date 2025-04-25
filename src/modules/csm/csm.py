@@ -5,7 +5,7 @@ from typing import Iterator, Optional
 from hexbytes import HexBytes
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
-from src.custom_types import (
+from src.types import (
     BlockStamp,
     EpochNumber,
     ReferenceBlockStamp,

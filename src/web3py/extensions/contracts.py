@@ -7,7 +7,7 @@ from web3.module import Module
 from web3.types import Wei
 
 from src import variables
-from src.custom_types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
+from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract

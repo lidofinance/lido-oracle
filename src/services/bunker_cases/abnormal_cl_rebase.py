@@ -6,7 +6,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
-from src.custom_types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
+from src.types import ReferenceBlockStamp, Gwei, BlockNumber, SlotNumber, BlockStamp, EpochNumber
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey

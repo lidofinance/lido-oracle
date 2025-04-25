@@ -13,7 +13,7 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
 )
-from src.custom_types import Gwei
+from src.types import Gwei
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule

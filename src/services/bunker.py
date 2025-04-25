@@ -3,7 +3,7 @@ import logging
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.custom_types import BlockStamp, ReferenceBlockStamp, Gwei
+from src.types import BlockStamp, ReferenceBlockStamp, Gwei
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.validators import (
     ALL_VALIDATORS,

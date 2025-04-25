@@ -1,4 +1,4 @@
-from src.custom_types import SlotNumber, EpochNumber, FrameNumber
+from src.types import SlotNumber, EpochNumber, FrameNumber
 from src.modules.submodules.types import ChainConfig, FrameConfig
 
 

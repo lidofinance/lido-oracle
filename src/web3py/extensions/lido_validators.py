@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.custom_types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.utils.cache import global_lru_cache as lru_cache

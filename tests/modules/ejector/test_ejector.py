@@ -14,7 +14,7 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.modules.ejector import ejector as ejector_module
 from src.modules.ejector.ejector import (
     Ejector,

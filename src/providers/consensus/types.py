@@ -6,7 +6,7 @@ from eth_typing import BlockNumber
 from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.custom_types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
+from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
 
 

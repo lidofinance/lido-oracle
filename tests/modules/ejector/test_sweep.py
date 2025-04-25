@@ -5,7 +5,6 @@ import pytest
 
 import src.modules.ejector.sweep as sweep_module
 from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
-from src.custom_types import Gwei
 from src.modules.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,
@@ -14,6 +13,7 @@ from src.modules.ejector.sweep import (
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
+from src.types import Gwei
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 

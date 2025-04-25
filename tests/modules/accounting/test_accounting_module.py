@@ -6,7 +6,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.custom_types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger

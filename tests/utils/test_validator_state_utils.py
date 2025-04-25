@@ -6,7 +6,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
 )
-from src.custom_types import EpochNumber, Gwei
+from src.types import EpochNumber, Gwei
 from src.providers.consensus.types import Validator, ValidatorState
 from src.utils.validator_state import (
     calculate_active_effective_balance_sum,

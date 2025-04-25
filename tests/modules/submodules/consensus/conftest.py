@@ -1,6 +1,6 @@
 import pytest
 
-from src.custom_types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.modules.submodules.consensus import ConsensusModule
 
 

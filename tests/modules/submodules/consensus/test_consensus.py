@@ -5,7 +5,7 @@ import pytest
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.custom_types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.modules.submodules import consensus as consensus_module
 from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
 from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch

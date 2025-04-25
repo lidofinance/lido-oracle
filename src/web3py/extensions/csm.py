@@ -13,7 +13,7 @@ from web3.module import Module
 from web3.types import BlockIdentifier, EventData
 
 from src import variables
-from src.custom_types import BlockStamp, SlotNumber
+from src.types import BlockStamp, SlotNumber
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.providers.execution.contracts.cs_accounting import CSAccountingContract
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract

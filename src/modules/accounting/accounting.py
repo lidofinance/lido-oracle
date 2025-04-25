@@ -9,7 +9,7 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.custom_types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,

@@ -6,7 +6,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     EPOCHS_PER_SLASHINGS_VECTOR,
 )
-from src.custom_types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState

@@ -1,6 +1,6 @@
 from web3.types import Wei
 
-from src.custom_types import ReferenceBlockStamp, FinalizationBatches
+from src.types import ReferenceBlockStamp, FinalizationBatches
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.modules.accounting.types import BatchState
 from src.modules.submodules.consensus import ChainConfig, FrameConfig

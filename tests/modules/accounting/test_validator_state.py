@@ -5,7 +5,7 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.custom_types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
+from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey

@@ -1,6 +1,6 @@
 from packaging.version import Version
 
-from src.custom_types import Gwei, SlotNumber
+from src.types import Gwei, SlotNumber
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 GENESIS_SLOT = SlotNumber(0)

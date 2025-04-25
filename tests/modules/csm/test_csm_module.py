@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.custom_types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
 from src.modules.csm.csm import CSOracle
 from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.csm.tree import Tree

@@ -3,7 +3,7 @@ from typing import Literal, cast
 
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 
-from src.custom_types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
+from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (

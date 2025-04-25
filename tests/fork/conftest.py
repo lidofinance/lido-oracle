@@ -14,7 +14,7 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.custom_types import BlockRoot, BlockStamp, SlotNumber
+from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.main import ipfs_providers, logger
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule

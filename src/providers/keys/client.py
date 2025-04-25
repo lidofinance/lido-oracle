@@ -1,7 +1,7 @@
 from time import sleep
 from typing import cast, TypedDict, List
 
-from src.custom_types import BlockStamp, StakingModuleAddress
+from src.types import BlockStamp, StakingModuleAddress
 from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.providers.keys.types import LidoKey, KeysApiStatus

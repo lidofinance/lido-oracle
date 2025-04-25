@@ -4,7 +4,7 @@ from typing import Callable, Iterable
 
 import pytest
 
-from src.custom_types import StakingModuleId, NodeOperatorId
+from src.types import StakingModuleId, NodeOperatorId
 from src.modules.ejector.data_encode import (
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,

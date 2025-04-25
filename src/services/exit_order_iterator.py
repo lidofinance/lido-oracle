@@ -5,7 +5,7 @@ from typing import Iterator
 from more_itertools import ilen
 
 from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
-from src.custom_types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
+from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.providers.consensus.types import Validator
 from src.services.validator_state import LidoValidatorStateService
