@@ -49,7 +49,7 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _consensus_version: int = 1
+    _consensus_version: int = 2
 
     def __init__(self, data: dict[ValidatorIndex, AttestationsAccumulator] | None = None) -> None:
         self.data = defaultdict(AttestationsAccumulator, data or {})
