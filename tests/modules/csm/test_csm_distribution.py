@@ -6,7 +6,6 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.modules.csm.csm import CSOracle
 from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
 from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
@@ -16,8 +15,8 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
     PerformanceCoefficients,
     CurveParams,
-    PerformanceLeeway,
-    RewardShare,
+    KeyIndexValueInterval,
+    IntervalMapping,
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
@@ -605,8 +604,12 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 side_effect=lambda no_id, _: {
                     NodeOperatorId(5): CurveParams(
                         strikes_params=...,
-                        perf_leeway_data=PerformanceLeeway(key_pivots=[1], performance_leeways=[1000, 2000]),
-                        reward_share_data=RewardShare(key_pivots=[1], reward_shares=[10000, 9000]),
+                        perf_leeway_data=IntervalMapping(
+                            intervals=[KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(1, 2000)]
+                        ),
+                        reward_share_data=IntervalMapping(
+                            intervals=[KeyIndexValueInterval(0, 10000), KeyIndexValueInterval(1, 9000)]
+                        ),
                         perf_coeffs=PerformanceCoefficients(attestations_weight=1, blocks_weight=0, sync_weight=0),
                     ),
                 }.get(
@@ -1110,60 +1113,52 @@ def test_performance_coefficients_calc_performance(attestation_perf, proposal_pe
 
 
 @pytest.mark.parametrize(
-    "key_pivots, performance_leeway, key_number, expected",
+    "intervals, key_index, expected",
     [
-        ([], [10000], 100500, 10000 / TOTAL_BASIS_POINTS),
-        ([1], [10000, 9000], 1, 10000 / TOTAL_BASIS_POINTS),
-        ([1], [10000, 9000], 2, 9000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 5, 1000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 10, 1000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 15, 2000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 20, 2000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 25, 3000 / TOTAL_BASIS_POINTS),
+        ([KeyIndexValueInterval(0, 10000)], 100500, 10000 / TOTAL_BASIS_POINTS),
+        ([KeyIndexValueInterval(0, 10000), KeyIndexValueInterval(1, 9000)], 0, 10000 / TOTAL_BASIS_POINTS),
+        ([KeyIndexValueInterval(0, 10000), KeyIndexValueInterval(1, 9000)], 1, 9000 / TOTAL_BASIS_POINTS),
+        (
+            [KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)],
+            4,
+            1000 / TOTAL_BASIS_POINTS,
+        ),
+        (
+            [KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)],
+            9,
+            1000 / TOTAL_BASIS_POINTS,
+        ),
+        (
+            [KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)],
+            14,
+            2000 / TOTAL_BASIS_POINTS,
+        ),
+        (
+            [KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)],
+            19,
+            2000 / TOTAL_BASIS_POINTS,
+        ),
+        (
+            [KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)],
+            24,
+            3000 / TOTAL_BASIS_POINTS,
+        ),
     ],
 )
-def test_performance_leeway_returns_correct_reward_share(key_pivots, performance_leeway, key_number, expected):
-    performance_leeway = PerformanceLeeway(key_pivots, performance_leeway)
-    assert performance_leeway.get_for(key_number) == expected
+def test_interval_mapping_returns_correct_reward_share(intervals, key_index, expected):
+    reward_share = IntervalMapping(intervals=intervals)
+    assert reward_share.get_for(key_index) == expected
 
 
-def test_performance_leeway_raises_error_for_invalid_key_number():
-    performance_leeway = PerformanceLeeway([10, 20], [1000, 2000, 3000])
-    with pytest.raises(ValueError, match="Key number should be greater than 0"):
-        performance_leeway.get_for(0)
+def test_interval_mapping_raises_error_for_invalid_key_number():
+    reward_share = IntervalMapping(
+        intervals=[KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)]
+    )
+    with pytest.raises(ValueError, match="Key index should be greater than 0 or equal"):
+        reward_share.get_for(-1)
 
 
-def test_performance_leeway_raises_error_for_key_number_out_of_range():
-    performance_leeway = PerformanceLeeway([10], [10000])
-    with pytest.raises(ValueError, match="Can't find performance leeway for key_number=40"):
-        performance_leeway.get_for(40)
-
-
-@pytest.mark.parametrize(
-    "key_pivots, reward_shares, key_number, expected",
-    [
-        ([], [10000], 100500, 10000 / TOTAL_BASIS_POINTS),
-        ([1], [10000, 9000], 1, 10000 / TOTAL_BASIS_POINTS),
-        ([1], [10000, 9000], 2, 9000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 5, 1000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 10, 1000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 15, 2000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 20, 2000 / TOTAL_BASIS_POINTS),
-        ([10, 20], [1000, 2000, 3000], 25, 3000 / TOTAL_BASIS_POINTS),
-    ],
-)
-def test_reward_share_returns_correct_reward_share(key_pivots, reward_shares, key_number, expected):
-    reward_share = RewardShare(key_pivots, reward_shares)
-    assert reward_share.get_for(key_number) == expected
-
-
-def test_reward_share_raises_error_for_invalid_key_number():
-    reward_share = RewardShare([10, 20], [1000, 2000, 3000])
-    with pytest.raises(ValueError, match="Key number should be greater than 0"):
-        reward_share.get_for(0)
-
-
-def test_reward_share_raises_error_for_key_number_out_of_range():
-    reward_share = RewardShare([10], [10000])
-    with pytest.raises(ValueError, match="Can't find performance leeway for key_number=40"):
-        reward_share.get_for(40)
+def test_interval_mapping_raises_error_for_key_number_out_of_range():
+    reward_share = IntervalMapping(intervals=[KeyIndexValueInterval(10, 10000)])
+    with pytest.raises(ValueError, match="No value found for key_index=2"):
+        reward_share.get_for(2)
