@@ -88,15 +88,20 @@ class StakingVaults(Module):
                 vaults_values[vault.vault_ind] += vault_cl_balance_wei
 
             if vault_address in vaults_pending_deposits:
-                deposits_to_process = vaults_pending_deposits[vault_address]
+                pending_deposits = vaults_pending_deposits[vault_address]
+                vault_validator_pubkeys = set(
+                    validator.validator.pubkey for validator in vaults_validators[vault_address]
+                )
 
-                # Only validate deposits if there are no validators for this vault yet
-                if vault_address not in vaults_validators:
-                    deposits_to_process = StakingVaults.validate_pending_deposits(deposits_to_process)
+                deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
+                for deposit in pending_deposits:
+                    deposits_by_pubkey[deposit.pubkey].append(deposit)
 
-                # Add all deposits to the vault value
-                for deposit in deposits_to_process:
-                    vaults_values[vault.vault_ind] += Web3.to_wei(int(deposit.amount), 'gwei')
+                for pubkey, deposits in deposits_by_pubkey.items():
+                    for deposit in (
+                        deposits if pubkey in vault_validator_pubkeys else StakingVaults.filter_valid_deposits(deposits)
+                    ):
+                        vaults_values[vault.vault_ind] += Web3.to_wei(int(deposit.amount), 'gwei')
 
             tree_data[vault.vault_ind] = (
                 vault_address,
@@ -173,18 +178,16 @@ class StakingVaults(Module):
         return result
 
     @staticmethod
-    def validate_pending_deposits(deposits: list[PendingDeposit]) -> list[PendingDeposit]:
+    def filter_valid_deposits(deposits: list[PendingDeposit]) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
-        
-        Once a valid deposit is found, all subsequent deposits are considered valid
-        without signature verification.
+        Once a valid pending deposit is found, all subsequent deposits are considered valid.
         """
         valid_deposits = []
         valid_found = False
 
         for deposit in deposits:
-            # If we've already found a valid deposit, accept all subsequent ones
+            # If we've already found a valid pending deposit, accept all subsequent ones
             if valid_found:
                 valid_deposits.append(deposit)
                 continue
@@ -198,9 +201,11 @@ class StakingVaults(Module):
             )
 
             if not is_valid:
-                logger.warning({
-                    'msg': f'Invalid deposit signature for deposit: {deposit}.',
-                })
+                logger.warning(
+                    {
+                        'msg': f'Invalid deposit signature for deposit: {deposit}.',
+                    }
+                )
                 continue
 
             # Mark that we found a valid deposit and include it

@@ -3,15 +3,14 @@
 import pytest
 
 from src.utils.deposit_signature import (
-    DepositMessage,
     compute_fork_data_root,
     compute_domain,
-    compute_signing_root,
     is_valid_deposit_signature,
     GENESIS_FORK_VERSION,
     GENESIS_VALIDATORS_ROOT,
     DOMAIN_DEPOSIT_TYPE,
 )
+from src.utils.types import hex_str_to_bytes
 
 HOODI_FORK_VERSION = "0x10000910"
 
@@ -32,7 +31,8 @@ HOODI_FORK_VERSION = "0x10000910"
     ],
 )
 def test_compute_fork_data_root(fork_version, genesis_validators_root, expected):
-    fork_data_root = compute_fork_data_root(fork_version, bytes(genesis_validators_root))
+    fork_version_bytes = hex_str_to_bytes(fork_version)
+    fork_data_root = compute_fork_data_root(fork_version_bytes, bytes(genesis_validators_root))
 
     print(fork_data_root.hex())
     assert isinstance(fork_data_root, bytes)
@@ -70,6 +70,7 @@ def test_compute_domain(domain_type, fork_version, genesis_validators_root, expe
 @pytest.mark.parametrize(
     "pubkey, withdrawal_credentials, amount_gwei, signature, expected",
     [
+        # This one uses fork_version 0x00000000 (not for Hoodi, thus should be False)
         (
             "a50a7821c793e80710f51c681b28f996e5c2f1fa00318dbf91b5844822d58ac2fef892b79aea386a3b97829e090a393e",
             "020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc",
@@ -77,6 +78,7 @@ def test_compute_domain(domain_type, fork_version, genesis_validators_root, expe
             "b5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b",
             False,
         ),
+        # Those two are valid signatures for Hoodi
         (
             "8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87",
             "020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc",
