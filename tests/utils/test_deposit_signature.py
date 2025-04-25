@@ -13,7 +13,7 @@ from src.utils.deposit_signature import (
     DOMAIN_DEPOSIT_TYPE,
 )
 
-HOODI_FORK_VERSION = bytes.fromhex("10000910")
+HOODI_FORK_VERSION = "0x10000910"
 
 
 @pytest.mark.parametrize(

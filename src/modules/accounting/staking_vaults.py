@@ -18,6 +18,7 @@ from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
 from src.utils.deposit_signature import is_valid_deposit_signature
+from src.utils.types import hex_str_to_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -190,10 +191,10 @@ class StakingVaults(Module):
 
             # Verify the deposit signature
             is_valid = is_valid_deposit_signature(
-                pubkey=StakingVaults.hex_to_bytes(deposit.pubkey),
-                withdrawal_credentials=StakingVaults.hex_to_bytes(deposit.withdrawal_credentials),
+                pubkey=hex_str_to_bytes(deposit.pubkey),
+                withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
                 amount_gwei=deposit.amount,
-                signature=StakingVaults.hex_to_bytes(deposit.signature),
+                signature=hex_str_to_bytes(deposit.signature),
             )
 
             if not is_valid:
@@ -295,7 +296,3 @@ class StakingVaults(Module):
 
     def get_current_report_cid(self, bs: BlockStamp) -> LatestReportData:
         return self.vault_hub.get_report(block_identifier=bs.block_number)
-
-    @staticmethod
-    def hex_to_bytes(hex_str: str) -> bytes:
-        return bytes.fromhex(hex_str[2:] if hex_str.startswith('0x') else hex_str)

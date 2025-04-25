@@ -4,9 +4,10 @@ from py_ecc.bls import G2ProofOfPossession as BLSVerifier
 from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
 from src import variables
+from src.utils.types import hex_str_to_bytes
 
 # 0x00000000 for mainnet, but for testnet may be different
-GENESIS_FORK_VERSION = variables.GENESIS_FORK_VERSION.to_bytes(4)
+GENESIS_FORK_VERSION = variables.GENESIS_FORK_VERSION
 GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
@@ -73,7 +74,7 @@ def is_valid_deposit_signature(
     withdrawal_credentials: bytes,
     amount_gwei: int,
     signature: bytes,
-    fork_version: bytes = GENESIS_FORK_VERSION,
+    fork_version: str = GENESIS_FORK_VERSION,
     genesis_validators_root: bytes = GENESIS_VALIDATORS_ROOT,
 ) -> bool:
     """Return **True** if the deposit proof-of-possession (BLS signature) is valid.
@@ -94,8 +95,10 @@ def is_valid_deposit_signature(
         32-byte genesis validators root
     """
 
+    fork_version_bytes = hex_str_to_bytes(fork_version)
+
     message = DepositMessage(pubkey, withdrawal_credentials, amount_gwei)
-    domain = compute_domain(DOMAIN_DEPOSIT_TYPE, fork_version, genesis_validators_root)
+    domain = compute_domain(DOMAIN_DEPOSIT_TYPE, fork_version_bytes, genesis_validators_root)
     signing_root = compute_signing_root(message, domain)
 
     return BLSVerifier.Verify(BLSPubkey(pubkey), signing_root, BLSSignature(signature))
