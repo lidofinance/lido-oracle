@@ -123,13 +123,6 @@ def lido_validators(web3):
         }
     )
 
-    web3.lido_validators.get_lido_node_operators.return_value = (
-        web3.lido_contracts.staking_router.get_all_node_operator_digests()
-    )
-    web3.lido_validators.get_lido_node_operators_by_modules.return_value = {
-        sm.id: web3.lido_contracts.staking_router.get_all_node_operator_digests()
-    }
-
 
 @pytest.fixture
 def validator_state(web3, contracts, consensus_client, lido_validators):

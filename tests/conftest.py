@@ -12,7 +12,7 @@ from hexbytes import HexBytes
 from web3 import EthereumTesterProvider
 from web3.types import Timestamp
 
-import src.variables
+from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
@@ -57,8 +57,8 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
     w3 = Web3(provider=EthereumTesterProvider(tester))
     tweak_w3_contracts(w3)
 
-    monkeypatch.setenv('LIDO_LOCATOR_ADDRESS', DUMMY_ADDRESS)
-    monkeypatch.setenv('CSM_MODULE_ADDRESS', DUMMY_ADDRESS)
+    monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', DUMMY_ADDRESS)
+    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', DUMMY_ADDRESS)
 
     def create_contract_mock(*args, **kwargs):
         """
@@ -72,9 +72,6 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
         contract_factory_class = kwargs.get('ContractFactoryClass', ContractInterface)
         decode_tuples = kwargs.get('decode_tuples', True)
 
-        # Idea here is to mock all contracts functions and return mocks as a result of calling them.
-        # However, there are many places in code where something but not mock is expected.
-        # In this case, you should add a return value to a specific function in a contract mock inside the test.
         mock_contract = Mock(spec=contract_factory_class)
         mock_contract.address = DUMMY_ADDRESS
         mock_contract.decode_tuples = decode_tuples
@@ -103,20 +100,24 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
 
 @pytest.fixture()
 def web3_integration() -> Generator[Web3, None, None]:
-    w3 = Web3(FallbackProviderModule(
-        src.variables.EXECUTION_CLIENT_URI,
-        request_kwargs={'timeout': src.variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-        cache_allowed_requests=True,
-    ))
+    w3 = Web3(
+        FallbackProviderModule(
+            variables.EXECUTION_CLIENT_URI,
+            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+            cache_allowed_requests=True,
+        )
+    )
     tweak_w3_contracts(w3)
 
-    w3.attach_modules({
-        'lido_contracts': LidoContracts,
-        'lido_validators': LidoValidatorsProvider,
-        'transaction': TransactionUtils,
-        'cc': lambda: ConsensusClientModule(src.variables.CONSENSUS_CLIENT_URI, w3),
-        'kac': lambda: KeysAPIClientModule(src.variables.KEYS_API_URI, w3),
-    })
+    w3.attach_modules(
+        {
+            'lido_contracts': LidoContracts,
+            'lido_validators': LidoValidatorsProvider,
+            'transaction': TransactionUtils,
+            'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
+            'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
+        }
+    )
 
     yield w3
 
@@ -142,8 +143,8 @@ def csm(web3):
 @pytest.fixture()
 def contracts(web3, monkeypatch):
     # TODO: Will be applied for mainnet tests only in next PR
-    monkeypatch.setenv('LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-    monkeypatch.setenv('CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+    monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
 
 @pytest.fixture()
