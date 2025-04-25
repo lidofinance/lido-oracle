@@ -1,7 +1,7 @@
 import os
 import socket
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Generator
 from unittest.mock import Mock, patch
 
 import pytest
@@ -26,6 +26,7 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
+from src.web3py.extensions import FallbackProviderModule
 
 
 @pytest.fixture(autouse=True)
@@ -50,14 +51,14 @@ DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 
 @pytest.fixture()
-def web3():
+def web3(monkeypatch) -> Generator[Web3, None, None]:
     mock_backend = MockBackend()
     tester = EthereumTester(backend=mock_backend)
-    web3 = Web3(provider=EthereumTesterProvider(tester))
-    tweak_w3_contracts(web3)
+    w3 = Web3(provider=EthereumTesterProvider(tester))
+    tweak_w3_contracts(w3)
 
-    src.variables.LIDO_LOCATOR_ADDRESS = DUMMY_ADDRESS
-    src.variables.CSM_MODULE_ADDRESS = DUMMY_ADDRESS
+    monkeypatch.setenv('LIDO_LOCATOR_ADDRESS', DUMMY_ADDRESS)
+    monkeypatch.setenv('CSM_MODULE_ADDRESS', DUMMY_ADDRESS)
 
     def create_contract_mock(*args, **kwargs):
         """
@@ -81,9 +82,9 @@ def web3():
 
         return mock_contract
 
-    web3.eth.contract = create_contract_mock
+    w3.eth.contract = create_contract_mock
 
-    web3.attach_modules(
+    w3.attach_modules(
         {
             # Mocked on the contract level, see create_contract_mock
             'lido_contracts': LidoContracts,
@@ -96,7 +97,28 @@ def web3():
             'ipfs': lambda: Mock(spec=MultiIPFSProvider),
         }
     )
-    yield web3
+
+    yield w3
+
+
+@pytest.fixture()
+def web3_integration() -> Generator[Web3, None, None]:
+    w3 = Web3(FallbackProviderModule(
+        src.variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': src.variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
+    ))
+    tweak_w3_contracts(w3)
+
+    w3.attach_modules({
+        'lido_contracts': LidoContracts,
+        'lido_validators': LidoValidatorsProvider,
+        'transaction': TransactionUtils,
+        'cc': lambda: ConsensusClientModule(src.variables.CONSENSUS_CLIENT_URI, w3),
+        'kac': lambda: KeysAPIClientModule(src.variables.KEYS_API_URI, w3),
+    })
+
+    yield w3
 
 
 @pytest.fixture()
@@ -118,10 +140,10 @@ def csm(web3):
 
 
 @pytest.fixture()
-def contracts(web3):
+def contracts(web3, monkeypatch):
     # TODO: Will be applied for mainnet tests only in next PR
-    src.variables.LIDO_LOCATOR_ADDRESS = "0x548C1ED5C83Bdf19e567F4cd7Dd9AC4097088589"
-    src.variables.CSM_MODULE_ADDRESS = "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+    monkeypatch.setenv('LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+    monkeypatch.setenv('CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
 
 @pytest.fixture()
