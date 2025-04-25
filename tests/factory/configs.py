@@ -52,7 +52,7 @@ class SlotAttestationCommitteeFactory(Web3DataclassFactory[SlotAttestationCommit
 
 class BlockAttestationFactory(Web3DataclassFactory[BlockAttestationResponse]):
     aggregation_bits = "0x"
-    committee_bits = None
+    committee_bits = "0x01"
     data = AttestationData(
         slot=0,
         index=0,

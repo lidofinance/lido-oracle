@@ -13,4 +13,11 @@ In case if you need to test something with using specific responses, you can moc
 To run tests with a coverage report, run `pytest --cov=src tests` in the root directory of the repository.
 
 ## TODOS
+
 - [ ] run tests marked with possible_integration as a part of integration tests with a real providers
+
+## Env variables
+
+| Name                        | Description                                | Required | Example value           |
+|-----------------------------|--------------------------------------------|----------|-------------------------|
+| `TESTNET_CONSENSUS_CLIENT_URI` | URI of the Consensus client node for tests | False    | `http://localhost:8545` |

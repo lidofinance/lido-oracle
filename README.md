@@ -179,6 +179,9 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `GW3_SECRET_KEY_FILE`                                  | A path to a file with a secret key to gw3.io IPFS provider                                                                                                               | CSM only | `/app/gwt_secret`                          |
 | `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | CSM only | `aBcD1234...`                              |
 | `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pintata_secret`                      |
+| `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | CSM only | `localhost`                                |
+| `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | CSM only | `5001`                                     |
+| `KUBO_GATEWAY_PORT`                                    | Port to access gateway provided by Kubo IPFS node                                                                                                                        | CSM only | `8080`                                     |
 | `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                                     | 
 | `EL_REQUESTS_BATCH_SIZE`                               | The amount of entities that would be fetched in one request to EL                                                                                                        | False    | `1000`                                     | 
 | `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                                     |
@@ -272,7 +275,6 @@ Special metrics for accounting oracle:
 | accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
 | accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
 | accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
-| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
 
 Special metrics for ejector oracle:
 
@@ -293,82 +295,8 @@ Special metrics for CSM oracle:
 
 # Development
 
-Python version: 3.12
-
 ## Setup
-
-1. [Setup poetry](https://python-poetry.org/docs/#installation)
-2. Install dependencies
-
-```bash
-poetry install
-```
-
-3. Install pre-commmit hooks
-
-```bash
-poetry run pre-commit install
-```
-
-## Startup
-
-Required variables for accounting and ejector modules
-
-```bash
-export EXECUTION_CLIENT_URI=...
-export CONSENSUS_CLIENT_URI=...
-export KEYS_API_URI=...
-export LIDO_LOCATOR_ADDRESS=...
-```
-
-Required variables for CSM module
-
-```bash
-export EXECUTION_CLIENT_URI=...
-export CONSENSUS_CLIENT_URI=...
-export KEYS_API_URI=...
-export LIDO_LOCATOR_ADDRESS=...
-export CSM_MODULE_ADDRESS=...
-export MAX_CYCLE_LIFETIME_IN_SECONDS=60000  # Reasonable high value to make sure the oracle has enough time to process the whole frame.
-```
-
-Run oracle module
-
-```bash
-poetry run python -m src.main {module}
-```
-
-Where `{module}` is one of:
-
-- `accounting`
-- `ejector`
-- `csm`
-- `check`
-
-## Tests
-
-[Testing guide](docs/testing.md)
-
-```bash
-poetry run pytest .
-```
-
-## Code quality
-
-Used the following tools:
-
-- [black](https://github.com/psf/black)
-- [pylint](https://github.com/pylint-dev/pylint/)
-- [mypy](https://github.com/python/mypy/)
-  See the [configuration](pyproject.toml) for details for each linter.
-
-Make sure that your code is formatted correctly and passes all checks:
-
-```bash
-black tests
-pylint src tests
-mypy src
-```
+Check out our [development setup guide](docs/development.md).
 
 ## Release flow
 

@@ -59,7 +59,8 @@ class CSOracle(BaseModule, ConsensusModule):
         3. Calculate the share of each CSM node operator excluding underperforming validators.
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 1), (1, 2)]
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 2
 
     report_contract: CSFeeOracleContract
     module_id: StakingModuleId
@@ -85,7 +86,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
         # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
-        if not report_blockstamp:
+        if not report_blockstamp or not self._check_compatability(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -170,7 +171,6 @@ class CSOracle(BaseModule, ConsensusModule):
         """Ongoing report data collection for the estimated reference slot"""
 
         consensus_version = self.get_consensus_version(blockstamp)
-        eip7549_supported = consensus_version != 1
 
         logger.info({"msg": "Collecting data for the report"})
 
@@ -216,7 +216,7 @@ class CSOracle(BaseModule, ConsensusModule):
         except MinStepIsNotReached:
             return False
 
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp, eip7549_supported=eip7549_supported)
+        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
 
         for checkpoint in checkpoints:
             if self.current_frame_range(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):

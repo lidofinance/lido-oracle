@@ -5,7 +5,8 @@ from src.modules.submodules.consensus import ConsensusModule
 
 
 class SimpleConsensusModule(ConsensusModule):
-    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2)]
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 2
 
     def __init__(self, w3):
         self.report_contract = w3.lido_contracts.accounting_oracle
