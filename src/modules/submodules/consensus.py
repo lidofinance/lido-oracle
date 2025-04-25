@@ -8,7 +8,6 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
@@ -20,6 +19,7 @@ from src.modules.submodules.exceptions import IsNotMemberException, Incompatible
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
