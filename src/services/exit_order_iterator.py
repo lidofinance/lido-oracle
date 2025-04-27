@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
@@ -60,11 +61,11 @@ class ValidatorExitIterator:
         self,
         w3: Web3,
         blockstamp: ReferenceBlockStamp,
-        seconds_per_slot: int,
+        chain_config: ChainConfig,
     ):
         self.w3 = w3
         self.blockstamp = blockstamp
-        self.seconds_per_slot = seconds_per_slot
+        self.chain_config = chain_config
 
         self.lvs = LidoValidatorStateService(self.w3)
 
@@ -165,12 +166,11 @@ class ValidatorExitIterator:
 
     def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
         """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
-        indexes = self.lvs.get_operators_with_last_exited_validator_indexes(self.blockstamp)
+        indexes = self.lvs.get_recently_requested_validators_by_operator(self.chain_config.seconds_per_slot, self.blockstamp)
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
-            requested_to_exit = validator.index <= indexes[gid]
-            return not is_on_exit(validator) and not requested_to_exit
+            return not is_on_exit(validator) and not validator.index in indexes[gid]
 
         return is_validator_exitable
 

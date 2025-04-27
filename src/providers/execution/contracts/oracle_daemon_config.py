@@ -50,9 +50,5 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
-    def validator_delayed_timeout_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS', block_identifier)
-
-    @lru_cache(maxsize=1)
-    def validator_delinquent_timeout_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS', block_identifier)
+    def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_SLOTS', block_identifier)
