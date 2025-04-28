@@ -36,7 +36,7 @@ def mock_latest_data(consensus):
 
 # ----- Process report main ----------
 @pytest.mark.unit
-def test_process_report_main(consensus, tx_utils, caplog):
+def test_process_report_main(consensus, caplog):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=2)
     blockstamp = ReferenceBlockStampFactory.build()
@@ -67,7 +67,7 @@ def test_hash_calculations(consensus):
 
 # ------ Process report hash -----------
 @pytest.mark.unit
-def test_report_hash(web3, consensus, tx_utils, set_report_account):
+def test_report_hash(web3, consensus, set_report_account):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
     blockstamp = ReferenceBlockStampFactory.build()
     consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
@@ -169,7 +169,7 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
 
 
 @pytest.mark.unit
-def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, tx_utils, mock_latest_data):
+def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
         return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
     )
@@ -222,7 +222,7 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
 
 @pytest.mark.unit
-def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
+def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
         return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
     )

@@ -130,12 +130,6 @@ def contracts(web3, monkeypatch):
 
 
 @pytest.fixture()
-def tx_utils(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
 def lido_validators(web3):
     # TODO: Deprecated, will be removed in next PR
     pass
