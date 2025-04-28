@@ -45,7 +45,6 @@ def safe_border(
     past_blockstamp,
     web3,
     contracts,
-    lido_validators,
 ):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
@@ -133,9 +132,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_valida
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(
-    safe_border, past_blockstamp, lido_validators
-):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(safe_border, past_blockstamp):
     withdrawable_epoch = past_blockstamp.ref_epoch - 10
     validators = [create_validator_stub(100, withdrawable_epoch, True)]
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
@@ -143,9 +140,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(
-    safe_border, past_blockstamp, lido_validators
-):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(safe_border, past_blockstamp):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(
@@ -158,9 +153,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
-    safe_border, past_blockstamp, lido_validators
-):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(safe_border, past_blockstamp):
     validators = [
         create_validator_stub(
             past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, past_blockstamp.ref_epoch - 1, True
@@ -174,7 +167,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
-def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_border, past_blockstamp, lido_validators):
+def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_border, past_blockstamp):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
         create_validator_stub(
@@ -194,7 +187,6 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_bo
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(
     safe_border,
     past_blockstamp,
-    lido_validators,
 ):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -230,7 +222,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     safe
 #     border
 ###
-def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp, lido_validators):
+def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp):
     # in binary search:
     # start frame = 73
     # end frame = 101

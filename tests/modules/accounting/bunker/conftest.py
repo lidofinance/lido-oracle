@@ -243,7 +243,7 @@ def mock_get_validators(web3):
 
 
 @pytest.fixture
-def bunker(web3, lido_validators) -> BunkerService:
+def bunker(web3) -> BunkerService:
     """Minimal initialized bunker service"""
     service = BunkerService(web3)
     return service
@@ -255,7 +255,7 @@ def blockstamp():
 
 
 @pytest.fixture
-def abnormal_case(web3, lido_validators, contracts, mock_get_validators, blockstamp) -> AbnormalClRebase:
+def abnormal_case(web3, contracts, mock_get_validators, blockstamp) -> AbnormalClRebase:
     c_conf = ChainConfig(
         slots_per_epoch=1,
         seconds_per_slot=12,

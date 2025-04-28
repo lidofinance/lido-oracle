@@ -129,12 +129,6 @@ def contracts(web3, monkeypatch):
     monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
 
-@pytest.fixture()
-def lido_validators(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
 def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
     root = w3.cc.get_block_root(state_id).root
     slot_details = w3.cc.get_block_details(root)

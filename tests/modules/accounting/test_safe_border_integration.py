@@ -25,7 +25,6 @@ def subject(
     past_blockstamp,
     web3,
     contracts,
-    lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(

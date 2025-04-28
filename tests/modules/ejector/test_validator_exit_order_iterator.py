@@ -24,7 +24,7 @@ class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
 
 
 @pytest.fixture
-def iterator(web3, contracts, lido_validators):
+def iterator(web3, contracts):
     return ValidatorExitIterator(
         web3,
         ReferenceBlockStampFactory.build(),
