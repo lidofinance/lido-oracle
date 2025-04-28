@@ -46,7 +46,6 @@ def safe_border(
     web3,
     contracts,
     keys_api_client,
-    consensus_client,
     lido_validators,
 ):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(

@@ -38,7 +38,7 @@ def set_default_sleep(monkeypatch):
 
 
 @pytest.fixture()
-def oracle(web3, consensus_client):
+def oracle(web3):
     return SimpleOracle(web3)
 
 

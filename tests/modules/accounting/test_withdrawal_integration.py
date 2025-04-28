@@ -17,13 +17,13 @@ def frame_config():
 
 
 @pytest.fixture
-def past_blockstamp(web3_integration, consensus_client):
+def past_blockstamp(web3_integration):
     return get_blockstamp_by_state(web3_integration, 'finalized')
 
 
 @pytest.fixture
 def subject(
-    web3_integration, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client
+    web3_integration, past_blockstamp, chain_config, frame_config, contracts, keys_api_client
 ):
     return Withdrawal(web3_integration, past_blockstamp, chain_config, frame_config)
 

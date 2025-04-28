@@ -26,7 +26,6 @@ def subject(
     web3,
     contracts,
     keys_api_client,
-    consensus_client,
     lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):

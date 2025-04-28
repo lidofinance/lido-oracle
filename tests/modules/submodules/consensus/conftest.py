@@ -26,5 +26,5 @@ class SimpleConsensusModule(ConsensusModule):
 
 
 @pytest.fixture()
-def consensus(web3, consensus_client, contracts):
+def consensus(web3, contracts):
     return SimpleConsensusModule(web3)
