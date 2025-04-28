@@ -123,12 +123,6 @@ def web3_integration() -> Generator[Web3, None, None]:
 
 
 @pytest.fixture()
-def csm(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
 def contracts(web3, monkeypatch):
     # TODO: Will be applied for mainnet tests only in next PR
     monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')

@@ -31,7 +31,7 @@ def mock_load_state(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture()
-def module(web3, csm: CSM):
+def module(web3):
     yield CSOracle(web3)
 
 
@@ -41,7 +41,7 @@ def test_init(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_stuck_operators(module: CSOracle, csm: CSM):
+def test_stuck_operators(module: CSOracle):
     module.module = Mock()  # type: ignore
     module.module_id = StakingModuleId(1)
     module.w3.cc = Mock()
