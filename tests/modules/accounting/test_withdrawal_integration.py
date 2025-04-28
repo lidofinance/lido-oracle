@@ -22,9 +22,7 @@ def past_blockstamp(web3_integration):
 
 
 @pytest.fixture
-def subject(
-    web3_integration, past_blockstamp, chain_config, frame_config, contracts, keys_api_client
-):
+def subject(web3_integration, past_blockstamp, chain_config, frame_config, contracts):
     return Withdrawal(web3_integration, past_blockstamp, chain_config, frame_config)
 
 

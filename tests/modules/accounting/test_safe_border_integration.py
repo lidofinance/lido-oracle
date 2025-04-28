@@ -25,7 +25,6 @@ def subject(
     past_blockstamp,
     web3,
     contracts,
-    keys_api_client,
     lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):

@@ -123,12 +123,6 @@ def web3_integration() -> Generator[Web3, None, None]:
 
 
 @pytest.fixture()
-def keys_api_client(request, web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
 def csm(web3):
     # TODO: Deprecated, will be removed in next PR
     pass
