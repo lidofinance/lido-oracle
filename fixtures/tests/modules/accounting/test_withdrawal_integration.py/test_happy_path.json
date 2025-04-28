@@ -6,7 +6,7 @@
         "to": "0x8D49f1b4AF30598679D4D37Be4B094da1b459b82",
         "data": "0xa3a3fd5d"
       },
-      "0x8ee61584b9d3e010c55f1fa77a803051f5f783385ec75b4e3fc71e199a86184d"
+      "latest"
     ],
     "response": {
       "jsonrpc": "2.0",
@@ -195,7 +195,7 @@
         "to": "0x4c1F6cA213abdbc19b27f2562d7b1A645A019bD9",
         "data": "0x29fd065d"
       },
-      "0x8ee61584b9d3e010c55f1fa77a803051f5f783385ec75b4e3fc71e199a86184d"
+      "latest"
     ],
     "response": {
       "jsonrpc": "2.0",
