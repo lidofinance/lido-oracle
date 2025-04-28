@@ -42,35 +42,23 @@ class PerformanceCoefficients:
 
 
 @dataclass
-class RewardShare:
-    key_pivots: list[int]
-    reward_shares: list[int]
-
-    def get_for(self, key_number: int) -> float:
-        if key_number <= 0:
-            raise ValueError("Key number should be greater than 0")
-        for i, pivot_number in enumerate(self.key_pivots + [UINT256_MAX]):
-            if key_number <= pivot_number:
-                if i >= len(self.reward_shares):
-                    continue
-                return self.reward_shares[i] / TOTAL_BASIS_POINTS
-        raise ValueError(f"Can't find performance leeway for {key_number=}. {self=}")
+class KeyIndexValueInterval:
+    minKeyIndex: int
+    value: int
 
 
 @dataclass
-class PerformanceLeeway:
-    key_pivots: list[int]
-    performance_leeways: list[int]
+class IntervalMapping:
+    intervals: list[KeyIndexValueInterval]
 
-    def get_for(self, key_number: int) -> float:
-        if key_number <= 0:
-            raise ValueError("Key number should be greater than 0")
-        for i, pivot_number in enumerate(self.key_pivots + [UINT256_MAX]):
-            if key_number <= pivot_number:
-                if i >= len(self.performance_leeways):
-                    continue
-                return self.performance_leeways[i] / TOTAL_BASIS_POINTS
-        raise ValueError(f"Can't find performance leeway for {key_number=}. {self=}")
+    def get_for(self, key_index: int) -> float:
+        if key_index < 0:
+            raise ValueError("Key index should be greater than 0 or equal")
+        for interval in sorted(self.intervals, key=lambda x: x.minKeyIndex, reverse=True):
+            if key_index >= interval.minKeyIndex:
+                return interval.value / TOTAL_BASIS_POINTS
+        raise ValueError(f"No value found for key_index={key_index}")
+
 
 @dataclass
 class StrikesParams:
@@ -81,8 +69,8 @@ class StrikesParams:
 @dataclass
 class CurveParams:
     perf_coeffs: PerformanceCoefficients
-    perf_leeway_data: PerformanceLeeway
-    reward_share_data: RewardShare
+    perf_leeway_data: IntervalMapping
+    reward_share_data: IntervalMapping
     strikes_params: StrikesParams
 
 
@@ -112,7 +100,7 @@ class CSParametersRegistryContract(ContractInterface):
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> RewardShare:
+    ) -> IntervalMapping:
         """Returns reward share data for given node operator"""
 
         resp = self.functions.getRewardShareData(curve_id).call(block_identifier=block_identifier)
@@ -123,14 +111,14 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return RewardShare(*resp)
+        return IntervalMapping(intervals=[KeyIndexValueInterval(r.minKeyIndex, r.value) for r in resp])
 
     @lru_cache()
     def get_performance_leeway_data(
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> PerformanceLeeway:
+    ) -> IntervalMapping:
         """Returns performance leeway data for given node operator"""
 
         resp = self.functions.getPerformanceLeewayData(curve_id).call(block_identifier=block_identifier)
@@ -141,7 +129,7 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return PerformanceLeeway(*resp)
+        return IntervalMapping(intervals=[KeyIndexValueInterval(r.minKeyIndex, r.value) for r in resp])
 
     @lru_cache()
     def get_strikes_params(

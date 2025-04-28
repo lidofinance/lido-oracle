@@ -142,10 +142,10 @@ class Distribution:
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
             sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
-            numbered_validators = enumerate(sorted_active_validators, start=1)
-            for key_number, validator in numbered_validators:
-                key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
-                key_reward_share = curve_params.reward_share_data.get_for(key_number)
+            indexed_validators = enumerate(sorted_active_validators)
+            for key_index, validator in indexed_validators:
+                key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_index), 0)
+                key_reward_share = curve_params.reward_share_data.get_for(key_index)
 
                 duties = self.state.get_validator_duties(frame, validator.index)
 
