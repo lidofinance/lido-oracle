@@ -17,7 +17,7 @@ blockstamp = ReferenceBlockStampFactory.build()
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, contracts):
+def test_get_lido_validators(web3):
     validators = ValidatorFactory.batch(30)
     lido_keys = LidoKeyFactory.generate_for_validators(validators[:10])
     lido_keys.extend(LidoKeyFactory.batch(10))
@@ -38,7 +38,7 @@ def test_get_lido_validators(web3, contracts):
 
 
 @pytest.mark.unit
-def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, contracts):
+def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
     validators = ValidatorFactory.batch(10)
     lido_keys = [LidoKeyFactory.build()]
 
@@ -78,7 +78,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, contracts):
 
 
 @pytest.mark.unit
-def test_get_lido_node_operators_by_modules(web3, contracts):
+def test_get_lido_node_operators_by_modules(web3):
     web3.lido_contracts.staking_router.get_staking_modules = Mock(
         return_value=[
             StakingModuleFactory.build(id=1),
@@ -94,7 +94,7 @@ def test_get_lido_node_operators_by_modules(web3, contracts):
 
 
 @pytest.mark.unit
-def test_get_node_operators(web3, contracts):
+def test_get_node_operators(web3):
     web3.lido_validators.get_lido_node_operators_by_modules = Mock(
         return_value={
             0: [0, 2, 3],
@@ -108,7 +108,7 @@ def test_get_node_operators(web3, contracts):
 
 
 @pytest.mark.unit
-def test_get_lido_validators_by_node_operator(web3, contracts):
+def test_get_lido_validators_by_node_operator(web3):
     # 2 NO in one module
     # 1 NO in 2 module
     sm1 = StakingModuleFactory.build(id=1)

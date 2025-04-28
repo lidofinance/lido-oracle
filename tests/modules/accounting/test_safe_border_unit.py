@@ -44,7 +44,6 @@ def safe_border(
     frame_config,
     past_blockstamp,
     web3,
-    contracts,
 ):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()

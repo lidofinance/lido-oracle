@@ -29,7 +29,7 @@ def silence_logger() -> None:
 
 
 @pytest.fixture
-def accounting(web3, contracts):
+def accounting(web3):
     yield Accounting(web3)
 
 

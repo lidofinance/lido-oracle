@@ -59,7 +59,7 @@ def ref_blockstamp() -> ReferenceBlockStamp:
 
 
 @pytest.fixture()
-def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
+def ejector(web3: Web3) -> Ejector:
     web3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
     return Ejector(web3)
 

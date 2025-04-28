@@ -1,9 +1,26 @@
 import pytest
+from eth_typing import BlockNumber
+from web3.types import Timestamp
 
 from src.modules.submodules.types import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
-from tests.conftest import get_blockstamp_by_state
+from src.types import ReferenceBlockStamp, SlotNumber, EpochNumber
+
+
+def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
+    root = w3.cc.get_block_root(state_id).root
+    slot_details = w3.cc.get_block_details(root)
+
+    return ReferenceBlockStamp(
+        slot_number=SlotNumber(int(slot_details.message.slot)),
+        state_root=slot_details.message.state_root,
+        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
+        block_hash=slot_details.message.body.execution_payload.block_hash,
+        block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
+        ref_slot=SlotNumber(int(slot_details.message.slot)),
+        ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
+    )
 
 
 @pytest.fixture
@@ -22,7 +39,7 @@ def past_blockstamp(web3_integration):
 
 
 @pytest.fixture
-def subject(web3_integration, past_blockstamp, chain_config, frame_config, contracts):
+def subject(web3_integration, past_blockstamp, chain_config, frame_config):
     return Withdrawal(web3_integration, past_blockstamp, chain_config, frame_config)
 
 

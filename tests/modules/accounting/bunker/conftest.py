@@ -134,7 +134,7 @@ def mock_get_eth_distributed_events(abnormal_case):
 
 
 @pytest.fixture
-def mock_get_withdrawal_vault_balance(abnormal_case, contracts):
+def mock_get_withdrawal_vault_balance(abnormal_case):
     def _get_withdrawal_vault_balance(blockstamp: BlockStamp):
         balance = {
             0: 15 * 10**18,
@@ -255,7 +255,7 @@ def blockstamp():
 
 
 @pytest.fixture
-def abnormal_case(web3, contracts, mock_get_validators, blockstamp) -> AbnormalClRebase:
+def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     c_conf = ChainConfig(
         slots_per_epoch=1,
         seconds_per_slot=12,

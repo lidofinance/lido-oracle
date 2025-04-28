@@ -11,7 +11,7 @@ from src.modules.submodules.exceptions import IncompatibleOracleVersion, Contrac
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
-from tests.conftest import get_blockstamp_by_state, Account
+from tests.conftest import Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,

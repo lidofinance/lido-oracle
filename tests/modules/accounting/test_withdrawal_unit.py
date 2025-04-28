@@ -25,7 +25,7 @@ def past_blockstamp(web3):
 
 
 @pytest.fixture
-def subject(web3, past_blockstamp, chain_config, frame_config, contracts):
+def subject(web3, past_blockstamp, chain_config, frame_config):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
     )

@@ -10,12 +10,10 @@ from eth_tester.backends.mock import MockBackend
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3 import EthereumTesterProvider
-from web3.types import Timestamp
 
 from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
-from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
@@ -45,6 +43,15 @@ def disable_network_for_unit(request):
             yield
     else:
         yield
+
+
+@pytest.fixture(autouse=True)
+def configure_mainnet_tests(request, monkeypatch):
+    if request.node.get_closest_marker('mainnet'):
+        monkeypatch.setenv(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setenv(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+
+    yield
 
 
 DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -120,28 +127,6 @@ def web3_integration() -> Generator[Web3, None, None]:
     )
 
     yield w3
-
-
-@pytest.fixture()
-def contracts(web3, monkeypatch):
-    # TODO: Will be applied for mainnet tests only in next PR
-    monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
-
-
-def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
-    root = w3.cc.get_block_root(state_id).root
-    slot_details = w3.cc.get_block_details(root)
-
-    return ReferenceBlockStamp(
-        slot_number=SlotNumber(int(slot_details.message.slot)),
-        state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
-        block_hash=slot_details.message.body.execution_payload.block_hash,
-        block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
-        ref_slot=SlotNumber(int(slot_details.message.slot)),
-        ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
-    )
 
 
 # TODO: Will be applied for testnet tests only in next PR

@@ -61,7 +61,7 @@ def test_receive_last_finalized_slot(oracle):
 
 @pytest.mark.unit
 @responses.activate
-def test_cycle_handler_run_once_per_slot(oracle, contracts, web3):
+def test_cycle_handler_run_once_per_slot(oracle, web3):
     web3.lido_contracts.has_contract_address_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
