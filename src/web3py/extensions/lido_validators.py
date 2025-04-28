@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
+from src.types import BlockStamp, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleAddress, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
 
 logger = logging.getLogger(__name__)
 

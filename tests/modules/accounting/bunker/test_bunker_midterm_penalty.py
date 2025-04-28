@@ -1,16 +1,16 @@
 import pytest
 
 from src.constants import (
+    EPOCHS_PER_SLASHINGS_VECTOR,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
-    EPOCHS_PER_SLASHINGS_VECTOR,
 )
-from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 
 

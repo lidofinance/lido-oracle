@@ -1,4 +1,4 @@
-from typing import Iterable, cast
+from typing import cast, Iterable
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,15 +6,14 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.types import BlockStamp, ReferenceBlockStamp
 from src.modules.accounting import accounting as accounting_module
-from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.accounting import logger as accounting_logger
+from src.modules.accounting.accounting import Accounting, logger as accounting_logger
 from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import LidoReportRebase, AccountingProcessingState
+from src.modules.accounting.types import AccountingProcessingState, LidoReportRebase
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
+from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig, ZERO_HASH
 from src.services.withdrawal import Withdrawal
+from src.types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory

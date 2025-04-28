@@ -14,7 +14,6 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.main import ipfs_providers, logger
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule
@@ -24,6 +23,7 @@ from src.providers.consensus.types import BlockDetailsResponse, BlockRootRespons
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.ipfs import CID, MultiIPFSProvider
+from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import get_next_non_missed_slot

@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass
-from typing import TypeAlias, Literal
+from typing import Literal, TypeAlias
 
 from hexbytes import HexBytes
 
-from src.types import NodeOperatorId, SlotNumber
 from src.providers.ipfs import CID
+from src.types import NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 

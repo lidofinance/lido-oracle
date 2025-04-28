@@ -2,9 +2,9 @@ import logging
 
 from web3.types import EventData, Wei
 
-from src.types import ReferenceBlockStamp
 from src.modules.submodules.types import ChainConfig
 from src.providers.execution.exceptions import InconsistentEvents
+from src.types import ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.web3py.types import Web3

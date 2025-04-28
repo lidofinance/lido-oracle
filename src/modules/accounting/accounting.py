@@ -9,28 +9,13 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
-from src.metrics.prometheus.accounting import (
-    ACCOUNTING_IS_BUNKER,
-    ACCOUNTING_CL_BALANCE_GWEI,
-    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
-)
+from src.metrics.prometheus.accounting import (ACCOUNTING_CL_BALANCE_GWEI, ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI, ACCOUNTING_IS_BUNKER,
+                                               ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI)
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
-from src.modules.accounting.types import (
-    ReportData,
-    LidoReportRebase,
-    GenericExtraData,
-    WqReport,
-    RebaseReport,
-    BunkerMode,
-    FinalizationShareRate,
-    ValidatorsCount,
-    ValidatorsBalance,
-    AccountingProcessingState,
-)
+from src.modules.accounting.types import (AccountingProcessingState, BunkerMode, FinalizationShareRate, GenericExtraData, LidoReportRebase,
+                                          RebaseReport, ReportData, ValidatorsBalance, ValidatorsCount, WqReport)
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
@@ -38,6 +23,7 @@ from src.providers.execution.contracts.accounting_oracle import AccountingOracle
 from src.services.bunker import BunkerService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
+from src.types import BlockStamp, FinalizationBatches, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE

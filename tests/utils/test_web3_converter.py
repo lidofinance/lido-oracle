@@ -1,7 +1,7 @@
 import pytest
 
-from src.types import EpochNumber, FrameNumber, SlotNumber
 from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.types import EpochNumber, FrameNumber, SlotNumber
 from src.utils.web3converter import Web3Converter
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 

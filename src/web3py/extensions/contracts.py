@@ -7,7 +7,6 @@ from web3.module import Module
 from web3.types import Wei
 
 from src import variables
-from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
 from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
@@ -18,6 +17,7 @@ from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonC
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
+from src.types import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)

@@ -4,8 +4,8 @@ from eth_typing import ChecksumAddress, Hash32
 from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
 
-from src.types import SlotNumber
 from src.providers.execution.base_interface import ContractInterface
+from src.types import SlotNumber
 from src.utils.cache import global_lru_cache as lru_cache
 
 logger = logging.getLogger(__name__)

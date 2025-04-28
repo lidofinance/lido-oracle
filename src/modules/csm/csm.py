@@ -5,14 +5,6 @@ from typing import Iterator, Optional
 from hexbytes import HexBytes
 
 from src.constants import TOTAL_BASIS_POINTS, UINT64_MAX
-from src.types import (
-    BlockStamp,
-    EpochNumber,
-    ReferenceBlockStamp,
-    SlotNumber,
-    StakingModuleAddress,
-    StakingModuleId,
-)
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_L_EPOCH,
@@ -30,6 +22,14 @@ from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
+from src.types import (
+    BlockStamp,
+    EpochNumber,
+    ReferenceBlockStamp,
+    SlotNumber,
+    StakingModuleAddress,
+    StakingModuleId,
+)
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_next_non_missed_slot

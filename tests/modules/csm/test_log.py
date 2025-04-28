@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import AttestationsAccumulator
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 

@@ -1,4 +1,4 @@
-from typing import Iterable, cast
+from typing import cast, Iterable
 from unittest.mock import Mock
 
 import pytest
@@ -14,18 +14,15 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import (
-    Ejector,
-)
-from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.ejector import Ejector, logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId

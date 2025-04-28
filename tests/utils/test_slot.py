@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.types import SlotNumber
 from src.providers.http_provider import NotOkResponse
-from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot, get_next_non_missed_slot
+from src.types import SlotNumber
+from src.utils.slot import get_next_non_missed_slot, get_prev_non_missed_slot, NoSlotsAvailable
 from tests.conftest import get_blockstamp_by_state
 
 

@@ -1,13 +1,13 @@
 import logging
 from dataclasses import dataclass
 
-from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
+from src.constants import LIDO_DEPOSIT_AMOUNT, TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.providers.consensus.types import Validator
 from src.services.validator_state import LidoValidatorStateService
-from src.utils.validator_state import is_on_exit, get_validator_age
-from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
+from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
+from src.utils.validator_state import get_validator_age, is_on_exit
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, NodeOperatorLimitMode, StakingModule
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)

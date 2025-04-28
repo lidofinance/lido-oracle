@@ -5,17 +5,12 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
-from src.web3py.extensions.lido_validators import (
-    NodeOperator,
-    StakingModule,
-    LidoValidatorsProvider,
-    LidoValidator,
-)
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
+from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider, NodeOperator, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 TESTING_REF_EPOCH = 100

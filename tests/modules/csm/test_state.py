@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.types import EpochNumber, ValidatorIndex
 from src.modules.csm.state import AttestationsAccumulator, State
+from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
 

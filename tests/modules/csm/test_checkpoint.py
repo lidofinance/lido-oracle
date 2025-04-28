@@ -5,8 +5,6 @@ from unittest.mock import Mock
 import pytest
 from faker import Faker
 
-import src.modules.csm.checkpoint as checkpoint_module
-from src.types import EpochNumber, SlotNumber, ValidatorIndex
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
