@@ -76,7 +76,7 @@ class BaseModule(ABC):
                     'msg': 'Skipping the report. Waiting for new finalized slot.',
                     'slot_threshold': self._slot_threshold,
                 })
-                # return
+                return
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)

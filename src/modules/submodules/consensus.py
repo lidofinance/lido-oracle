@@ -207,7 +207,7 @@ class ConsensusModule(ABC):
         # Check if contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
-            # return None
+            return None
 
         member_info = self.get_member_info(latest_blockstamp)
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
