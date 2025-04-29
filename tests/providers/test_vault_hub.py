@@ -13,6 +13,7 @@ from src.providers.execution.contracts.vault_hub import VaultHubContract
 
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI')
 
+
 @pytest.mark.skip(reason="Skipping all tests in this class on CI. Cause it's used for local testing")
 class TestVaultHubSmoke:
     w3: Web3
