@@ -13,8 +13,6 @@ from src.providers.consensus.types import Validator, ValidatorState, PendingDepo
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot
 
-from src import variables
-
 
 class TestStakingVaults:
     ipfs_client: MultiIPFSProvider
@@ -128,6 +126,7 @@ class TestStakingVaults:
         ]
 
         pending_deposits: list[PendingDeposit] = [
+            # Valid
             PendingDeposit(
                 pubkey='0xa50a7821c793e80710f51c681b28f996e5c2f1fa00318dbf91b5844822d58ac2fef892b79aea386a3b97829e090a393e',
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
@@ -135,6 +134,7 @@ class TestStakingVaults:
                 signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
                 slot=SlotNumber(259388),
             ),
+            # Invalid
             PendingDeposit(
                 pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
@@ -142,6 +142,7 @@ class TestStakingVaults:
                 signature='0x978f286178050a3dbf6f8551b8020f72dd1de8223fc9cb8553d5ebb22f71164f4278d9b970467084a9dcd54ad07ec8d60792104ff82887b499346f3e8adc55a86f26bfbb032ac2524da42d5186c5a8ed0ccf9d98e9f6ff012cfafbd712335aa5',
                 slot=SlotNumber(259654)
             ),
+            # Invalid
             PendingDeposit(
                 pubkey='0x99eeb66e77fef5c71d3b303774ecded0d52d521e8d665c2d0f350c33f5f82e7ddd88dd9bc4f8014fb22820beda3a8a85',
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
