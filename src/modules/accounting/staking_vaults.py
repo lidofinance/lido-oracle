@@ -127,8 +127,7 @@ class StakingVaults(Module):
             return {}
 
         out = VaultsMap()
-        for vault_ind in range(len(vaults)):
-            vault = vaults[vault_ind]
+        for vault_ind, vault in enumerate(vaults):
             fee = 0
 
             out[vault.vault] = VaultData(
