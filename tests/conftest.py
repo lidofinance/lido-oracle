@@ -27,8 +27,16 @@ from src.web3py.types import Web3
 from src.web3py.extensions import FallbackProviderModule
 
 
+DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+# The primary usage is for tests that can't run with the mainnet node.
+TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
+TESTNET_EXECUTION_CLIENT_URI: Final = os.getenv('TESTNET_EXECUTION_CLIENT_URI', '').split(',')
+TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
+
+
 @pytest.fixture(autouse=True)
-def disable_network_for_unit(request):
+def configure_unit_tests(request):
     if request.node.get_closest_marker('unit'):
 
         def blocked_connect(*args, **kwargs):
@@ -48,13 +56,38 @@ def disable_network_for_unit(request):
 @pytest.fixture(autouse=True)
 def configure_mainnet_tests(request, monkeypatch):
     if request.node.get_closest_marker('mainnet'):
-        monkeypatch.setenv(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-        monkeypatch.setenv(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        if not all(
+            x[0] for x in [variables.CONSENSUS_CLIENT_URI, variables.EXECUTION_CLIENT_URI, variables.KEYS_API_URI]
+        ):
+            pytest.fail(
+                'CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI and KEYS_API_URI '
+                'must be set in order to run tests on mainnet.'
+            )
+
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
     yield
 
 
-DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
+@pytest.fixture(autouse=True)
+def configure_testnet_tests(request, monkeypatch):
+    if request.node.get_closest_marker('testnet'):
+
+        if not all(x[0] for x in [TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI, TESTNET_KAPI_URI]):
+            pytest.fail(
+                'TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI and TESTNET_KAPI_URI '
+                'must be set in order to run tests on testnet.'
+            )
+
+        monkeypatch.setattr(variables, 'CONSENSUS_CLIENT_URI', TESTNET_CONSENSUS_CLIENT_URI)
+        monkeypatch.setattr(variables, 'EXECUTION_CLIENT_URI', TESTNET_EXECUTION_CLIENT_URI)
+        monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
+
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+
+    yield
 
 
 @pytest.fixture()
@@ -127,11 +160,6 @@ def web3_integration() -> Generator[Web3, None, None]:
     )
 
     yield w3
-
-
-# TODO: Will be applied for testnet tests only in next PR
-# Primary usage of TESTNET_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
-TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
 
 
 @dataclass
