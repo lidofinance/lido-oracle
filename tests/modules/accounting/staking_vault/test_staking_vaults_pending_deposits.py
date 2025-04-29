@@ -32,7 +32,7 @@ class TestStakingVaults:
                 balance=0,
                 in_out_delta=2000000000000000000,
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                liability_shares=0
+                liability_shares=0,
             ),
         ]
 
@@ -79,7 +79,7 @@ class TestStakingVaults:
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
                 amount=Gwei(1000000000),
                 signature='0xb859ffb4f3b6ead09dc2be1ac3902194d84a17efe4da195c07c57e8593f2bba4b58d74da113db0dddc96813808a106e215044670bd4230af50ed812a41d5cca0c4dfbffd0d9e0129cfbaf1dbcef9d7479bb27301aa74e1a69e3306b59eb051bb',
-                slot=SlotNumber(259387)
+                slot=SlotNumber(259387),
             ),
             # Valid (generated with fork_version 0x00000000, Mainnet)
             PendingDeposit(
@@ -95,7 +95,7 @@ class TestStakingVaults:
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
                 amount=Gwei(1000000000),
                 signature='0xb859ffb4f3b6ead09dc2be1ac3902194d84a17efe4da195c07c57e8593f2bba4b58d74da113db0dddc96813808a106e215044670bd4230af50ed812a41d5cca0c4dfbffd0d9e0129cfbaf1dbcef9d7479bb27301aa74e1a69e3306b59eb051bb',
-                slot=SlotNumber(259389)
+                slot=SlotNumber(259389),
             ),
         ]
 
@@ -114,16 +114,15 @@ class TestStakingVaults:
         assert expected_tree_data == tree_data
 
         expected_vaults_data: VaultsMap = {
-            ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))):
-                VaultData(
-                    vault_ind=0,
-                    balance_wei=0,
-                    in_out_delta=2000000000000000000,
-                    liability_shares=0,
-                    fee=0,
-                    address=ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc'
-                ),
+            ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))): VaultData(
+                vault_ind=0,
+                balance_wei=0,
+                in_out_delta=2000000000000000000,
+                liability_shares=0,
+                fee=0,
+                address=ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+            ),
         }
 
         assert expected_vaults_data == vault_data
