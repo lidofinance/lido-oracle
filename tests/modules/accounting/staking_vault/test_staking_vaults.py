@@ -8,8 +8,8 @@ from web3.types import Timestamp
 
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.accounting.types import VaultInfo, VaultData, VaultsData, VaultsMap
-from src.providers.consensus.types import Validator, ValidatorState
+from src.modules.accounting.types import VaultInfo, VaultData, VaultsMap
+from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot
 
@@ -138,12 +138,61 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, bs)
+        pending_deposits: list[PendingDeposit] = [
+            # Valid
+            PendingDeposit(
+                pubkey='0xa50a7821c793e80710f51c681b28f996e5c2f1fa00318dbf91b5844822d58ac2fef892b79aea386a3b97829e090a393e',
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                amount=Gwei(1000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+            # Invalid
+            PendingDeposit(
+                pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                amount=Gwei(1000000000),
+                signature='0x978f286178050a3dbf6f8551b8020f72dd1de8223fc9cb8553d5ebb22f71164f4278d9b970467084a9dcd54ad07ec8d60792104ff82887b499346f3e8adc55a86f26bfbb032ac2524da42d5186c5a8ed0ccf9d98e9f6ff012cfafbd712335aa5',
+                slot=SlotNumber(259654),
+            ),
+            # Invalid
+            PendingDeposit(
+                pubkey='0x99eeb66e77fef5c71d3b303774ecded0d52d521e8d665c2d0f350c33f5f82e7ddd88dd9bc4f8014fb22820beda3a8a85',
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                amount=Gwei(1000000000),
+                signature='0xb4ea337eb8d0fc47361672d4a153dbe3cd943a0418c9f1bc586bca95cdcf8615d60a2394b7680276c4597a2524f9bcf1088c40a08902841ff68d508a9f825803b9fac3bc6333cf3afa7503f560ccf6f689be5b0f5d08fa9e21cb203aa1f53259',
+                slot=SlotNumber(260393),
+            ),
+        ]
+
+        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, pending_deposits, bs)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
-        expected = '0x2926ad93f243dc6ec3c1d6f1d1548d83b4f99c4d891d1a99e189236501854ebd'
+        expected = '0x3dc48700af87f44fd9486bf0dcb88a35b0b1f2087af8922384e5153eee46837e'
         assert got == expected
         assert len(merkle_tree.root) == 32
+
+        # (address, total_value, in_out_delta, fees, liability_shares)
+        expected_tree_data = [
+            ('0xE312f1ed35c4dBd010A332118baAD69d45A0E302', 33834904184000000000, 1000000000000000000, 0, 0),
+            (
+                '0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC',
+                41000000000000000000,
+                2000000000000000000,
+                0,
+                490000000000000000,
+            ),
+            (
+                '0x20d34FD0482E3BdC944952D0277A306860be0014',
+                52000900000000000000,
+                2000900000000000000,
+                0,
+                1200000000000010001,
+            ),
+            ('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4', 61000000000000000000, 1000000000000000000, 0, 0),
+        ]
+
+        assert expected_tree_data == tree_data
 
         expected_vaults_data: VaultsMap = {
             ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))): VaultData(
@@ -152,7 +201,6 @@ class TestStakingVaults:
                 in_out_delta=1000000000000000000,
                 liability_shares=0,
                 fee=0,
-                pending_deposit=0,
                 address=ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))),
                 withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
             ),
@@ -162,7 +210,6 @@ class TestStakingVaults:
                 in_out_delta=2000000000000000000,
                 liability_shares=490000000000000000,
                 fee=0,
-                pending_deposit=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
             ),
@@ -172,7 +219,6 @@ class TestStakingVaults:
                 in_out_delta=2000900000000000000,
                 liability_shares=1200000000000010001,
                 fee=0,
-                pending_deposit=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))),
                 withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
             ),
@@ -182,7 +228,6 @@ class TestStakingVaults:
                 in_out_delta=1000000000000000000,
                 liability_shares=0,
                 fee=0,
-                pending_deposit=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))),
                 withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
             ),

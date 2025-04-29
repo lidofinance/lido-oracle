@@ -12,11 +12,13 @@ from web3.module import Module
 from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode, LatestReportData
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
+from src.utils.deposit_signature import is_valid_deposit_signature
+from src.utils.types import hex_str_to_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class VaultProof:
 
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
+VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 
 class StakingVaults(Module):
@@ -59,18 +62,21 @@ class StakingVaults(Module):
             ),
         )
 
-    def get_vaults_data(self, validators: list[Validator], blockstamp: BlockStamp) -> VaultsData:
+    def get_vaults_data(
+        self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
+    ) -> VaultsData:
         vaults = self.get_vaults(blockstamp)
         if len(vaults) == 0:
             return [], {}
 
         vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
+        vaults_pending_deposits = StakingVaults.connect_vault_to_pending_deposits(pending_deposits, vaults)
 
         vaults_values = [0] * len(vaults)
         tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
-            vaults_values[vault.vault_ind] = vault.balance_wei + vault.pending_deposit
+            vaults_values[vault.vault_ind] = vault.balance_wei
 
             if vault_address in vaults_validators:
                 vault_validators = vaults_validators[vault_address]
@@ -80,6 +86,22 @@ class StakingVaults(Module):
                     vault_cl_balance_wei += Web3.to_wei(int(validator.balance), 'gwei')
 
                 vaults_values[vault.vault_ind] += vault_cl_balance_wei
+
+            if vault_address in vaults_pending_deposits:
+                pending_deposits = vaults_pending_deposits[vault_address]
+                vault_validator_pubkeys = set(
+                    validator.validator.pubkey for validator in vaults_validators[vault_address]
+                )
+
+                deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
+                for deposit in pending_deposits:
+                    deposits_by_pubkey[deposit.pubkey].append(deposit)
+
+                for pubkey, deposits in deposits_by_pubkey.items():
+                    for deposit in (
+                        deposits if pubkey in vault_validator_pubkeys else StakingVaults.filter_valid_deposits(deposits)
+                    ):
+                        vaults_values[vault.vault_ind] += Web3.to_wei(int(deposit.amount), 'gwei')
 
             tree_data[vault.vault_ind] = (
                 vault_address,
@@ -104,25 +126,16 @@ class StakingVaults(Module):
         if len(vaults) == 0:
             return {}
 
-        pending_deposits = self.cl.get_pending_deposits(blockstamp)
-        pending_deposit_map: dict[str, int] = defaultdict(int)
-
-        for deposit in pending_deposits:
-            pending_deposit_map[deposit.withdrawal_credentials] += Web3.to_wei(int(deposit.amount), 'gwei')
-
         out = VaultsMap()
-        for vault_ind in range(len(vaults)):
-            vault = vaults[vault_ind]
-            vault_withdrawal_credentials = vault.withdrawal_credentials
-
+        for vault_ind, vault in enumerate(vaults):
             fee = 0
+
             out[vault.vault] = VaultData(
                 vault_ind,
                 vault.balance,
                 vault.in_out_delta,
                 vault.liability_shares,
                 fee,
-                pending_deposit_map[vault_withdrawal_credentials],
                 vault.vault,
                 vault.withdrawal_credentials,
             )
@@ -132,8 +145,7 @@ class StakingVaults(Module):
     @staticmethod
     def connect_vault_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
         wc_vault_map: dict[str, VaultData] = {
-            vault_data.withdrawal_credentials: vault_data
-            for vault_data in vault_addresses.values()
+            vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
 
         result: VaultToValidators = defaultdict(list)
@@ -145,6 +157,61 @@ class StakingVaults(Module):
                 result[vault.address].append(validator)
 
         return result
+
+    @staticmethod
+    def connect_vault_to_pending_deposits(
+        pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
+    ) -> VaultToPendingDeposits:
+        wc_vault_map: dict[str, VaultData] = {
+            vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
+        }
+
+        result: VaultToPendingDeposits = defaultdict(list)
+        for deposit in pending_deposits:
+            wc = deposit.withdrawal_credentials
+
+            if wc in wc_vault_map:
+                vault = wc_vault_map[deposit.withdrawal_credentials]
+                result[vault.address].append(deposit)
+
+        return result
+
+    @staticmethod
+    def filter_valid_deposits(deposits: list[PendingDeposit]) -> list[PendingDeposit]:
+        """
+        Validates deposit signatures and returns a list of valid deposits.
+        Once a valid pending deposit is found, all subsequent deposits are considered valid.
+        """
+        valid_deposits = []
+        valid_found = False
+
+        for deposit in deposits:
+            # If we've already found a valid pending deposit, accept all subsequent ones
+            if valid_found:
+                valid_deposits.append(deposit)
+                continue
+
+            # Verify the deposit signature
+            is_valid = is_valid_deposit_signature(
+                pubkey=hex_str_to_bytes(deposit.pubkey),
+                withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
+                amount_gwei=deposit.amount,
+                signature=hex_str_to_bytes(deposit.signature),
+            )
+
+            if not is_valid:
+                logger.warning(
+                    {
+                        'msg': f'Invalid deposit signature for deposit: {deposit}.',
+                    }
+                )
+                continue
+
+            # Mark that we found a valid deposit and include it
+            valid_found = True
+            valid_deposits.append(deposit)
+
+        return valid_deposits
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
@@ -199,8 +266,7 @@ class StakingVaults(Module):
         return cid
 
     def publish_tree(
-            self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
-            chain_config: ChainConfig
+        self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str, chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):

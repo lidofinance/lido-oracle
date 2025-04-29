@@ -60,8 +60,9 @@ class TestStakingVaultsSmoke:
         print(bs)
 
         validators = self.cc.get_validators_no_cache(bs)
+        pending_deposites = self.cc.get_pending_deposits(bs)
 
-        tree_data, _ = self.StakingVaults.get_vaults_data(validators, bs)
+        tree_data, _ = self.StakingVaults.get_vaults_data(validators, pending_deposites, bs)
         merkle_tree = self.StakingVaults.get_merkle_tree(tree_data)
         print(f"0x{merkle_tree.root.hex()}")
 

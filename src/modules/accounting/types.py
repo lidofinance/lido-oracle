@@ -215,7 +215,6 @@ class VaultData:
     in_out_delta: int
     liability_shares: int
     fee: int
-    pending_deposit: int
     address: ChecksumAddress
     withdrawal_credentials: str
 

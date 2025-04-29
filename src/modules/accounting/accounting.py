@@ -385,7 +385,8 @@ class Accounting(BaseModule, ConsensusModule):
     # uploads tree's root, vaults' proofs
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         validators = self.w3.cc.get_validators(blockstamp)
-        tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, blockstamp)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, pending_deposits, blockstamp)
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
         if len(tree_data) == 0:
