@@ -161,7 +161,6 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures('lido_validators', 'contracts')
 def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
     validator = LidoValidatorFactory.build()
     web3.lido_validators.get_lido_validators = Mock(return_value=[validator])

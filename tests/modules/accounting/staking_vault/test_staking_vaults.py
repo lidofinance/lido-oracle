@@ -30,21 +30,34 @@ class TestStakingVaults:
         # --- VaultHub Mock ---
         vault_hub_mock = MagicMock()
         vault_hub_mock.get_all_vaults.return_value = [
-            VaultInfo(vault=vault_adr_0, balance=1000000000000000000,
-                      in_out_delta=1000000000000000000,
-                      withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
-                      liability_shares=0),
-            VaultInfo(vault=vault_adr_1, balance=0, in_out_delta=2000000000000000000,
-                      withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                      liability_shares=490000000000000000),
-            VaultInfo(vault=vault_adr_2, balance=2000900000000000000,
-                      in_out_delta=2000900000000000000,
-                      withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
-                      liability_shares=1200000000000010001),
-            VaultInfo(vault=vault_adr_3, balance=1000000000000000000,
-                      in_out_delta=1000000000000000000,
-                      withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
-                      liability_shares=0)
+            VaultInfo(
+                vault=vault_adr_0,
+                balance=1000000000000000000,
+                in_out_delta=1000000000000000000,
+                withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
+                liability_shares=0,
+            ),
+            VaultInfo(
+                vault=vault_adr_1,
+                balance=0,
+                in_out_delta=2000000000000000000,
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                liability_shares=490000000000000000,
+            ),
+            VaultInfo(
+                vault=vault_adr_2,
+                balance=2000900000000000000,
+                in_out_delta=2000900000000000000,
+                withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
+                liability_shares=1200000000000010001,
+            ),
+            VaultInfo(
+                vault=vault_adr_3,
+                balance=1000000000000000000,
+                in_out_delta=1000000000000000000,
+                withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+                liability_shares=0,
+            ),
         ]
 
         # --- ConsensusClient Mock ---
@@ -133,50 +146,46 @@ class TestStakingVaults:
         assert len(merkle_tree.root) == 32
 
         expected_vaults_data: VaultsMap = {
-            ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))): VaultData(vault_ind=0,
-                                                                                                         balance_wei=1000000000000000000,
-                                                                                                         in_out_delta=1000000000000000000,
-                                                                                                         liability_shares=0,
-                                                                                                         fee=0,
-                                                                                                         pending_deposit=0,
-                                                                                                         address=ChecksumAddress(
-                                                                                                             HexAddress(
-                                                                                                                 HexStr(
-                                                                                                                     '0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))),
-                                                                                                         withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302'),
-            ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))): VaultData(vault_ind=1,
-                                                                                                         balance_wei=0,
-                                                                                                         in_out_delta=2000000000000000000,
-                                                                                                         liability_shares=490000000000000000,
-                                                                                                         fee=0,
-                                                                                                         pending_deposit=0,
-                                                                                                         address=ChecksumAddress(
-                                                                                                             HexAddress(
-                                                                                                                 HexStr(
-                                                                                                                     '0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
-                                                                                                         withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc'),
-            ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))): VaultData(vault_ind=2,
-                                                                                                         balance_wei=2000900000000000000,
-                                                                                                         in_out_delta=2000900000000000000,
-                                                                                                         liability_shares=1200000000000010001,
-                                                                                                         fee=0,
-                                                                                                         pending_deposit=0,
-                                                                                                         address=ChecksumAddress(
-                                                                                                             HexAddress(
-                                                                                                                 HexStr(
-                                                                                                                     '0x20d34FD0482E3BdC944952D0277A306860be0014'))),
-                                                                                                         withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014'),
-            ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))): VaultData(vault_ind=3,
-                                                                                                         balance_wei=1000000000000000000,
-                                                                                                         in_out_delta=1000000000000000000,
-                                                                                                         liability_shares=0,
-                                                                                                         fee=0,
-                                                                                                         pending_deposit=0,
-                                                                                                         address=ChecksumAddress(
-                                                                                                             HexAddress(
-                                                                                                                 HexStr(
-                                                                                                                     '0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))),
-                                                                                                         withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4')
+            ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))): VaultData(
+                vault_ind=0,
+                balance_wei=1000000000000000000,
+                in_out_delta=1000000000000000000,
+                liability_shares=0,
+                fee=0,
+                pending_deposit=0,
+                address=ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))),
+                withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
+            ),
+            ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))): VaultData(
+                vault_ind=1,
+                balance_wei=0,
+                in_out_delta=2000000000000000000,
+                liability_shares=490000000000000000,
+                fee=0,
+                pending_deposit=0,
+                address=ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+            ),
+            ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))): VaultData(
+                vault_ind=2,
+                balance_wei=2000900000000000000,
+                in_out_delta=2000900000000000000,
+                liability_shares=1200000000000010001,
+                fee=0,
+                pending_deposit=0,
+                address=ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))),
+                withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
+            ),
+            ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))): VaultData(
+                vault_ind=3,
+                balance_wei=1000000000000000000,
+                in_out_delta=1000000000000000000,
+                liability_shares=0,
+                fee=0,
+                pending_deposit=0,
+                address=ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))),
+                withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+            ),
         }
 
         assert expected_vaults_data == vault_data
