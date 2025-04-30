@@ -12,9 +12,9 @@ from hexbytes import HexBytes
 from web3 import EthereumTesterProvider
 from web3.types import Timestamp
 
+from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
-from src import variables
 from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -141,12 +141,10 @@ def csm(web3):
 
 
 @pytest.fixture()
-def contracts(monkeypatch):
+def contracts(web3, monkeypatch):
     # TODO: Will be applied for mainnet tests only in next PR
-    if not variables.LIDO_LOCATOR_ADDRESS:
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-    if not variables.CSM_MODULE_ADDRESS:
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+    monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
 
 @pytest.fixture()

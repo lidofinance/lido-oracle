@@ -163,7 +163,6 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
 
 
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
     blockstamp = ReferenceBlockStampFactory.build(slot_number=1)
     member_info = MemberInfoFactory.build(is_report_member=True, current_frame_ref_slot=2)
