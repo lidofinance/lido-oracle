@@ -95,10 +95,12 @@ def test_hash_calculations(consensus):
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
         extra_data_items_count=15,
+        vaults_total_treasury_fees_shares=0,
+        vaults_total_deficit=0
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xaba2a717ca1fa619c1e4ed530e6ca007b8aba1c039fe1a643132972c61ff7d7a')
+    assert report_hash == HexBytes('0x9a58b0cea009f6f245854289c925a5d0e438f97d9a8a8423993c2e6fa04ba67f')
 
 
 # ------ Process report hash -----------

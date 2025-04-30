@@ -497,8 +497,6 @@ def test_simulate_rebase_after_report(
     accounting.w3.cc = Mock()
     accounting.w3.cc.get_validators = Mock(return_value=validators)
 
-    vaults_values: list[int] = [99786510875371698360, 2500000000000000000]
-    vaults_net_cash_flows: list[int] = [33000000000000000000, 2500000000000000000]
     tree_data: list[VaultTreeNode] = [
         ('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60', 99786510875371698360, 33000000000000000000, 0, 0),
         ('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db', 2500000000000000000, 2500000000000000000, 0, 1),
@@ -510,18 +508,8 @@ def test_simulate_rebase_after_report(
             in_out_delta=33000000000000000000,
             liability_shares=0,
             fee=0,
-            pending_deposit=0,
             address='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
             withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
-            socket=VaultSocket(
-                vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
-                share_limit=10000,
-                liability_shares=0,
-                reserve_ratio_bp=1000,
-                rebalance_threshold_bp=800,
-                treasury_fee_bp=500,
-                pending_disconnect=False,
-            ),
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(
             vault_ind=1,
@@ -529,18 +517,8 @@ def test_simulate_rebase_after_report(
             in_out_delta=2500000000000000000,
             liability_shares=1,
             fee=0,
-            pending_deposit=0,
             address='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
             withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
-            socket=VaultSocket(
-                vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
-                share_limit=10000,
-                liability_shares=1,
-                reserve_ratio_bp=1000,
-                rebalance_threshold_bp=800,
-                treasury_fee_bp=500,
-                pending_disconnect=False,
-            ),
         ),
     }
     mock_vaults_data: VaultsData = (tree_data, vaults)
@@ -571,9 +549,6 @@ def test_simulate_rebase_after_report(
             post_internal_ether=0,
             post_total_shares=0,
             post_total_pooled_ether=0,
-            vaults_locked_ether=[0],
-            vaults_treasury_fee_shares=[0],
-            total_vaults_treasury_fee_shares=0,
         )
     )
 
