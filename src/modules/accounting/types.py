@@ -218,7 +218,7 @@ class VaultData:
 class LatestReportData:
     timestamp: int
     tree_root: VaultsTreeRoot
-    tree_cid: VaultsTreeCid
+    cid: VaultsTreeCid
 
 
 @dataclass
