@@ -58,7 +58,7 @@ def test_compute_fork_data_root(fork_version, genesis_validators_root, expected)
     ],
 )
 def test_compute_domain(domain_type, fork_version, genesis_validators_root, expected):
-    domain = compute_domain(bytes(domain_type), bytes(fork_version), bytes(genesis_validators_root))
+    domain = compute_domain(bytes(domain_type), hex_str_to_bytes(fork_version), bytes(genesis_validators_root))
 
     print(domain.hex())
     assert len(domain) == 32  # Should be 32 bytes
