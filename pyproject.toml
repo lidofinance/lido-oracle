@@ -47,7 +47,8 @@ hypothesis = "^6.68.2"
 black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
-responses = "^0.25.7"
+responses="^0.25.7"
+eth-tester="^0.12.1b1"
 pre-commit = "3.8"
 ipython = "^9.0"
 
@@ -116,7 +117,7 @@ disable_error_code = "valid-type,name-defined"
 
 [[tool.mypy.overrides]]
 module = "src.web3py.contract_tweak"
-ignore_errors = true                 # skipped because of extensive copy-paste from the upstream
+ignore_errors = true  # skipped because of extensive copy-paste from the upstream
 
 [tool.black]
 line-length = 120

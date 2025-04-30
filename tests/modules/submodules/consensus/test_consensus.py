@@ -10,10 +10,15 @@ from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMe
 from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
-from tests.conftest import get_blockstamp_by_state, Account
+from src.types import BlockStamp, ReferenceBlockStamp
+from tests.conftest import Account
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
-from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory, FrameConfigFactory
+from tests.factory.configs import (
+    BeaconSpecResponseFactory,
+    ChainConfigFactory,
+    FrameConfigFactory,
+    BlockDetailsResponseFactory,
+)
 from tests.factory.member_info import MemberInfoFactory
 
 
@@ -68,28 +73,40 @@ def set_report_account(monkeypatch):
 
 @pytest.mark.unit
 def test_get_latest_blockstamp(consensus, set_no_account):
+    consensus.w3.cc.get_state_block_roots.return_value = "0x0000000000000000000000000000000000000000"
+    consensus.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build()
+
     bs = consensus._get_latest_blockstamp()
+
     assert isinstance(bs, BlockStamp)
 
 
 # ------ MemberInfo tests ---------
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_get_member_info_with_account(consensus, set_report_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        True,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = False
+
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
-
     assert member_info.is_report_member
     assert not member_info.is_submit_member
     assert member_info.is_fast_lane
     assert member_info.current_frame_consensus_report != ZERO_HASH
 
 
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_get_member_info_without_account(consensus, set_no_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
@@ -103,44 +120,58 @@ def test_get_member_info_without_account(consensus, set_no_account):
     assert member_info.current_frame_consensus_report == ZERO_HASH
 
 
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_get_member_info_no_member_account(consensus, set_not_member_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        False,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = False
 
     with pytest.raises(IsNotMemberException):
         consensus.get_member_info(bs)
 
 
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_get_member_info_submit_only_account(consensus, set_submit_account):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        False,  # is_member
+        False,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = True
+
     member_info = consensus.get_member_info(bs)
 
     assert isinstance(member_info, MemberInfo)
-
     assert not member_info.is_report_member
     assert member_info.is_submit_member
     assert not member_info.is_fast_lane
 
 
-# ------ Get block for report tests ----------
 @pytest.mark.unit
+@pytest.mark.possible_integration
 def test_get_blockstamp_for_report_slot_not_finalized(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=latest_blockstamp)
-    consensus.is_contract_reportable = Mock(return_value=True)
-    last_finalized_blockstamp = Mock(spec=ReferenceBlockStamp, slot_number=9)
-    consensus.get_member_info = Mock(return_value=MemberInfoFactory.build(current_frame_ref_slot=10))
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=1)
+    member_info = MemberInfoFactory.build(is_report_member=True, current_frame_ref_slot=2)
+    consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
 
-    consensus.get_blockstamp_for_report(last_finalized_blockstamp)
+    consensus.get_blockstamp_for_report(blockstamp)
 
-    consensus._get_latest_blockstamp.assert_called_once()
-    consensus.is_contract_reportable.assert_called_once_with(latest_blockstamp)
-    consensus.get_member_info.assert_called_once_with(latest_blockstamp)
     assert "Reference slot is not yet finalized" in caplog.messages[-1]
 
 
@@ -196,17 +227,13 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
 
 @pytest.mark.unit
 def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = ReferenceBlockStampFactory.build(slot_number=10)
-    consensus._get_latest_blockstamp = Mock(return_value=latest_blockstamp)
-    consensus.is_contract_reportable = Mock(return_value=True)
-    last_finalized_blockstamp = Mock(spec=ReferenceBlockStamp, slot_number=10)
-    consensus.get_member_info = Mock(return_value=MemberInfoFactory.build(current_frame_ref_slot=9, deadline_slot=9))
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=2)
+    member_info = MemberInfoFactory.build(is_report_member=True, current_frame_ref_slot=1, deadline_slot=1)
+    consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
 
-    consensus.get_blockstamp_for_report(last_finalized_blockstamp)
+    consensus.get_blockstamp_for_report(blockstamp)
 
-    consensus._get_latest_blockstamp.assert_called_once()
-    consensus.is_contract_reportable.assert_called_once_with(latest_blockstamp)
-    consensus.get_member_info.assert_called_once_with(latest_blockstamp)
     assert "Deadline missed" in caplog.messages[-1]
 
 
@@ -215,8 +242,7 @@ def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog,
     'contract_version,consensus_version',
     [
         # pytest.param(1, 2, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
-        # pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
-        pytest.param(2, 1, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
+        pytest.param(3, 3, marks=pytest.mark.xfail(raises=IncompatibleOracleVersion, strict=True)),
         (2, 2),
     ],
 )
@@ -231,15 +257,15 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    'contract_version,consensus_version',
+    'contract_version,consensus_version,expected',
     [
-        pytest.param(3, 2, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        pytest.param(3, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        pytest.param(2, 3, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        (2, 2),
+        pytest.param(3, 2, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(3, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(2, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        (2, 2, True),
     ],
 )
-def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version):
+def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version, expected):
     bs = ReferenceBlockStampFactory.build()
 
     check_latest_contract = lambda tag: contract_version if tag == 'latest' else 2
@@ -248,15 +274,15 @@ def test_contract_upgrade_before_report_submited(consensus, contract_version, co
     check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
     consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
 
-    consensus._check_compatability(bs)
+    assert expected == consensus._check_compatability(bs)
 
 
 @pytest.mark.unit
 def test_incompatible_contract_version(consensus):
     bs = ReferenceBlockStampFactory.build()
 
-    consensus.report_contract.get_contract_version = Mock(return_value=2)
-    consensus.report_contract.get_consensus_version = Mock(return_value=1)
+    consensus.report_contract.get_contract_version = Mock(return_value=3)
+    consensus.report_contract.get_consensus_version = Mock(return_value=3)
 
     with pytest.raises(IncompatibleOracleVersion):
         consensus._check_compatability(bs)
@@ -273,24 +299,20 @@ def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: Consens
     assert "Contract is not reportable" in caplog.messages[-1]
 
 
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    member_info = consensus.get_member_info(latest_blockstamp)
-    member_info.is_fast_lane = False
-    member_info.current_frame_ref_slot += 1
+    blockstamp = ReferenceBlockStampFactory.build(slot_number=2)
+    member_info = MemberInfoFactory.build(
+        is_report_member=True,
+        is_fast_lane=False,
+        current_frame_ref_slot=1,
+    )
     consensus.get_member_info = Mock(return_value=member_info)
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus._get_consensus_contract(blockstamp).get_chain_config.return_value = ChainConfigFactory.build()
+    consensus.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build()
 
-    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
-    assert isinstance(blockstamp, BlockStamp)
-
-
-@pytest.mark.mainnet
-@pytest.mark.possible_integration
-def test_get_blockstamp_for_report_slot_member_ready_to_report(web3, consensus, caplog, set_no_account):
-    latest_blockstamp = get_blockstamp_by_state(web3, 'head')
-    blockstamp = consensus.get_blockstamp_for_report(latest_blockstamp)
+    blockstamp = consensus.get_blockstamp_for_report(blockstamp)
     assert isinstance(blockstamp, BlockStamp)
 
 

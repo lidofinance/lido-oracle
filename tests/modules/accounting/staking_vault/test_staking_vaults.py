@@ -8,7 +8,7 @@ from web3.types import Timestamp
 
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.accounting.types import VaultInfo, VaultData, VaultsData, VaultsMap
+from src.modules.accounting.types import VaultInfo, VaultData, VaultsMap
 from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot

@@ -27,7 +27,6 @@ class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
 def iterator(web3, contracts, lido_validators):
     return ValidatorExitIterator(
         web3,
-        2,
         ReferenceBlockStampFactory.build(),
         12,
     )

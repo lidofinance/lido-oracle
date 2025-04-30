@@ -87,7 +87,7 @@ class AttestationData(Nested, FromResponse):
 class BlockAttestationResponse(Nested, FromResponse):
     aggregation_bits: str
     data: AttestationData
-    committee_bits: str
+    committee_bits: str = ''
 
 
 class BlockAttestation(Protocol):

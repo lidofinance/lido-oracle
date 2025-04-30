@@ -62,7 +62,8 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_ONCHAIN_VERSIONS = [(1, 2), (1, 3)]
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 3
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
@@ -80,7 +81,7 @@ class Ejector(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if not report_blockstamp:
+        if not report_blockstamp or not self._check_compatability(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -122,7 +123,6 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
-            consensus_version=self.get_consensus_version(blockstamp),
             blockstamp=blockstamp,
             seconds_per_slot=chain_config.seconds_per_slot
         ))

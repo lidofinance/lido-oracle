@@ -5,11 +5,11 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src import variables
+from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
 from src.types import SlotNumber, Gwei, StakingModuleId
 from tests.conftest import Account
-
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 
@@ -96,7 +96,7 @@ def test_hash_calculations(consensus):
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
         extra_data_items_count=15,
         vaults_total_treasury_fees_shares=0,
-        vaults_total_deficit=0
+        vaults_total_deficit=0,
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
@@ -208,8 +208,12 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
 
 @pytest.mark.unit
 def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, tx_utils, mock_latest_data):
-    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
-    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
+        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+    )
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
+        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+    )
     consensus.get_chain_config = Mock(
         return_value=ChainConfig(
             slots_per_epoch=32,
@@ -246,7 +250,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
-    assert "Send report data. Contract version: [1]" in caplog.text
+    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 @pytest.mark.unit
@@ -274,8 +278,12 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 
 @pytest.mark.unit
 def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_data):
-    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
-    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(return_value=1)
+    consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
+        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+    )
+    consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
+        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+    )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
         consensus_version=1,
@@ -306,7 +314,7 @@ def test_process_report_submit_report(consensus, tx_utils, caplog, mock_latest_d
     consensus._submit_report = Mock()
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Send report data. Contract version: [1]" in caplog.text
+    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 # ----- Test sleep calculations

@@ -75,6 +75,7 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.get_blockstamp_for_report = Mock(return_value=bs)
     accounting.process_report = Mock(return_value=None)
     accounting.process_extra_data = Mock(return_value=None)
+    accounting._check_compatability = Mock(return_value=True)
     assert (
         accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
@@ -108,13 +109,12 @@ def test_get_updated_modules_stats(accounting: Accounting):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("lido_validators")
 def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
 
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     count, balance = accounting._get_consensus_lido_state(bs)
 
     assert count == 10
@@ -122,7 +122,6 @@ def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("lido_validators")
 def test_get_consensus_lido_state(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = [
@@ -188,7 +187,6 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
 
 
 @pytest.mark.unit
-# @pytest.mark.usefixtures("contracts")
 def test_get_slots_elapsed_from_initialize(accounting: Accounting):
     accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())
     accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
@@ -202,7 +200,6 @@ def test_get_slots_elapsed_from_initialize(accounting: Accounting):
 
 
 @pytest.mark.unit
-# @pytest.mark.usefixtures("contracts")
 def test_get_slots_elapsed_from_last_report(accounting: Accounting):
     accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())
     accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
@@ -289,7 +286,7 @@ class TestAccountingSubmitExtraData:
     ):
         extra_data = bytes(32)
 
-        accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=1)
+        accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
         accounting.get_extra_data = Mock(return_value=Mock(extra_data_list=[extra_data]))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
         accounting.w3.transaction = Mock()
@@ -557,7 +554,6 @@ def test_simulate_rebase_after_report(
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures('lido_validators')
 def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[Mock(), Mock()])
     accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value=[])
