@@ -9,7 +9,6 @@ from src.providers.consensus.types import Validator
 from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.variables import CONSENSUS_CLIENT_URI
-from tests.conftest import TESTNET_CONSENSUS_CLIENT_URI
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -21,6 +20,7 @@ def consensus_client(request):
 
 
 @pytest.mark.integration
+@pytest.mark.testnet
 def test_get_block_root(consensus_client: ConsensusClient):
     block_root = consensus_client.get_block_root('head')
     assert len(block_root.root) == 66
@@ -28,11 +28,6 @@ def test_get_block_root(consensus_client: ConsensusClient):
 
 @pytest.mark.integration
 @pytest.mark.testnet
-@pytest.mark.parametrize(
-    'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
-    indirect=True,
-)
 def test_get_block_details(consensus_client: ConsensusClient, web3):
     root = consensus_client.get_block_root('head').root
     block_details = consensus_client.get_block_details(root)
@@ -41,11 +36,6 @@ def test_get_block_details(consensus_client: ConsensusClient, web3):
 
 @pytest.mark.integration
 @pytest.mark.testnet
-@pytest.mark.parametrize(
-    'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
-    indirect=True,
-)
 def test_get_block_attestations(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
 
@@ -55,11 +45,6 @@ def test_get_block_attestations(consensus_client: ConsensusClient):
 
 @pytest.mark.integration
 @pytest.mark.testnet
-@pytest.mark.parametrize(
-    'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
-    indirect=True,
-)
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
@@ -79,11 +64,6 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 
 @pytest.mark.integration
 @pytest.mark.testnet
-@pytest.mark.parametrize(
-    'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
-    indirect=True,
-)
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
@@ -98,11 +78,6 @@ def test_get_validators(consensus_client: ConsensusClient):
 
 @pytest.mark.integration
 @pytest.mark.testnet
-@pytest.mark.parametrize(
-    'consensus_client',
-    [{'endpoint': TESTNET_CONSENSUS_CLIENT_URI}],
-    indirect=True,
-)
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
