@@ -8,15 +8,15 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
-from src.variables import CONSENSUS_CLIENT_URI
+from src import variables
 from tests.factory.blockstamp import BlockStampFactory
 
 
 @pytest.fixture
 def consensus_client(request):
     params = getattr(request, 'param', {})
-    rpc_endpoint = params.get('endpoint', CONSENSUS_CLIENT_URI)
-    return ConsensusClient(rpc_endpoint, 5 * 60, 5, 5)
+    rpc_endpoint = params.get('endpoint', variables.CONSENSUS_CLIENT_URI)
+    return ConsensusClient(rpc_endpoint, 10, 3, 3)
 
 
 @pytest.mark.integration

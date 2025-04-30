@@ -80,6 +80,8 @@ def configure_testnet_tests(request, monkeypatch):
                 'must be set in order to run tests on testnet.'
             )
 
+        # Works only if module fully imported, e.g.
+        # "from src import variables" not "from src.variables import <ENV>"
         monkeypatch.setattr(variables, 'CONSENSUS_CLIENT_URI', TESTNET_CONSENSUS_CLIENT_URI)
         monkeypatch.setattr(variables, 'EXECUTION_CLIENT_URI', TESTNET_EXECUTION_CLIENT_URI)
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)

@@ -10,7 +10,7 @@ import responses
 
 import src.metrics.healthcheck_server
 from src.metrics.healthcheck_server import pulse, PulseRequestHandler
-from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
+from src import variables
 
 
 class TestPulseFunction(unittest.TestCase):
@@ -74,7 +74,7 @@ class TestPulseRequestHandler(unittest.TestCase):
         """Test that the handler responds with 503 when the last pulse is outdated."""
         # Set the last pulse to an outdated time
         src.metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(
-            seconds=MAX_CYCLE_LIFETIME_IN_SECONDS + 1
+            seconds=variables.MAX_CYCLE_LIFETIME_IN_SECONDS + 1
         )
 
         handler = _create_mock_request_handler('/smth/')

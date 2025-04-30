@@ -14,6 +14,8 @@ To run tests with a coverage report, run `pytest --cov=src tests` in the root di
 
 ## Env variables
 
-| Name                        | Description                                | Required | Example value           |
-|-----------------------------|--------------------------------------------|----------|-------------------------|
-| `TESTNET_CONSENSUS_CLIENT_URI` | URI of the Consensus client node for tests | False    | `http://localhost:8545` |
+| Name                           | Description                                                                 | Required | Example value           |
+|--------------------------------|-----------------------------------------------------------------------------|----------|-------------------------|
+| `TESTNET_CONSENSUS_CLIENT_URI` | URI of the consensus client node for tests marked with @pytest.mark.testnet | False    | `http://localhost:8545` |
+| `TESTNET_EXECUTION_CLIENT_URI` | URI of the execution client node for tests marked with @pytest.mark.testnet | False    | `http://localhost:8545` |
+| `TESTNET_KAPI_URI`             | URI of the keys api node for tests marked with @pytest.mark.testnet         | False    | `http://localhost:8545` |
