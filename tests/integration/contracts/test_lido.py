@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import LidoReportRebase, BeaconStat
+from src.modules.accounting.types import BeaconStat
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
