@@ -24,20 +24,20 @@ class AccountingContract(ContractInterface):
         plugging the returned values to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
 
-        report = (
-            payload.timestamp,
-            payload.time_elapsed,
-            payload.cl_validators,
-            payload.cl_balance,
-            payload.withdrawal_vault_balance,
-            payload.el_rewards_vault_balance,
-            payload.shares_requested_to_burn,
-            payload.withdrawal_finalization_batches,
-            payload.vaults_total_treasury_fees_shares,
-            payload.vaults_total_deficit,
-            payload.vaults_data_tree_root,
-            payload.vaults_data_tree_cid,
-        )
+        report = {
+            "timestamp": payload.timestamp,
+            "timeElapsed": payload.time_elapsed,
+            "clValidators": payload.cl_validators,
+            "clBalance": payload.cl_balance,
+            "withdrawalVaultBalance": payload.withdrawal_vault_balance,
+            "elRewardsVaultBalance": payload.el_rewards_vault_balance,
+            "sharesRequestedToBurn": payload.shares_requested_to_burn,
+            "withdrawalFinalizationBatches": payload.withdrawal_finalization_batches,
+            "vaultsTotalTreasuryFeesShares": payload.vaults_total_treasury_fees_shares,
+            "vaultsTotalDeficit": payload.vaults_total_deficit,
+            "vaultsDataTreeRoot": payload.vaults_data_tree_root,
+            "vaultsDataTreeCid": payload.vaults_data_tree_cid,
+        }
 
         response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(
             block_identifier=block_identifier
