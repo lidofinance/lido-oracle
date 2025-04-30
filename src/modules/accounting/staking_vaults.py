@@ -63,7 +63,7 @@ class StakingVaults(Module):
         )
 
     def get_vaults_data(
-        self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
+            self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
     ) -> VaultsData:
         vaults = self.get_vaults(blockstamp)
         if len(vaults) == 0:
@@ -119,7 +119,7 @@ class StakingVaults(Module):
             )
 
         return out
-    
+
     @staticmethod
     def connect_vaults_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
         wc_vault_map: dict[str, VaultData] = {
@@ -138,7 +138,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def connect_vaults_to_pending_deposits(
-        pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
+            pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
     ) -> VaultToPendingDeposits:
         wc_vault_map: dict[str, VaultData] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
@@ -151,19 +151,19 @@ class StakingVaults(Module):
             if wc in wc_vault_map:
                 vault = wc_vault_map[deposit.withdrawal_credentials]
                 result[vault.address].append(deposit)
- 
+
         return result
-    
+
     def _calculate_vault_validators_balances(self, validators: list[Validator]) -> int:
         return sum(Web3.to_wei(int(validator.balance), 'gwei') for validator in validators)
 
     def _calculate_pending_deposits_balances(
-        self,
-        validators: list[Validator],
-        pending_deposits: list[PendingDeposit],
-        vault_validators: list[Validator],
-        vault_pending_deposits: list[PendingDeposit],
-        vault_withdrawal_credentials: str,
+            self,
+            validators: list[Validator],
+            pending_deposits: list[PendingDeposit],
+            vault_validators: list[Validator],
+            vault_pending_deposits: list[PendingDeposit],
+            vault_withdrawal_credentials: str,
     ) -> int:
         validator_pubkeys = set(validator.validator.pubkey for validator in validators)
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
@@ -173,15 +173,15 @@ class StakingVaults(Module):
             deposits_by_pubkey[deposit.pubkey].append(deposit)
 
         total_value = 0
-        
+
         for pubkey, deposits in deposits_by_pubkey.items():
             deposit_value = sum(Web3.to_wei(int(deposit.amount), 'gwei') for deposit in deposits)
-            
+
             # Case 1: Validator exists and is already bound to this vault
             if pubkey in vault_validator_pubkeys:
                 total_value += deposit_value
                 continue
-                
+
             # Case 2: Validator exists but not bound to this vault
             if pubkey in validator_pubkeys:
                 validator = next(v for v in validators if v.validator.pubkey == pubkey)
@@ -195,11 +195,11 @@ class StakingVaults(Module):
                         }
                     )
                 continue
-            
+
             # Case 3: No validator found for this pubkey - validate deposits
             deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
             valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
-            
+
             if valid_deposits:
                 valid_value = sum(Web3.to_wei(int(d.amount), 'gwei') for d in valid_deposits)
                 total_value += valid_value
@@ -232,9 +232,9 @@ class StakingVaults(Module):
         )
 
     def _filter_valid_deposits(
-        self,
-        vault_withdrawal_credentials: str,
-        deposits: list[PendingDeposit]
+            self,
+            vault_withdrawal_credentials: str,
+            deposits: list[PendingDeposit]
     ) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
@@ -335,7 +335,8 @@ class StakingVaults(Module):
         return cid
 
     def publish_tree(
-        self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str, chain_config: ChainConfig
+            self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
+            chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):
