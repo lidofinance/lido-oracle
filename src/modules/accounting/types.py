@@ -230,6 +230,6 @@ class VaultInfo:
     liability_shares: Shares
 
 
-type VaultsMap = dict[ChecksumAddress, VaultData]
+VaultsMap = dict[ChecksumAddress, VaultData]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap]
