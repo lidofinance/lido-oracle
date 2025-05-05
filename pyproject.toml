@@ -46,6 +46,7 @@ black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 responses="^0.25.7"
+eth-tester="^0.12.1b1"
 pre-commit = "3.8"
 ipython = "^9.0"
 

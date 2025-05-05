@@ -10,7 +10,7 @@ from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
-from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider, NodeOperator, StakingModule
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 TESTING_REF_EPOCH = 100
@@ -24,12 +24,6 @@ blockstamp = ReferenceBlockStampFactory.build(
 
 @pytest.fixture
 def lido_validators(web3):
-    web3.attach_modules(
-        {
-            'lido_validators': LidoValidatorsProvider,
-        }
-    )
-
     sm = StakingModule(
         id=1,
         staking_module_address='0x8a1E2986E52b441058325c315f83C9D4129bDF72',

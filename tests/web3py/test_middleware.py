@@ -39,6 +39,7 @@ def _get_requests_labels():
     return labels
 
 
+@pytest.mark.integration
 def test_success(web3):
     web3.eth.get_block_number()
     labels = _get_requests_labels()
@@ -51,6 +52,7 @@ def test_success(web3):
     }
 
 
+@pytest.mark.integration
 def test_fail_with_status_code(provider, web3):
     provider.endpoint_uri = 'https://github.com'
     with pytest.raises(HTTPError):
@@ -65,6 +67,7 @@ def test_fail_with_status_code(provider, web3):
     }
 
 
+@pytest.mark.unit
 class TestMetricsCollectorUnit:
     @pytest.fixture
     def mock_web3(self):
