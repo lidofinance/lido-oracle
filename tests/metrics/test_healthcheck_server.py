@@ -1,5 +1,7 @@
 # pylint: disable=protected-access
 import unittest
+import pytest
+
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from io import BytesIO
@@ -13,6 +15,7 @@ from src.metrics.healthcheck_server import pulse, PulseRequestHandler
 from src import variables
 
 
+@pytest.mark.unit
 class TestPulseFunction(unittest.TestCase):
 
     @responses.activate
@@ -56,6 +59,7 @@ def _create_mock_request_handler(path):
     return handler
 
 
+@pytest.mark.unit
 class TestPulseRequestHandler(unittest.TestCase):
     def setUp(self):
         # Reset _last_pulse to current time before each test

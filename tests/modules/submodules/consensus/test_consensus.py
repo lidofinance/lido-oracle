@@ -359,6 +359,7 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
         impl(web3)
 
 
+@pytest.mark.unit
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
     consensus.w3.cc.get_block_root = Mock(return_value=Mock(root=""))
     consensus.w3.cc.get_block_details = Mock()
@@ -387,6 +388,7 @@ def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.M
             consensus.check_contract_configs()
 
 
+@pytest.mark.unit
 def test_get_web3_converter(consensus):
     blockstamp = BlockStampFactory.build()
 

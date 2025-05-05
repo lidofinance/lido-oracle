@@ -63,7 +63,7 @@ markers = [
     "mainnet: tests that depends on mainnet",
     "testnet: tests that depends on testnet",
 ]
-addopts = "-s -vv"
+addopts = "-s -vv --strict-markers"
 
 [tool.coverage.run]
 branch = true

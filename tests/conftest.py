@@ -44,30 +44,19 @@ def check_test_marks_compatibility(request):
     all_test_markers = {x.name for x in request.node.iter_markers()}
 
     if not all_test_markers:
-        pytest.fail(
-            'Test must be marked.'
-        )
+        pytest.fail('Test must be marked.')
 
-    elif (
-        UNIT_MARKER in all_test_markers and
-        {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers
-    ):
-        pytest.fail(
-            'Test can not be both unit and integration at the same time.'
-        )
+    elif UNIT_MARKER in all_test_markers and {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers:
+        pytest.fail('Test can not be both unit and integration at the same time.')
 
-    elif (
-        {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and
-        INTEGRATION_MARKER not in all_test_markers
-    ):
-        pytest.fail(
-            'Test can not be run on mainnet or testnet without integration marker.'
-        )
+    elif {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
+        pytest.fail('Test can not be run on mainnet or testnet without integration marker.')
 
 
 @pytest.fixture(autouse=True)
 def configure_unit_tests(request):
     if request.node.get_closest_marker(UNIT_MARKER):
+
         def blocked_connect(*args, **kwargs):
             msg = (
                 'Network access deprecated in unit test! '

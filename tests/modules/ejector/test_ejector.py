@@ -422,6 +422,7 @@ def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.lido.get_buffered_ether.assert_called_once_with(blockstamp.block_hash)
 
 
+@pytest.mark.unit
 class TestChurnLimit:
     """_get_churn_limit tests"""
 
@@ -435,14 +436,12 @@ class TestChurnLimit:
             )
             yield
 
-    @pytest.mark.unit
     def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
         assert result == constants.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
-    @pytest.mark.unit
     def test_get_churn_limit_validators_less_than_min_churn(
         self,
         ejector: Ejector,
@@ -455,7 +454,6 @@ class TestChurnLimit:
             assert result == 4, "Unexpected churn limit"
             ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
-    @pytest.mark.unit
     def test_get_churn_limit_basic(
         self,
         ejector: Ejector,
@@ -488,6 +486,7 @@ def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None
     assert max_epoch == 42, "Unexpected max epoch"
 
 
+@pytest.mark.unit
 def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     bs = ReferenceBlockStampFactory.build()
 
@@ -503,6 +502,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert processing_state.data_submitted == False
 
 
+@pytest.mark.unit
 def test_ejector_get_processing_state(ejector: Ejector):
     bs = ReferenceBlockStampFactory.build()
     accounting_processing_state = EjectorProcessingStateFactory.build()

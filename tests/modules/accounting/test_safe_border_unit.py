@@ -18,6 +18,22 @@ SLOTS_PER_EPOCH = 2**5
 SLOT_TIME = 12
 
 
+def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):
+    return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
+
+
+def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> ValidatorState:
+    return ValidatorStateFactory.build(
+        slashed=slashed,
+        exit_epoch=exit_epoch,
+        withdrawable_epoch=withdrawable_epoch,
+    )
+
+
+def create_validator(validator: ValidatorState) -> Validator:
+    return ValidatorFactory.build(validator=validator)
+
+
 @dataclass(frozen=True)
 class WithdrawalStatus:
     timestamp: int
@@ -52,12 +68,14 @@ def safe_border(
     return SafeBorder(web3, past_blockstamp, chain_config, frame_config)
 
 
+@pytest.mark.unit
 def test_get_new_requests_border_epoch(safe_border, past_blockstamp):
     border = safe_border._get_default_requests_border_epoch()
 
     assert border == past_blockstamp.ref_slot // SLOTS_PER_EPOCH - safe_border.finalization_default_shift
 
 
+@pytest.mark.unit
 def test_calc_validator_slashed_epoch_from_state(safe_border):
     exit_epoch = 504800
     withdrawable_epoch = exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY + 1
@@ -66,6 +84,7 @@ def test_calc_validator_slashed_epoch_from_state(safe_border):
     assert safe_border._predict_earliest_slashed_epoch(validator) == withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
 
 
+@pytest.mark.unit
 def test_calc_validator_slashed_epoch_from_state_undetectable(safe_border):
     exit_epoch = 504800
     withdrawable_epoch = exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
@@ -74,6 +93,7 @@ def test_calc_validator_slashed_epoch_from_state_undetectable(safe_border):
     assert safe_border._predict_earliest_slashed_epoch(validator) is None
 
 
+@pytest.mark.unit
 def test_get_negative_rebase_border_epoch(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     safe_border._get_bunker_start_or_last_successful_report_epoch = Mock(return_value=ref_epoch)
@@ -81,6 +101,7 @@ def test_get_negative_rebase_border_epoch(safe_border, past_blockstamp):
     assert safe_border._get_negative_rebase_border_epoch() == ref_epoch - safe_border.finalization_default_shift
 
 
+@pytest.mark.unit
 def test_get_negative_rebase_border_epoch_bunker_not_started_yet(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     safe_border._get_bunker_start_or_last_successful_report_epoch = Mock(return_value=ref_epoch)
@@ -88,6 +109,7 @@ def test_get_negative_rebase_border_epoch_bunker_not_started_yet(safe_border, pa
     assert safe_border._get_negative_rebase_border_epoch() == ref_epoch - safe_border.finalization_default_shift
 
 
+@pytest.mark.unit
 def test_get_negative_rebase_border_epoch_max(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     max_negative_rebase_shift = (
@@ -99,6 +121,7 @@ def test_get_negative_rebase_border_epoch_max(safe_border, past_blockstamp):
     assert safe_border._get_negative_rebase_border_epoch() == ref_epoch - max_negative_rebase_shift
 
 
+@pytest.mark.unit
 def test_get_associated_slashings_border_epoch(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
 
@@ -113,12 +136,14 @@ def test_get_associated_slashings_border_epoch(safe_border, past_blockstamp):
     )
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(safe_border, past_blockstamp):
     safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[])
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(safe_border, past_blockstamp):
     safe_border.w3.lido_validators.get_lido_validators = Mock(
         return_value=[
@@ -131,6 +156,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_valida
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(safe_border, past_blockstamp):
     withdrawable_epoch = past_blockstamp.ref_epoch - 10
     validators = [create_validator_stub(100, withdrawable_epoch, True)]
@@ -139,6 +165,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_vali
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict(safe_border, past_blockstamp):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -152,6 +179,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(safe_border, past_blockstamp):
     validators = [
         create_validator_stub(
@@ -166,6 +194,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_border, past_blockstamp):
     non_withdrawable_epoch = past_blockstamp.ref_epoch + 10
     validators = [
@@ -183,6 +212,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_bo
     )
 
 
+@pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpredictable_epoch(
     safe_border,
     past_blockstamp,
@@ -221,6 +251,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     safe
 #     border
 ###
+@pytest.mark.unit
 def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp):
     # in binary search:
     # start frame = 73
@@ -256,6 +287,7 @@ def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, pa
     assert earliest_slashed_epoch == 450
 
 
+@pytest.mark.unit
 def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_border, past_blockstamp):
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=None)
     safe_border.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=past_blockstamp.ref_slot)
@@ -263,12 +295,14 @@ def test_get_bunker_start_or_last_successful_report_epoch_no_bunker_start(safe_b
     assert safe_border._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
 
 
+@pytest.mark.unit
 def test_get_bunker_start_or_last_successful_report_epoch(safe_border, past_blockstamp):
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=past_blockstamp.ref_slot * 12)
 
     assert safe_border._get_bunker_start_or_last_successful_report_epoch() == past_blockstamp.ref_slot // 32
 
 
+@pytest.mark.unit
 def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     timestamp = 1677230000
 
@@ -283,23 +317,8 @@ def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     assert safe_border._get_last_finalized_withdrawal_request_epoch() == epoch
 
 
+@pytest.mark.unit
 def test_get_last_finalized_withdrawal_request_epoch_no_requests(safe_border):
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=0)
 
     assert safe_border._get_last_finalized_withdrawal_request_epoch() == 0
-
-
-def create_validator_stub(exit_epoch, withdrawable_epoch, slashed=False):
-    return create_validator(create_validator_state(exit_epoch, withdrawable_epoch, slashed))
-
-
-def create_validator_state(exit_epoch, withdrawable_epoch, slashed) -> ValidatorState:
-    return ValidatorStateFactory.build(
-        slashed=slashed,
-        exit_epoch=exit_epoch,
-        withdrawable_epoch=withdrawable_epoch,
-    )
-
-
-def create_validator(validator: ValidatorState) -> Validator:
-    return ValidatorFactory.build(validator=validator)
