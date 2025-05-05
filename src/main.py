@@ -13,7 +13,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import GW3, IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
+from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -144,13 +144,6 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             variables.KUBO_HOST,
             variables.KUBO_RPC_PORT,
             variables.KUBO_GATEWAY_PORT,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-        )
-
-    if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
-        yield GW3(
-            variables.GW3_ACCESS_KEY,
-            variables.GW3_SECRET_KEY,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
