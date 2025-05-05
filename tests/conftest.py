@@ -26,6 +26,10 @@ from src.web3py.extensions import (
 from src.web3py.types import Web3
 from src.web3py.extensions import FallbackProviderModule
 
+UNIT_MARKER = 'unit'
+INTEGRATION_MARKER = 'integration'
+MAINNET_MARKER = 'mainnet'
+TESTNET_MARKER = 'testnet'
 
 DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -36,9 +40,34 @@ TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
 
 
 @pytest.fixture(autouse=True)
-def configure_unit_tests(request):
-    if request.node.get_closest_marker('unit'):
+def check_test_marks_compatibility(request):
+    all_test_markers = {x.name for x in request.node.iter_markers()}
 
+    if not all_test_markers:
+        pytest.fail(
+            'Test must be marked.'
+        )
+
+    elif (
+        UNIT_MARKER in all_test_markers and
+        {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers
+    ):
+        pytest.fail(
+            'Test can not be both unit and integration at the same time.'
+        )
+
+    elif (
+        {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and
+        INTEGRATION_MARKER not in all_test_markers
+    ):
+        pytest.fail(
+            'Test can not be run on mainnet or testnet without integration marker.'
+        )
+
+
+@pytest.fixture(autouse=True)
+def configure_unit_tests(request):
+    if request.node.get_closest_marker(UNIT_MARKER):
         def blocked_connect(*args, **kwargs):
             msg = (
                 'Network access deprecated in unit test! '
@@ -55,7 +84,7 @@ def configure_unit_tests(request):
 
 @pytest.fixture(autouse=True)
 def configure_mainnet_tests(request, monkeypatch):
-    if request.node.get_closest_marker('mainnet'):
+    if request.node.get_closest_marker(MAINNET_MARKER):
         if not all(
             x[0] for x in [variables.CONSENSUS_CLIENT_URI, variables.EXECUTION_CLIENT_URI, variables.KEYS_API_URI]
         ):
@@ -73,7 +102,6 @@ def configure_mainnet_tests(request, monkeypatch):
 @pytest.fixture(autouse=True)
 def configure_testnet_tests(request, monkeypatch):
     if request.node.get_closest_marker('testnet'):
-
         if not all(x[0] for x in [TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI, TESTNET_KAPI_URI]):
             pytest.fail(
                 'TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI and TESTNET_KAPI_URI '
