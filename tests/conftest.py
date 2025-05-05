@@ -1,14 +1,11 @@
 import os
 import socket
-from dataclasses import dataclass
 from typing import Final, Generator
 from unittest.mock import Mock, patch
 
 import pytest
 from eth_tester import EthereumTester
 from eth_tester.backends.mock import MockBackend
-from eth_typing import ChecksumAddress
-from hexbytes import HexBytes
 from web3 import EthereumTesterProvider
 
 from src import variables
@@ -90,7 +87,7 @@ def configure_mainnet_tests(request, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def configure_testnet_tests(request, monkeypatch):
-    if request.node.get_closest_marker('testnet'):
+    if request.node.get_closest_marker(TESTNET_MARKER):
         if not all(x[0] for x in [TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI, TESTNET_KAPI_URI]):
             pytest.fail(
                 'TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI and TESTNET_KAPI_URI '
@@ -179,9 +176,3 @@ def web3_integration() -> Generator[Web3, None, None]:
     )
 
     yield w3
-
-
-@dataclass
-class Account:
-    address: ChecksumAddress
-    _private_key: HexBytes

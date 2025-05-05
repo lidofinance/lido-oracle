@@ -1,15 +1,23 @@
 from unittest.mock import Mock
 
 import pytest
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from dataclasses import dataclass
 
 from src import variables
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
-from tests.conftest import Account
+
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
+
+
+@dataclass
+class Account:
+    address: ChecksumAddress
+    _private_key: HexBytes
 
 
 @pytest.fixture()
