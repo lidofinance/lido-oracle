@@ -139,7 +139,6 @@ def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List
         balance = Gwei(state.balances[validator_index] - partially_withdrawn_balance)
 
         if is_fully_withdrawable_validator(validator.validator, balance, epoch):
-            print('fully')
             withdrawals.append(Withdrawal(validator_index=validator_index, amount=balance))
         elif is_partially_withdrawable_validator(validator.validator, balance):
             max_effective_balance = get_max_effective_balance(validator.validator)
