@@ -19,6 +19,7 @@ repos:
         entry: poetry run isort
         language: system
         types: [python]
+        stages: [pre-commit]
       - id: mypy
         name: mypy
         entry: poetry run mypy
