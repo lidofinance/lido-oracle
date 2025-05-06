@@ -63,61 +63,39 @@ class StakingVaults(Module):
         )
 
     def get_vaults_data(
-        self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
+            self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
     ) -> VaultsData:
         vaults = self.get_vaults(blockstamp)
         if len(vaults) == 0:
             return [], {}
 
-        vaults_validators = StakingVaults.connect_vault_to_validators(validators, vaults)
-        vaults_pending_deposits = StakingVaults.connect_vault_to_pending_deposits(pending_deposits, vaults)
+        vaults_validators = StakingVaults.connect_vaults_to_validators(validators, vaults)
+        vaults_pending_deposits = StakingVaults.connect_vaults_to_pending_deposits(pending_deposits, vaults)
 
         vaults_values = [0] * len(vaults)
-        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
             vaults_values[vault.vault_ind] = vault.balance_wei
+            vault_validators = vaults_validators.get(vault_address, [])
+            vault_pending_deposits = vaults_pending_deposits.get(vault_address, [])
 
+            # Add active validators balances
             if vault_address in vaults_validators:
-                vault_validators = vaults_validators[vault_address]
+                vaults_values[vault.vault_ind] += self._calculate_vault_validators_balances(vault_validators)
 
-                vault_cl_balance_wei = 0
-                for validator in vault_validators:
-                    vault_cl_balance_wei += Web3.to_wei(int(validator.balance), 'gwei')
-
-                vaults_values[vault.vault_ind] += vault_cl_balance_wei
-
+            # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
-                pending_deposits = vaults_pending_deposits[vault_address]
-                vault_validator_pubkeys = set(
-                    validator.validator.pubkey for validator in vaults_validators[vault_address]
+                vaults_values[vault.vault_ind] += self._calculate_pending_deposits_balances(
+                    validators,
+                    pending_deposits,
+                    vault_validators,
+                    vault_pending_deposits,
+                    vault.withdrawal_credentials,
                 )
 
-                deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
-                for deposit in pending_deposits:
-                    deposits_by_pubkey[deposit.pubkey].append(deposit)
+            self._log_vault_value(vault_address, vaults_values[vault.vault_ind], vault.in_out_delta)
 
-                for pubkey, deposits in deposits_by_pubkey.items():
-                    for deposit in (
-                        deposits if pubkey in vault_validator_pubkeys else StakingVaults.filter_valid_deposits(deposits)
-                    ):
-                        vaults_values[vault.vault_ind] += Web3.to_wei(int(deposit.amount), 'gwei')
-
-            tree_data[vault.vault_ind] = (
-                vault_address,
-                vaults_values[vault.vault_ind],
-                vault.in_out_delta,
-                vault.fee,
-                vault.liability_shares,
-            )
-
-            logger.info(
-                {
-                    'msg': f'Vault values for vault: {vault.address}.',
-                    'vault_in_out_delta': vault.in_out_delta,
-                    'vault_value': vaults_values[vault.vault_ind],
-                }
-            )
+        tree_data = self._build_tree_data(vaults, vaults_values)
 
         return tree_data, vaults
 
@@ -143,7 +121,7 @@ class StakingVaults(Module):
         return out
 
     @staticmethod
-    def connect_vault_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
+    def connect_vaults_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
         wc_vault_map: dict[str, VaultData] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
@@ -159,8 +137,8 @@ class StakingVaults(Module):
         return result
 
     @staticmethod
-    def connect_vault_to_pending_deposits(
-        pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
+    def connect_vaults_to_pending_deposits(
+            pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
     ) -> VaultToPendingDeposits:
         wc_vault_map: dict[str, VaultData] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
@@ -176,8 +154,88 @@ class StakingVaults(Module):
 
         return result
 
-    @staticmethod
-    def filter_valid_deposits(deposits: list[PendingDeposit]) -> list[PendingDeposit]:
+    def _calculate_vault_validators_balances(self, validators: list[Validator]) -> int:
+        return sum(Web3.to_wei(int(validator.balance), 'gwei') for validator in validators)
+
+    def _calculate_pending_deposits_balances(
+            self,
+            validators: list[Validator],
+            pending_deposits: list[PendingDeposit],
+            vault_validators: list[Validator],
+            vault_pending_deposits: list[PendingDeposit],
+            vault_withdrawal_credentials: str,
+    ) -> int:
+        validator_pubkeys = set(validator.validator.pubkey for validator in validators)
+        vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
+        deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
+
+        for deposit in vault_pending_deposits:
+            deposits_by_pubkey[deposit.pubkey].append(deposit)
+
+        total_value = 0
+
+        for pubkey, deposits in deposits_by_pubkey.items():
+            deposit_value = sum(Web3.to_wei(int(deposit.amount), 'gwei') for deposit in deposits)
+
+            # Case 1: Validator exists and is already bound to this vault
+            if pubkey in vault_validator_pubkeys:
+                total_value += deposit_value
+                continue
+
+            # Case 2: Validator exists but not bound to this vault
+            if pubkey in validator_pubkeys:
+                validator = next(v for v in validators if v.validator.pubkey == pubkey)
+                if validator.validator.withdrawal_credentials == vault_withdrawal_credentials:
+                    total_value += deposit_value
+                else:
+                    logger.warning(
+                        {
+                            'msg': f'Skipping pending deposits for key {pubkey} because validator is not bound to the vault',
+                            'validator': validator,
+                        }
+                    )
+                continue
+
+            # Case 3: No validator found for this pubkey - validate deposits
+            deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
+            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
+
+            if valid_deposits:
+                valid_value = sum(Web3.to_wei(int(d.amount), 'gwei') for d in valid_deposits)
+                total_value += valid_value
+
+        return total_value
+
+    def _build_tree_data(self, vaults: VaultsMap, vaults_values: list[int]) -> list[VaultTreeNode]:
+        """Build tree data structure from vaults and their values."""
+        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
+
+        for vault_address, vault in vaults.items():
+            tree_data[vault.vault_ind] = (
+                vault_address,
+                vaults_values[vault.vault_ind],
+                vault.in_out_delta,
+                vault.fee,
+                vault.liability_shares,
+            )
+
+        return tree_data
+
+    def _log_vault_value(self, vault_address: str, total_value: int, in_out_delta: int) -> None:
+        """Log vault value calculation results."""
+        logger.info(
+            {
+                'msg': f'Vault values for vault: {vault_address}.',
+                'vault_in_out_delta': in_out_delta,
+                'vault_value': total_value,
+            }
+        )
+
+    def _filter_valid_deposits(
+            self,
+            vault_withdrawal_credentials: str,
+            deposits: list[PendingDeposit]
+    ) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
         Once a valid pending deposit is found, all subsequent deposits are considered valid.
@@ -206,6 +264,17 @@ class StakingVaults(Module):
                     }
                 )
                 continue
+
+            if deposit.withdrawal_credentials != vault_withdrawal_credentials:
+                logger.warning(
+                    {
+                        'msg': f'Invalid withdrawal credentials for proven deposit: {deposit}. Skipping any further pending deposits count.',
+                    }
+                )
+                # In case the first deposit is a VALID, but WC are NOT matching the vault's WC,
+                # we should return an empty deposit list because it means that all the future deposits
+                # will be mapped to the wrong WC and will not be under the vault's control
+                return []
 
             # Mark that we found a valid deposit and include it
             valid_found = True
@@ -266,7 +335,8 @@ class StakingVaults(Module):
         return cid
 
     def publish_tree(
-        self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str, chain_config: ChainConfig
+            self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
+            chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):

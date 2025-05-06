@@ -150,8 +150,9 @@ class PendingPartialWithdrawal(Nested):
     amount: Gwei
     withdrawable_epoch: EpochNumber
 
+
 @dataclass
-class PendingDeposit(Nested, FromResponse):
+class PendingDeposit(Nested):
     pubkey: str
     withdrawal_credentials: str
     amount: Gwei

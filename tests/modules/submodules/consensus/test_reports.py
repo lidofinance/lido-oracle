@@ -217,10 +217,10 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
 @pytest.mark.unit
 def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+        return_value=consensus.COMPATIBLE_CONSENSUS_VERSION
     )
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+        return_value=consensus.COMPATIBLE_CONTRACT_VERSION
     )
     consensus.get_chain_config = Mock(
         return_value=ChainConfig(
@@ -231,7 +231,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        consensus_version=1,
+        consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
         validators_count=3,
         cl_balance_gwei=Gwei(4),
@@ -258,7 +258,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
-    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
+    assert f"Send report data. Contract version: [{consensus.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 @pytest.mark.unit
@@ -287,14 +287,14 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 @pytest.mark.unit
 def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+        return_value=consensus.COMPATIBLE_CONSENSUS_VERSION
     )
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+        return_value=consensus.COMPATIBLE_CONTRACT_VERSION
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        consensus_version=1,
+        consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
         validators_count=3,
         cl_balance_gwei=Gwei(4),
@@ -322,7 +322,7 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     consensus._submit_report = Mock()
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
+    assert f"Send report data. Contract version: [{consensus.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 # ----- Test sleep calculations

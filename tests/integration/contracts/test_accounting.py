@@ -23,7 +23,7 @@ def test_accounting_contract_call(accounting_contract, caplog):
                         withdrawal_finalization_batches=[],
                         vaults_total_treasury_fees_shares=0,
                         vaults_total_deficit=0,
-                        vaults_data_tree_root=bytes([0]),
+                        vaults_data_tree_root=b'\x00' * 32,
                         vaults_data_tree_cid="tree_cid",
                     ),
                 ),

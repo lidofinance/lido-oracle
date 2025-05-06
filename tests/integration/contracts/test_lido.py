@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import LidoReportRebase, BeaconStat
+from src.modules.accounting.types import BeaconStat
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
@@ -12,23 +12,6 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
             ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
             ('total_supply', None, lambda response: check_value_type(response, int)),
             ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
-            (
-                'handle_oracle_report',
-                (
-                    1746275159,  # timestamp
-                    86400,
-                    389746,
-                    9190764598468942000000000,
-                    13771995248000000000,
-                    478072602914417566,
-                    0,
-                    accounting_oracle_contract.address,
-                    11620928,
-                    # Call depends on contract state
-                    '0xffa34bcc5a08c92272a62e591f7afb9cb839134aa08c091ae0c95682fba35da9',
-                ),
-                lambda response: check_value_type(response, LidoReportRebase),
-            ),
         ],
         caplog,
     )

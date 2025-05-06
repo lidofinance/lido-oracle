@@ -15,6 +15,15 @@ from src.types import (
     OperatorsValidatorCount,
 )
 
+BunkerMode = NewType('BunkerMode', bool)
+ValidatorsCount = NewType('ValidatorsCount', int)
+ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
+
+type Shares = NewType('Shares', int)
+type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
+type VaultsTreeCid = NewType('VaultsTreeCid', str)
+type VaultTreeNode = tuple[str, int, int, int, int]
+
 
 @dataclass
 class ReportData:
@@ -26,13 +35,13 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
-    shares_requested_to_burn: int
+    shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_total_treasury_fees_shares: int
+    vaults_total_treasury_fees_shares: Shares
     vaults_total_deficit: int
-    tree_root: bytes
-    tree_cid: str
+    tree_root: VaultsTreeRoot
+    tree_cid: VaultsTreeCid
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -95,12 +104,6 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
-@dataclass(frozen=True)
-class LidoReportRebase:
-    post_total_pooled_ether: int
-    post_total_shares: int
-    withdrawals: Wei
-    el_reward: Wei
 
 @dataclass
 class BatchState:
@@ -120,8 +123,8 @@ class BatchState:
 
 @dataclass
 class SharesRequestedToBurn:
-    cover_shares: int
-    non_cover_shares: int
+    cover_shares: Shares
+    non_cover_shares: Shares
 
 
 @dataclass
@@ -134,15 +137,10 @@ class WithdrawalRequestStatus:
     is_claimed: bool
 
 
-BunkerMode = NewType('BunkerMode', bool)
-ValidatorsCount = NewType('ValidatorsCount', int)
-ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
-
-type SharesToBurn = int
+type SharesToBurn = Shares
 type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches]
-type VaultTreeNode = tuple[str, int, int, int, int]
 
 
 @dataclass
@@ -152,23 +150,20 @@ class BeaconStat:
     beacon_balance: int
 
 
-bytes32 = bytes(32)
-
-
 @dataclass(frozen=True)
 class ReportValues:
     timestamp: int
     time_elapsed: int
     cl_validators: int
-    cl_balance: int
-    withdrawal_vault_balance: int
-    el_rewards_vault_balance: int
-    shares_requested_to_burn: int
+    cl_balance: Wei
+    withdrawal_vault_balance: Wei
+    el_rewards_vault_balance: Wei
+    shares_requested_to_burn: Shares
     withdrawal_finalization_batches: List[int]
-    vaults_total_treasury_fees_shares: int
+    vaults_total_treasury_fees_shares: Shares
     vaults_total_deficit: int
-    vaults_data_tree_root: bytes32
-    vaults_data_tree_cid: str
+    vaults_data_tree_root: VaultsTreeRoot
+    vaults_data_tree_cid: VaultsTreeCid
 
 
 @dataclass(frozen=True)
@@ -184,24 +179,24 @@ class StakingRewardsDistribution:
 class ReportResults:
     withdrawals: Wei
     el_rewards: Wei
-    ether_to_finalize_wq: int
-    shares_to_finalize_wq: int
-    shares_to_burn_for_withdrawals: int
-    total_shares_to_burn: int
-    shares_to_mint_as_fees: int
+    ether_to_finalize_wq: Wei
+    shares_to_finalize_wq: Shares
+    shares_to_burn_for_withdrawals: Shares
+    total_shares_to_burn: SharesToBurn
+    shares_to_mint_as_fees: Shares
     reward_distribution: StakingRewardsDistribution
-    principal_cl_balance: int
-    post_internal_shares: int
-    post_internal_ether: int
-    post_total_shares: int
-    post_total_pooled_ether: int
+    principal_cl_balance: Wei
+    post_internal_shares: Shares
+    post_internal_ether: Wei
+    post_total_shares: Shares
+    post_total_pooled_ether: Wei
 
 
 @dataclass(frozen=True)
 class VaultSocket:
     vault: ChecksumAddress
-    share_limit: int
-    liability_shares: int
+    share_limit: Shares
+    liability_shares: Shares
     reserve_ratio_bp: int
     rebalance_threshold_bp: int
     treasury_fee_bp: int
@@ -211,9 +206,9 @@ class VaultSocket:
 @dataclass
 class VaultData:
     vault_ind: int
-    balance_wei: int
-    in_out_delta: int
-    liability_shares: int
+    balance_wei: Wei
+    in_out_delta: Wei
+    liability_shares: Shares
     fee: int
     address: ChecksumAddress
     withdrawal_credentials: str
@@ -222,17 +217,19 @@ class VaultData:
 @dataclass
 class LatestReportData:
     timestamp: int
-    tree_root: bytes
-    cid: str
+    tree_root: VaultsTreeRoot
+    cid: VaultsTreeCid
+
 
 @dataclass
 class VaultInfo:
     vault: ChecksumAddress
-    balance: int
-    in_out_delta: int
+    balance: Wei
+    in_out_delta: Wei
     withdrawal_credentials: str
-    liability_shares: int
+    liability_shares: Shares
+
 
 VaultsMap = dict[ChecksumAddress, VaultData]
-type VaultsReport = tuple[bytes, str]
+type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap]
