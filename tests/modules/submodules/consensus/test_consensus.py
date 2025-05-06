@@ -1,7 +1,10 @@
 from typing import cast
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
+from eth_typing import ChecksumAddress
+from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
@@ -11,7 +14,7 @@ from src.modules.submodules.exceptions import IncompatibleOracleVersion, Contrac
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
-from tests.conftest import Account
+
 from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -20,6 +23,12 @@ from tests.factory.configs import (
     BlockDetailsResponseFactory,
 )
 from tests.factory.member_info import MemberInfoFactory
+
+
+@dataclass
+class Account:
+    address: ChecksumAddress
+    _private_key: HexBytes
 
 
 @pytest.fixture()
@@ -359,6 +368,7 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
         impl(web3)
 
 
+@pytest.mark.unit
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
     consensus.w3.cc.get_block_root = Mock(return_value=Mock(root=""))
     consensus.w3.cc.get_block_details = Mock()
@@ -387,6 +397,7 @@ def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.M
             consensus.check_contract_configs()
 
 
+@pytest.mark.unit
 def test_get_web3_converter(consensus):
     blockstamp = BlockStampFactory.build()
 

@@ -31,7 +31,6 @@ def contract_event(events):
 
 
 @pytest.mark.unit
-@pytest.mark.possible_integration
 def test_get_contract_events_in_past(contract_event):
     seconds_per_slot = 10
     bs = ReferenceBlockStampFactory.build(

@@ -125,7 +125,7 @@ def lido_validators(web3):
 
 
 @pytest.fixture
-def validator_state(web3, contracts, consensus_client, lido_validators):
+def validator_state(web3, lido_validators):
     service = LidoValidatorStateService(web3)
     service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
         return_value=[3, 8]

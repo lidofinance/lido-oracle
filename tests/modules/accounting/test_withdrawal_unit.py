@@ -20,12 +20,12 @@ def frame_config():
 
 
 @pytest.fixture
-def past_blockstamp(web3, consensus_client):
+def past_blockstamp(web3):
     return ReferenceBlockStampFactory.build()
 
 
 @pytest.fixture
-def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
+def subject(web3, past_blockstamp, chain_config, frame_config):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
     )

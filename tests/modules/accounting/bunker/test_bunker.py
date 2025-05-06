@@ -20,7 +20,6 @@ from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp
 class TestIsBunkerMode:
     @pytest.mark.unit
     @pytest.mark.usefixtures(
-        "contracts",
         "mock_get_config",
         "mock_get_state",
     )
@@ -43,7 +42,6 @@ class TestIsBunkerMode:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures(
-        "contracts",
         "mock_get_config",
         "mock_get_state",
     )
@@ -71,7 +69,6 @@ class TestIsBunkerMode:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures(
-        "contracts",
         "mock_get_config",
         "mock_get_state",
     )
@@ -99,7 +96,6 @@ class TestIsBunkerMode:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures(
-        "contracts",
         "mock_get_config",
         "mock_get_state",
     )
@@ -128,7 +124,6 @@ class TestIsBunkerMode:
 
     @pytest.mark.unit
     @pytest.mark.usefixtures(
-        "contracts",
         "mock_get_config",
         "mock_get_state",
         "mock_total_supply",
@@ -215,7 +210,6 @@ class TestIsBunkerMode:
 )
 def test_get_cl_rebase_for_frame(
     bunker,
-    contracts,
     simulated_post_total_pooled_ether,
     expected_rebase,
 ):

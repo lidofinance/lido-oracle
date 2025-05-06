@@ -6,6 +6,7 @@ import pytest
 from src.utils.timeit import timeit
 
 
+@pytest.mark.unit
 def test_timeit_log_fn_no_args():
     log_fn = Mock()
 
@@ -17,6 +18,7 @@ def test_timeit_log_fn_no_args():
     assert log_fn.call_args.args[0] == SimpleNamespace()
 
 
+@pytest.mark.unit
 def test_timeit_log_fn_args():
     log_fn = Mock()
 
@@ -28,6 +30,7 @@ def test_timeit_log_fn_args():
     assert log_fn.call_args.args[0] == SimpleNamespace(a=2, b=0, k="any")
 
 
+@pytest.mark.unit
 def test_timeit_log_fn_args_method():
     log_fn = Mock()
 
@@ -42,6 +45,7 @@ def test_timeit_log_fn_args_method():
     assert log_fn.call_args.args[0] == SimpleNamespace(a=42, b="any", self=some)
 
 
+@pytest.mark.unit
 def test_timeit_log_fn_called_on_exception():
     log_fn = Mock()
 
@@ -55,6 +59,7 @@ def test_timeit_log_fn_called_on_exception():
     log_fn.assert_not_called()
 
 
+@pytest.mark.unit
 def test_timeit_duration(monkeypatch: pytest.MonkeyPatch):
     log_fn = Mock()
 

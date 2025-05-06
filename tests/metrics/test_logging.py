@@ -154,6 +154,7 @@ def test_convert_bytes_to_hex(input_data, expected_output):
     assert convert_bytes_to_hex(input_data) == expected_output
 
 
+@pytest.mark.unit
 def test_convert_bytes_to_hex_generator():
     gen = byte_generator()
     converted_gen = convert_bytes_to_hex(gen)
