@@ -9,8 +9,6 @@ from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
 from src.web3py.middleware import add_requests_metric_middleware, Web3MetricsMiddleware
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def provider():

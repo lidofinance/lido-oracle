@@ -29,7 +29,7 @@ def silence_logger() -> None:
 
 
 @pytest.fixture
-def accounting(web3, contracts):
+def accounting(web3):
     yield Accounting(web3)
 
 
@@ -190,6 +190,7 @@ def test_get_slots_elapsed_from_last_report(accounting: Accounting):
     assert slots_elapsed == 100 - 70
 
 
+@pytest.mark.unit
 class TestAccountingReportingAllowed:
     def test_env_toggle(self, accounting: Accounting, monkeypatch: pytest.MonkeyPatch, ref_bs: ReferenceBlockStamp):
         accounting._is_bunker = Mock(return_value=True)
@@ -255,6 +256,7 @@ class TestAccountingProcessExtraData:
         submit_extra_data_mock.assert_called_once_with(ref_bs)
 
 
+@pytest.mark.unit
 class TestAccountingSubmitExtraData:
     def test_submit_extra_data_non_empty(
         self,
@@ -274,7 +276,6 @@ class TestAccountingSubmitExtraData:
         accounting.report_contract.submit_report_extra_data_list.assert_called_once_with(extra_data)
         accounting.get_extra_data.assert_called_once_with(ref_bs)
 
-    @pytest.mark.unit
     def test_submit_extra_data_empty(
         self,
         accounting: Accounting,
@@ -493,6 +494,7 @@ def test_is_bunker(
     accounting.bunker_service.is_bunker_mode.assert_not_called()
 
 
+@pytest.mark.unit
 def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
 
@@ -509,6 +511,7 @@ def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accountin
     assert processing_state.main_data_hash == ZERO_HASH
 
 
+@pytest.mark.unit
 def test_accounting_get_processing_state(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     accounting_processing_state = AccountingProcessingStateFactory.build()

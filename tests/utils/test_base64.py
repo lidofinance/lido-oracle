@@ -5,11 +5,13 @@ import pytest
 from src.utils.base64 import decode_base64url
 
 
+@pytest.mark.unit
 def test_empty_string():
     """Test decoding an empty string."""
     assert decode_base64url("") == ""
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "encoded, expected",
     [
@@ -43,6 +45,7 @@ def test_valid_decoding(encoded, expected):
     assert decode_base64url(encoded) == expected
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "encoded_with_padding, expected",
     [
@@ -59,6 +62,7 @@ def test_handling_existing_correct_padding(encoded_with_padding, expected):
     assert decode_base64url(encoded_with_padding) == expected
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "invalid_input",
     [
@@ -74,6 +78,7 @@ def test_invalid_characters(invalid_input):
         decode_base64url(invalid_input)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "invalid_length_input",
     [
@@ -88,6 +93,7 @@ def test_invalid_length_mod_4_is_1(invalid_length_input):
         decode_base64url(invalid_length_input)
 
 
+@pytest.mark.unit
 def test_non_utf8_result():
     """Test decoding data that isn't valid UTF-8."""
     # RFC 4648 vector: \xfb\xff\xbf -> "-_-_" (Base64Url) -> invalid UTF-8 bytes
