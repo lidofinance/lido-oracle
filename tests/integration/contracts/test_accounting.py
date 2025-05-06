@@ -4,6 +4,7 @@ from src.modules.accounting.types import ReportValues, ReportResults
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.testnet
 @pytest.mark.integration
 def test_accounting_contract_call(accounting_contract, caplog):
     check_contract(

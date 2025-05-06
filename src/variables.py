@@ -32,7 +32,6 @@ CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)) or None
-CHAIN_ID: Final = int(os.getenv('CHAIN_ID', 1))
 GENESIS_FORK_VERSION: Final = os.getenv('GENESIS_FORK_VERSION', "0x00000000")
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases

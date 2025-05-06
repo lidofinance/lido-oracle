@@ -21,8 +21,6 @@ from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQue
 def web3_provider_integration(request):
     w3 = Web3(HTTPProvider(variables.EXECUTION_CLIENT_URI[0], request_kwargs={'timeout': 3600}))
 
-    assert w3.eth.chain_id == variables.CHAIN_ID
-
     return w3
 
 
