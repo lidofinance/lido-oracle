@@ -86,6 +86,7 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
     assert result[0].amount == 10, f"Expected amount 1 for validator 2, got {result[0].amount}"
 
 
+@pytest.mark.unit
 def test_only_validators_withdrawals():
     """Test when there are only validators eligible for withdrawals."""
 
@@ -100,6 +101,7 @@ def test_only_validators_withdrawals():
     assert result == 2
 
 
+@pytest.mark.unit
 def test_combined_withdrawals():
     """Test when there are both partial and full withdrawals."""
 

@@ -1,21 +1,16 @@
 import os
 import socket
-from dataclasses import dataclass
 from typing import Final, Generator
 from unittest.mock import Mock, patch
 
 import pytest
 from eth_tester import EthereumTester
 from eth_tester.backends.mock import MockBackend
-from eth_typing import ChecksumAddress
-from hexbytes import HexBytes
 from web3 import EthereumTesterProvider
-from web3.types import Timestamp
 
 from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
-from src.types import BlockNumber, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
@@ -28,10 +23,36 @@ from src.web3py.extensions import (
 from src.web3py.types import Web3
 from src.web3py.extensions import FallbackProviderModule
 
+UNIT_MARKER = 'unit'
+INTEGRATION_MARKER = 'integration'
+MAINNET_MARKER = 'mainnet'
+TESTNET_MARKER = 'testnet'
+
+DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+# The primary usage is for tests that can't run with the mainnet node.
+TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
+TESTNET_EXECUTION_CLIENT_URI: Final = os.getenv('TESTNET_EXECUTION_CLIENT_URI', '').split(',')
+TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
+
 
 @pytest.fixture(autouse=True)
-def disable_network_for_unit(request):
-    if request.node.get_closest_marker('unit'):
+def check_test_marks_compatibility(request):
+    all_test_markers = {x.name for x in request.node.iter_markers()}
+
+    if not all_test_markers:
+        pytest.fail('Test must be marked.')
+
+    elif UNIT_MARKER in all_test_markers and {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers:
+        pytest.fail('Test can not be both unit and integration at the same time.')
+
+    elif {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
+        pytest.fail('Test can not be run on mainnet or testnet without integration marker.')
+
+
+@pytest.fixture(autouse=True)
+def configure_unit_tests(request):
+    if request.node.get_closest_marker(UNIT_MARKER):
 
         def blocked_connect(*args, **kwargs):
             msg = (
@@ -47,7 +68,42 @@ def disable_network_for_unit(request):
         yield
 
 
-DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
+@pytest.fixture(autouse=True)
+def configure_mainnet_tests(request, monkeypatch):
+    if request.node.get_closest_marker(MAINNET_MARKER):
+        if not all(
+            x[0] for x in [variables.CONSENSUS_CLIENT_URI, variables.EXECUTION_CLIENT_URI, variables.KEYS_API_URI]
+        ):
+            pytest.fail(
+                'CONSENSUS_CLIENT_URI, EXECUTION_CLIENT_URI and KEYS_API_URI '
+                'must be set in order to run tests on mainnet.'
+            )
+
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+
+    yield
+
+
+@pytest.fixture(autouse=True)
+def configure_testnet_tests(request, monkeypatch):
+    if request.node.get_closest_marker(TESTNET_MARKER):
+        if not all(x[0] for x in [TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI, TESTNET_KAPI_URI]):
+            pytest.fail(
+                'TESTNET_CONSENSUS_CLIENT_URI, TESTNET_EXECUTION_CLIENT_URI and TESTNET_KAPI_URI '
+                'must be set in order to run tests on testnet.'
+            )
+
+        # Works only if module fully imported, e.g.
+        # "from src import variables" not "from src.variables import <ENV>"
+        monkeypatch.setattr(variables, 'CONSENSUS_CLIENT_URI', TESTNET_CONSENSUS_CLIENT_URI)
+        monkeypatch.setattr(variables, 'EXECUTION_CLIENT_URI', TESTNET_EXECUTION_CLIENT_URI)
+        monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
+
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+
+    yield
 
 
 @pytest.fixture()
@@ -120,66 +176,3 @@ def web3_integration() -> Generator[Web3, None, None]:
     )
 
     yield w3
-
-
-@pytest.fixture()
-def consensus_client(request, web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
-def keys_api_client(request, web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
-def csm(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
-def contracts(web3, monkeypatch):
-    # TODO: Will be applied for mainnet tests only in next PR
-    monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
-
-
-@pytest.fixture()
-def tx_utils(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-@pytest.fixture()
-def lido_validators(web3):
-    # TODO: Deprecated, will be removed in next PR
-    pass
-
-
-def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
-    root = w3.cc.get_block_root(state_id).root
-    slot_details = w3.cc.get_block_details(root)
-
-    return ReferenceBlockStamp(
-        slot_number=SlotNumber(int(slot_details.message.slot)),
-        state_root=slot_details.message.state_root,
-        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
-        block_hash=slot_details.message.body.execution_payload.block_hash,
-        block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
-        ref_slot=SlotNumber(int(slot_details.message.slot)),
-        ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
-    )
-
-
-# TODO: Will be applied for testnet tests only in next PR
-# Primary usage of TESTNET_CONSENSUS_CLIENT_URI is for tests which can't run with mainnet node.
-TESTNET_CONSENSUS_CLIENT_URI: Final = os.getenv('TESTNET_CONSENSUS_CLIENT_URI', '').split(',')
-
-
-@dataclass
-class Account:
-    address: ChecksumAddress
-    _private_key: HexBytes
