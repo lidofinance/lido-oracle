@@ -4,17 +4,12 @@ from eth_typing import ChecksumAddress
 from tests.integration.contracts.contract_utils import check_contract, check_value_type, check_value_re, ADDRESS_REGREX
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_lido_locator_contract(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
-            (
-                'accounting',
-                None,
-                lambda response: check_value_re(ADDRESS_REGREX, response)
-                and check_value_type(response, ChecksumAddress),
-            ),
             (
                 'accounting_oracle',
                 None,
@@ -64,12 +59,6 @@ def test_lido_locator_contract(lido_locator_contract, caplog):
                 and check_value_type(response, ChecksumAddress),
             ),
             (
-                'vault_hub',
-                None,
-                lambda response: check_value_re(ADDRESS_REGREX, response)
-                and check_value_type(response, ChecksumAddress),
-            ),
-            (
                 'withdrawal_queue',
                 None,
                 lambda response: check_value_re(ADDRESS_REGREX, response)
@@ -77,6 +66,30 @@ def test_lido_locator_contract(lido_locator_contract, caplog):
             ),
             (
                 'withdrawal_vault',
+                None,
+                lambda response: check_value_re(ADDRESS_REGREX, response)
+                and check_value_type(response, ChecksumAddress),
+            ),
+        ],
+        caplog,
+    )
+
+
+@pytest.mark.testnet
+@pytest.mark.integration
+def test_lido_locator_contract_testnet(lido_locator_contract, caplog):
+    # TODO: Bounded to hoodie due to st. vaults task, move to mainnet after release
+    check_contract(
+        lido_locator_contract,
+        [
+            (
+                'accounting',
+                None,
+                lambda response: check_value_re(ADDRESS_REGREX, response)
+                and check_value_type(response, ChecksumAddress),
+            ),
+            (
+                'vault_hub',
                 None,
                 lambda response: check_value_re(ADDRESS_REGREX, response)
                 and check_value_type(response, ChecksumAddress),

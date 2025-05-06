@@ -4,6 +4,7 @@ from src.modules.ejector.types import EjectorProcessingState
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_vebo(validators_exit_bus_oracle_contract, caplog):
     check_contract(

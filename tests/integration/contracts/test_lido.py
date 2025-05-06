@@ -4,6 +4,7 @@ from src.modules.accounting.types import BeaconStat
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_contract, caplog):
     check_contract(

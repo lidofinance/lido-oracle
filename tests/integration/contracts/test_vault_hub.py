@@ -4,6 +4,7 @@ from src.modules.accounting.types import VaultSocket
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.testnet
 @pytest.mark.integration
 def test_vault_hub_contract_call(vault_hub_contract, caplog):
     check_contract(

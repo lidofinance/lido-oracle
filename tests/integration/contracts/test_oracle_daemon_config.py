@@ -4,6 +4,7 @@ from src.constants import TOTAL_BASIS_POINTS
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
     check_contract(
