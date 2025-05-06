@@ -1,37 +1,28 @@
 import argparse
-import os
 import sys
-from typing import Iterator, cast, Optional
+from typing import cast, Iterator, Optional
 
-import requests
 from hexbytes import HexBytes
 from packaging.version import Version
 from prometheus_client import start_http_server
 
-from src import constants
-from src import variables
+from src import constants, variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import execute_checks
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
+from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.ipfs import GW3, IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
-from src.types import OracleModule, BlockRoot, SlotNumber
+from src.types import BlockRoot, OracleModule, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import (
-    LidoContracts,
-    TransactionUtils,
-    ConsensusClientModule,
-    KeysAPIClientModule,
-    LidoValidatorsProvider,
-    FallbackProviderModule,
-    LazyCSM,
-)
+from src.web3py.extensions import (ConsensusClientModule, FallbackProviderModule, KeysAPIClientModule, LazyCSM, LidoContracts,
+                                   LidoValidatorsProvider, TransactionUtils)
 from src.web3py.middleware import add_requests_metric_middleware
 from src.web3py.types import Web3
 
@@ -127,22 +118,34 @@ def main(module_name: OracleModule):
         instance.cycle_handler()
 
 
-def get_transactions(contract_address, selector: str, limit: int = 10):
-    etherscan_key = os.getenv('ETHERSCAN_API_KEY')
-    if etherscan_key is None:
-        raise ValueError('ETHERSCAN_API_KEY is not set')
-    url = f"https://api.etherscan.io/api?module=account&action=txlist&address={contract_address}&sort=desc&apikey={etherscan_key}"
+def get_transactions(w3, contract: BaseOracleContract, limit: int = 10):
+    default_block_offset = 100_000
+    event_abi = "ProcessingStarted(uint256,bytes32)"
+    event_topic = '0x' + Web3.keccak(text=event_abi).hex()
 
-    response = requests.get(url, timeout=30)
-    data = response.json()
+    def get_processing_started_logs(from_block: int, to_block: int):
+        return w3.eth.get_logs({
+            "fromBlock": from_block,
+            "toBlock": to_block,
+            "address": contract.address,
+            "topics": [event_topic],
+        })
 
-    if data["status"] != "1":
-        logger.error("Error fetching transactions: %s", data["message"])
-        return []
+    latest = w3.eth.block_number
+    logs = get_processing_started_logs(from_block=latest - default_block_offset, to_block=latest)
+    results = [log["transactionHash"].hex() for log in logs]
 
-    transactions = data["result"]
-    successful_transactions = [tx for tx in transactions if tx.get("txreceipt_status") == "1"]
-    return [tx for tx in successful_transactions if tx["input"].startswith(selector)][:limit]
+    txs = []
+    for tx_hash in results[:limit]:
+        tx = w3.eth.get_transaction(tx_hash)
+        _, params = contract.decode_function_input(tx["input"])
+        data = {
+            k: HexBytes(v.hex()) if isinstance(v, (bytes, bytearray)) else v
+            for k, v in params["data"].items()
+        }
+        txs.append(data)
+
+    return txs
 
 
 def run_on_refslot(module_name: OracleModule):
@@ -150,10 +153,8 @@ def run_on_refslot(module_name: OracleModule):
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
     instance.check_contract_configs()
-    submit_report_fn = instance.report_contract.get_function_by_name("submitReportData")
-    selector = '0x' + w3.keccak(text=submit_report_fn.abi_element_identifier)[:4].hex()
 
-    txs = get_transactions(instance.report_contract.address, selector)
+    txs = get_transactions(w3, instance.report_contract)
     if not txs:
         logger.error("No submitReportData transactions found!")
         sys.exit(0)
@@ -161,11 +162,8 @@ def run_on_refslot(module_name: OracleModule):
     logger.info("Found %d submitReportData calls", len(txs))
 
     for tx in txs:
-        tx_hash = tx["hash"]
-        _, data = instance.report_contract.decode_function_input(tx["input"])
-        refslot = int(data['data']['refSlot'])
-        print(f"Tx: {tx_hash} → slot: {refslot}")
-        print([HexBytes(v.hex()) if isinstance(v, bytes) else v for v in data['data'].values()])
+        refslot = int(tx['refSlot'])
+        print("Input data:", tx)
         block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
         block_details = w3.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
@@ -173,7 +171,6 @@ def run_on_refslot(module_name: OracleModule):
         instance.refresh_contracts_if_address_change()
         report_blockstamp = instance.get_blockstamp_for_report(bs)
         report = instance.build_report(report_blockstamp)
-
 
         print(report)
         instance = _construct_module(w3, module_name, refslot)
