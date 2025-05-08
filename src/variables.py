@@ -15,6 +15,9 @@ KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
 GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
 GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
+KUBO_HOST: Final = os.getenv('KUBO_HOST')
+KUBO_GATEWAY_PORT: Final = int(os.getenv('KUBO_GATEWAY_PORT', 8080))
+KUBO_RPC_PORT: Final = int(os.getenv('KUBO_RPC_PORT', 5001))
 
 # - Account -
 ACCOUNT = None
@@ -78,6 +81,10 @@ HTTP_REQUEST_RETRY_COUNT_IPFS: Final = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_I
 # - Metrics -
 PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
+
+# - OpsGenie -
+OPSGENIE_API_KEY: Final[str] = os.getenv('OPSGENIE_API_KEY', '')
+OPSGENIE_API_URL: Final[str] = os.getenv('OPSGENIE_API_URL', '')
 
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
@@ -155,6 +162,8 @@ PRIVATE_ENV_VARS = {
     'GW3_SECRET_KEY': GW3_SECRET_KEY,
     'PINATA_JWT': PINATA_JWT,
     'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,
+    'OPSGENIE_API_KEY': OPSGENIE_API_KEY,
+    'OPSGENIE_API_URL': OPSGENIE_API_URL,
 }
 
 assert not set(PRIVATE_ENV_VARS.keys()).intersection(set(PUBLIC_ENV_VARS.keys()))

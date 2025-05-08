@@ -65,7 +65,7 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
                         ),
                         0,
                     ),
-                    "0xcc74e3f3fe27f9f8da8b91c1aede727ebfa82d9c74cf4b873d81269e866dce72",
+                    "latest",
                 ),
                 check_is_instance_of(BatchState),
             ),

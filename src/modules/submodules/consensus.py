@@ -9,9 +9,6 @@ from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.metrics.prometheus.business import (
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
@@ -20,16 +17,19 @@ from src.metrics.prometheus.business import (
 )
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src.providers.execution.contracts.base_oracle import BaseOracleContract
+from src.providers.execution.contracts.hash_consensus import HashConsensusContract
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
 from src.utils.blockstamp import build_blockstamp
-from src.utils.web3converter import Web3Converter
-from src.utils.slot import get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.slot import get_reference_blockstamp
+from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
-InitialEpochIsYetToArriveRevert = Web3.keccak(text="InitialEpochIsYetToArrive()")[:4].hex()
+InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
 
 
 class ConsensusModule(ABC):
@@ -45,8 +45,8 @@ class ConsensusModule(ABC):
     """
     report_contract: BaseOracleContract
 
-    # Contains tuple[CONTRACT_VERSION, CONSENSUS_VERSION]
-    COMPATIBLE_ONCHAIN_VERSIONS: list[tuple[int, int]]
+    COMPATIBLE_CONTRACT_VERSION: int
+    COMPATIBLE_CONSENSUS_VERSION: int
 
     def __init__(self, w3: Web3):
         self.w3 = w3
@@ -54,8 +54,9 @@ class ConsensusModule(ABC):
         if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
 
-        if getattr(self, "COMPATIBLE_ONCHAIN_VERSIONS", None) is None:
-            raise NotImplementedError('COMPATIBLE_ONCHAIN_VERSIONS attribute should be set.')
+        for var in ('COMPATIBLE_CONTRACT_VERSION', 'COMPATIBLE_CONSENSUS_VERSION'):
+            if getattr(self, var, None) is None:
+                raise NotImplementedError(f'{var} attribute should be set.')
 
     def check_contract_configs(self):
         root = self.w3.cc.get_block_root('head').root
@@ -234,38 +235,42 @@ class ConsensusModule(ABC):
 
         return bs
 
-    def _check_compatability(self, blockstamp: BlockStamp):
+    def _check_compatability(self, blockstamp: BlockStamp) -> bool:
         """
         Check if Oracle can process report on reference blockstamp.
+
+        Returns if Oracle can proceed with calculations or should spin up waiting for a protocol upgrade
         """
         contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
         consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
-        compatibility = (contract_version, consensus_version) in self.COMPATIBLE_ONCHAIN_VERSIONS
+        compatibility = contract_version <= self.COMPATIBLE_CONTRACT_VERSION and consensus_version <= self.COMPATIBLE_CONSENSUS_VERSION
 
         if not compatibility:
             raise IncompatibleOracleVersion(
                 f'Incompatible Oracle version. Block tag: {repr(blockstamp.block_hash)}. '
-                f'Expected (Contract, Consensus) versions: {', '.join(repr(v) for v in self.COMPATIBLE_ONCHAIN_VERSIONS)}, '
+                f'Expected Contract version: {self.COMPATIBLE_CONTRACT_VERSION}. '
+                f'Expected Consensus versions: {self.COMPATIBLE_CONSENSUS_VERSION}, '
                 f'Got ({contract_version}, {consensus_version})'
             )
 
         contract_version_latest = self.report_contract.get_contract_version('latest')
         consensus_version_latest = self.report_contract.get_consensus_version('latest')
 
-        if not (contract_version == contract_version_latest and consensus_version == consensus_version_latest):
+        if contract_version != contract_version_latest or consensus_version != consensus_version_latest:
             raise ContractVersionMismatch(
                 'The Oracle can\'t process the report on the reference blockstamp. '
                 f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
                 'further processing report can lead to unexpected behavior.'
             )
+        ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
+        if not ready_to_report:
+            logger.info({'msg': 'Some message that Oracle waits for contacts to be updated'})
+        return ready_to_report
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
-        # Make sure module is compatible with contracts on reference and latest blockstamps.
-        self._check_compatability(blockstamp)
-
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 
@@ -302,11 +307,8 @@ class ConsensusModule(ABC):
             if HexBytes(member_info.current_frame_consensus_report) == report_hash:
                 logger.info({'msg': 'Consensus reached with provided hash.'})
                 return None
-
-        consensus_version = self.get_consensus_version(blockstamp)
-
-        logger.info({'msg': f'Send report hash. Consensus version: [{consensus_version}]'})
-        self._send_report_hash(blockstamp, report_hash, consensus_version)
+        logger.info({'msg': f'Send report hash. Consensus version: [{self.COMPATIBLE_CONSENSUS_VERSION}]'})
+        self._send_report_hash(blockstamp, report_hash, self.COMPATIBLE_CONSENSUS_VERSION)
         return None
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
@@ -345,12 +347,9 @@ class ConsensusModule(ABC):
         if self.is_main_data_submitted(latest_blockstamp):
             logger.info({'msg': 'Main data already submitted.'})
             return
-
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-
-        logger.info({'msg': f'Send report data. Contract version: [{contract_version}]'})
+        logger.info({'msg': f'Send report data. Contract version: [{self.COMPATIBLE_CONTRACT_VERSION}]'})
         # If data already submitted transaction will be locally reverted, no need to check status manually
-        self._submit_report(report_data, contract_version)
+        self._submit_report(report_data, self.COMPATIBLE_CONTRACT_VERSION)
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
         latest_blockstamp = self._get_latest_blockstamp()

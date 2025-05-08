@@ -3,20 +3,18 @@ from copy import deepcopy
 from functools import reduce
 
 from eth_typing import HexStr
-from more_itertools import ilen
 
 from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_STUCK_VALIDATORS,
     ACCOUNTING_EXITED_VALIDATORS,
-    ACCOUNTING_DELAYED_VALIDATORS,
 )
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
+from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
 from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
-from src.utils.cache import global_lru_cache as lru_cache
 from src.web3py.extensions.lido_validators import (
     NodeOperatorGlobalIndex,
     LidoValidator,
@@ -202,19 +200,10 @@ class LidoValidatorStateService:
 
                 return False
 
-            def is_validator_delayed(validator: LidoValidator) -> bool:
-                return (
-                    validator_requested_to_exit(validator) and
-                    not is_on_exit(validator) and
-                    not validator_recently_requested_to_exit(validator)
-                )
 
             validators_recently_requested_to_exit.extend(
                 filter(is_validator_recently_requested_but_not_exited, validators)
             )
-            delayed_validators_count = ilen(filter(is_validator_delayed, validators))
-
-            ACCOUNTING_DELAYED_VALIDATORS.labels(*global_index).set(delayed_validators_count)
 
         return validators_recently_requested_to_exit
 

@@ -24,8 +24,8 @@ from src.providers.consensus.types import (
 )
 from src.providers.http_provider import HTTPProvider, NotOkResponse
 from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
-from src.utils.dataclass import list_of_dataclasses
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.dataclass import list_of_dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +58,6 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
-
-    @lru_cache(maxsize=1)
-    def is_electra_activated(self, epoch: EpochNumber) -> bool:
-        spec = self.get_config_spec()
-        return epoch >= spec.ELECTRA_FORK_EPOCH
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""

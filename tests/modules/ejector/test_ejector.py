@@ -1,9 +1,10 @@
 from typing import Iterable, cast
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 import pytest
 from web3.exceptions import ContractCustomError
 
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src import constants
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
@@ -24,9 +25,8 @@ from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
-    BeaconSpecResponse,
 )
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils import validator_state
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
@@ -59,7 +59,7 @@ def ref_blockstamp() -> ReferenceBlockStamp:
 
 
 @pytest.fixture()
-def ejector(web3: Web3, contracts: LidoContracts) -> Ejector:
+def ejector(web3: Web3) -> Ejector:
     web3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
     return Ejector(web3)
 
@@ -79,6 +79,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
+    ejector._check_compatability = Mock(return_value=True)
     assert (
         ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
@@ -88,25 +89,28 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 @pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
+    ejector.report_contract.abi = ExitBusOracleContract.load_abi(ExitBusOracleContract.abi_path)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=2)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=3)
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
-    assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT
-    ), "execute_module should wait for the next slot"
+
+    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+
+    assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
 
 
 @pytest.mark.unit
 def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
     ejector.get_validators_to_eject = Mock(return_value=[])
-    result = ejector.build_report(ref_blockstamp)
-    _, ref_slot, _, _, data = result
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_last_processing_ref_slot.return_value = SlotNumber(0)
+
+    _, ref_slot, _, _, data = ejector.build_report(ref_blockstamp)
+    ejector.build_report(ref_blockstamp)
+
     assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
     assert data == b"", "Unexpected encoded data"
-
-    ejector.build_report(ref_blockstamp)
     ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
 
 
@@ -127,7 +131,6 @@ class SimpleIterator:
 
 class TestGetValidatorsToEject:
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_no_validators_to_eject(
         self,
         ejector: Ejector,
@@ -147,7 +150,7 @@ class TestGetValidatorsToEject:
         ejector._get_withdrawable_lido_validators_balance = Mock(return_value=10)
 
         with monkeypatch.context() as m:
-            ejector.get_consensus_version = Mock(return_value=2)
+            ejector.get_consensus_version = Mock(return_value=3)
             val_iter = iter(SimpleIterator([]))
             val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
@@ -159,7 +162,6 @@ class TestGetValidatorsToEject:
             assert result == [], "Unexpected validators to eject"
 
     @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_simple(
         self,
         ejector: Ejector,
@@ -185,7 +187,7 @@ class TestGetValidatorsToEject:
         ]
 
         with monkeypatch.context() as m:
-            ejector.get_consensus_version = Mock(return_value=2)
+            ejector.get_consensus_version = Mock(return_value=3)
             val_iter = iter(SimpleIterator(validators[:2]))
             val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
@@ -195,13 +197,6 @@ class TestGetValidatorsToEject:
             )
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert result == [validators[0], *validators[2:]], "Unexpected validators to eject"
-
-
-@pytest.mark.unit
-@pytest.mark.usefixtures("contracts")
-def test_get_unfinalized_steth(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
-    assert result == 8362187000000000000, "Unexpected unfinalized stETH"
 
 
 @pytest.mark.unit
@@ -222,21 +217,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
 
 
-@pytest.mark.unit
-def test_get_predicted_withdrawable_epoch_pre_electra(ejector: Ejector) -> None:
-    ejector.w3.cc = Mock()
-    ejector.w3.cc.is_electra_activated = Mock(return_value=False)
-    ejector._get_latest_exit_epoch = Mock(return_value=[1, 32])
-    ejector._get_churn_limit = Mock(return_value=2)
-    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 2)
-    assert result == 3808, "Unexpected predicted withdrawable epoch"
-
-    result = ejector._get_predicted_withdrawable_epoch(ref_blockstamp, [Mock()] * 4)
-    assert result == 3809, "Unexpected predicted withdrawable epoch"
-
-
-class TestPredictedWithdrawableEpochPostElectra:
+class TestPredictedWithdrawableEpoch:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
         return ReferenceBlockStampFactory.build(
@@ -377,7 +358,6 @@ def test_get_total_active_balance(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client", "lido_validators")
 def test_get_withdrawable_lido_validators_balance(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
@@ -429,76 +409,6 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
-def test_get_sweep_delay_in_epochs_pre_electra(
-    ejector: Ejector,
-    ref_blockstamp: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ejector.w3.cc.get_validators = Mock(return_value=LidoValidatorFactory.batch(1024))
-    ejector.get_chain_config = Mock(return_value=chain_config)
-    spec = MagicMock(spec=BeaconSpecResponse)
-    spec.ELECTRA_FORK_EPOCH = str(FAR_FUTURE_EPOCH)
-    ejector.w3.cc.get_config_spec = Mock(return_value=spec)
-    ejector.get_consensus_version = Mock(return_value=1)
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_partially_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
-        )
-
-        # no validators at all
-        result = ejector._get_sweep_delay_in_epochs(ref_blockstamp)
-        assert result == 0, "Unexpected sweep delay in epochs"
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_partially_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=True),
-        )
-
-        # all 1024 validators
-        result = ejector._get_sweep_delay_in_epochs(ReferenceBlockStampFactory.build(slot_number=1))
-        assert result == 1, "Unexpected sweep delay in epochs"
-
-
-@pytest.mark.unit
-def test_get_withdrawable_validators(ejector: Ejector, monkeypatch) -> None:
-    ejector.w3.cc = Mock()
-    ejector.w3.cc.get_validators = Mock(
-        return_value=[
-            LidoValidatorFactory.build_with_balance(Gwei(32 * 10**9), index=1),
-            LidoValidatorFactory.build_with_balance(Gwei(33 * 10**9), index=2),
-            LidoValidatorFactory.build_with_balance(Gwei(31 * 10**9), index=3),
-        ],
-    )
-
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=False),
-        )
-        withdrawable = ejector._get_withdrawable_validators(Mock())
-
-    assert [v.index for v in withdrawable] == [2]
-
-
-@pytest.mark.usefixtures("contracts")
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=3)
     ejector.w3.lido_contracts.get_el_vault_balance = Mock(return_value=17)
@@ -512,6 +422,7 @@ def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.lido.get_buffered_ether.assert_called_once_with(blockstamp.block_hash)
 
 
+@pytest.mark.unit
 class TestChurnLimit:
     """_get_churn_limit tests"""
 
@@ -525,16 +436,12 @@ class TestChurnLimit:
             )
             yield
 
-    @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.w3.cc.get_validators = Mock(return_value=[])
         result = ejector._get_churn_limit(ref_blockstamp)
         assert result == constants.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
-    @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_validators_less_than_min_churn(
         self,
         ejector: Ejector,
@@ -545,8 +452,6 @@ class TestChurnLimit:
         assert result == 4, "Unexpected churn limit"
         ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
-    @pytest.mark.unit
-    @pytest.mark.usefixtures("consensus_client")
     def test_get_churn_limit_basic(
         self,
         ejector: Ejector,
@@ -564,13 +469,6 @@ class TestChurnLimit:
 
 
 @pytest.mark.unit
-def test_get_processing_state(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    result = ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state(blockstamp.block_hash)
-    assert isinstance(result, EjectorProcessingState), "Unexpected processing state response"
-
-
-@pytest.mark.unit
-@pytest.mark.usefixtures("consensus_client")
 def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.cc.get_validators = Mock(
         return_value=[
@@ -586,6 +484,7 @@ def test_get_latest_exit_epoch(ejector: Ejector, blockstamp: BlockStamp) -> None
     assert max_epoch == 42, "Unexpected max epoch"
 
 
+@pytest.mark.unit
 def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     bs = ReferenceBlockStampFactory.build()
 
@@ -601,6 +500,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert processing_state.data_submitted is False
 
 
+@pytest.mark.unit
 def test_ejector_get_processing_state(ejector: Ejector):
     bs = ReferenceBlockStampFactory.build()
     accounting_processing_state = EjectorProcessingStateFactory.build()

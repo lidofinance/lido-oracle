@@ -5,7 +5,8 @@ from src.types import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):
-    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2)]
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 2
 
     def __init__(self, w3):
         self.report_contract = w3.lido_contracts.accounting_oracle
@@ -25,5 +26,5 @@ class SimpleConsensusModule(ConsensusModule):
 
 
 @pytest.fixture()
-def consensus(web3, consensus_client, contracts):
+def consensus(web3):
     return SimpleConsensusModule(web3)

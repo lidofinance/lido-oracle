@@ -24,6 +24,8 @@ from src.providers.consensus.types import (
     SyncAggregate,
 )
 from src.types import EpochNumber, SlotNumber, ValidatorIndex, BlockRoot
+from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
+from src.types import SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
@@ -69,11 +71,13 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
     return Web3Converter(chain_config, frame_config)
 
 
+@pytest.mark.unit
 def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
     with pytest.raises(MinStepIsNotReached):
         FrameCheckpointsIterator(converter, 100, 600, 109)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
@@ -150,6 +154,7 @@ def mock_get_state_block_roots_with_duplicates(consensus_client):
     consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_block_roots, converter: Web3Converter):
     state = ...
     finalized_blockstamp = ...
@@ -163,6 +168,7 @@ def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_
     assert len([r for r in roots if r is not None]) == 8192
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_get_block_roots_with_duplicates(
     consensus_client, mock_get_state_block_roots_with_duplicates, converter: Web3Converter
 ):
@@ -185,6 +191,7 @@ def mock_get_config_spec(consensus_client):
     consensus_client.get_config_spec = Mock(return_value=bc_spec)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_select_block_roots(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
@@ -205,6 +212,7 @@ def test_checkpoints_processor_select_block_roots(
     assert next_epoch_roots == [(r, f'0x{r}') for r in range(352, 384)]
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_select_block_roots_out_of_range(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
@@ -239,6 +247,7 @@ def mock_get_attestation_committees(consensus_client):
     consensus_client.get_attestation_committees = Mock(side_effect=_get_attestation_committees)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_prepare_committees(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
@@ -261,6 +270,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
             assert validator.included is False
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_process_attestations(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
@@ -292,6 +302,7 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
                 assert validator.included is False
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_process_attestations_undefined_committee(
     mock_get_attestation_committees, consensus_client, converter
 ):
@@ -324,6 +335,7 @@ def frame_checkpoint_processor():
     return FrameCheckpointProcessor(cc, state, converter, finalized_blockstamp)
 
 
+@pytest.mark.unit
 def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame_checkpoint_processor):
     checkpoint_block_roots = [Mock(spec=BlockRoot), None, Mock(spec=BlockRoot)]
     checkpoint_slot = SlotNumber(100)
@@ -362,6 +374,7 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     frame_checkpoint_processor.state.increment_prop_duty.assert_called()
 
 
+@pytest.mark.unit
 def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_processor):
     checkpoint_block_roots = [Mock(spec=BlockRoot), None, Mock(spec=BlockRoot)]
     checkpoint_slot = SlotNumber(100)
@@ -391,6 +404,7 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
     assert frame_checkpoint_processor.state.increment_prop_duty.call_count == 2
 
 
+@pytest.mark.unit
 def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     duty_block_roots = [(SlotNumber(100), Mock()), (SlotNumber(101), Mock())]
@@ -415,6 +429,7 @@ def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_ch
     assert duties == expected_duties
 
 
+@pytest.mark.unit
 def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     duty_block_roots = [(SlotNumber(100), None), (SlotNumber(101), Mock())]
@@ -434,6 +449,7 @@ def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_p
     assert duties == expected_duties
 
 
+@pytest.mark.unit
 def test_get_sync_committee_returns_cached_sync_committee(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -444,6 +460,7 @@ def test_get_sync_committee_returns_cached_sync_committee(frame_checkpoint_proce
         assert result == cached_sync_committee
 
 
+@pytest.mark.unit
 def test_get_sync_committee_fetches_and_caches_when_not_cached(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -458,6 +475,7 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(frame_checkpoint_
     assert SYNC_COMMITTEES_CACHE[sync_committee_period].validators == sync_committee.validators
 
 
+@pytest.mark.unit
 def test_get_sync_committee_handles_cache_eviction(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
@@ -478,6 +496,7 @@ def test_get_sync_committee_handles_cache_eviction(frame_checkpoint_processor):
         assert old_sync_committee_period not in SYNC_COMMITTEES_CACHE
 
 
+@pytest.mark.unit
 def test_prepare_propose_duties(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     checkpoint_block_roots = [Mock(spec=BlockRoot), None, Mock(spec=BlockRoot)]
@@ -497,6 +516,7 @@ def test_prepare_propose_duties(frame_checkpoint_processor):
     assert duties == expected_duties
 
 
+@pytest.mark.unit
 def test_get_dependent_root_for_proposer_duties_from_state_block_roots(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     checkpoint_block_roots = [Mock(spec=BlockRoot), None, Mock(spec=BlockRoot)]
@@ -512,6 +532,7 @@ def test_get_dependent_root_for_proposer_duties_from_state_block_roots(frame_che
     assert dependent_root == checkpoint_block_roots[2]
 
 
+@pytest.mark.unit
 def test_get_dependent_root_for_proposer_duties_from_cl_when_slot_out_of_range(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     checkpoint_block_roots = [Mock(spec=BlockRoot), None, Mock(spec=BlockRoot)]

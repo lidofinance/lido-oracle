@@ -4,7 +4,6 @@ from time import sleep
 from typing import cast
 
 from hexbytes import HexBytes
-from lazy_object_proxy import Proxy
 from web3 import Web3
 from web3.exceptions import Web3Exception
 from web3.module import Module
@@ -132,5 +131,5 @@ class CSM(Module):
 class LazyCSM(CSM):
     """A wrapper around CSM module to achieve lazy-loading behaviour"""
 
-    def __new__(cls, w3: Web3):
-        return Proxy(partial(CSM, w3))  # type: ignore
+    def __new__(cls, w3: Web3) -> 'LazyCSM':
+        return LazyObjectProxy(partial(CSM, w3))  # type: ignore

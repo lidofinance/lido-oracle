@@ -164,44 +164,49 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ## Env variables
 
-| Name                                                   | Description                                                                                                                                                              | Required | Example value                           |
-|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------|
-| `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545`                 |
-| `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052`                 |
-| `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080`                 |
-| `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                                |
-| `CSM_MODULE_ADDRESS`                                   | Address of the CSModule contract                                                                                                                                         | CSM only | `0x1...`                                |
-| `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                                |
-| `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`                      |
-| `GW3_ACCESS_KEY`                                       | An access key to gw3.io IPFS provider                                                                                                                                    | CSM only | `123456789-1234-5678-9012-123456789012` |
-| `GW3_ACCESS_KEY_FILE`                                  | A path to a file with an access key to gw3.io IPFS provider                                                                                                              | CSM only | `/app/gwt_access`                       |
-| `GW3_SECRET_KEY`                                       | A secret key to gw3.io IPFS provider                                                                                                                                     | CSM only | `aBcD1234...`                           |
-| `GW3_SECRET_KEY_FILE`                                  | A path to a file with a secret key to gw3.io IPFS provider                                                                                                               | CSM only | `/app/gwt_secret`                       |
-| `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | CSM only | `aBcD1234...`                           |
-| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pintata_secret`                   |
-| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                                  | 
-| `EL_REQUESTS_BATCH_SIZE`                               | The amount of entities that would be fetched in one request to EL                                                                                                        | False    | `1000`                                  | 
-| `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                                  |
-| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                                  |
-| `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                                |
-| `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                                    |
-| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue                                                                                                                                 | False    | `3000`                                  |
-| `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                                     |
-| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                                   |
-| `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                                   |
-| `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False    | `5`                                     |
-| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False    | `12`                                    |
-| `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False    | `120`                                   |
-| `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False    | `300`                                   |
-| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False    | `300`                                   |
-| `HTTP_REQUEST_TIMEOUT_IPFS`                            | Timeout for HTTP requests to an IPFS provider                                                                                                                            | False    | `30`                                    |
-| `HTTP_REQUEST_RETRY_COUNT_IPFS`                        | Total number of retries to fetch data from an IPFS provider                                                                                                              | False    | `3`                                     |
-| `EVENTS_SEARCH_STEP`                                   | Maximum length of a range for eth_getLogs method calls                                                                                                                   | False    | `10000`                                 |
-| `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                                     |
-| `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`                              |
-| `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`                          |
-| `CSM_ORACLE_MAX_CONCURRENCY`                           | Max count of dedicated workers for CSM module                                                                                                                            | False    | `2`                                     |
-| `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                     |
+| Name                                                   | Description                                                                                                                                                              | Required | Example value                              |
+|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------------------|
+| `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545`                    |
+| `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052`                    |
+| `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080`                    |
+| `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                                   |
+| `CSM_MODULE_ADDRESS`                                   | Address of the CSModule contract                                                                                                                                         | CSM only | `0x1...`                                   |
+| `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                                   |
+| `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`                         |
+| `GW3_ACCESS_KEY`                                       | An access key to gw3.io IPFS provider                                                                                                                                    | CSM only | `123456789-1234-5678-9012-123456789012`    |
+| `GW3_ACCESS_KEY_FILE`                                  | A path to a file with an access key to gw3.io IPFS provider                                                                                                              | CSM only | `/app/gwt_access`                          |
+| `GW3_SECRET_KEY`                                       | A secret key to gw3.io IPFS provider                                                                                                                                     | CSM only | `aBcD1234...`                              |
+| `GW3_SECRET_KEY_FILE`                                  | A path to a file with a secret key to gw3.io IPFS provider                                                                                                               | CSM only | `/app/gwt_secret`                          |
+| `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | CSM only | `aBcD1234...`                              |
+| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pintata_secret`                      |
+| `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | CSM only | `localhost`                                |
+| `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | CSM only | `5001`                                     |
+| `KUBO_GATEWAY_PORT`                                    | Port to access gateway provided by Kubo IPFS node                                                                                                                        | CSM only | `8080`                                     |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                                     | 
+| `EL_REQUESTS_BATCH_SIZE`                               | The amount of entities that would be fetched in one request to EL                                                                                                        | False    | `1000`                                     | 
+| `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                                     |
+| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                                     |
+| `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                                   |
+| `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                                       |
+| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue                                                                                                                                 | False    | `3000`                                     |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                                        |
+| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                                      |
+| `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                                      |
+| `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False    | `5`                                        |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False    | `12`                                       |
+| `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False    | `120`                                      |
+| `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False    | `300`                                      |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False    | `300`                                      |
+| `HTTP_REQUEST_TIMEOUT_IPFS`                            | Timeout for HTTP requests to an IPFS provider                                                                                                                            | False    | `30`                                       |
+| `HTTP_REQUEST_RETRY_COUNT_IPFS`                        | Total number of retries to fetch data from an IPFS provider                                                                                                              | False    | `3`                                        |
+| `EVENTS_SEARCH_STEP`                                   | Maximum length of a range for eth_getLogs method calls                                                                                                                   | False    | `10000`                                    |
+| `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                                        |
+| `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`                                 |
+| `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`                             |
+| `CSM_ORACLE_MAX_CONCURRENCY`                           | Max count of dedicated workers for CSM module                                                                                                                            | False    | `2`                                        |
+| `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                        |
+| `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False    | `<api-key>`                                |
+| `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False    | `http://localhost:8080`                    |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
@@ -270,7 +275,6 @@ Special metrics for accounting oracle:
 | accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
 | accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
 | accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
-| accounting_delayed_validators           | Reported delayed validators count for each operator | module_id, no_id |
 
 Special metrics for ejector oracle:
 
@@ -291,76 +295,24 @@ Special metrics for CSM oracle:
 
 # Development
 
-Python version: 3.12
-
 ## Setup
+Check out our [development setup guide](docs/development.md).
 
-1. [Setup poetry](https://python-poetry.org/docs/#installation)
-2. Install dependencies
+## Release flow
 
-```bash
-poetry install
-```
+To create new release:
 
-## Startup
+1. Merge all changes to the `master` branch
+1. Navigate to Repo => Actions
+1. Run action "Prepare release" action against `master` branch
+1. When action execution is finished, navigate to Repo => Pull requests
+1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
+1. After merge release action will be triggered automatically
+1. Navigate to Repo => Actions and see last actions logs for further details
 
-Required variables for accounting and ejector modules
+## Reproducible builds
 
-```bash
-export EXECUTION_CLIENT_URI=...
-export CONSENSUS_CLIENT_URI=...
-export KEYS_API_URI=...
-export LIDO_LOCATOR_ADDRESS=...
-```
-
-Required variables for CSM module
-
-```bash
-export EXECUTION_CLIENT_URI=...
-export CONSENSUS_CLIENT_URI=...
-export KEYS_API_URI=...
-export LIDO_LOCATOR_ADDRESS=...
-export CSM_MODULE_ADDRESS=...
-export MAX_CYCLE_LIFETIME_IN_SECONDS=60000  # Reasonable high value to make sure the oracle has enough time to process the whole frame.
-```
-
-Run oracle module
-
-```bash
-poetry run python -m src.main {module}
-```
-
-Where `{module}` is one of:
-
-- `accounting`
-- `ejector`
-- `csm`
-- `check`
-
-## Tests
-
-[Testing guide](./tests/README.md)
-
-```bash
-poetry run pytest .
-```
-
-## Code quality
-
-Used the following tools:
-
-- [black](https://github.com/psf/black)
-- [pylint](https://github.com/pylint-dev/pylint/)
-- [mypy](https://github.com/python/mypy/)
-  See the [configuration](pyproject.toml) for details for each linter.
-
-Make sure that your code is formatted correctly and passes all checks:
-
-```bash
-black tests
-pylint src tests
-mypy src
-```
+The Lido Oracle supports reproducible Docker builds in experimental mode. Check out [guide](docs/reproducible-builds.md) for more details.
 
 # License
 
@@ -377,15 +329,3 @@ GNU General Public License for more details.
 
 You should have received a copy of the [GNU General Public License](LICENSE)
 along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-## Release flow
-
-To create new release:
-
-1. Merge all changes to the `master` branch
-1. Navigate to Repo => Actions
-1. Run action "Prepare release" action against `master` branch
-1. When action execution is finished, navigate to Repo => Pull requests
-1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
-1. After merge release action will be triggered automatically
-1. Navigate to Repo => Actions and see last actions logs for further details

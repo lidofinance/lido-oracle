@@ -34,18 +34,22 @@ class TreeTestBase[LeafType: Iterable](ABC):
     def tree(self) -> TreeType:
         return self.cls.new(self.values)
 
+    @pytest.mark.unit
     def test_non_null_root(self, tree: TreeType):
         assert tree.root
 
+    @pytest.mark.unit
     def test_encode_decode(self, tree: TreeType):
         decoded = self.cls.decode(tree.encode())
         assert decoded.values == self.values
         assert decoded.root == tree.root
 
+    @pytest.mark.unit
     def test_decode_plain_tree_dump(self, tree: TreeType):
         decoded = self.cls.decode(self.encoder.encode(tree.tree.dump()).encode())
         assert decoded.root == tree.root
 
+    @pytest.mark.unit
     def test_dump_compatibility(self, tree: TreeType):
         loaded = StandardMerkleTree.load(tree.dump())
         assert loaded.root == tree.root
@@ -77,6 +81,7 @@ class TestStrikesTree(TreeTestBase[StrikesTreeLeaf]):
             (NodeOperatorId(UINT64_MAX), HexBytes(hex_str_to_bytes("0x64")), StrikesList([1, 0, 1])),
         ]
 
+    @pytest.mark.unit
     def test_decoded_types(self, tree: StrikesTree) -> None:
         decoded = self.cls.decode(tree.encode())
         no_id, pk, strikes = decoded.values[0]

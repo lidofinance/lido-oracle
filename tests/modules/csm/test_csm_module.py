@@ -34,6 +34,7 @@ def module(web3, csm: CSM):
     yield CSOracle(web3)
 
 
+@pytest.mark.unit
 def test_init(module: CSOracle):
     assert module
 
@@ -169,7 +170,8 @@ class FrameTestParam:
         ),
     ],
 )
-def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoReturn, param: FrameTestParam):
+@pytest.mark.unit
+def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, param: FrameTestParam):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
             initial_epoch=slot_to_epoch(param.initial_ref_slot),
@@ -178,7 +180,7 @@ def test_current_frame_range(module: CSOracle, csm: CSM, mock_chain_config: NoRe
         )
     )
 
-    csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
+    module.w3.csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
     module.get_initial_or_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(param.current_ref_slot),
@@ -287,9 +289,9 @@ class CollectDataTestParam:
         ),
     ],
 )
+@pytest.mark.unit
 def test_collect_data(
     module: CSOracle,
-    csm: CSM,
     param: CollectDataTestParam,
     mock_chain_config: NoReturn,
     mock_frame_config: NoReturn,
@@ -314,8 +316,9 @@ def test_collect_data(
     assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
 
 
+@pytest.mark.unit
 def test_collect_data_outdated_checkpoint(
-    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
@@ -341,8 +344,9 @@ def test_collect_data_outdated_checkpoint(
     assert len(msg), "Expected message not found in logs"
 
 
+@pytest.mark.unit
 def test_collect_data_fulfilled_state(
-    module: CSOracle, csm: CSM, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
     module._receive_last_finalized_slot = Mock()
@@ -557,7 +561,7 @@ class BuildReportTestParam:
         ),
     ],
 )
-@pytest.mark.usefixtures("csm")
+@pytest.mark.unit
 def test_build_report(module: CSOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
@@ -581,6 +585,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
     assert report == param.expected_func_result
 
 
+@pytest.mark.unit
 def test_execute_module_not_collected(module: CSOracle):
     module.collect_data = Mock(return_value=False)
 
@@ -590,6 +595,7 @@ def test_execute_module_not_collected(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
+@pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
@@ -600,10 +606,12 @@ def test_execute_module_no_report_blockstamp(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
+@pytest.mark.unit
 def test_execute_module_processed(module: CSOracle):
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
+    module._check_compatability = Mock(return_value=True)
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),
@@ -672,6 +680,7 @@ def test_make_rewards_tree_negative(module: CSOracle, param: RewardsTreeTestPara
         ),
     ],
 )
+@pytest.mark.unit
 def test_make_rewards_tree(module: CSOracle, param: RewardsTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
@@ -691,6 +700,7 @@ class StrikesTreeTestParam:
         pytest.param(StrikesTreeTestParam(strikes={}, expected_tree_values=ValueError), id="empty"),
     ],
 )
+@pytest.mark.unit
 def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
@@ -746,6 +756,7 @@ def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestPara
         ),
     ],
 )
+@pytest.mark.unit
 def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
     module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
@@ -755,6 +766,7 @@ def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
 
 class TestLastReport:
     @pytest.mark.usefixtures("csm")
+    @pytest.mark.unit
     def test_load(self, web3: Web3):
         blockstamp = Mock()
 
@@ -775,6 +787,7 @@ class TestLastReport:
         assert last_report.strikes_tree_root == HexBytes(b"17")
         assert last_report.strikes_tree_cid == CID("QmST")
 
+    @pytest.mark.unit
     def test_get_rewards_empty(self, web3: Web3):
         web3.ipfs = Mock(fetch=Mock())
 
@@ -790,6 +803,7 @@ class TestLastReport:
         assert last_report.rewards == []
         web3.ipfs.fetch.assert_not_called()
 
+    @pytest.mark.unit
     def test_get_rewards_okay(self, web3: Web3, rewards_tree: RewardsTree):
         encoded_tree = rewards_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
@@ -808,6 +822,7 @@ class TestLastReport:
 
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
 
+    @pytest.mark.unit
     def test_get_rewards_unexpected_root(self, web3: Web3, rewards_tree: RewardsTree):
         encoded_tree = rewards_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
@@ -826,6 +841,7 @@ class TestLastReport:
 
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
 
+    @pytest.mark.unit
     def test_get_strikes_empty(self, web3: Web3):
         web3.ipfs = Mock(fetch=Mock())
 
@@ -841,6 +857,7 @@ class TestLastReport:
         assert last_report.strikes == {}
         web3.ipfs.fetch.assert_not_called()
 
+    @pytest.mark.unit
     def test_get_strikes_okay(self, web3: Web3, strikes_tree: StrikesTree):
         encoded_tree = strikes_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
@@ -859,6 +876,7 @@ class TestLastReport:
 
         web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid)
 
+    @pytest.mark.unit
     def test_get_strikes_unexpected_root(self, web3: Web3, strikes_tree: StrikesTree):
         encoded_tree = strikes_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))

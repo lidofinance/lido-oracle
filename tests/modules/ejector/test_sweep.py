@@ -8,7 +8,7 @@ from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,
-    get_sweep_delay_in_epochs_post_electra,
+    get_sweep_delay_in_epochs,
     get_validators_withdrawals,
 )
 from src.modules.submodules.types import ChainConfig
@@ -32,7 +32,7 @@ def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
             Mock(return_value=predicted_withdrawals),
         )
         # Calculate delay
-        result = get_sweep_delay_in_epochs_post_electra(state, spec)
+        result = get_sweep_delay_in_epochs(state, spec)
 
         # Assert the delay calculation is correct
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
@@ -86,6 +86,7 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
     assert result[0].amount == 10, f"Expected amount 1 for validator 2, got {result[0].amount}"
 
 
+@pytest.mark.unit
 def test_only_validators_withdrawals():
     """Test when there are only validators eligible for withdrawals."""
 
@@ -100,6 +101,7 @@ def test_only_validators_withdrawals():
     assert result == 2
 
 
+@pytest.mark.unit
 def test_combined_withdrawals():
     """Test when there are both partial and full withdrawals."""
 

@@ -5,15 +5,14 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
+from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     NodeOperator,
     StakingModule,
-    LidoValidatorsProvider,
     LidoValidator,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -29,12 +28,6 @@ blockstamp = ReferenceBlockStampFactory.build(
 
 @pytest.fixture
 def lido_validators(web3):
-    web3.attach_modules(
-        {
-            'lido_validators': LidoValidatorsProvider,
-        }
-    )
-
     sm = StakingModule(
         id=1,
         staking_module_address='0x8a1E2986E52b441058325c315f83C9D4129bDF72',
@@ -132,7 +125,7 @@ def lido_validators(web3):
 
 
 @pytest.fixture
-def validator_state(web3, contracts, consensus_client, lido_validators):
+def validator_state(web3, lido_validators):
     service = LidoValidatorStateService(web3)
     service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
         return_value=[3, 8]
@@ -149,7 +142,9 @@ def chain_config():
 def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
     validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x8"})
     validator_state.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots = Mock(return_value=0)
+
     stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
+
     assert stuck_validators == {(1, 0): 1}
 
 
