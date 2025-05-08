@@ -17,6 +17,7 @@ from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
+from src.utils.lazy_object_proxy import LazyObjectProxy
 from src.types import BlockStamp, NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
