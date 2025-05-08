@@ -54,7 +54,7 @@ class LastReport:
         if (self.rewards_tree_cid is None) != (self.rewards_tree_root == ZERO_HASH):
             raise InconsistentData(
                 "Got inconsistent previous rewards tree data: "
-                f"tree_root={self.rewards_tree_root.hex()} tree_cid={self.rewards_tree_cid=}"
+                f"tree_root={self.rewards_tree_root.to_0x_hex()} tree_cid={self.rewards_tree_cid=}"
             )
 
         if self.rewards_tree_cid is None or self.rewards_tree_root == ZERO_HASH:
@@ -76,7 +76,7 @@ class LastReport:
         if (self.strikes_tree_cid is None) != (self.strikes_tree_root == ZERO_HASH):
             raise InconsistentData(
                 "Got inconsistent previous strikes tree data: "
-                f"tree_root={self.strikes_tree_root.hex()} tree_cid={self.strikes_tree_cid=}"
+                f"tree_root={self.strikes_tree_root.to_0x_hex()} tree_cid={self.strikes_tree_cid=}"
             )
 
         if self.strikes_tree_cid is None or self.strikes_tree_root == ZERO_HASH:

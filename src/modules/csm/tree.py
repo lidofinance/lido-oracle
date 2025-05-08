@@ -13,7 +13,7 @@ from src.utils.types import hex_str_to_bytes
 class TreeJSONEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, bytes):
-            return HexBytes(o).hex()
+            return HexBytes(o).to_0x_hex()
         return super().default(o)
 
 
