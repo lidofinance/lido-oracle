@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - develop
+      - feat/oracle-v6
     paths:
       - "src/**"
 
