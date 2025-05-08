@@ -233,6 +233,7 @@ def test_increment_prop_duty_creates_new_validator_entry():
     assert state.data[frame].proposals[ValidatorIndex(2)].assigned == 1
     assert state.data[frame].proposals[ValidatorIndex(2)].included == 1
 
+
 @pytest.mark.unit
 def test_increment_sync_duty_creates_new_validator_entry():
     state = State()
@@ -245,6 +246,7 @@ def test_increment_sync_duty_creates_new_validator_entry():
     state.increment_sync_duty(duty_epoch, ValidatorIndex(2), True)
     assert state.data[frame].syncs[ValidatorIndex(2)].assigned == 1
     assert state.data[frame].syncs[ValidatorIndex(2)].included == 1
+
 
 @pytest.mark.unit
 def test_increment_att_duty_handles_non_included_duty():
@@ -259,6 +261,7 @@ def test_increment_att_duty_handles_non_included_duty():
     assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].attestations[ValidatorIndex(1)].included == 5
 
+
 @pytest.mark.unit
 def test_increment_prop_duty_handles_non_included_duty():
     state = State()
@@ -271,6 +274,7 @@ def test_increment_prop_duty_handles_non_included_duty():
     state.increment_prop_duty(duty_epoch, ValidatorIndex(1), False)
     assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].proposals[ValidatorIndex(1)].included == 5
+
 
 @pytest.mark.unit
 def test_increment_sync_duty_handles_non_included_duty():
@@ -285,6 +289,7 @@ def test_increment_sync_duty_handles_non_included_duty():
     assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].syncs[ValidatorIndex(1)].included == 5
 
+
 @pytest.mark.unit
 def test_increment_att_duty_raises_error_for_out_of_range_epoch():
     state = State()
@@ -295,6 +300,7 @@ def test_increment_att_duty_raises_error_for_out_of_range_epoch():
     }
     with pytest.raises(ValueError, match="is out of frames range"):
         state.increment_att_duty(32, ValidatorIndex(1), True)
+
 
 @pytest.mark.unit
 def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
@@ -307,6 +313,7 @@ def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
     with pytest.raises(ValueError, match="is out of frames range"):
         state.increment_prop_duty(32, ValidatorIndex(1), True)
 
+
 @pytest.mark.unit
 def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
     state = State()
@@ -318,11 +325,13 @@ def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
     with pytest.raises(ValueError, match="is out of frames range"):
         state.increment_sync_duty(32, ValidatorIndex(1), True)
 
+
 @pytest.mark.unit
 def test_add_processed_epoch_adds_epoch_to_processed_set():
     state = State()
     state.add_processed_epoch(5)
     assert 5 in state._processed_epochs
+
 
 @pytest.mark.unit
 def test_add_processed_epoch_does_not_duplicate_epochs():
@@ -330,6 +339,7 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
     state.add_processed_epoch(5)
     state.add_processed_epoch(5)
     assert len(state._processed_epochs) == 1
+
 
 @pytest.mark.unit
 def test_migrate_discards_data_on_version_change():
@@ -344,6 +354,7 @@ def test_migrate_discards_data_on_version_change():
     assert state._consensus_version == 2
     state.clear.assert_called_once()
     state.commit.assert_called_once()
+
 
 @pytest.mark.unit
 def test_migrate_no_migration_needed():
@@ -362,6 +373,7 @@ def test_migrate_no_migration_needed():
     assert state._epochs_to_process == tuple(sequence(0, 63))
     assert state._consensus_version == 1
     state.commit.assert_not_called()
+
 
 @pytest.mark.unit
 def test_migrate_migrates_data():
@@ -395,6 +407,7 @@ def test_migrate_migrates_data():
     assert state._consensus_version == 1
     state.commit.assert_called_once()
 
+
 @pytest.mark.unit
 def test_migrate_invalidates_unmigrated_frames():
     state = State()
@@ -418,6 +431,7 @@ def test_migrate_invalidates_unmigrated_frames():
     assert state._epochs_to_process == tuple(sequence(0, 31))
     assert state._consensus_version == 1
     state.commit.assert_called_once()
+
 
 @pytest.mark.unit
 def test_migrate_discards_unmigrated_frame():
@@ -463,6 +477,7 @@ def test_migrate_discards_unmigrated_frame():
     assert state._consensus_version == 1
     state.commit.assert_called_once()
 
+
 @pytest.mark.unit
 def test_migrate_frames_data_creates_new_data_correctly():
     state = State()
@@ -493,6 +508,7 @@ def test_migrate_frames_data_creates_new_data_correctly():
     }
     assert state._processed_epochs == set(sequence(0, 20))
 
+
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_migration():
     state = State()
@@ -517,6 +533,7 @@ def test_migrate_frames_data_handles_no_migration():
         ),
     }
     assert state._processed_epochs == set(sequence(0, 20))
+
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_partial_migration():
@@ -553,6 +570,7 @@ def test_migrate_frames_data_handles_partial_migration():
     }
     assert state._processed_epochs == set(sequence(0, 20))
 
+
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_data():
     state = State()
@@ -563,6 +581,7 @@ def test_migrate_frames_data_handles_no_data():
     state._migrate_frames_data(new_frames)
 
     assert state.data == {(0, 31): NetworkDuties()}
+
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_wider_old_frame():
@@ -586,6 +605,7 @@ def test_migrate_frames_data_handles_wider_old_frame():
     }
     assert state._processed_epochs == set()
 
+
 @pytest.mark.unit
 def test_validate_raises_error_if_state_not_fulfilled():
     state = State()
@@ -593,6 +613,7 @@ def test_validate_raises_error_if_state_not_fulfilled():
     state._processed_epochs = set(sequence(0, 94))
     with pytest.raises(InvalidState, match="State is not fulfilled"):
         state.validate(0, 95)
+
 
 @pytest.mark.unit
 def test_validate_raises_error_if_processed_epoch_out_of_range():
@@ -603,6 +624,7 @@ def test_validate_raises_error_if_processed_epoch_out_of_range():
     with pytest.raises(InvalidState, match="Processed epoch 96 is out of range"):
         state.validate(0, 95)
 
+
 @pytest.mark.unit
 def test_validate_raises_error_if_epoch_missing_in_processed_epochs():
     state = State()
@@ -611,6 +633,7 @@ def test_validate_raises_error_if_epoch_missing_in_processed_epochs():
     with pytest.raises(InvalidState, match="Epoch 95 missing in processed epochs"):
         state.validate(0, 95)
 
+
 @pytest.mark.unit
 def test_validate_passes_for_fulfilled_state():
     state = State()
@@ -618,10 +641,12 @@ def test_validate_passes_for_fulfilled_state():
     state._processed_epochs = set(sequence(0, 95))
     state.validate(0, 95)
 
+
 @pytest.mark.unit
 def test_attestation_aggregate_perf():
     aggr = DutyAccumulator(included=333, assigned=777)
     assert aggr.perf == pytest.approx(0.4285, abs=1e-4)
+
 
 @pytest.mark.unit
 def test_get_validator_duties():
@@ -650,6 +675,7 @@ def test_get_validator_duties():
     assert duties.sync.assigned == 3
     assert duties.sync.included == 2
 
+
 @pytest.mark.unit
 def test_get_att_network_aggr_computes_correctly():
     state = State()
@@ -664,6 +690,7 @@ def test_get_att_network_aggr_computes_correctly():
     aggr = state.get_att_network_aggr((0, 31))
     assert aggr.assigned == 30
     assert aggr.included == 20
+
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_computes_correctly():
@@ -680,6 +707,7 @@ def test_get_sync_network_aggr_computes_correctly():
     assert aggr.assigned == 30
     assert aggr.included == 20
 
+
 @pytest.mark.unit
 def test_get_prop_network_aggr_computes_correctly():
     state = State()
@@ -695,6 +723,7 @@ def test_get_prop_network_aggr_computes_correctly():
     assert aggr.assigned == 30
     assert aggr.included == 20
 
+
 @pytest.mark.unit
 def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
@@ -703,6 +732,7 @@ def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
     }
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_att_network_aggr((0, 31))
+
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
@@ -713,6 +743,7 @@ def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_prop_network_aggr((0, 31))
 
+
 @pytest.mark.unit
 def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
     state = State()
@@ -722,11 +753,13 @@ def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
     with pytest.raises(ValueError, match="Invalid accumulator"):
         state.get_sync_network_aggr((0, 31))
 
+
 @pytest.mark.unit
 def test_get_att_network_aggr_raises_error_for_missing_frame_data():
     state = State()
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_att_network_aggr((0, 31))
+
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_raises_error_for_missing_frame_data():
@@ -734,11 +767,13 @@ def test_get_prop_network_aggr_raises_error_for_missing_frame_data():
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_prop_network_aggr((0, 31))
 
+
 @pytest.mark.unit
 def test_get_sync_network_aggr_raises_error_for_missing_frame_data():
     state = State()
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_sync_network_aggr((0, 31))
+
 
 @pytest.mark.unit
 def test_get_att_network_aggr_handles_empty_frame_data():
@@ -748,6 +783,7 @@ def test_get_att_network_aggr_handles_empty_frame_data():
     assert aggr.assigned == 0
     assert aggr.included == 0
 
+
 @pytest.mark.unit
 def test_get_prop_network_aggr_handles_empty_frame_data():
     state = State()
@@ -755,6 +791,7 @@ def test_get_prop_network_aggr_handles_empty_frame_data():
     aggr = state.get_prop_network_aggr((0, 31))
     assert aggr.assigned == 0
     assert aggr.included == 0
+
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_handles_empty_frame_data():
