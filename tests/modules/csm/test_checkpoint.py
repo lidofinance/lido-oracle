@@ -469,7 +469,11 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(frame_checkpoint_
     frame_checkpoint_processor.converter.get_epoch_first_slot = Mock(return_value=SlotNumber(0))
     frame_checkpoint_processor.cc.get_sync_committee = Mock(return_value=sync_committee)
 
-    result = frame_checkpoint_processor._get_sync_committee(epoch)
+    prev_slot_response = Mock()
+    prev_slot_response.message.slot = SlotNumber(0)
+    prev_slot_response.message.body.execution_payload.block_hash = "0x00"
+    with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+        result = frame_checkpoint_processor._get_sync_committee(epoch)
 
     assert result.validators == sync_committee.validators
     assert SYNC_COMMITTEES_CACHE[sync_committee_period].validators == sync_committee.validators
@@ -489,7 +493,11 @@ def test_get_sync_committee_handles_cache_eviction(frame_checkpoint_processor):
         cache.max_size = 1
         cache[old_sync_committee_period] = old_sync_committee
 
-        result = frame_checkpoint_processor._get_sync_committee(epoch)
+        prev_slot_response = Mock()
+        prev_slot_response.message.slot = SlotNumber(0)
+        prev_slot_response.message.body.execution_payload.block_hash = "0x00"
+        with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+            result = frame_checkpoint_processor._get_sync_committee(epoch)
 
         assert result == sync_committee
         assert sync_committee_period in SYNC_COMMITTEES_CACHE

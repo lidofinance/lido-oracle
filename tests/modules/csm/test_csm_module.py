@@ -18,7 +18,6 @@ from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
 from src.utils.types import hex_str_to_bytes
-from src.web3py.extensions.csm import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -765,7 +764,7 @@ def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
 
 
 class TestLastReport:
-    @pytest.mark.usefixtures("csm")
+
     @pytest.mark.unit
     def test_load(self, web3: Web3):
         blockstamp = Mock()
