@@ -33,9 +33,11 @@ class TestCachePathConfigurable:
         monkeypatch.setattr(variables, "CACHE_PATH", tmp_path)
         return tmp_path
 
+    @pytest.mark.unit
     def test_file_returns_correct_path(self, cache_path: Path):
         assert State.file() == cache_path / "cache.pkl"
 
+    @pytest.mark.unit
     def test_buffer_returns_correct_path(self, cache_path: Path):
         state = State()
         assert state.buffer == cache_path / "cache.buf"

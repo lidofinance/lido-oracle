@@ -30,7 +30,7 @@ def mock_load_state(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture()
-def module(web3, csm: CSM):
+def module(web3):
     yield CSOracle(web3)
 
 

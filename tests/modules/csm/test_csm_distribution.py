@@ -277,6 +277,7 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
         ),
     ],
 )
+@pytest.mark.unit
 def test_calculate_distribution(
     frames: list[Frame],
     last_report,
@@ -313,6 +314,7 @@ def test_calculate_distribution(
         assert log.frame == frames[i]
 
 
+@pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
     w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
@@ -340,6 +342,7 @@ def test_calculate_distribution_handles_invalid_distribution():
         distribution.calculate(..., Mock(strikes={}, rewards=[]))
 
 
+@pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
     w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
@@ -782,6 +785,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
         ),
     ],
 )
+@pytest.mark.unit
 def test_calculate_distribution_in_frame(
     to_distribute,
     frame_validators,
@@ -835,6 +839,7 @@ def test_calculate_distribution_in_frame(
         (0.95, 0.5, 0.7, pytest.approx(0.8859, rel=1e-4)),
     ],
 )
+@pytest.mark.unit
 def test_get_network_performance(att_perf, prop_perf, sync_perf, expected):
     distribution = Distribution(Mock(), Mock(), Mock())
     distribution.state.get_att_network_aggr = Mock(return_value=Mock(perf=att_perf) if att_perf is not None else None)
@@ -851,6 +856,7 @@ def test_get_network_performance(att_perf, prop_perf, sync_perf, expected):
     assert result == expected
 
 
+@pytest.mark.unit
 def test_get_network_performance_raises_error_for_invalid_performance():
     distribution = Distribution(Mock(), Mock(), Mock())
     distribution.state.get_att_network_aggr = Mock(return_value=Mock(perf=1.1))
@@ -907,6 +913,7 @@ def test_get_network_performance_raises_error_for_invalid_performance():
         ),
     ],
 )
+@pytest.mark.unit
 def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_share, expected_outcome):
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = is_slashed
@@ -974,6 +981,7 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
         ),
     ],
 )
+@pytest.mark.unit
 def test_calc_rewards_distribution_in_frame(
     participation_shares, rewards_to_distribute, rebate_share, expected_distribution
 ):
@@ -983,6 +991,7 @@ def test_calc_rewards_distribution_in_frame(
     assert rewards_distribution == expected_distribution
 
 
+@pytest.mark.unit
 def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
     participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 200}
     rewards_to_distribute = Wei(-1)
@@ -1052,6 +1061,7 @@ def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
         ),
     ],
 )
+@pytest.mark.unit
 def test_merge_strikes(
     acc: dict,
     strikes_in_frame: dict,
@@ -1076,6 +1086,7 @@ def test_merge_strikes(
         (50, 50, 100),
     ],
 )
+@pytest.mark.unit
 def tests_validates_correct_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute):
     Distribution.validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute)
 
@@ -1087,6 +1098,7 @@ def tests_validates_correct_distribution(total_distributed_rewards, total_rebate
         (200, 0, 199),
     ],
 )
+@pytest.mark.unit
 def test_raises_error_for_invalid_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute):
     with pytest.raises(ValueError, match="Invalid distribution"):
         Distribution.validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute)
@@ -1102,6 +1114,7 @@ def test_raises_error_for_invalid_distribution(total_distributed_rewards, total_
         (1, 1, 1, 1),
     ],
 )
+@pytest.mark.unit
 def test_performance_coefficients_calc_performance(attestation_perf, proposal_perf, sync_perf, expected):
     performance_coefficients = PerformanceCoefficients()
     duties = ValidatorDuties(
@@ -1145,11 +1158,13 @@ def test_performance_coefficients_calc_performance(attestation_perf, proposal_pe
         ),
     ],
 )
+@pytest.mark.unit
 def test_interval_mapping_returns_correct_reward_share(intervals, key_index, expected):
     reward_share = IntervalMapping(intervals=intervals)
     assert reward_share.get_for(key_index) == expected
 
 
+@pytest.mark.unit
 def test_interval_mapping_raises_error_for_invalid_key_number():
     reward_share = IntervalMapping(
         intervals=[KeyIndexValueInterval(0, 1000), KeyIndexValueInterval(10, 2000), KeyIndexValueInterval(20, 3000)]
@@ -1158,6 +1173,7 @@ def test_interval_mapping_raises_error_for_invalid_key_number():
         reward_share.get_for(-1)
 
 
+@pytest.mark.unit
 def test_interval_mapping_raises_error_for_key_number_out_of_range():
     reward_share = IntervalMapping(intervals=[KeyIndexValueInterval(10, 10000)])
     with pytest.raises(ValueError, match="No value found for key_index=2"):
