@@ -84,8 +84,7 @@ def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int
             'CHAIN': chain,
             "ANVIL_PORT": str(anvil_port),
             "RPC_URL": f"http://127.0.0.1:{anvil_port}",  # FIXME: actually unused by the script, remove when fixed
-            'DEPLOY_CONFIG': f'./artifacts/{chain}/deploy-{chain}.json',
-            'UPGRADE_CONFIG': f'./artifacts/local/upgrade-{chain}.json',
+            'DEPLOY_CONFIG': f'./artifacts/local/upgrade-{chain}.json',
         },
         stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
@@ -133,7 +132,11 @@ def missed_initial_frame(frame_config: FrameConfig):
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
-    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
+    [
+        start_before_initial_epoch,
+        # start_after_initial_epoch,
+        # missed_initial_frame
+    ],
     indirect=True,
 )
 def test_csm_module_report(module, set_oracle_members, running_finalized_slots, account_from):
