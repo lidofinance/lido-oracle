@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from typing import List, cast, Any
+from typing import List, Any
 
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
@@ -13,7 +13,6 @@ from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, Vault
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
-from src.providers.execution.contracts.staking_vault import StakingVaultContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
@@ -51,16 +50,6 @@ class StakingVaults(Module):
         self.ipfs_client = ipfs
         self.cl = cl
         self.vault_hub = vault_hub
-
-    def _load_vault(self, address: ChecksumAddress) -> StakingVaultContract:
-        return cast(
-            StakingVaultContract,
-            self.w3.eth.contract(
-                address=address,
-                ContractFactoryClass=StakingVaultContract,
-                decode_tuples=True,
-            ),
-        )
 
     def get_vaults_data(
             self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
