@@ -79,12 +79,6 @@ class LidoValidatorStateService:
     ) -> list[LidoValidator]:
         """
         Returns list of validators recently requested to exit (exit deadline slot in future).
-
-        The deadline slot after which validators are delayed:
-        validator_delayed_deadline_slot = max(
-            (activation_epoch + SHARD_COMMITTEE_PERIOD),  # For validators that were not able to exit cause of restrictions of the chain
-            epoch_when_validator_was_requested_to_exit,
-        ) * slots_per_epoch + VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS
         """
         lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         recent_indexes = self.get_recently_requested_validators_by_operator(
