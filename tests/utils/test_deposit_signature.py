@@ -30,6 +30,7 @@ HOODI_FORK_VERSION = "0x10000910"
         ),
     ],
 )
+@pytest.mark.unit
 def test_compute_fork_data_root(fork_version, genesis_validators_root, expected):
     fork_version_bytes = hex_str_to_bytes(fork_version)
     fork_data_root = compute_fork_data_root(fork_version_bytes, bytes(genesis_validators_root))
@@ -57,6 +58,7 @@ def test_compute_fork_data_root(fork_version, genesis_validators_root, expected)
         ),
     ],
 )
+@pytest.mark.unit
 def test_compute_domain(domain_type, fork_version, genesis_validators_root, expected):
     domain = compute_domain(bytes(domain_type), hex_str_to_bytes(fork_version), bytes(genesis_validators_root))
 
@@ -95,6 +97,7 @@ def test_compute_domain(domain_type, fork_version, genesis_validators_root, expe
         ),
     ],
 )
+@pytest.mark.unit
 def test_is_valid_deposit_signature(pubkey, withdrawal_credentials, amount_gwei, signature, expected):
     result = is_valid_deposit_signature(
         pubkey=bytes.fromhex(pubkey),
