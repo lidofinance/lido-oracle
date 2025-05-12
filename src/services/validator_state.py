@@ -8,15 +8,12 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_EXITED_VALIDATORS,
 )
 from src.modules.submodules.types import ChainConfig
-from src.types import ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
+from src.types import OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
-from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
-from src.web3py.extensions.lido_validators import (
-    NodeOperatorGlobalIndex,
-    LidoValidator,
-)
+from src.utils.validator_state import is_exited_validator, is_on_exit
+from src.web3py.extensions.lido_validators import (LidoValidator, NodeOperatorGlobalIndex)
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -102,14 +99,7 @@ class LidoValidatorStateService:
                 return validator.index in recent_indexes[global_index]
 
             def is_validator_recently_requested_but_not_exited(validator: LidoValidator) -> bool:
-                if is_on_exit(validator):
-                    return False
-
-                if validator_recently_requested_to_exit(validator):
-                    return True
-
-                return False
-
+                return not is_on_exit(validator) and validator_recently_requested_to_exit(validator)
 
             validators_recently_requested_to_exit.extend(
                 filter(is_validator_recently_requested_but_not_exited, validators)

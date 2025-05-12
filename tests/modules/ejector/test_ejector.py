@@ -1,4 +1,4 @@
-from typing import Iterable, cast
+from typing import cast, Iterable
 from unittest.mock import Mock
 
 import pytest
@@ -15,10 +15,7 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import (
-    Ejector,
-)
-from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.ejector import Ejector, logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
@@ -88,8 +85,8 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 @pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
-    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=3)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=2)
+    ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=4)
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)

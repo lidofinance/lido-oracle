@@ -1,18 +1,15 @@
-from types import MethodType
 from unittest.mock import Mock
 
 import pytest
 
-from src.services.exit_order_iterator import ValidatorExitIterator, StakingModuleStats, NodeOperatorStats
+from src.modules.submodules.types import ChainConfig
+from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import (
-    NodeOperatorFactory,
-    StakingModuleFactory,
-    LidoValidatorFactory,
-)
+from tests.factory.no_registry import LidoValidatorFactory, NodeOperatorFactory, StakingModuleFactory
 from tests.factory.web3_factory import Web3DataclassFactory
+from types import MethodType
 
 
 class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]): ...
@@ -28,19 +25,18 @@ def iterator(web3, contracts, lido_validators):
     return ValidatorExitIterator(
         web3,
         ReferenceBlockStampFactory.build(),
-        12,
+        ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
     )
 
 
 @pytest.mark.unit
 def test_get_filter_non_exitable_validators(iterator):
-    iterator.lvs.get_operators_with_last_exited_validator_indexes = Mock(
+    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
         return_value={
-            (1, 1): 1,
-            (1, 2): -1,
+            (1, 1): [1],
+            (1, 2): [-1],
         }
     )
-
     filt = iterator.get_can_request_exit_predicate((1, 1))
     assert not filt(LidoValidatorFactory.build(index="1"))
 
@@ -118,11 +114,11 @@ def test_eject_validator(iterator):
         }
     )
 
-    iterator.lvs.get_operators_with_last_exited_validator_indexes = Mock(
+    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
         return_value={
-            (1, 1): -1,
-            (1, 2): -1,
-            (2, 1): 6,
+            (1, 1): [-1],
+            (1, 2): [-1],
+            (2, 1): [6],
         }
     )
 

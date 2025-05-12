@@ -9,17 +9,11 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
-from src.web3py.extensions.lido_validators import (
-    NodeOperator,
-    StakingModule,
-    LidoValidatorsProvider,
-    LidoValidator,
-)
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
+from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider, NodeOperator, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 TESTING_REF_EPOCH = 100
-
 
 blockstamp = ReferenceBlockStampFactory.build(
     ref_slot=9024,
@@ -146,12 +140,6 @@ def chain_config():
 
 
 @pytest.mark.unit
-def test_get_operators_with_last_exited_validator_indexes(web3, validator_state):
-    indexes = validator_state.get_operators_with_last_exited_validator_indexes(blockstamp)
-    assert indexes == {(1, 0): 3, (1, 1): 8}
-
-
-@pytest.mark.unit
 def test_get_lido_new_exited_validators(web3, validator_state):
     exited_validators = validator_state.get_lido_newly_exited_validators(blockstamp)
     # We didn't expect the second validator because total_exited_validators hasn't changed
@@ -160,13 +148,14 @@ def test_get_lido_new_exited_validators(web3, validator_state):
 
 @pytest.mark.unit
 def test_get_recently_requested_validators_by_operator(monkeypatch, web3, validator_state):
-    mocked_events = [
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
-    ]
-    mock_get_events_in_past = Mock(return_value=mocked_events)
+    mock_get_events_in_past = Mock(
+        return_value=[
+            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
+            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+        ]
+    )
     monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
 
     global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
 
@@ -187,7 +176,7 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
     ]
     mock_get_events_in_past = Mock(return_value=mocked_events)
     monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
 
     blockstamp = ReferenceBlockStampFactory.build(
         ref_slot=15392,
@@ -197,4 +186,4 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
         blockstamp, chain_config
     )
 
-    assert [int(v.index) for v in recently_requested_validators] == [1, 5, 6]
+    assert [int(v.index) for v in recently_requested_validators] == [1]
