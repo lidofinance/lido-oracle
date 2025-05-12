@@ -16,7 +16,7 @@ def test_accounting_contract_call(accounting_contract, caplog):
                     ReportValues(
                         timestamp=0,
                         time_elapsed=0,
-                        cl_validators=0,
+                        cl_validators=100,
                         cl_balance=0,
                         withdrawal_vault_balance=0,
                         el_rewards_vault_balance=0,
