@@ -104,8 +104,6 @@ def main(module_name: OracleModule):
     })
     ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
-
-    logger.info({'msg': f'Start healthcheck server for Docker container on port {variables.HEALTHCHECK_SERVER_PORT}'})
     start_pulse_server()
 
     logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
