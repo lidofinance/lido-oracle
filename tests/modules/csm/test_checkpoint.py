@@ -54,11 +54,13 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
     return Web3Converter(chain_config, frame_config)
 
 
+@pytest.mark.unit
 def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
     with pytest.raises(MinStepIsNotReached):
         FrameCheckpointsIterator(converter, 100, 600, 109)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "l_epoch,r_epoch,finalized_epoch,expected_checkpoints",
     [
@@ -135,6 +137,7 @@ def mock_get_state_block_roots_with_duplicates(consensus_client):
     consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_block_roots, converter: Web3Converter):
     state = ...
     finalized_blockstamp = ...
@@ -148,6 +151,7 @@ def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_
     assert len([r for r in roots if r is not None]) == 8192
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_get_block_roots_with_duplicates(
     consensus_client, mock_get_state_block_roots_with_duplicates, converter: Web3Converter
 ):
@@ -170,6 +174,7 @@ def mock_get_config_spec(consensus_client):
     consensus_client.get_config_spec = Mock(return_value=bc_spec)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_select_block_roots(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
@@ -187,6 +192,7 @@ def test_checkpoints_processor_select_block_roots(
     assert selected == [f'0x{r}' for r in range(320, 384)]
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_select_block_roots_out_of_range(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
@@ -221,6 +227,7 @@ def mock_get_attestation_committees(consensus_client):
     consensus_client.get_attestation_committees = Mock(side_effect=_get_attestation_committees)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_prepare_committees(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
@@ -243,6 +250,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
             assert validator.included is False
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_process_attestations(mock_get_attestation_committees, consensus_client, converter):
     state = ...
     finalized_blockstamp = ...
@@ -274,6 +282,7 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
                 assert validator.included is False
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_process_attestations_undefined_committee(
     mock_get_attestation_committees, consensus_client, converter
 ):
@@ -313,6 +322,7 @@ def mock_get_block_attestations(consensus_client, faker: Faker):
     consensus_client.get_block_attestations = Mock(side_effect=_get_block_attestations)
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_check_duty(
     mock_get_state_block_roots,
     mock_get_attestation_committees,
@@ -338,6 +348,7 @@ def test_checkpoints_processor_check_duty(
     assert len(state.data) == 2048 * 32
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_process(
     mock_get_state_block_roots,
     mock_get_attestation_committees,
@@ -363,6 +374,7 @@ def test_checkpoints_processor_process(
     assert len(state.data) == 2048 * 32
 
 
+@pytest.mark.unit
 def test_checkpoints_processor_exec(
     mock_get_state_block_roots,
     mock_get_attestation_committees,

@@ -18,11 +18,13 @@ def mock_state_file(state_file_path: Path):
     State.file = Mock(return_value=state_file_path)
 
 
+@pytest.mark.unit
 def test_attestation_aggregate_perf():
     aggr = AttestationsAccumulator(included=333, assigned=777)
     assert aggr.perf == pytest.approx(0.4285, abs=1e-4)
 
 
+@pytest.mark.unit
 def test_state_avg_perf():
     state = State()
 
@@ -47,6 +49,7 @@ def test_state_avg_perf():
     assert state.get_network_aggr().perf == 0.5
 
 
+@pytest.mark.unit
 def test_state_frame():
     state = State()
 
@@ -62,6 +65,7 @@ def test_state_frame():
         state.frame
 
 
+@pytest.mark.unit
 def test_state_attestations():
     state = State(
         {
@@ -76,6 +80,7 @@ def test_state_attestations():
     assert network_aggr.included == 500
 
 
+@pytest.mark.unit
 def test_state_load():
     orig = State(
         {
@@ -89,6 +94,7 @@ def test_state_load():
     assert copy.data == orig.data
 
 
+@pytest.mark.unit
 def test_state_clear():
     state = State(
         {
@@ -105,6 +111,7 @@ def test_state_clear():
     assert not state.data
 
 
+@pytest.mark.unit
 def test_state_add_processed_epoch():
     state = State()
     state.add_processed_epoch(EpochNumber(42))
@@ -112,6 +119,7 @@ def test_state_add_processed_epoch():
     assert state._processed_epochs == {EpochNumber(42), EpochNumber(17)}
 
 
+@pytest.mark.unit
 def test_state_inc():
     state = State(
         {
@@ -137,10 +145,12 @@ def test_state_inc():
     )
 
 
+@pytest.mark.unit
 def test_state_file_is_path():
     assert isinstance(State.file(), Path)
 
 
+@pytest.mark.unit
 class TestStateTransition:
     """Tests for State's transition for different l_epoch, r_epoch values"""
 

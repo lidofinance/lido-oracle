@@ -20,7 +20,7 @@ class NodeOperatorStatsFactory(Web3DataclassFactory[NodeOperatorStats]):
 
 
 @pytest.fixture
-def iterator(web3, contracts, lido_validators):
+def iterator(web3):
     return ValidatorExitIterator(
         web3,
         ReferenceBlockStampFactory.build(),
@@ -44,6 +44,7 @@ def test_get_filter_non_exitable_validators(iterator):
     assert filt(LidoValidatorFactory.build(index="1"))
 
 
+@pytest.mark.unit
 def test_calculate_validators_age(iterator, monkeypatch):
     monkeypatch.setattr('src.services.exit_order_iterator.get_validator_age', lambda x, _: 1)
     iterator.blockstamp = ReferenceBlockStampFactory.build()
@@ -51,6 +52,7 @@ def test_calculate_validators_age(iterator, monkeypatch):
     assert age == 20
 
 
+@pytest.mark.unit
 def test_eject_validator(iterator):
     sk_1 = StakingModuleFactory.build(
         id=1,
@@ -399,12 +401,14 @@ def test_get_remaining_forced_validators_all_predictable(iterator):
     assert len(vals) == 0
 
 
+@pytest.mark.unit
 def test_get_remaining_forced_validators_no_node_operators(iterator):
     iterator.node_operators_stats = {}
     vals = iterator.get_remaining_forced_validators()
     assert len(vals) == 0
 
 
+@pytest.mark.unit
 def test_get_remaining_forced_validators_no_more_place_in_report(iterator):
     iterator.max_validators_to_exit = 10
     iterator.index = 10
@@ -425,6 +429,7 @@ def test_get_remaining_forced_validators_no_more_place_in_report(iterator):
     assert len(vals) == 0
 
 
+@pytest.mark.unit
 def test_lowest_validators_index_predicate(iterator):
     iterator.node_operators_stats = {
         (1, 1): NodeOperatorStatsFactory.build(

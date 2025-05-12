@@ -16,9 +16,6 @@ from src.types import StakingModuleAddress
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
-@pytest.mark.usefixtures(
-    "contracts",
-)
 @pytest.mark.integration
 @pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:

@@ -238,7 +238,7 @@ def token_rebased_logs(tr_hashes):
 
 
 @pytest.mark.unit
-def test_get_rewards_no_matching_events(web3, contracts):
+def test_get_rewards_no_matching_events(web3):
     bp = ReferenceBlockStampFactory.build(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
@@ -264,7 +264,7 @@ def test_get_rewards_no_matching_events(web3, contracts):
 
 
 @pytest.mark.unit
-def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch):
+def test_get_rewards_prediction(web3, monkeypatch: pytest.MonkeyPatch):
     bp = ReferenceBlockStampFactory.build(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,

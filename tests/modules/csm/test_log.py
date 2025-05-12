@@ -23,11 +23,13 @@ def log(ref_blockstamp: ReferenceBlockStamp, frame: tuple[EpochNumber, EpochNumb
     return FramePerfLog(ref_blockstamp, frame)
 
 
+@pytest.mark.unit
 def test_fields_access(log: FramePerfLog):
     log.operators[NodeOperatorId(42)].validators["100500"].slashed = True
     log.operators[NodeOperatorId(17)].stuck = True
 
 
+@pytest.mark.unit
 def test_log_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
     log.operators[NodeOperatorId(42)].validators["41337"].perf = AttestationsAccumulator(220, 119)

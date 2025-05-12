@@ -396,6 +396,7 @@ def test_get_validator_midterm_penalty(
     assert result == expected_penalty
 
 
+@pytest.mark.unit
 def test_cut_slashings_basic():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     midterm_penalty_epoch = 20
@@ -410,6 +411,7 @@ def test_cut_slashings_basic():
     assert result == expected, f"Expected {expected}, but got {result}"
 
 
+@pytest.mark.unit
 def test_cut_slashings_incorrect_length():
     invalid_length = EPOCHS_PER_SLASHINGS_VECTOR - 1
     slashings = [Gwei(i) for i in range(invalid_length)]
@@ -418,6 +420,7 @@ def test_cut_slashings_incorrect_length():
         MidtermSlashingPenalty._cut_slashings(slashings, 10, 20)
 
 
+@pytest.mark.unit
 def test_cut_slashings_no_obsolete_indexes():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     midterm_penalty_epoch = 5
@@ -428,6 +431,7 @@ def test_cut_slashings_no_obsolete_indexes():
     assert result == slashings, f"Expected {slashings}, but got {result}"
 
 
+@pytest.mark.unit
 def test_cut_slashings_all_removed():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     report_ref_epoch = 1
