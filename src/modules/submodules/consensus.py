@@ -1,25 +1,21 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import cast, Optional
+from typing import cast, Optional, Protocol
 
 from eth_abi import encode
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
-from src.metrics.prometheus.business import (
-    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
-    FRAME_CURRENT_REF_SLOT,
-    FRAME_DEADLINE_SLOT,
-    ORACLE_MEMBER_INFO
-)
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src.metrics.prometheus.basic import ACCOUNT_BALANCE, GENESIS_TIME, ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.business import (FRAME_CURRENT_REF_SLOT, FRAME_DEADLINE_SLOT, ORACLE_MEMBER_INFO,
+                                             ORACLE_MEMBER_LAST_REPORT_REF_SLOT)
+from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion, IsNotMemberException
+from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig, MemberInfo, ZERO_HASH
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
+from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
@@ -30,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
 InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
+
+
+class Report(Protocol):
+    def as_tuple(self) -> tuple:
+        ...
 
 
 class ConsensusModule(ABC):
@@ -279,7 +280,8 @@ class ConsensusModule(ABC):
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
-        report_data = self.build_report(blockstamp)
+        x = self.build_report(blockstamp)
+        report_data = x.as_tuple()
         logger.info({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._encode_data_hash(report_data)
@@ -465,7 +467,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
         """Returns ReportData struct with calculated data."""
 
     @abstractmethod

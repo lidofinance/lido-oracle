@@ -327,7 +327,7 @@ class ConsensusImpl(ConsensusModule):
     """Consensus module implementation for testing purposes"""
 
     def build_report(self, _: ReferenceBlockStamp) -> tuple:
-        return tuple()
+        return type("", (), {"as_tuple": lambda self: ()})()
 
     def is_main_data_submitted(self, _: BlockStamp) -> bool:
         return True

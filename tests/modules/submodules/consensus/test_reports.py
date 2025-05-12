@@ -1,15 +1,14 @@
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
-from dataclasses import dataclass
 
 from src import variables
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
-
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 
@@ -54,7 +53,7 @@ def test_process_report_main(consensus, caplog):
     consensus._send_report_hash = Mock()
     report_data = ReportData(
         1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
-    ).as_tuple()
+    )
     consensus.build_report = Mock(return_value=report_data)
 
     consensus.process_report(blockstamp)

@@ -377,7 +377,7 @@ def test_build_report(
 
     accounting._calculate_report = Mock(return_value=Mock(as_tuple=Mock(return_value=REPORT)))
 
-    report = accounting.build_report(ref_bs)
+    report = accounting.build_report(ref_bs).as_tuple()
 
     assert report is REPORT, "build_report returned unexpected value"
     accounting._calculate_report.assert_called_once_with(ref_bs)

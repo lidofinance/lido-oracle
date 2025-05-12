@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from typing import Optional
 
@@ -20,10 +19,10 @@ from src.metrics.prometheus.ejector import (
 from src.modules.ejector.data_encode import encode_data
 from src.modules.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.ejector.types import EjectorProcessingState, ReportData
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert, Report
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.consensus.types import Validator, BeaconStateView
+from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import ValidatorExitIterator
 from src.services.prediction import RewardsPredictionService
@@ -31,14 +30,8 @@ from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_state import (
-    compute_activation_exit_epoch,
-    get_activation_exit_churn_limit,
-    get_validator_churn_limit,
-    get_max_effective_balance,
-    is_active_validator,
-    is_fully_withdrawable_validator,
-)
+from src.utils.validator_state import (compute_activation_exit_epoch, get_activation_exit_churn_limit, get_max_effective_balance,
+                                       is_active_validator, is_fully_withdrawable_validator)
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -90,7 +83,7 @@ class Ejector(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     @duration_meter()
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
         # For metrics only
         self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
 
@@ -111,8 +104,7 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
-
-        return dataclasses.astuple(report_data)
+        return report_data
 
     def get_validators_to_eject(self, blockstamp: ReferenceBlockStamp) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
@@ -290,14 +282,6 @@ class Ejector(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs(state, chain_config)
-
-    @lru_cache(maxsize=1)
-    def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
-        total_active_validators = len(self._get_active_validators(blockstamp))
-        logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
-        churn_limit = get_validator_churn_limit(total_active_validators)
-        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
-        return churn_limit
 
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:

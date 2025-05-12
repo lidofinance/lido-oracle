@@ -1,7 +1,10 @@
 import argparse
+import re
 import sys
-from typing import cast, Iterator, Optional
+from dataclasses import asdict
+from typing import Any, cast, Dict, Iterator, Optional
 
+from deepdiff import DeepDiff
 from hexbytes import HexBytes
 from packaging.version import Version
 from prometheus_client import start_http_server
@@ -116,10 +119,9 @@ def main(module_name: OracleModule):
         instance.cycle_handler()
 
 
-def get_transactions(w3, contract: BaseOracleContract, limit: int = 10):
-    default_block_offset = 100_000
+def get_transactions(w3, contract: BaseOracleContract, limit: int, block_offset: int):
     event_abi = "ProcessingStarted(uint256,bytes32)"
-    event_topic = '0x' + Web3.keccak(text=event_abi).hex()
+    event_topic = Web3.to_hex(primitive=Web3.keccak(text=event_abi))
 
     def get_processing_started_logs(from_block: int, to_block: int):
         return w3.eth.get_logs({
@@ -130,34 +132,44 @@ def get_transactions(w3, contract: BaseOracleContract, limit: int = 10):
         })
 
     latest = w3.eth.block_number
-    logs = get_processing_started_logs(from_block=latest - default_block_offset, to_block=latest)
-    results = [log["transactionHash"].hex() for log in logs]
+    logs = get_processing_started_logs(from_block=latest - block_offset, to_block=latest)
+    tx_hashes = [log['transactionHash'].hex() for log in logs]
+    print(f"Found {len(tx_hashes)} submitReportData transactions in latest {block_offset} blocks.")
 
     txs = []
-    for tx_hash in results[:limit]:
+    for tx_hash in tx_hashes[:limit]:
         tx = w3.eth.get_transaction(tx_hash)
-        _, params = contract.decode_function_input(tx["input"])
+        _, params = contract.decode_function_input(tx['input'])
         data = {
             k: HexBytes(v.hex()) if isinstance(v, (bytes, bytearray)) else v
-            for k, v in params["data"].items()
+            for k, v in params['data'].items()
         }
         txs.append(data)
 
+    print(f"Will process {len(txs)} transactions")
     return txs
 
 
-def run_on_refslot(module_name: OracleModule):
-    logging.getLogger().setLevel(logging.WARNING)
+def run_on_refslot(module_name: OracleModule, limit, block_offset):
+    #logging.getLogger().setLevel(logging.WARNING)
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
     instance.check_contract_configs()
 
-    txs = get_transactions(w3, instance.report_contract)
+    txs = get_transactions(w3, instance.report_contract, limit, block_offset)
     if not txs:
         logger.error("No submitReportData transactions found!")
         sys.exit(0)
 
-    logger.info("Found %d submitReportData calls", len(txs))
+    _camel_to_snake_pattern = re.compile(r'(.)([A-Z][a-z]+)')
+    _camel_to_snake_pattern2 = re.compile(r'([a-z0-9])([A-Z])')
+
+    def camel_to_snake(name: str) -> str:
+        s1 = _camel_to_snake_pattern.sub(r'\1_\2', name)
+        return _camel_to_snake_pattern2.sub(r'\1_\2', s1).lower()
+
+    def normalize_keys(d: Dict[str, Any]) -> Dict[str, Any]:
+        return {camel_to_snake(k): v for k, v in d.items()}
 
     for tx in txs:
         refslot = int(tx['refSlot'])
@@ -170,7 +182,19 @@ def run_on_refslot(module_name: OracleModule):
         report_blockstamp = instance.get_blockstamp_for_report(bs)
         report = instance.build_report(report_blockstamp)
 
-        print(report)
+        normalized_input = normalize_keys(tx)
+        report_dict = asdict(report)
+        report_dict = {
+            k: HexBytes(v.hex()) if isinstance(v, (bytes, bytearray)) else v
+            for k, v in report_dict.items()
+        }
+        print("Output data:", report_dict)
+        diff = DeepDiff(normalized_input, report_dict, ignore_order=True)
+        if diff:
+            print("🚨 Differences found:")
+            print(diff)
+        else:
+            print("✅ All fields match!")
         instance = _construct_module(w3, module_name, refslot)
 
 
@@ -232,10 +256,25 @@ def parse_args():
         default=None,
         help="Module name to check for a refslot execution."
     )
+    check_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Maximum number of items to process."
+    )
+    check_parser.add_argument(
+        "--offset",
+        type=int,
+        default=100_000,
+        help="Starting index offset for processing."
+    )
     for mod in OracleModule:
         if mod == OracleModule.CHECK:
             continue
-        subparsers.add_parser(mod.value, help=f"Run the {mod.value} module.")
+        subparsers.add_parser(
+            mod.value,
+            help=f"Run the {mod.value} module."
+        )
 
     return parser.parse_args()
 
@@ -256,7 +295,7 @@ if __name__ == '__main__':
         else:
             errors = variables.check_all_required_variables(module)
             variables.raise_from_errors(errors)
-            run_on_refslot(args.name)
+            run_on_refslot(args.name, args.limit, args.offset)
             sys.exit(0)
 
     errors = variables.check_all_required_variables(module)

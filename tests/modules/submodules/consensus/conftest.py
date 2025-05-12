@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.submodules.consensus import ConsensusModule
+from src.modules.submodules.consensus import ConsensusModule, Report
 from src.types import BlockStamp, ReferenceBlockStamp
 
 
@@ -12,8 +12,8 @@ class SimpleConsensusModule(ConsensusModule):
         self.report_contract = w3.lido_contracts.accounting_oracle
         super().__init__(w3)
 
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        return tuple()
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
+        return type("", (), {"as_tuple": lambda self: ()})()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         return True

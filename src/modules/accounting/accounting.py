@@ -16,7 +16,7 @@ from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (AccountingProcessingState, BunkerMode, FinalizationShareRate, GenericExtraData, LidoReportRebase,
                                           RebaseReport, ReportData, ValidatorsBalance, ValidatorsCount, WqReport)
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert, Report
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
@@ -101,10 +101,10 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     @duration_meter()
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
         report_data = self._calculate_report(blockstamp)
         logger.info({'msg': 'Calculate report for accounting module.', 'value': report_data})
-        return report_data.as_tuple()
+        return report_data
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         # Consensus module: if contract got report data (second phase)
@@ -154,7 +154,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
     # ---------------------------------------- Build report ----------------------------------------
-    def _calculate_report(self, blockstamp: ReferenceBlockStamp):
+    def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
         consensus_version = self.get_consensus_version(blockstamp)
         logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
         rebase_part = self._calculate_rebase_report(blockstamp)
@@ -358,7 +358,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     @staticmethod
     def _update_metrics(report_data: ReportData):
-        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
+        ACCOUNTING_IS_BUNKER.set(report_data.is_bunker_mode)
         ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_balance_gwei)
         ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
         ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
@@ -378,16 +378,16 @@ class Accounting(BaseModule, ConsensusModule):
         return ReportData(
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,
-            validators_count=validators_count,
+            num_validators=validators_count,
             cl_balance_gwei=cl_balance,
-            staking_module_ids_with_exited_validators=staking_module_ids_list,
-            count_exited_validators_by_staking_module=exit_validators_count_list,
+            staking_module_ids_with_newly_exited_validators=staking_module_ids_list,
+            num_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=withdrawal_vault_balance,
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            finalization_share_rate=finalization_share_rate,
-            is_bunker=is_bunker,
+            simulated_share_rate=finalization_share_rate,
+            is_bunker_mode=is_bunker,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
