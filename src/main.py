@@ -2,7 +2,7 @@ import argparse
 import re
 import sys
 from dataclasses import asdict
-from typing import Any, cast, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, Optional, cast
 
 from deepdiff import DeepDiff
 from hexbytes import HexBytes
@@ -18,14 +18,28 @@ from src.modules.checks.checks_module import execute_checks
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.ipfs import GW3, IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
+from src.providers.ipfs import (
+    GW3,
+    IPFSProvider,
+    Kubo,
+    MultiIPFSProvider,
+    Pinata,
+    PublicIPFS,
+)
 from src.types import BlockRoot, OracleModule, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import (ConsensusClientModule, FallbackProviderModule, KeysAPIClientModule, LazyCSM, LidoContracts,
-                                   LidoValidatorsProvider, TransactionUtils)
+from src.web3py.extensions import (
+    ConsensusClientModule,
+    FallbackProviderModule,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
 from src.web3py.middleware import add_requests_metric_middleware
 from src.web3py.types import Web3
 
@@ -151,7 +165,7 @@ def get_transactions(w3, contract: BaseOracleContract, limit: int, block_offset:
 
 
 def run_on_refslot(module_name: OracleModule, limit, block_offset):
-    #logging.getLogger().setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.WARNING)
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
     instance.check_contract_configs()
