@@ -151,7 +151,7 @@ def get_transactions(w3, contract: BaseOracleContract, limit: int, block_offset:
     print(f"Found {len(tx_hashes)} submitReportData transactions in latest {block_offset} blocks.")
 
     txs = []
-    for tx_hash in tx_hashes[:limit]:
+    for tx_hash in tx_hashes[:-limit]:
         tx = w3.eth.get_transaction(tx_hash)
         _, params = contract.decode_function_input(tx['input'])
         data = {
@@ -164,7 +164,7 @@ def get_transactions(w3, contract: BaseOracleContract, limit: int, block_offset:
     return txs
 
 
-def run_on_refslot(module_name: OracleModule, limit, block_offset):
+def _run_on_previous_transactions(module_name: OracleModule, limit: int, block_offset: int):
     logging.getLogger().setLevel(logging.WARNING)
     w3 = _construct_web3()
     instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
@@ -210,6 +210,25 @@ def run_on_refslot(module_name: OracleModule, limit, block_offset):
         else:
             print("✅ All fields match!")
         instance = _construct_module(w3, module_name, refslot)
+
+
+def _run_on_refslot(refslot: int, module_name: OracleModule,):
+    w3 = _construct_web3()
+    instance: Accounting | Ejector | CSOracle = _construct_module(w3, module_name, True)
+    instance.check_contract_configs()
+    block_root = BlockRoot(w3.cc.get_block_root(SlotNumber(refslot + 3 * 32)).root)
+    block_details = w3.cc.get_block_details(block_root)
+    bs = build_blockstamp(block_details)
+    instance.refslot = refslot
+    instance.refresh_contracts_if_address_change()
+    report_blockstamp = instance.get_blockstamp_for_report(bs)
+    report = instance.build_report(report_blockstamp)
+    report_dict = asdict(report)
+    report_dict = {
+        k: HexBytes(v.hex()) if isinstance(v, (bytes, bytearray)) else v
+        for k, v in report_dict.items()
+    }
+    print("Output data:", report_dict)
 
 
 def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
@@ -258,14 +277,18 @@ def parse_args():
     Parse command-line arguments using argparse.
     The 'module' argument is restricted to valid OracleModule values.
     """
-    valid_modules = [str(item) for item in OracleModule]
+    valid_modules = [item.value for item in OracleModule]
 
     parser = argparse.ArgumentParser(description="Run the Oracle module process.")
-    subparsers = parser.add_subparsers(dest="module", required=True, help=f"Module to run. One of: {valid_modules}")
+    subparsers = parser.add_subparsers(
+        dest="module",
+        required=True,
+        help=f"Module to run. One of: {valid_modules}"
+    )
+
     check_parser = subparsers.add_parser("check", help="Run the check module.")
     check_parser.add_argument(
-        "--name",
-        "-n",
+        "--name", "-n",
         type=str,
         default=None,
         help="Module name to check for a refslot execution."
@@ -273,15 +296,22 @@ def parse_args():
     check_parser.add_argument(
         "--limit",
         type=int,
-        default=10,
-        help="Maximum number of items to process."
+        default=None,
+        help="Maximum number of items to process (default: 10)."
     )
     check_parser.add_argument(
         "--offset",
         type=int,
-        default=100_000,
-        help="Starting index offset for processing."
+        default=None,
+        help="Starting index offset for processing (default: 100_000)."
     )
+    check_parser.add_argument(
+        "--slot",
+        type=int,
+        default=None,
+        help="Specific slot to process. Cannot be used with --limit or --offset."
+    )
+
     for mod in OracleModule:
         if mod == OracleModule.CHECK:
             continue
@@ -290,7 +320,19 @@ def parse_args():
             help=f"Run the {mod.value} module."
         )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.module == OracleModule.CHECK.value and args.slot is not None:
+        if args.limit is not None or args.offset is not None:
+            parser.error("--slot cannot be used together with --limit or --offset")
+
+    if args.module == OracleModule.CHECK.value and args.slot is None:
+        if args.limit is None:
+            args.limit = 10
+        if args.offset is None:
+            args.offset = 100_000
+
+    return args
 
 
 if __name__ == '__main__':
@@ -306,10 +348,13 @@ if __name__ == '__main__':
             errors = variables.check_uri_required_variables()
             variables.raise_from_errors(errors)
             sys.exit(execute_checks())
+        elif args.slot is not None:
+            _run_on_refslot(args.slot, args.name)
+            sys.exit(0)
         else:
             errors = variables.check_all_required_variables(module)
             variables.raise_from_errors(errors)
-            run_on_refslot(args.name, args.limit, args.offset)
+            _run_on_previous_transactions(args.name, args.limit, args.offset)
             sys.exit(0)
 
     errors = variables.check_all_required_variables(module)
