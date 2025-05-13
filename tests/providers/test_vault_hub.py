@@ -35,3 +35,11 @@ class TestVaultHubSmoke:
         vaults = vault_hub.get_all_vaults(limit=15)
 
         assert len(vaults) == vault_hub.get_vaults_count()
+
+    def test_vault_hub_get_report(self, vault_hub):
+        report = vault_hub.get_report(block_identifier='latest')
+        assert report is not None
+
+    def test_vault_vault_socket(self, vault_hub):
+        socket = vault_hub.vault_socket(vault_id=0)
+        assert socket is not None

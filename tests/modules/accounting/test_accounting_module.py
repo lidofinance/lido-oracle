@@ -10,16 +10,16 @@ from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
+from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportResults,
     VaultData,
-    VaultSocket,
     VaultsData,
     VaultTreeNode,
     VaultsMap,
-    StakingRewardsDistribution,
+    StakingRewardsDistribution, ReportValues,
 )
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
@@ -68,7 +68,7 @@ def frame_config() -> FrameConfig:
 def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.get_blockstamp_for_report = Mock(return_value=None)
     assert (
-        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+            accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ), "execute_module should wait for the next finalized epoch"
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
 
@@ -77,7 +77,7 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.process_extra_data = Mock(return_value=None)
     accounting._check_compatability = Mock(return_value=True)
     assert (
-        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
+            accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
     ), "execute_module should wait for the next slot"
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
     accounting.process_report.assert_called_once_with(bs)
@@ -143,9 +143,9 @@ def test_get_consensus_lido_state(accounting: Accounting):
 @pytest.mark.parametrize(
     ("post_total_pooled_ether", "post_total_shares", "expected_share_rate"),
     [
-        (15 * 10**18, 15 * 10**18, 1 * 10**27),
-        (12 * 10**18, 15 * 10**18, 8 * 10**26),
-        (18 * 10**18, 14 * 10**18, 1285714285714285714285714285),
+        (15 * 10 ** 18, 15 * 10 ** 18, 1 * 10 ** 27),
+        (12 * 10 ** 18, 15 * 10 ** 18, 8 * 10 ** 26),
+        (18 * 10 ** 18, 14 * 10 ** 18, 1285714285714285714285714285),
     ],
 )
 def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, post_total_shares, expected_share_rate):
@@ -179,7 +179,7 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     bs = ReferenceBlockStampFactory.build()
 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
-        Withdrawal, 'get_finalization_batches', return_value=[]
+            Withdrawal, 'get_finalization_batches', return_value=[]
     ):
         batches = accounting._get_finalization_batches(bs)
 
@@ -245,11 +245,11 @@ class TestAccountingProcessExtraData:
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
     def test_no_submit_if_can_submit_is_false(
-        self,
-        accounting: Accounting,
-        submit_extra_data_mock: Mock,
-        ref_bs: ReferenceBlockStamp,
-        bs: BlockStamp,
+            self,
+            accounting: Accounting,
+            submit_extra_data_mock: Mock,
+            ref_bs: ReferenceBlockStamp,
+            bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=False)
@@ -262,11 +262,11 @@ class TestAccountingProcessExtraData:
     @pytest.mark.unit
     @pytest.mark.usefixtures('_no_sleep_before_report')
     def test_submit_if_can_submit_is_true(
-        self,
-        accounting: Accounting,
-        submit_extra_data_mock: Mock,
-        ref_bs: ReferenceBlockStamp,
-        bs: BlockStamp,
+            self,
+            accounting: Accounting,
+            submit_extra_data_mock: Mock,
+            ref_bs: ReferenceBlockStamp,
+            bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
         accounting.can_submit_extra_data = Mock(return_value=True)
@@ -281,10 +281,10 @@ class TestAccountingProcessExtraData:
 @pytest.mark.unit
 class TestAccountingSubmitExtraData:
     def test_submit_extra_data_non_empty(
-        self,
-        accounting: Accounting,
-        ref_bs: ReferenceBlockStamp,
-        chain_config: ChainConfig,
+            self,
+            accounting: Accounting,
+            ref_bs: ReferenceBlockStamp,
+            chain_config: ChainConfig,
     ):
         extra_data = bytes(32)
 
@@ -299,10 +299,10 @@ class TestAccountingSubmitExtraData:
         accounting.get_extra_data.assert_called_once_with(ref_bs)
 
     def test_submit_extra_data_empty(
-        self,
-        accounting: Accounting,
-        ref_bs: ReferenceBlockStamp,
-        chain_config: ChainConfig,
+            self,
+            accounting: Accounting,
+            ref_bs: ReferenceBlockStamp,
+            chain_config: ChainConfig,
     ):
         accounting.get_extra_data = Mock(return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value))
         accounting.report_contract.submit_report_extra_data_list = Mock()  # type: ignore
@@ -327,11 +327,11 @@ class TestAccountingSubmitExtraData:
     ],
 )
 def test_can_submit_extra_data(
-    accounting: Accounting,
-    extra_data_submitted: bool,
-    main_data_submitted: bool,
-    expected: bool,
-    bs: BlockStamp,
+        accounting: Accounting,
+        extra_data_submitted: bool,
+        main_data_submitted: bool,
+        expected: bool,
+        bs: BlockStamp,
 ):
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
         return_value=Mock(
@@ -357,11 +357,11 @@ def test_can_submit_extra_data(
     ],
 )
 def test_is_contract_reportable(
-    accounting: Accounting,
-    main_data_submitted: bool,
-    can_submit_extra_data: bool,
-    expected: bool,
-    bs: BlockStamp,
+        accounting: Accounting,
+        main_data_submitted: bool,
+        can_submit_extra_data: bool,
+        expected: bool,
+        bs: BlockStamp,
 ):
     accounting.is_main_data_submitted = Mock(return_value=main_data_submitted)
     accounting.can_submit_extra_data = Mock(return_value=can_submit_extra_data)
@@ -373,8 +373,8 @@ def test_is_contract_reportable(
 
 @pytest.mark.unit
 def test_is_main_data_submitted(
-    accounting: Accounting,
-    bs: BlockStamp,
+        accounting: Accounting,
+        bs: BlockStamp,
 ):
     accounting.w3.lido_contracts.accounting_oracle.get_processing_state = Mock(
         return_value=Mock(main_data_submitted=False)
@@ -393,8 +393,8 @@ def test_is_main_data_submitted(
 
 @pytest.mark.unit
 def test_build_report(
-    accounting: Accounting,
-    ref_bs: ReferenceBlockStamp,
+        accounting: Accounting,
+        ref_bs: ReferenceBlockStamp,
 ):
     REPORT = object()
 
@@ -413,9 +413,9 @@ def test_build_report(
 
 @pytest.mark.unit
 def test_get_shares_to_burn(
-    accounting: Accounting,
-    bs: BlockStamp,
-    monkeypatch: pytest.MonkeyPatch,
+        accounting: Accounting,
+        bs: BlockStamp,
+        monkeypatch: pytest.MonkeyPatch,
 ):
     shares_data = Mock(cover_shares=42, non_cover_shares=17)
     call_mock = accounting.w3.lido_contracts.burner.get_shares_requested_to_burn = Mock(return_value=shares_data)
@@ -423,7 +423,7 @@ def test_get_shares_to_burn(
     out = accounting.get_shares_to_burn(bs)
 
     assert (
-        out == shares_data.cover_shares + shares_data.non_cover_shares
+            out == shares_data.cover_shares + shares_data.non_cover_shares
     ), "get_shares_to_burn returned unexpected value"
     call_mock.assert_called_once()
 
@@ -453,9 +453,9 @@ def test_simulate_full_rebase(accounting: Accounting, ref_bs: ReferenceBlockStam
 
 @pytest.mark.unit
 def test_simulate_rebase_after_report(
-    accounting: Accounting,
-    ref_bs: ReferenceBlockStamp,
-    chain_config: ChainConfig,
+        accounting: Accounting,
+        ref_bs: ReferenceBlockStamp,
+        chain_config: ChainConfig,
 ):
     # NOTE: we don't test the actual rebase calculation here, just the logic of the method
     accounting.get_chain_config = Mock(return_value=chain_config)
@@ -524,6 +524,7 @@ def test_simulate_rebase_after_report(
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
     accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
     accounting.w3.staking_vaults.publish_tree = Mock(return_value='tree_cid')
+    accounting.w3.staking_vaults.get_merkle_tree = Mock(return_value=StakingVaults.get_merkle_tree(tree_data))
 
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
@@ -551,6 +552,15 @@ def test_simulate_rebase_after_report(
     )
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
+    accounting.w3.lido_contracts.accounting.simulate_oracle_report.assert_called_once_with(
+        ReportValues(timestamp=1678794852, time_elapsed=504, cl_validators=0, cl_balance=0, withdrawal_vault_balance=17,
+                     el_rewards_vault_balance=0, shares_requested_to_burn=13, withdrawal_finalization_batches=[],
+                     vaults_total_treasury_fees_shares=0, vaults_total_deficit=0,
+                     vaults_data_tree_root=StakingVaults.get_merkle_tree(tree_data).root,
+                     vaults_data_tree_cid='tree_cid'),
+        0,
+        '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b'
+    )
     assert isinstance(out, ReportResults), "simulate_rebase_after_report returned unexpected value"
 
 
@@ -571,10 +581,10 @@ def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: 
 
 @pytest.mark.unit
 def test_is_bunker(
-    accounting: Accounting,
-    ref_bs: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-    frame_config: FrameConfig,
+        accounting: Accounting,
+        ref_bs: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+        frame_config: FrameConfig,
 ):
     CL_REBASE = object()
     BUNKER = object()
