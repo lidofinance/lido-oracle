@@ -6,13 +6,13 @@ from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import Gwei, ValidatorIndex, EpochNumber
+from src.types import EpochNumber, Gwei, ValidatorIndex
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
+from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
-from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
+from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
 
 def simple_validators(

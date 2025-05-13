@@ -5,20 +5,14 @@ from functools import reduce
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH, SHARD_COMMITTEE_PERIOD
-from src.metrics.prometheus.accounting import (
-    ACCOUNTING_STUCK_VALIDATORS,
-    ACCOUNTING_EXITED_VALIDATORS,
-)
+from src.metrics.prometheus.accounting import (ACCOUNTING_EXITED_VALIDATORS, ACCOUNTING_STUCK_VALIDATORS)
 from src.modules.submodules.types import ChainConfig
-from src.types import BlockStamp, ReferenceBlockStamp, EpochNumber, OperatorsValidatorCount
+from src.types import BlockStamp, EpochNumber, OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.types import bytes_to_hex_str
-from src.utils.validator_state import is_exited_validator, is_validator_eligible_to_exit, is_on_exit
-from src.web3py.extensions.lido_validators import (
-    NodeOperatorGlobalIndex,
-    LidoValidator,
-)
+from src.utils.validator_state import is_exited_validator, is_on_exit, is_validator_eligible_to_exit
+from src.web3py.extensions.lido_validators import (LidoValidator, NodeOperatorGlobalIndex)
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)

@@ -16,11 +16,9 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
-
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
+from src.types import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
-
 
 logger = logging.getLogger(__name__)
 

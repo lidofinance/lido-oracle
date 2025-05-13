@@ -1,29 +1,28 @@
 import logging
 import time
 import traceback
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from dataclasses import asdict
 from enum import Enum
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
-
-from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.providers.http_provider import NotOkResponse
-from src.providers.ipfs import IPFSError
-from src.providers.keys.client import KeysOutdatedException
-from src.utils.cache import clear_global_cache
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
-from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.types import SlotNumber, BlockStamp, BlockRoot
+from src.metrics.healthcheck_server import pulse
+from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion, IsNotMemberException
+from src.providers.http_provider import NotOkResponse
+from src.providers.ipfs import IPFSError
+from src.providers.keys.client import KeysOutdatedException
+from src.types import BlockRoot, BlockStamp, SlotNumber
+from src.utils.blockstamp import build_blockstamp
+from src.utils.cache import clear_global_cache
+from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +59,10 @@ class BaseModule(ABC):
         self._cycle()
         self._sleep_cycle()
 
+    def refresh_contracts_and_run_cycle(self, blockstamp: BlockStamp):
+        self.refresh_contracts_if_address_change()
+        self.run_cycle(blockstamp)
+
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
     def _cycle(self):
         """
@@ -78,8 +81,8 @@ class BaseModule(ABC):
                 })
                 return
 
-            self.refresh_contracts_if_address_change()
-            self.run_cycle(blockstamp)
+            self.refresh_contracts_and_run_cycle(blockstamp)
+            pulse()
         except IsNotMemberException as error:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise error
@@ -130,7 +133,6 @@ class BaseModule(ABC):
     def run_cycle(self, blockstamp: BlockStamp):
         logger.info({'msg': 'Execute module.', 'value': blockstamp})
         result = self.execute_module(blockstamp)
-        pulse()
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
             self._slot_threshold = blockstamp.slot_number
 

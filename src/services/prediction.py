@@ -9,7 +9,6 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.web3py.types import Web3
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -1,25 +1,21 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import cast
+from typing import cast, Optional, Protocol
 
 from eth_abi import encode
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
-from src.metrics.prometheus.business import (
-    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
-    FRAME_CURRENT_REF_SLOT,
-    FRAME_DEADLINE_SLOT,
-    ORACLE_MEMBER_INFO
-)
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src.metrics.prometheus.basic import ACCOUNT_BALANCE, GENESIS_TIME, ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.business import (FRAME_CURRENT_REF_SLOT, FRAME_DEADLINE_SLOT, ORACLE_MEMBER_INFO,
+                                             ORACLE_MEMBER_LAST_REPORT_REF_SLOT)
+from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion, IsNotMemberException
+from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig, MemberInfo, ZERO_HASH
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
+from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
@@ -30,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
 InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
+
+
+class Report(Protocol):
+    def as_tuple(self) -> tuple:
+        ...
 
 
 class ConsensusModule(ABC):
@@ -44,6 +45,7 @@ class ConsensusModule(ABC):
     report_contract should contain getConsensusContract method.
     """
     report_contract: BaseOracleContract
+    refslot: Optional[int] = None
 
     COMPATIBLE_CONTRACT_VERSION: int
     COMPATIBLE_CONSENSUS_VERSION: int
@@ -192,9 +194,25 @@ class ConsensusModule(ABC):
             current_frame_member_report=current_frame_member_report,
             deadline_slot=current_frame.report_processing_deadline_slot,
         )
-        logger.debug({'msg': 'Fetch member info.', 'value': mi})
+        logger.info({'msg': 'Fetch member info.', 'value': mi})
 
         return mi
+
+    def _calculate_reference_blockstamp(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp:
+        converter = self._get_web3_converter(last_finalized_blockstamp)
+        member_info = self.get_member_info(self._get_latest_blockstamp())
+
+        refslot = member_info.current_frame_ref_slot
+        if self.refslot:
+            refslot = self.refslot
+        bs = get_reference_blockstamp(
+            cc=self.w3.cc,
+            ref_slot=refslot,
+            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+        )
+        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
+        return bs
 
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
@@ -203,6 +221,8 @@ class ConsensusModule(ABC):
         Returns:
             Non-missed reference slot blockstamp in case contract is reportable.
         """
+        if self.refslot:
+            return self._calculate_reference_blockstamp(last_finalized_blockstamp)
         latest_blockstamp = self._get_latest_blockstamp()
 
         # Check if contract is currently reportable
@@ -211,7 +231,6 @@ class ConsensusModule(ABC):
             return None
 
         member_info = self.get_member_info(latest_blockstamp)
-        logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if current slot is higher than member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
@@ -223,17 +242,7 @@ class ConsensusModule(ABC):
             logger.info({'msg': 'Deadline missed.'})
             return None
 
-        converter = self._get_web3_converter(last_finalized_blockstamp)
-
-        bs = get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
-            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
-        )
-        logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
-
-        return bs
+        return self._calculate_reference_blockstamp(last_finalized_blockstamp)
 
     def _check_compatability(self, blockstamp: BlockStamp) -> bool:
         """
@@ -271,7 +280,8 @@ class ConsensusModule(ABC):
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
         """Builds and sends report for current frame with provided blockstamp."""
-        report_data = self.build_report(blockstamp)
+        x = self.build_report(blockstamp)
+        report_data = x.as_tuple()
         logger.info({'msg': 'Build report.', 'value': report_data})
 
         report_hash = self._encode_data_hash(report_data)
@@ -389,8 +399,7 @@ class ConsensusModule(ABC):
         # Transform str abi to tuple, because ReportData is struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
-        report_hash = self.w3.keccak(encoded)
-        return report_hash
+        return self.w3.keccak(encoded)
 
     def _send_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: bytes, consensus_version: int):
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -405,7 +414,10 @@ class ConsensusModule(ABC):
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        root = self.w3.cc.get_block_root('head').root
+        if self.refslot:
+            root = self.w3.cc.get_block_root(SlotNumber(self.refslot + 3 * 32)).root
+        else:
+            root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
         bs = build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
@@ -455,7 +467,7 @@ class ConsensusModule(ABC):
 
     @abstractmethod
     @lru_cache(maxsize=1)
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
         """Returns ReportData struct with calculated data."""
 
     @abstractmethod

@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 
 from src.types import SlotNumber
@@ -21,3 +22,6 @@ class ReportData:
     requests_count: int
     data_format: int
     data: bytes
+
+    def as_tuple(self) -> tuple:
+        return dataclasses.astuple(self)

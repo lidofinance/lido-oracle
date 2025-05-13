@@ -1,4 +1,5 @@
 import json
+
 import pytest
 
 from src.modules.csm.log import FramePerfLog

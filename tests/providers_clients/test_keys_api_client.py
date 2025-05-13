@@ -9,8 +9,7 @@ from packaging.version import Version
 from web3 import Web3
 
 import src.providers.keys.client as keys_api_client_module
-from src import constants
-from src import variables
+from src import constants, variables
 from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
 from src.types import StakingModuleAddress

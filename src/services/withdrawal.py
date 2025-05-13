@@ -1,12 +1,12 @@
 from web3.types import Wei
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
+from src.modules.accounting.types import BatchState
+from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.services.safe_border import SafeBorder
+from src.types import FinalizationBatches, ReferenceBlockStamp
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
-from src.types import ReferenceBlockStamp, FinalizationBatches
-from src.services.safe_border import SafeBorder
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
-from src.modules.accounting.types import BatchState
 
 
 class Withdrawal:

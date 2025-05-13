@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TypeAlias, Literal
+from typing import Literal, TypeAlias
 
 from hexbytes import HexBytes
 

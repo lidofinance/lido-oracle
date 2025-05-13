@@ -1,54 +1,47 @@
 from dataclasses import dataclass
-from typing import Self, NewType
+from typing import NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.types import (
-    SlotNumber,
-    Gwei,
-    StakingModuleId,
-    FinalizationBatches,
-    ELVaultBalance,
-    WithdrawalVaultBalance,
-    OperatorsValidatorCount,
-)
+from src.types import (ELVaultBalance, FinalizationBatches, Gwei, OperatorsValidatorCount, SlotNumber, StakingModuleId,
+                       WithdrawalVaultBalance)
 
 
 @dataclass
 class ReportData:
     consensus_version: int
     ref_slot: SlotNumber
-    validators_count: int
+    num_validators: int
     cl_balance_gwei: Gwei
-    staking_module_ids_with_exited_validators: list[StakingModuleId]
-    count_exited_validators_by_staking_module: list[int]
+    staking_module_ids_with_newly_exited_validators: list[StakingModuleId]
+    num_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: int
     withdrawal_finalization_batches: list[int]
-    finalization_share_rate: int
-    is_bunker: bool
+    simulated_share_rate: int
+    is_bunker_mode: bool
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
 
-    def as_tuple(self):
+    def as_tuple(self) -> tuple:
         # Tuple with report in correct order
         return (
             self.consensus_version,
             self.ref_slot,
-            self.validators_count,
+            self.num_validators,
             self.cl_balance_gwei,
-            self.staking_module_ids_with_exited_validators,
-            self.count_exited_validators_by_staking_module,
+            self.staking_module_ids_with_newly_exited_validators,
+            self.num_exited_validators_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
-            self.finalization_share_rate,
-            self.is_bunker,
+            self.simulated_share_rate,
+            self.is_bunker_mode,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,

@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from itertools import groupby
 from time import sleep
-from typing import Callable, Iterator, cast
+from typing import Callable, cast, Iterator
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes

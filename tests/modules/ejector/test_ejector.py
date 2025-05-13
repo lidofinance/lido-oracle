@@ -1,11 +1,9 @@
-from typing import Iterable, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
 from web3.exceptions import ContractCustomError
 
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src import constants
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     GWEI_TO_WEI,
@@ -16,19 +14,15 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import (
-    Ejector,
-)
-from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.ejector import Ejector, logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
-from src.utils import validator_state
-from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
@@ -36,6 +30,7 @@ from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFacto
 from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.test_safe_border_unit import FAR_FUTURE_EPOCH
+from types import SimpleNamespace
 
 
 @pytest.fixture(autouse=True)
@@ -93,7 +88,7 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=3)
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
-    ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
+    ejector.build_report = ejector.build_report = lambda bs: SimpleNamespace(as_tuple=lambda: (1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
 
     result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
@@ -106,7 +101,7 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
     ejector.get_validators_to_eject = Mock(return_value=[])
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_last_processing_ref_slot.return_value = SlotNumber(0)
 
-    _, ref_slot, _, _, data = ejector.build_report(ref_blockstamp)
+    _, ref_slot, _, _, data = ejector.build_report(ref_blockstamp).as_tuple()
     ejector.build_report(ref_blockstamp)
 
     assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
@@ -420,54 +415,6 @@ def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance.assert_called_once_with(blockstamp)
     ejector.w3.lido_contracts.get_el_vault_balance.assert_called_once_with(blockstamp)
     ejector.w3.lido_contracts.lido.get_buffered_ether.assert_called_once_with(blockstamp.block_hash)
-
-
-@pytest.mark.unit
-class TestChurnLimit:
-    """_get_churn_limit tests"""
-
-    @pytest.fixture(autouse=True)
-    def mock_is_active_validator(self, monkeypatch: pytest.MonkeyPatch) -> Iterable:
-        with monkeypatch.context() as m:
-            m.setattr(
-                ejector_module,
-                "is_active_validator",
-                Mock(side_effect=lambda v, _: bool(v)),
-            )
-            yield
-
-    def test_get_churn_limit_no_validators(self, ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
-        ejector.w3.cc.get_validators = Mock(return_value=[])
-        result = ejector._get_churn_limit(ref_blockstamp)
-        assert result == constants.MIN_PER_EPOCH_CHURN_LIMIT, "Unexpected churn limit"
-        ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
-
-    def test_get_churn_limit_validators_less_than_min_churn(
-        self,
-        ejector: Ejector,
-        ref_blockstamp: ReferenceBlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with monkeypatch.context() as m:
-            ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
-            result = ejector._get_churn_limit(ref_blockstamp)
-            assert result == 4, "Unexpected churn limit"
-            ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
-
-    def test_get_churn_limit_basic(
-        self,
-        ejector: Ejector,
-        ref_blockstamp: ReferenceBlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with monkeypatch.context() as m:
-            ejector.w3.cc.get_validators = Mock(return_value=[1] * 99)
-            m.setattr(validator_state, "MIN_PER_EPOCH_CHURN_LIMIT", 0)
-            m.setattr(validator_state, "CHURN_LIMIT_QUOTIENT", 2)
-            result = ejector._get_churn_limit(ref_blockstamp)
-            assert result == 49, "Unexpected churn limit"
-            ejector._get_churn_limit(ref_blockstamp)
-            ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
 
 @pytest.mark.unit

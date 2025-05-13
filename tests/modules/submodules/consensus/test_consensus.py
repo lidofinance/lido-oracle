@@ -1,5 +1,5 @@
-from typing import cast
 from dataclasses import dataclass
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -9,18 +9,17 @@ from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.modules.submodules import consensus as consensus_module
-from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
+from src.modules.submodules.consensus import ConsensusModule, IsNotMemberException, MemberInfo, ZERO_HASH
+from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
-
-from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
+from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
+    BlockDetailsResponseFactory,
     ChainConfigFactory,
     FrameConfigFactory,
-    BlockDetailsResponseFactory,
 )
 from tests.factory.member_info import MemberInfoFactory
 
@@ -328,7 +327,7 @@ class ConsensusImpl(ConsensusModule):
     """Consensus module implementation for testing purposes"""
 
     def build_report(self, _: ReferenceBlockStamp) -> tuple:
-        return tuple()
+        return type("", (), {"as_tuple": lambda self: ()})()
 
     def is_main_data_submitted(self, _: BlockStamp) -> bool:
         return True

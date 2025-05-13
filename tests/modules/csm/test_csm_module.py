@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import NoReturn, Iterable, Literal, Type
+from typing import Iterable, Literal, NoReturn, Type
 from unittest.mock import Mock, patch, PropertyMock
 
 import pytest
@@ -13,9 +13,8 @@ from src.modules.csm.state import AttestationsAccumulator, State
 from src.modules.csm.tree import Tree
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import CurrentFrame, ZERO_HASH
-from src.providers.ipfs import CIDv0, CID
+from src.providers.ipfs import CID, CIDv0
 from src.types import EpochNumber, NodeOperatorId, SlotNumber, StakingModuleId, ValidatorIndex
-from src.web3py.extensions.csm import CSM
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
@@ -707,7 +706,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
     module.publish_tree = Mock(return_value=param.curr_tree_cid)
     module.publish_log = Mock(return_value=param.curr_log_cid)
 
-    report = module.build_report(blockstamp=Mock(ref_slot=100500))
+    report = module.build_report(blockstamp=Mock(ref_slot=100500)).as_tuple()
 
     assert module.make_tree.call_args == param.expected_make_tree_call_args
     assert report == param.expected_func_result

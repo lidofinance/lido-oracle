@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Iterator
+from typing import Iterator, Optional
 
 from hexbytes import HexBytes
 
@@ -16,7 +16,7 @@ from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import Tree
 from src.modules.csm.types import ReportData, Shares
-from src.modules.submodules.consensus import ConsensusModule
+from src.modules.submodules.consensus import ConsensusModule, Report
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
@@ -65,9 +65,10 @@ class CSOracle(BaseModule, ConsensusModule):
     report_contract: CSFeeOracleContract
     module_id: StakingModuleId
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, refslot: Optional[int] = None):
         self.report_contract = w3.csm.oracle
         self.state = State.load()
+        self.refslot = refslot
         super().__init__(w3)
         self.module_id = self._get_module_id()
 
@@ -93,7 +94,7 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     @duration_meter()
-    def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
+    def build_report(self, blockstamp: ReferenceBlockStamp) -> Report:
         self.validate_state(blockstamp)
 
         prev_root = self.w3.csm.get_csm_tree_root(blockstamp)
@@ -118,7 +119,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 tree_cid=prev_cid or "",
                 log_cid=log_cid,
                 distributed=0,
-            ).as_tuple()
+            )
 
         if prev_cid and prev_root != ZERO_HASH:
             # Update cumulative amount of shares for all operators.
@@ -137,7 +138,7 @@ class CSOracle(BaseModule, ConsensusModule):
             tree_cid=tree_cid,
             log_cid=log_cid,
             distributed=distributed,
-        ).as_tuple()
+        )
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
