@@ -30,8 +30,8 @@ class ValidatorDutiesOutcome:
 class DistributionResult:
     total_rewards: Shares = 0
     total_rebate: Shares = 0
-    total_rewards_map: dict[NodeOperatorId, Shares] = field(default_factory=dict)
-    strikes: dict[StrikesValidator, StrikesList] = field(default_factory=dict)
+    total_rewards_map: dict[NodeOperatorId, Shares] = field(default_factory=lambda: defaultdict(Shares))
+    strikes: dict[StrikesValidator, StrikesList] = field(default_factory=lambda: defaultdict(StrikesList))
     logs: list[FramePerfLog] = field(default_factory=list)
 
 
@@ -62,13 +62,10 @@ class Distribution:
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
             frame_log = FramePerfLog(frame_blockstamp, frame)
-            (
-                rewards_map_in_frame,
-                distributed_rewards_in_frame,
-                rebate_to_protocol_in_frame,
-                strikes_in_frame
-            ) = self._calculate_distribution_in_frame(
-                frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators, frame_log
+            (rewards_map_in_frame, distributed_rewards_in_frame, rebate_to_protocol_in_frame, strikes_in_frame) = (
+                self._calculate_distribution_in_frame(
+                    frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators, frame_log
+                )
             )
             if not distributed_rewards_in_frame:
                 logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
@@ -88,7 +85,9 @@ class Distribution:
             result.logs.append(frame_log)
 
         if result.total_rewards != sum(result.total_rewards_map.values()):
-            raise InconsistentData(f"Invalid distribution: {sum(result.total_rewards_map.values())=} != {result.total_rewards=}")
+            raise InconsistentData(
+                f"Invalid distribution: {sum(result.total_rewards_map.values())=} != {result.total_rewards=}"
+            )
 
         for no_id, last_report_rewards in last_report.rewards:
             result.total_rewards_map[no_id] += last_report_rewards
