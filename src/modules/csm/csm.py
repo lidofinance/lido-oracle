@@ -10,7 +10,7 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.distribution import Distribution, StrikesValidator
+from src.modules.csm.distribution import Distribution, StrikesValidator, DistributionResult
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -129,10 +129,10 @@ class CSOracle(BaseModule, ConsensusModule):
     def _get_last_report(self, blockstamp: BlockStamp) -> LastReport:
         return LastReport.load(self.w3, blockstamp)
 
-    def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> Distribution:
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        distribution.calculate(blockstamp, last_report)
-        return distribution
+        result = distribution.calculate(blockstamp, last_report)
+        return result
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
