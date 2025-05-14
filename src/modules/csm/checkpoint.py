@@ -187,7 +187,8 @@ class FrameCheckpointProcessor:
             block_root = self._select_block_root_by_slot(block_roots, checkpoint_slot, slot_to_check)
             roots_to_check.append((slot_to_check, block_root))
 
-        duty_epoch_roots, next_epoch_roots = roots_to_check[:32], roots_to_check[32:]
+        slots_per_epoch = self.converter.chain_config.slots_per_epoch
+        duty_epoch_roots, next_epoch_roots = roots_to_check[:slots_per_epoch], roots_to_check[slots_per_epoch:]
 
         return duty_epoch_roots, next_epoch_roots
 
