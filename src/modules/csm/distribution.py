@@ -1,6 +1,7 @@
 import logging
 import math
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field
 
 from src.modules.csm.helpers.last_report import LastReport
@@ -9,7 +10,7 @@ from src.modules.csm.state import Frame, State, ValidatorDuties
 from src.modules.csm.types import Shares, StrikesList, StrikesValidator
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
-from src.types import NodeOperatorId, ReferenceBlockStamp, EpochNumber, StakingModuleAddress
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, StakingModuleAddress
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
@@ -72,7 +73,7 @@ class Distribution:
             if not distributed_rewards_in_frame:
                 logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
 
-            self._merge_strikes(result.strikes, strikes_in_frame, frame_blockstamp)
+            result.strikes = self._process_strikes(result.strikes, strikes_in_frame, frame_blockstamp)
             if not strikes_in_frame:
                 logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
@@ -267,23 +268,27 @@ class Distribution:
                 f"Invalid distribution: {total_distributed_rewards + total_rebate} > {total_rewards_to_distribute}"
             )
 
-    def _merge_strikes(
+    def _process_strikes(
         self,
         acc: dict[StrikesValidator, StrikesList],
         strikes_in_frame: dict[StrikesValidator, int],
         frame_blockstamp: ReferenceBlockStamp,
-    ) -> None:
-        for key in strikes_in_frame:
-            if key not in acc:
-                acc[key] = StrikesList()
-            acc[key].push(strikes_in_frame[key])
+    ) -> dict[StrikesValidator, StrikesList]:
+        merged = deepcopy(acc)
 
-        for key in list(acc.keys()):
+        for key in strikes_in_frame:
+            if key not in merged:
+                merged[key] = StrikesList()
+            merged[key].push(strikes_in_frame[key])
+
+        for key in list(merged.keys()):
             no_id, _ = key
             if key not in strikes_in_frame:
-                acc[key].push(StrikesList.SENTINEL)  # Just shifting...
+                merged[key].push(StrikesList.SENTINEL)  # Just shifting...
             maxlen = self.w3.csm.get_curve_params(no_id, frame_blockstamp).strikes_params.lifetime
-            acc[key].resize(maxlen)
+            merged[key].resize(maxlen)
             # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
-            if not sum(acc[key]):
-                del acc[key]
+            if not sum(merged[key]):
+                del merged[key]
+
+        return merged
