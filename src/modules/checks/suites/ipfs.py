@@ -7,7 +7,7 @@ import pytest
 
 from src import variables
 from src.main import ipfs_providers
-from src.providers.ipfs import GW3, IPFSError, IPFSProvider, Kubo, Pinata, PublicIPFS
+from src.providers.ipfs import IPFSError, IPFSProvider, Kubo, Pinata, PublicIPFS
 from src.providers.ipfs.cid import CIDv0
 
 
@@ -20,7 +20,7 @@ def content():
 def providers():
     configured_providers = tuple(ipfs_providers())
 
-    for typ in (GW3, Pinata, Kubo):
+    for typ in (Pinata, Kubo):
         try:
             provider = [p for p in configured_providers if isinstance(p, typ)].pop()
         except IndexError:
