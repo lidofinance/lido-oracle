@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
@@ -25,32 +25,29 @@ class ValidatorDutiesOutcome:
     strikes: int
 
 
+@dataclass
+class DistributionResult:
+    total_rewards: Shares = 0
+    total_rebate: Shares = 0
+    total_rewards_map: dict[NodeOperatorId, Shares] = field(default_factory=dict)
+    strikes: dict[StrikesValidator, StrikesList] = field(default_factory=dict)
+    logs: list[FramePerfLog] = field(default_factory=list)
+
+
 class Distribution:
     w3: Web3
     converter: Web3Converter
     state: State
 
-    total_rewards: Shares
-    total_rewards_map: defaultdict[NodeOperatorId, Shares]
-    total_rebate: Shares
-    strikes: dict[StrikesValidator, StrikesList]
-    logs: list[FramePerfLog]
-
     def __init__(self, w3: Web3, converter: Web3Converter, state: State):
         self.w3 = w3
         self.converter = converter
         self.state = state
-        # Distribution results
-        self.total_rewards = 0
-        self.total_rewards_map = defaultdict[NodeOperatorId, int](int)
-        self.total_rebate = 0
-        self.strikes = {}
-        self.logs: list[FramePerfLog] = []
 
-    def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> None:
+    def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         """Computes distribution of fee shares at the given timestamp"""
-
-        self.strikes.update(last_report.strikes.items())
+        result = DistributionResult()
+        result.strikes.update(last_report.strikes.items())
 
         for frame in self.state.frames:
             from_epoch, to_epoch = frame
@@ -60,7 +57,7 @@ class Distribution:
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
             total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
-            distributed_so_far = self.total_rewards + self.total_rebate
+            distributed_so_far = result.total_rewards + result.total_rebate
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
             frame_log = FramePerfLog(frame_blockstamp, frame)
@@ -75,25 +72,27 @@ class Distribution:
             if not distributed_rewards_in_frame:
                 logger.info({"msg": f"No rewards distributed in frame [{from_epoch};{to_epoch}]"})
 
-            self._merge_strikes(self.strikes, strikes_in_frame, frame_blockstamp)
+            self._merge_strikes(result.strikes, strikes_in_frame, frame_blockstamp)
             if not strikes_in_frame:
                 logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
-            self.total_rewards += distributed_rewards_in_frame
-            self.total_rebate += rebate_to_protocol_in_frame
+            result.total_rewards += distributed_rewards_in_frame
+            result.total_rebate += rebate_to_protocol_in_frame
 
-            self.validate_distribution(self.total_rewards, self.total_rebate, total_rewards_to_distribute)
+            self.validate_distribution(result.total_rewards, result.total_rebate, total_rewards_to_distribute)
 
             for no_id, rewards in rewards_map_in_frame.items():
-                self.total_rewards_map[no_id] += rewards
+                result.total_rewards_map[no_id] += rewards
 
-            self.logs.append(frame_log)
+            result.logs.append(frame_log)
 
-        if self.total_rewards != sum(self.total_rewards_map.values()):
-            raise InconsistentData(f"Invalid distribution: {sum(self.total_rewards_map.values())=} != {self.total_rewards=}")
+        if result.total_rewards != sum(result.total_rewards_map.values()):
+            raise InconsistentData(f"Invalid distribution: {sum(result.total_rewards_map.values())=} != {result.total_rewards=}")
 
         for no_id, last_report_rewards in last_report.rewards:
-            self.total_rewards_map[no_id] += last_report_rewards
+            result.total_rewards_map[no_id] += last_report_rewards
+
+        return result
 
     def _get_frame_blockstamp(self, blockstamp: ReferenceBlockStamp, to_epoch: EpochNumber) -> ReferenceBlockStamp:
         if to_epoch != blockstamp.ref_epoch:

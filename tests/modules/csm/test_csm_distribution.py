@@ -301,15 +301,15 @@ def test_calculate_distribution(
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
     distribution._calculate_distribution_in_frame = Mock(side_effect=distribution_in_frame)
 
-    distribution.calculate(blockstamp=..., last_report=last_report)
+    result = distribution.calculate(blockstamp=..., last_report=last_report)
 
-    assert distribution.total_rewards == expected_total_rewards
-    assert distribution.total_rewards_map == expected_total_rewards_map
-    assert distribution.total_rebate == expected_total_rebate
-    assert distribution.strikes == expected_strikes
+    assert result.total_rewards == expected_total_rewards
+    assert result.total_rewards_map == expected_total_rewards_map
+    assert result.total_rebate == expected_total_rebate
+    assert result.strikes == expected_strikes
 
-    assert len(distribution.logs) == len(frames)
-    for i, log in enumerate(distribution.logs):
+    assert len(result.logs) == len(frames)
+    for i, log in enumerate(result.logs):
         assert log.blockstamp == frame_blockstamps[i]
         assert log.frame == frames[i]
 
