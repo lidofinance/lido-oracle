@@ -139,16 +139,6 @@ def chain_config():
 
 
 @pytest.mark.unit
-def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x8"})
-    validator_state.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots = Mock(return_value=0)
-
-    stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
-
-    assert stuck_validators == {(1, 0): 1}
-
-
-@pytest.mark.unit
 def test_get_operators_with_last_exited_validator_indexes(web3, validator_state):
     indexes = validator_state.get_operators_with_last_exited_validator_indexes(blockstamp)
     assert indexes == {(1, 0): 3, (1, 1): 8}

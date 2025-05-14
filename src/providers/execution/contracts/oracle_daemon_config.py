@@ -42,10 +42,6 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('REBASE_CHECK_DISTANT_EPOCH_DISTANCE', block_identifier)
 
     @lru_cache(maxsize=1)
-    def node_operator_network_penetration_threshold_bp(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP', block_identifier)
-
-    @lru_cache(maxsize=1)
     def prediction_duration_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
         return self._get('PREDICTION_DURATION_IN_SLOTS', block_identifier)
 
