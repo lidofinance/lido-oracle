@@ -1073,9 +1073,9 @@ def test_merge_strikes(
         side_effect=lambda no_id, _: Mock(strikes_params=threshold_per_op[no_id])
     )
 
-    distribution._merge_strikes(acc, strikes_in_frame, frame_blockstamp=Mock())
+    result = distribution._process_strikes(acc, strikes_in_frame, frame_blockstamp=Mock())
 
-    assert acc == expected
+    assert result == expected
 
 
 @pytest.mark.parametrize(
