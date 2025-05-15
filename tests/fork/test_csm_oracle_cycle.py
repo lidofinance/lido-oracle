@@ -132,11 +132,7 @@ def missed_initial_frame(frame_config: FrameConfig):
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
-    [
-        start_before_initial_epoch,
-        # start_after_initial_epoch,
-        # missed_initial_frame
-    ],
+    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
 def test_csm_module_report(module, set_oracle_members, running_finalized_slots, account_from):
