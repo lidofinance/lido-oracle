@@ -1,4 +1,4 @@
-from typing import Iterable, cast
+from typing import cast, Iterable
 from unittest.mock import Mock
 
 import pytest
@@ -16,10 +16,7 @@ from src.constants import (
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import (
-    Ejector,
-)
-from src.modules.ejector.ejector import logger as ejector_logger
+from src.modules.ejector.ejector import Ejector, logger as ejector_logger
 from src.modules.ejector.types import EjectorProcessingState
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, CurrentFrame

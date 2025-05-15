@@ -35,16 +35,11 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
                 None,
                 lambda response: check_value_type(response, int),
             ),
-            (
-                'validator_delayed_timeout_in_slots',
-                None,
-                lambda response: check_value_type(response, int),
-            ),
-            (
-                'validator_delinquent_timeout_in_slots',
-                None,
-                lambda response: check_value_type(response, int),
-            ),
+            # (
+            #    'exit_events_lookback_window_in_slots',
+            #    None,
+            #    lambda response: check_value_type(response, int),
+            # )
         ],
         caplog,
     )

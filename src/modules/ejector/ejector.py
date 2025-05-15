@@ -124,7 +124,7 @@ class Ejector(BaseModule, ConsensusModule):
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
             blockstamp=blockstamp,
-            seconds_per_slot=chain_config.seconds_per_slot
+            chain_config=chain_config,
         ))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
