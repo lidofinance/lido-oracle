@@ -6,10 +6,10 @@ import pytest
 import src.modules.ejector.sweep as sweep_module
 from src.constants import MAX_WITHDRAWALS_PER_PAYLOAD, MIN_ACTIVATION_BALANCE
 from src.modules.ejector.sweep import (
-    Withdrawal,
     get_pending_partial_withdrawals,
     get_sweep_delay_in_epochs,
     get_validators_withdrawals,
+    Withdrawal,
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
@@ -47,6 +47,8 @@ def fake_beacon_state_view():
         LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
         LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 12)),
     ]
+    min_withdraw_epoch = min([v.validator.withdrawable_epoch for v in validators])
+    min_withdraw_slot = min_withdraw_epoch * 12 - 10
     pending_partial_withdrawals = [
         PendingPartialWithdrawal(validator_index=0, amount=500, withdrawable_epoch=1),
         PendingPartialWithdrawal(validator_index=1, amount=700, withdrawable_epoch=1),
@@ -55,6 +57,7 @@ def fake_beacon_state_view():
         validators=validators,
         pending_partial_withdrawals=pending_partial_withdrawals,
         slashings=[],
+        slot=min_withdraw_slot,
     )
 
 
@@ -86,6 +89,7 @@ def test_get_validators_withdrawals(fake_beacon_state_view):
     assert result[0].amount == 10, f"Expected amount 1 for validator 2, got {result[0].amount}"
 
 
+@pytest.mark.unit
 def test_only_validators_withdrawals():
     """Test when there are only validators eligible for withdrawals."""
 
@@ -100,6 +104,7 @@ def test_only_validators_withdrawals():
     assert result == 2
 
 
+@pytest.mark.unit
 def test_combined_withdrawals():
     """Test when there are both partial and full withdrawals."""
 

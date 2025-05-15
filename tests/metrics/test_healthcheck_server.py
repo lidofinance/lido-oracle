@@ -1,5 +1,7 @@
 # pylint: disable=protected-access
 import unittest
+import pytest
+
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from io import BytesIO
@@ -10,9 +12,10 @@ import responses
 
 import src.metrics.healthcheck_server
 from src.metrics.healthcheck_server import pulse, PulseRequestHandler
-from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
+from src import variables
 
 
+@pytest.mark.unit
 class TestPulseFunction(unittest.TestCase):
 
     @responses.activate
@@ -56,6 +59,7 @@ def _create_mock_request_handler(path):
     return handler
 
 
+@pytest.mark.unit
 class TestPulseRequestHandler(unittest.TestCase):
     def setUp(self):
         # Reset _last_pulse to current time before each test
@@ -74,7 +78,7 @@ class TestPulseRequestHandler(unittest.TestCase):
         """Test that the handler responds with 503 when the last pulse is outdated."""
         # Set the last pulse to an outdated time
         src.metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(
-            seconds=MAX_CYCLE_LIFETIME_IN_SECONDS + 1
+            seconds=variables.MAX_CYCLE_LIFETIME_IN_SECONDS + 1
         )
 
         handler = _create_mock_request_handler('/smth/')

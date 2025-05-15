@@ -9,8 +9,6 @@ from src.metrics.prometheus.basic import EL_REQUESTS_DURATION
 from src.variables import EXECUTION_CLIENT_URI
 from src.web3py.middleware import add_requests_metric_middleware, Web3MetricsMiddleware
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def provider():
@@ -39,6 +37,7 @@ def _get_requests_labels():
     return labels
 
 
+@pytest.mark.integration
 def test_success(web3):
     web3.eth.get_block_number()
     labels = _get_requests_labels()
@@ -51,6 +50,7 @@ def test_success(web3):
     }
 
 
+@pytest.mark.integration
 def test_fail_with_status_code(provider, web3):
     provider.endpoint_uri = 'https://github.com'
     with pytest.raises(HTTPError):
@@ -65,6 +65,7 @@ def test_fail_with_status_code(provider, web3):
     }
 
 
+@pytest.mark.unit
 class TestMetricsCollectorUnit:
     @pytest.fixture
     def mock_web3(self):

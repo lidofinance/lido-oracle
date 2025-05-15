@@ -6,6 +6,7 @@ import pytest
 from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse
 
 
+@pytest.mark.unit
 def test_urljoin():
     join = HTTPProvider._urljoin
     assert join('http://localhost', 'api') == 'http://localhost/api'
@@ -18,11 +19,13 @@ def test_urljoin():
     assert join('http://localhost/token/', 'api') == 'http://localhost/token/api'
 
 
+@pytest.mark.unit
 def test_no_providers():
     with pytest.raises(NoHostsProvided):
         HTTPProvider([], 5 * 60, 1, 1)
 
 
+@pytest.mark.unit
 def test_all_fallbacks_ok():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
     provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params, stream: (host, endpoint)
@@ -30,12 +33,14 @@ def test_all_fallbacks_ok():
     assert len(provider.get_all_providers()) == 2
 
 
+@pytest.mark.unit
 def test_all_fallbacks_bad():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
     with pytest.raises(Exception):
         provider._get('test')
 
 
+@pytest.mark.unit
 def test_first_fallback_bad():
     def _simple_get(host, endpoint, *_):
         if host == 'http://localhost:1':
@@ -47,6 +52,7 @@ def test_first_fallback_bad():
     assert provider._get('test') == ('http://localhost:2', 'test')
 
 
+@pytest.mark.unit
 def test_force_raise():
     class CustomError(Exception):
         pass

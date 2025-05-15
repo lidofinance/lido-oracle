@@ -238,7 +238,7 @@ def token_rebased_logs(tr_hashes):
 
 
 @pytest.mark.unit
-def test_get_rewards_no_matching_events(web3, contracts):
+def test_get_rewards_no_matching_events(web3):
     bp = ReferenceBlockStampFactory.build(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,
@@ -246,16 +246,15 @@ def test_get_rewards_no_matching_events(web3, contracts):
         slot_number=SlotNumber(100000),
         block_hash=None,
     )
-
     cc = ChainConfig(
         slots_per_epoch=32,
         seconds_per_slot=12,
         genesis_time=0,
     )
-
     web3.lido_contracts.lido.events = MagicMock()
     web3.lido_contracts.lido.events.ETHDistributed.get_logs.return_value = []
     web3.lido_contracts.lido.events.TokenRebased.get_logs.return_value = []
+    web3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots.return_value = 12
 
     p = RewardsPredictionService(web3)
 
@@ -265,7 +264,7 @@ def test_get_rewards_no_matching_events(web3, contracts):
 
 
 @pytest.mark.unit
-def test_get_rewards_prediction(web3, contracts, monkeypatch: pytest.MonkeyPatch):
+def test_get_rewards_prediction(web3, monkeypatch: pytest.MonkeyPatch):
     bp = ReferenceBlockStampFactory.build(
         block_number=BlockNumber(14),
         block_timestamp=1675441520,

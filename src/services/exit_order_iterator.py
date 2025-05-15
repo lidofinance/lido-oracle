@@ -45,7 +45,6 @@ class ValidatorExitIterator:
     | V       |                                             | Highest number of targeted validators to boosted exit |                        |
     | V       |                                             | Highest number of targeted validators to smooth exit  |                        |
     | V       | Highest deviation from the exit share limit |                                                       |                        |
-    | V       |                                             | Highest stake weight                                  |                        |
     | V       |                                             | Highest number of validators                          |                        |
     | V       |                                             |                                                       | Lowest validator index |
     """
