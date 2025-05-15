@@ -148,6 +148,7 @@ def test_get_lido_new_exited_validators(web3, validator_state):
 
 @pytest.mark.unit
 def test_get_recently_requested_validators_by_operator(monkeypatch, web3, validator_state):
+    exit_event_lookback_window = 7200
     mock_get_events_in_past = Mock(
         return_value=[
             {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
@@ -155,15 +156,17 @@ def test_get_recently_requested_validators_by_operator(monkeypatch, web3, valida
         ]
     )
     monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(
+        return_value=exit_event_lookback_window
+    )
 
     global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
-
     assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
     mock_get_events_in_past.assert_called_once_with(
         web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
         to_blockstamp=blockstamp,
-        for_slots=7200,
+        for_slots=exit_event_lookback_window,
         seconds_per_slot=12,
     )
 
@@ -185,5 +188,6 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
     recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
         blockstamp, chain_config
     )
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 
     assert [int(v.index) for v in recently_requested_validators] == [1]
