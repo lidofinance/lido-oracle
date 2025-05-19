@@ -83,7 +83,7 @@ def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int
             **os.environ,
             'CHAIN': chain,
             "ANVIL_PORT": str(anvil_port),
-            "RPC_URL": f"http://127.0.0.1:{anvil_port}",  # FIXME: actually unused by the script, remove when fixed
+            "RPC_URL": f"http://127.0.0.1:{anvil_port}",
             'DEPLOY_CONFIG': f'./artifacts/local/upgrade-{chain}.json',
         },
         stdout=subprocess.DEVNULL,
