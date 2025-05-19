@@ -5,13 +5,13 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 
 @pytest.mark.integration
-def test_lido_contract_call(lido_contract, accounting_oracle_contract, caplog):
+def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_contract, caplog):
     check_contract(
         lido_contract,
         [
-            ('get_buffered_ether', None, check_value_type(int)),
-            ('total_supply', None, check_value_type(int)),
-            ('get_beacon_stat', None, check_value_type(BeaconStat)),
+            ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
+            ('total_supply', None, lambda response: check_value_type(response, int)),
+            ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
             (
                 'handle_oracle_report',
                 (
@@ -27,7 +27,7 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, caplog):
                     # Call depends on contract state
                     '0xffa34bcc5a08c92272a62e591f7afb9cb839134aa08c091ae0c95682fba35da9',
                 ),
-                check_value_type(LidoReportRebase),
+                lambda response: check_value_type(response, LidoReportRebase),
             ),
         ],
         caplog,
