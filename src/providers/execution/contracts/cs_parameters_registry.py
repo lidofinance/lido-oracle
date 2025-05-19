@@ -48,7 +48,7 @@ class KeyNumberValueInterval:
 
 
 @dataclass
-class IntervalMapping:
+class KeyNumberValue:
     intervals: list[KeyNumberValueInterval]
 
     def get_for(self, key_number: int) -> float:
@@ -69,8 +69,8 @@ class StrikesParams:
 @dataclass
 class CurveParams:
     perf_coeffs: PerformanceCoefficients
-    perf_leeway_data: IntervalMapping
-    reward_share_data: IntervalMapping
+    perf_leeway_data: KeyNumberValue
+    reward_share_data: KeyNumberValue
     strikes_params: StrikesParams
 
 
@@ -100,7 +100,7 @@ class CSParametersRegistryContract(ContractInterface):
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> IntervalMapping:
+    ) -> KeyNumberValue:
         """Returns reward share data for given node operator"""
 
         resp = self.functions.getRewardShareData(curve_id).call(block_identifier=block_identifier)
@@ -111,14 +111,14 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return IntervalMapping(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
+        return KeyNumberValue(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp.intervals])
 
     @lru_cache()
     def get_performance_leeway_data(
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> IntervalMapping:
+    ) -> KeyNumberValue:
         """Returns performance leeway data for given node operator"""
 
         resp = self.functions.getPerformanceLeewayData(curve_id).call(block_identifier=block_identifier)
@@ -129,7 +129,7 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return IntervalMapping(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
+        return KeyNumberValue(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp.intervals])
 
     @lru_cache()
     def get_strikes_params(
