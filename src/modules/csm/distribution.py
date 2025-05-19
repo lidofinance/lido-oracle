@@ -140,8 +140,8 @@ class Distribution:
             curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
-            sorted_active_validators = sorted(active_validators, key=lambda v: v.index)
-            numbered_validators = enumerate(sorted_active_validators, 1)
+            active_validators.sort(key=lambda v: v.index)
+            numbered_validators = enumerate(active_validators, 1)
             for key_number, validator in numbered_validators:
                 key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
                 key_reward_share = curve_params.reward_share_data.get_for(key_number)
