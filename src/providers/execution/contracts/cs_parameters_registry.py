@@ -42,22 +42,22 @@ class PerformanceCoefficients:
 
 
 @dataclass
-class KeyIndexValueInterval:
-    minKeyIndex: int
+class KeyNumberValueInterval:
+    minKeyNumber: int
     value: int
 
 
 @dataclass
 class IntervalMapping:
-    intervals: list[KeyIndexValueInterval]
+    intervals: list[KeyNumberValueInterval]
 
-    def get_for(self, key_index: int) -> float:
-        if key_index < 0:
-            raise ValueError("Key index should be greater than 0 or equal")
-        for interval in sorted(self.intervals, key=lambda x: x.minKeyIndex, reverse=True):
-            if key_index >= interval.minKeyIndex:
+    def get_for(self, key_number: int) -> float:
+        if key_number < 1:
+            raise ValueError("Key number should be greater than 1 or equal")
+        for interval in sorted(self.intervals, key=lambda x: x.minKeyNumber, reverse=True):
+            if key_number >= interval.minKeyNumber:
                 return interval.value / TOTAL_BASIS_POINTS
-        raise ValueError(f"No value found for key_index={key_index}")
+        raise ValueError(f"No value found for key number={key_number}")
 
 
 @dataclass
@@ -111,7 +111,7 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return IntervalMapping(intervals=[KeyIndexValueInterval(r.minKeyIndex, r.value) for r in resp])
+        return IntervalMapping(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
 
     @lru_cache()
     def get_performance_leeway_data(
@@ -129,7 +129,7 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return IntervalMapping(intervals=[KeyIndexValueInterval(r.minKeyIndex, r.value) for r in resp])
+        return IntervalMapping(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
 
     @lru_cache()
     def get_strikes_params(
