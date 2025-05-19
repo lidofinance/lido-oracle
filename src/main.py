@@ -3,12 +3,12 @@ from typing import Iterator, cast
 
 from packaging.version import Version
 from prometheus_client import start_http_server
+from web3_multi_provider.metrics import init_metrics
 
-from src import constants
-from src import variables
+from src import constants, variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
@@ -19,15 +19,14 @@ from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    LidoContracts,
-    TransactionUtils,
     ConsensusClientModule,
-    KeysAPIClientModule,
-    LidoValidatorsProvider,
     FallbackProviderModule,
+    KeysAPIClientModule,
     LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
 )
-from src.web3py.middleware import add_requests_metric_middleware
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -90,8 +89,8 @@ def main(module_name: OracleModule):
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
 
-    logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
-    add_requests_metric_middleware(web3)
+    logger.info({'msg': 'Initialize prometheus metrics.'})
+    init_metrics()
 
     logger.info({'msg': 'Sanity checks.'})
 
