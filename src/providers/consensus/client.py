@@ -116,7 +116,7 @@ class ConsensusClient(HTTPProvider):
         return BlockDetailsResponse.from_response(**data)
 
     @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
-    def get_block_attestations_and_sync(self, state_id: SlotNumber | BlockRoot) -> tuple[list[BlockAttestation], SyncAggregate]:
+    def get_block_attestations_and_sync(self, state_id: SlotNumber | BlockRoot) -> tuple[list[BlockAttestation], SyncAggregate, list, list]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
@@ -128,8 +128,10 @@ class ConsensusClient(HTTPProvider):
 
         attestations = [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
         sync = SyncAggregate.from_response(**data["message"]["body"]["sync_aggregate"])
+        proposer_slashings = data["message"]["body"]["proposer_slashings"]
+        attester_slashings = data["message"]["body"]["attester_slashings"]
 
-        return cast(list[BlockAttestation], attestations), sync
+        return cast(list[BlockAttestation], attestations), sync, proposer_slashings, attester_slashings
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
