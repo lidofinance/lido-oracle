@@ -4,7 +4,6 @@
 name = "aiohappyeyeballs"
 version = "2.6.1"
 description = "Happy Eyeballs for asyncio"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -16,7 +15,6 @@ files = [
 name = "aiohttp"
 version = "3.11.16"
 description = "Async http client/server framework (asyncio)"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -119,7 +117,6 @@ speedups = ["Brotli", "aiodns (>=3.2.0)", "brotlicffi"]
 name = "aiosignal"
 version = "1.3.2"
 description = "aiosignal: a list of registered asynchronous callbacks"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -134,7 +131,6 @@ frozenlist = ">=1.1.0"
 name = "annotated-types"
 version = "0.7.0"
 description = "Reusable constraint types to use with typing.Annotated"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -146,7 +142,6 @@ files = [
 name = "astroid"
 version = "3.3.9"
 description = "An abstract syntax tree for Python with inference support."
-category = "dev"
 optional = false
 python-versions = ">=3.9.0"
 files = [
@@ -158,7 +153,6 @@ files = [
 name = "asttokens"
 version = "3.0.0"
 description = "Annotate AST trees with source code positions"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -174,7 +168,6 @@ test = ["astroid (>=2,<4)", "pytest", "pytest-cov", "pytest-xdist"]
 name = "attrs"
 version = "25.3.0"
 description = "Classes Without Boilerplate"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -194,7 +187,6 @@ tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 name = "base58"
 version = "2.1.1"
 description = "Base58 and Base58Check implementation."
-category = "main"
 optional = false
 python-versions = ">=3.5"
 files = [
@@ -209,7 +201,6 @@ tests = ["PyHamcrest (>=2.0.2)", "mypy", "pytest (>=4.6)", "pytest-benchmark", "
 name = "bitarray"
 version = "3.3.1"
 description = "efficient arrays of booleans -- C extension"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -353,7 +344,6 @@ files = [
 name = "black"
 version = "24.10.0"
 description = "The uncompromising code formatter."
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -398,7 +388,6 @@ uvloop = ["uvloop (>=0.15.2)"]
 name = "certifi"
 version = "2025.1.31"
 description = "Python package for providing Mozilla's CA Bundle."
-category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -410,7 +399,6 @@ files = [
 name = "cfgv"
 version = "3.4.0"
 description = "Validate configuration and produce human readable error messages."
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -422,7 +410,6 @@ files = [
 name = "charset-normalizer"
 version = "3.4.1"
 description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
-category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -524,7 +511,6 @@ files = [
 name = "ckzg"
 version = "2.1.1"
 description = "Python bindings for C-KZG-4844"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -634,7 +620,6 @@ files = [
 name = "click"
 version = "8.1.8"
 description = "Composable command line interface toolkit"
-category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -649,7 +634,6 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
-category = "main"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 files = [
@@ -661,7 +645,6 @@ files = [
 name = "conventional-pre-commit"
 version = "4.0.0"
 description = "A pre-commit hook that checks commit messages for Conventional Commits formatting."
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -676,7 +659,6 @@ dev = ["black", "build", "coverage", "flake8", "pre-commit", "pytest", "setuptoo
 name = "coverage"
 version = "7.8.0"
 description = "Code coverage measurement for Python"
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -752,7 +734,6 @@ toml = ["tomli"]
 name = "cytoolz"
 version = "1.0.1"
 description = "Cython implementation of Toolz: High performance functional utilities"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -868,7 +849,6 @@ cython = ["cython"]
 name = "decorator"
 version = "5.2.1"
 description = "Decorators for Humans"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -880,7 +860,6 @@ files = [
 name = "dill"
 version = "0.4.0"
 description = "serialize all of Python"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -896,7 +875,6 @@ profile = ["gprof2dot (>=2022.7.29)"]
 name = "distlib"
 version = "0.3.9"
 description = "Distribution utilities"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -908,7 +886,6 @@ files = [
 name = "eth-abi"
 version = "5.2.0"
 description = "eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -931,7 +908,6 @@ tools = ["hypothesis (>=6.22.0,<6.108.7)"]
 name = "eth-account"
 version = "0.13.6"
 description = "eth-account: Sign Ethereum transactions and messages with local private keys"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -960,7 +936,6 @@ test = ["coverage", "hypothesis (>=6.22.0,<6.108.7)", "pytest (>=7.0.0)", "pytes
 name = "eth-hash"
 version = "0.7.1"
 description = "eth-hash: The Ethereum hashing function, keccak256, sometimes (erroneously) called sha3"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -982,7 +957,6 @@ test = ["pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 name = "eth-keyfile"
 version = "0.8.1"
 description = "eth-keyfile: A library for handling the encrypted keyfiles used to store ethereum private keys"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1004,7 +978,6 @@ test = ["pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 name = "eth-keys"
 version = "0.7.0"
 description = "eth-keys: Common API for Ethereum key operations"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1026,7 +999,6 @@ test = ["asn1tools (>=0.146.2)", "eth-hash[pysha3]", "factory-boy (>=3.0.1)", "h
 name = "eth-rlp"
 version = "2.2.0"
 description = "eth-rlp: RLP definitions for common Ethereum objects in Python"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1048,7 +1020,6 @@ test = ["eth-hash[pycryptodome]", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 name = "eth-tester"
 version = "0.12.1b1"
 description = "eth-tester: Tools for testing Ethereum applications."
-category = "dev"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1075,7 +1046,6 @@ test = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "pytest (>=7.0.0)", "pytest-x
 name = "eth-typing"
 version = "5.2.1"
 description = "eth-typing: Common type annotations for ethereum python packages"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1095,7 +1065,6 @@ test = ["pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 name = "eth-utils"
 version = "5.3.0"
 description = "eth-utils: Common utility functions for python code that interacts with Ethereum"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1119,7 +1088,6 @@ test = ["hypothesis (>=4.43.0)", "mypy (==1.10.0)", "pytest (>=7.0.0)", "pytest-
 name = "execnet"
 version = "2.1.1"
 description = "execnet: rapid multi-Python deployment"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1134,7 +1102,6 @@ testing = ["hatch", "pre-commit", "pytest", "tox"]
 name = "executing"
 version = "2.2.0"
 description = "Get the currently executing AST node of a frame, and other information"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1149,7 +1116,6 @@ tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipyth
 name = "faker"
 version = "37.1.0"
 description = "Faker is a Python package that generates fake data for you."
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1164,7 +1130,6 @@ tzdata = "*"
 name = "filelock"
 version = "3.18.0"
 description = "A platform independent file lock."
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1181,7 +1146,6 @@ typing = ["typing-extensions (>=4.12.2)"]
 name = "frozenlist"
 version = "1.6.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1295,7 +1259,6 @@ files = [
 name = "hexbytes"
 version = "1.3.0"
 description = "hexbytes: Python `bytes` subclass that decodes hex, with a readable console output"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -1312,7 +1275,6 @@ test = ["eth_utils (>=2.0.0)", "hypothesis (>=3.44.24,<=6.31.6)", "pytest (>=7.0
 name = "hypothesis"
 version = "6.131.3"
 description = "A library for property-based testing"
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1346,7 +1308,6 @@ zoneinfo = ["tzdata (>=2025.2)"]
 name = "identify"
 version = "2.6.9"
 description = "File identification library for Python"
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1361,7 +1322,6 @@ license = ["ukkonen"]
 name = "idna"
 version = "3.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
-category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -1376,7 +1336,6 @@ all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2
 name = "iniconfig"
 version = "2.1.0"
 description = "brain-dead simple config-ini parsing"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1388,7 +1347,6 @@ files = [
 name = "ipfshttpclient"
 version = "0.7.0"
 description = "Python IPFS HTTP CLIENT library"
-category = "dev"
 optional = false
 python-versions = ">=3.5.4,!=3.6.0,!=3.6.1,!=3.7.0,!=3.7.1"
 files = [
@@ -1404,7 +1362,6 @@ requests = ">=2.11"
 name = "ipython"
 version = "9.1.0"
 description = "IPython: Productive Interactive Computing"
-category = "dev"
 optional = false
 python-versions = ">=3.11"
 files = [
@@ -1436,7 +1393,6 @@ test-extra = ["curio", "ipykernel", "ipython[test]", "jupyter_ai", "matplotlib (
 name = "ipython-pygments-lexers"
 version = "1.1.1"
 description = "Defines a variety of Pygments lexers for highlighting IPython code."
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1451,7 +1407,6 @@ pygments = "*"
 name = "isort"
 version = "6.0.1"
 description = "A Python utility / library to sort Python imports."
-category = "dev"
 optional = false
 python-versions = ">=3.9.0"
 files = [
@@ -1467,7 +1422,6 @@ plugins = ["setuptools"]
 name = "jedi"
 version = "0.19.2"
 description = "An autocompletion tool for Python that can be used for text editors."
-category = "dev"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -1487,7 +1441,6 @@ testing = ["Django", "attrs", "colorama", "docopt", "pytest (<9.0.0)"]
 name = "json-stream"
 version = "2.3.3"
 description = "Streaming JSON encoder and decoder"
-category = "main"
 optional = false
 python-versions = "<4,>=3.5"
 files = [
@@ -1506,7 +1459,6 @@ requests = ["requests"]
 name = "json-stream-rs-tokenizer"
 version = "0.4.29"
 description = "A faster tokenizer for the json-stream Python library"
-category = "main"
 optional = false
 python-versions = "<4,>=3.7"
 files = [
@@ -1601,7 +1553,6 @@ test = ["json-stream (==2.3.2)", "json-stream-rs-tokenizer[benchmark]", "pytest 
 name = "matplotlib-inline"
 version = "0.1.7"
 description = "Inline Matplotlib backend for Jupyter"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1616,7 +1567,6 @@ traitlets = "*"
 name = "mccabe"
 version = "0.7.0"
 description = "McCabe checker, plugin for flake8"
-category = "dev"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -1628,7 +1578,6 @@ files = [
 name = "more-itertools"
 version = "10.6.0"
 description = "More routines for operating on iterables, beyond itertools"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1640,7 +1589,6 @@ files = [
 name = "morphys"
 version = "1.0"
 description = "Smart conversions between unicode and bytes types for common cases"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -1651,7 +1599,6 @@ files = [
 name = "multiaddr"
 version = "0.0.9"
 description = "Python implementation of jbenet's multiaddr"
-category = "dev"
 optional = false
 python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*"
 files = [
@@ -1669,7 +1616,6 @@ varint = "*"
 name = "multidict"
 version = "6.4.3"
 description = "multidict implementation"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1783,7 +1729,6 @@ files = [
 name = "mypy"
 version = "1.15.0"
 description = "Optional static typing for Python"
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1836,7 +1781,6 @@ reports = ["lxml"]
 name = "mypy-extensions"
 version = "1.0.0"
 description = "Type system extensions for programs checked with the mypy type checker."
-category = "dev"
 optional = false
 python-versions = ">=3.5"
 files = [
@@ -1848,7 +1792,6 @@ files = [
 name = "netaddr"
 version = "1.3.0"
 description = "A network address manipulation library for Python"
-category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -1863,7 +1806,6 @@ nicer-shell = ["ipython"]
 name = "nodeenv"
 version = "1.9.1"
 description = "Node.js virtual environment builder"
-category = "dev"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 files = [
@@ -1875,7 +1817,6 @@ files = [
 name = "oz-merkle-tree"
 version = "0.1.0"
 description = "A Python library to generate merkle trees and merkle proofs."
-category = "main"
 optional = false
 python-versions = "^3.11"
 files = []
@@ -1895,7 +1836,6 @@ resolved_reference = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8"
 name = "packaging"
 version = "24.2"
 description = "Core utilities for Python packages"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1907,7 +1847,6 @@ files = [
 name = "parsimonious"
 version = "0.10.0"
 description = "(Soon to be) the fastest pure-Python PEG parser I could muster"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -1922,7 +1861,6 @@ regex = ">=2022.3.15"
 name = "parso"
 version = "0.8.4"
 description = "A Python Parser"
-category = "dev"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -1938,7 +1876,6 @@ testing = ["docopt", "pytest"]
 name = "pathspec"
 version = "0.12.1"
 description = "Utility library for gitignore style pattern matching of file paths."
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1950,7 +1887,6 @@ files = [
 name = "pexpect"
 version = "4.9.0"
 description = "Pexpect allows easy control of interactive console applications."
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -1965,7 +1901,6 @@ ptyprocess = ">=0.5"
 name = "platformdirs"
 version = "4.3.7"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -1982,7 +1917,6 @@ type = ["mypy (>=1.14.1)"]
 name = "pluggy"
 version = "1.5.0"
 description = "plugin and hook calling mechanisms for python"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1998,7 +1932,6 @@ testing = ["pytest", "pytest-benchmark"]
 name = "polyfactory"
 version = "2.21.0"
 description = "Mock data generation factories"
-category = "dev"
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
@@ -2023,7 +1956,6 @@ sqlalchemy = ["sqlalchemy (>=1.4.29)"]
 name = "pre-commit"
 version = "3.8.0"
 description = "A framework for managing and maintaining multi-language pre-commit hooks."
-category = "dev"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -2042,7 +1974,6 @@ virtualenv = ">=20.10.0"
 name = "prometheus-client"
 version = "0.16.0"
 description = "Python client for the Prometheus monitoring system."
-category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -2057,7 +1988,6 @@ twisted = ["twisted"]
 name = "prompt-toolkit"
 version = "3.0.51"
 description = "Library for building powerful interactive command lines in Python"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2072,7 +2002,6 @@ wcwidth = "*"
 name = "propcache"
 version = "0.3.1"
 description = "Accelerated property cache"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -2180,7 +2109,6 @@ files = [
 name = "ptyprocess"
 version = "0.7.0"
 description = "Run a subprocess in a pseudo terminal"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2192,7 +2120,6 @@ files = [
 name = "pure-eval"
 version = "0.2.3"
 description = "Safely evaluate AST nodes without side effects"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2207,7 +2134,6 @@ tests = ["pytest"]
 name = "py-multibase"
 version = "1.0.3"
 description = "Multibase implementation for Python"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2224,7 +2150,6 @@ six = ">=1.10.0,<2.0"
 name = "py-multicodec"
 version = "0.2.1"
 description = "Multicodec implementation in Python"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2241,7 +2166,6 @@ varint = ">=1.0.2,<2.0.0"
 name = "py-multiformats-cid"
 version = "0.4.4"
 description = "Self-describing content-addressed identifiers for distributed systems"
-category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -2259,7 +2183,6 @@ py-multihash = "*"
 name = "py-multihash"
 version = "2.0.1"
 description = "Multihash implementation in Python"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2277,7 +2200,6 @@ varint = ">=1.0.2,<2.0"
 name = "pycryptodome"
 version = "3.22.0"
 description = "Cryptographic library for Python"
-category = "main"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 files = [
@@ -2316,7 +2238,6 @@ files = [
 name = "pydantic"
 version = "2.11.3"
 description = "Data validation using Python type hints"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -2338,7 +2259,6 @@ timezone = ["tzdata"]
 name = "pydantic-core"
 version = "2.33.1"
 description = "Core functionality for Pydantic validation and serialization"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -2450,7 +2370,6 @@ typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 name = "pygments"
 version = "2.19.1"
 description = "Pygments is a syntax highlighting package written in Python."
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2465,7 +2384,6 @@ windows-terminal = ["colorama (>=0.4.6)"]
 name = "pylint"
 version = "3.3.6"
 description = "python code static checker"
-category = "dev"
 optional = false
 python-versions = ">=3.9.0"
 files = [
@@ -2476,10 +2394,7 @@ files = [
 [package.dependencies]
 astroid = ">=3.3.8,<=3.4.0.dev0"
 colorama = {version = ">=0.4.5", markers = "sys_platform == \"win32\""}
-dill = [
-    {version = ">=0.3.6", markers = "python_version >= \"3.11\""},
-    {version = ">=0.3.7", markers = "python_version >= \"3.12\""},
-]
+dill = {version = ">=0.3.7", markers = "python_version >= \"3.12\""}
 isort = ">=4.2.5,<5.13 || >5.13,<7"
 mccabe = ">=0.6,<0.8"
 platformdirs = ">=2.2"
@@ -2493,7 +2408,6 @@ testutils = ["gitpython (>3)"]
 name = "pytest"
 version = "7.4.4"
 description = "pytest: simple powerful testing with Python"
-category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -2514,7 +2428,6 @@ testing = ["argcomplete", "attrs (>=19.2.0)", "hypothesis (>=3.56)", "mock", "no
 name = "pytest-cov"
 version = "4.1.0"
 description = "Pytest plugin for measuring coverage."
-category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -2533,7 +2446,6 @@ testing = ["fields", "hunter", "process-tests", "pytest-xdist", "six", "virtuale
 name = "pytest-xdist"
 version = "3.6.1"
 description = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2554,7 +2466,6 @@ testing = ["filelock"]
 name = "python-baseconv"
 version = "1.2.2"
 description = "Convert numbers from base 10 integers to base X strings and back again."
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2565,7 +2476,6 @@ files = [
 name = "pyunormalize"
 version = "16.0.0"
 description = "Unicode normalization forms (NFC, NFKC, NFD, NFKD). A library independent of the Python core Unicode database."
-category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -2577,7 +2487,6 @@ files = [
 name = "pywin32"
 version = "310"
 description = "Python for Window Extensions"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2603,7 +2512,6 @@ files = [
 name = "pyyaml"
 version = "6.0.2"
 description = "YAML parser and emitter for Python"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2666,7 +2574,6 @@ files = [
 name = "regex"
 version = "2024.11.6"
 description = "Alternative regular expression module, to replace re."
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2770,7 +2677,6 @@ files = [
 name = "requests"
 version = "2.32.3"
 description = "Python HTTP for Humans."
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2792,7 +2698,6 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 name = "responses"
 version = "0.25.7"
 description = "A utility library for mocking out the `requests` Python library."
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2812,7 +2717,6 @@ tests = ["coverage (>=6.0.0)", "flake8", "mypy", "pytest (>=7.0.0)", "pytest-asy
 name = "rlp"
 version = "4.1.0"
 description = "rlp: A package for Recursive Length Prefix encoding and decoding"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -2833,7 +2737,6 @@ test = ["hypothesis (>=6.22.0,<6.108.7)", "pytest (>=7.0.0)", "pytest-xdist (>=2
 name = "semantic-version"
 version = "2.10.0"
 description = "A library implementing the 'SemVer' scheme."
-category = "dev"
 optional = false
 python-versions = ">=2.7"
 files = [
@@ -2849,7 +2752,6 @@ doc = ["Sphinx", "sphinx-rtd-theme"]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 files = [
@@ -2861,7 +2763,6 @@ files = [
 name = "sortedcontainers"
 version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2873,7 +2774,6 @@ files = [
 name = "stack-data"
 version = "0.6.3"
 description = "Extract data from python stack frames and tracebacks for informative displays"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2893,7 +2793,6 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 name = "timeout-decorator"
 version = "0.5.0"
 description = "Timeout decorator"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -2904,7 +2803,6 @@ files = [
 name = "tomlkit"
 version = "0.13.2"
 description = "Style preserving TOML library"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2916,7 +2814,6 @@ files = [
 name = "toolz"
 version = "1.0.0"
 description = "List processing tools and functional utilities"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2928,7 +2825,6 @@ files = [
 name = "traitlets"
 version = "5.14.3"
 description = "Traitlets Python configuration system"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2944,7 +2840,6 @@ test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,
 name = "types-requests"
 version = "2.32.0.20250328"
 description = "Typing stubs for requests"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -2959,7 +2854,6 @@ urllib3 = ">=2"
 name = "types-setuptools"
 version = "67.8.0.0"
 description = "Typing stubs for setuptools"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2971,7 +2865,6 @@ files = [
 name = "types-urllib3"
 version = "1.26.25.14"
 description = "Typing stubs for urllib3"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -2983,7 +2876,6 @@ files = [
 name = "typing-extensions"
 version = "4.13.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
-category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -2995,7 +2887,6 @@ files = [
 name = "typing-inspection"
 version = "0.4.0"
 description = "Runtime typing introspection tools"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -3010,7 +2901,6 @@ typing-extensions = ">=4.12.0"
 name = "tzdata"
 version = "2025.2"
 description = "Provider of IANA time zone data"
-category = "dev"
 optional = false
 python-versions = ">=2"
 files = [
@@ -3022,7 +2912,6 @@ files = [
 name = "urllib3"
 version = "2.4.0"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -3040,7 +2929,6 @@ zstd = ["zstandard (>=0.18.0)"]
 name = "varint"
 version = "1.0.2"
 description = "Simple python varint implementation"
-category = "main"
 optional = false
 python-versions = "*"
 files = [
@@ -3051,7 +2939,6 @@ files = [
 name = "virtualenv"
 version = "20.30.0"
 description = "Virtual Python Environment builder"
-category = "dev"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -3072,7 +2959,6 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 name = "wcwidth"
 version = "0.2.13"
 description = "Measures the displayed width of unicode strings in a terminal"
-category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -3084,7 +2970,6 @@ files = [
 name = "web3"
 version = "7.10.0"
 description = "web3: A Python library for interacting with Ethereum"
-category = "main"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
@@ -3118,7 +3003,6 @@ tester = ["eth-tester[py-evm] (>=0.12.0b1,<0.13.0b1)", "py-geth (>=5.1.0)"]
 name = "web3-multi-provider"
 version = "2.0.0"
 description = "Web3py provider that makes it easy to switch between different blockchain nodes to make sure application will be be online if main blockchain node will be unavailable."
-category = "main"
 optional = false
 python-versions = "<4,>=3.12"
 files = [
@@ -3133,7 +3017,6 @@ web3 = ">=7,<8"
 name = "websockets"
 version = "15.0.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -3212,7 +3095,6 @@ files = [
 name = "yarl"
 version = "1.20.0"
 description = "Yet another URL library"
-category = "main"
 optional = false
 python-versions = ">=3.9"
 files = [
@@ -3330,4 +3212,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "58fbf02762048e7ee37753cb7c931b440d11f1884be93431d8a0a715b78dafdf"
+content-hash = "bf7db38e210a00035d54a5f082f8d28f8af28fa70e248a4a0788ea8cc6a8e2dd"

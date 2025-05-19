@@ -62,8 +62,8 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_CONTRACT_VERSION = 1
-    COMPATIBLE_CONSENSUS_VERSION = 3
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 4
 
     AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
 
@@ -124,7 +124,7 @@ class Ejector(BaseModule, ConsensusModule):
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
             blockstamp=blockstamp,
-            seconds_per_slot=chain_config.seconds_per_slot
+            chain_config=chain_config,
         ))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []

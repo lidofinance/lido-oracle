@@ -5,17 +5,17 @@ from typing import List
 
 from src.constants import (
     FAR_FUTURE_EPOCH,
-    MIN_ACTIVATION_BALANCE,
     MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD,
+    MIN_ACTIVATION_BALANCE,
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
 from src.types import Gwei
 from src.utils.validator_state import (
+    get_max_effective_balance,
     is_fully_withdrawable_validator,
     is_partially_withdrawable_validator,
-    get_max_effective_balance,
 )
 from src.utils.web3converter import epoch_from_slot
 

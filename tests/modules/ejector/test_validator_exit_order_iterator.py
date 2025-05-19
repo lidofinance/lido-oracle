@@ -1,18 +1,15 @@
-from types import MethodType
 from unittest.mock import Mock
 
 import pytest
 
-from src.services.exit_order_iterator import ValidatorExitIterator, StakingModuleStats, NodeOperatorStats
+from src.modules.submodules.types import ChainConfig
+from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from src.types import Gwei
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import (
-    NodeOperatorFactory,
-    StakingModuleFactory,
-    LidoValidatorFactory,
-)
+from tests.factory.no_registry import LidoValidatorFactory, NodeOperatorFactory, StakingModuleFactory
 from tests.factory.web3_factory import Web3DataclassFactory
+from types import MethodType
 
 
 class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]): ...
@@ -28,19 +25,18 @@ def iterator(web3):
     return ValidatorExitIterator(
         web3,
         ReferenceBlockStampFactory.build(),
-        12,
+        ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
     )
 
 
 @pytest.mark.unit
 def test_get_filter_non_exitable_validators(iterator):
-    iterator.lvs.get_operators_with_last_exited_validator_indexes = Mock(
+    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
         return_value={
-            (1, 1): 1,
-            (1, 2): -1,
+            (1, 1): [1],
+            (1, 2): [-1],
         }
     )
-
     filt = iterator.get_can_request_exit_predicate((1, 1))
     assert not filt(LidoValidatorFactory.build(index="1"))
 
@@ -120,11 +116,11 @@ def test_eject_validator(iterator):
         }
     )
 
-    iterator.lvs.get_operators_with_last_exited_validator_indexes = Mock(
+    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
         return_value={
-            (1, 1): -1,
-            (1, 2): -1,
-            (2, 1): 6,
+            (1, 1): [-1],
+            (1, 2): [-1],
+            (2, 1): [6],
         }
     )
 
@@ -151,8 +147,6 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
-    iterator.no_penetration_threshold = 0.1
-    iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator._load_blockchain_state = Mock()
 
     validators_to_eject = list(iterator)
@@ -170,7 +164,6 @@ def test_eject_validator(iterator):
 
 @pytest.mark.unit
 def test_no_predicate(iterator):
-    iterator.eth_validators_effective_balance = Gwei(1000 * 32 * 10**9)
     iterator.total_lido_validators = 1000
     iterator.no_penetration_threshold = 0.1
 
@@ -206,10 +199,10 @@ def test_no_predicate(iterator):
     )
 
     result = iterator._no_predicate(node_operator_2)
-    assert result == (-1950, -1975, -185, 0, -2000, 20)
+    assert result == (-1950, -1975, -185, -2000, 20)
 
     result = iterator._no_predicate(node_operator_1)
-    assert result == (-50, -75, -185, -1000, -100, 10)
+    assert result == (-50, -75, -185, -100, 10)
 
 
 @pytest.mark.unit
@@ -280,34 +273,6 @@ def test_max_share_rate_coefficient_predicate(iterator):
     assert sorted_nos[1] in [nos[2], nos[0]]
     assert sorted_nos[2] in [nos[2], nos[0]]
     assert sorted_nos[3] == nos[3]
-
-
-@pytest.mark.unit
-def test_stake_weight_coefficient_predicate(iterator):
-    nos = [
-        NodeOperatorStatsFactory.build(
-            predictable_validators=900,
-            predictable_effective_balance=900 * 32 * 10**9,
-            total_age=3000,
-        ),
-        NodeOperatorStatsFactory.build(
-            predictable_validators=1010,
-            predictable_effective_balance=1010 * 32 * 10**9,
-            total_age=2000,
-        ),
-        NodeOperatorStatsFactory.build(
-            predictable_validators=2010,
-            predictable_effective_balance=2010 * 32 * 10**9,
-            total_age=1000,
-        ),
-    ]
-
-    sorted_nos = sorted(
-        nos,
-        key=lambda x: -iterator._stake_weight_coefficient_predicate(x, 10000 * 32 * 10**9, 0.1),
-    )
-
-    assert [nos[1], nos[2], nos[0]] == sorted_nos
 
 
 @pytest.mark.unit
