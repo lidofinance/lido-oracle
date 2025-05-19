@@ -28,10 +28,10 @@ class CSFeeOracleContract(BaseOracleContract):
     def strikes(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
         """Return the address of the CSStrikes contract"""
 
-        resp = self.functions.strikes().call(block_identifier=block_identifier)
+        resp = self.functions.STRIKES().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call `strikes()`.",
+                "msg": "Call `STRIKES()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
