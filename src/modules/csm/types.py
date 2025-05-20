@@ -47,8 +47,9 @@ class StrikesList(Sequence[int]):
         self.data.insert(0, item)
 
 
-Shares: TypeAlias = int
-type RewardsTreeLeaf = tuple[NodeOperatorId, Shares]
+ParticipationShares: TypeAlias = int
+RewardsShares: TypeAlias = int
+type RewardsTreeLeaf = tuple[NodeOperatorId, RewardsShares]
 type StrikesTreeLeaf = tuple[NodeOperatorId, HexBytes, StrikesList]
 
 

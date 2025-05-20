@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from unittest.mock import Mock
 
@@ -338,7 +339,7 @@ def test_calculate_distribution_handles_invalid_distribution():
         )
     )
 
-    with pytest.raises(ValueError, match="Invalid distribution: 501 > 500"):
+    with pytest.raises(ValueError, match=re.escape("Invalid distribution: 500 + 1 > 500")):
         distribution.calculate(..., Mock(strikes={}, rewards=[]))
 
 

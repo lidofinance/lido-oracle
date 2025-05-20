@@ -15,7 +15,7 @@ from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree, Tree
-from src.modules.csm.types import ReportData, Shares, StrikesList
+from src.modules.csm.types import ReportData, RewardsShares, StrikesList
 from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
@@ -215,7 +215,7 @@ class CSOracle(BaseModule, ConsensusModule):
             self._reset_cycle_timeout()
         return self.state.is_fulfilled
 
-    def make_rewards_tree(self, shares: dict[NodeOperatorId, Shares]) -> RewardsTree:
+    def make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
             raise ValueError("No shares to build a tree")
 
@@ -233,7 +233,7 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]):
+    def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]) -> StrikesTree:
         if not strikes:
             raise ValueError("No strikes to build a tree")
 

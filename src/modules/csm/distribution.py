@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import Frame, State, ValidatorDuties
-from src.modules.csm.types import Shares, StrikesList, StrikesValidator
+from src.modules.csm.types import RewardsShares, StrikesList, StrikesValidator, ParticipationShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, StakingModuleAddress
@@ -21,16 +21,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ValidatorDutiesOutcome:
-    participation_share: int
-    rebate_share: int
+    participation_share: ParticipationShares
+    rebate_share: ParticipationShares
     strikes: int
 
 
 @dataclass
 class DistributionResult:
-    total_rewards: Shares = 0
-    total_rebate: Shares = 0
-    total_rewards_map: dict[NodeOperatorId, Shares] = field(default_factory=lambda: defaultdict(Shares))
+    total_rewards: RewardsShares = 0
+    total_rebate: RewardsShares = 0
+    total_rewards_map: dict[NodeOperatorId, RewardsShares] = field(default_factory=lambda: defaultdict(RewardsShares))
     strikes: dict[StrikesValidator, StrikesList] = field(default_factory=lambda: defaultdict(StrikesList))
     logs: list[FramePerfLog] = field(default_factory=list)
 
@@ -118,12 +118,12 @@ class Distribution:
         self,
         frame: Frame,
         blockstamp: ReferenceBlockStamp,
-        rewards_to_distribute: Shares,
+        rewards_to_distribute: RewardsShares,
         operators_to_validators: ValidatorsByNodeOperator,
         log: FramePerfLog,
-    ) -> tuple[dict[NodeOperatorId, Shares], Shares, Shares, dict[StrikesValidator, int]]:
+    ) -> tuple[dict[NodeOperatorId, RewardsShares], RewardsShares, RewardsShares, dict[StrikesValidator, int]]:
         total_rebate_share = 0
-        participation_shares: defaultdict[NodeOperatorId, Shares] = defaultdict(int)
+        participation_shares: defaultdict[NodeOperatorId, RewardsShares] = defaultdict(int)
         frame_strikes: dict[StrikesValidator, int] = {}
 
         network_perf = self._get_network_performance(frame)
@@ -201,7 +201,7 @@ class Distribution:
 
         log_validator = log_operator.validators[validator.index]
 
-        if validator.validator.slashed is True:
+        if validator.validator.slashed:
             # It means that validator was active during the frame and got slashed and didn't meet the exit
             # epoch, so we should not count such validator for operator's share.
             log_validator.slashed = True
@@ -245,7 +245,7 @@ class Distribution:
         participation_shares: dict[NodeOperatorId, int],
         rebate_share: int,
         rewards_to_distribute: int,
-    ) -> dict[NodeOperatorId, Shares]:
+    ) -> dict[NodeOperatorId, RewardsShares]:
         if rewards_to_distribute < 0:
             raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute=}")
 
@@ -264,7 +264,7 @@ class Distribution:
     def validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute):
         if (total_distributed_rewards + total_rebate) > total_rewards_to_distribute:
             raise ValueError(
-                f"Invalid distribution: {total_distributed_rewards + total_rebate} > {total_rewards_to_distribute}"
+                f"Invalid distribution: {total_distributed_rewards} + {total_rebate} > {total_rewards_to_distribute}"
             )
 
     def _process_strikes(
