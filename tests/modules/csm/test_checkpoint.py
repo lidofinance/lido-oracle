@@ -258,7 +258,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
         finalized_blockstamp,
     )
     raw = consensus_client.get_attestation_committees(0, 0)
-    committees = processor._prepare_att_committees(0)
+    committees = processor._prepare_attestation_duties(0)
     assert len(committees) == 2048
     for index, (committee_id, validators) in enumerate(committees.items()):
         slot, committee_index = committee_id
@@ -280,7 +280,7 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
         converter,
         finalized_blockstamp,
     )
-    committees = processor._prepare_att_committees(0)
+    committees = processor._prepare_attestation_duties(0)
     # normal attestation
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 0
@@ -314,7 +314,7 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
         converter,
         finalized_blockstamp,
     )
-    committees = processor._prepare_att_committees(0)
+    committees = processor._prepare_attestation_duties(0)
     # undefined committee
     attestation = cast(BlockAttestation, BlockAttestationFactory.build())
     attestation.data.slot = 100500
@@ -342,11 +342,11 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_att_committees = Mock(return_value={SlotNumber(100): [ValidatorDuty(1, False)]})
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={SlotNumber(100): [ValidatorDuty(1, False)]})
     frame_checkpoint_processor._prepare_propose_duties = Mock(
         return_value={SlotNumber(100): ValidatorDuty(1, False), SlotNumber(101): ValidatorDuty(1, False)}
     )
-    frame_checkpoint_processor._prepare_sync_committee = Mock(
+    frame_checkpoint_processor._prepare_sync_committee_duties = Mock(
         return_value={
             100: [ValidatorDuty(1, False) for _ in range(32)],
             101: [ValidatorDuty(1, False) for _ in range(32)],
@@ -369,9 +369,9 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    frame_checkpoint_processor.state.increment_att_duty.assert_called()
-    frame_checkpoint_processor.state.increment_sync_duty.assert_called()
-    frame_checkpoint_processor.state.increment_prop_duty.assert_called()
+    frame_checkpoint_processor.state.save_att_duty.assert_called()
+    frame_checkpoint_processor.state.save_sync_duty.assert_called()
+    frame_checkpoint_processor.state.save_prop_duty.assert_called()
 
 
 @pytest.mark.unit
@@ -381,11 +381,11 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_att_committees = Mock(return_value={})
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={})
     frame_checkpoint_processor._prepare_propose_duties = Mock(
         return_value={SlotNumber(100): ValidatorDuty(1, False), SlotNumber(101): ValidatorDuty(1, False)}
     )
-    frame_checkpoint_processor._prepare_sync_committee = Mock(
+    frame_checkpoint_processor._prepare_sync_committee_duties = Mock(
         return_value={100: [ValidatorDuty(1, False)], 101: [ValidatorDuty(1, False)]}
     )
 
@@ -399,9 +399,9 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    assert frame_checkpoint_processor.state.increment_att_duty.call_count == 0
-    assert frame_checkpoint_processor.state.increment_sync_duty.call_count == 2
-    assert frame_checkpoint_processor.state.increment_prop_duty.call_count == 2
+    assert frame_checkpoint_processor.state.save_att_duty.call_count == 0
+    assert frame_checkpoint_processor.state.save_sync_duty.call_count == 2
+    assert frame_checkpoint_processor.state.save_prop_duty.call_count == 2
 
 
 @pytest.mark.unit
@@ -412,7 +412,7 @@ def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_ch
     sync_committee.validators = [1, 2, 3]
     frame_checkpoint_processor._get_sync_committee = Mock(return_value=sync_committee)
 
-    duties = frame_checkpoint_processor._prepare_sync_committee(epoch, duty_block_roots)
+    duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
 
     expected_duties = {
         SlotNumber(100): [
@@ -437,7 +437,7 @@ def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_p
     sync_committee.validators = [1, 2, 3]
     frame_checkpoint_processor._get_sync_committee = Mock(return_value=sync_committee)
 
-    duties = frame_checkpoint_processor._prepare_sync_committee(epoch, duty_block_roots)
+    duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
 
     expected_duties = {
         SlotNumber(101): [

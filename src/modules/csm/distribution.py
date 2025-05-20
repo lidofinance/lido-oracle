@@ -72,7 +72,7 @@ class Distribution:
 
             result.strikes = self._process_strikes(result.strikes, strikes_in_frame, frame_blockstamp)
             if not strikes_in_frame:
-                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
+                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]. Just shifting current strikes."})
 
             result.total_rewards += distributed_rewards_in_frame
             result.total_rebate += rebate_to_protocol_in_frame
@@ -123,7 +123,7 @@ class Distribution:
         log: FramePerfLog,
     ) -> tuple[dict[NodeOperatorId, RewardsShares], RewardsShares, RewardsShares, dict[StrikesValidator, int]]:
         total_rebate_share = 0
-        participation_shares: defaultdict[NodeOperatorId, RewardsShares] = defaultdict(int)
+        participation_shares: defaultdict[NodeOperatorId, ParticipationShares] = defaultdict(ParticipationShares)
         frame_strikes: dict[StrikesValidator, int] = {}
 
         network_perf = self._get_network_performance(frame)
@@ -197,6 +197,9 @@ class Distribution:
         if duties.attestation is None or duties.attestation.assigned == 0:
             # It's possible that the validator is not assigned to any duty, hence it's performance
             # is not presented in the aggregates (e.g. exited, pending for activation etc).
+            #
+            # There is a case when validator is exited and still in sync committee. But we can't count his
+            # `participation_share` because there is no `assigned` attestations for him.
             return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=0)
 
         log_validator = log_operator.validators[validator.index]
@@ -233,7 +236,8 @@ class Distribution:
             #
             participation_share = math.ceil(duties.attestation.assigned * reward_share)
             rebate_share = duties.attestation.assigned - participation_share
-            assert rebate_share >= 0, f"Invalid rebate share: {rebate_share=}"
+            if rebate_share < 0:
+                raise ValueError(f"Invalid rebate share: {rebate_share=}")
             return ValidatorDutiesOutcome(participation_share, rebate_share, strikes=0)
 
         # In case of bad performance the validator should be striked and assigned attestations are not counted for
@@ -242,14 +246,14 @@ class Distribution:
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
-        participation_shares: dict[NodeOperatorId, int],
-        rebate_share: int,
-        rewards_to_distribute: int,
+        participation_shares: dict[NodeOperatorId, ParticipationShares],
+        rebate_share: ParticipationShares,
+        rewards_to_distribute: RewardsShares,
     ) -> dict[NodeOperatorId, RewardsShares]:
         if rewards_to_distribute < 0:
             raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute=}")
 
-        rewards_distribution: dict[NodeOperatorId, int] = defaultdict(int)
+        rewards_distribution: dict[NodeOperatorId, RewardsShares] = defaultdict(RewardsShares)
         total_shares = rebate_share + sum(participation_shares.values())
 
         for no_id, no_participation_share in participation_shares.items():
