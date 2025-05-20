@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from web3.types import BlockIdentifier
 
-from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX
+from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX, ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT
 from src.modules.csm.state import ValidatorDuties
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.cache import global_lru_cache as lru_cache
@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PerformanceCoefficients:
-    attestations_weight: int = 54
-    blocks_weight: int = 8
-    sync_weight: int = 2
+    attestations_weight: int = ATTESTATIONS_WEIGHT
+    blocks_weight: int = BLOCKS_WEIGHT
+    sync_weight: int = SYNC_WEIGHT
 
     def calc_performance(self, duties: ValidatorDuties) -> float:
         base = 0
