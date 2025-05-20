@@ -10,7 +10,7 @@ from src.metrics.prometheus.csm import (
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.distribution import Distribution, StrikesValidator, DistributionResult
+from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -70,6 +70,9 @@ class CSOracle(BaseModule, ConsensusModule):
         self.state.clear()
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        if not self._check_compatability(last_finalized_blockstamp):
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
         collected = self.collect_data(last_finalized_blockstamp)
         if not collected:
             logger.info(
@@ -77,9 +80,8 @@ class CSOracle(BaseModule, ConsensusModule):
             )
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        # pylint:disable=duplicate-code
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
-        if not report_blockstamp or not self._check_compatability(report_blockstamp):
+        if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -105,9 +107,9 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root = strikes_tree.root
             strikes_cid = self.publish_tree(strikes_tree)
             if strikes_tree_root == last_report.strikes_tree_root:
-                logger.info({"msg": "Strikes tree root is the same as the previous one"})
-            if strikes_cid == last_report.strikes_tree_cid:
-                logger.info({"msg": "Strikes tree CID is the same as the previous one"})
+                logger.info({"msg": "Strikes tree is the same as the previous one"})
+            if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
+                raise ValueError(f"Invalid strikes tree built: {strikes_cid=}, {strikes_tree_root=}")
         else:
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
@@ -199,7 +201,10 @@ class CSOracle(BaseModule, ConsensusModule):
 
         try:
             checkpoints = FrameCheckpointsIterator(
-                converter, min(self.state.unprocessed_epochs) or l_epoch, r_epoch, finalized_epoch
+                converter,
+                min(self.state.unprocessed_epochs),
+                r_epoch,
+                finalized_epoch,
             )
         except MinStepIsNotReached:
             return False
@@ -229,7 +234,7 @@ class CSOracle(BaseModule, ConsensusModule):
         if stone in shares and len(shares) > 2:
             shares.pop(stone)
 
-        tree = RewardsTree.new(tuple((no_id, amount) for (no_id, amount) in shares.items()))
+        tree = RewardsTree.new(tuple(shares.items()))
         logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
         return tree
 

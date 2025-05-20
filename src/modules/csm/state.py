@@ -48,6 +48,7 @@ class ValidatorDuties:
 
 @dataclass
 class NetworkDuties:
+    # fmt: off
     attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
     proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
     syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
@@ -75,19 +76,21 @@ class State:
 
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
+
     frames: list[Frame]
     data: StateData
 
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _consensus_version: int = 2
+    _consensus_version: int
 
     def __init__(self) -> None:
         self.frames = []
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
+        self._consensus_version = 0
 
     EXTENSION = ".pkl"
 
@@ -100,12 +103,13 @@ class State:
         try:
             with file.open(mode="rb") as f:
                 obj = pickle.load(f)
+                print({"msg": "Read object from pickle file"})
                 if not obj:
                     raise ValueError("Got empty object")
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.info({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
+            print({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
         else:
-            logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
+            print({"msg": f"{cls.__name__} read from {file.absolute()}"})
         return obj or cls()
 
     def commit(self) -> None:
@@ -124,11 +128,7 @@ class State:
 
     @property
     def is_empty(self) -> bool:
-        return (
-            not self.data and
-            not self._epochs_to_process and
-            not self._processed_epochs
-        )
+        return not self.data and not self._epochs_to_process and not self._processed_epochs
 
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
@@ -153,6 +153,7 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
+        self._consensus_version = 0
         assert self.is_empty
 
     @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
@@ -184,7 +185,7 @@ class State:
     def migrate(
         self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int
     ) -> None:
-        if consensus_version != self._consensus_version:
+        if self._consensus_version and consensus_version != self._consensus_version:
             logger.warning(
                 {
                     "msg": f"Cache was built for consensus version {self._consensus_version}. "

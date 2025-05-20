@@ -586,6 +586,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 
 @pytest.mark.unit
 def test_execute_module_not_collected(module: CSOracle):
+    module._check_compatability = Mock(return_value=True)
     module.collect_data = Mock(return_value=False)
 
     execute_delay = module.execute_module(
@@ -593,9 +594,21 @@ def test_execute_module_not_collected(module: CSOracle):
     )
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+@pytest.mark.unit
+def test_execute_module_skips_collecting_if_forward_compatible(module: CSOracle):
+    module._check_compatability = Mock(return_value=False)
+    module.collect_data = Mock(return_value=False)
+
+    execute_delay = module.execute_module(
+        last_finalized_blockstamp=Mock(slot_number=100500),
+    )
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+    module.collect_data.assert_not_called()
+
 
 @pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSOracle):
+    module._check_compatability = Mock(return_value=True)
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
 
