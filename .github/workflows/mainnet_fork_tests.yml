@@ -34,6 +34,7 @@ jobs:
           repository: 'lidofinance/community-staking-module'
           ref: 'develop'
           path: 'testruns/community-staking-module'
+          persist-credentials: false
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
