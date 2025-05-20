@@ -107,9 +107,9 @@ class State:
                 if not obj:
                     raise ValueError("Got empty object")
         except Exception as e:  # pylint: disable=broad-exception-caught
-            print({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
+            logger.info({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
         else:
-            print({"msg": f"{cls.__name__} read from {file.absolute()}"})
+            logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
         return obj or cls()
 
     def commit(self) -> None:
