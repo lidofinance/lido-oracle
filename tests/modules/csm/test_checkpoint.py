@@ -342,7 +342,9 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={SlotNumber(100): [ValidatorDuty(1, False)]})
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(
+        return_value={SlotNumber(100): [ValidatorDuty(1, False)]}
+    )
     frame_checkpoint_processor._prepare_propose_duties = Mock(
         return_value={SlotNumber(100): ValidatorDuty(1, False), SlotNumber(101): ValidatorDuty(1, False)}
     )
