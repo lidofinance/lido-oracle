@@ -291,7 +291,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
+        return StandardMerkleTree(data, ("address", "uint256", "int256", "uint256", "uint256"))
 
     @staticmethod
     def _get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultsMap) -> dict[str, VaultProof]:
