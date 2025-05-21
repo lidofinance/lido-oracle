@@ -4,7 +4,7 @@ import pytest
 
 from src import variables
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 
 
 @pytest.mark.testnet
@@ -23,10 +23,10 @@ class TestVaultHubSmoke:
         )
 
         return cast(
-            VaultHubContract,
+            LazyOracleContract,
             web3_integration.eth.contract(
                 address=lido_locator.vault_hub(),
-                ContractFactoryClass=VaultHubContract,
+                ContractFactoryClass=LazyOracleContract,
                 decode_tuples=True,
             ),
         )

@@ -17,7 +17,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import BlockStamp, SlotNumber, WithdrawalVaultBalance, ELVaultBalance
@@ -40,7 +40,7 @@ class LidoContracts(Module):
     oracle_daemon_config: OracleDaemonConfigContract
     burner: BurnerContract
     accounting: AccountingContract
-    vault_hub: VaultHubContract
+    lazy_oracle: LazyOracleContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -151,14 +151,14 @@ class LidoContracts(Module):
             ),
         )
 
-        self.vault_hub: VaultHubContract = cast(
-            VaultHubContract,
-            self.w3.eth.contract(
-                address=self.lido_locator.vault_hub(),
-                ContractFactoryClass=VaultHubContract,
-                decode_tuples=True,
-            ),
-        )
+        #self.lazy_oracle: LazyOracleContract = cast(
+        #    LazyOracleContract,
+        #    self.w3.eth.contract(
+        #        address=self.lido_locator.lazy_oracle(),
+        #        ContractFactoryClass=LazyOracleContract,
+        #        decode_tuples=True,
+        #    ),
+        #)
 
     # --- Contract methods ---
     @lru_cache(maxsize=1)

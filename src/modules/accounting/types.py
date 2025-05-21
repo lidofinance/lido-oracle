@@ -22,8 +22,10 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
+type VaultsTreasuryFeesShares = float
 type VaultTreeNode = tuple[str, int, int, int, int]
 
+SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 
 @dataclass
 class ReportData:
@@ -188,6 +190,8 @@ class ReportResults:
     principal_cl_balance: Wei
     post_internal_shares: Shares
     post_internal_ether: Wei
+    pre_total_shares: Shares
+    pre_total_pooled_ether: Wei
     post_total_shares: Shares
     post_total_pooled_ether: Wei
 
@@ -212,6 +216,16 @@ class VaultData:
     fee: int
     address: ChecksumAddress
     withdrawal_credentials: str
+    # Feature smart contract release
+    share_limit: int
+    minted_StETH: int
+    mintable_capacity_StETH: int
+    reserve_ratioBP: int
+    forced_rebalance_thresholdBP: int
+    infra_feeBP: int
+    liquidity_feeBP: int
+    reservation_feeBP: int
+    pending_disconnect: bool
 
 
 @dataclass
@@ -228,8 +242,57 @@ class VaultInfo:
     in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
+    # Feature smart contract release
+    share_limit: int
+    minted_StETH: int
+    mintable_capacity_StETH: int
+    reserve_ratioBP: int
+    forced_rebalance_thresholdBP: int
+    infra_feeBP: int
+    liquidity_feeBP: int
+    reservation_feeBP: int
+    pending_disconnect: bool
 
 
 VaultsMap = dict[ChecksumAddress, VaultData]
-type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
-type VaultsData = tuple[list[VaultTreeNode], VaultsMap]
+VaultTotalValue = int
+VaultsTotalValues = list[VaultTotalValue]
+type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid, VaultsTreasuryFeesShares]
+type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultsTotalValues]
+
+@dataclass
+class TokenRebasedEvent:
+    report_timestamp: int
+    time_elapsed: int
+    pre_total_shares: int
+    pre_total_ether: int
+    post_total_shares: int
+    post_total_ether: int
+    shares_minted_as_fees: int
+    event: str
+    log_index: int
+    transaction_index: int
+    transaction_hash: HexBytes
+    address: str
+    block_hash: HexBytes
+    block_number: int
+
+    @classmethod
+    def from_log(cls, log: dict) -> "TokenRebasedEvent":
+        args = log["args"]
+        return cls(
+            report_timestamp=args["reportTimestamp"],
+            time_elapsed=args["timeElapsed"],
+            pre_total_shares=args["preTotalShares"],
+            pre_total_ether=args["preTotalEther"],
+            post_total_shares=args["postTotalShares"],
+            post_total_ether=args["postTotalEther"],
+            shares_minted_as_fees=args["sharesMintedAsFees"],
+            event=log["event"],
+            log_index=log["logIndex"],
+            transaction_index=log["transactionIndex"],
+            transaction_hash=log["transactionHash"],
+            address=log["address"],
+            block_hash=log["blockHash"],
+            block_number=log["blockNumber"],
+        )

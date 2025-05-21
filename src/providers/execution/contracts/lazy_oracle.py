@@ -12,8 +12,8 @@ from src.utils.types import bytes_to_hex_str
 logger = logging.getLogger(__name__)
 
 
-class VaultHubContract(ContractInterface):
-    abi_path = './assets/VaultHub.json'
+class LazyOracleContract(ContractInterface):
+    abi_path = './assets/LazyOracle.json'
 
     @lru_cache(maxsize=1)
     def get_vaults_count(self, block_identifier: BlockIdentifier = 'latest') -> int:
@@ -100,7 +100,16 @@ class VaultHubContract(ContractInterface):
                 vault.balance,
                 vault.inOutDelta,
                 bytes_to_hex_str(vault.withdrawalCredentials),
-                vault.liabilityShares
+                vault.liabilityShares,
+                0, # vault.shareLimit: int
+                0, # vault.mintedStETH;
+                0, # vault.mintableCapacityStETH
+                0, # vault.reserve_ratioBP: int
+                0, # vault.forced_rebalance_thresholdBP: int
+                0, # vault.infraFeeBP: int
+                0, # vault.liquidity_feeBP: int
+                0, # vault.reservation_feeBP: int
+                False, # pending_disconnect: bool
             ))
 
         return out

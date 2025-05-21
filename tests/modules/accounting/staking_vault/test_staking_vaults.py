@@ -36,6 +36,13 @@ class TestStakingVaults:
                 in_out_delta=1000000000000000000,
                 withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
                 liability_shares=0,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             VaultInfo(
                 vault=vault_adr_1,
@@ -43,6 +50,13 @@ class TestStakingVaults:
                 in_out_delta=2000000000000000000,
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
                 liability_shares=490000000000000000,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             VaultInfo(
                 vault=vault_adr_2,
@@ -50,6 +64,13 @@ class TestStakingVaults:
                 in_out_delta=2000900000000000000,
                 withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
                 liability_shares=1200000000000010001,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             VaultInfo(
                 vault=vault_adr_3,
@@ -57,6 +78,13 @@ class TestStakingVaults:
                 in_out_delta=1000000000000000000,
                 withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
                 liability_shares=0,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
         ]
 
@@ -165,7 +193,7 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, pending_deposits, bs)
+        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x3dc48700af87f44fd9486bf0dcb88a35b0b1f2087af8922384e5153eee46837e'
@@ -203,6 +231,15 @@ class TestStakingVaults:
                 fee=0,
                 address=ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302'))),
                 withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
+                share_limit=0,
+                minted_StETH=0,
+                mintable_capacity_StETH=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))): VaultData(
                 vault_ind=1,
@@ -212,6 +249,15 @@ class TestStakingVaults:
                 fee=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))),
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                share_limit=0,
+                minted_StETH=0,
+                mintable_capacity_StETH=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))): VaultData(
                 vault_ind=2,
@@ -221,6 +267,15 @@ class TestStakingVaults:
                 fee=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))),
                 withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
+                share_limit=0,
+                minted_StETH=0,
+                mintable_capacity_StETH=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
             ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))): VaultData(
                 vault_ind=3,
@@ -230,6 +285,15 @@ class TestStakingVaults:
                 fee=0,
                 address=ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))),
                 withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+                share_limit=0,
+                minted_StETH=0,
+                mintable_capacity_StETH=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
         }
 

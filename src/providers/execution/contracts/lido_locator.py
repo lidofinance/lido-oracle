@@ -160,3 +160,17 @@ class LidoLocatorContract(ContractInterface):
             }
         )
         return response
+
+    @lru_cache(maxsize=1)
+    def lazy_oracle(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+        response = self.functions.lazyOracle().call(block_identifier=block_identifier)
+
+        logger.debug(
+            {
+                'msg': 'Call `lazyOracle()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return response

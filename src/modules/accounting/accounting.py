@@ -28,7 +28,7 @@ from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportValues,
     ReportResults,
-    VaultsReport,
+    VaultsReport, SECONDS_IN_YEAR,
 )
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -172,6 +172,7 @@ class Accounting(BaseModule, ConsensusModule):
         rebase_part = self._calculate_rebase_report(blockstamp)
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
+
         vaults_part = self._handle_vaults_report(blockstamp)
 
         extra_data_part = self._calculate_extra_data_report(blockstamp)
@@ -274,8 +275,6 @@ class Accounting(BaseModule, ConsensusModule):
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
-        tree_root, tree_cid = self._handle_vaults_report(blockstamp)
-
         chain_conf = self.get_chain_config(blockstamp)
 
         withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
@@ -295,10 +294,10 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards,  # el_rewards_vault_balance
             self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
             withdrawal_finalization_batches,
-            0,  # vaults_total_treasury_fees_shares,
-            0,  # vaults_total_deficit,
-            tree_root,  # vaults_data_tree_root
-            str(tree_cid),  # vaults_data_tree_cid
+            0,  # vaults_total_treasury_fees_shares, TODO will be removed
+            0,  # vaults_total_deficit, # TODO will be removed
+            bytes(0),  # vaults_data_tree_root # TODO will be removed
+            str("tree_cid"),  # vaults_data_tree_cid # TODO will be removed
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
@@ -386,11 +385,60 @@ class Accounting(BaseModule, ConsensusModule):
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         validators = self.w3.cc.get_validators(blockstamp)
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        tree_data, vaults = self.w3.staking_vaults.get_vaults_data(validators, pending_deposits, blockstamp)
+        simulation = self.simulate_full_rebase(blockstamp)
+        lido_fee_bp = self.w3.lido_contracts.lido.get_feeBP(blockstamp.block_hash)
+        tree_data, vaults, vaults_total_values = self.w3.staking_vaults.get_vaults_data(
+            blockstamp, validators, pending_deposits
+        )
+
+        chain_conf = self.get_chain_config(blockstamp)
+        time_elapsed = self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
         if len(tree_data) == 0:
-            return bytes(0), ''
+            return bytes(0), '', 0.0
+
+        # Case for non exist first report on testnet
+        vaults_treasury_fees_shares: float = 1
+        rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(blockstamp.block_number)
+        if rebased_event is not None:
+            predicted_apr = self._predict_apr(
+                    simulation.pre_total_shares,
+                    simulation.pre_total_pooled_ether,
+                    simulation.post_total_shares,
+                    simulation.post_total_pooled_ether,
+                    time_elapsed,
+                )
+
+            core_apr = predicted_apr / (lido_fee_bp / 10_000)
+
+            # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
+            infra_fee: float = 0
+
+            # Reservation liquidity fee = Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
+            reservation_liquidity_fee: float = 0
+
+            # Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
+            liquidity_fee: float  = 0
+
+            for vault_data in vaults.values():
+                infra_fee += (
+                            vaults_total_values[vault_data.vault_ind]
+                            * core_apr
+                            * (vault_data.infra_feeBP / 10_000)
+                    )
+                reservation_liquidity_fee += (
+                        vault_data.mintable_capacity_StETH
+                        * core_apr
+                        * (vault_data.reservation_feeBP / 10_000)
+                    )
+                liquidity_fee += (
+                        vault_data.minted_StETH
+                        * core_apr
+                        * (vault_data.liquidity_feeBP / 10_000)
+                )
+
+            vaults_treasury_fees_shares = infra_fee + reservation_liquidity_fee + liquidity_fee
 
         proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
         logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
@@ -403,7 +451,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
-        return merkle_tree.root, str(tree_cid)
+        return merkle_tree.root, str(tree_cid), vaults_treasury_fees_shares
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -436,7 +484,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
         is_bunker, finalization_batches = report_wq_part
-        tree_root, tree_cid = report_vaults_part
+        tree_root, tree_cid, vaults_total_treasury_fees_shares = report_vaults_part
 
         return ReportData(
             consensus_version=consensus_version,
@@ -450,7 +498,7 @@ class Accounting(BaseModule, ConsensusModule):
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
             # TODO: fees and deficit are not implemented yet
-            vaults_total_treasury_fees_shares=0,
+            vaults_total_treasury_fees_shares=vaults_total_treasury_fees_shares,
             vaults_total_deficit=0,
             tree_root=tree_root,
             tree_cid=tree_cid,
@@ -459,3 +507,28 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+    @staticmethod
+    def _predict_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed) -> float:
+        """
+        Compute user-facing APR using share rate growth over time.
+        Formula follows Lido V2-style:
+            apr = (postRate - preRate) * SECONDS_IN_YEAR / preRate / timeElapsed
+        """
+
+        if pre_total_shares == 0 or time_elapsed == 0 or post_total_shares == 0:
+            raise ValueError("Cannot compute APR: zero division risk.")
+
+        pre_rate = pre_total_ether * 10 ** 27 // pre_total_shares
+        post_rate = post_total_ether * 10 ** 27 // post_total_shares
+
+        rate_diff = post_rate - pre_rate
+        if rate_diff == 0:
+            raise ValueError("Cannot compute APR. rate_diff is 0")
+
+        if time_elapsed == 0:
+            raise ValueError("Cannot compute APR. time_elapsed is 0")
+
+        apr = (rate_diff * SECONDS_IN_YEAR * 100) // (pre_rate * time_elapsed)
+
+        return apr / 10 ** 5

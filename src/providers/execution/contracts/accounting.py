@@ -33,10 +33,10 @@ class AccountingContract(ContractInterface):
             "elRewardsVaultBalance": payload.el_rewards_vault_balance,
             "sharesRequestedToBurn": payload.shares_requested_to_burn,
             "withdrawalFinalizationBatches": payload.withdrawal_finalization_batches,
-            "vaultsTotalTreasuryFeesShares": payload.vaults_total_treasury_fees_shares,
-            "vaultsTotalDeficit": payload.vaults_total_deficit,
-            "vaultsDataTreeRoot": payload.vaults_data_tree_root,
-            "vaultsDataTreeCid": payload.vaults_data_tree_cid,
+            "vaultsTotalTreasuryFeesShares": payload.vaults_total_treasury_fees_shares, # TODO will be removed
+            "vaultsTotalDeficit": payload.vaults_total_deficit, # TODO will be removed
+            "vaultsDataTreeRoot": payload.vaults_data_tree_root, # TODO will be removed
+            "vaultsDataTreeCid": payload.vaults_data_tree_cid, # TODO will be removed
         }
 
         response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(

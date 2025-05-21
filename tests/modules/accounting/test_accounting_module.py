@@ -509,6 +509,13 @@ def test_simulate_rebase_after_report(
             fee=0,
             address='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
             withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
+            share_limit=0,
+            reserve_ratioBP=0,
+            forced_rebalance_thresholdBP=0,
+            infra_feeBP=0,
+            liquidity_feeBP=0,
+            reservation_feeBP=0,
+            pending_disconnect=False
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(
             vault_ind=1,
@@ -518,9 +525,17 @@ def test_simulate_rebase_after_report(
             fee=0,
             address='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
             withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
+            share_limit=0,
+            reserve_ratioBP=0,
+            forced_rebalance_thresholdBP=0,
+            infra_feeBP=0,
+            liquidity_feeBP=0,
+            reservation_feeBP=0,
+            pending_disconnect=False
         ),
     }
-    mock_vaults_data: VaultsData = (tree_data, vaults)
+    vaults_total_values = []
+    mock_vaults_data: VaultsData = (tree_data, vaults, vaults_total_values)
     accounting.w3.staking_vaults = Mock()
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
     accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
@@ -563,10 +578,10 @@ def test_simulate_rebase_after_report(
             el_rewards_vault_balance=0,
             shares_requested_to_burn=13,
             withdrawal_finalization_batches=[],
-            vaults_total_treasury_fees_shares=0,
-            vaults_total_deficit=0,
-            vaults_data_tree_root=StakingVaults.get_merkle_tree(tree_data).root,
-            vaults_data_tree_cid='tree_cid',
+            vaults_total_treasury_fees_shares=0, # TODO will be removed
+            vaults_total_deficit=0, # TODO will be removed
+            vaults_data_tree_root=bytes(0), # TODO will be removed
+            vaults_data_tree_cid='tree_cid', # TODO will be removed
         ),
         0,
         '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',

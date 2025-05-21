@@ -33,6 +33,15 @@ class TestStakingVaults:
                 in_out_delta=2000000000000000000,
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
                 liability_shares=0,
+                share_limit=0,
+                minted_StETH=0,
+                mintable_capacity_StETH=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False
             ),
         ]
 
@@ -99,7 +108,7 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, pending_deposits, bs)
+        tree_data, vault_data, _ = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x1e258599def3fd5b123849e87603c4581fb6a6a607d1bb541e6460fe44915a11'
@@ -159,7 +168,7 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, pending_deposits, bs)
+        tree_data, vault_data, _ = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x1c0cda951522f541abff34a2e5bd412a02db171ce64358978204c274103298e2'
@@ -225,7 +234,7 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data = self.staking_vaults.get_vaults_data(validators, pending_deposits, bs)
+        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x1c0cda951522f541abff34a2e5bd412a02db171ce64358978204c274103298e2'

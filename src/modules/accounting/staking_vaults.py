@@ -13,7 +13,7 @@ from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, Vault
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
-from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
 from src.utils.deposit_signature import is_valid_deposit_signature
@@ -41,40 +41,40 @@ class StakingVaults(Module):
     w3: Web3
     ipfs_client: MultiIPFSProvider
     cl: ConsensusClient
-    vault_hub: VaultHubContract
+    lazy_oracle: LazyOracleContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, vault_hub: VaultHubContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lazy_oracle: LazyOracleContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
         self.ipfs_client = ipfs
         self.cl = cl
-        self.vault_hub = vault_hub
+        self.lazy_oracle = lazy_oracle
 
     def get_vaults_data(
-            self, validators: list[Validator], pending_deposits: list[PendingDeposit], blockstamp: BlockStamp
+            self, blockstamp: BlockStamp, validators: list[Validator], pending_deposits: list[PendingDeposit]
     ) -> VaultsData:
         vaults = self.get_vaults(blockstamp)
         if len(vaults) == 0:
-            return [], {}
+            return [], {}, []
 
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
 
-        vaults_values = [0] * len(vaults)
+        vaults_total_values = [0] * len(vaults)
 
         for vault_address, vault in vaults.items():
-            vaults_values[vault.vault_ind] = vault.balance_wei
+            vaults_total_values[vault.vault_ind] = vault.balance_wei
             vault_validators = vaults_validators.get(vault_address, [])
             vault_pending_deposits = vaults_pending_deposits.get(vault_address, [])
 
             # Add active validators balances
             if vault_address in vaults_validators:
-                vaults_values[vault.vault_ind] += self._calculate_vault_validators_balances(vault_validators)
+                vaults_total_values[vault.vault_ind] += self._calculate_vault_validators_balances(vault_validators)
 
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
-                vaults_values[vault.vault_ind] += self._calculate_pending_deposits_balances(
+                vaults_total_values[vault.vault_ind] += self._calculate_pending_deposits_balances(
                     validators,
                     pending_deposits,
                     vault_validators,
@@ -86,16 +86,16 @@ class StakingVaults(Module):
                 {
                     'msg': f'Vault values for vault: {vault_address}.',
                     'vault_in_out_delta': vault.in_out_delta,
-                    'vault_value': vaults_values[vault.vault_ind],
+                    'vault_value': vaults_total_values[vault.vault_ind],
                 }
             )
 
-        tree_data = self._build_tree_data(vaults, vaults_values)
+        tree_data = self._build_tree_data(vaults, vaults_total_values)
 
-        return tree_data, vaults
+        return tree_data, vaults, vaults_total_values
 
     def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
-        vaults = self.vault_hub.get_all_vaults(block_identifier=blockstamp.block_number)
+        vaults = self.lazy_oracle.get_all_vaults(block_identifier=blockstamp.block_number)
         if len(vaults) == 0:
             return {}
 
@@ -111,6 +111,15 @@ class StakingVaults(Module):
                 fee,
                 vault.vault,
                 vault.withdrawal_credentials,
+                vault.share_limit,
+                vault.minted_StETH,
+                vault.mintable_capacity_StETH,
+                vault.reserve_ratioBP,
+                vault.forced_rebalance_thresholdBP,
+                vault.infra_feeBP,
+                vault.liquidity_feeBP,
+                vault.reservation_feeBP,
+                vault.pending_disconnect
             )
 
         return out
@@ -171,7 +180,7 @@ class StakingVaults(Module):
         return cid
 
     def get_current_report_cid(self, bs: BlockStamp) -> LatestReportData:
-        return self.vault_hub.get_report(block_identifier=bs.block_number)
+        return self.lazy_oracle.get_report(block_identifier=bs.block_number)
 
     def _calculate_pending_deposits_balances(
             self,

@@ -10,7 +10,7 @@ from src import variables
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockRoot
 from src.utils.blockstamp import build_blockstamp
@@ -41,11 +41,11 @@ class TestStakingVaultsSmoke:
             ),
         )
 
-        vault_hub: VaultHubContract = cast(
-            VaultHubContract,
+        vault_hub: LazyOracleContract = cast(
+            LazyOracleContract,
             w3.eth.contract(
-                address=lido_locator.vault_hub(),
-                ContractFactoryClass=VaultHubContract,
+                address=lido_locator.lazy_oracle(),
+                ContractFactoryClass=LazyOracleContract,
                 decode_tuples=True,
             ),
         )
@@ -62,7 +62,7 @@ class TestStakingVaultsSmoke:
         validators = self.cc.get_validators_no_cache(bs)
         pending_deposites = self.cc.get_pending_deposits(bs)
 
-        tree_data, _ = self.StakingVaults.get_vaults_data(validators, pending_deposites, bs)
+        tree_data, _, _ = self.StakingVaults.get_vaults_data(bs, validators, pending_deposites)
         merkle_tree = self.StakingVaults.get_merkle_tree(tree_data)
         print(f"0x{merkle_tree.root.hex()}")
 

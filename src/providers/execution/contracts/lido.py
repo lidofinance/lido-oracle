@@ -1,8 +1,9 @@
 import logging
 
+from eth_typing import HexStr
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.types import BeaconStat
+from src.modules.accounting.types import BeaconStat, TokenRebasedEvent
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
@@ -67,4 +68,35 @@ class LidoContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address,
         })
+        return response
+
+    def get_last_token_rebased_event(self, block_number: int) -> TokenRebasedEvent | None:
+        block_from, block_to = block_number - 7200, block_number
+
+        logs = self.w3.eth.get_logs({
+                "fromBlock": block_from,
+                "toBlock": block_to,
+                "address": self.address,
+                "topics": [
+                    HexStr(self.w3.keccak(self.events.TokenRebased.signature).hex())
+                ]
+            })
+
+        if not logs:
+            return None
+
+        event = self.events.TokenRebased.process_log(logs[-1])
+
+        return TokenRebasedEvent.from_log(event)
+
+    def get_feeBP(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        response = self.functions.getFee().call(block_identifier=block_identifier)
+
+        logger.info({
+            'msg': 'Call `getFee()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+
         return response
