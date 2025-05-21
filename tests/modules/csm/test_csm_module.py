@@ -594,6 +594,7 @@ def test_execute_module_not_collected(module: CSOracle):
     )
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+
 @pytest.mark.unit
 def test_execute_module_skips_collecting_if_forward_compatible(module: CSOracle):
     module._check_compatability = Mock(return_value=False)
@@ -777,7 +778,6 @@ def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
 
 
 class TestLastReport:
-
     @pytest.mark.unit
     def test_load(self, web3: Web3):
         blockstamp = Mock()
