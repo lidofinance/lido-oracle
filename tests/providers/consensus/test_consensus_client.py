@@ -1,14 +1,16 @@
 # pylint: disable=protected-access
 """Simple tests for the consensus client responses validity."""
+
 from unittest.mock import Mock
 
 import pytest
+import requests
 
+from src import variables
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.types import SlotNumber
 from src.utils.blockstamp import build_blockstamp
-from src import variables
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -94,7 +96,11 @@ def test_get_state_view(consensus_client: ConsensusClient):
 
 @pytest.mark.unit
 def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
-    consensus_client._get_without_fallbacks = Mock(return_value=(1, None))
+    resp = requests.Response()
+    resp.status_code = 200
+    resp._content = b'{"data": 1}'
+
+    consensus_client.session.get = Mock(return_value=resp)
     bs = BlockStampFactory.build()
 
     raises = pytest.raises(ValueError, match='Expected (mapping|list) response')

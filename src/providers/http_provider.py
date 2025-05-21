@@ -1,14 +1,14 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Sequence, Callable
+from typing import Callable, Literal, Sequence, overload
 from urllib.parse import urljoin, urlparse
 
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -35,6 +35,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
+
     PROMETHEUS_HISTOGRAM: Histogram
     request_timeout: int
 
@@ -72,6 +73,62 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
+    @overload
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+    ) -> tuple[dict | list, dict]: ...
+
+    @overload
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        is_dict: Literal[True],
+    ) -> tuple[dict, dict]: ...
+
+    @overload
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        is_list: Literal[True],
+    ) -> tuple[list, dict]: ...
+
+    @overload
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: Literal[True],
+        is_dict: Literal[True],
+    ) -> TransientStreamingJSONObject: ...
+
+    @overload
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        stream: Literal[True],
+        is_list: Literal[True],
+    ) -> TransientStreamingJSONList: ...
+
     def _get(
         self,
         endpoint: str,
@@ -79,7 +136,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
         stream: bool = False,
-    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
+        is_dict: bool = False,
+        is_list: bool = False,
+    ):
         """
         Get plain or streamed request with fallbacks
         Returns (data, meta) or raises exception
@@ -91,7 +150,15 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
+                return self._get_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    stream=stream,
+                    is_dict=is_dict,
+                    is_list=is_list,
+                )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -110,6 +177,65 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         # Raise error from last provider.
         raise errors[-1]
 
+    @overload
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        is_dict: Literal[True],
+    ) -> tuple[dict, dict]: ...
+
+    @overload
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        is_list: Literal[True],
+    ) -> tuple[dict, dict]: ...
+
+    @overload
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        stream: Literal[True],
+        is_dict: Literal[True],
+    ) -> TransientStreamingJSONObject: ...
+
+    @overload
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        stream: Literal[True],
+        is_list: Literal[True],
+    ) -> TransientStreamingJSONList: ...
+
+    @overload
+    def _get_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        *,
+        stream: bool = False,
+        is_dict: bool = False,
+        is_list: bool = False,
+    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList: ...
+
     def _get_without_fallbacks(
         self,
         host: str,
@@ -117,7 +243,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,
-    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
+        is_dict: bool = False,
+        is_list: bool = False,
+    ):
         """
         Simple get request without fallbacks
         Returns (data, meta) or streamed transient list-like or dict-like object JSON or raises exception
@@ -130,7 +258,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
-                    stream=stream
+                    stream=stream,
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})
@@ -156,7 +284,12 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
             if stream:
-                return json_stream_requests.load(response)
+                data = json_stream_requests.load(response)
+                if is_dict and not isinstance(data, TransientStreamingJSONObject):
+                    raise ValueError(f"Expected mapping response from {endpoint}")
+                if is_list and not isinstance(data, TransientStreamingJSONList):
+                    raise ValueError(f"Expected list response from {endpoint}")
+                return data
 
             try:
                 json_response = response.json()
@@ -167,13 +300,20 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
-        if 'data' in json_response:
+        try:
             data = json_response['data']
             del json_response['data']
             meta = json_response
-        else:
+        except KeyError:
             data = json_response
             meta = {}
+        except Exception as e:
+            raise ValueError(f"Unexpected response from {endpoint}, resp={response}") from e
+
+        if is_dict and not isinstance(data, dict):
+            raise ValueError(f"Expected mapping response from {endpoint}")
+        if is_list and not isinstance(data, list):
+            raise ValueError(f"Expected list response from {endpoint}")
 
         return data, meta
 
