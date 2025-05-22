@@ -46,7 +46,9 @@ class Tree[LeafType: Iterable](ABC):
         try:
             return cls(StandardMerkleTree.load(json.loads(content, cls=cls.decoder)))
         except JSONDecodeError as e:
-            raise ValueError("Unsupported tree format") from e
+            raise ValueError("Invalid tree's JSON") from e
+        except Exception as e:
+            raise ValueError("Unable to load tree") from e
 
     def encode(self) -> bytes:
         """Convert the underlying StandardMerkleTree to a binary representation"""
