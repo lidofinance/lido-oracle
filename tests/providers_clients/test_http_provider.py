@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse
+from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any
 
 
 @pytest.mark.unit
@@ -72,8 +72,7 @@ def test_force_raise():
         None,
         None,
         stream=False,
-        is_dict=False,
-        is_list=False,
+        retval_validator=data_is_any,
     )
 
 

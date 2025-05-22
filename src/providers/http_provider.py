@@ -1,12 +1,12 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Callable, Literal, Sequence, overload
+from typing import Any, Callable, NoReturn, Protocol, Sequence
 from urllib.parse import urljoin, urlparse
 
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
-from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
+from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
 from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
@@ -29,6 +29,29 @@ class NotOkResponse(Exception):
         self.status = status
         self.text = text
         super().__init__(*args)
+
+
+class ReturnValueValidator(Protocol):
+    def __call__(self, data: Any, meta: dict, *, endpoint: str) -> None | NoReturn: ...
+
+
+def data_is_any(data: Any, meta: dict, *, endpoint: str):
+    pass
+
+
+def data_is_dict(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected mapping response from {endpoint}")
+
+
+def data_is_list(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, list):
+        raise ValueError(f"Expected list response from {endpoint}")
+
+
+def data_is_transient_dict(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, TransientStreamingJSONObject):
+        raise ValueError(f"Expected mapping response from {endpoint}")
 
 
 class HTTPProvider(ProviderConsistencyModule, ABC):
@@ -73,72 +96,15 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
-    @overload
-    def _get(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-    ) -> tuple[dict | list, dict]: ...
-
-    @overload
-    def _get(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-        is_dict: Literal[True],
-    ) -> tuple[dict, dict]: ...
-
-    @overload
-    def _get(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-        is_list: Literal[True],
-    ) -> tuple[list, dict]: ...
-
-    @overload
-    def _get(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-        stream: Literal[True],
-        is_dict: Literal[True],
-    ) -> TransientStreamingJSONObject: ...
-
-    @overload
-    def _get(
-        self,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        force_raise: Callable[..., Exception | None] = lambda _: None,
-        stream: Literal[True],
-        is_list: Literal[True],
-    ) -> TransientStreamingJSONList: ...
-
     def _get(
         self,
         endpoint: str,
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
         stream: bool = False,
-        is_dict: bool = False,
-        is_list: bool = False,
-    ):
+    ) -> tuple[Any, dict]:
         """
         Get plain or streamed request with fallbacks
         Returns (data, meta) or raises exception
@@ -156,8 +122,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     path_params,
                     query_params,
                     stream=stream,
-                    is_dict=is_dict,
-                    is_list=is_list,
+                    retval_validator=retval_validator,
                 )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
@@ -177,65 +142,6 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         # Raise error from last provider.
         raise errors[-1]
 
-    @overload
-    def _get_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        is_dict: Literal[True],
-    ) -> tuple[dict, dict]: ...
-
-    @overload
-    def _get_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        is_list: Literal[True],
-    ) -> tuple[dict, dict]: ...
-
-    @overload
-    def _get_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        stream: Literal[True],
-        is_dict: Literal[True],
-    ) -> TransientStreamingJSONObject: ...
-
-    @overload
-    def _get_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        stream: Literal[True],
-        is_list: Literal[True],
-    ) -> TransientStreamingJSONList: ...
-
-    @overload
-    def _get_without_fallbacks(
-        self,
-        host: str,
-        endpoint: str,
-        path_params: Sequence[str | int] | None = None,
-        query_params: dict | None = None,
-        *,
-        stream: bool = False,
-        is_dict: bool = False,
-        is_list: bool = False,
-    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList: ...
-
     def _get_without_fallbacks(
         self,
         host: str,
@@ -243,12 +149,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,
-        is_dict: bool = False,
-        is_list: bool = False,
-    ):
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[Any, dict]:
         """
         Simple get request without fallbacks
-        Returns (data, meta) or streamed transient list-like or dict-like object JSON or raises exception
+        Returns (data, meta) or raises an exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
 
@@ -284,12 +189,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
             if stream:
-                data = json_stream_requests.load(response)
-                if is_dict and not isinstance(data, TransientStreamingJSONObject):
-                    raise ValueError(f"Expected mapping response from {endpoint}")
-                if is_list and not isinstance(data, TransientStreamingJSONList):
-                    raise ValueError(f"Expected list response from {endpoint}")
-                return data
+                # There's no guarantee the JSON is valid at this point.
+                json_response = json_stream_requests.load(response)
 
             try:
                 json_response = response.json()
@@ -301,20 +202,18 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
         try:
-            data = json_response['data']
-            del json_response['data']
-            meta = json_response
+            data = json_response["data"]
+            meta = {}
+
+            if not stream:
+                del json_response["data"]
+                meta = json_response
         except KeyError:
+            # NOTE: Used by KeysAPIClient only.
             data = json_response
             meta = {}
-        except Exception as e:
-            raise ValueError(f"Unexpected response from {endpoint}, resp={response}") from e
 
-        if is_dict and not isinstance(data, dict):
-            raise ValueError(f"Expected mapping response from {endpoint}")
-        if is_list and not isinstance(data, list):
-            raise ValueError(f"Expected list response from {endpoint}")
-
+        retval_validator(data, meta, endpoint=endpoint)
         return data, meta
 
     def get_all_providers(self) -> list[str]:
