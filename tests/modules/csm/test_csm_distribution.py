@@ -298,7 +298,7 @@ def test_calculate_distribution(
 
     distribution = Distribution(w3, converter=..., state=State())
     distribution._get_module_validators = Mock(...)
-    distribution.state.frames = frames
+    distribution.state.data = {f: {} for f in frames}
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
     distribution._calculate_distribution_in_frame = Mock(side_effect=distribution_in_frame)
 
@@ -324,7 +324,7 @@ def test_calculate_distribution_handles_invalid_distribution():
 
     distribution = Distribution(w3, converter=..., state=State())
     distribution._get_module_validators = Mock(...)
-    distribution.state.frames = [(EpochNumber(0), EpochNumber(31))]
+    distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
     distribution._calculate_distribution_in_frame = Mock(
         return_value=(
@@ -352,7 +352,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
 
     distribution = Distribution(w3, converter=..., state=State())
     distribution._get_module_validators = Mock(...)
-    distribution.state.frames = [(EpochNumber(0), EpochNumber(31))]
+    distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
     distribution._calculate_distribution_in_frame = Mock(
         return_value=(

@@ -67,6 +67,8 @@ type StateData = dict[Frame, NetworkDuties]
 
 
 class State:
+    # pylint: disable=too-many-public-methods
+
     """
     Processing state of a CSM performance oracle frame.
 
@@ -77,7 +79,6 @@ class State:
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
 
-    frames: list[Frame]
     data: StateData
 
     _epochs_to_process: tuple[EpochNumber, ...]
@@ -86,7 +87,6 @@ class State:
     _consensus_version: int
 
     def __init__(self) -> None:
-        self.frames = []
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
@@ -131,6 +131,10 @@ class State:
         return not self.data and not self._epochs_to_process and not self._processed_epochs
 
     @property
+    def frames(self) -> list[Frame]:
+        return list(self.data.keys())
+
+    @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise ValueError("Epochs to process are not set")
@@ -149,7 +153,6 @@ class State:
         return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame)]
 
     def clear(self) -> None:
-        self.frames = []
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
@@ -200,7 +203,6 @@ class State:
             return
         self._migrate_frames_data(new_frames)
 
-        self.frames = new_frames
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
         self._consensus_version = consensus_version

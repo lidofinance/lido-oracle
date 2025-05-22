@@ -154,14 +154,14 @@ def test_clear_resets_state_to_empty():
 @pytest.mark.unit
 def test_find_frame_returns_correct_frame():
     state = State()
-    state.frames = [(0, 31)]
+    state.data = {(0, 31): {}}
     assert state.find_frame(15) == (0, 31)
 
 
 @pytest.mark.unit
 def test_find_frame_raises_error_for_out_of_range_epoch():
     state = State()
-    state.frames = [(0, 31)]
+    state.data = {(0, 31): {}}
     with pytest.raises(ValueError, match="Epoch 32 is out of frames range"):
         state.find_frame(32)
 
@@ -170,7 +170,6 @@ def test_find_frame_raises_error_for_out_of_range_epoch():
 def test_increment_att_duty_adds_duty_correctly():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -184,7 +183,6 @@ def test_increment_att_duty_adds_duty_correctly():
 def test_increment_prop_duty_adds_duty_correctly():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -198,7 +196,6 @@ def test_increment_prop_duty_adds_duty_correctly():
 def test_increment_sync_duty_adds_duty_correctly():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -212,7 +209,6 @@ def test_increment_sync_duty_adds_duty_correctly():
 def test_increment_att_duty_creates_new_validator_entry():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(),
@@ -226,7 +222,6 @@ def test_increment_att_duty_creates_new_validator_entry():
 def test_increment_prop_duty_creates_new_validator_entry():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(),
@@ -240,7 +235,6 @@ def test_increment_prop_duty_creates_new_validator_entry():
 def test_increment_sync_duty_creates_new_validator_entry():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(),
@@ -254,7 +248,6 @@ def test_increment_sync_duty_creates_new_validator_entry():
 def test_increment_att_duty_handles_non_included_duty():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -268,7 +261,6 @@ def test_increment_att_duty_handles_non_included_duty():
 def test_increment_prop_duty_handles_non_included_duty():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -282,7 +274,6 @@ def test_increment_prop_duty_handles_non_included_duty():
 def test_increment_sync_duty_handles_non_included_duty():
     state = State()
     frame = (0, 31)
-    state.frames = [frame]
     duty_epoch, _ = frame
     state.data = {
         frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
@@ -295,8 +286,6 @@ def test_increment_sync_duty_handles_non_included_duty():
 @pytest.mark.unit
 def test_increment_att_duty_raises_error_for_out_of_range_epoch():
     state = State()
-    frame = (0, 31)
-    state.frames = [frame]
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -307,8 +296,6 @@ def test_increment_att_duty_raises_error_for_out_of_range_epoch():
 @pytest.mark.unit
 def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
     state = State()
-    frame = (0, 31)
-    state.frames = [frame]
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -319,8 +306,6 @@ def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
 @pytest.mark.unit
 def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
     state = State()
-    frame = (0, 31)
-    state.frames = [frame]
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -362,7 +347,6 @@ def test_migrate_discards_data_on_version_change():
 def test_migrate_no_migration_needed():
     state = State()
     state._consensus_version = 1
-    state.frames = [(0, 31), (32, 63)]
     state.data = {
         (0, 31): defaultdict(DutyAccumulator),
         (32, 63): defaultdict(DutyAccumulator),
@@ -381,7 +365,6 @@ def test_migrate_no_migration_needed():
 def test_migrate_migrates_data():
     state = State()
     state._consensus_version = 1
-    state.frames = [(0, 31), (32, 63)]
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -414,7 +397,6 @@ def test_migrate_migrates_data():
 def test_migrate_invalidates_unmigrated_frames():
     state = State()
     state._consensus_version = 1
-    state.frames = [(0, 63)]
     state.data = {
         (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
@@ -439,7 +421,6 @@ def test_migrate_invalidates_unmigrated_frames():
 def test_migrate_discards_unmigrated_frame():
     state = State()
     state._consensus_version = 1
-    state.frames = [(0, 31), (32, 63), (64, 95)]
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -483,8 +464,6 @@ def test_migrate_discards_unmigrated_frame():
 @pytest.mark.unit
 def test_migrate_frames_data_creates_new_data_correctly():
     state = State()
-    state.frames = [(0, 31), (32, 63)]
-    new_frames = [(0, 63)]
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -499,6 +478,7 @@ def test_migrate_frames_data_creates_new_data_correctly():
     }
     state._processed_epochs = set(sequence(0, 20))
 
+    new_frames = [(0, 63)]
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
@@ -514,8 +494,6 @@ def test_migrate_frames_data_creates_new_data_correctly():
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_migration():
     state = State()
-    state.frames = [(0, 31)]
-    new_frames = [(0, 31)]
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -525,6 +503,7 @@ def test_migrate_frames_data_handles_no_migration():
     }
     state._processed_epochs = set(sequence(0, 20))
 
+    new_frames = [(0, 31)]
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
@@ -540,8 +519,6 @@ def test_migrate_frames_data_handles_no_migration():
 @pytest.mark.unit
 def test_migrate_frames_data_handles_partial_migration():
     state = State()
-    state.frames = [(0, 31), (32, 63)]
-    new_frames = [(0, 31), (32, 95)]
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -556,6 +533,7 @@ def test_migrate_frames_data_handles_partial_migration():
     }
     state._processed_epochs = set(sequence(0, 20))
 
+    new_frames = [(0, 31), (32, 95)]
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
@@ -576,10 +554,9 @@ def test_migrate_frames_data_handles_partial_migration():
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_data():
     state = State()
-    state.frames = [(0, 31)]
-    new_frames = [(0, 31)]
     state.data = {frame: NetworkDuties() for frame in state.frames}
 
+    new_frames = [(0, 31)]
     state._migrate_frames_data(new_frames)
 
     assert state.data == {(0, 31): NetworkDuties()}
@@ -588,8 +565,6 @@ def test_migrate_frames_data_handles_no_data():
 @pytest.mark.unit
 def test_migrate_frames_data_handles_wider_old_frame():
     state = State()
-    state.frames = [(0, 63)]
-    new_frames = [(0, 31), (32, 63)]
     state.data = {
         (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
@@ -599,6 +574,7 @@ def test_migrate_frames_data_handles_wider_old_frame():
     }
     state._processed_epochs = set(sequence(0, 20))
 
+    new_frames = [(0, 31), (32, 63)]
     state._migrate_frames_data(new_frames)
 
     assert state.data == {
