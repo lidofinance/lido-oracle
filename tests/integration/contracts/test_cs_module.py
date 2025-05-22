@@ -6,6 +6,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_is_
 
 
 @pytest.mark.integration
+@pytest.mark.mainnet
 def test_cs_module(cs_module_contract, caplog):
     check_contract(
         cs_module_contract,
@@ -18,6 +19,7 @@ def test_cs_module(cs_module_contract, caplog):
 
 
 @pytest.mark.integration
+@pytest.mark.mainnet
 @pytest.mark.xfail(raises=ContractLogicError, reason="CSMv2 is not yet live")
 def test_cs_module_v2(cs_module_contract, caplog):
     check_contract(
