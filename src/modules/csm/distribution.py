@@ -50,6 +50,7 @@ class Distribution:
         result = DistributionResult()
         result.strikes.update(last_report.strikes.items())
 
+        distributed_so_far = 0
         for frame in self.state.frames:
             from_epoch, to_epoch = frame
             logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
@@ -58,7 +59,6 @@ class Distribution:
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
             total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
-            distributed_so_far = result.total_rewards + result.total_rebate
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
             frame_log = FramePerfLog(frame_blockstamp, frame)
@@ -78,6 +78,7 @@ class Distribution:
             result.total_rebate += rebate_to_protocol_in_frame
 
             self.validate_distribution(result.total_rewards, result.total_rebate, total_rewards_to_distribute)
+            distributed_so_far = result.total_rewards + result.total_rebate
 
             for no_id, rewards in rewards_map_in_frame.items():
                 result.total_rewards_map[no_id] += rewards
