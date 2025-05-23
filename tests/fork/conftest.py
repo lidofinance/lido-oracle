@@ -95,6 +95,20 @@ def set_delay_and_sleep(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def patch_csm_contract_load(monkeypatch):
+    monkeypatch.setattr(
+        "src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES",
+        3,
+    )
+    monkeypatch.setattr(
+        "src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY",
+        0,
+    )
+    logger.info("TESTRUN Patched CSM CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
+    yield
+
+
+@pytest.fixture(autouse=True)
 def set_cache_path(monkeypatch, testrun_path):
     with monkeypatch.context():
         monkeypatch.setattr(
