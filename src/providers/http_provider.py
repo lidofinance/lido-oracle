@@ -188,12 +188,12 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
-            if stream:
-                # There's no guarantee the JSON is valid at this point.
-                json_response = json_stream_requests.load(response)
-
             try:
-                json_response = response.json()
+                if stream:
+                    # There's no guarantee the JSON is valid at this point.
+                    json_response = json_stream_requests.load(response)
+                else:
+                    json_response = response.json()
             except JSONDecodeError as error:
                 response_fail_msg = (
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
