@@ -44,6 +44,7 @@ def missed_initial_frame(frame_config: FrameConfig):
     return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
+@pytest.mark.xfail(raises=AssertionError, reason="Test is expected to fail. Lido contracts are not updated yet.")
 @pytest.mark.fork
 @pytest.mark.parametrize(
     'module',
