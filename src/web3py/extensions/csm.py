@@ -33,6 +33,9 @@ class CSM(Module):
     module: CSModuleContract
     params: CSParametersRegistryContract
 
+    CONTRACT_LOAD_MAX_RETRIES: int = 100
+    CONTRACT_LOAD_RETRY_DELAY: int = 60
+
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
         self._load_contracts()
@@ -69,64 +72,76 @@ class CSM(Module):
         return CurveParams(perf_coeffs, perf_leeway_data, reward_share_data, strikes_params)
 
     def _load_contracts(self) -> None:
-        try:
-            self.module = cast(
-                CSModuleContract,
-                self.w3.eth.contract(
-                    address=variables.CSM_MODULE_ADDRESS,  # type: ignore
-                    ContractFactoryClass=CSModuleContract,
-                    decode_tuples=True,
-                ),
-            )
+        last_error = None
 
-            self.params = cast(
-                CSParametersRegistryContract,
-                self.w3.eth.contract(
-                    address=self.module.parameters_registry(),
-                    ContractFactoryClass=CSParametersRegistryContract,
-                    decode_tuples=True,
-                ),
-            )
+        for attempt in range(self.CONTRACT_LOAD_MAX_RETRIES):
+            try:
+                self.module = cast(
+                    CSModuleContract,
+                    self.w3.eth.contract(
+                        address=variables.CSM_MODULE_ADDRESS,  # type: ignore
+                        ContractFactoryClass=CSModuleContract,
+                        decode_tuples=True,
+                    ),
+                )
 
-            self.accounting = cast(
-                CSAccountingContract,
-                self.w3.eth.contract(
-                    address=self.module.accounting(),
-                    ContractFactoryClass=CSAccountingContract,
-                    decode_tuples=True,
-                ),
-            )
+                self.params = cast(
+                    CSParametersRegistryContract,
+                    self.w3.eth.contract(
+                        address=self.module.parameters_registry(),
+                        ContractFactoryClass=CSParametersRegistryContract,
+                        decode_tuples=True,
+                    ),
+                )
 
-            self.fee_distributor = cast(
-                CSFeeDistributorContract,
-                self.w3.eth.contract(
-                    address=self.accounting.fee_distributor(),
-                    ContractFactoryClass=CSFeeDistributorContract,
-                    decode_tuples=True,
-                ),
-            )
+                self.accounting = cast(
+                    CSAccountingContract,
+                    self.w3.eth.contract(
+                        address=self.module.accounting(),
+                        ContractFactoryClass=CSAccountingContract,
+                        decode_tuples=True,
+                    ),
+                )
 
-            self.oracle = cast(
-                CSFeeOracleContract,
-                self.w3.eth.contract(
-                    address=self.fee_distributor.oracle(),
-                    ContractFactoryClass=CSFeeOracleContract,
-                    decode_tuples=True,
-                ),
-            )
+                self.fee_distributor = cast(
+                    CSFeeDistributorContract,
+                    self.w3.eth.contract(
+                        address=self.accounting.fee_distributor(),
+                        ContractFactoryClass=CSFeeDistributorContract,
+                        decode_tuples=True,
+                    ),
+                )
 
-            self.strikes = cast(
-                CSStrikesContract,
-                self.w3.eth.contract(
-                    address=self.oracle.strikes(),
-                    ContractFactoryClass=CSStrikesContract,
-                    decode_tuples=True,
-                ),
-            )
-        except Web3Exception as ex:
-            logger.error({"msg": "Some of the contracts aren't healthy", "error": str(ex)})
-            sleep(60)
-            self._load_contracts()
+                self.oracle = cast(
+                    CSFeeOracleContract,
+                    self.w3.eth.contract(
+                        address=self.fee_distributor.oracle(),
+                        ContractFactoryClass=CSFeeOracleContract,
+                        decode_tuples=True,
+                    ),
+                )
+
+                self.strikes = cast(
+                    CSStrikesContract,
+                    self.w3.eth.contract(
+                        address=self.oracle.strikes(),
+                        ContractFactoryClass=CSStrikesContract,
+                        decode_tuples=True,
+                    ),
+                )
+                return
+            except Web3Exception as e:
+                last_error = e
+                logger.error({
+                    "msg": f"Attempt {attempt + 1}/{self.CONTRACT_LOAD_MAX_RETRIES} failed to load contracts",
+                    "error": str(e)
+                })
+                sleep(self.CONTRACT_LOAD_RETRY_DELAY)
+
+        raise Web3Exception(
+            f"Failed to load contracts in CSM module "
+            f"after {self.CONTRACT_LOAD_MAX_RETRIES} attempts"
+        ) from last_error
 
 
 class LazyCSM(CSM):
