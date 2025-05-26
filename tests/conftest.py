@@ -27,6 +27,13 @@ UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
 MAINNET_MARKER = 'mainnet'
 TESTNET_MARKER = 'testnet'
+FORK_MARKER = 'fork'
+
+INTEGRATION_TESTS_MODIFICATORS_MARKERS = {
+    MAINNET_MARKER,
+    TESTNET_MARKER,
+    FORK_MARKER,
+}
 
 DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -40,14 +47,19 @@ TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
 def check_test_marks_compatibility(request):
     all_test_markers = {x.name for x in request.node.iter_markers()}
 
-    if not all_test_markers:
-        pytest.fail('Test must be marked.')
+    if not all_test_markers or not {UNIT_MARKER, INTEGRATION_MARKER} & all_test_markers:
+        pytest.fail('Test must be marked with at least one marker, e.g. @pytest.mark.unit or @pytest.mark.integration.')
 
-    elif UNIT_MARKER in all_test_markers and {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers:
+    elif (
+        UNIT_MARKER in all_test_markers
+        and {INTEGRATION_MARKER}.union(INTEGRATION_TESTS_MODIFICATORS_MARKERS) & all_test_markers
+    ):
         pytest.fail('Test can not be both unit and integration at the same time.')
 
-    elif {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
-        pytest.fail('Test can not be run on mainnet or testnet without integration marker.')
+    elif INTEGRATION_TESTS_MODIFICATORS_MARKERS & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
+        pytest.fail(
+            f'Test can not be run with {INTEGRATION_TESTS_MODIFICATORS_MARKERS} markers without @pytest.mark.integration.'
+        )
 
 
 @pytest.fixture(autouse=True)

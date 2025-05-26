@@ -355,6 +355,7 @@ class NoContractVersionConsensusImpl(ConsensusImpl):
     CONSENSUS_VERSION = 1
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "impl",
     [
