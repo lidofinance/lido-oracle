@@ -1,9 +1,10 @@
 import logging
+from collections import UserList
 from dataclasses import dataclass
 
 from web3.types import BlockIdentifier
 
-from src.constants import TOTAL_BASIS_POINTS, UINT256_MAX, ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT
+from src.constants import TOTAL_BASIS_POINTS, ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT
 from src.modules.csm.state import ValidatorDuties
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.cache import global_lru_cache as lru_cache
@@ -47,14 +48,12 @@ class KeyNumberValueInterval:
     value: int
 
 
-@dataclass
-class KeyNumberValue:
-    intervals: list[KeyNumberValueInterval]
+class KeyNumberValueIntervalList(UserList[KeyNumberValueInterval]):
 
     def get_for(self, key_number: int) -> float:
         if key_number < 1:
             raise ValueError("Key number should be greater than 1 or equal")
-        for interval in sorted(self.intervals, key=lambda x: x.minKeyNumber, reverse=True):
+        for interval in sorted(self, key=lambda x: x.minKeyNumber, reverse=True):
             if key_number >= interval.minKeyNumber:
                 return interval.value / TOTAL_BASIS_POINTS
         raise ValueError(f"No value found for key number={key_number}")
@@ -69,8 +68,8 @@ class StrikesParams:
 @dataclass
 class CurveParams:
     perf_coeffs: PerformanceCoefficients
-    perf_leeway_data: KeyNumberValue
-    reward_share_data: KeyNumberValue
+    perf_leeway_data: KeyNumberValueIntervalList
+    reward_share_data: KeyNumberValueIntervalList
     strikes_params: StrikesParams
 
 
@@ -100,7 +99,7 @@ class CSParametersRegistryContract(ContractInterface):
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> KeyNumberValue:
+    ) -> KeyNumberValueIntervalList:
         """Returns reward share data for given node operator"""
 
         resp = self.functions.getRewardShareData(curve_id).call(block_identifier=block_identifier)
@@ -111,14 +110,14 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return KeyNumberValue(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp.intervals])
+        return KeyNumberValueIntervalList([KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
 
     @lru_cache()
     def get_performance_leeway_data(
         self,
         curve_id: int,
         block_identifier: BlockIdentifier = "latest",
-    ) -> KeyNumberValue:
+    ) -> KeyNumberValueIntervalList:
         """Returns performance leeway data for given node operator"""
 
         resp = self.functions.getPerformanceLeewayData(curve_id).call(block_identifier=block_identifier)
@@ -129,7 +128,7 @@ class CSParametersRegistryContract(ContractInterface):
                 "block_identifier": repr(block_identifier),
             }
         )
-        return KeyNumberValue(intervals=[KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp.intervals])
+        return KeyNumberValueIntervalList([KeyNumberValueInterval(r.minKeyNumber, r.value) for r in resp])
 
     @lru_cache()
     def get_strikes_params(

@@ -17,7 +17,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
     CurveParams,
     KeyNumberValueInterval,
-    KeyNumberValue,
+    KeyNumberValueIntervalList,
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
@@ -608,11 +608,11 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 side_effect=lambda no_id, _: {
                     NodeOperatorId(5): CurveParams(
                         strikes_params=...,
-                        perf_leeway_data=KeyNumberValue(
-                            intervals=[KeyNumberValueInterval(1, 1000), KeyNumberValueInterval(2, 2000)]
+                        perf_leeway_data=KeyNumberValueIntervalList(
+                            [KeyNumberValueInterval(1, 1000), KeyNumberValueInterval(2, 2000)]
                         ),
-                        reward_share_data=KeyNumberValue(
-                            intervals=[KeyNumberValueInterval(1, 10000), KeyNumberValueInterval(2, 9000)]
+                        reward_share_data=KeyNumberValueIntervalList(
+                            [KeyNumberValueInterval(1, 10000), KeyNumberValueInterval(2, 9000)]
                         ),
                         perf_coeffs=PerformanceCoefficients(attestations_weight=1, blocks_weight=0, sync_weight=0),
                     ),
@@ -1161,13 +1161,13 @@ def test_performance_coefficients_calc_performance(attestation_perf, proposal_pe
 )
 @pytest.mark.unit
 def test_interval_mapping_returns_correct_reward_share(intervals, key_index, expected):
-    reward_share = KeyNumberValue(intervals=intervals)
+    reward_share = KeyNumberValueIntervalList(intervals=intervals)
     assert reward_share.get_for(key_index) == expected
 
 
 @pytest.mark.unit
 def test_interval_mapping_raises_error_for_invalid_key_number():
-    reward_share = KeyNumberValue(
+    reward_share = KeyNumberValueIntervalList(
         intervals=[KeyNumberValueInterval(1, 1000), KeyNumberValueInterval(11, 2000), KeyNumberValueInterval(21, 3000)]
     )
     with pytest.raises(ValueError, match="Key number should be greater than 1 or equal"):
@@ -1176,6 +1176,6 @@ def test_interval_mapping_raises_error_for_invalid_key_number():
 
 @pytest.mark.unit
 def test_interval_mapping_raises_error_for_key_number_out_of_range():
-    reward_share = KeyNumberValue(intervals=[KeyNumberValueInterval(11, 10000)])
+    reward_share = KeyNumberValueIntervalList(intervals=[KeyNumberValueInterval(11, 10000)])
     with pytest.raises(ValueError, match="No value found for key number=2"):
         reward_share.get_for(2)
