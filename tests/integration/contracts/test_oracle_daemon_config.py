@@ -9,7 +9,6 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
     check_contract(
         oracle_daemon_config_contract,
         [
-            ('normalized_cl_reward_per_epoch', None, lambda response: check_value_type(response, int)),
             (
                 'normalized_cl_reward_mistake_rate_bp',
                 None,

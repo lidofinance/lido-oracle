@@ -1,11 +1,11 @@
 from http import HTTPStatus
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
-from json_stream.base import TransientStreamingJSONObject  # type: ignore
-
+from src import variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
 from src.providers.consensus.types import (
+    BeaconSpecResponse,
     BeaconStateView,
     BlockAttestation,
     BlockAttestationResponse,
@@ -13,13 +13,21 @@ from src.providers.consensus.types import (
     BlockHeaderFullResponse,
     BlockHeaderResponseData,
     BlockRootResponse,
-    Validator,
-    BeaconSpecResponse,
     GenesisResponse,
+    ProposerDuties,
     SlotAttestationCommittee,
+    SyncAggregate,
+    SyncCommittee,
+    Validator,
 )
-from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.types import BlockRoot, BlockStamp, SlotNumber, EpochNumber, StateRoot
+from src.providers.http_provider import (
+    HTTPProvider,
+    NotOkResponse,
+    data_is_dict,
+    data_is_list,
+    data_is_transient_dict,
+)
+from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 
@@ -48,6 +56,8 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_HEADER = 'eth/v1/beacon/headers/{}'
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
+    API_GET_SYNC_COMMITTEE = 'eth/v1/beacon/states/{}/sync_committees'
+    API_GET_PROPOSER_DUTIES = 'eth/v1/validator/duties/proposer/{}'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
@@ -55,18 +65,14 @@ class ConsensusClient(HTTPProvider):
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
-        data, _ = self._get(self.API_GET_SPEC)
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getSpec")
+        data, _ = self._get(self.API_GET_SPEC, retval_validator=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
     def get_genesis(self):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """
-        data, _ = self._get(self.API_GET_GENESIS)
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getGenesis")
+        data, _ = self._get(self.API_GET_GENESIS, retval_validator=data_is_dict)
         return GenesisResponse.from_response(**data)
 
     def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
@@ -79,21 +85,19 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_ROOT,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
+            retval_validator=data_is_dict,
         )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockRoot")
         return BlockRootResponse.from_response(**data)
 
     @lru_cache(maxsize=1)
     def get_block_header(self, state_id: SlotNumber | BlockRoot) -> BlockHeaderFullResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader"""
-        data, meta_data = cast(tuple[dict, dict], self._get(
+        data, meta_data = self._get(
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-        ))
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockHeader")
+            retval_validator=data_is_dict,
+        )
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
         return resp
 
@@ -104,25 +108,29 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
+            retval_validator=data_is_dict,
         )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockV2")
         return BlockDetailsResponse.from_response(**data)
 
-    @lru_cache(maxsize=256)
-    def get_block_attestations(
-        self,
-        state_id: SlotNumber | BlockRoot,
-    ) -> list[BlockAttestation]:
+    @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
+    def get_block_attestations_and_sync(
+        self, state_id: SlotNumber | BlockRoot
+    ) -> tuple[list[BlockAttestation], SyncAggregate]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2"""
         data, _ = self._get(
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
+            retval_validator=data_is_dict,
         )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getBlockV2")
-        return [BlockAttestationResponse.from_response(**att) for att in data["message"]["body"]["attestations"]]
+
+        attestations = [
+            cast(BlockAttestation, BlockAttestationResponse.from_response(**att))
+            for att in data["message"]["body"]["attestations"]
+        ]
+        sync = SyncAggregate.from_response(**data["message"]["body"]["sync_aggregate"])
+
+        return attestations, sync
 
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
@@ -130,7 +138,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         committee_index: int | None = None,
-        slot: SlotNumber | None = None
+        slot: SlotNumber | None = None,
     ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
         try:
@@ -138,10 +146,9 @@ class ConsensusClient(HTTPProvider):
                 self.API_GET_ATTESTATION_COMMITTEES,
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
-                force_raise=self.__raise_on_prysm_error
+                force_raise=self.__raise_on_prysm_error,
+                retval_validator=data_is_list,
             )
-            if not isinstance(data, list):
-                raise ValueError("Expected list response from getEpochCommittees")
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 data = self._get_attestation_committees_with_prysm(
@@ -154,14 +161,47 @@ class ConsensusClient(HTTPProvider):
                 raise error
         return cast(list[SlotAttestationCommittee], data)
 
+    def get_sync_committee(self, blockstamp: BlockStamp, epoch: EpochNumber) -> SyncCommittee:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees"""
+        data, _ = self._get(
+            self.API_GET_SYNC_COMMITTEE,
+            path_params=(blockstamp.state_root,),
+            query_params={'epoch': epoch},
+            force_raise=self.__raise_on_prysm_error,
+            retval_validator=data_is_dict,
+        )
+        return SyncCommittee.from_response(**data)
+
+    @list_of_dataclasses(ProposerDuties.from_response)
+    def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties"""
+
+        def data_is_list_and_dependent_root_matches(data: Any, meta: dict, endpoint: str):
+            data_is_list(data, meta, endpoint=endpoint)
+            # It is recommended by spec to use the dependent root to ensure the epoch is correct
+            if meta["dependent_root"] != expected_dependent_root:
+                raise ValueError(
+                    "Dependent root for proposer duties request mismatch: "
+                    f"{meta['dependent_root']=} is not {expected_dependent_root=}. "
+                    "Probably, CL node is not fully synced."
+                )
+
+        data, _ = self._get(
+            self.API_GET_PROPOSER_DUTIES,
+            path_params=(epoch,),
+            retval_validator=data_is_list_and_dependent_root_matches,
+        )
+        return data
+
     @lru_cache(maxsize=1)
     def get_state_block_roots(self, state_id: SlotNumber) -> list[BlockRoot]:
-        streamed_json = cast(TransientStreamingJSONObject, self._get(
+        data, _ = self._get(
             self.API_GET_STATE,
             path_params=(state_id,),
             stream=True,
-        ))
-        return list(streamed_json['data']['block_roots'])
+            retval_validator=data_is_transient_dict,
+        )
+        return list(data["block_roots"])
 
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view(blockstamp).indexed_validators
@@ -201,11 +241,9 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_STATE,
             path_params=(state_id,),
-            stream=False,
             force_raise=self.__raise_on_prysm_error,
+            retval_validator=data_is_dict,
         )
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getStateV2")
         return data
 
     def __raise_on_prysm_error(self, errors: list[Exception]) -> Exception | None:
@@ -224,7 +262,7 @@ class ConsensusClient(HTTPProvider):
         blockstamp: BlockStamp,
         epoch: EpochNumber | None = None,
         index: int | None = None,
-        slot: SlotNumber | None = None
+        slot: SlotNumber | None = None,
     ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number
@@ -232,9 +270,8 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
+            retval_validator=data_is_dict,
         )
-        if not isinstance(data, list):
-            raise ValueError("Expected list response from getEpochCommittees")
         return data
 
     def __raise_last_missed_slot_error(self, errors: list[Exception]) -> Exception | None:
@@ -250,7 +287,9 @@ class ConsensusClient(HTTPProvider):
         return None
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
-        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.API_GET_SPEC)
-        if not isinstance(data, dict):
-            raise ValueError("Expected mapping response from getSpec")
+        data, _ = self._get_without_fallbacks(
+            self.hosts[provider_index],
+            self.API_GET_SPEC,
+            retval_validator=data_is_dict,
+        )
         return BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID

@@ -447,13 +447,11 @@ class TestChurnLimit:
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        with monkeypatch.context() as m:
-            ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
-            result = ejector._get_churn_limit(ref_blockstamp)
-            assert result == 4, "Unexpected churn limit"
-            ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
+        ejector.w3.cc.get_validators = Mock(return_value=[1, 1, 0])
+        result = ejector._get_churn_limit(ref_blockstamp)
+        assert result == 4, "Unexpected churn limit"
+        ejector.w3.cc.get_validators.assert_called_once_with(ref_blockstamp)
 
     def test_get_churn_limit_basic(
         self,
@@ -500,7 +498,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert isinstance(processing_state, EjectorProcessingState)
     assert processing_state.current_frame_ref_slot == 100
     assert processing_state.processing_deadline_time == 200
-    assert processing_state.data_submitted == False
+    assert processing_state.data_submitted is False
 
 
 @pytest.mark.unit
