@@ -30,7 +30,7 @@ def test_fields_access(log: FramePerfLog):
 @pytest.mark.unit
 def test_logs_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
-    log.operators[NodeOperatorId(42)].distributed = 17
+    log.operators[NodeOperatorId(42)].distributed_rewards = 17
     log.operators[NodeOperatorId(42)].performance_coefficients = PerformanceCoefficients()
     log.operators[NodeOperatorId(42)].validators["41337"].attestation_duty = DutyAccumulator(220, 119)
     log.operators[NodeOperatorId(42)].validators["41337"].proposal_duty = DutyAccumulator(1, 1)
@@ -38,8 +38,9 @@ def test_logs_encode(log: FramePerfLog):
     log.operators[NodeOperatorId(42)].validators["41337"].performance = 0.5
     log.operators[NodeOperatorId(42)].validators["41337"].threshold = 0.7
     log.operators[NodeOperatorId(42)].validators["41337"].rewards_share = 0.3
+    log.operators[NodeOperatorId(42)].validators["41337"].distributed_rewards = 17
 
-    log.operators[NodeOperatorId(0)].distributed = 0
+    log.operators[NodeOperatorId(0)].distributed_rewards = 0
     log.operators[NodeOperatorId(0)].performance_coefficients = PerformanceCoefficients(1, 2, 3)
 
     log.distributable = 100
@@ -70,14 +71,15 @@ def test_logs_encode(log: FramePerfLog):
         assert decoded["operators"]["42"]["validators"]["41337"]["threshold"] == 0.7
         assert decoded["operators"]["42"]["validators"]["41337"]["rewards_share"] == 0.3
         assert decoded["operators"]["42"]["validators"]["41337"]["slashed"] == False
-        assert decoded["operators"]["42"]["distributed"] == 17
+        assert decoded["operators"]["42"]["validators"]["41337"]["distributed_rewards"] == 17
+        assert decoded["operators"]["42"]["distributed_rewards"] == 17
         assert decoded["operators"]["42"]["performance_coefficients"] == {
             'attestations_weight': 54,
             'blocks_weight': 8,
             'sync_weight': 2,
         }
 
-        assert decoded["operators"]["0"]["distributed"] == 0
+        assert decoded["operators"]["0"]["distributed_rewards"] == 0
         assert decoded["operators"]["0"]["performance_coefficients"] == {
             'attestations_weight': 1,
             'blocks_weight': 2,

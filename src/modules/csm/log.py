@@ -13,6 +13,7 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
+    distributed_rewards: RewardsShares = 0
     performance: float = 0.0
     threshold: float = 0.0
     rewards_share: float = 0.0
@@ -25,7 +26,7 @@ class ValidatorFrameSummary:
 
 @dataclass
 class OperatorFrameSummary:
-    distributed: int = 0
+    distributed_rewards: RewardsShares = 0
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
     validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
 

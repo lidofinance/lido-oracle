@@ -20,7 +20,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     KeyNumberValueIntervalList,
 )
 from src.providers.execution.exceptions import InconsistentData
-from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
+from src.types import NodeOperatorId, EpochNumber, ValidatorIndex, ReferenceBlockStamp
 from src.web3py.extensions import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -428,10 +428,11 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 rebate_to_protocol=0,
                 operators={
                     NodeOperatorId(1): OperatorFrameSummary(
-                        distributed=100,
+                        distributed_rewards=100,
                         performance_coefficients=PerformanceCoefficients(),
                         validators={
                             ValidatorIndex(1): ValidatorFrameSummary(
+                                distributed_rewards=100,
                                 performance=0.6,
                                 threshold=0.5,
                                 rewards_share=1.0,
@@ -506,7 +507,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 rebate_to_protocol=0,
                 operators={
                     NodeOperatorId(1): OperatorFrameSummary(
-                        distributed=0,
+                        distributed_rewards=0,
                         performance_coefficients=PerformanceCoefficients(),
                         validators={
                             ValidatorIndex(1): ValidatorFrameSummary(
@@ -653,12 +654,13 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     OperatorFrameSummary,
                     {
                         NodeOperatorId(1): OperatorFrameSummary(
-                            distributed=25,
+                            distributed_rewards=25,
                             performance_coefficients=PerformanceCoefficients(),
                             validators=defaultdict(
                                 ValidatorFrameSummary,
                                 {
                                     ValidatorIndex(1): ValidatorFrameSummary(
+                                        distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
@@ -673,12 +675,13 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ),
                         ),
                         NodeOperatorId(2): OperatorFrameSummary(
-                            distributed=25,
+                            distributed_rewards=25,
                             performance_coefficients=PerformanceCoefficients(),
                             validators=defaultdict(
                                 ValidatorFrameSummary,
                                 {
                                     ValidatorIndex(3): ValidatorFrameSummary(
+                                        distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
@@ -686,6 +689,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         sync_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
                                     ValidatorIndex(4): ValidatorFrameSummary(
+                                        distributed_rewards=0,
                                         performance=0.12903225806451613,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
@@ -697,7 +701,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ),
                         ),
                         NodeOperatorId(3): OperatorFrameSummary(
-                            distributed=0,
+                            distributed_rewards=0,
                             performance_coefficients=PerformanceCoefficients(),
                             validators=defaultdict(
                                 ValidatorFrameSummary,
@@ -713,7 +717,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ),
                         ),
                         NodeOperatorId(5): OperatorFrameSummary(
-                            distributed=47,
+                            distributed_rewards=47,
                             performance_coefficients=PerformanceCoefficients(
                                 attestations_weight=1,
                                 blocks_weight=0,
@@ -723,6 +727,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 ValidatorFrameSummary,
                                 {
                                     ValidatorIndex(7): ValidatorFrameSummary(
+                                        distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1.0,
@@ -732,6 +737,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         proposal_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
                                     ValidatorIndex(8): ValidatorFrameSummary(
+                                        distributed_rewards=22,
                                         performance=1.0,
                                         threshold=0.7842289719626168,
                                         rewards_share=0.9,
@@ -951,13 +957,13 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
     "participation_shares, rewards_to_distribute, rebate_share, expected_distribution",
     [
         (
-            {NodeOperatorId(1): 100, NodeOperatorId(2): 200},
+            {NodeOperatorId(1): {ValidatorIndex(0): 100}, NodeOperatorId(2): {ValidatorIndex(1): 200}},
             Wei(1 * 10**18),
             0,
             {NodeOperatorId(1): Wei(333333333333333333), NodeOperatorId(2): Wei(666666666666666666)},
         ),
         (
-            {NodeOperatorId(1): 0, NodeOperatorId(2): 0},
+            {NodeOperatorId(1): {ValidatorIndex(0): 0}, NodeOperatorId(2): {ValidatorIndex(1): 0}},
             Wei(1 * 10**18),
             0,
             {},
@@ -969,13 +975,13 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
             {},
         ),
         (
-            {NodeOperatorId(1): 100, NodeOperatorId(2): 0},
+            {NodeOperatorId(1): {ValidatorIndex(0): 100}, NodeOperatorId(2): {ValidatorIndex(1): 0}},
             Wei(1 * 10**18),
             0,
             {NodeOperatorId(1): Wei(1 * 10**18)},
         ),
         (
-            {NodeOperatorId(1): 100, NodeOperatorId(2): 200},
+            {NodeOperatorId(1): {ValidatorIndex(0): 100}, NodeOperatorId(2): {ValidatorIndex(1): 200}},
             Wei(1 * 10**18),
             10,
             {NodeOperatorId(1): Wei(322580645161290322), NodeOperatorId(2): Wei(645161290322580645)},
@@ -986,20 +992,23 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
 def test_calc_rewards_distribution_in_frame(
     participation_shares, rewards_to_distribute, rebate_share, expected_distribution
 ):
+    log = FramePerfLog(ReferenceBlockStampFactory.build(), (EpochNumber(100), EpochNumber(500)))
     rewards_distribution = Distribution.calc_rewards_distribution_in_frame(
-        participation_shares, rebate_share, rewards_to_distribute
+        participation_shares, rebate_share, rewards_to_distribute, log
     )
     assert rewards_distribution == expected_distribution
 
 
 @pytest.mark.unit
 def test_calc_rewards_distribution_in_frame_handles_negative_to_distribute():
-    participation_shares = {NodeOperatorId(1): 100, NodeOperatorId(2): 200}
+    participation_shares = {NodeOperatorId(1): {ValidatorIndex(0): 100}, NodeOperatorId(2): {ValidatorIndex(1): 200}}
     rewards_to_distribute = Wei(-1)
     rebate_share = 0
 
     with pytest.raises(ValueError, match="Invalid rewards to distribute"):
-        Distribution.calc_rewards_distribution_in_frame(participation_shares, rebate_share, rewards_to_distribute)
+        Distribution.calc_rewards_distribution_in_frame(
+            participation_shares, rebate_share, rewards_to_distribute, log=Mock()
+        )
 
 
 @pytest.mark.parametrize(

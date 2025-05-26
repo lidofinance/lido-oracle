@@ -10,7 +10,7 @@ from src.modules.csm.state import Frame, State, ValidatorDuties
 from src.modules.csm.types import RewardsShares, StrikesList, StrikesValidator, ParticipationShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, StakingModuleAddress
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, StakingModuleAddress, ValidatorIndex
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
@@ -124,7 +124,7 @@ class Distribution:
         log: FramePerfLog,
     ) -> tuple[dict[NodeOperatorId, RewardsShares], RewardsShares, RewardsShares, dict[StrikesValidator, int]]:
         total_rebate_share = 0
-        participation_shares: defaultdict[NodeOperatorId, ParticipationShares] = defaultdict(ParticipationShares)
+        participation_shares: dict[NodeOperatorId, dict[ValidatorIndex, ParticipationShares]] = {}
         frame_strikes: dict[StrikesValidator, int] = {}
 
         network_perf = self._get_network_performance(frame)
@@ -160,11 +160,14 @@ class Distribution:
                 if validator_duties_outcome.strikes:
                     frame_strikes[(no_id, validator.pubkey)] = validator_duties_outcome.strikes
                     log_operator.validators[validator.index].strikes = validator_duties_outcome.strikes
-                participation_shares[no_id] += validator_duties_outcome.participation_share
+                if not participation_shares.get(no_id):
+                    participation_shares[no_id] = {}
+                participation_shares[no_id][validator.index] = validator_duties_outcome.participation_share
+
                 total_rebate_share += validator_duties_outcome.rebate_share
 
         rewards_distribution_map = self.calc_rewards_distribution_in_frame(
-            participation_shares, total_rebate_share, rewards_to_distribute
+            participation_shares, total_rebate_share, rewards_to_distribute, log
         )
         distributed_rewards = sum(rewards_distribution_map.values())
         # All rewards to distribute should not be rebated if no duties were assigned to validators or
@@ -172,7 +175,7 @@ class Distribution:
         rebate_to_protocol = 0 if not distributed_rewards else rewards_to_distribute - distributed_rewards
 
         for no_id, no_rewards in rewards_distribution_map.items():
-            log.operators[no_id].distributed = no_rewards
+            log.operators[no_id].distributed_rewards = no_rewards
         log.distributable = rewards_to_distribute
         log.distributed_rewards = distributed_rewards
         log.rebate_to_protocol = rebate_to_protocol
@@ -247,21 +250,36 @@ class Distribution:
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
-        participation_shares: dict[NodeOperatorId, ParticipationShares],
+        participation_shares: dict[NodeOperatorId, dict[ValidatorIndex, ParticipationShares]],
         rebate_share: ParticipationShares,
         rewards_to_distribute: RewardsShares,
+        log: FramePerfLog,
     ) -> dict[NodeOperatorId, RewardsShares]:
         if rewards_to_distribute < 0:
             raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute=}")
 
         rewards_distribution: dict[NodeOperatorId, RewardsShares] = defaultdict(RewardsShares)
-        total_shares = rebate_share + sum(participation_shares.values())
 
-        for no_id, no_participation_share in participation_shares.items():
+        node_operators_participation_shares_sum = 0
+        per_node_operator_participation_shares: dict[NodeOperatorId, ParticipationShares] = {}
+        for no_id, per_validator_participation_shares in participation_shares.items():
+            no_participation_share = sum(per_validator_participation_shares.values())
             if no_participation_share == 0:
                 # Skip operators with zero participation
                 continue
+            per_node_operator_participation_shares[no_id] = no_participation_share
+            node_operators_participation_shares_sum += no_participation_share
+
+        total_shares = rebate_share + node_operators_participation_shares_sum
+
+        for no_id, no_participation_share in per_node_operator_participation_shares.items():
             rewards_distribution[no_id] = rewards_to_distribute * no_participation_share // total_shares
+
+            # Just for logging purpose. We don't expect here any accurate values.
+            for val_index, val_participation_share in participation_shares[no_id].items():
+                log.operators[no_id].validators[val_index].distributed_rewards = (
+                        rewards_to_distribute * val_participation_share // total_shares
+                )
 
         return rewards_distribution
 
