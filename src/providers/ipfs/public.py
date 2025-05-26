@@ -13,7 +13,7 @@ class PublicIPFS(IPFSProvider):
 
     # pylint:disable=duplicate-code
 
-    GATEWAY = "https://gateway.pinata.cloud"
+    GATEWAY = "https://ipfs.io"
 
     def __init__(self, *, timeout: int) -> None:
         super().__init__()
