@@ -15,13 +15,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
     ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from src.web3py.extensions import FallbackProviderModule
 
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
