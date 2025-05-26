@@ -1161,14 +1161,14 @@ def test_performance_coefficients_calc_performance(attestation_perf, proposal_pe
 )
 @pytest.mark.unit
 def test_interval_mapping_returns_correct_reward_share(intervals, key_index, expected):
-    reward_share = KeyNumberValueIntervalList(intervals=intervals)
+    reward_share = KeyNumberValueIntervalList(intervals)
     assert reward_share.get_for(key_index) == expected
 
 
 @pytest.mark.unit
 def test_interval_mapping_raises_error_for_invalid_key_number():
     reward_share = KeyNumberValueIntervalList(
-        intervals=[KeyNumberValueInterval(1, 1000), KeyNumberValueInterval(11, 2000), KeyNumberValueInterval(21, 3000)]
+        [KeyNumberValueInterval(1, 1000), KeyNumberValueInterval(11, 2000), KeyNumberValueInterval(21, 3000)]
     )
     with pytest.raises(ValueError, match="Key number should be greater than 1 or equal"):
         reward_share.get_for(-1)
@@ -1176,6 +1176,6 @@ def test_interval_mapping_raises_error_for_invalid_key_number():
 
 @pytest.mark.unit
 def test_interval_mapping_raises_error_for_key_number_out_of_range():
-    reward_share = KeyNumberValueIntervalList(intervals=[KeyNumberValueInterval(11, 10000)])
+    reward_share = KeyNumberValueIntervalList([KeyNumberValueInterval(11, 10000)])
     with pytest.raises(ValueError, match="No value found for key number=2"):
         reward_share.get_for(2)
