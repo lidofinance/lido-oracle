@@ -270,7 +270,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
-            retval_validator=data_is_dict,
+            retval_validator=data_is_list,
         )
         return data
 
