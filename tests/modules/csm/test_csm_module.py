@@ -638,6 +638,7 @@ class RewardsTreeTestParam:
     expected_tree_values: list | Type[ValueError]
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "param",
     [

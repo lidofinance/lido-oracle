@@ -1046,14 +1046,14 @@ test = ["eth-hash[pycryptodome]", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
 name = "eth-tester"
-version = "0.12.1b1"
+version = "0.13.0b1"
 description = "eth-tester: Tools for testing Ethereum applications."
 category = "dev"
 optional = false
 python-versions = "<4,>=3.8"
 files = [
-    {file = "eth_tester-0.12.1b1-py3-none-any.whl", hash = "sha256:aa3f91960e5ce9fe74eac4a0dcb22ffada84b8e28dc11d0f0a69085a5879be60"},
-    {file = "eth_tester-0.12.1b1.tar.gz", hash = "sha256:7aeb3b5839fb1bc20e7f15c5e289ba95809fa41117a5ac194e8d270467982832"},
+    {file = "eth_tester-0.13.0b1-py3-none-any.whl", hash = "sha256:872108cea7df1340f56bab25b9ed5cf0f835aa467c1a8195d0891238c0e73ab3"},
+    {file = "eth_tester-0.13.0b1.tar.gz", hash = "sha256:87fb561d450cd3639ce82eed52e566c902a0ac241f3e9581c6b7545690fcece5"},
 ]
 
 [package.dependencies]
@@ -1065,10 +1065,10 @@ rlp = ">=3.0.0"
 semantic_version = ">=2.6.0"
 
 [package.extras]
-dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "ipython", "pre-commit (>=3.4.0)", "py-evm (>=0.10.0b0,<0.11.0b0)", "pytest (>=7.0.0)", "pytest-xdist (>=2.0.0,<3)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "twine", "wheel"]
+dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "ipython", "pre-commit (>=3.4.0)", "py-evm (>=0.12.0b2,<0.13.0b1)", "pytest (>=7.0.0)", "pytest-xdist (>=2.0.0,<3)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "twine", "wheel"]
 docs = ["towncrier (>=24,<25)"]
-py-evm = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "py-evm (>=0.10.0b0,<0.11.0b0)"]
-pyevm = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "py-evm (>=0.10.0b0,<0.11.0b0)"]
+py-evm = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "py-evm (>=0.12.0b2,<0.13.0b1)"]
+pyevm = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "eth-hash[pysha3] (>=0.1.4,<1.0.0)", "py-evm (>=0.12.0b2,<0.13.0b1)"]
 test = ["eth-hash[pycryptodome] (>=0.1.4,<1.0.0)", "pytest (>=7.0.0)", "pytest-xdist (>=2.0.0,<3)"]
 
 [[package]]
@@ -2503,24 +2503,24 @@ testutils = ["gitpython (>3)"]
 
 [[package]]
 name = "pytest"
-version = "7.4.4"
+version = "8.3.5"
 description = "pytest: simple powerful testing with Python"
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "pytest-7.4.4-py3-none-any.whl", hash = "sha256:b090cdf5ed60bf4c45261be03239c2c1c22df034fbffe691abe93cd80cea01d8"},
-    {file = "pytest-7.4.4.tar.gz", hash = "sha256:2cf0005922c6ace4a3e2ec8b4080eb0d9753fdc93107415332f50ce9e7994280"},
+    {file = "pytest-8.3.5-py3-none-any.whl", hash = "sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820"},
+    {file = "pytest-8.3.5.tar.gz", hash = "sha256:f4efe70cc14e511565ac476b57c279e12a855b11f48f212af1080ef2263d3845"},
 ]
 
 [package.dependencies]
 colorama = {version = "*", markers = "sys_platform == \"win32\""}
 iniconfig = "*"
 packaging = "*"
-pluggy = ">=0.12,<2.0"
+pluggy = ">=1.5,<2"
 
 [package.extras]
-testing = ["argcomplete", "attrs (>=19.2.0)", "hypothesis (>=3.56)", "mock", "nose", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
+dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
 
 [[package]]
 name = "pytest-cov"
@@ -3346,4 +3346,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "dc8fea94792310447b9fc1ac5ac40c2597998d609bba4b0f438631e2ff8ec389"
+content-hash = "3a3b35a518fd17914270a778e29c17fbfe1d8f25dccf6d4135dcb3fd2022fa51"
