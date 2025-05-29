@@ -51,4 +51,4 @@ class OracleDaemonConfigContract(ContractInterface):
 
     @lru_cache(maxsize=1)
     def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_SLOTS', block_identifier)
+        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS', block_identifier)
