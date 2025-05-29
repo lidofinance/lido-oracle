@@ -24,7 +24,7 @@ pytest = "^7.2.1"
 pytest-xdist = "^3.2.1"
 more-itertools = "^10.1.0"
 web3 = "^7.8.0"
-web3-multi-provider = { version = "^2.2.0", extras = ["metrics"] }
+web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
 py-multiformats-cid = "^0.4.4"
