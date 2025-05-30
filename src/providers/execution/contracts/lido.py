@@ -1,9 +1,11 @@
 import logging
+from typing import Optional
 
 from eth_typing import HexStr
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.types import BeaconStat, TokenRebasedEvent
+from src.modules.accounting.events import TokenRebasedEvent
+from src.modules.accounting.types import BeaconStat
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
@@ -70,20 +72,15 @@ class LidoContract(ContractInterface):
         })
         return response
 
-    def get_last_token_rebased_event(self, block_number: int) -> TokenRebasedEvent | None:
-        block_from, block_to = block_number - 7200, block_number
-
+    def get_last_token_rebased_event(self, from_block, to_block: int) -> TokenRebasedEvent:
         logs = self.w3.eth.get_logs({
-                "fromBlock": block_from,
-                "toBlock": block_to,
+                "fromBlock": from_block,
+                "toBlock": to_block,
                 "address": self.address,
                 "topics": [
                     HexStr(self.w3.keccak(self.events.TokenRebased.signature).hex())
                 ]
             })
-
-        if not logs:
-            return None
 
         event = self.events.TokenRebased.process_log(logs[-1])
 

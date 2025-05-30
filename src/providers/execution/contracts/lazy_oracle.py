@@ -1,9 +1,10 @@
 import logging
-from typing import List
+from typing import List, Optional
 
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfo
+from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfoRaw, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 
 from src.utils.cache import global_lru_cache as lru_cache
@@ -60,25 +61,47 @@ class LazyOracleContract(ContractInterface):
             response.pendingDisconnect,
         )
 
-    def get_report(self, block_identifier: BlockIdentifier = 'latest'):
-        response = self.functions.latestReportData.call(block_identifier=block_identifier)
+    def get_report(self, block_identifier: BlockIdentifier = 'latest') -> Optional[LatestReportData]:
+        try:
+            response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
-        logger.info(
-            {
-                'msg': 'Call `latestReportData().',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+            if response is None:
+                logger.warning(
+                    {
+                        'msg': 'No data returned from latestReportData().',
+                        'block_identifier': repr(block_identifier),
+                        'to': self.address,
+                    }
+                )
+                return None
 
-        return LatestReportData(
-            response.timestamp,
-            response.treeRoot,
-            response.reportCid,
-        )
+            logger.info(
+                {
+                    'msg': 'Call `latestReportData()`.',
+                    'value': response,
+                    'block_identifier': repr(block_identifier),
+                    'to': self.address,
+                }
+            )
 
-    def get_vaults(self, block_identifier: BlockIdentifier = 'latest', offset: int = 0, limit: int = 1_000) -> List[VaultInfo]:
+            return LatestReportData(
+                response.timestamp,
+                response.treeRoot,
+                response.reportCid,
+            )
+
+        except (BadFunctionCallOutput, ContractLogicError) as e:
+            logger.warning(
+                {
+                    'msg': 'latestReportData() call failed.',
+                    'error': str(e),
+                    'block_identifier': repr(block_identifier),
+                    'to': self.address,
+                }
+            )
+            return None
+
+    def get_vaults(self, block_identifier: BlockIdentifier = 'latest', offset: int = 0, limit: int = 1_000) -> List[VaultInfoRaw]:
         """
             Returns the Vaults
         """
@@ -93,9 +116,9 @@ class LazyOracleContract(ContractInterface):
             }
         )
 
-        out: List[VaultInfo] = []
+        out: List[VaultInfoRaw] = []
         for vault in response:
-            out.append(VaultInfo(
+            out.append(VaultInfoRaw(
                 vault.vault,
                 vault.balance,
                 vault.inOutDelta,
@@ -118,7 +141,7 @@ class LazyOracleContract(ContractInterface):
         """
         Fetch all vaults using pagination via `get_vaults` in batches of `page_size`.
         """
-        vaults: List[VaultInfo] = []
+        vaults: List[VaultInfoRaw] = []
         offset = 0
 
         total_count = self.get_vaults_count(block_identifier)
@@ -130,5 +153,5 @@ class LazyOracleContract(ContractInterface):
             vaults.extend(batch)
             offset += limit
 
-        return vaults
+        return [VaultInfo(vault_ind=vault_ind, **vars(vault)) for vault_ind, vault in enumerate(vaults)]
 

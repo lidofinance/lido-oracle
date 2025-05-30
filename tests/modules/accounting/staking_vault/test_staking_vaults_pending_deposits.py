@@ -8,7 +8,7 @@ from web3.types import Timestamp
 
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.accounting.types import VaultInfo
+from src.modules.accounting.types import VaultInfoRaw
 from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot
@@ -27,7 +27,7 @@ class TestStakingVaults:
         # --- VaultHub Mock ---
         vault_hub_mock = MagicMock()
         vault_hub_mock.get_all_vaults.return_value = [
-            VaultInfo(
+            VaultInfoRaw(
                 vault=vault_adr_0,
                 balance=0,
                 in_out_delta=2000000000000000000,

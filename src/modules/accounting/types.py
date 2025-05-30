@@ -22,10 +22,10 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultsTreasuryFeesShares = float
 type VaultTreeNode = tuple[str, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
+BLOCKS_PER_YEAR = 2_628_000
 
 @dataclass
 class ReportData:
@@ -234,9 +234,8 @@ class LatestReportData:
     tree_root: VaultsTreeRoot
     cid: VaultsTreeCid
 
-
 @dataclass
-class VaultInfo:
+class VaultInfoRaw:
     vault: ChecksumAddress
     balance: Wei
     in_out_delta: Wei
@@ -253,46 +252,35 @@ class VaultInfo:
     reservation_feeBP: int
     pending_disconnect: bool
 
+@dataclass
+class VaultInfo(VaultInfoRaw):
+    vault_ind: int
 
-VaultsMap = dict[ChecksumAddress, VaultData]
+VaultsMap = dict[ChecksumAddress, VaultInfo]
 VaultTotalValue = int
 VaultsTotalValues = list[VaultTotalValue]
-type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid, VaultsTreasuryFeesShares]
+type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultsTotalValues]
 
-@dataclass
-class TokenRebasedEvent:
-    report_timestamp: int
-    time_elapsed: int
-    pre_total_shares: int
-    pre_total_ether: int
-    post_total_shares: int
-    post_total_ether: int
-    shares_minted_as_fees: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
-    @classmethod
-    def from_log(cls, log: dict) -> "TokenRebasedEvent":
-        args = log["args"]
-        return cls(
-            report_timestamp=args["reportTimestamp"],
-            time_elapsed=args["timeElapsed"],
-            pre_total_shares=args["preTotalShares"],
-            pre_total_ether=args["preTotalEther"],
-            post_total_shares=args["postTotalShares"],
-            post_total_ether=args["postTotalEther"],
-            shares_minted_as_fees=args["sharesMintedAsFees"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
-        )
+@dataclass
+class MerkleValue:
+    vault_address: str
+    total_value_wei: int
+    in_out_delta: int
+    fee: int
+    liability_shares: int
+
+@dataclass
+class MerkleTreeData:
+    format: str
+    leaf_encoding: List[str]
+    tree: List[str]
+    values: List[MerkleValue]
+    tree_indices: List[int]
+    merkle_tree_root: str
+    ref_slot: int
+    block_number: int
+    timestamp: int
+    proofs_cid: str
+    prev_tree_cid: str

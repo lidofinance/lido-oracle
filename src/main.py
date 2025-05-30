@@ -91,7 +91,12 @@ def main(module_name: OracleModule):
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
 
-    web3.staking_vaults = StakingVaults(web3, cc, ipfs, web3.lido_contracts.lazy_oracle)
+    web3.staking_vaults = StakingVaults(
+        web3, cc, ipfs,
+        web3.lido_contracts.lido,
+        web3.lido_contracts.vault_hub,
+        web3.lido_contracts.lazy_oracle,
+    )
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
     add_requests_metric_middleware(web3)

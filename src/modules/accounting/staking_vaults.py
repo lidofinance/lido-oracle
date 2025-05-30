@@ -2,18 +2,21 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from typing import List, Any
+from typing import List, Any, Dict, Optional
 
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
 
-from src.modules.accounting.types import VaultData, VaultsData, VaultsMap, VaultTreeNode, LatestReportData
+from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
+    MerkleTreeData, MerkleValue, VaultInfoRaw
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
+from src.providers.execution.contracts.lido import LidoContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp
 from src.utils.deposit_signature import is_valid_deposit_signature
@@ -41,22 +44,39 @@ class StakingVaults(Module):
     w3: Web3
     ipfs_client: MultiIPFSProvider
     cl: ConsensusClient
+    lido: LidoContract
+    vault_hub: VaultHubContract
     lazy_oracle: LazyOracleContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lazy_oracle: LazyOracleContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
         self.ipfs_client = ipfs
         self.cl = cl
+        self.lido = lido
+        self.vault_hub = vault_hub
         self.lazy_oracle = lazy_oracle
 
-    def get_vaults_data(
-            self, blockstamp: BlockStamp, validators: list[Validator], pending_deposits: list[PendingDeposit]
-    ) -> VaultsData:
-        vaults = self.get_vaults(blockstamp)
+    def get_vaults(self, block_number: int) -> VaultsMap:
+        vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_number)
         if len(vaults) == 0:
-            return [], {}, []
+            return {}
+
+        out = VaultsMap()
+        for vault in vaults:
+            out[vault.vault] = vault
+
+        return out
+
+    def get_vaults_total_values(self
+            , blockstamp: BlockStamp
+            , validators: list[Validator]
+            , pending_deposits: list[PendingDeposit]
+    ) -> list[int]:
+        vaults = self.get_vaults(blockstamp.block_number)
+        if len(vaults) == 0:
+            return []
 
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
@@ -64,7 +84,7 @@ class StakingVaults(Module):
         vaults_total_values = [0] * len(vaults)
 
         for vault_address, vault in vaults.items():
-            vaults_total_values[vault.vault_ind] = vault.balance_wei
+            vaults_total_values[vault.vault_ind] = vault.balance
             vault_validators = vaults_validators.get(vault_address, [])
             vault_pending_deposits = vaults_pending_deposits.get(vault_address, [])
 
@@ -90,39 +110,7 @@ class StakingVaults(Module):
                 }
             )
 
-        tree_data = self._build_tree_data(vaults, vaults_total_values)
-
-        return tree_data, vaults, vaults_total_values
-
-    def get_vaults(self, blockstamp: BlockStamp) -> VaultsMap:
-        vaults = self.lazy_oracle.get_all_vaults(block_identifier=blockstamp.block_number)
-        if len(vaults) == 0:
-            return {}
-
-        out = VaultsMap()
-        for vault_ind, vault in enumerate(vaults):
-            fee = 0
-
-            out[vault.vault] = VaultData(
-                vault_ind,
-                vault.balance,
-                vault.in_out_delta,
-                vault.liability_shares,
-                fee,
-                vault.vault,
-                vault.withdrawal_credentials,
-                vault.share_limit,
-                vault.minted_StETH,
-                vault.mintable_capacity_StETH,
-                vault.reserve_ratioBP,
-                vault.forced_rebalance_thresholdBP,
-                vault.infra_feeBP,
-                vault.liquidity_feeBP,
-                vault.reservation_feeBP,
-                vault.pending_disconnect
-            )
-
-        return out
+        return vaults_total_values
 
     def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults: VaultsMap) -> CID:
         data = self._get_vault_to_proof_map(tree, vaults)
@@ -179,8 +167,25 @@ class StakingVaults(Module):
 
         return cid
 
-    def get_current_report_cid(self, bs: BlockStamp) -> LatestReportData:
-        return self.lazy_oracle.get_report(block_identifier=bs.block_number)
+    def get_prev_report(self, bs: BlockStamp) -> Optional[MerkleTreeData]:
+        report = self.lazy_oracle.get_report(block_identifier=bs.block_number)
+        if report is None:
+            return None
+        return self.get_vault_report(report.cid)
+
+    def get_prev_cid(self, bs: BlockStamp) -> str:
+        report = self.lazy_oracle.get_report(block_identifier=bs.block_number)
+        if report is None:
+            return ""
+        return report.cid
+
+    @staticmethod
+    def get_vault_prev_fees(report_data: MerkleTreeData) -> dict[str, int]:
+        prev_vault_fees = {}
+        for merkle_value in report_data.values:
+            prev_vault_fees[merkle_value.vault_address] = merkle_value.fee
+
+        return prev_vault_fees
 
     def _calculate_pending_deposits_balances(
             self,
@@ -232,7 +237,7 @@ class StakingVaults(Module):
         return total_value
 
     @staticmethod
-    def _build_tree_data(vaults: VaultsMap, vaults_values: list[int]) -> list[VaultTreeNode]:
+    def build_tree_data(vaults: VaultsMap, vaults_values: list[int], vaults_fees: list[int]) -> list[VaultTreeNode]:
         """Build tree data structure from vaults and their values."""
         tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
@@ -241,7 +246,7 @@ class StakingVaults(Module):
                 vault_address,
                 vaults_values[vault.vault_ind],
                 vault.in_out_delta,
-                vault.fee,
+                vaults_fees[vault.vault_ind],
                 vault.liability_shares,
             )
 
@@ -335,7 +340,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def _connect_vaults_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
-        wc_vault_map: dict[str, VaultData] = {
+        wc_vault_map: dict[str, VaultInfoRaw] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
 
@@ -345,7 +350,7 @@ class StakingVaults(Module):
 
             if wc in wc_vault_map:
                 vault = wc_vault_map[validator.validator.withdrawal_credentials]
-                result[vault.address].append(validator)
+                result[vault.vault].append(validator)
 
         return result
 
@@ -353,7 +358,7 @@ class StakingVaults(Module):
     def _connect_vaults_to_pending_deposits(
             pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
     ) -> VaultToPendingDeposits:
-        wc_vault_map: dict[str, VaultData] = {
+        wc_vault_map: dict[str, VaultInfoRaw] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
 
@@ -363,6 +368,38 @@ class StakingVaults(Module):
 
             if wc in wc_vault_map:
                 vault = wc_vault_map[deposit.withdrawal_credentials]
-                result[vault.address].append(deposit)
+                result[vault.vault].append(deposit)
 
         return result
+
+    def get_vault_report(self, tree_cid: str) -> MerkleTreeData:
+        bb = self.ipfs_client.fetch(CID(tree_cid))
+        return self.parse_merkle_tree_data(bb)
+
+    @staticmethod
+    def parse_merkle_tree_data(raw_bytes: bytes) -> MerkleTreeData:
+        data = json.loads(raw_bytes.decode("utf-8"))
+
+        index_map: Dict[str, str] = data["leafIndexToData"]
+
+        def decode_value(entry: Dict[str, Any]) -> MerkleValue:
+            value_list = entry["value"]
+            value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
+            return MerkleValue(**value_dict)
+
+        decoded_values = [decode_value(entry) for entry in data["values"]]
+        tree_indices = [entry["treeIndex"] for entry in data["values"]]
+
+        return MerkleTreeData(
+            format=data["format"],
+            leaf_encoding=data["leafEncoding"],
+            tree=data["tree"],
+            values=decoded_values,
+            tree_indices=tree_indices,
+            merkle_tree_root=data["merkleTreeRoot"],
+            ref_slot=data["refSlot"],
+            block_number=data["blockNumber"],
+            timestamp=data["timestamp"],
+            proofs_cid=data["proofsCID"],
+            prev_tree_cid=data["prevTreeCID"]
+        )
