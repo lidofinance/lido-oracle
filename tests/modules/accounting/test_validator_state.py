@@ -9,11 +9,11 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
+    LidoValidator,
     NodeOperator,
     StakingModule,
-    LidoValidator,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -125,11 +125,7 @@ def lido_validators(web3):
 
 @pytest.fixture
 def validator_state(web3, lido_validators):
-    service = LidoValidatorStateService(web3)
-    service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
-        return_value=[3, 8]
-    )
-    return service
+    return LidoValidatorStateService(web3)
 
 
 @pytest.fixture
