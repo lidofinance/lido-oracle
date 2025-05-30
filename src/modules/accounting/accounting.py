@@ -30,7 +30,7 @@ from src.modules.accounting.types import (
     ReportValues,
     ReportResults,
     VaultsReport,
-    BLOCKS_PER_YEAR,
+    BLOCKS_PER_YEAR, VaultsMap,
 )
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -391,7 +391,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_number)
         vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(blockstamp, validators, pending_deposits)
-        vaults_fees = self._get_vaults_fees(blockstamp)
+        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values)
         tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees)
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
@@ -466,7 +466,7 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
-    def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp) -> list[int]:
+    def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
         report_tree_data = self.w3.staking_vaults.get_prev_report(blockstamp)
         ## When we do not have a report - then we do not have starting point for calculation
         if report_tree_data is None:
@@ -493,7 +493,6 @@ class Accounting(BaseModule, ConsensusModule):
         core_apr = predicted_apr // (lido_fee_bp // 10_000)
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(report_tree_data.block_number)
-        vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_number)
 
         fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(
             report_tree_data.block_number, blockstamp.block_number)
@@ -502,10 +501,6 @@ class Accounting(BaseModule, ConsensusModule):
         burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(report_tree_data.block_number, blockstamp.block_number)
 
         events = defaultdict(list)
-
-        validators = self.w3.cc.get_validators(blockstamp)
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(blockstamp, validators, pending_deposits)
 
         prev_fee = defaultdict(int)
         for vault in report_tree_data.values:

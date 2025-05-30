@@ -242,11 +242,15 @@ class StakingVaults(Module):
         tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
+            vault_fee = 0
+            if 0 <= vault.vault_ind < len(vaults_fees):
+                vault_fee = vaults_fees[vault.vault_ind]
+
             tree_data[vault.vault_ind] = (
                 vault_address,
                 vaults_values[vault.vault_ind],
                 vault.in_out_delta,
-                vaults_fees[vault.vault_ind],
+                vault_fee,
                 vault.liability_shares,
             )
 
