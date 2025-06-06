@@ -1,13 +1,12 @@
 import logging
 from dataclasses import dataclass
 
-from src.constants import TOTAL_BASIS_POINTS, LIDO_DEPOSIT_AMOUNT
+from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig
-from src.providers.consensus.types import Validator
 from src.services.validator_state import LidoValidatorStateService
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
-from src.utils.validator_state import is_on_exit, get_validator_age
+from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
+from src.utils.validator_state import is_on_exit
 from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
 from src.web3py.types import Web3
 
@@ -26,8 +25,6 @@ class NodeOperatorStats:
     module_stats: StakingModuleStats
 
     predictable_validators: int = 0
-    predictable_effective_balance: Gwei = Gwei(0)
-    total_age: int = 0
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
 
@@ -136,11 +133,6 @@ class ValidatorExitIterator:
             self.total_lido_validators += no_predictable_validators
             self.module_stats[gid[0]].predictable_validators += no_predictable_validators
             self.node_operators_stats[gid].predictable_validators = no_predictable_validators
-            self.node_operators_stats[gid].predictable_effective_balance = (
-                self._calculate_effective_balance_non_exiting_validators(validators) + transient_validators_count * LIDO_DEPOSIT_AMOUNT
-            )
-
-            self.node_operators_stats[gid].total_age = self.calculate_validators_age(validators)
 
             if self.node_operators_stats[gid].node_operator.is_target_limit_active == NodeOperatorLimitMode.FORCE:
                 self.node_operators_stats[gid].force_exit_to = self.node_operators_stats[gid].node_operator.target_validators_count
@@ -153,33 +145,15 @@ class ValidatorExitIterator:
             self.blockstamp.block_hash,
         ).max_validator_exit_requests_per_report
 
-    @staticmethod
-    def _calculate_effective_balance_non_exiting_validators(validators: list[Validator]) -> Gwei:
-        return sum(
-            (
-                v.validator.effective_balance for v in validators
-                if not is_on_exit(v)
-            ),
-            Gwei(0),
-        )
-
     def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
         """Validators that are presented but not yet activated on CL can be requested to exit in advance."""
-        indexes = self.lvs.get_recently_requested_validators_by_operator(self.chain_config.seconds_per_slot, self.blockstamp)
+        indexes = self.lvs.get_recently_requested_to_exit_validators_by_node_operator(self.chain_config.seconds_per_slot, self.blockstamp)
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
             return not is_on_exit(validator) and not validator.index in indexes[gid]
 
         return is_validator_exitable
-
-    def calculate_validators_age(self, validators: list[LidoValidator]) -> int:
-        result = 0
-
-        for validator in validators:
-            result += get_validator_age(validator, self.blockstamp.ref_epoch)
-
-        return result
 
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
@@ -190,8 +164,6 @@ class ValidatorExitIterator:
         self.module_stats[gid[0]].predictable_validators -= 1
         # Change node operator stats
         self.node_operators_stats[gid].predictable_validators -= 1
-        self.node_operators_stats[gid].predictable_effective_balance -= lido_validator.validator.effective_balance  # type: ignore
-        self.node_operators_stats[gid].total_age -= get_validator_age(lido_validator, self.blockstamp.ref_epoch)
 
         logger.debug({
             'msg': 'Iterator state change. Eject validator.',
@@ -199,7 +171,6 @@ class ValidatorExitIterator:
             'no_gid': gid[0],
             'module_stats': self.module_stats[gid[0]].predictable_validators,
             'no_stats_exitable_validators': self.node_operators_stats[gid].predictable_validators,
-            'no_stats_total_age': self.node_operators_stats[gid].total_age,
         })
 
         return lido_validator

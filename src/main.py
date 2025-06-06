@@ -92,8 +92,6 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
 
-    logger.info({'msg': 'Sanity checks.'})
-
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})

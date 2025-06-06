@@ -28,7 +28,7 @@ from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
-from src.utils.slot import get_next_non_missed_slot
+from src.utils.slot import get_non_missed_slot_header
 from src.variables import (
     HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
@@ -204,6 +204,18 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
     )
     logger.info(f"TESTRUN Frame config: {_frame_config}")
     return _frame_config
+
+
+def get_next_non_missed_slot(
+    cc: ConsensusClient,
+    slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+) -> BlockDetailsResponse:
+    """
+    Get non-missed slot data. In case of missed slot, we take first next non-missed slot.
+    """
+    _, existing_header = get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
+    return cc.get_block_details(existing_header.data.root)
 
 
 @pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])

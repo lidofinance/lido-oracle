@@ -154,7 +154,7 @@ def test_get_recently_requested_validators_by_operator(monkeypatch, web3, valida
         return_value=exit_event_lookback_window
     )
 
-    global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
+    global_indexes = validator_state.get_recently_requested_to_exit_validators_by_node_operator(12, blockstamp)
     assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
     mock_get_events_in_past.assert_called_once_with(

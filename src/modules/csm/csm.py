@@ -36,10 +36,6 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
-class NoModuleFound(Exception):
-    """Raised if no module find in the StakingRouter by the provided address"""
-
-
 class CSMError(Exception):
     """Unrecoverable error in CSM module"""
 
