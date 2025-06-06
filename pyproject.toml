@@ -28,7 +28,6 @@ web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
 py-multiformats-cid = "^0.4.4"
-conventional-pre-commit = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
@@ -50,6 +49,7 @@ eth-tester = "^0.12.1b1"
 pre-commit = "3.8"
 ipython = "^9.0"
 isort = "^6.0.1"
+conventional-pre-commit = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -8,7 +8,6 @@ import src.modules.csm.checkpoint as checkpoint_module
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
-    FrameCheckpointProcessor,
     FrameCheckpointsIterator,
     MinStepIsNotReached,
     process_attestations,
@@ -16,16 +15,11 @@ from src.modules.csm.checkpoint import (
 from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import (
-    BeaconSpecResponse,
-    BlockAttestation,
-    SlotAttestationCommittee,
-    SyncCommittee,
-    SyncAggregate,
-)
-from src.types import EpochNumber, SlotNumber, ValidatorIndex, BlockRoot
+from src.providers.consensus.types import SyncCommittee
+
+from src.types import EpochNumber, BlockRoot
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
-from src.types import SlotNumber, ValidatorIndex
+from src.types import ValidatorIndex
 from src.utils.web3converter import Web3Converter
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (

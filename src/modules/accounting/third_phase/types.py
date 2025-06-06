@@ -3,7 +3,8 @@ from enum import Enum
 
 
 class ItemType(Enum):
-    EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
+    # Deprecated with TW upgrade
+    # EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
     EXTRA_DATA_TYPE_EXITED_VALIDATORS = 2
 
 
@@ -21,7 +22,6 @@ class ExtraData:
 
 
 class ExtraDataLengths:
-    NEXT_HASH = 32
     ITEM_INDEX = 3
     ITEM_TYPE = 2
     MODULE_ID = 3

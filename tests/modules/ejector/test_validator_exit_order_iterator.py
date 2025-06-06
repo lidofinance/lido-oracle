@@ -4,7 +4,6 @@ import pytest
 
 from src.modules.submodules.types import ChainConfig
 from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
-from src.types import Gwei
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, NodeOperatorFactory, StakingModuleFactory
@@ -31,7 +30,7 @@ def iterator(web3):
 
 @pytest.mark.unit
 def test_get_filter_non_exitable_validators(iterator):
-    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
         return_value={
             (1, 1): [1],
             (1, 2): [-1],
@@ -42,14 +41,6 @@ def test_get_filter_non_exitable_validators(iterator):
 
     filt = iterator.get_can_request_exit_predicate((1, 2))
     assert filt(LidoValidatorFactory.build(index="1"))
-
-
-@pytest.mark.unit
-def test_calculate_validators_age(iterator, monkeypatch):
-    monkeypatch.setattr('src.services.exit_order_iterator.get_validator_age', lambda x, _: 1)
-    iterator.blockstamp = ReferenceBlockStampFactory.build()
-    age = iterator.calculate_validators_age(list(range(20)))
-    assert age == 20
 
 
 @pytest.mark.unit
@@ -116,7 +107,7 @@ def test_eject_validator(iterator):
         }
     )
 
-    iterator.lvs.get_recently_requested_validators_by_operator = Mock(
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
         return_value={
             (1, 1): [-1],
             (1, 2): [-1],
@@ -130,21 +121,16 @@ def test_eject_validator(iterator):
     assert iterator.module_stats[1].predictable_validators == 5
     assert iterator.module_stats[2].predictable_validators == 2
     assert iterator.node_operators_stats[(1, 1)].predictable_validators == 3
-    assert iterator.node_operators_stats[(1, 1)].predictable_effective_balance == 3 * 32 * 10**9
     assert iterator.node_operators_stats[(1, 2)].soft_exit_to is not None
     assert iterator.node_operators_stats[(2, 1)].force_exit_to is not None
     assert iterator.exitable_validators[(2, 1)][0].index == 7
     assert iterator.total_lido_validators == 7
-
-    prev_total_age = iterator.node_operators_stats[(1, 1)].total_age
 
     iterator._eject_validator((1, 1))
 
     assert iterator.total_lido_validators == 6
     assert iterator.module_stats[1].predictable_validators == 4
     assert iterator.node_operators_stats[(1, 1)].predictable_validators == 2
-    assert iterator.node_operators_stats[(1, 1)].predictable_effective_balance == 2 * 32 * 10**9
-    assert iterator.node_operators_stats[(1, 1)].total_age < prev_total_age
 
     iterator.max_validators_to_exit = 3
     iterator._load_blockchain_state = Mock()
@@ -165,7 +151,6 @@ def test_eject_validator(iterator):
 @pytest.mark.unit
 def test_no_predicate(iterator):
     iterator.total_lido_validators = 1000
-    iterator.no_penetration_threshold = 0.1
 
     iterator.exitable_validators = {
         (1, 1): [LidoValidatorFactory.build(index=10)],
@@ -174,8 +159,6 @@ def test_no_predicate(iterator):
 
     node_operator_1 = NodeOperatorStatsFactory.build(
         predictable_validators=100,
-        predictable_effective_balance=Gwei(2000 * 32 * 10**9),
-        total_age=1000,
         force_exit_to=50,
         soft_exit_to=25,
         node_operator=NodeOperatorFactory.build(id=1, staking_module=StakingModuleFactory.build(id=1)),
@@ -187,8 +170,6 @@ def test_no_predicate(iterator):
 
     node_operator_2 = NodeOperatorStatsFactory.build(
         predictable_validators=2000,
-        predictable_effective_balance=Gwei(100 * 32 * 10**9),
-        total_age=1000,
         force_exit_to=50,
         soft_exit_to=25,
         node_operator=NodeOperatorFactory.build(id=2, staking_module=StakingModuleFactory.build(id=2)),

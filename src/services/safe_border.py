@@ -1,8 +1,6 @@
 import math
 from typing import Iterable
 
-from eth_typing import HexStr
-
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -243,10 +241,6 @@ class SafeBorder(Web3Converter):
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
         return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
 
-    def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
-        rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))
-        return self.get_epoch_first_slot(rounded_epoch)
-
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
             self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
@@ -259,11 +253,3 @@ def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator
 def filter_non_withdrawable_validators(slashed_validators: Iterable[Validator], epoch: EpochNumber) -> list[Validator]:
     # This filter works only with slashed_validators
     return [v for v in slashed_validators if v.validator.withdrawable_epoch > epoch]
-
-
-def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch: EpochNumber) -> list[Validator]:
-    return [v for v in validators if v.validator.exit_epoch == exit_epoch]
-
-
-def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
-    return [HexStr(v.validator.pubkey) for v in validators]
