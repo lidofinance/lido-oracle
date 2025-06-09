@@ -144,8 +144,18 @@ class StakingVaults(Module):
                 return str(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
+        tree_dump = tree.dump()
+        values = []
+        for item in tree_dump.values():
+            new_item = (item[0],)  # adr
+            for num in item[1:]:
+                new_item += (str(num),)  # uint -> str
+            values.append(new_item)
+
+        tree_dump.values = values
+
         output = {
-            **dict(tree.dump()),
+            **dict(tree_dump),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.slot_number,
             "blockNumber": bs.block_number,
@@ -309,7 +319,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
+        return StandardMerkleTree(data, ("address", "uint256", "int256", "uint256", "uint256"))
 
     @staticmethod
     def _get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultsMap) -> dict[str, VaultProof]:

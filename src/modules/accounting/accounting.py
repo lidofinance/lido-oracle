@@ -297,10 +297,7 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards,  # el_rewards_vault_balance
             self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
             withdrawal_finalization_batches,
-            0,  # vaults_total_treasury_fees_shares, TODO will be removed
             0,  # vaults_total_deficit, # TODO will be removed
-            bytes(0),  # vaults_data_tree_root # TODO will be removed
-            str("tree_cid"),  # vaults_data_tree_cid # TODO will be removed
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
@@ -455,8 +452,7 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            # TODO: fees and deficit are not implemented yet
-            vaults_total_treasury_fees_shares=0,
+            # TODO: deficit are not implemented yet
             vaults_total_deficit=0,
             tree_root=tree_root,
             tree_cid=tree_cid,
@@ -467,16 +463,24 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
-        report_tree_data = self.w3.staking_vaults.get_prev_report(blockstamp)
+        prev_report = self.w3.staking_vaults.get_prev_report(blockstamp)
         ## When we do not have a report - then we do not have starting point for calculation
-        if report_tree_data is None:
-            return []
+        if prev_report is None:
+            rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(blockstamp.block_number - 7200, blockstamp.block_number)
+            if rebased_event is None:
+                # This case for testnet when protocol is deployed but no events
+                # So it's impossible to take line for calculations
+                # we need submit empty report before
+                return []
+            prev_block_number = rebased_event.block_number
+        else:
+            prev_block_number = prev_report.block_number
+
 
         simulation = self.simulate_full_rebase(blockstamp)
+        # TODO get lidoFeeBP
+        # stakingRouter().getStakingFeeAggregateDistribution()
         lido_fee_bp = self.w3.lido_contracts.lido.get_feeBP(blockstamp.block_hash)
-
-        ## If report exists then token rebased event exist too.
-        # rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(report_tree_data.block_number, blockstamp.block_number)
 
         chain_conf = self.get_chain_config(blockstamp)
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
@@ -492,18 +496,18 @@ class Accounting(BaseModule, ConsensusModule):
 
         core_apr = predicted_apr // (lido_fee_bp // 10_000)
 
-        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(report_tree_data.block_number)
+        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
         fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(
-            report_tree_data.block_number, blockstamp.block_number)
-        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(report_tree_data.block_number,
+            prev_block_number, blockstamp.block_number)
+        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number,
                                                                            blockstamp.block_number)
-        burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(report_tree_data.block_number, blockstamp.block_number)
+        burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
 
         events = defaultdict(list)
 
         prev_fee = defaultdict(int)
-        for vault in report_tree_data.values:
+        for vault in prev_report.values:
             prev_fee[vault.vault_address] = vault.fee
 
         for event in fees_updated_events:
@@ -525,26 +529,31 @@ class Accounting(BaseModule, ConsensusModule):
             liability_shares = vault_info.liability_shares
             current_block = int(blockstamp.block_number)
             liquidity_fee = vault_info.liquidity_feeBP // 10_000
-            minted_total_fees = vault_info.liability_shares * apr_per_block * liquidity_fee
+            minted_total_fees = 0
             infra_fee = 0
             reservation_liquidity_fee = 0
+
+            if vault_address not in events:
+                minted_total_fees += liability_shares * (
+                   current_block - prev_block_number) * apr_per_block * liquidity_fee
 
             # Attention!
             # liquidity_fee
             # events[vault_address] is sorted by descending order
             for event in events[vault_address]:
+                minted_total_fees += liability_shares * (
+                        current_block - event.block_number) * apr_per_block * liquidity_fee
+
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.prev_liquidity_fee_bp // 10_000
                     current_block = event.block_number
                     continue
                 if isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
-                    minted_total_fees += liability_shares * (current_block - event.block_number) * apr_per_block * liquidity_fee
                     current_block = event.block_number
                     continue
                 if isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
-                    minted_total_fees += liability_shares * (current_block - event.block_number) * apr_per_block * liquidity_fee
                     current_block = event.block_number
 
             if vaults_on_prev_report[vault_address] is not None:
@@ -560,14 +569,13 @@ class Accounting(BaseModule, ConsensusModule):
                     * (vault_info.infra_feeBP // 10_000)
             )
 
-            ## TODO будет view
+            ## TODO will view
             reservation_liquidity_fee += (
                     vault_info.mintable_capacity_StETH
                     * core_apr
                     * (vault_info.reservation_feeBP // 10_000)
             )
 
-            # TODO ask math review
             out[vault_info.vault_ind] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + prev_fee[vault_address]
 
         return out

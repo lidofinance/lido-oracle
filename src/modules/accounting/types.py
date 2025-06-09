@@ -162,10 +162,7 @@ class ReportValues:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: List[int]
-    vaults_total_treasury_fees_shares: Shares
     vaults_total_deficit: int
-    vaults_data_tree_root: VaultsTreeRoot
-    vaults_data_tree_cid: VaultsTreeCid
 
 
 @dataclass(frozen=True)
@@ -243,14 +240,14 @@ class VaultInfoRaw:
     liability_shares: Shares
     # Feature smart contract release
     share_limit: int
-    minted_StETH: int
-    mintable_capacity_StETH: int
     reserve_ratioBP: int
     forced_rebalance_thresholdBP: int
     infra_feeBP: int
     liquidity_feeBP: int
     reservation_feeBP: int
     pending_disconnect: bool
+    mintable_capacity_StETH: int
+    vault_ind: int
 
 @dataclass
 class VaultInfo(VaultInfoRaw):

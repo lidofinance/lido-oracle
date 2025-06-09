@@ -72,7 +72,7 @@ class LidoContract(ContractInterface):
         })
         return response
 
-    def get_last_token_rebased_event(self, from_block, to_block: int) -> TokenRebasedEvent:
+    def get_last_token_rebased_event(self, from_block, to_block: int) -> Optional[TokenRebasedEvent]:
         logs = self.w3.eth.get_logs({
                 "fromBlock": from_block,
                 "toBlock": to_block,
@@ -81,6 +81,8 @@ class LidoContract(ContractInterface):
                     HexStr(self.w3.keccak(self.events.TokenRebased.signature).hex())
                 ]
             })
+        if len(logs) == 0:
+            return None
 
         event = self.events.TokenRebased.process_log(logs[-1])
 
