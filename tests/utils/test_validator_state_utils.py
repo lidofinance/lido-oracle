@@ -15,7 +15,6 @@ from src.utils.validator_state import (
     get_activation_exit_churn_limit,
     get_balance_churn_limit,
     get_max_effective_balance,
-    get_validator_age,
     has_compounding_withdrawal_credential,
     has_eth1_withdrawal_credential,
     has_execution_withdrawal_credential,
@@ -24,7 +23,6 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_on_exit,
     is_partially_withdrawable_validator,
-    is_validator_eligible_to_exit,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
@@ -83,22 +81,6 @@ from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simpl
 def test_calculate_active_effective_balance_sum(validators, expected_balance):
     total_effective_balance = calculate_active_effective_balance_sum(validators, EpochNumber(15000))
     assert total_effective_balance == expected_balance
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ('validator_activation_epoch', 'ref_epoch', 'expected_result'),
-    [
-        (100, 100, 0),
-        (100, 101, 1),
-        (100, 99, 0),
-    ],
-)
-def test_get_validator_age(validator_activation_epoch, ref_epoch, expected_result):
-    validator = object.__new__(Validator)
-    validator.validator = object.__new__(ValidatorState)
-    validator.validator.activation_epoch = validator_activation_epoch
-    assert get_validator_age(validator, ref_epoch) == expected_result
 
 
 @pytest.mark.unit
@@ -259,24 +241,6 @@ def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_cr
     validator.balance = effective_balance + add_balance
 
     actual = is_partially_withdrawable_validator(validator.validator, validator.balance)
-    assert actual == expected
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "activation_epoch, exit_epoch, epoch, expected",
-    [
-        (170000, 2**64 - 1, 170256, True),
-        (170000, 170200, 170256, False),
-        (170000, 2**64 - 1, 170255, False),
-    ],
-)
-def test_is_validator_eligible_to_exit(activation_epoch, exit_epoch, epoch, expected):
-    validator = ValidatorFactory.build()
-    validator.validator.activation_epoch = activation_epoch
-    validator.validator.exit_epoch = exit_epoch
-
-    actual = is_validator_eligible_to_exit(validator, EpochNumber(epoch))
     assert actual == expected
 
 

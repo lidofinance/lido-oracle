@@ -12,8 +12,6 @@ EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
 
-GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
-GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
 KUBO_HOST: Final = os.getenv('KUBO_HOST')
 KUBO_GATEWAY_PORT: Final = int(os.getenv('KUBO_GATEWAY_PORT', 8080))
@@ -31,7 +29,7 @@ LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
 CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
-CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)) or None
+CSM_ORACLE_MAX_CONCURRENCY: Final = min(32, int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)))
 GENESIS_FORK_VERSION: Final = os.getenv('GENESIS_FORK_VERSION', "0x00000000")
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
@@ -160,8 +158,6 @@ PRIVATE_ENV_VARS = {
     'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,
     'CONSENSUS_CLIENT_URI': CONSENSUS_CLIENT_URI,
     'KEYS_API_URI': KEYS_API_URI,
-    'GW3_ACCESS_KEY': GW3_ACCESS_KEY,
-    'GW3_SECRET_KEY': GW3_SECRET_KEY,
     'PINATA_JWT': PINATA_JWT,
     'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,
     'OPSGENIE_API_KEY': OPSGENIE_API_KEY,

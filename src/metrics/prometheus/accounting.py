@@ -32,10 +32,3 @@ ACCOUNTING_EXITED_VALIDATORS = Gauge(
     ["module_id", "no_id"],
     namespace=PROMETHEUS_PREFIX,
 )
-
-ACCOUNTING_STUCK_VALIDATORS = Gauge(
-    "accounting_stuck_validators",
-    "Reported stuck validators count",
-    ["module_id", "no_id"],
-    namespace=PROMETHEUS_PREFIX,
-)

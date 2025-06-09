@@ -24,6 +24,13 @@ type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
 type VaultTreeNode = tuple[str, int, int, int, int]
 
+FinalizationShareRate = NewType('FinalizationShareRate', int)
+
+
+type SharesToBurn = int
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationBatches]
 
 @dataclass
 class ReportData:
@@ -137,8 +144,8 @@ class WithdrawalRequestStatus:
     is_claimed: bool
 
 
-type SharesToBurn = Shares
-type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
+type SharesToBurn = int
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches]
 

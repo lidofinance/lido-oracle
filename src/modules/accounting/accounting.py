@@ -57,8 +57,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
-    COMPATIBLE_CONTRACT_VERSION = 3
-    COMPATIBLE_CONSENSUS_VERSION = 3
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 4
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -342,10 +342,9 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl = self._get_generic_extra_data(blockstamp)
 
         return ExtraDataService.collect(
-            stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
@@ -353,13 +352,10 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _get_generic_extra_data(self, blockstamp: ReferenceBlockStamp) -> GenericExtraData:
-        chain_config = self.get_chain_config(blockstamp)
-        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
-        return stuck_validators, exited_validators, orl
+        return exited_validators, orl
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
@@ -406,9 +402,8 @@ class Accounting(BaseModule, ConsensusModule):
         return merkle_tree.root, str(tree_cid)
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl = self._get_generic_extra_data(blockstamp)
         return ExtraDataService.collect(
-            stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
