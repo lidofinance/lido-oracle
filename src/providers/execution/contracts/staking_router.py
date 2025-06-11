@@ -74,3 +74,18 @@ class StakingRouterContract(ContractInterface):
             'to': self.address,
         })
         return response
+
+    def get_staking_fee_aggregate_distribution(self, block_identifier: BlockIdentifier = 'latest') -> tuple[int, int, int]:
+        """
+            Returns all registered staking modules
+        """
+        response = self.functions.getStakingFeeAggregateDistribution().call(block_identifier=block_identifier)
+
+        logger.info({
+            'msg': 'Call `getStakingFeeAggregateDistribution()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+
+        return response["modulesFee"], response["treasuryFee"], response["basePrecision"]

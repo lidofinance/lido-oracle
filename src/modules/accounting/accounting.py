@@ -478,9 +478,8 @@ class Accounting(BaseModule, ConsensusModule):
 
 
         simulation = self.simulate_full_rebase(blockstamp)
-        # TODO get lidoFeeBP
-        # stakingRouter().getStakingFeeAggregateDistribution()
-        lido_fee_bp = self.w3.lido_contracts.lido.get_feeBP(blockstamp.block_hash)
+        modules_fee, treasury_fee, base_precision  = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(blockstamp.block_hash)
+        lido_fee_bp = ((modules_fee + treasury_fee) / base_precision) / 0.0001
 
         chain_conf = self.get_chain_config(blockstamp)
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
