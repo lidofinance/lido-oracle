@@ -265,6 +265,7 @@ class MerkleValue:
     in_out_delta: int
     fee: int
     liability_shares: int
+    slashing_reserve: int
 
 @dataclass
 class MerkleTreeData:
