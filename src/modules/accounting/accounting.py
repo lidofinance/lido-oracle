@@ -383,24 +383,23 @@ class Accounting(BaseModule, ConsensusModule):
     # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
     # uploads tree's root, vaults' proofs
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
-        validators = self.w3.cc.get_validators(blockstamp)
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-
         vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_number)
-        vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(blockstamp, validators, pending_deposits)
-        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values)
-        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees)
-
-        merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        if len(tree_data) == 0:
+        if len(vaults) == 0:
             return bytes(0), ''
 
+        validators = self.w3.cc.get_validators(blockstamp)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        chain_config = self.get_chain_config(blockstamp)
+        vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
+        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values)
+        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(blockstamp, vaults, validators, chain_config)
+        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
+
+        merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
         proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
         logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
 
         prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
-        chain_config = self.get_chain_config(blockstamp)
-
         tree_cid = self.w3.staking_vaults.publish_tree(
             merkle_tree, blockstamp, proof_cid, prev_report_cid, chain_config
         )
@@ -493,7 +492,7 @@ class Accounting(BaseModule, ConsensusModule):
             time_elapsed,
         )
 
-        core_apr = predicted_apr // (lido_fee_bp // 10_000)
+        core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
@@ -506,8 +505,9 @@ class Accounting(BaseModule, ConsensusModule):
         events = defaultdict(list)
 
         prev_fee = defaultdict(int)
-        for vault in prev_report.values:
-            prev_fee[vault.vault_address] = vault.fee
+        if prev_report is not None:
+            for vault in prev_report.values:
+                prev_fee[vault.vault_address] = vault.fee
 
         for event in fees_updated_events:
             events[event.vault].append(event)

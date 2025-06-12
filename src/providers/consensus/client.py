@@ -53,6 +53,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
+    API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
@@ -200,6 +201,17 @@ class ConsensusClient(HTTPProvider):
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
+
+    def get_validator_state(self, state_id: SlotNumber | BlockRoot, validator_id: int) -> Validator:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"""
+        data, _ = self._get(
+            self.API_GET_VALIDATOR,
+            path_params=(state_id, validator_id),
+            force_raise=self.__raise_last_missed_slot_error,
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Expected mapping response from getStateValidator")
+        return Validator.from_response(**data)
 
     def _get_state_by_state_id(self, state_id: StateRoot | SlotNumber) -> dict:
         data, _ = self._get(

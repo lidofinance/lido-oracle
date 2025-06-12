@@ -22,7 +22,7 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[str, int, int, int, int]
+type VaultTreeNode = tuple[str, int, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000
@@ -40,7 +40,6 @@ class ReportData:
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_total_treasury_fees_shares: Shares
     vaults_total_deficit: int
     tree_root: VaultsTreeRoot
     tree_cid: VaultsTreeCid
@@ -62,7 +61,6 @@ class ReportData:
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.is_bunker,
-            self.vaults_total_treasury_fees_shares,
             self.vaults_total_deficit,
             self.tree_root,
             self.tree_cid,

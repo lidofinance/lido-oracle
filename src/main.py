@@ -96,6 +96,7 @@ def main(module_name: OracleModule):
         web3.lido_contracts.lido,
         web3.lido_contracts.vault_hub,
         web3.lido_contracts.lazy_oracle,
+        web3.lido_contracts.oracle_daemon_config,
     )
 
     logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})

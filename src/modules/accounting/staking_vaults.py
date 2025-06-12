@@ -8,7 +8,9 @@ from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
+from web3.types import Wei
 
+from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
 from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
     MerkleTreeData, MerkleValue, VaultInfoRaw
 from src.modules.submodules.types import ChainConfig
@@ -16,9 +18,10 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
+from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
-from src.types import BlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.types import hex_str_to_bytes
 
@@ -32,6 +35,7 @@ class VaultProof:
     inOutDelta: int
     fee: int
     liabilityShares: int
+    slashingReserve: int
     leaf: str
     proof: List[str]
 
@@ -47,8 +51,9 @@ class StakingVaults(Module):
     lido: LidoContract
     vault_hub: VaultHubContract
     lazy_oracle: LazyOracleContract
+    daemon_config: OracleDaemonConfigContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract, daemon_config: OracleDaemonConfigContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
@@ -57,6 +62,7 @@ class StakingVaults(Module):
         self.lido = lido
         self.vault_hub = vault_hub
         self.lazy_oracle = lazy_oracle
+        self.daemon_config = daemon_config
 
     def get_vaults(self, block_number: int) -> VaultsMap:
         vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_number)
@@ -70,14 +76,10 @@ class StakingVaults(Module):
         return out
 
     def get_vaults_total_values(self
-            , blockstamp: BlockStamp
+            , vaults: VaultsMap
             , validators: list[Validator]
             , pending_deposits: list[PendingDeposit]
     ) -> list[int]:
-        vaults = self.get_vaults(blockstamp.block_number)
-        if len(vaults) == 0:
-            return []
-
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
 
@@ -112,6 +114,31 @@ class StakingVaults(Module):
 
         return vaults_total_values
 
+    def get_vaults_slashing_reserve(self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig) -> list[int]:
+        vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
+        left_margin, right_margin = WITHDRAWAL_EPOCH_LEFT_MARGIN, 2 * WITHDRAWAL_EPOCH_RIGHT_MARGIN
+
+        vaults_reserves = [0] * len(vaults)
+        for vault_address, validator_arr in vaults_validators.items():
+            vault_ind = vaults[vault_address].vault_ind
+            vaults_reserves[vault_ind] = Wei(0)
+
+            for validator in validator_arr:
+                if validator.validator.slashed:
+                    we = validator.validator.withdrawable_epoch
+
+                    if we - left_margin <= bs.ref_epoch <= we + right_margin:
+                        slot_id = self._withdrawable_epoch_to_past_slot(we, WITHDRAWAL_EPOCH_LEFT_MARGIN, chain_config.slots_per_epoch)
+                        validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
+                        vaults_reserves[vault_ind] += Web3.to_wei(int(validator_state.balance), 'gwei') * vaults[
+                            vault_address].reserve_ratioBP // 10_000
+
+                    elif bs.ref_epoch < we - left_margin:
+                        vaults_reserves[vault_ind] += Web3.to_wei(int(validator.balance), 'gwei') * vaults[
+                            vault_address].reserve_ratioBP // 10_000
+
+        return vaults_reserves
+
     def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults: VaultsMap) -> CID:
         data = self._get_vault_to_proof_map(tree, vaults)
 
@@ -145,16 +172,20 @@ class StakingVaults(Module):
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
         tree_dump = tree.dump()
-        values = []
-        for item in tree_dump.values():
-            new_item = (item[0],)  # adr
-            for num in item[1:]:
-                new_item += (str(num),)  # uint -> str
-            values.append(new_item)
 
-        tree_dump.values = values
+        def stringify_values(data) -> list[dict[str, Any]]:
+            out = []
+            for item in data:
+                val = item["value"]
+                out.append({
+                    "value": (val[0], str(val[1]), str(val[2]), str(val[3]), str(val[4]), str(val[5])),
+                    "treeIndex": item["treeIndex"],
+                })
+            return out
 
-        output = {
+        values = stringify_values(tree_dump.values())
+
+        output: dict[str, Any] = {
             **dict(tree_dump),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.slot_number,
@@ -168,8 +199,10 @@ class StakingVaults(Module):
                 "2": "in_out_delta",
                 "3": "fee",
                 "4": "liability_shares",
+                "5": "slashing_reserve",
             },
         }
+        output.update(values=values)
 
         dumped_tree_str = json.dumps(output, default=encoder)
 
@@ -247,21 +280,30 @@ class StakingVaults(Module):
         return total_value
 
     @staticmethod
-    def build_tree_data(vaults: VaultsMap, vaults_values: list[int], vaults_fees: list[int]) -> list[VaultTreeNode]:
+    def build_tree_data(vaults: VaultsMap, vaults_values: list[int], vaults_fees: list[int], vaults_slashing_reserve: list[int]) -> list[VaultTreeNode]:
         """Build tree data structure from vaults and their values."""
-        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
+        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
             vault_fee = 0
             if 0 <= vault.vault_ind < len(vaults_fees):
                 vault_fee = vaults_fees[vault.vault_ind]
 
+            vault_value = 0
+            if 0 <= vault.vault_ind < len(vaults_values):
+                vault_value = vaults_values[vault.vault_ind]
+
+            vault_slashing_reserve = 0
+            if 0 <= vault.vault_ind < len(vaults_slashing_reserve):
+                vault_slashing_reserve = vaults_slashing_reserve[vault.vault_ind]
+
             tree_data[vault.vault_ind] = (
                 vault_address,
-                vaults_values[vault.vault_ind],
+                vault_value,
                 vault.in_out_delta,
                 vault_fee,
                 vault.liability_shares,
+                vault_slashing_reserve
             )
 
         return tree_data
@@ -319,7 +361,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "int256", "uint256", "uint256"))
+        return StandardMerkleTree(data, ("address", "uint256", "int256", "uint256", "uint256", "int256"))
 
     @staticmethod
     def _get_vault_to_proof_map(merkle_tree: StandardMerkleTree, vaults: VaultsMap) -> dict[str, VaultProof]:
@@ -330,6 +372,7 @@ class StakingVaults(Module):
             vault_in_out_delta = v["value"][2]
             vault_fee = v["value"][3]
             vault_liability_shares = v["value"][4]
+            vault_slashing_reserve = v["value"][5]
 
             leaf = f"0x{merkle_tree.leaf(v["value"]).hex()}"
             proof = []
@@ -342,6 +385,7 @@ class StakingVaults(Module):
                 inOutDelta=vault_in_out_delta,
                 fee=vault_fee,
                 liabilityShares=vault_liability_shares,
+                slashingReserve=vault_slashing_reserve,
                 leaf=leaf,
                 proof=proof,
             )
@@ -417,3 +461,9 @@ class StakingVaults(Module):
             proofs_cid=data["proofsCID"],
             prev_tree_cid=data["prevTreeCID"]
         )
+
+    @staticmethod
+    def _withdrawable_epoch_to_past_slot(withdrawable_epoch: int, epochs_ago: int, slots_per_epoch: int) -> int:
+        target_epoch = withdrawable_epoch - epochs_ago
+        target_slot = target_epoch * slots_per_epoch
+        return target_slot

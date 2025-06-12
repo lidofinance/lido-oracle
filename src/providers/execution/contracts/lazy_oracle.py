@@ -124,15 +124,15 @@ class LazyOracleContract(ContractInterface):
                 vault.inOutDelta,
                 bytes_to_hex_str(vault.withdrawalCredentials),
                 vault.liabilityShares,
-                0, # vault.shareLimit: int
-                0, # vault.mintedStETH;
-                0, # vault.mintableCapacityStETH
-                0, # vault.reserve_ratioBP: int
-                0, # vault.forced_rebalance_thresholdBP: int
-                0, # vault.infraFeeBP: int
-                0, # vault.liquidity_feeBP: int
-                0, # vault.reservation_feeBP: int
-                False, # pending_disconnect: bool
+                vault.shareLimit,
+                vault.reserveRatioBP,
+                vault.forcedRebalanceThresholdBP,
+                vault.infraFeeBP,
+                vault.liquidityFeeBP,
+                vault.reservationFeeBP,
+                vault.pendingDisconnect,
+                vault.mintableCapacityStETH,
+                vault.vaultInd # TODO check data mapping
             ))
 
         return out
