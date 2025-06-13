@@ -22,7 +22,7 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[str, int, int, int, int, int]
+type VaultTreeNode = tuple[str, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000

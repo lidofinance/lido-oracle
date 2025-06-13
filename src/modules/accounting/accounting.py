@@ -491,15 +491,13 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
-        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(
-            prev_block_number, blockstamp.block_number)
-        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number,
-                                                                           blockstamp.block_number)
+        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
+        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
         burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
 
         events = defaultdict(list)
-
         prev_fee = defaultdict(int)
+
         if prev_report is not None:
             for vault in prev_report.values:
                 prev_fee[vault.vault_address] = vault.fee
@@ -514,8 +512,8 @@ class Accounting(BaseModule, ConsensusModule):
             events[event.vault].append(event)
 
         # Sort list of events by block_number in descending order
-        for vault in events:
-            events[vault].sort(key=lambda x: x.block_number, reverse=True)
+        for vault_address in events:
+            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
 
         out = [0] * len(vaults)
         apr_per_block = core_apr // BLOCKS_PER_YEAR

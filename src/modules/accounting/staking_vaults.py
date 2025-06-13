@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 class VaultProof:
     id: int
     totalValueWei: int
-    inOutDelta: int
     fee: int
     liabilityShares: int
     slashingReserve: int
@@ -178,7 +177,7 @@ class StakingVaults(Module):
             for item in data:
                 val = item["value"]
                 out.append({
-                    "value": (val[0], str(val[1]), str(val[2]), str(val[3]), str(val[4]), str(val[5])),
+                    "value": (val[0], str(val[1]), str(val[2]), str(val[3]), str(val[4])),
                     "treeIndex": item["treeIndex"],
                 })
             return out
@@ -196,10 +195,9 @@ class StakingVaults(Module):
             "leafIndexToData": {
                 "0": "vault_address",
                 "1": "total_value_wei",
-                "2": "in_out_delta",
-                "3": "fee",
-                "4": "liability_shares",
-                "5": "slashing_reserve",
+                "2": "fee",
+                "3": "liability_shares",
+                "4": "slashing_reserve",
             },
         }
         output.update(values=values)
@@ -282,7 +280,7 @@ class StakingVaults(Module):
     @staticmethod
     def build_tree_data(vaults: VaultsMap, vaults_values: list[int], vaults_fees: list[int], vaults_slashing_reserve: list[int]) -> list[VaultTreeNode]:
         """Build tree data structure from vaults and their values."""
-        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0, 0) for _ in range(len(vaults))]
+        tree_data: list[VaultTreeNode] = [('', 0, 0, 0, 0) for _ in range(len(vaults))]
 
         for vault_address, vault in vaults.items():
             vault_fee = 0
@@ -300,7 +298,6 @@ class StakingVaults(Module):
             tree_data[vault.vault_ind] = (
                 vault_address,
                 vault_value,
-                vault.in_out_delta,
                 vault_fee,
                 vault.liability_shares,
                 vault_slashing_reserve
@@ -369,10 +366,9 @@ class StakingVaults(Module):
         for v in merkle_tree.values:
             vault_address = v["value"][0]
             vault_total_value_wei = v["value"][1]
-            vault_in_out_delta = v["value"][2]
-            vault_fee = v["value"][3]
-            vault_liability_shares = v["value"][4]
-            vault_slashing_reserve = v["value"][5]
+            vault_fee = v["value"][2]
+            vault_liability_shares = v["value"][3]
+            vault_slashing_reserve = v["value"][4]
 
             leaf = f"0x{merkle_tree.leaf(v["value"]).hex()}"
             proof = []
@@ -382,7 +378,6 @@ class StakingVaults(Module):
             result[vault_address] = VaultProof(
                 id=vaults[vault_address].vault_ind,
                 totalValueWei=vault_total_value_wei,
-                inOutDelta=vault_in_out_delta,
                 fee=vault_fee,
                 liabilityShares=vault_liability_shares,
                 slashingReserve=vault_slashing_reserve,
