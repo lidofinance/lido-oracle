@@ -1,0 +1,144 @@
+version: '3.9'
+
+networks:
+  devnet:
+    name: tw-holesky-oracle-v6-network
+
+volumes:
+  ipfs_data:
+
+services:
+
+  tw-holesky-oracle-v6-accounting-1:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - ":5678"
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: accounting
+
+  tw-holesky-oracle-v6-ejector-1:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - ":5678"
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: ejector
+
+  tw-holesky-oracle-v6-csm-1:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - ":5678"
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: csm
+
+  tw-holesky-oracle-v6-accounting-2:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - :5678
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: accounting
+
+  tw-holesky-oracle-v6-ejector-2:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - ":5678"
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: ejector
+
+  tw-holesky-oracle-v6-csm-2:
+    build: ./
+    restart: unless-stopped
+    networks:
+      - tw-holesky-oracle-v6-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 8G
+    ports:
+      - ":5678"
+    env_file:
+      - .env
+    environment:
+      - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+    command: csm
+
+  tw-holesky-oracle-v6-ipfs:
+    build: ./kubo
+    container_name: lido-oracle-kubo
+    networks:
+      - devnet
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2G
+    restart: unless-stopped
+    volumes:
+      - ipfs_data:/data/ipfs
+    command:
+      - daemon
+      - --migrate=true
+      - --agent-version-suffix=docker
+    environment:
+      CHAIN: artifact
