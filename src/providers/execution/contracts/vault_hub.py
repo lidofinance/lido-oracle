@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class VaultHubContract(ContractInterface):
     abi_path = './assets/VaultHub.json'
 
-    def get_minted_events(self, from_block_number: int, to_block_number: int) -> list(MintedSharesOnVaultEvent):
+    def get_minted_events(self, from_block_number: int, to_block_number: int) -> list[MintedSharesOnVaultEvent]:
         logs = self.w3.eth.get_logs({
             "fromBlock": from_block_number,
             "toBlock": to_block_number,
@@ -31,7 +31,7 @@ class VaultHubContract(ContractInterface):
 
         return events
 
-    def get_burned_events(self, from_block_number: int, to_block_number: int) -> list(BurnedSharesOnVaultEvent):
+    def get_burned_events(self, from_block_number: int, to_block_number: int) -> list[BurnedSharesOnVaultEvent]:
         logs = self.w3.eth.get_logs({
             "fromBlock": from_block_number,
             "toBlock": to_block_number,
@@ -51,7 +51,7 @@ class VaultHubContract(ContractInterface):
 
         return events
 
-    def get_vaults_fee_updated_events(self, from_block_number: int, to_block_number: int) -> list(VaultFeesUpdatedEvent):
+    def get_vaults_fee_updated_events(self, from_block_number: int, to_block_number: int) -> list[VaultFeesUpdatedEvent]:
         logs = self.w3.eth.get_logs({
                 "fromBlock": from_block_number,
                 "toBlock": to_block_number,
