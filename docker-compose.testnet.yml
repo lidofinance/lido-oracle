@@ -82,7 +82,7 @@ services:
       - .env
     environment:
       - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
-      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_2}"
     command: accounting
 
   tw-holesky-oracle-v6-ejector-2:
@@ -101,7 +101,7 @@ services:
       - .env
     environment:
       - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
-      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_2}"
     command: ejector
 
   tw-holesky-oracle-v6-csm-2:
@@ -120,7 +120,7 @@ services:
       - .env
     environment:
       - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
-      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+      - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_2}"
     command: csm
 
   tw-holesky-oracle-v6-ipfs:
