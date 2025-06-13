@@ -400,6 +400,18 @@ jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
+name = "cached-property"
+version = "2.0.1"
+description = "A decorator for caching properties in classes."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "cached_property-2.0.1-py3-none-any.whl", hash = "sha256:f617d70ab1100b7bcf6e42228f9ddcb78c676ffa167278d9f730d1c2fba69ccb"},
+    {file = "cached_property-2.0.1.tar.gz", hash = "sha256:484d617105e3ee0e4f1f58725e72a8ef9e93deee462222dbd51cd91230897641"},
+]
+
+[[package]]
 name = "certifi"
 version = "2025.4.26"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -966,6 +978,26 @@ rlp = ">=1.0.0"
 dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "coverage", "hypothesis (>=6.22.0,<6.108.7)", "ipython", "mypy (==1.10.0)", "pre-commit (>=3.4.0)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)", "sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme (>=1.0.0)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "twine", "wheel"]
 docs = ["sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme (>=1.0.0)", "towncrier (>=24,<25)"]
 test = ["coverage", "hypothesis (>=6.22.0,<6.108.7)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
+
+[[package]]
+name = "eth-bloom"
+version = "3.1.0"
+description = "A python implementation of the bloom filter used by Ethereum"
+optional = false
+python-versions = "<4,>=3.8"
+groups = ["main"]
+files = [
+    {file = "eth_bloom-3.1.0-py3-none-any.whl", hash = "sha256:c96b2dd6cafa407373bca1a9d74b650378ba672d5b17f2771bf7d3c3aaa7651c"},
+    {file = "eth_bloom-3.1.0.tar.gz", hash = "sha256:4bc918f6fde44334e92b23cfb345db961e2e3af620535cbc872444f7a143cb88"},
+]
+
+[package.dependencies]
+eth-hash = {version = ">=0.4.0", extras = ["pycryptodome"]}
+
+[package.extras]
+dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "hypothesis (>=3.31.2)", "ipython", "mypy (==1.10.0)", "pre-commit (>=3.4.0)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "twine", "wheel"]
+docs = ["towncrier (>=24,<25)"]
+test = ["hypothesis (>=3.31.2)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
 name = "eth-hash"
@@ -2333,6 +2365,38 @@ docs = ["sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme 
 test = ["pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
+name = "py-evm"
+version = "0.12.1b1"
+description = "Python implementation of the Ethereum Virtual Machine"
+optional = false
+python-versions = "<4,>=3.8"
+groups = ["main"]
+files = [
+    {file = "py_evm-0.12.1b1-py3-none-any.whl", hash = "sha256:015ebc8dd95925030be87ce4b3fd31e3c70df626c5ad8665fb06cd611c73eb68"},
+    {file = "py_evm-0.12.1b1.tar.gz", hash = "sha256:7bcd9935a3ac2989c8f068b2006f136189281ebc6e279663405cb2c5397ed890"},
+]
+
+[package.dependencies]
+cached-property = ">=1.5.1"
+ckzg = ">=2.0.0"
+eth-bloom = ">=1.0.3"
+eth-keys = ">=0.4.0"
+eth-typing = ">=5.2.0"
+eth-utils = ">=2.0.0"
+lru-dict = ">=1.1.6"
+py-ecc = ">=8.0.0"
+rlp = ">=3.0.0"
+trie = ">=2.0.0"
+
+[package.extras]
+benchmark = ["termcolor (>=1.1.0)", "web3 (>=6.0.0)"]
+dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "cached-property (>=1.5.1)", "ckzg (>=2.0.0)", "eth-bloom (>=1.0.3)", "eth-keys (>=0.4.0)", "eth-typing (>=5.2.0)", "eth-utils (>=2.0.0)", "factory-boy (>=3.0.0)", "hypothesis (>=6,<7)", "ipython", "lru-dict (>=1.1.6)", "mypy (==1.10.0)", "pre-commit (>=3.4.0)", "py-ecc (>=8.0.0)", "py-evm (>=0.8.0b1)", "pytest (>=7.0.0)", "pytest-asyncio (>=0.20.0)", "pytest-cov (>=4.0.0)", "pytest-timeout (>=2.0.0)", "pytest-xdist (>=3.0)", "rlp (>=3.0.0)", "sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme (>=1.0.0)", "sphinxcontrib-asyncio (>=0.2.0)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "trie (>=2.0.0)", "twine", "wheel"]
+docs = ["py-evm (>=0.8.0b1)", "sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme (>=1.0.0)", "sphinxcontrib-asyncio (>=0.2.0)", "towncrier (>=24,<25)"]
+eth = ["cached-property (>=1.5.1)", "ckzg (>=2.0.0)", "eth-bloom (>=1.0.3)", "eth-keys (>=0.4.0)", "eth-typing (>=5.2.0)", "eth-utils (>=2.0.0)", "lru-dict (>=1.1.6)", "py-ecc (>=8.0.0)", "rlp (>=3.0.0)", "trie (>=2.0.0)"]
+eth-extra = ["blake2b-py (>=0.2.0)", "coincurve (>=18.0.0)"]
+test = ["factory-boy (>=3.0.0)", "hypothesis (>=6,<7)", "pytest (>=7.0.0)", "pytest-asyncio (>=0.20.0)", "pytest-cov (>=4.0.0)", "pytest-timeout (>=2.0.0)", "pytest-xdist (>=3.0)"]
+
+[[package]]
 name = "py-multibase"
 version = "1.0.3"
 description = "Multibase implementation for Python"
@@ -3044,7 +3108,7 @@ version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
 optional = false
 python-versions = "*"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
     {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
@@ -3144,6 +3208,30 @@ files = [
 [package.extras]
 docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<8.2)", "pytest-mock", "pytest-mypy-testing"]
+
+[[package]]
+name = "trie"
+version = "3.1.0"
+description = "Python implementation of the Ethereum Trie structure"
+optional = false
+python-versions = "<4,>=3.8"
+groups = ["main"]
+files = [
+    {file = "trie-3.1.0-py3-none-any.whl", hash = "sha256:dfc3e6ac0e76f0efa900ec1bfd082f0f1ba87f95cbfd81cc12338b03f4c679c4"},
+    {file = "trie-3.1.0.tar.gz", hash = "sha256:b31fd3376d6dccfe8ad13b525e233f2c268d5c48afb90a4de09672423d4b1026"},
+]
+
+[package.dependencies]
+eth-hash = ">=0.1.0"
+eth-utils = ">=2.0.0"
+hexbytes = ">=0.2.3"
+rlp = ">=3"
+sortedcontainers = ">=2.1.0"
+
+[package.extras]
+dev = ["build (>=0.9.0)", "bump_my_version (>=0.19.0)", "eth-hash (>=0.1.0,<1.0.0)", "hypothesis (>=6.56.4,<7)", "ipython", "pre-commit (>=3.4.0)", "pycryptodome", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)", "towncrier (>=24,<25)", "tox (>=4.0.0)", "twine", "wheel"]
+docs = ["towncrier (>=24,<25)"]
+test = ["hypothesis (>=6.56.4,<7)", "pycryptodome", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
 name = "types-requests"
@@ -3539,4 +3627,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "7d61d77fc4e4a619bd4bb8b4d0c2337c898f025b98d8d43ed05ec603d705d996"
+content-hash = "583459e9cf8a0b59797a3c97a17de194d8a5a554a99569aab457d0f00fc23211"
