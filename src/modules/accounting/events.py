@@ -115,7 +115,7 @@ class VaultFeesUpdatedEvent:
         return cls(
             vault=args["vault"],
             infra_fee_bp=args["infraFeeBP"],
-            prev_liquidity_fee_bp=args["prevliquidityFeeBP"],
+            prev_liquidity_fee_bp=args["preLiquidityFeeBP"],
             liquidity_fee_bp=args["liquidityFeeBP"],
             reservation_fee_bp=args["reservationFeeBP"],
             event=log["event"],
