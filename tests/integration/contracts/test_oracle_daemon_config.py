@@ -10,7 +10,6 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
     check_contract(
         oracle_daemon_config_contract,
         [
-            ('normalized_cl_reward_per_epoch', None, lambda response: check_value_type(response, int)),
             (
                 'normalized_cl_reward_mistake_rate_bp',
                 None,
@@ -27,11 +26,6 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
                 lambda response: check_value_type(response, int),
             ),
             (
-                'node_operator_network_penetration_threshold_bp',
-                None,
-                lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
-            ),
-            (
                 'prediction_duration_in_slots',
                 None,
                 lambda response: check_value_type(response, int),
@@ -41,16 +35,11 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
                 None,
                 lambda response: check_value_type(response, int),
             ),
-            (
-                'validator_delayed_timeout_in_slots',
-                None,
-                lambda response: check_value_type(response, int),
-            ),
-            (
-                'validator_delinquent_timeout_in_slots',
-                None,
-                lambda response: check_value_type(response, int),
-            ),
+            # (
+            #    'exit_events_lookback_window_in_slots',
+            #    None,
+            #    lambda response: check_value_type(response, int),
+            # )
         ],
         caplog,
     )

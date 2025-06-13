@@ -9,7 +9,10 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
-from src.modules.submodules.exceptions import IncompatibleOracleVersion, IsNotMemberException
+from src.modules.submodules.exceptions import (
+    IncompatibleOracleVersion,
+    IsNotMemberException,
+)
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -103,7 +106,7 @@ def test_run_as_daemon(oracle):
     "ex",
     [
         DecoratorTimeoutError("Fake exception"),
-        NoActiveProviderError("Fake exception"),
+        NoActiveProviderError.from_exceptions(message="Fake exception", exceptions=[RuntimeError('provider 1 error')]),
         RequestsConnectionError("Fake exception"),
         NotOkResponse(status=500, text="Fake exception"),
         NoSlotsAvailable("Fake exception"),

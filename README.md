@@ -1,73 +1,88 @@
-# <img src="https://docs.lido.fi/img/logo.svg" alt="Lido" width="46"/> Lido Oracle
+<img src="docs/logo.svg" height="60px" style="margin: 6px -6px -22px" alt="Lido Logo"/>
+<div style="display: inline-block;font-size: 2em;font-weight: bold;">Lido Oracle</div>
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Tests](https://github.com/lidofinance/lido-oracle/workflows/Tests/badge.svg?branch=daemon_v2)](https://github.com/lidofinance/lido-oracle/actions)
 
 Oracle daemon for Lido decentralized staking service: Monitoring the state of the protocol across both layers and submitting regular update reports to the Lido smart contracts.
+
+## 🚀 Quick Start
+
+```bash
+# 1. Pull Docker image
+docker pull lidofinance/oracle:{tag}
+
+# 2. Prepare .env file
+cp .env.example .env
+# Edit .env with necessary values
+
+# 3. Check environment
+docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
+
+# 4. Run the Oracle (dry mode by default)
+docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm
+```
+
+Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator-manual) for more details.
 
 ## How it works
 
 There are 3 modules in the oracle:
 
-- Accounting
-- Ejector
-- CSM
+- Accounting (accounting)
+- Valdiators Exit Bus (ejector)
+- CSM (csm)
 
 ### Accounting module
 
-Accounting module updates the protocol TVL, distributes node-operator rewards, updates information about the number of exited and stuck validators and processes user withdrawal requests.
-Also Accounting module makes decision to turn on/off the bunker.
+Handles protocol TVL updates, node operator rewards, validator status, withdrawal requests, and bunker mode toggling.
 
 **Flow**
 
-The oracle work is delineated by time periods called frames. Oracles finalize a report in each frame.
-The default Accounting Oracle frame length on mainnet is 225 epochs, which is 24 hours (it could be changed by DAO).
-The frame includes these stages:
-
-- **Waiting** - oracle starts as daemon and wakes up every 12 seconds (by default) in order to find the last finalized slot (ref slot).
-  If ref slot missed, Oracle tries to find previous non-missed slot.
-- **Data collection**: oracles monitor the state of both the execution and consensus layers and collect the data;
-- **Hash consensus**: oracles analyze the data, compile the report and submit its hash to the HashConsensus smart contract;
-- **Core update report**: once the quorum of hashes is reached, meaning required number of Oracles submitted the same hash,
-  one of the oracles chosen in turn submits the actual report to the AccountingOracle contract, which triggers the core protocol
-  state update, including the token rebase, finalization of withdrawal requests, and
-  deciding whether to go in the bunker mode.
-- **Extra data report**: an third phase report carrying additional information. It can be delivered multi-transactionally.
-  Delivers stuck and exited validators count by node operators. For some modules unlocks rewards distribution.
+Work is divided into frames (~24 hours / 225 epochs):
+- **Waiting**: Oracle daemon wakes up every 12s, fetches the latest finalized slot, and waits until a new frame begins.
+- **Data collection**: Gathers state data from Execution and Consensus layers.
+- **Hash consensus**: Hash of report is submitted to the HashConsensus contract.
+- **Core update report**: Once quorum is reached, actual report is submitted to AccountingOracle to trigger state updates (rebases, withdrawals, bunker check).
+- **Extra data report**: Multi-transactional report for stuck/exited validators, reward unlocking, etc.
 
 ### Ejector module
 
-Ejector module requests Lido validators to eject via events in Execution Layer when the protocol requires additional funds to process user withdrawals.
+Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_interator.py`.
 
 **Flow**
 
-- Finds out how much ETH is needed to cover withdrawals.
-- Predicts mean Lido income into Withdrawal and Execution Rewards Vaults.
-- Figures out when the next validator will be withdrawn.
-- Form a validator's queue with enough validators to fill all withdrawals requests.
-- Force eject validators from Node Operator with boosted exits flag even no withdrawal requests.
-- Encode validators data and send transaction
+Work is divided into frames (~8 hours / 75 epochs):
+- Calculates ETH required for withdrawals.
+- Estimates incoming ETH to protocol.
+- Determines next available validator exit.
+- Builds validators to exit queue and submits data to Execution Layer.
+
+### CSM module
+
+Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the CSM.
+
+Work is divided into frames (~28 days / 6300 epochs):
+- **Data collection**: Processes new epoches and collect attestations.
+- **IPFS data submittion**: Uploads report and full logs to IPFS.
+- **Update report**: Submits report to the CSFeeOracle contract.
 
 # Usage
 
 ## Machine requirements
 
-Only Oracle:
-
-- vCPUs - 2
+For each Oracle module:
+- vCPUs - 1
 - Memory - 8 GB
 
-Oracle + KAPI:
-
-- vCPU - 4
-- Memory - 16 GB
+[KAPI](https://github.com/lidofinance/lido-keys-api):
+- vCPU - 2
+- Memory - 8 GB
 
 ## Dependencies
 
 ### Execution Client Node
 
-To prepare the report, Oracle fetches up to 10 days old events, makes historical requests for balance data and makes simulated reports on historical blocks. This requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) execution node.
-Oracle needs two weeks of archived data.
+Requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) node with 2 weeks of history.
 
 | Client                                          | Tested | Notes                                                                                                                                                                           |
 |-------------------------------------------------|:------:|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -75,6 +90,7 @@ Oracle needs two weeks of archived data.
 | [Nethermind](https://nethermind.io/)            |   🔴   | Not tested yet                                                                                                                                                                  |
 | [Besu](https://besu.hyperledger.org/en/stable/) |   🟢   | Use <br>`--rpc-max-logs-range=100000` <br> `--sync-mode=FULL` <br> `--data-storage-format="FOREST"` <br> `--pruning-enabled` <br>`--pruning-blocks-retained=100000` <br> params |
 | [Erigon](https://github.com/ledgerwatch/erigon) |   🟢   | Use <br> `--prune=htc` <br> `--prune.h.before=100000` <br> `--prune.t.before=100000` <br> `--prune.c.before=100000` <br> params                                                 |
+| [Reth](https://reth.rs/)                        |   🔴   | Not tested yet                                                                                                                                                                  |
 
 ### Consensus Client Node
 
@@ -87,12 +103,11 @@ Also, to calculate some metrics for bunker mode Oracle needs [archive](https://e
 | [Nimbus](https://nimbus.team)                   |   🔴   | Not tested yet                                                                                                                                  |
 | [Prysm](https://github.com/prysmaticlabs/prysm) |   🟢   | Use <br> `--grpc-max-msg-size=104857600` <br> `--enable-historical-state-representation=true` <br> `--slots-per-archive-point=1024` <br> params |
 | [Teku](https://docs.teku.consensys.net)         |   🟢   | Use <br> `--data-storage-mode=archive` <br>`--data-storage-archive-frequency=1024`<br> `--reconstruct-historic-states=true`<br> params          |
+| [Grandine](https://docs.grandine.io/)           |   🔴   | Not tested yet                                                                                                                                  |
 
 ### Keys API Service
 
-This is a separate service that uses Consensus and Execution Clients to fetch all lido keys. It stores the latest state of lido keys in database.
-
-[Lido Keys API repository.](https://github.com/lidofinance/lido-keys-api)
+Separate service to collect and store validator keys from clients. [Lido Keys API repository.](https://github.com/lidofinance/lido-keys-api)
 
 ## Setup
 
@@ -103,9 +118,8 @@ Pull the image using the following command:
 docker pull lidofinance/oracle:{tag}
 ```
 
-Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)
-**OR**\
-You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
+Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)\
+**OR** You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
 ```bash
 docker build -t lidofinance/oracle .
@@ -173,10 +187,6 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CSM_MODULE_ADDRESS`                                   | Address of the CSModule contract                                                                                                                                         | CSM only | `0x1...`                                   |
 | `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                                   |
 | `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`                         |
-| `GW3_ACCESS_KEY`                                       | An access key to gw3.io IPFS provider                                                                                                                                    | CSM only | `123456789-1234-5678-9012-123456789012`    |
-| `GW3_ACCESS_KEY_FILE`                                  | A path to a file with an access key to gw3.io IPFS provider                                                                                                              | CSM only | `/app/gwt_access`                          |
-| `GW3_SECRET_KEY`                                       | A secret key to gw3.io IPFS provider                                                                                                                                     | CSM only | `aBcD1234...`                              |
-| `GW3_SECRET_KEY_FILE`                                  | A path to a file with a secret key to gw3.io IPFS provider                                                                                                               | CSM only | `/app/gwt_secret`                          |
 | `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | CSM only | `aBcD1234...`                              |
 | `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pintata_secret`                      |
 | `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | CSM only | `localhost`                                |
@@ -210,6 +220,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
+> CSM_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
 
 ### Alerts
@@ -253,7 +264,6 @@ The oracle exposes the following basic metrics:
 | slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                  |
 | block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                                                  |
 | functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                                   |
-| el_requests_duration        | Histogram metric with duration of each EL request               | endpoint, call_method, call_to, code, domain                                                                                                   |
 | cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                         |
 | keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                         |
 | keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                                |
@@ -265,6 +275,17 @@ The oracle exposes the following basic metrics:
 | frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                                                                |
 | contract_on_pause           | Contract on pause                                               |                                                                                                                                                |
 
+Interaction with external providers:
+
+| Metric name                     | Description                                                                           | Labels                                                             |
+|---------------------------------|---------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| http_rpc_requests_total         | Counts total HTTP requests used by any layer                                          | network, layer, chain_id, provider, batched, response_code, result |
+| http_rpc_batch_size             | Distribution of how many JSON-RPC calls (or similar) are bundled in each HTTP request | network, layer, chain_id, provider                                 |
+| http_rpc_response_seconds       | Distribution of RPC response times                                                    | network, layer, chain_id, provider                                 |
+| http_rpc_request_payload_bytes  | Distribution of request payload sizes (bytes) RPC calls                               | network, layer, chain_id, provider                                 |
+| http_rpc_response_payload_bytes | Distribution of response payload sizes (bytes) RPC calls                              | network, layer, chain_id, provider                                 |
+| rpc_request_total               | Distribution of response payload sizes (bytes) RPC calls                              | network, layer, chain_id, provider, method, result, rpc_error_code |
+
 Special metrics for accounting oracle:
 
 | Metric name                             | Description                                         | Labels           |
@@ -274,7 +295,6 @@ Special metrics for accounting oracle:
 | accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
 | accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
 | accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
-| accounting_stuck_validators             | Reported stuck validators count for each operator   | module_id, no_id |
 
 Special metrics for ejector oracle:
 

@@ -26,6 +26,12 @@ type VaultTreeNode = tuple[str, int, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000
+FinalizationShareRate = NewType('FinalizationShareRate', int)
+
+
+type SharesToBurn = int
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationBatches]
 
 @dataclass
 class ReportData:
@@ -82,7 +88,6 @@ class AccountingProcessingState:
     extra_data_items_count: int
     extra_data_items_submitted: int
 
-
 @dataclass
 class OracleReportLimits:
     exited_validators_per_day_limit: int
@@ -104,6 +109,7 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
 
 @dataclass
 class BatchState:
@@ -135,13 +141,6 @@ class WithdrawalRequestStatus:
     timestamp: int
     is_finalized: bool
     is_claimed: bool
-
-
-type SharesToBurn = Shares
-type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
-type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationBatches]
-
 
 @dataclass
 class BeaconStat:

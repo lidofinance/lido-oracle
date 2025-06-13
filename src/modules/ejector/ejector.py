@@ -6,7 +6,6 @@ from web3.types import Wei
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
-    FAR_FUTURE_EPOCH,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -33,7 +32,6 @@ from src.utils.units import gwei_to_wei
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
-    get_validator_churn_limit,
     get_max_effective_balance,
     is_active_validator,
     is_fully_withdrawable_validator,
@@ -62,10 +60,8 @@ class Ejector(BaseModule, ConsensusModule):
     3. Decode lido validators into bytes and send report transaction
     """
 
-    COMPATIBLE_CONTRACT_VERSION = 1
-    COMPATIBLE_CONSENSUS_VERSION = 3
-
-    AVG_EXPECTING_WITHDRAWALS_SWEEP_DURATION_MULTIPLIER = 0.5
+    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONSENSUS_VERSION = 4
 
     def __init__(self, w3: Web3):
         self.report_contract: ExitBusOracleContract = w3.lido_contracts.validators_exit_bus_oracle
@@ -124,7 +120,7 @@ class Ejector(BaseModule, ConsensusModule):
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
             blockstamp=blockstamp,
-            seconds_per_slot=chain_config.seconds_per_slot
+            chain_config=chain_config,
         ))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
@@ -253,50 +249,11 @@ class Ejector(BaseModule, ConsensusModule):
         return EpochNumber(earliest_exit_epoch)
 
     @lru_cache(maxsize=1)
-    def _get_latest_exit_epoch(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, int]:
-        """
-        Returns the latest exit epoch and amount of validators that are exiting in this epoch
-        """
-        max_exit_epoch_number = EpochNumber(0)
-        latest_to_exit_validators_count = 0
-
-        validators = self.w3.cc.get_validators(blockstamp)
-
-        for validator in validators:
-            val_exit_epoch = validator.validator.exit_epoch
-
-            if val_exit_epoch == FAR_FUTURE_EPOCH:
-                continue
-
-            if val_exit_epoch == max_exit_epoch_number:
-                latest_to_exit_validators_count += 1
-
-            elif val_exit_epoch > max_exit_epoch_number:
-                max_exit_epoch_number = val_exit_epoch
-                latest_to_exit_validators_count = 1
-
-        logger.info({
-            'msg': 'Calculate latest exit epoch',
-            'value': max_exit_epoch_number,
-            'latest_to_exit_validators_count': latest_to_exit_validators_count,
-        })
-
-        return max_exit_epoch_number, latest_to_exit_validators_count
-
-    @lru_cache(maxsize=1)
     def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
         """Returns amount of epochs that will take to sweep all validators in chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs(state, chain_config)
-
-    @lru_cache(maxsize=1)
-    def _get_churn_limit(self, blockstamp: ReferenceBlockStamp) -> int:
-        total_active_validators = len(self._get_active_validators(blockstamp))
-        logger.info({'msg': 'Calculate total active validators.', 'value': total_active_validators})
-        churn_limit = get_validator_churn_limit(total_active_validators)
-        logger.info({'msg': 'Calculate churn limit.', 'value': churn_limit})
-        return churn_limit
 
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:

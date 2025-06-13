@@ -101,5 +101,5 @@ make test
 
 #### Local setup
 ```bash
-poetry run pytest .
+poetry run pytest tests
 ```
