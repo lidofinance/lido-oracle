@@ -127,7 +127,7 @@ services:
     build: ./kubo
     container_name: lido-oracle-kubo
     networks:
-      - devnet
+      - tw-holesky-oracle-v6-network
     deploy:
       resources:
         limits:
