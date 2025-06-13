@@ -125,7 +125,7 @@ services:
 
   tw-holesky-oracle-v6-ipfs:
     build: ./kubo
-    container_name: lido-oracle-kubo
+    container_name: tw-holesky-oracle-v6-kubo
     networks:
       - tw-holesky-oracle-v6-network
     deploy:
