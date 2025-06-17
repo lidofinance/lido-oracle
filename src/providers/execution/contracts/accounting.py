@@ -43,7 +43,7 @@ class AccountingContract(ContractInterface):
 
         logger.info(
             {
-                'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
+                'msg': 'Call `simulateOracleReport({}, {}, {}, {}, {}, {}, {}, {}, {})`.'.format(  # pylint: disable=consider-using-f-string
                     payload.timestamp,
                     payload.time_elapsed,
                     payload.cl_validators,
