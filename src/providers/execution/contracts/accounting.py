@@ -52,7 +52,6 @@ class AccountingContract(ContractInterface):
                     payload.el_rewards_vault_balance,
                     payload.shares_requested_to_burn,
                     payload.withdrawal_finalization_batches,
-                    payload.vaults_total_deficit,
                     withdrawal_share_rate,
                 ),
                 'value': str(response),
