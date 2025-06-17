@@ -88,6 +88,7 @@ class LidoContract(ContractInterface):
 
         return TokenRebasedEvent.from_log(event)
 
+    #TODO change to get FeeDistribution
     def get_feeBP(self, block_identifier: BlockIdentifier = 'latest') -> int:
         response = self.functions.getFee().call(block_identifier=block_identifier)
 

@@ -561,7 +561,6 @@ class Accounting(BaseModule, ConsensusModule):
                     * (vault_info.infra_feeBP // 10_000)
             )
 
-            ## TODO will view
             reservation_liquidity_fee += (
                     vault_info.mintable_capacity_StETH
                     * core_apr
