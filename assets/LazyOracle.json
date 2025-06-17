@@ -2,19 +2,9 @@
   {
     "inputs": [
       {
-        "internalType": "contract ILidoLocator",
-        "name": "_locator",
+        "internalType": "address",
+        "name": "_lidoLocator",
         "type": "address"
-      },
-      {
-        "internalType": "contract ILido",
-        "name": "_lido",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_relativeShareLimitBP",
-        "type": "uint256"
       }
     ],
     "stateMutability": "nonpayable",
@@ -42,115 +32,8 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "index",
-        "type": "uint256"
-      }
-    ],
-    "name": "AlreadyConnected",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "codehash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "AlreadyExists",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "AlreadyHealthy",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "forcedRebalanceThresholdBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxForcedRebalanceThresholdBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "ForcedRebalanceThresholdTooHigh",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "InsufficientSharesToBurn",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalValue",
-        "type": "uint256"
-      }
-    ],
-    "name": "InsufficientTotalValueToMint",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newFees",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "oldFees",
-        "type": "uint256"
-      }
-    ],
-    "name": "InvalidFees",
+    "inputs": [],
+    "name": "AdminCannotBeZero",
     "type": "error"
   },
   {
@@ -165,50 +48,7 @@
   },
   {
     "inputs": [],
-    "name": "InvalidPubkeysLength",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "liabilityShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "NoLiabilitySharesShouldBeLeft",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "operation",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "addr",
-        "type": "address"
-      }
-    ],
     "name": "NotAuthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "NotConnectedToHub",
     "type": "error"
   },
   {
@@ -218,296 +58,13 @@
   },
   {
     "inputs": [],
-    "name": "PauseUntilMustBeInFuture",
+    "name": "TotalValueTooLarge",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PausedExpected",
+    "name": "UnderflowInTotalValueCalculation",
     "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "relativeShareLimitBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalBasisPoints",
-        "type": "uint256"
-      }
-    ],
-    "name": "RelativeShareLimitBPTooHigh",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "reserveRatioBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxReserveRatioBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "ReserveRatioTooHigh",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ResumedExpected",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "shareLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "ShareLimitExceeded",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "shareLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxShareLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "ShareLimitTooHigh",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "treasuryFeeBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxTreasuryFeeBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "TreasuryFeeTooHigh",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "VaultDeauthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "depositor",
-        "type": "address"
-      }
-    ],
-    "name": "VaultDepositorNotAllowed",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentBalance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "expectedBalance",
-        "type": "uint256"
-      }
-    ],
-    "name": "VaultInsufficientBalance",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentLocked",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "expectedLocked",
-        "type": "uint256"
-      }
-    ],
-    "name": "VaultInsufficientLocked",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalValue",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "liabilityShares",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newRebalanceThresholdBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "VaultMintingCapacityExceeded",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "VaultOssified",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "beacon",
-        "type": "address"
-      }
-    ],
-    "name": "VaultProxyNotAllowed",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "VaultReportStaled",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "argument",
-        "type": "string"
-      }
-    ],
-    "name": "ZeroArgument",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ZeroPauseDuration",
-    "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "BurnedSharesOnVault",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "pubkeys",
-        "type": "bytes"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "refundRecipient",
-        "type": "address"
-      }
-    ],
-    "name": "ForcedValidatorExitTriggered",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -533,31 +90,31 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfShares",
-        "type": "uint256"
+        "internalType": "uint128",
+        "name": "delta",
+        "type": "uint128"
       }
     ],
-    "name": "MintedSharesOnVault",
+    "name": "QuarantineExpired",
     "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "vault",
+        "type": "address"
+      },
+      {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "duration",
-        "type": "uint256"
+        "internalType": "uint128",
+        "name": "delta",
+        "type": "uint128"
       }
     ],
-    "name": "Paused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [],
-    "name": "Resumed",
+    "name": "QuarantinedDeposit",
     "type": "event"
   },
   {
@@ -639,114 +196,32 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "newShareLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "ShareLimitUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "shareLimit",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "reserveRatioBP",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "forcedRebalanceThresholdBP",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "treasuryFeeBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "VaultConnectionSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      }
-    ],
-    "name": "VaultDisconnected",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "codehash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "VaultProxyCodehashAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "vault",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "sharesBurned",
-        "type": "uint256"
-      }
-    ],
-    "name": "VaultRebalanced",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "uint64",
-        "name": "timestamp",
+        "name": "quarantinePeriod",
         "type": "uint64"
       },
       {
         "indexed": false,
+        "internalType": "uint16",
+        "name": "maxRewardRatioBP",
+        "type": "uint16"
+      }
+    ],
+    "name": "SanityParamsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
         "internalType": "bytes32",
         "name": "root",
         "type": "bytes32"
@@ -763,38 +238,12 @@
   },
   {
     "inputs": [],
-    "name": "CONNECT_DEPOSIT",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "DEFAULT_ADMIN_ROLE",
     "outputs": [
       {
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "LIDO",
-    "outputs": [
-      {
-        "internalType": "contract ILido",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -815,72 +264,7 @@
   },
   {
     "inputs": [],
-    "name": "PAUSE_INFINITELY",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "PAUSE_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "REPORT_FRESHNESS_DELTA",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "RESUME_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_MASTER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_REGISTRY_ROLE",
+    "name": "UPDATE_SANITY_PARAMS_ROLE",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -894,13 +278,29 @@
   {
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "codehash",
-        "type": "bytes32"
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_totalValue",
+        "type": "uint256"
       }
     ],
-    "name": "addVaultProxyCodehash",
-    "outputs": [],
+    "name": "_handleSanityChecks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalValueWithoutQuarantine",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "inOutDeltaOnRefSlot",
+        "type": "int256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -927,14 +327,14 @@
             "type": "address"
           },
           {
+            "internalType": "uint96",
+            "name": "vaultIndex",
+            "type": "uint96"
+          },
+          {
             "internalType": "uint256",
             "name": "balance",
             "type": "uint256"
-          },
-          {
-            "internalType": "int256",
-            "name": "inOutDelta",
-            "type": "int256"
           },
           {
             "internalType": "bytes32",
@@ -945,104 +345,51 @@
             "internalType": "uint256",
             "name": "liabilityShares",
             "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "mintableStETH",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint96",
+            "name": "shareLimit",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint16",
+            "name": "reserveRatioBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "forcedRebalanceThresholdBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "infraFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "liquidityFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "reservationFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "pendingDisconnect",
+            "type": "bool"
           }
         ],
-        "internalType": "struct VaultHub.VaultInfo[]",
+        "internalType": "struct LazyOracle.VaultInfo[]",
         "name": "",
         "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "burnShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "connectVault",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "disconnect",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "forceRebalance",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_pubkeys",
-        "type": "bytes"
-      },
-      {
-        "internalType": "address",
-        "name": "_refundRecipient",
-        "type": "address"
-      }
-    ],
-    "name": "forceValidatorExit",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getResumeSinceTimestamp",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1177,43 +524,21 @@
         "internalType": "address",
         "name": "_admin",
         "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_quarantinePeriod",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_maxRewardRatioBP",
+        "type": "uint16"
       }
     ],
     "name": "initialize",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "isPaused",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "isVaultHealthyAsOfLatestReport",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1240,101 +565,39 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_recipient",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "mintShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "mintVaultsTreasuryFeeShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
-    "name": "operatorGrid",
+    "name": "latestReportTimestamp",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "uint64",
         "name": "",
-        "type": "address"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "maxRewardRatioBP",
+    "outputs": [
       {
-        "internalType": "uint256",
-        "name": "_duration",
-        "type": "uint256"
+        "internalType": "uint16",
+        "name": "",
+        "type": "uint16"
       }
     ],
-    "name": "pauseFor",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_pauseUntilInclusive",
-        "type": "uint256"
-      }
-    ],
-    "name": "pauseUntil",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "rebalance",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "rebalanceShortfall",
+    "name": "quarantinePeriod",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "",
-        "type": "uint256"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -1354,13 +617,6 @@
       }
     ],
     "name": "renounceRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "resume",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1405,60 +661,9 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      },
-      {
         "internalType": "uint256",
-        "name": "_amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "transferAndBurnShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_shareLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_reserveRatioBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_forcedRebalanceThresholdBP",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_treasuryFeeBP",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateConnection",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
         "name": "_vaultsDataTimestamp",
-        "type": "uint64"
+        "type": "uint256"
       },
       {
         "internalType": "bytes32",
@@ -1479,17 +684,17 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
+        "internalType": "uint64",
+        "name": "_quarantinePeriod",
+        "type": "uint64"
       },
       {
-        "internalType": "uint256",
-        "name": "_shareLimit",
-        "type": "uint256"
+        "internalType": "uint16",
+        "name": "_maxRewardRatioBP",
+        "type": "uint16"
       }
     ],
-    "name": "updateShareLimit",
+    "name": "updateSanityParams",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1507,18 +712,18 @@
         "type": "uint256"
       },
       {
-        "internalType": "int256",
-        "name": "_inOutDelta",
-        "type": "int256"
-      },
-      {
         "internalType": "uint256",
-        "name": "_feeSharesCharged",
+        "name": "_cumulativeLidoFees",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
         "name": "_liabilityShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_slashingReserve",
         "type": "uint256"
       },
       {
@@ -1535,168 +740,42 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_index",
-        "type": "uint256"
-      }
-    ],
-    "name": "vault",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_index",
-        "type": "uint256"
-      }
-    ],
-    "name": "vaultSocket",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "vault",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "liabilityShares",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "shareLimit",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint16",
-            "name": "reserveRatioBP",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "forcedRebalanceThresholdBP",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "treasuryFeeBP",
-            "type": "uint16"
-          },
-          {
-            "internalType": "bool",
-            "name": "pendingDisconnect",
-            "type": "bool"
-          },
-          {
-            "internalType": "uint96",
-            "name": "feeSharesCharged",
-            "type": "uint96"
-          }
-        ],
-        "internalType": "struct VaultHub.VaultSocket",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "_vault",
         "type": "address"
       }
     ],
-    "name": "vaultSocket",
+    "name": "vaultQuarantine",
     "outputs": [
       {
         "components": [
           {
-            "internalType": "address",
-            "name": "vault",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "liabilityShares",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "shareLimit",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint16",
-            "name": "reserveRatioBP",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "forcedRebalanceThresholdBP",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "treasuryFeeBP",
-            "type": "uint16"
-          },
-          {
             "internalType": "bool",
-            "name": "pendingDisconnect",
+            "name": "isActive",
             "type": "bool"
           },
           {
-            "internalType": "uint96",
-            "name": "feeSharesCharged",
-            "type": "uint96"
+            "internalType": "uint256",
+            "name": "pendingTotalValueIncrease",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "startTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "endTimestamp",
+            "type": "uint256"
           }
         ],
-        "internalType": "struct VaultHub.VaultSocket",
+        "internalType": "struct LazyOracle.QuarantineInfo",
         "name": "",
         "type": "tuple"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "vaultsCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_vault",
-        "type": "address"
-      }
-    ],
-    "name": "voluntaryDisconnect",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]

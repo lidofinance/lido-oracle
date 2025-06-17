@@ -153,26 +153,6 @@
             "internalType": "uint256[]",
             "name": "withdrawalFinalizationBatches",
             "type": "uint256[]"
-          },
-          {
-            "internalType": "uint256",
-            "name": "vaultsTotalTreasuryFeesShares",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "vaultsTotalDeficit",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "vaultsDataTreeRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "vaultsDataTreeCid",
-            "type": "string"
           }
         ],
         "internalType": "struct ReportValues",
@@ -228,26 +208,6 @@
             "internalType": "uint256[]",
             "name": "withdrawalFinalizationBatches",
             "type": "uint256[]"
-          },
-          {
-            "internalType": "uint256",
-            "name": "vaultsTotalTreasuryFeesShares",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "vaultsTotalDeficit",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "vaultsDataTreeRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "vaultsDataTreeCid",
-            "type": "string"
           }
         ],
         "internalType": "struct ReportValues",
