@@ -17,7 +17,7 @@ class VaultHubContract(ContractInterface):
             "toBlock": to_block_number,
             "address": self.address,
             "topics": [
-                HexStr(self.w3.keccak(self.events.MintedSharesOnVaultEvent.signature).hex())
+                HexStr(self.w3.keccak(self.events.MintedSharesOnVault.signature).hex())
             ]
         })
 
@@ -37,7 +37,7 @@ class VaultHubContract(ContractInterface):
             "toBlock": to_block_number,
             "address": self.address,
             "topics": [
-                HexStr(self.w3.keccak(self.events.BurnedSharesOnVaultEvent.signature).hex())
+                HexStr(self.w3.keccak(self.events.BurnedSharesOnVault.signature).hex())
             ]
         })
 
@@ -46,7 +46,7 @@ class VaultHubContract(ContractInterface):
 
         events: list[BurnedSharesOnVaultEvent] = []
         for log in logs:
-            parsed_log = self.events.BurnedSharesOnVaultEvent.process_log(log)
+            parsed_log = self.events.BurnedSharesOnVault.process_log(log)
             events.append(BurnedSharesOnVaultEvent.from_log(parsed_log))
 
         return events
@@ -57,7 +57,7 @@ class VaultHubContract(ContractInterface):
                 "toBlock": to_block_number,
                 "address": self.address,
                 "topics": [
-                    HexStr(self.w3.keccak(self.events.VaultFeesUpdatedEvent.signature).hex())
+                    HexStr(self.w3.keccak(self.events.VaultFeesUpdated.signature).hex())
                 ]
             })
 
@@ -66,7 +66,7 @@ class VaultHubContract(ContractInterface):
 
         events: list[VaultFeesUpdatedEvent] = []
         for log in logs:
-            parsed_log = self.events.VaultFeesUpdatedEvent.process_log(log)
+            parsed_log = self.events.VaultFeesUpdated.process_log(log)
             events.append(VaultFeesUpdatedEvent.from_log(parsed_log))
 
         return events
