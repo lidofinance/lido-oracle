@@ -159,7 +159,6 @@ class ReportValues:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: List[int]
-    vaults_total_deficit: int
 
 
 @dataclass(frozen=True)

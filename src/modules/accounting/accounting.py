@@ -297,7 +297,6 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards,  # el_rewards_vault_balance
             self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
             withdrawal_finalization_batches,
-            0,  # vaults_total_deficit, # TODO will be removed
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
