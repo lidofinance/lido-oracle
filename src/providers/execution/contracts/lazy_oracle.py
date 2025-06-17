@@ -131,8 +131,8 @@ class LazyOracleContract(ContractInterface):
                 vault.liquidityFeeBP,
                 vault.reservationFeeBP,
                 vault.pendingDisconnect,
-                vault.mintableCapacityStETH,
-                vault.vaultInd # TODO check data mapping
+                vault.mintableStETH,
+                vault.vaultIndex
             ))
 
         return out
