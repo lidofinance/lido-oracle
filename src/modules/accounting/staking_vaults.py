@@ -31,12 +31,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class VaultProof:
     id: int
-    totalValueWei: int
-    fee: int
-    liabilityShares: int
-    slashingReserve: int
+    totalValueWei: str
+    fee: str
+    liabilityShares: str
+    slashingReserve: str
     leaf: str
     proof: List[str]
+    inOutDelta: str
 
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
@@ -375,12 +376,13 @@ class StakingVaults(Module):
 
             result[vault_address] = VaultProof(
                 id=vaults[vault_address].id(),
-                totalValueWei=vault_total_value_wei,
-                fee=vault_fee,
-                liabilityShares=vault_liability_shares,
-                slashingReserve=vault_slashing_reserve,
+                totalValueWei=str(vault_total_value_wei),
+                fee=str(vault_fee),
+                liabilityShares=str(vault_liability_shares),
+                slashingReserve=str(vault_slashing_reserve),
                 leaf=leaf,
                 proof=proof,
+                inOutDelta=str(0)
             )
 
         return result
