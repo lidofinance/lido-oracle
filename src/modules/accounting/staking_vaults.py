@@ -168,6 +168,8 @@ class StakingVaults(Module):
                 return f"0x{o.hex()}"
             if isinstance(o, CID):
                 return str(o)
+            if hasattr(o, "__dataclass_fields__"):
+                return asdict(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
         def stringify_values(data) -> list[dict[str, Any]]:
