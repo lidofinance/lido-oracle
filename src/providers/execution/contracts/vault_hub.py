@@ -31,61 +31,49 @@ class VaultHubContract(ContractInterface):
         return response
 
     def get_minted_events(self, from_block_number: int, to_block_number: int) -> list:
-        logs = self.w3.eth.get_logs({
-            "fromBlock": from_block_number,
-            "toBlock": to_block_number,
-            "address": self.address,
-            "topics": [
-                HexStr(self.w3.keccak(self.events.MintedSharesOnVault.signature).hex())
-            ]
-        })
+        logs = self.events.MintedSharesOnVault().get_logs(
+            from_block=from_block_number,
+            to_block=to_block_number
+        )
 
         if not logs:
             return []
 
         events: list[MintedSharesOnVaultEvent] = []
         for log in logs:
-            parsed_log = self.events.MintedSharesOnVault.process_log(log)
+            parsed_log = self.events.MintedSharesOnVault().process_log(log)
             events.append(MintedSharesOnVaultEvent.from_log(parsed_log))
 
         return events
 
     def get_burned_events(self, from_block_number: int, to_block_number: int) -> list:
-        logs = self.w3.eth.get_logs({
-            "fromBlock": from_block_number,
-            "toBlock": to_block_number,
-            "address": self.address,
-            "topics": [
-                HexStr(self.w3.keccak(self.events.BurnedSharesOnVault.signature).hex())
-            ]
-        })
+        logs = self.events.BurnedSharesOnVault().get_logs(
+            from_block=from_block_number,
+            to_block=to_block_number
+        )
 
         if not logs:
             return []
 
         events: list[BurnedSharesOnVaultEvent] = []
         for log in logs:
-            parsed_log = self.events.BurnedSharesOnVault.process_log(log)
+            parsed_log = self.events.BurnedSharesOnVault().process_log(log)
             events.append(BurnedSharesOnVaultEvent.from_log(parsed_log))
 
         return events
 
     def get_vaults_fee_updated_events(self, from_block_number: int, to_block_number: int) -> list:
-        logs = self.w3.eth.get_logs({
-                "fromBlock": from_block_number,
-                "toBlock": to_block_number,
-                "address": self.address,
-                "topics": [
-                    HexStr(self.w3.keccak(self.events.VaultFeesUpdated.signature).hex())
-                ]
-            })
+        logs = self.events.VaultFeesUpdated().get_logs(
+            from_block=from_block_number,
+            to_block=to_block_number
+        )
 
         if not logs:
             return []
 
         events: list[VaultFeesUpdatedEvent] = []
         for log in logs:
-            parsed_log = self.events.VaultFeesUpdated.process_log(log)
+            parsed_log = self.events.VaultFeesUpdated().process_log(log)
             events.append(VaultFeesUpdatedEvent.from_log(parsed_log))
 
         return events
