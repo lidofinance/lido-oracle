@@ -47,7 +47,7 @@ class LazyOracleContract(ContractInterface):
         try:
             response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
-            if response is None:
+            if response.reportCid == '':
                 logger.error(
                     {
                         'msg': 'No data returned from latestReportData().',
