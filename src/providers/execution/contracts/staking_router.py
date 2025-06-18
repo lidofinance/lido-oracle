@@ -88,4 +88,4 @@ class StakingRouterContract(ContractInterface):
             'to': self.address,
         })
 
-        return response["modulesFee"], response["treasuryFee"], response["basePrecision"]
+        return response.modulesFee, response.treasuryFee, response.basePrecision

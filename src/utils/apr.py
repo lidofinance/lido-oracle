@@ -16,8 +16,8 @@ def predict_apr(pre_total_shares: int, pre_total_ether: int, post_total_shares: 
     post_rate = post_total_ether * 10 ** 27 // post_total_shares
 
     rate_diff = post_rate - pre_rate
-    if rate_diff == 0:
-        raise ValueError("Cannot compute APR. rate_diff is 0")
+    # if rate_diff == 0:
+    #     raise ValueError("Cannot compute APR. rate_diff is 0")
 
     if time_elapsed == 0:
         raise ValueError("Cannot compute APR. time_elapsed is 0")

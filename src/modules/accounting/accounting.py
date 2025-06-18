@@ -476,15 +476,16 @@ class Accounting(BaseModule, ConsensusModule):
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
         time_elapsed = slots_elapsed * chain_conf.seconds_per_slot
 
-        predicted_apr = predict_apr(
-            simulation.pre_total_shares,
-            simulation.pre_total_pooled_ether,
-            simulation.post_total_shares,
-            simulation.post_total_pooled_ether,
-            time_elapsed,
-        )
-
-        core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
+        core_apr = 0
+        if lido_fee_bp != 0:
+            predicted_apr = predict_apr(
+                simulation.pre_total_shares,
+                simulation.pre_total_pooled_ether,
+                simulation.post_total_shares,
+                simulation.post_total_pooled_ether,
+                time_elapsed,
+            )
+            core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
@@ -545,8 +546,8 @@ class Accounting(BaseModule, ConsensusModule):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
 
-            if vaults_on_prev_report[vault_address] is not None:
-                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
+            if vaults_on_prev_report.get(vault_address) is not None:
+                if vaults_on_prev_report.get(vault_address).liability_shares != liability_shares:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
             else:
                 if liability_shares != 0:
@@ -564,6 +565,6 @@ class Accounting(BaseModule, ConsensusModule):
                     * (vault_info.reservation_feeBP // 10_000)
             )
 
-            out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + prev_fee[vault_address]
+            out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + int(prev_fee[vault_address])
 
         return out
