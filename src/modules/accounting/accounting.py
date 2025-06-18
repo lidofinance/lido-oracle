@@ -396,7 +396,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
         tree_cid = self.w3.staking_vaults.publish_tree(
-            merkle_tree, blockstamp, proof_cid, prev_report_cid, chain_config
+            merkle_tree, vaults, blockstamp, proof_cid, prev_report_cid, chain_config
         )
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
@@ -547,7 +547,7 @@ class Accounting(BaseModule, ConsensusModule):
                     current_block = event.block_number
 
             if vaults_on_prev_report.get(vault_address) is not None:
-                if vaults_on_prev_report.get(vault_address).liability_shares != liability_shares:
+                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
             else:
                 if liability_shares != 0:

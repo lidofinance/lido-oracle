@@ -161,7 +161,7 @@ class StakingVaults(Module):
         return cid
 
     def publish_tree(
-            self, tree: StandardMerkleTree, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
+            self, tree: StandardMerkleTree, vaults: VaultsMap, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
             chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
@@ -190,6 +190,7 @@ class StakingVaults(Module):
             "blockNumber": bs.block_number,
             "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
             "proofsCID": str(proofs_cid),
+            "proofs": self._get_vault_to_proof_map(tree, vaults),
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {
                 "0": "vault_address",
