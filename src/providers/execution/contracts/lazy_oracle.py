@@ -66,7 +66,7 @@ class LazyOracleContract(ContractInterface):
             response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
             if response is None:
-                logger.warning(
+                logger.error(
                     {
                         'msg': 'No data returned from latestReportData().',
                         'block_identifier': repr(block_identifier),
@@ -91,7 +91,7 @@ class LazyOracleContract(ContractInterface):
             )
 
         except (BadFunctionCallOutput, ContractLogicError) as e:
-            logger.warning(
+            logger.error(
                 {
                     'msg': 'latestReportData() call failed.',
                     'error': str(e),
