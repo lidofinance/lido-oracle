@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
-from web3.types import BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
 from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
@@ -113,7 +113,8 @@ class LazyOracleContract(ContractInterface):
                 vault.reservationFeeBP,
                 vault.pendingDisconnect,
                 vault.mintableStETH,
-                vault.vaultIndex
+                vault.vaultIndex,
+                Wei(0)
             ))
 
         return out

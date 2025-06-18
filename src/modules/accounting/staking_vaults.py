@@ -382,7 +382,7 @@ class StakingVaults(Module):
                 slashingReserve=str(vault_slashing_reserve),
                 leaf=leaf,
                 proof=proof,
-                inOutDelta=str(0)
+                inOutDelta=str(vaults[vault_address].in_out_delta)
             )
 
         return result

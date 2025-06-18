@@ -241,6 +241,7 @@ class VaultInfo:
     pending_disconnect: bool
     mintable_capacity_StETH: int
     vault_ind: int
+    in_out_delta: Wei
 
     def id(self) -> int:
         return self.vault_ind - 1
