@@ -228,7 +228,7 @@ class LatestReportData:
     cid: VaultsTreeCid
 
 @dataclass
-class VaultInfoRaw:
+class VaultInfo:
     vault: ChecksumAddress
     balance: Wei
     in_out_delta: Wei
@@ -245,9 +245,6 @@ class VaultInfoRaw:
     mintable_capacity_StETH: int
     vault_ind: int
 
-@dataclass
-class VaultInfo(VaultInfoRaw):
-    vault_ind: int
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
 VaultTotalValue = int

@@ -12,7 +12,7 @@ from web3.types import Wei
 
 from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
 from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
-    MerkleTreeData, MerkleValue, VaultInfoRaw
+    MerkleTreeData, MerkleValue, VaultInfo
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
@@ -393,7 +393,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def _connect_vaults_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
-        wc_vault_map: dict[str, VaultInfoRaw] = {
+        wc_vault_map: dict[str, VaultInfo] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
 
@@ -411,7 +411,7 @@ class StakingVaults(Module):
     def _connect_vaults_to_pending_deposits(
             pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
     ) -> VaultToPendingDeposits:
-        wc_vault_map: dict[str, VaultInfoRaw] = {
+        wc_vault_map: dict[str, VaultInfo] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
         }
 

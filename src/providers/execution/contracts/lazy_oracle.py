@@ -4,7 +4,7 @@ from typing import List, Optional
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfoRaw, VaultInfo
+from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 
 from src.utils.cache import global_lru_cache as lru_cache
@@ -101,7 +101,7 @@ class LazyOracleContract(ContractInterface):
             )
             return None
 
-    def get_vaults(self, block_identifier: BlockIdentifier = 'latest', offset: int = 0, limit: int = 1_000) -> List[VaultInfoRaw]:
+    def get_vaults(self, block_identifier: BlockIdentifier = 'latest', offset: int = 0, limit: int = 1_000) -> List[VaultInfo]:
         """
             Returns the Vaults
         """
@@ -116,9 +116,9 @@ class LazyOracleContract(ContractInterface):
             }
         )
 
-        out: List[VaultInfoRaw] = []
+        out: List[VaultInfo] = []
         for vault in response:
-            out.append(VaultInfoRaw(
+            out.append(VaultInfo(
                 vault.vault,
                 vault.balance,
                 vault.inOutDelta,
@@ -141,7 +141,7 @@ class LazyOracleContract(ContractInterface):
         """
         Fetch all vaults using pagination via `get_vaults` in batches of `page_size`.
         """
-        vaults: List[VaultInfoRaw] = []
+        vaults: List[VaultInfo] = []
         offset = 0
 
         total_count = self.get_vaults_count(block_identifier)
@@ -153,5 +153,7 @@ class LazyOracleContract(ContractInterface):
             vaults.extend(batch)
             offset += limit
 
-        return [VaultInfo(vault_ind=vault_ind, **vars(vault)) for vault_ind, vault in enumerate(vaults)]
+        vaults.sort(key=lambda vault: vault.vault_ind)
+
+        return vaults
 
