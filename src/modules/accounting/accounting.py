@@ -445,11 +445,9 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            # TODO: deficit are not implemented yet
-            vaults_total_deficit=0,
+            is_bunker=is_bunker,
             tree_root=tree_root,
             tree_cid=tree_cid,
-            is_bunker=is_bunker,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,

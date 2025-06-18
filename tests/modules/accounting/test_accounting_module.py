@@ -578,10 +578,8 @@ def test_simulate_rebase_after_report(
             el_rewards_vault_balance=0,
             shares_requested_to_burn=13,
             withdrawal_finalization_batches=[],
-            vaults_total_treasury_fees_shares=0, # TODO will be removed
-            vaults_total_deficit=0, # TODO will be removed
-            vaults_data_tree_root=bytes(0), # TODO will be removed
-            vaults_data_tree_cid='tree_cid', # TODO will be removed
+            vaults_data_tree_root=bytes(0),
+            vaults_data_tree_cid='tree_cid',
         ),
         0,
         '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',

@@ -46,7 +46,6 @@ class ReportData:
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    vaults_total_deficit: int
     tree_root: VaultsTreeRoot
     tree_cid: VaultsTreeCid
     extra_data_format: int
@@ -67,7 +66,6 @@ class ReportData:
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.is_bunker,
-            self.vaults_total_deficit,
             self.tree_root,
             self.tree_cid,
             self.extra_data_format,
