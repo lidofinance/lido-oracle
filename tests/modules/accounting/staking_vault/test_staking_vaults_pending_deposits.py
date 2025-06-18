@@ -3,15 +3,23 @@
 from unittest.mock import MagicMock
 
 import pytest
-from eth_typing import ChecksumAddress, BlockNumber, HexAddress, HexStr
+from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Timestamp
 
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.types import VaultInfo
-from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
+from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.ipfs import MultiIPFSProvider
-from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot
+from src.types import (
+    BlockHash,
+    BlockStamp,
+    EpochNumber,
+    Gwei,
+    SlotNumber,
+    StateRoot,
+    ValidatorIndex,
+)
 
 
 class TestStakingVaults:
@@ -41,7 +49,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
         ]
 
@@ -234,7 +242,9 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
+        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(
+            bs, validators, pending_deposits
+        )
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x1c0cda951522f541abff34a2e5bd412a02db171ce64358978204c274103298e2'

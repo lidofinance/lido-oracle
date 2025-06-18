@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from typing import List, Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
@@ -11,14 +11,21 @@ from web3.module import Module
 from web3.types import Wei
 
 from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
-from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
-    MerkleTreeData, MerkleValue, VaultInfo
+from src.modules.accounting.types import (
+    MerkleTreeData,
+    MerkleValue,
+    VaultInfo,
+    VaultsMap,
+    VaultTreeNode,
+)
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import Validator, PendingDeposit
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
+from src.providers.execution.contracts.oracle_daemon_config import (
+    OracleDaemonConfigContract,
+)
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber

@@ -8,25 +8,29 @@ from web3.types import Wei
 
 from src import variables
 from src.modules.accounting import accounting as accounting_module
-from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.accounting import logger as accounting_logger
+from src.modules.accounting.accounting import Accounting, logger as accounting_logger
 from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportResults,
+    ReportValues,
+    StakingRewardsDistribution,
     VaultData,
     VaultsData,
-    VaultTreeNode,
     VaultsMap,
-    StakingRewardsDistribution,
-    ReportValues,
+    VaultTreeNode,
 )
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
+from src.modules.submodules.types import (
+    ZERO_HASH,
+    ChainConfig,
+    CurrentFrame,
+    FrameConfig,
+)
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, ReferenceBlockStamp, ValidatorIndex, Gwei, EpochNumber
+from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -515,7 +519,7 @@ def test_simulate_rebase_after_report(
             infra_feeBP=0,
             liquidity_feeBP=0,
             reservation_feeBP=0,
-            pending_disconnect=False
+            pending_disconnect=False,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(
             vault_ind=1,
@@ -531,7 +535,7 @@ def test_simulate_rebase_after_report(
             infra_feeBP=0,
             liquidity_feeBP=0,
             reservation_feeBP=0,
-            pending_disconnect=False
+            pending_disconnect=False,
         ),
     }
     vaults_total_values = []

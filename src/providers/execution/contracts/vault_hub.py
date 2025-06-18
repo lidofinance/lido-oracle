@@ -1,8 +1,11 @@
 import logging
 
-from src.modules.accounting.events import MintedSharesOnVaultEvent, BurnedSharesOnVaultEvent, VaultFeesUpdatedEvent
+from src.modules.accounting.events import (
+    BurnedSharesOnVaultEvent,
+    MintedSharesOnVaultEvent,
+    VaultFeesUpdatedEvent,
+)
 from src.providers.execution.base_interface import ContractInterface
-
 
 logger = logging.getLogger(__name__)
 
