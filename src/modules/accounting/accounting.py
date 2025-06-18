@@ -555,7 +555,7 @@ class Accounting(BaseModule, ConsensusModule):
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
 
             infra_fee += (
-                    vaults_total_values[vault_info.vault_ind]
+                    vaults_total_values[vault_info.id()]
                     * core_apr
                     * (vault_info.infra_feeBP // 10_000)
             )
@@ -566,6 +566,6 @@ class Accounting(BaseModule, ConsensusModule):
                     * (vault_info.reservation_feeBP // 10_000)
             )
 
-            out[vault_info.vault_ind] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + prev_fee[vault_address]
+            out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + prev_fee[vault_address]
 
         return out

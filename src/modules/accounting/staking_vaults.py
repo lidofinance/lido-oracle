@@ -119,8 +119,8 @@ class StakingVaults(Module):
 
         vaults_reserves = [0] * len(vaults)
         for vault_address, validator_arr in vaults_validators.items():
-            vault_ind = vaults[vault_address].vault_ind
-            vaults_reserves[vault_ind] = Wei(0)
+            vault_id = vaults[vault_address].id()
+            vaults_reserves[vault_id] = Wei(0)
 
             for validator in validator_arr:
                 if validator.validator.slashed:
@@ -129,11 +129,11 @@ class StakingVaults(Module):
                     if we - left_margin <= bs.ref_epoch <= we + right_margin:
                         slot_id = self._withdrawable_epoch_to_past_slot(we, WITHDRAWAL_EPOCH_LEFT_MARGIN, chain_config.slots_per_epoch)
                         validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
-                        vaults_reserves[vault_ind] += Web3.to_wei(int(validator_state.balance), 'gwei') * vaults[
+                        vaults_reserves[vault_id] += Web3.to_wei(int(validator_state.balance), 'gwei') * vaults[
                             vault_address].reserve_ratioBP // 10_000
 
                     elif bs.ref_epoch < we - left_margin:
-                        vaults_reserves[vault_ind] += Web3.to_wei(int(validator.balance), 'gwei') * vaults[
+                        vaults_reserves[vault_id] += Web3.to_wei(int(validator.balance), 'gwei') * vaults[
                             vault_address].reserve_ratioBP // 10_000
 
         return vaults_reserves
@@ -376,7 +376,7 @@ class StakingVaults(Module):
                 proof.append(f"0x{elem.hex()}")
 
             result[vault_address] = VaultProof(
-                id=vaults[vault_address].vault_ind,
+                id=vaults[vault_address].id(),
                 totalValueWei=vault_total_value_wei,
                 fee=vault_fee,
                 liabilityShares=vault_liability_shares,
