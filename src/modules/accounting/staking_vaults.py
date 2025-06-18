@@ -170,8 +170,6 @@ class StakingVaults(Module):
                 return str(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
-        tree_dump = tree.dump()
-
         def stringify_values(data) -> list[dict[str, Any]]:
             out = []
             for item in data:
@@ -182,10 +180,10 @@ class StakingVaults(Module):
                 })
             return out
 
-        values = stringify_values(tree_dump.values())
+        values = stringify_values(tree.values)
 
         output: dict[str, Any] = {
-            **dict(tree_dump),
+            **dict(tree.dump()),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.slot_number,
             "blockNumber": bs.block_number,
