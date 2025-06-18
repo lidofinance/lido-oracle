@@ -64,9 +64,10 @@ class StakingVaults(Module):
         self.daemon_config = daemon_config
 
     def get_vaults(self, block_number: int) -> VaultsMap:
-        vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_number)
-        if len(vaults) == 0:
+        total_count = self.vault_hub.get_vaults_count(block_identifier=block_number)
+        if total_count == 0:
             return {}
+        vaults = self.lazy_oracle.get_all_vaults(total_count, block_identifier=block_number)
 
         out = VaultsMap()
         for vault in vaults:
