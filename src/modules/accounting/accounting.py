@@ -546,8 +546,8 @@ class Accounting(BaseModule, ConsensusModule):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
 
-            if vaults_on_prev_report[vault_address] is not None:
-                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
+            if vaults_on_prev_report.get(vault_address) is not None:
+                if vaults_on_prev_report.get(vault_address).liability_shares != liability_shares:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
             else:
                 if liability_shares != 0:
@@ -565,6 +565,6 @@ class Accounting(BaseModule, ConsensusModule):
                     * (vault_info.reservation_feeBP // 10_000)
             )
 
-            out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + prev_fee[vault_address]
+            out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + int(prev_fee[vault_address])
 
         return out
