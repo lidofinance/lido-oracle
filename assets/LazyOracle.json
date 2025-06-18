@@ -337,6 +337,11 @@
             "type": "uint256"
           },
           {
+            "internalType": "int256",
+            "name": "inOutDelta",
+            "type": "int256"
+          },
+          {
             "internalType": "bytes32",
             "name": "withdrawalCredentials",
             "type": "bytes32"
@@ -773,6 +778,19 @@
         "internalType": "struct LazyOracle.QuarantineInfo",
         "name": "",
         "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "vaultsCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
