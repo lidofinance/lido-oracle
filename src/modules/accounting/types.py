@@ -231,7 +231,6 @@ class LatestReportData:
 class VaultInfo:
     vault: ChecksumAddress
     balance: Wei
-    in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
     # Feature smart contract release

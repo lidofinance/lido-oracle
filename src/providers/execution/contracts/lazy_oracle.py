@@ -103,7 +103,6 @@ class LazyOracleContract(ContractInterface):
             out.append(VaultInfo(
                 vault.vault,
                 vault.balance,
-                vault.inOutDelta,
                 bytes_to_hex_str(vault.withdrawalCredentials),
                 vault.liabilityShares,
                 vault.shareLimit,
@@ -136,4 +135,3 @@ class LazyOracleContract(ContractInterface):
         vaults.sort(key=lambda vault: vault.vault_ind)
 
         return vaults
-
