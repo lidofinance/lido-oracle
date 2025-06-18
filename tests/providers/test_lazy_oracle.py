@@ -39,7 +39,3 @@ class TestVaultHubSmoke:
     def test_vault_hub_get_report(self, vault_hub):
         report = vault_hub.get_report(block_identifier='latest')
         assert report is not None
-
-    def test_vault_vault_socket(self, vault_hub):
-        socket = vault_hub.vault_socket(vault_id=0)
-        assert socket is not None

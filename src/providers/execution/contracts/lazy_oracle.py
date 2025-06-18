@@ -17,31 +17,22 @@ class LazyOracleContract(ContractInterface):
     abi_path = './assets/LazyOracle.json'
 
     @lru_cache(maxsize=1)
-    def vault_socket(self, vault_id: int, block_identifier: BlockIdentifier = 'latest') -> VaultSocket:
+    def get_vaults_count(self, block_identifier: BlockIdentifier = 'latest') -> int:
         """
-        Returns the VaultSocket contract for the given vault id.
+        Returns the number of vaults attached to the VaultHub.
         """
-
-        response = self.functions.vaultSocket(vault_id).call(block_identifier=block_identifier)
+        response = self.functions.vaultsCount().call(block_identifier=block_identifier)
 
         logger.info(
             {
-                'msg': 'Call `vaultSocket(vault_id).',
+                'msg': 'Call `vaultsCount().',
                 'value': response,
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
             }
         )
 
-        return VaultSocket(
-            response.vault,
-            response.shareLimit,
-            response.liabilityShares,
-            response.reserveRatioBP,
-            response.forcedRebalanceThresholdBP,
-            response.treasuryFeeBP,
-            response.pendingDisconnect,
-        )
+        return response
 
     def get_report(self, block_identifier: BlockIdentifier = 'latest') -> Optional[LatestReportData]:
         try:
@@ -119,12 +110,16 @@ class LazyOracleContract(ContractInterface):
 
         return out
 
-    def get_all_vaults(self, total_count: int, block_identifier: BlockIdentifier = 'latest', limit: int = 1_000) -> List[VaultInfo]:
+    def get_all_vaults(self, block_identifier: BlockIdentifier = 'latest', limit: int = 1_000) -> List[VaultInfo]:
         """
         Fetch all vaults using pagination via `get_vaults` in batches of `page_size`.
         """
         vaults: List[VaultInfo] = []
         offset = 0
+
+        total_count = self.get_vaults_count(block_identifier)
+        if total_count == 0:
+            return []
 
         while offset < total_count:
             batch = self.get_vaults(block_identifier=block_identifier, offset=offset, limit=limit)
@@ -136,3 +131,4 @@ class LazyOracleContract(ContractInterface):
         vaults.sort(key=lambda vault: vault.vault_ind)
 
         return vaults
+
