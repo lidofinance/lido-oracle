@@ -114,7 +114,7 @@ class LazyOracleContract(ContractInterface):
                 vault.pendingDisconnect,
                 vault.mintableStETH,
                 vault.vaultIndex,
-                Wei(0)
+                vault.inOutDelta
             ))
 
         return out
