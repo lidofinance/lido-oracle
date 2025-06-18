@@ -244,6 +244,9 @@ class VaultInfo:
     mintable_capacity_StETH: int
     vault_ind: int
 
+    def id(self) -> int:
+        return self.vault_ind - 1
+
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
 VaultTotalValue = int

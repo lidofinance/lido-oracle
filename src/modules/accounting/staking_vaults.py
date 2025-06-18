@@ -86,17 +86,17 @@ class StakingVaults(Module):
         vaults_total_values = [0] * len(vaults)
 
         for vault_address, vault in vaults.items():
-            vaults_total_values[vault.vault_ind] = vault.balance
+            vaults_total_values[vault.id()] = vault.balance
             vault_validators = vaults_validators.get(vault_address, [])
             vault_pending_deposits = vaults_pending_deposits.get(vault_address, [])
 
             # Add active validators balances
             if vault_address in vaults_validators:
-                vaults_total_values[vault.vault_ind] += self._calculate_vault_validators_balances(vault_validators)
+                vaults_total_values[vault.id()] += self._calculate_vault_validators_balances(vault_validators)
 
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
-                vaults_total_values[vault.vault_ind] += self._calculate_pending_deposits_balances(
+                vaults_total_values[vault.id()] += self._calculate_pending_deposits_balances(
                     validators,
                     pending_deposits,
                     vault_validators,
@@ -107,7 +107,7 @@ class StakingVaults(Module):
             logger.info(
                 {
                     'msg': f'Vault values for vault: {vault_address}.',
-                    'vault_value': vaults_total_values[vault.vault_ind],
+                    'vault_value': vaults_total_values[vault.id()],
                 }
             )
 
@@ -284,18 +284,18 @@ class StakingVaults(Module):
 
         for vault_address, vault in vaults.items():
             vault_fee = 0
-            if 0 <= vault.vault_ind < len(vaults_fees):
-                vault_fee = vaults_fees[vault.vault_ind]
+            if 0 <= vault.id() < len(vaults_fees):
+                vault_fee = vaults_fees[vault.id()]
 
             vault_value = 0
-            if 0 <= vault.vault_ind < len(vaults_values):
-                vault_value = vaults_values[vault.vault_ind]
+            if 0 <= vault.id() < len(vaults_values):
+                vault_value = vaults_values[vault.id()]
 
             vault_slashing_reserve = 0
-            if 0 <= vault.vault_ind < len(vaults_slashing_reserve):
-                vault_slashing_reserve = vaults_slashing_reserve[vault.vault_ind]
+            if 0 <= vault.id() < len(vaults_slashing_reserve):
+                vault_slashing_reserve = vaults_slashing_reserve[vault.id()]
 
-            tree_data[vault.vault_ind] = (
+            tree_data[vault.id()] = (
                 vault_address,
                 vault_value,
                 vault_fee,
