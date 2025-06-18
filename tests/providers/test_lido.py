@@ -32,18 +32,18 @@ class TestLidoSmoke:
         )
 
     def test_last_token_rebased_event(self, lido, web3_integration):
-       try:
-        block = web3_integration.eth.get_block("latest", False)
-        rebased_event = lido.get_last_token_rebased_event(from_block=block.number, to_block=block.number)
+        try:
+            block = web3_integration.eth.get_block("latest", False)
+            rebased_event = lido.get_last_token_rebased_event(from_block=block.number, to_block=block.number)
 
-        assert rebased_event is not None
-       except Exception as e:
-           print(f"Error: {e}")
+            assert rebased_event is not None
+        except Exception as e:
+            print(f"Error: {e}")
 
     def test_get_lido_fee(self, lido, web3_integration):
-       try:
-        fee_bp = lido.get_feeBP("latest")
+        try:
+            fee_bp = lido.get_feeBP("latest")
 
-        assert fee_bp is not None
-       except Exception as e:
-           print(f"Error: {e}")
+            assert fee_bp is not None
+        except Exception as e:
+            print(f"Error: {e}")

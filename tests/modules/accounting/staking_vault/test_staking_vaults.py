@@ -3,15 +3,23 @@
 from unittest.mock import MagicMock
 
 import pytest
-from eth_typing import ChecksumAddress, BlockNumber, HexAddress, HexStr
+from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Timestamp
 
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.accounting.types import VaultInfo, VaultData, VaultsMap
-from src.providers.consensus.types import Validator, ValidatorState, PendingDeposit
+from src.modules.accounting.types import VaultData, VaultInfo, VaultsMap
+from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.ipfs import MultiIPFSProvider
-from src.types import BlockStamp, ValidatorIndex, Gwei, EpochNumber, SlotNumber, BlockHash, StateRoot
+from src.types import (
+    BlockHash,
+    BlockStamp,
+    EpochNumber,
+    Gwei,
+    SlotNumber,
+    StateRoot,
+    ValidatorIndex,
+)
 
 
 class TestStakingVaults:
@@ -42,7 +50,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             VaultInfo(
                 vault=vault_adr_1,
@@ -56,7 +64,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             VaultInfo(
                 vault=vault_adr_2,
@@ -70,7 +78,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             VaultInfo(
                 vault=vault_adr_3,
@@ -84,7 +92,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
         ]
 
@@ -193,7 +201,9 @@ class TestStakingVaults:
             ),
         ]
 
-        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(bs, validators, pending_deposits)
+        tree_data, vault_data, vaults_total_values = self.staking_vaults.get_vaults_data(
+            bs, validators, pending_deposits
+        )
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
         got = f"0x{merkle_tree.root.hex()}"
         expected = '0x3dc48700af87f44fd9486bf0dcb88a35b0b1f2087af8922384e5153eee46837e'
@@ -239,7 +249,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC'))): VaultData(
                 vault_ind=1,
@@ -257,7 +267,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014'))): VaultData(
                 vault_ind=2,
@@ -275,7 +285,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
             ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4'))): VaultData(
                 vault_ind=3,
@@ -293,7 +303,7 @@ class TestStakingVaults:
                 infra_feeBP=0,
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
-                pending_disconnect=False
+                pending_disconnect=False,
             ),
         }
 
