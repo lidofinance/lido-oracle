@@ -476,15 +476,16 @@ class Accounting(BaseModule, ConsensusModule):
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
         time_elapsed = slots_elapsed * chain_conf.seconds_per_slot
 
-        predicted_apr = predict_apr(
-            simulation.pre_total_shares,
-            simulation.pre_total_pooled_ether,
-            simulation.post_total_shares,
-            simulation.post_total_pooled_ether,
-            time_elapsed,
-        )
-
-        core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
+        core_apr = 0
+        if lido_fee_bp != 0:
+            predicted_apr = predict_apr(
+                simulation.pre_total_shares,
+                simulation.pre_total_pooled_ether,
+                simulation.post_total_shares,
+                simulation.post_total_pooled_ether,
+                time_elapsed,
+            )
+            core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
