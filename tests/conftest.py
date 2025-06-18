@@ -11,6 +11,7 @@ from web3 import EthereumTesterProvider
 from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
+from src.variables import LIDO_LOCATOR_ADDRESS, CSM_MODULE_ADDRESS
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
@@ -102,8 +103,8 @@ def configure_testnet_tests(request, monkeypatch):
 
         # TODO: temporary from https://docs.lido.fi/deployed-contracts/hoodi-lidov3, need to
         # TODO: revert to https://docs.lido.fi/deployed-contracts/hoodi after vaults deploy
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xbE861866E2Ca8f401e2b51b2cFb36A61B0Bf6840')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79CEf36D84743222f37765204Bec41E92a93E59d')
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', LIDO_LOCATOR_ADDRESS)
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', CSM_MODULE_ADDRESS)
 
     yield
 

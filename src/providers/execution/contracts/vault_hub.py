@@ -21,8 +21,7 @@ class VaultHubContract(ContractInterface):
 
         events: list[MintedSharesOnVaultEvent] = []
         for log in logs:
-            parsed_log = self.events.MintedSharesOnVault().process_log(log)
-            events.append(MintedSharesOnVaultEvent.from_log(parsed_log))
+            events.append(MintedSharesOnVaultEvent.from_log(log))
 
         return events
 
@@ -37,8 +36,7 @@ class VaultHubContract(ContractInterface):
 
         events: list[BurnedSharesOnVaultEvent] = []
         for log in logs:
-            parsed_log = self.events.BurnedSharesOnVault().process_log(log)
-            events.append(BurnedSharesOnVaultEvent.from_log(parsed_log))
+            events.append(BurnedSharesOnVaultEvent.from_log(log))
 
         return events
 
@@ -53,7 +51,6 @@ class VaultHubContract(ContractInterface):
 
         events: list[VaultFeesUpdatedEvent] = []
         for log in logs:
-            parsed_log = self.events.VaultFeesUpdated().process_log(log)
-            events.append(VaultFeesUpdatedEvent.from_log(parsed_log))
+            events.append(VaultFeesUpdatedEvent.from_log(log))
 
         return events
