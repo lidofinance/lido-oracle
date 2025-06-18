@@ -181,10 +181,10 @@ class ReportResults:
     shares_to_mint_as_fees: Shares
     reward_distribution: StakingRewardsDistribution
     principal_cl_balance: Wei
-    post_internal_shares: Shares
-    post_internal_ether: Wei
     pre_total_shares: Shares
     pre_total_pooled_ether: Wei
+    post_internal_shares: Shares
+    post_internal_ether: Wei
     post_total_shares: Shares
     post_total_pooled_ether: Wei
 
