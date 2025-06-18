@@ -21,7 +21,7 @@ class LazyOracleContract(ContractInterface):
         """
         Returns the number of vaults attached to the VaultHub.
         """
-        response = self.functions.vaultsCount().call(block_identifier=block_identifier)
+        response = self.functions.vaultsCount.call(block_identifier=block_identifier)
 
         logger.info(
             {
