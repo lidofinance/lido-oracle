@@ -376,7 +376,7 @@ class StakingVaults(Module):
                 proof.append(f"0x{elem.hex()}")
 
             result[vault_address] = VaultProof(
-                id=vaults[vault_address].id(),
+                id=vaults[vault_address].vault_ind,
                 totalValueWei=str(vault_total_value_wei),
                 fee=str(vault_fee),
                 liabilityShares=str(vault_liability_shares),
