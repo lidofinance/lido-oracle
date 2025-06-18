@@ -259,7 +259,6 @@ type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultsTotalValues]
 class MerkleValue:
     vault_address: str
     total_value_wei: int
-    in_out_delta: int
     fee: int
     liability_shares: int
     slashing_reserve: int
