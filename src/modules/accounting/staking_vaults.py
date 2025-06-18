@@ -107,7 +107,6 @@ class StakingVaults(Module):
             logger.info(
                 {
                     'msg': f'Vault values for vault: {vault_address}.',
-                    'vault_in_out_delta': vault.in_out_delta,
                     'vault_value': vaults_total_values[vault.vault_ind],
                 }
             )
