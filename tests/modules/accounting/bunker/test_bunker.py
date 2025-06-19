@@ -233,6 +233,8 @@ def test_get_cl_rebase_for_frame(
             total_fee=0,
             precision_points=0,
         ),
+        pre_total_shares=0,
+        pre_total_pooled_ether=0,
         principal_cl_balance=0,
         post_internal_shares=0,
         post_internal_ether=0,

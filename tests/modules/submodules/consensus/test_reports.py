@@ -65,7 +65,6 @@ def test_process_report_main(consensus, caplog):
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
-        vaults_total_treasury_fees_shares=0,
         tree_root=bytes([0]),
         tree_cid="tree_cid",
         is_bunker=True,

@@ -34,8 +34,7 @@ class TestLidoSmoke:
 
     def test_last_token_rebased_event(self, lido, web3_integration):
         try:
-            block = web3_integration.eth.get_block("latest", False)
-            rebased_event = lido.get_last_token_rebased_event(from_block=block.number, to_block=block.number)
+            rebased_event = lido.get_last_token_rebased_event(634086 - 1_000, 634086)
 
             assert rebased_event is not None
         except Web3Exception as e:

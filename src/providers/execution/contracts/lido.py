@@ -89,6 +89,4 @@ class LidoContract(ContractInterface):
         if len(logs) == 0:
             return None
 
-        event = self.events.TokenRebased().process_log(logs[-1])
-
-        return TokenRebasedEvent.from_log(event)
+        return TokenRebasedEvent.from_log(logs[-1])
