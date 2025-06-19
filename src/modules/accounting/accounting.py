@@ -453,6 +453,7 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
+    # pylint: disable=too-many-branches,too-many-statements
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
         prev_report = self.w3.staking_vaults.get_prev_report(blockstamp)
         ## When we do not have a report - then we do not have starting point for calculation
