@@ -1,7 +1,6 @@
 import logging
 from typing import Optional
 
-from eth_typing import HexStr
 from web3.types import Wei, BlockIdentifier
 
 from src.modules.accounting.events import TokenRebasedEvent
@@ -70,6 +69,7 @@ class LidoContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address,
         })
+
         return response
 
     def get_last_token_rebased_event(self, from_block, to_block: int) -> Optional[TokenRebasedEvent]:
@@ -78,22 +78,17 @@ class LidoContract(ContractInterface):
             to_block=to_block
         )
 
+        logger.info({
+            'msg': 'Call `getTokenRebasedEvents()`.',
+            'from_block': from_block,
+            'to_block': to_block,
+            'to': self.address,
+            'len(events)': len(logs),
+        })
+
         if len(logs) == 0:
             return None
 
         event = self.events.TokenRebased().process_log(logs[-1])
 
         return TokenRebasedEvent.from_log(event)
-
-    #TODO change to get FeeDistribution
-    def get_feeBP(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        response = self.functions.getFee().call(block_identifier=block_identifier)
-
-        logger.info({
-            'msg': 'Call `getFee()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
-
-        return response

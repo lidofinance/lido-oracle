@@ -1,5 +1,3 @@
-# test_my_class.py
-
 import os
 from typing import cast
 
@@ -9,8 +7,11 @@ from web3 import Web3
 from src import variables
 from src.main import ipfs_providers
 from src.modules.accounting.staking_vaults import StakingVaults
+from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
+from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import BlockRoot
 from src.utils.blockstamp import build_blockstamp
@@ -41,7 +42,16 @@ class TestStakingVaultsSmoke:
             ),
         )
 
-        vault_hub: LazyOracleContract = cast(
+        lido: LidoContract = cast(
+            LidoContract,
+            w3.eth.contract(
+                address=lido_locator.lido(),
+                ContractFactoryClass=LidoContract,
+                decode_tuples=True,
+            ),
+        )
+
+        lazy_oracle: LazyOracleContract = cast(
             LazyOracleContract,
             w3.eth.contract(
                 address=lido_locator.lazy_oracle(),
@@ -50,7 +60,25 @@ class TestStakingVaultsSmoke:
             ),
         )
 
-        self.StakingVaults = StakingVaults(w3, self.cc, self.ipfs_client, vault_hub)
+        vault_hub: VaultHubContract = cast(
+            VaultHubContract,
+            w3.eth.contract(
+                address=lido_locator.lazy_oracle(),
+                ContractFactoryClass=VaultHubContract,
+                decode_tuples=True,
+            ),
+        )
+
+        daemon_config: OracleDaemonConfigContract = cast(
+            OracleDaemonConfigContract,
+            w3.eth.contract(
+                address=lido_locator.oracle_daemon_config(),
+                ContractFactoryClass=OracleDaemonConfigContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.StakingVaults = StakingVaults(w3, self.cc, self.ipfs_client, lido, vault_hub, lazy_oracle, daemon_config)
 
     def test_manual_vault_report(self):
         block_root = BlockRoot(self.cc.get_block_root('finalized').root)

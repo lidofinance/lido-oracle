@@ -1,10 +1,9 @@
 import json
 import logging
 from collections import defaultdict
-from dataclasses import asdict, dataclass
-from typing import List, Any, Dict, Optional
+from dataclasses import asdict
+from typing import Any, Dict, Optional
 
-from eth_typing import ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
@@ -12,7 +11,7 @@ from web3.types import Wei
 
 from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
 from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
-    MerkleTreeData, MerkleValue, VaultInfo
+    MerkleTreeData, MerkleValue, VaultInfo, VaultToValidators, VaultToPendingDeposits, VaultProof
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator, PendingDeposit
@@ -26,22 +25,6 @@ from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.types import hex_str_to_bytes
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class VaultProof:
-    id: int
-    totalValueWei: str
-    fee: str
-    liabilityShares: str
-    slashingReserve: str
-    leaf: str
-    proof: List[str]
-    inOutDelta: str
-
-
-VaultToValidators = dict[ChecksumAddress, list[Validator]]
-VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 
 class StakingVaults(Module):
@@ -456,7 +439,8 @@ class StakingVaults(Module):
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             proofs_cid=data["proofsCID"],
-            prev_tree_cid=data["prevTreeCID"]
+            prev_tree_cid=data["prevTreeCID"],
+            proofs=data["proofs"],
         )
 
     @staticmethod

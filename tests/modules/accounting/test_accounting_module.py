@@ -16,10 +16,9 @@ from src.modules.accounting.types import (
     ReportResults,
     ReportValues,
     StakingRewardsDistribution,
-    VaultData,
     VaultsData,
     VaultsMap,
-    VaultTreeNode,
+    VaultTreeNode, VaultInfo,
 )
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import (
@@ -505,13 +504,12 @@ def test_simulate_rebase_after_report(
         ('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db', 2500000000000000000, 2500000000000000000, 0, 1),
     ]
     vaults: VaultsMap = {
-        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultData(
+        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
             vault_ind=0,
-            balance_wei=66951606691371698360,
+            balance=66951606691371698360,
             in_out_delta=33000000000000000000,
             liability_shares=0,
-            fee=0,
-            address='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+            vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
             withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
             share_limit=0,
             reserve_ratioBP=0,
@@ -520,14 +518,14 @@ def test_simulate_rebase_after_report(
             liquidity_feeBP=0,
             reservation_feeBP=0,
             pending_disconnect=False,
+            mintable_capacity_StETH=0
         ),
-        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultData(
+        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
             vault_ind=1,
-            balance_wei=2500000000000000000,
+            balance=2500000000000000000,
             in_out_delta=2500000000000000000,
             liability_shares=1,
-            fee=0,
-            address='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+            vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
             withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
             share_limit=0,
             reserve_ratioBP=0,
@@ -536,6 +534,7 @@ def test_simulate_rebase_after_report(
             liquidity_feeBP=0,
             reservation_feeBP=0,
             pending_disconnect=False,
+            mintable_capacity_StETH=0
         ),
     }
     vaults_total_values = []
@@ -568,6 +567,8 @@ def test_simulate_rebase_after_report(
             post_internal_ether=0,
             post_total_shares=0,
             post_total_pooled_ether=0,
+            pre_total_shares=0,
+            pre_total_pooled_ether=0,
         )
     )
 
@@ -577,13 +578,11 @@ def test_simulate_rebase_after_report(
             timestamp=1678794852,
             time_elapsed=504,
             cl_validators=0,
-            cl_balance=0,
-            withdrawal_vault_balance=17,
-            el_rewards_vault_balance=0,
+            cl_balance=Wei(0),
+            withdrawal_vault_balance=Wei(17),
+            el_rewards_vault_balance=Wei(0),
             shares_requested_to_burn=13,
             withdrawal_finalization_batches=[],
-            vaults_data_tree_root=bytes(0),
-            vaults_data_tree_cid='tree_cid',
         ),
         0,
         '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',
