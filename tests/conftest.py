@@ -11,7 +11,7 @@ from web3 import EthereumTesterProvider
 from src import variables
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
-from src.variables import LIDO_LOCATOR_ADDRESS, CSM_MODULE_ADDRESS
+from src.variables import CSM_MODULE_ADDRESS
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
