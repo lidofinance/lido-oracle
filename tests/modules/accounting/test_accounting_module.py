@@ -18,7 +18,8 @@ from src.modules.accounting.types import (
     StakingRewardsDistribution,
     VaultsData,
     VaultsMap,
-    VaultTreeNode, VaultInfo,
+    VaultTreeNode,
+    VaultInfo,
 )
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import (
@@ -518,7 +519,7 @@ def test_simulate_rebase_after_report(
             liquidity_feeBP=0,
             reservation_feeBP=0,
             pending_disconnect=False,
-            mintable_capacity_StETH=0
+            mintable_capacity_StETH=0,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
             vault_ind=1,
@@ -534,7 +535,7 @@ def test_simulate_rebase_after_report(
             liquidity_feeBP=0,
             reservation_feeBP=0,
             pending_disconnect=False,
-            mintable_capacity_StETH=0
+            mintable_capacity_StETH=0,
         ),
     }
     vaults_total_values = []

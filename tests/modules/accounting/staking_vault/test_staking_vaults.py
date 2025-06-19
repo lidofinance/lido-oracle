@@ -49,25 +49,24 @@ class TestStakingVaults:
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
                 pending_disconnect=False,
-                mintable_capacity_StETH=0
+                mintable_capacity_StETH=0,
             ),
-            vault_adr_1:
-                VaultInfo(
-                    vault_ind=2,
-                    vault=vault_adr_1,
-                    balance=Wei(0),
-                    in_out_delta=Wei(2000000000000000000),
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                    liability_shares=490000000000000000,
-                    share_limit=0,
-                    reserve_ratioBP=0,
-                    forced_rebalance_thresholdBP=0,
-                    infra_feeBP=0,
-                    liquidity_feeBP=0,
-                    reservation_feeBP=0,
-                    pending_disconnect=False,
-                    mintable_capacity_StETH=0
-                ),
+            vault_adr_1: VaultInfo(
+                vault_ind=2,
+                vault=vault_adr_1,
+                balance=Wei(0),
+                in_out_delta=Wei(2000000000000000000),
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                liability_shares=490000000000000000,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False,
+                mintable_capacity_StETH=0,
+            ),
             vault_adr_2: VaultInfo(
                 vault_ind=3,
                 vault=vault_adr_2,
@@ -82,25 +81,24 @@ class TestStakingVaults:
                 liquidity_feeBP=0,
                 reservation_feeBP=0,
                 pending_disconnect=False,
-                mintable_capacity_StETH=0
+                mintable_capacity_StETH=0,
             ),
-            vault_adr_3:
-                VaultInfo(
-                    vault_ind=4,
-                    vault=vault_adr_3,
-                    balance=Wei(1000000000000000000),
-                    in_out_delta=Wei(1000000000000000000),
-                    withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
-                    liability_shares=0,
-                    share_limit=0,
-                    reserve_ratioBP=0,
-                    forced_rebalance_thresholdBP=0,
-                    infra_feeBP=0,
-                    liquidity_feeBP=0,
-                    reservation_feeBP=0,
-                    pending_disconnect=False,
-                    mintable_capacity_StETH=0
-                )
+            vault_adr_3: VaultInfo(
+                vault_ind=4,
+                vault=vault_adr_3,
+                balance=Wei(1000000000000000000),
+                in_out_delta=Wei(1000000000000000000),
+                withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+                liability_shares=0,
+                share_limit=0,
+                reserve_ratioBP=0,
+                forced_rebalance_thresholdBP=0,
+                infra_feeBP=0,
+                liquidity_feeBP=0,
+                reservation_feeBP=0,
+                pending_disconnect=False,
+                mintable_capacity_StETH=0,
+            ),
         }
 
         # --- Web3 Mock ---
@@ -112,8 +110,7 @@ class TestStakingVaults:
         vault_hub_mock = MagicMock()
 
         self.staking_vaults = StakingVaults(
-            w3_mock, cc_mock, self.ipfs_client,
-            lido_mock, vault_hub_mock, lazy_oracle_mock, daemon_config_mock
+            w3_mock, cc_mock, self.ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, daemon_config_mock
         )
 
     @pytest.mark.unit
@@ -212,9 +209,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
         expected = [33834904184000000000, 41000000000000000000, 52000900000000000000, 61000000000000000000]
         assert vaults_total_values == expected
 
@@ -272,9 +267,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
         expected = [1000000000000000000, 2000000000000000000, 2000900000000000000, 1000000000000000000]
         assert vaults_total_values == expected
 
@@ -324,9 +317,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
         expected = [1000000000000000000, 0, 2000900000000000000, 1000000000000000000]
 
         assert vaults_total_values == expected
@@ -383,9 +374,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
         expected = [1000000000000000000, 0, 2000900000000000000, 1000000000000000000]
 

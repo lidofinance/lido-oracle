@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestLazyOracleHubSmoke:
