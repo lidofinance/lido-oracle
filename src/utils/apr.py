@@ -1,8 +1,13 @@
 from src.modules.accounting.types import SECONDS_IN_YEAR
 
 
-def predict_apr(pre_total_shares: int, pre_total_ether: int, post_total_shares: int, post_total_ether: int,
-                 time_elapsed: int) -> int:
+def calculate_steth_apr(
+    pre_total_shares: int,
+    pre_total_ether: int,
+    post_total_shares: int,
+    post_total_ether: int,
+    time_elapsed: int,
+) -> int:
     """
     Compute user-facing APR using share rate growth over time.
     Formula follows Lido V2-style:
@@ -22,6 +27,4 @@ def predict_apr(pre_total_shares: int, pre_total_ether: int, post_total_shares: 
     if time_elapsed == 0:
         raise ValueError("Cannot compute APR. time_elapsed is 0")
 
-    apr = (rate_diff * SECONDS_IN_YEAR * 100) // (pre_rate * time_elapsed)
-
-    return apr // 10 ** 5
+    return (rate_diff * SECONDS_IN_YEAR * 10000) // (pre_rate * time_elapsed)

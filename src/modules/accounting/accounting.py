@@ -9,38 +9,53 @@ from web3.types import Wei
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
-    ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
+from src.modules.accounting.events import (
+    BurnedSharesOnVaultEvent,
+    MintedSharesOnVaultEvent,
+    VaultFeesUpdatedEvent,
+)
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
-    ReportData,
-    GenericExtraData,
-    WqReport,
-    RebaseReport,
-    BunkerMode,
-    ValidatorsCount,
-    ValidatorsBalance,
+    BLOCKS_PER_YEAR,
     AccountingProcessingState,
-    ReportValues,
+    BunkerMode,
+    GenericExtraData,
+    RebaseReport,
+    ReportData,
     ReportResults,
+    ReportValues,
+    ValidatorsBalance,
+    ValidatorsCount,
+    VaultsMap,
     VaultsReport,
-    BLOCKS_PER_YEAR, VaultsMap,
+    WqReport,
 )
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import (
+    ConsensusModule,
+    InitialEpochIsYetToArriveRevert,
+)
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
-from src.utils.apr import predict_apr
+from src.types import (
+    BlockStamp,
+    FinalizationBatches,
+    Gwei,
+    NodeOperatorGlobalIndex,
+    ReferenceBlockStamp,
+    StakingModuleId,
+)
+from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
@@ -453,6 +468,9 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
+    def _get_ether_by_shares(self, shares: int, pre_total_ether: int, pre_total_shares: int) -> int:
+        return (shares * pre_total_ether) // pre_total_shares
+
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
         prev_report = self.w3.staking_vaults.get_prev_report(blockstamp)
         ## When we do not have a report - then we do not have starting point for calculation
@@ -478,14 +496,14 @@ class Accounting(BaseModule, ConsensusModule):
 
         core_apr = 0
         if lido_fee_bp != 0:
-            predicted_apr = predict_apr(
+            steth_apr = calculate_steth_apr(
                 simulation.pre_total_shares,
                 simulation.pre_total_pooled_ether,
                 simulation.post_total_shares,
                 simulation.post_total_pooled_ether,
                 time_elapsed,
             )
-            core_apr = int(predicted_apr // (lido_fee_bp // 10_000))
+            core_apr = int(steth_apr * 10_000 / (10_000 - lido_fee_bp))
 
         vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
 
@@ -514,28 +532,30 @@ class Accounting(BaseModule, ConsensusModule):
             events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
 
         out = [0] * len(vaults)
-        apr_per_block = core_apr // BLOCKS_PER_YEAR
         for vault_address, vault_info in vaults.items():
             liability_shares = vault_info.liability_shares
             current_block = int(blockstamp.block_number)
-            liquidity_fee = vault_info.liquidity_feeBP // 10_000
+            blocks_elapsed = current_block - prev_block_number
+
+            liquidity_fee = vault_info.liquidity_feeBP
             minted_total_fees = 0
             infra_fee = 0
             reservation_liquidity_fee = 0
 
             if vault_address not in events:
-                minted_total_fees += liability_shares * (
-                   current_block - prev_block_number) * apr_per_block * liquidity_fee
+                minted_steth = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
+                minted_total_fees += (minted_steth * blocks_elapsed * core_apr * liquidity_fee) // (BLOCKS_PER_YEAR * 100_00 * 100_00)
 
             # Attention!
             # liquidity_fee
             # events[vault_address] is sorted by descending order
             for event in events[vault_address]:
-                minted_total_fees += liability_shares * (
-                        current_block - event.block_number) * apr_per_block * liquidity_fee
+                blocks_elapsed_event = current_block - event.block_number
+                minted_steth_event = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
+                minted_total_fees += (minted_steth_event * blocks_elapsed_event * core_apr * liquidity_fee) // (BLOCKS_PER_YEAR * 100_00 * 100_00)
 
                 if isinstance(event, VaultFeesUpdatedEvent):
-                    liquidity_fee = event.prev_liquidity_fee_bp // 10_000
+                    liquidity_fee = event.prev_liquidity_fee_bp
                     current_block = event.block_number
                     continue
                 if isinstance(event, BurnedSharesOnVaultEvent):
@@ -556,13 +576,15 @@ class Accounting(BaseModule, ConsensusModule):
             infra_fee += (
                     vaults_total_values[vault_info.id()]
                     * core_apr
-                    * (vault_info.infra_feeBP // 10_000)
+                    * blocks_elapsed
+                    * vault_info.infra_feeBP // (BLOCKS_PER_YEAR * 100_00 * 100_00)
             )
 
             reservation_liquidity_fee += (
                     vault_info.mintable_capacity_StETH
                     * core_apr
-                    * (vault_info.reservation_feeBP // 10_000)
+                    * blocks_elapsed
+                    * vault_info.reservation_feeBP // (BLOCKS_PER_YEAR * 100_00 * 100_00)
             )
 
             out[vault_info.id()] = int(infra_fee + reservation_liquidity_fee + liquidity_fee) + int(prev_fee[vault_address])
