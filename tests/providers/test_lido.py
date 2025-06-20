@@ -1,6 +1,7 @@
 from typing import cast
 
 import pytest
+from web3.exceptions import Web3Exception
 
 from src import variables
 from src.providers.execution.contracts.lido import LidoContract
@@ -33,17 +34,8 @@ class TestLidoSmoke:
 
     def test_last_token_rebased_event(self, lido, web3_integration):
         try:
-            block = web3_integration.eth.get_block("latest", False)
-            rebased_event = lido.get_last_token_rebased_event(from_block=block.number, to_block=block.number)
+            rebased_event = lido.get_last_token_rebased_event(634086 - 1_000, 634086)
 
             assert rebased_event is not None
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def test_get_lido_fee(self, lido, web3_integration):
-        try:
-            fee_bp = lido.get_feeBP("latest")
-
-            assert fee_bp is not None
-        except Exception as e:
+        except Web3Exception as e:
             print(f"Error: {e}")

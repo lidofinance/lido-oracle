@@ -1,41 +1,14 @@
-from typing import cast
-
 import pytest
-
-from src import variables
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 
 
 @pytest.mark.testnet
 @pytest.mark.integration
-class TestVaultHubSmoke:
+class TestLazyOracleHubSmoke:
 
-    @pytest.fixture
-    def vault_hub(self, web3_integration):
-        lido_locator: LidoLocatorContract = cast(
-            LidoLocatorContract,
-            web3_integration.eth.contract(
-                address=variables.LIDO_LOCATOR_ADDRESS,
-                ContractFactoryClass=LidoLocatorContract,
-                decode_tuples=True,
-            ),
-        )
-
-        return cast(
-            LazyOracleContract,
-            web3_integration.eth.contract(
-                address=lido_locator.vault_hub(),
-                ContractFactoryClass=LazyOracleContract,
-                decode_tuples=True,
-            ),
-        )
-
-    # def test_vault_hub_pagination(self, vault_hub):
-    #    vaults = vault_hub.get_all_vaults(limit=15)
-
-    #    assert len(vaults) == vault_hub.get_vaults_count()
-
-    def test_vault_hub_get_report(self, vault_hub):
-        report = vault_hub.get_report(block_identifier='latest')
+    def test_vault_lazy_oracle_get_report(self, web3_integration):
+        report = web3_integration.lido_contracts.lazy_oracle.get_report(block_identifier='latest')
         assert report is not None
+
+    def test_get_vaults(self, web3_integration):
+        vaults = web3_integration.lido_contracts.lazy_oracle.get_all_vaults(block_identifier='latest')
+        assert len(vaults) != 0
