@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 from web3_multi_provider import init_metrics
 
-from src.utils.apr import predict_apr
+from src.utils.apr import calculate_steth_apr
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.types import Web3
 from web3.types import Wei
@@ -153,7 +153,7 @@ class TestStakingVaultsSmoke:
 
         time_elapsed = 2316
 
-        predicted_apr = predict_apr(
+        predicted_apr = calculate_steth_apr(
             rebased_event.pre_total_shares,
             rebased_event.pre_total_ether,
             rebased_event.post_total_shares,
