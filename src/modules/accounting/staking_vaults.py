@@ -149,7 +149,7 @@ class StakingVaults(Module):
         extra_values = {}
         for vault_adr, vault_info in vaults.items():
             extra_values[vault_adr] = {
-                "inOutDelta": vault_info.in_out_delta
+                "inOutDelta": str(vault_info.in_out_delta)
             }
 
         output: dict[str, Any] = {
