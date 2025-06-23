@@ -276,6 +276,10 @@ class MerkleValue:
     slashing_reserve: int
 
 @dataclass
+class ExtraValue:
+    inOutDelta: int
+
+@dataclass
 class MerkleTreeData:
     format: str
     leaf_encoding: List[str]
@@ -288,3 +292,4 @@ class MerkleTreeData:
     block_number: int
     timestamp: int
     prev_tree_cid: str
+    extraValues: dict[str, ExtraValue]
