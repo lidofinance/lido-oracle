@@ -7,7 +7,7 @@ def calculate_steth_apr(
     post_total_shares: int,
     post_total_ether: int,
     time_elapsed: int,
-) -> int:
+) -> float:
     """
     Compute user-facing APR using share rate growth over time.
     Formula follows Lido V2-style:
@@ -21,12 +21,8 @@ def calculate_steth_apr(
     post_rate = post_total_ether * 10 ** 27 // post_total_shares
 
     rate_diff = post_rate - pre_rate
-    # if rate_diff == 0:
-    #     raise ValueError("Cannot compute APR. rate_diff is 0")
 
     if time_elapsed == 0:
         raise ValueError("Cannot compute APR. time_elapsed is 0")
 
-    mul_for_precision = 10_000
-
-    return (rate_diff * SECONDS_IN_YEAR * mul_for_precision) // (pre_rate * time_elapsed * mul_for_precision)
+    return (rate_diff * SECONDS_IN_YEAR) / (pre_rate * time_elapsed)
