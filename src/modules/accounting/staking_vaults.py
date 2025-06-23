@@ -121,29 +121,8 @@ class StakingVaults(Module):
 
         return vaults_reserves
 
-    def publish_proofs(self, tree: StandardMerkleTree, bs: BlockStamp, vaults: VaultsMap) -> CID:
-        data = self._get_vault_to_proof_map(tree, vaults)
-
-        def encoder(o):
-            if hasattr(o, "__dataclass_fields__"):
-                return asdict(o)
-            raise TypeError(f"Object of type {type(o)} is not JSON serializable")
-
-        result: dict[str, Any] = {
-            "merkleTreeRoot": f"0x{tree.root.hex()}",
-            "refSlot": bs.slot_number,
-            "proofs": data,
-            "block_number": bs.block_number,
-        }
-
-        dumped_proofs = json.dumps(result, default=encoder)
-
-        cid = self.ipfs_client.publish(dumped_proofs.encode('utf-8'), 'proofs.json')
-
-        return cid
-
     def publish_tree(
-            self, tree: StandardMerkleTree, vaults: VaultsMap, bs: BlockStamp, proofs_cid: CID, prev_tree_cid: str,
+            self, tree: StandardMerkleTree, vaults: VaultsMap, bs: BlockStamp, prev_tree_cid: str,
             chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
@@ -167,14 +146,19 @@ class StakingVaults(Module):
 
         values = stringify_values(tree.values)
 
+        extra_values = {}
+        for vault_adr, vault_info in vaults.items():
+            extra_values[vault_adr] = {
+                "inOutDelta": vault_info.in_out_delta
+            }
+
         output: dict[str, Any] = {
             **dict(tree.dump()),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.slot_number,
             "blockNumber": bs.block_number,
             "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
-            "proofsCID": str(proofs_cid),
-            "proofs": self._get_vault_to_proof_map(tree, vaults),
+            "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {
                 "0": "vault_address",

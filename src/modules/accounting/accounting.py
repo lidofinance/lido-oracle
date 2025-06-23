@@ -407,12 +407,12 @@ class Accounting(BaseModule, ConsensusModule):
         tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
-        logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
+        # proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
+        # logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
 
         prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
         tree_cid = self.w3.staking_vaults.publish_tree(
-            merkle_tree, vaults, blockstamp, proof_cid, prev_report_cid, chain_config
+            merkle_tree, vaults, blockstamp, prev_report_cid, chain_config
         )
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
