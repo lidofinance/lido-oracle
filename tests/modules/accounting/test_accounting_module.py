@@ -535,6 +535,7 @@ def test_accounting_get_processing_state(accounting: Accounting):
     assert accounting_processing_state == result
 
 
+@pytest.mark.unit
 def test_use_private_relay(accounting: Accounting):
     current_timestamp = datetime.now().timestamp()
 
@@ -552,6 +553,7 @@ def test_use_private_relay(accounting: Accounting):
     assert not accounting._use_private_relays(bs)
 
 
+@pytest.mark.unit
 def test_process_report_data_classic(accounting: Accounting, monkeypatch, caplog):
     accounting._use_private_relays = Mock(return_value=False)
 
@@ -569,6 +571,7 @@ def test_process_report_data_classic(accounting: Accounting, monkeypatch, caplog
     assert not caplog.messages
 
 
+@pytest.mark.unit
 def test_process_report_data_in_bundle(accounting: Accounting, monkeypatch, caplog):
     accounting._use_private_relays = Mock(return_value=True)
     accounting._is_main_data_submittable = Mock(return_value=True)
