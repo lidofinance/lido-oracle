@@ -422,9 +422,8 @@ class StakingVaults(Module):
             ref_slot=data["refSlot"],
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
-            proofs_cid=data["proofsCID"],
             prev_tree_cid=data["prevTreeCID"],
-            proofs=data["proofs"],
+            extraValues=data["extraValues"],
         )
 
     @staticmethod

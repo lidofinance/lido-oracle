@@ -281,11 +281,10 @@ class MerkleTreeData:
     leaf_encoding: List[str]
     tree: List[str]
     values: List[MerkleValue]
-    proofs: dict[str, VaultProof]
+    # proofs: dict[str, VaultProof]
     tree_indices: List[int]
     merkle_tree_root: str
     ref_slot: int
     block_number: int
     timestamp: int
-    proofs_cid: str
     prev_tree_cid: str
