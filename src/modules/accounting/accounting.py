@@ -1,13 +1,16 @@
 import logging
 from collections import defaultdict
+from datetime import datetime
 from time import sleep
+from typing import cast
 
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27
+from src.constants import SHARE_RATE_PRECISION_E27, CURATED_MODULE_TYPE
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
@@ -31,6 +34,7 @@ from src.metrics.prometheus.accounting import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from src.providers.execution.contracts.staking_module import NodeOperatorRegistry
 from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
@@ -40,6 +44,7 @@ from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, No
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
+from src.web3py.extensions.tx_bundle import TransactionBundle
 from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
 
@@ -409,3 +414,51 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+
+    # --- TX bundling ---
+    @staticmethod
+    def _use_private_relays(blockstamp: ReferenceBlockStamp) -> bool:
+        # If BUNDLE_SEND_TIMEOUT seconds have passed since the reference slot was validated, use the classic flow to send the transaction.
+        return bool(variables.PRIVATE_RELAYS_LIST) and datetime.now().timestamp() <= blockstamp.block_timestamp + variables.BUNDLE_TIMEOUT_SECONDS
+
+    def _get_sm_contract(self, address: ChecksumAddress) -> NodeOperatorRegistry:
+        return cast(
+            NodeOperatorRegistry,
+            self.w3.eth.contract(
+                address=address,
+                ContractFactoryClass=NodeOperatorRegistry,
+            )
+        )
+
+    def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
+        if not self._use_private_relays(blockstamp):
+            super()._process_report_data(blockstamp, report_data, report_hash)
+            return
+
+        if not self._is_main_data_submittable(report_hash):
+            return
+
+        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
+
+        logger.info({'msg': f'Send report data via private relay. Contract version: [{contract_version}]'})
+        txs = [self.report_contract.submit_report_data(report_data, contract_version)]
+
+        logger.info({'msg': 'Bundle extra data transactions.'})
+        extra_data = self.get_extra_data(blockstamp)
+        if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
+            txs.append(self.report_contract.submit_report_extra_data_empty())
+        else:
+            for tx_data in extra_data.extra_data_list:
+                txs.append(self.report_contract.submit_report_extra_data_list(tx_data))
+
+        logger.info({'msg': 'Bundle reward distribution transactions.'})
+        staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules()
+        for staking_module in staking_modules:
+            ism: NodeOperatorRegistry = self._get_sm_contract(staking_module.staking_module_address)
+
+            if ism.get_type() == CURATED_MODULE_TYPE:
+                txs.append(ism.distribute_reward())
+
+        logger.info({'msg': f'Prepared bundle. Txs count: {len(txs)}'})
+        TransactionBundle.send_tx_bundle(self.w3, txs)
