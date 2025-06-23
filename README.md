@@ -203,6 +203,13 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CSM_ORACLE_MAX_CONCURRENCY`                           | Max count of dedicated workers for CSM module                                                                                                                            | False    | `2`                                     |
 | `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                                     |
 
+### Using bundling with private relays
+| Name                           | Description                        | Example value                 |
+|--------------------------------|------------------------------------|-------------------------------|
+| `PRIVATE_RELAYS_LIST`          | List of private relays RPC         | `http://relay1,http://relay2` |
+| `BUNDLE_GAS_LIMIT_FOR_EACH_TX` | Gas limit for bundled transactions | `7000000`                     |
+| `BUNDLE_TIMEOUT_SECONDS`       | Bundling timeout                   | `1368`                        |
+
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
 > ALLOW_REPORTING_IN_BUNKER_MODE=False

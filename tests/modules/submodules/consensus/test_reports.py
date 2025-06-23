@@ -160,7 +160,7 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
     report_hash = int.to_bytes(1, 32)
     consensus._get_slot_delay_before_data_submit = Mock(return_value=0)
 
-    consensus.is_main_data_submitted = Mock(side_effect=[False, True])
+    consensus.is_main_data_submitted = Mock(return_value=True)
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Main data already submitted." in caplog.messages[-1]
@@ -206,13 +206,16 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
     report_data = tuple()
     report_hash = int.to_bytes(1, 32)
 
-    false_count = 9999
-    main_data_submitted_n_times = [False] * false_count + [True]
+    slot_delay = 10
+
+    main_data_submitted_n_times = [False] * slot_delay + [True]
     consensus.is_main_data_submitted = Mock(side_effect=main_data_submitted_n_times)
-    consensus._get_slot_delay_before_data_submit = Mock(return_value=10000)
+    consensus._get_slot_delay_before_data_submit = Mock(return_value=slot_delay)
+    consensus.report_contract = Mock()
+    consensus._submit_report = Mock()
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert "Sleep for 10000 slots before sending data." in caplog.text
+    assert f"Sleep for {slot_delay} slots before sending data." in caplog.text
     assert "Main data already submitted." in caplog.text
 
 
