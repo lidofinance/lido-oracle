@@ -161,11 +161,11 @@ class StakingVaults(Module):
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {
-                "0": "vault_address",
-                "1": "total_value_wei",
+                "0": "vaultAddress",
+                "1": "totalValueWei",
                 "2": "fee",
-                "3": "liability_shares",
-                "4": "slashing_reserve",
+                "3": "liabilityShares",
+                "4": "slashingReserve",
             },
         }
         output.update(values=values)
@@ -423,7 +423,7 @@ class StakingVaults(Module):
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
-            extraValues=data["extraValues"],
+            extra_values=data["extraValues"],
         )
 
     @staticmethod

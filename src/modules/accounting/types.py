@@ -292,4 +292,4 @@ class MerkleTreeData:
     block_number: int
     timestamp: int
     prev_tree_cid: str
-    extraValues: dict[str, ExtraValue]
+    extra_values: dict[str, ExtraValue]
