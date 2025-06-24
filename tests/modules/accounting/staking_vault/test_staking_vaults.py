@@ -389,7 +389,6 @@ class TestStakingVaults:
     @pytest.mark.unit
     def test_fees(self):
         vault1 = "0xVault1"
-
         prev_block_number = 100_000
         cur_block_number = MagicMock()
         block_elapsed = 7_200
@@ -400,6 +399,7 @@ class TestStakingVaults:
             leaf_encoding=["encoding1"],
             tree=["node1"],
             values=[
+                # address,          total_value_wei,      fee,           liability_shares,    slashing_reserve
                 MerkleValue(vault1, 65020591618000000000, 22169367899378, 3000000000000000000, 0),
             ],
             tree_indices=[0],
@@ -460,7 +460,7 @@ class TestStakingVaults:
                 vault=vault1,
                 balance=1000 * 10 ** 18,
                 withdrawal_credentials="0x00...",
-                liability_shares=0,
+                liability_shares=65000000000000000050,
                 share_limit=5000,
                 reserve_ratioBP=2000,
                 forced_rebalance_thresholdBP=1800,
@@ -563,7 +563,7 @@ class TestStakingVaults:
         mock_w3.lido_contracts.vault_hub.get_minted_events = MagicMock(return_value=minted_shares_events)
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 
-        fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
-        print(fees)
+        actual_fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
+        expected_fees = [649692079630535]
 
-        assert 1 == 1
+        assert actual_fees == expected_fees
