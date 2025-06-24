@@ -10,14 +10,24 @@ from web3.module import Module
 from web3.types import Wei
 
 from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
-from src.modules.accounting.types import VaultsMap, VaultTreeNode, \
-    MerkleTreeData, MerkleValue, VaultInfo, VaultToValidators, VaultToPendingDeposits, VaultProof
+from src.modules.accounting.types import (
+    MerkleTreeData,
+    MerkleValue,
+    VaultInfo,
+    VaultProof,
+    VaultsMap,
+    VaultToPendingDeposits,
+    VaultToValidators,
+    VaultTreeNode,
+)
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import Validator, PendingDeposit
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
+from src.providers.execution.contracts.oracle_daemon_config import (
+    OracleDaemonConfigContract,
+)
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
@@ -407,7 +417,13 @@ class StakingVaults(Module):
         def decode_value(entry: Dict[str, Any]) -> MerkleValue:
             value_list = entry["value"]
             value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
-            return MerkleValue(**value_dict)
+            return MerkleValue(
+                vault_address=value_dict["vaultAddress"],
+                total_value_wei=value_dict["totalValueWei"],
+                fee=value_dict["fee"],
+                liability_shares=value_dict["liabilityShares"],
+                slashing_reserve=value_dict["slashingReserve"],
+            )
 
         decoded_values = [decode_value(entry) for entry in data["values"]]
         tree_indices = [entry["treeIndex"] for entry in data["values"]]

@@ -469,7 +469,8 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
-    def _get_ether_by_shares(self, shares: int, pre_total_ether: int, pre_total_shares: int) -> int:
+    @staticmethod
+    def _get_ether_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> float:
         return (shares * pre_total_ether) / pre_total_shares
 
     # pylint: disable=too-many-branches,too-many-statements
@@ -542,7 +543,7 @@ class Accounting(BaseModule, ConsensusModule):
             current_block = int(blockstamp.block_number)
             blocks_elapsed = current_block - prev_block_number
 
-            vault_liquidity_fee = 0
+            vault_liquidity_fee: float = 0
             liquidity_fee = vault_info.liquidity_feeBP
 
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
@@ -607,7 +608,7 @@ class Accounting(BaseModule, ConsensusModule):
                 if liability_shares != 0:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
 
-            vault_total_fees_for_period = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + int(vault_liquidity_fee)
+            vault_total_fees_for_period = vault_infrastructure_fee + vault_reservation_liquidity_fee + vault_liquidity_fee
             out[vault_info.id()] = int(prev_fee[vault_address]) + int(vault_total_fees_for_period)
 
         return out

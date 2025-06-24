@@ -7,10 +7,22 @@ from web3.types import Timestamp, Wei
 
 from src.main import ipfs_providers
 from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.events import BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent, VaultFeesUpdatedEvent
+from src.modules.accounting.events import (
+    BurnedSharesOnVaultEvent,
+    MintedSharesOnVaultEvent,
+    VaultFeesUpdatedEvent,
+)
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.accounting.types import VaultInfo, VaultsMap, MerkleTreeData, MerkleValue, VaultProof, ReportResults, \
-    StakingRewardsDistribution, ExtraValue
+from src.modules.accounting.types import (
+    ExtraValue,
+    MerkleTreeData,
+    MerkleValue,
+    ReportResults,
+    StakingRewardsDistribution,
+    VaultInfo,
+    VaultProof,
+    VaultsMap,
+)
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import (
@@ -414,9 +426,9 @@ class TestStakingVaults:
         )
 
         mock_report_results = ReportResults(
-            withdrawals=100 * 10 ** 18,
-            el_rewards=5 * 10 ** 18,
-            ether_to_finalize_wq=2 * 10 ** 18,
+            withdrawals=100 * 10**18,
+            el_rewards=5 * 10**18,
+            ether_to_finalize_wq=2 * 10**18,
             shares_to_finalize_wq=1000,
             shares_to_burn_for_withdrawals=500,
             total_shares_to_burn=1500,
@@ -428,13 +440,13 @@ class TestStakingVaults:
                 module_ids=[1],
                 modules_fees=[50, 30],
                 total_fee=80,
-                precision_points=10000
+                precision_points=10000,
             ),
-            principal_cl_balance=32000 * 10 ** 9,
+            principal_cl_balance=32000 * 10**9,
             pre_total_shares=7598409496266444487755575,
             pre_total_pooled_ether=Wei(9165134090291140983725643),
             post_internal_shares=1_010_000,
-            post_internal_ether=101_000 * 10 ** 18,
+            post_internal_ether=101_000 * 10**18,
             post_total_shares=7589357999778578274703354,
             post_total_pooled_ether=Wei(9154964744971805725084856),
         )
@@ -445,20 +457,17 @@ class TestStakingVaults:
         mock_w3.lido_contracts = MagicMock(
             staking_router=MagicMock(
                 get_staking_fee_aggregate_distribution=MagicMock(
-                    return_value=(modules_fee, treasury_fee, base_precision))
+                    return_value=(modules_fee, treasury_fee, base_precision)
+                )
             )
         )
 
-        mock_chain_config = MagicMock(
-            slots_per_epoch=32,
-            seconds_per_slot=12,
-            genesis_time=1606824000
-        )
+        mock_chain_config = MagicMock(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1606824000)
 
         mock_prev_vaults = {
             vault1: VaultInfo(
                 vault=vault1,
-                balance=1000 * 10 ** 18,
+                balance=1000 * 10**18,
                 withdrawal_credentials="0x00...",
                 liability_shares=65000000000000000050,
                 share_limit=5000,
@@ -470,7 +479,7 @@ class TestStakingVaults:
                 pending_disconnect=False,
                 mintable_capacity_StETH=2000,
                 vault_ind=1,
-                in_out_delta=100 * 10 ** 18
+                in_out_delta=100 * 10**18,
             )
         }
         mock_w3.staking_vaults.get_vaults = MagicMock(return_value=mock_prev_vaults)
@@ -489,9 +498,9 @@ class TestStakingVaults:
         vault_info = VaultInfo(
             vault_ind=1,
             vault=address,
-            balance=1000 * 10 ** 18,
+            balance=1000 * 10**18,
             withdrawal_credentials="0x02",
-            liability_shares=65 * 10 ** 18,
+            liability_shares=65 * 10**18,
             share_limit=500000000000000000000,
             reserve_ratioBP=2000,
             forced_rebalance_thresholdBP=1800,
@@ -500,7 +509,7 @@ class TestStakingVaults:
             reservation_feeBP=100,
             pending_disconnect=False,
             mintable_capacity_StETH=52016000000000000000,
-            in_out_delta=100 * 10 ** 18
+            in_out_delta=100 * 10**18,
         )
 
         vaults[address] = vault_info
@@ -524,7 +533,7 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'a' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'b' * 64}"),
-            block_number=prev_block_number
+            block_number=prev_block_number,
         )
 
         vaults_fee_updated_events.append(fee_updated_event)
@@ -538,7 +547,7 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'c' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'d' * 64}"),
-            block_number=prev_block_number + 1
+            block_number=prev_block_number + 1,
         )
 
         burned_shares_events.append(burned_event)
@@ -553,13 +562,14 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'e' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'f' * 64}"),
-            block_number=prev_block_number + 2
+            block_number=prev_block_number + 2,
         )
 
         minted_shares_events.append(minted_event)
 
         mock_w3.lido_contracts.vault_hub.get_vaults_fee_updated_events = MagicMock(
-            return_value=vaults_fee_updated_events)
+            return_value=vaults_fee_updated_events
+        )
         mock_w3.lido_contracts.vault_hub.get_minted_events = MagicMock(return_value=minted_shares_events)
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 

@@ -1,19 +1,19 @@
 from dataclasses import dataclass
-from typing import Self, NewType, List
+from typing import List, NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.providers.consensus.types import Validator, PendingDeposit
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.types import (
-    SlotNumber,
-    Gwei,
-    StakingModuleId,
-    FinalizationBatches,
     ELVaultBalance,
-    WithdrawalVaultBalance,
+    FinalizationBatches,
+    Gwei,
     OperatorsValidatorCount,
+    SlotNumber,
+    StakingModuleId,
+    WithdrawalVaultBalance,
 )
 
 BunkerMode = NewType('BunkerMode', bool)
@@ -285,7 +285,6 @@ class MerkleTreeData:
     leaf_encoding: List[str]
     tree: List[str]
     values: List[MerkleValue]
-    # proofs: dict[str, VaultProof]
     tree_indices: List[int]
     merkle_tree_root: str
     ref_slot: int
