@@ -564,6 +564,6 @@ class TestStakingVaults:
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 
         actual_fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
-        expected_fees = [649692079630535]
+        expected_fees = [649692079630537]
 
         assert actual_fees == expected_fees

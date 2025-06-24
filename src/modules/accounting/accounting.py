@@ -470,7 +470,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
     def _get_ether_by_shares(self, shares: int, pre_total_ether: int, pre_total_shares: int) -> int:
-        return (shares * pre_total_ether) // pre_total_shares
+        return (shares * pre_total_ether) / pre_total_shares
 
     # pylint: disable=too-many-branches,too-many-statements
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
@@ -542,25 +542,23 @@ class Accounting(BaseModule, ConsensusModule):
             current_block = int(blockstamp.block_number)
             blocks_elapsed = current_block - prev_block_number
 
+            vault_liquidity_fee = 0
             liquidity_fee = vault_info.liquidity_feeBP
-            vault_infrastructure_fee: float = 0
-            vault_reservation_liquidity_fee: float = 0
-            vault_liquidity_fee: float = 0
 
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
-            vault_infrastructure_fee += (
-                    vaults_total_values[vault_info.id()]
-                    * blocks_elapsed
-                    * core_apr_ratio
-                    * vault_info.infra_feeBP // (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            vault_infrastructure_fee = (
+                vaults_total_values[vault_info.id()]
+                * blocks_elapsed
+                * core_apr_ratio
+                * vault_info.infra_feeBP / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
             )
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee += (
-                    vault_info.mintable_capacity_StETH
-                    * blocks_elapsed
-                    * core_apr_ratio
-                    * vault_info.reservation_feeBP // (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            vault_reservation_liquidity_fee = (
+                vault_info.mintable_capacity_StETH
+                * blocks_elapsed
+                * core_apr_ratio
+                * vault_info.reservation_feeBP / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
             )
 
             # Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
@@ -569,15 +567,26 @@ class Accounting(BaseModule, ConsensusModule):
 
             # In case of no events, we just use `liability_shares` to calculate minted stETH.
             if vault_address not in events:
+                # TODO: DRY with the next block
                 minted_steth = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
-                vault_liquidity_fee += (minted_steth * blocks_elapsed * core_apr_ratio * liquidity_fee) // (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                vault_liquidity_fee = (
+                    minted_steth
+                    * blocks_elapsed
+                    * core_apr_ratio
+                    * liquidity_fee / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                )
 
             # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
             # on the `liability_shares` and the elapsed blocks between events.
             for event in events[vault_address]:
-                blocks_elapsed_event = current_block - event.block_number
-                minted_steth_event = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
-                vault_liquidity_fee += (minted_steth_event * blocks_elapsed_event * core_apr_ratio * liquidity_fee) // (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                blocks_elapsed_between_events = current_block - event.block_number
+                minted_steth_on_event = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
+                vault_liquidity_fee += (
+                    minted_steth_on_event
+                    * blocks_elapsed_between_events
+                    * core_apr_ratio
+                    * liquidity_fee / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                )
 
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.prev_liquidity_fee_bp
@@ -598,7 +607,7 @@ class Accounting(BaseModule, ConsensusModule):
                 if liability_shares != 0:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
 
-            vault_total_fees_for_period = vault_infrastructure_fee + vault_reservation_liquidity_fee + vault_liquidity_fee
+            vault_total_fees_for_period = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + int(vault_liquidity_fee)
             out[vault_info.id()] = int(prev_fee[vault_address]) + int(vault_total_fees_for_period)
 
         return out
