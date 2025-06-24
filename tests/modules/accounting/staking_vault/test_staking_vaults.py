@@ -10,7 +10,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.events import BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent, VaultFeesUpdatedEvent
 from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.types import VaultInfo, VaultsMap, MerkleTreeData, MerkleValue, VaultProof, ReportResults, \
-    StakingRewardsDistribution
+    StakingRewardsDistribution, ExtraValue
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.ipfs import MultiIPFSProvider
 from src.types import (
@@ -388,35 +388,29 @@ class TestStakingVaults:
 
     @pytest.mark.unit
     def test_fees(self):
-        bs_mock = MagicMock()
+        vault1 = "0xVault1"
+
+        prev_block_number = 100_000
+        cur_block_number = MagicMock()
+        block_elapsed = 7_200
+        cur_block_number.block_number = prev_block_number + block_elapsed
 
         mock_merkle_tree_data = MerkleTreeData(
             format="v1",
-            leaf_encoding=["encoding1", "encoding2"],
-            tree=["node1", "node2", "node3"],
+            leaf_encoding=["encoding1"],
+            tree=["node1"],
             values=[
-                MerkleValue("0xVault1", 1000, 10, 100, 5),
-                MerkleValue("0xVault2", 2000, 20, 200, 10)
+                MerkleValue(vault1, 65020591618000000000, 22169367899378, 3000000000000000000, 0),
             ],
-            proofs={
-                f"vault_{i}": VaultProof(
-                    id=i,
-                    totalValueWei=str(1000 * i),
-                    fee=str(10 * i),
-                    liabilityShares=str(100 * i),
-                    slashingReserve=str(5 * i),
-                    leaf=f"leaf_{i}",
-                    proof=[f"proof_{i}_1", f"proof_{i}_2"],
-                    inOutDelta=str(50 * i)
-                ) for i in range(1, 5)
-            },
-            tree_indices=[0, 1, 2],
+            tree_indices=[0],
             merkle_tree_root="root123",
             ref_slot=12345,
-            block_number=67890,
+            block_number=prev_block_number,
             timestamp=1710000000,
-            proofs_cid="cid123",
-            prev_tree_cid="cid122"
+            prev_tree_cid="cid122",
+            extra_values={
+                vault1: ExtraValue(0),
+            },
         )
 
         mock_report_results = ReportResults(
@@ -429,29 +423,29 @@ class TestStakingVaults:
             shares_to_mint_as_fees=100,
             reward_distribution=StakingRewardsDistribution(
                 recipients=[
-                    "0x1111111111111111111111111111111111111111",
-                    "0x2222222222222222222222222222222222222222"
+                    vault1,
                 ],
-                module_ids=[1, 2],
+                module_ids=[1],
                 modules_fees=[50, 30],
                 total_fee=80,
                 precision_points=10000
             ),
             principal_cl_balance=32000 * 10 ** 9,
-            pre_total_shares=1_000_000,
-            pre_total_pooled_ether=100_000 * 10 ** 18,
+            pre_total_shares=7598409496266444487755575,
+            pre_total_pooled_ether=Wei(9165134090291140983725643),
             post_internal_shares=1_010_000,
             post_internal_ether=101_000 * 10 ** 18,
-            post_total_shares=1_015_000,
-            post_total_pooled_ether=102_000 * 10 ** 18,
+            post_total_shares=7589357999778578274703354,
+            post_total_pooled_ether=Wei(9154964744971805725084856),
         )
 
-        modules_fee, treasury_fee, base_precision = 10, 10, 1_000
+        modules_fee, treasury_fee, base_precision = 5121913857400931783, 4878086142599068213, 100000000000000000000
 
         mock_w3 = MagicMock(staking_vaults=MagicMock(get_prev_report=MagicMock(return_value=mock_merkle_tree_data)))
         mock_w3.lido_contracts = MagicMock(
             staking_router=MagicMock(
-                get_staking_fee_aggregate_distribution=MagicMock(return_value=(modules_fee, treasury_fee, base_precision))
+                get_staking_fee_aggregate_distribution=MagicMock(
+                    return_value=(modules_fee, treasury_fee, base_precision))
             )
         )
 
@@ -461,170 +455,115 @@ class TestStakingVaults:
             genesis_time=1606824000
         )
 
-        mock_prev_vaults  = {
-            ChecksumAddress(f"0x{i:040x}"): VaultInfo(
-                vault=ChecksumAddress(f"0x{i:040x}"),
-                balance=1000 * i * 10**18,
+        mock_prev_vaults = {
+            vault1: VaultInfo(
+                vault=vault1,
+                balance=1000 * 10 ** 18,
                 withdrawal_credentials="0x00...",
-                liability_shares=1000 * i,
-                share_limit=5000 * i,
+                liability_shares=0,
+                share_limit=5000,
                 reserve_ratioBP=500,
                 forced_rebalance_thresholdBP=100,
                 infra_feeBP=50,
                 liquidity_feeBP=20,
                 reservation_feeBP=10,
                 pending_disconnect=False,
-                mintable_capacity_StETH=2000 * i,
-                vault_ind=i,
-                in_out_delta=100 * i * 10**18
+                mintable_capacity_StETH=2000,
+                vault_ind=1,
+                in_out_delta=100 * 10 ** 18
             )
-            for i in range(1, 6)
         }
         mock_w3.staking_vaults.get_vaults = MagicMock(return_value=mock_prev_vaults)
 
         self.accounting = Accounting(mock_w3)
         self.accounting.simulate_full_rebase = MagicMock(return_value=mock_report_results)
         self.accounting.get_chain_config = MagicMock(return_value=mock_chain_config)
-        self.accounting._get_slots_elapsed_from_last_report = MagicMock(return_value=1000)
+        self.accounting._get_slots_elapsed_from_last_report = MagicMock(return_value=block_elapsed)
 
         vaults = {}
         vaults_total_values = []
 
-        for i in range(1, 6):
-            address = ChecksumAddress(f"0x{i:040x}")
-            liability_shares = 1000 * i
-            balance_wei = 1000 * i * 10 ** 18
-            mintable_capacity = 2000 * i
-            in_out_delta = 100 * i * 10 ** 18
-            reserve_ratio = 500
+        address = ChecksumAddress(vault1)
 
-            vault_info = VaultInfo(
-                vault=address,
-                balance=balance_wei,
-                withdrawal_credentials="0x00...",
-                liability_shares=liability_shares,
-                share_limit=5000 * i,
-                reserve_ratioBP=reserve_ratio,
-                forced_rebalance_thresholdBP=100,
-                infra_feeBP=50,
-                liquidity_feeBP=20,
-                reservation_feeBP=10,
-                pending_disconnect=False,
-                mintable_capacity_StETH=mintable_capacity,
-                vault_ind=i,
-                in_out_delta=in_out_delta
-            )
+        # 65020000000000000000,0x0200000000000000000000007228fc874c1d08cae68a558d7b650fc4862b1db7
+        vault_info = VaultInfo(
+            vault_ind=1,
+            vault=address,
+            balance=1000 * 10 ** 18,
+            withdrawal_credentials="0x02",
+            liability_shares=65 * 10 ** 18,
+            share_limit=5000,
+            reserve_ratioBP=500,
+            forced_rebalance_thresholdBP=100,
+            infra_feeBP=50,
+            liquidity_feeBP=20,
+            reservation_feeBP=10,
+            pending_disconnect=False,
+            mintable_capacity_StETH=2000,
+            in_out_delta=100 * 10 ** 18
+        )
 
-            vaults[address] = vault_info
-            vaults_total_values.append(1000 * i)
+        vaults[address] = vault_info
+        vaults_total_values.append(65020591618000000000)
 
         vaults_fee_updated_events = []
         burned_shares_events = []
         minted_shares_events = []
 
-        prev_block_number = 100000
+        address = vault1
 
-        for i in range(1, 6):
-            address = f"0x{i:040x}"
+        fee_updated_event = VaultFeesUpdatedEvent(
+            vault=address,
+            infra_fee_bp=50,
+            prev_liquidity_fee_bp=20,
+            liquidity_fee_bp=20 + 5,
+            reservation_fee_bp=10,
+            event="VaultFeesUpdated",
+            log_index=1,
+            transaction_index=1,
+            transaction_hash=HexBytes(f"0x{'a' * 64}"),
+            address=address,
+            block_hash=HexBytes(f"0x{'b' * 64}"),
+            block_number=prev_block_number
+        )
 
-            # VaultFeesUpdatedEvent
-            fee_updated_event = VaultFeesUpdatedEvent(
-                vault=address,
-                infra_fee_bp=50 + i,
-                prev_liquidity_fee_bp=20 + i,
-                liquidity_fee_bp=20 + i + 5,
-                reservation_fee_bp=10 + i,
-                event="VaultFeesUpdated",
-                log_index=i,
-                transaction_index=i,
-                transaction_hash=HexBytes(f"0x{'a' * 64}"),
-                address=address,
-                block_hash=HexBytes(f"0x{'b' * 64}"),
-                block_number=prev_block_number + i
-            )
-            vaults_fee_updated_events.append(fee_updated_event)
+        vaults_fee_updated_events.append(fee_updated_event)
 
-            # BurnedSharesOnVaultEvent
-            burned_event = BurnedSharesOnVaultEvent(
-                vault=address,
-                amount_of_shares=100 * i,
-                event="BurnedSharesOnVault",
-                log_index=i,
-                transaction_index=i,
-                transaction_hash=HexBytes(f"0x{'c' * 64}"),
-                address=address,
-                block_hash=HexBytes(f"0x{'d' * 64}"),
-                block_number=prev_block_number + i + 1
-            )
-            burned_shares_events.append(burned_event)
+        burned_event = BurnedSharesOnVaultEvent(
+            vault=address,
+            amount_of_shares=100,
+            event="BurnedSharesOnVault",
+            log_index=1,
+            transaction_index=1,
+            transaction_hash=HexBytes(f"0x{'c' * 64}"),
+            address=address,
+            block_hash=HexBytes(f"0x{'d' * 64}"),
+            block_number=prev_block_number + 1
+        )
 
-            # MintedSharesOnVaultEvent
-            minted_event = MintedSharesOnVaultEvent(
-                vault=address,
-                amount_of_shares=50 * i,
-                locked_amount=10 * i,
-                event="MintedSharesOnVault",
-                log_index=i,
-                transaction_index=i,
-                transaction_hash=HexBytes(f"0x{'e' * 64}"),
-                address=address,
-                block_hash=HexBytes(f"0x{'f' * 64}"),
-                block_number=prev_block_number + i + 2
-            )
-            minted_shares_events.append(minted_event)
+        burned_shares_events.append(burned_event)
 
-        mock_w3.lido_contracts.vault_hub.get_vaults_fee_updated_events = MagicMock(return_value=vaults_fee_updated_events)
+        minted_event = MintedSharesOnVaultEvent(
+            vault=address,
+            amount_of_shares=50,
+            locked_amount=10,
+            event="MintedSharesOnVault",
+            log_index=1,
+            transaction_index=1,
+            transaction_hash=HexBytes(f"0x{'e' * 64}"),
+            address=address,
+            block_hash=HexBytes(f"0x{'f' * 64}"),
+            block_number=prev_block_number + 2
+        )
+
+        minted_shares_events.append(minted_event)
+
+        mock_w3.lido_contracts.vault_hub.get_vaults_fee_updated_events = MagicMock(
+            return_value=vaults_fee_updated_events)
         mock_w3.lido_contracts.vault_hub.get_minted_events = MagicMock(return_value=minted_shares_events)
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 
-        fees = self.accounting._get_vaults_fees(bs_mock, vaults, vaults_total_values)
+        fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
         print(fees)
 
         assert 1 == 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
