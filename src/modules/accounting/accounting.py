@@ -9,42 +9,61 @@ from web3.types import Wei
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
-    ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.accounting.events import (
+    BurnedSharesOnVaultEvent,
+    MintedSharesOnVaultEvent,
+    VaultFeesUpdatedEvent,
+)
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
-    ReportData,
-    LidoReportRebase,
-    GenericExtraData,
-    WqReport,
-    RebaseReport,
-    BunkerMode,
-    FinalizationShareRate,
-    ValidatorsCount,
-    ValidatorsBalance,
+    BLOCKS_PER_YEAR,
     AccountingProcessingState,
+    BunkerMode,
+    GenericExtraData,
+    RebaseReport,
+    ReportData,
+    ReportResults,
+    ReportValues,
+    ValidatorsBalance,
+    ValidatorsCount,
+    VaultsMap,
+    VaultsReport,
+    WqReport,
 )
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import (
+    ConsensusModule,
+    InitialEpochIsYetToArriveRevert,
+)
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.types import (
+    BlockStamp,
+    FinalizationBatches,
+    Gwei,
+    NodeOperatorGlobalIndex,
+    ReferenceBlockStamp,
+    StakingModuleId,
+)
+from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
+TOTAL_BASIS_POINTS = 10_000
 
 class Accounting(BaseModule, ConsensusModule):
     """
@@ -57,8 +76,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
-    COMPATIBLE_CONTRACT_VERSION = 2
-    COMPATIBLE_CONSENSUS_VERSION = 4
+    COMPATIBLE_CONTRACT_VERSION = 3
+    COMPATIBLE_CONSENSUS_VERSION = 3
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -173,6 +192,8 @@ class Accounting(BaseModule, ConsensusModule):
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
 
+        vaults_part = self._handle_vaults_report(blockstamp)
+
         extra_data_part = self._calculate_extra_data_report(blockstamp)
         report_data = self._combine_report_parts(
             consensus_version,
@@ -180,6 +201,7 @@ class Accounting(BaseModule, ConsensusModule):
             rebase_part,
             modules_part,
             wq_part,
+            vaults_part,
             extra_data_part,
         )
         self._update_metrics(report_data)
@@ -221,10 +243,12 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+        logger.info(
+            {'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
+    def _get_finalization_batches(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -242,22 +266,22 @@ class Accounting(BaseModule, ConsensusModule):
             is_bunker,
             share_rate,
             simulation.withdrawals,
-            simulation.el_reward,
+            simulation.el_rewards,
         )
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return FinalizationShareRate(share_rate), batches
+        return batches
 
     @lru_cache(maxsize=1)
-    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportResults:
         """
         Simulate rebase excluding any execution rewards.
         This used to check worst scenarios in bunker service.
         """
         return self.simulate_rebase_after_report(blockstamp, el_rewards=Wei(0))
 
-    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportResults:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
@@ -265,29 +289,35 @@ class Accounting(BaseModule, ConsensusModule):
         self,
         blockstamp: ReferenceBlockStamp,
         el_rewards: Wei,
-    ) -> LidoReportRebase:
+    ) -> ReportResults:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
-
         chain_conf = self.get_chain_config(blockstamp)
 
-        return self.w3.lido_contracts.lido.handle_oracle_report(
-            # Lido contract has sanity check that timestamp is not in the future.
+        withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
+        withdrawal_finalization_batches: list[int] = []  # For initial calculation we assume no withdrawals
+
+        report = ReportValues(
+            # Accounting contract has sanity check that timestamp is not in the future.
             # That's why we get revert if timestamp in args > call block timestamp.
             # In normal case, we call handleOracleReport with timestamp == call block timestamp.
-            blockstamp.block_timestamp,  # _reportTimestamp
-            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
+            blockstamp.block_timestamp,  # timestamp
+            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # timeElapsed
             # CL values
-            validators_count,  # _clValidators
-            gwei_to_wei(cl_balance),  # _clBalance
+            validators_count,  # cl_validators
+            Web3.to_wei(cl_balance, 'gwei'),  # cl_balance
             # EL values
-            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            el_rewards,  # _elRewardsVaultBalance
-            self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
-            self.w3.lido_contracts.accounting_oracle.address,
-            blockstamp.ref_slot,
+            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # withdrawal_vault_balance
+            el_rewards,  # el_rewards_vault_balance
+            self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
+            withdrawal_finalization_batches,
+        )
+
+        return self.w3.lido_contracts.accounting.simulate_oracle_report(
+            report,
+            withdrawal_share_rate,
             blockstamp.block_hash,
         )
 
@@ -295,7 +325,7 @@ class Accounting(BaseModule, ConsensusModule):
         shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return shares_data.cover_shares + shares_data.non_cover_shares
 
-    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
+    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp) -> int:
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
@@ -347,13 +377,46 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
-        return validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn
+        return (
+            validators_count,
+            cl_balance,
+            withdrawal_vault_balance,
+            el_rewards_vault_balance,
+            shares_requested_to_burn,
+        )
 
-    # calculates is_bunker, finalization_share_rate, finalization_batches
+    # calculates is_bunker, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
         is_bunker = self._is_bunker(blockstamp)
-        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
-        return is_bunker, finalization_share_rate, finalization_batches
+        finalization_batches = self._get_finalization_batches(blockstamp)
+        return is_bunker, finalization_batches
+
+    # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
+    # uploads tree's root, vaults' proofs
+    def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
+        vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_number)
+        if len(vaults) == 0:
+            return bytes(0), ''
+
+        validators = self.w3.cc.get_validators(blockstamp)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        chain_config = self.get_chain_config(blockstamp)
+        vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
+        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values)
+        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(blockstamp, vaults, validators, chain_config)
+        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
+
+        merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
+        # proof_cid = self.w3.staking_vaults.publish_proofs(merkle_tree, blockstamp, vaults)
+        # logger.info({'msg': "Vault's proof ipfs", 'ipfs': str(proof_cid)})
+
+        prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
+        tree_cid = self.w3.staking_vaults.publish_tree(
+            merkle_tree, vaults, blockstamp, prev_report_cid, chain_config
+        )
+        logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
+
+        return merkle_tree.root, str(tree_cid)
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -377,11 +440,16 @@ class Accounting(BaseModule, ConsensusModule):
         report_rebase_part: RebaseReport,
         report_modules_part: tuple[list[StakingModuleId], list[int]],
         report_wq_part: WqReport,
-        extra_data: ExtraData
+        report_vaults_part: VaultsReport,
+        extra_data: ExtraData,
     ) -> ReportData:
-        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
+        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
+            report_rebase_part
+        )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
-        is_bunker, finalization_share_rate, finalization_batches = report_wq_part
+        is_bunker, finalization_batches = report_wq_part
+        tree_root, tree_cid = report_vaults_part
+
         return ReportData(
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,
@@ -393,9 +461,154 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
-            finalization_share_rate=finalization_share_rate,
             is_bunker=is_bunker,
+            tree_root=tree_root,
+            tree_cid=tree_cid,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+    @staticmethod
+    def _get_ether_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> float:
+        return (shares * pre_total_ether) / pre_total_shares
+
+    # pylint: disable=too-many-branches,too-many-statements
+    def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
+        prev_report = self.w3.staking_vaults.get_prev_report(blockstamp)
+        ## When we do not have a report - then we do not have starting point for calculation
+        if prev_report is None:
+            rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(blockstamp.block_number - 7200, blockstamp.block_number)
+            if rebased_event is None:
+                # This case for testnet when protocol is deployed but no events
+                # So it's impossible to take line for calculations
+                # we need submit empty report before
+                return []
+            prev_block_number = rebased_event.block_number
+        else:
+            prev_block_number = prev_report.block_number
+
+
+        simulation = self.simulate_full_rebase(blockstamp)
+        modules_fee, treasury_fee, base_precision  = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(blockstamp.block_hash)
+        lido_fee_bp = ((modules_fee + treasury_fee) / base_precision) * TOTAL_BASIS_POINTS
+
+        if lido_fee_bp >= 10_000:
+            raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= 10_000 bp")
+
+        chain_conf = self.get_chain_config(blockstamp)
+        slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
+        time_elapsed = slots_elapsed * chain_conf.seconds_per_slot
+
+        core_apr_ratio: float = 0.0
+        if lido_fee_bp != 0:
+            steth_apr_ratio = calculate_steth_apr(
+                simulation.pre_total_shares,
+                simulation.pre_total_pooled_ether,
+                simulation.post_total_shares,
+                simulation.post_total_pooled_ether,
+                time_elapsed,
+            )
+            core_apr_ratio = steth_apr_ratio * TOTAL_BASIS_POINTS / (TOTAL_BASIS_POINTS - lido_fee_bp)
+
+        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
+
+        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
+        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
+        burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
+
+        events = defaultdict(list)
+        prev_fee = defaultdict(int)
+
+        if prev_report is not None:
+            for vault in prev_report.values:
+                prev_fee[vault.vault_address] = vault.fee
+
+        for event in fees_updated_events:
+            events[event.vault].append(event)
+
+        for event in minted_events:
+            events[event.vault].append(event)
+
+        for event in burn_events:
+            events[event.vault].append(event)
+
+        # Sort list of events by block_number in descending order
+        for vault_address in events:
+            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
+
+        out = [0] * len(vaults)
+        for vault_address, vault_info in vaults.items():
+            liability_shares = vault_info.liability_shares
+            current_block = int(blockstamp.block_number)
+            blocks_elapsed = current_block - prev_block_number
+
+            vault_liquidity_fee: float = 0
+            liquidity_fee = vault_info.liquidity_feeBP
+
+            # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
+            vault_infrastructure_fee = (
+                vaults_total_values[vault_info.id()]
+                * blocks_elapsed
+                * core_apr_ratio
+                * vault_info.infra_feeBP / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            )
+
+            # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
+            vault_reservation_liquidity_fee = (
+                vault_info.mintable_capacity_StETH
+                * blocks_elapsed
+                * core_apr_ratio
+                * vault_info.reservation_feeBP / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            )
+
+            # Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
+            # NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
+            #     fee change events.
+
+            # In case of no events, we just use `liability_shares` to calculate minted stETH.
+            if vault_address not in events:
+                # TODO: DRY with the next block
+                minted_steth = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
+                vault_liquidity_fee = (
+                    minted_steth
+                    * blocks_elapsed
+                    * core_apr_ratio
+                    * liquidity_fee / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                )
+
+            # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
+            # on the `liability_shares` and the elapsed blocks between events.
+            for event in events[vault_address]:
+                blocks_elapsed_between_events = current_block - event.block_number
+                minted_steth_on_event = self._get_ether_by_shares(liability_shares, simulation.pre_total_pooled_ether, simulation.pre_total_shares)
+                vault_liquidity_fee += (
+                    minted_steth_on_event
+                    * blocks_elapsed_between_events
+                    * core_apr_ratio
+                    * liquidity_fee / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+                )
+
+                if isinstance(event, VaultFeesUpdatedEvent):
+                    liquidity_fee = event.prev_liquidity_fee_bp
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, BurnedSharesOnVaultEvent):
+                    liability_shares += event.amount_of_shares
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, MintedSharesOnVaultEvent):
+                    liability_shares -= event.amount_of_shares
+                    current_block = event.block_number
+
+            if vaults_on_prev_report.get(vault_address) is not None:
+                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
+                    raise ValueError(f"Wrong liability shares by vault {vault_address}")
+            else:
+                if liability_shares != 0:
+                    raise ValueError(f"Wrong liability shares by vault {vault_address}")
+
+            vault_total_fees_for_period = vault_infrastructure_fee + vault_reservation_liquidity_fee + vault_liquidity_fee
+            out[vault_info.id()] = int(prev_fee[vault_address]) + int(vault_total_fees_for_period)
+
+        return out

@@ -10,6 +10,7 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.modules.accounting.accounting import Accounting
+from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
@@ -88,6 +89,14 @@ def main(module_name: OracleModule):
         'kac': lambda: kac,  # type: ignore[dict-item]
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
+
+    web3.staking_vaults = StakingVaults(
+        web3, cc, ipfs,
+        web3.lido_contracts.lido,
+        web3.lido_contracts.vault_hub,
+        web3.lido_contracts.lazy_oracle,
+        web3.lido_contracts.oracle_daemon_config,
+    )
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
