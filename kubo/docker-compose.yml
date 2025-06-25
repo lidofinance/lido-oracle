@@ -1,0 +1,17 @@
+---
+services:
+  ipfs:
+    build: .
+    container_name: lido-oracle-kubo
+    restart: unless-stopped
+    volumes:
+      - ipfs_data:/data/ipfs
+    command:
+      - daemon
+      - --migrate=true
+      - --agent-version-suffix=docker
+    environment:
+      CHAIN: artifact
+
+volumes:
+  ipfs_data:

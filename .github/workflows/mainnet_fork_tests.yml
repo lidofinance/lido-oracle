@@ -21,9 +21,42 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
-
+    env:
+      FORGE_REV: v0.3.0
     steps:
       - uses: actions/checkout@v3
+
+      # TODO: Remove after upgrade to CSM v2 on Mainnet.
+      - name: Checkout CSM repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'lidofinance/community-staking-module'
+          ref: 'develop'
+          path: 'testruns/community-staking-module'
+          persist-credentials: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_REV }}
+
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: "testruns/community-staking-module/.nvmrc"
+          cache: 'yarn'
+          cache-dependency-path: "testruns/community-staking-module/yarn.lock"
+
+      - name: Install Just
+        run: cargo install "just@1.24.0"
+
+      - name: Install dependencies
+        working-directory: testruns/community-staking-module
+        run: just deps
+
+      - name: Build contracts
+        working-directory: testruns/community-staking-module
+        run: just build
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
@@ -41,9 +74,6 @@ jobs:
       - name: Install Python dependencies
         run: |
           poetry install --no-interaction --with=dev
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Mainnet Fork Tests
         run: poetry run pytest -m 'fork' -n auto tests

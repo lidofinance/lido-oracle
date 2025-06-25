@@ -8,6 +8,13 @@ from web3.types import Wei
 
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
+from src.metrics.prometheus.accounting import (
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_CL_BALANCE_GWEI,
+    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+)
+from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
@@ -22,26 +29,19 @@ from src.modules.accounting.types import (
     ValidatorsBalance,
     AccountingProcessingState,
 )
-from src.metrics.prometheus.accounting import (
-    ACCOUNTING_IS_BUNKER,
-    ACCOUNTING_CL_BALANCE_GWEI,
-    ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
-)
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.types import ZERO_HASH
-from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.services.validator_state import LidoValidatorStateService
 from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
-from src.services.withdrawal import Withdrawal
+from src.modules.submodules.types import ZERO_HASH
+from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
+from src.services.validator_state import LidoValidatorStateService
+from src.services.withdrawal import Withdrawal
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
-from src.web3py.types import Web3
 from src.web3py.extensions.lido_validators import StakingModule
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,8 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
-    COMPATIBLE_ONCHAIN_VERSIONS = [(2, 2), (2, 3)]
+    COMPATIBLE_CONTRACT_VERSION = 3
+    COMPATIBLE_CONSENSUS_VERSION = 4
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -72,7 +73,7 @@ class Accounting(BaseModule, ConsensusModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
-        if not report_blockstamp:
+        if not report_blockstamp or not self._check_compatability(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
@@ -173,7 +174,14 @@ class Accounting(BaseModule, ConsensusModule):
         wq_part = self._calculate_wq_report(blockstamp)
 
         extra_data_part = self._calculate_extra_data_report(blockstamp)
-        report_data = self._combine_report_parts(consensus_version, blockstamp, rebase_part, modules_part, wq_part, extra_data_part)
+        report_data = self._combine_report_parts(
+            consensus_version,
+            blockstamp,
+            rebase_part,
+            modules_part,
+            wq_part,
+            extra_data_part,
+        )
         self._update_metrics(report_data)
         return report_data
 
@@ -209,24 +217,11 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _get_consensus_lido_state(self, blockstamp: ReferenceBlockStamp) -> tuple[ValidatorsCount, ValidatorsBalance]:
-
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
-
-        if self.get_consensus_version(blockstamp) > 2:
-            if self.w3.cc.is_electra_activated(blockstamp.ref_epoch):
-                state = self.w3.cc.get_state_view(blockstamp)
-                total_lido_eth1_bridge_deposits_amount = self.w3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
-                    lido_validators,
-                    state.pending_deposits,
-                )
-                logger.info({'msg': 'Calculate Lido eth1 bridge deposits (in Gwei)', 'value': total_lido_eth1_bridge_deposits_amount})
-                total_lido_balance += total_lido_eth1_bridge_deposits_amount
-                logger.info({'msg': 'Calculate total Lido balance on CL (in Gwei)', 'value': total_lido_balance})
-
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
@@ -331,10 +326,9 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl = self._get_generic_extra_data(blockstamp)
 
         return ExtraDataService.collect(
-            stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
@@ -342,13 +336,10 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def _get_generic_extra_data(self, blockstamp: ReferenceBlockStamp) -> GenericExtraData:
-        chain_config = self.get_chain_config(blockstamp)
-        stuck_validators = self.lido_validator_state_service.get_lido_newly_stuck_validators(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate stuck validators.', 'value': stuck_validators})
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
-        return stuck_validators, exited_validators, orl
+        return exited_validators, orl
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
@@ -365,9 +356,8 @@ class Accounting(BaseModule, ConsensusModule):
         return is_bunker, finalization_share_rate, finalization_batches
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        stuck_validators, exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl = self._get_generic_extra_data(blockstamp)
         return ExtraDataService.collect(
-            stuck_validators,
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,

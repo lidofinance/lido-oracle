@@ -1,12 +1,10 @@
 from typing import Any, Iterable
 
-from src.providers.consensus.types import BeaconStateView, Validator
-from tests.factory.web3_factory import Web3Factory
+from src.providers.consensus.types import Validator, BeaconStateView, BlockHeaderFullResponse
+from tests.factory.web3_factory import Web3DataclassFactory
 
 
-class BeaconStateViewFactory(Web3Factory):
-    __model__ = BeaconStateView
-
+class BeaconStateViewFactory(Web3DataclassFactory[BeaconStateView]):
     @classmethod
     def build_with_validators(cls, validators: Iterable[Validator], **kwargs: Any):
         return cls.build(
@@ -14,3 +12,13 @@ class BeaconStateViewFactory(Web3Factory):
             balances=[v.balance for v in validators],
             **kwargs,
         )
+
+
+class BlockHeaderFullResponseFactory(Web3DataclassFactory[BlockHeaderFullResponse]):
+    finalized: bool = True
+
+    @classmethod
+    def build(cls, **kwargs) -> BlockHeaderFullResponse:
+        instance = super().build(**kwargs)
+        instance.data.canonical = True
+        return instance

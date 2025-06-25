@@ -1,8 +1,6 @@
 import math
 from typing import Iterable
 
-from eth_typing import HexStr
-
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -176,7 +174,7 @@ class SafeBorder(Web3Converter):
         """
         Returns the earliest slashed epoch for the given validators rounded to the frame
         """
-        last_finalized_request_id_epoch = self.get_epoch_by_slot(self._get_last_finalized_withdrawal_request_slot())
+        last_finalized_request_id_epoch = self._get_last_finalized_withdrawal_request_epoch()
         earliest_activation_epoch = min((v.validator.activation_epoch for v in validators))
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
@@ -230,22 +228,18 @@ class SafeBorder(Web3Converter):
 
         return start_timestamp
 
-    def _get_last_finalized_withdrawal_request_slot(self) -> SlotNumber:
+    def _get_last_finalized_withdrawal_request_epoch(self) -> EpochNumber:
         last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
         if last_finalized_request_id == 0:
             # request with id: 0 is reserved by protocol. No requests were finalized.
-            return SlotNumber(0)
+            return EpochNumber(0)
 
         last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(last_finalized_request_id)
 
-        return self.get_epoch_first_slot(self.get_epoch_by_timestamp(last_finalized_request_data.timestamp))
+        return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
         return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
-
-    def round_slot_by_frame(self, slot: SlotNumber) -> SlotNumber:
-        rounded_epoch = self.round_epoch_by_frame(self.get_epoch_by_slot(slot))
-        return self.get_epoch_first_slot(rounded_epoch)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
@@ -259,11 +253,3 @@ def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator
 def filter_non_withdrawable_validators(slashed_validators: Iterable[Validator], epoch: EpochNumber) -> list[Validator]:
     # This filter works only with slashed_validators
     return [v for v in slashed_validators if v.validator.withdrawable_epoch > epoch]
-
-
-def filter_validators_by_exit_epoch(validators: Iterable[Validator], exit_epoch: EpochNumber) -> list[Validator]:
-    return [v for v in validators if v.validator.exit_epoch == exit_epoch]
-
-
-def get_validators_pubkeys(validators: Iterable[Validator]) -> list[HexStr]:
-    return [HexStr(v.validator.pubkey) for v in validators]

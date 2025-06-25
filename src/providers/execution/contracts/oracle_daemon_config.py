@@ -42,10 +42,6 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('REBASE_CHECK_DISTANT_EPOCH_DISTANCE', block_identifier)
 
     @lru_cache(maxsize=1)
-    def node_operator_network_penetration_threshold_bp(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('NODE_OPERATOR_NETWORK_PENETRATION_THRESHOLD_BP', block_identifier)
-
-    @lru_cache(maxsize=1)
     def prediction_duration_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
         return self._get('PREDICTION_DURATION_IN_SLOTS', block_identifier)
 
@@ -54,9 +50,5 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
-    def validator_delayed_timeout_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('VALIDATOR_DELAYED_TIMEOUT_IN_SLOTS', block_identifier)
-
-    @lru_cache(maxsize=1)
-    def validator_delinquent_timeout_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
-        return self._get('VALIDATOR_DELINQUENT_TIMEOUT_IN_SLOTS', block_identifier)
+    def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS', block_identifier)

@@ -34,7 +34,7 @@ class MultiIPFSProvider(IPFSProvider):
         def wrapped(self: "MultiIPFSProvider", *args, **kwargs):
             try:
                 result = fn(self, *args, **kwargs)
-            except IPFSError:
+            except Exception:  # pylint: disable=broad-exception-caught
                 self.current_provider_index = (self.current_provider_index + 1) % len(self.providers)
                 if self.last_working_provider_index == self.current_provider_index:
                     logger.error({"msg": "No more IPFS providers left to call"})
