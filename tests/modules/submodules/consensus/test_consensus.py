@@ -267,16 +267,16 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
 @pytest.mark.parametrize(
     'contract_version,consensus_version,expected',
     [
-        pytest.param(3, 2, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
         pytest.param(3, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        pytest.param(2, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        (2, 2, True),
+        pytest.param(4, 4, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(2, 2, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        (3, 2, True),
     ],
 )
 def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version, expected):
     bs = ReferenceBlockStampFactory.build()
 
-    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 2
+    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 3
     consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
 
     check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2

@@ -5,7 +5,7 @@ from src.types import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):
-    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONTRACT_VERSION = 3
     COMPATIBLE_CONSENSUS_VERSION = 2
 
     def __init__(self, w3):
