@@ -38,9 +38,9 @@ EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI')
 CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI')
 
 
-# @pytest.mark.skip(reason="Skipping all tests in this class on CI. Cause it's used for local testing")
-@pytest.mark.testnet
-@pytest.mark.integration
+@pytest.mark.skip(reason="Skipping all tests in this class on CI. Cause it's used for local testing")
+# @pytest.mark.testnet
+# @pytest.mark.integration
 class TestStakingVaultsSmoke:
     cc: ConsensusClientModule
     ipfs_client: MultiIPFSProvider
