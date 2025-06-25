@@ -37,6 +37,7 @@ from src.web3py.types import Web3
 EXECUTION_CLIENT_URI = os.getenv('EXECUTION_CLIENT_URI')
 CONSENSUS_CLIENT_URI = os.getenv('CONSENSUS_CLIENT_URI')
 
+
 @pytest.mark.skip(reason="Skipping all tests in this class on CI. Cause it's used for local testing")
 # @pytest.mark.testnet
 # @pytest.mark.integration
