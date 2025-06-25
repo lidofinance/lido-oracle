@@ -574,6 +574,36 @@ class TestStakingVaults:
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 
         actual_fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
-        expected_fees = [649692079630538]
+        expected_fees = [649692079630537]
 
         assert actual_fees == expected_fees
+
+    @pytest.mark.parametrize(
+        "vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP, expected_wei",
+        [
+            (3200 * 10 ** 18, 7_200, 0.03, 30, 789041095890411),
+            (3200 * 10 ** 18, 7_200 * 364, 0.03, 30, 2.8721095890410957e+17),
+        ]
+    )
+    # TODO according reference excel table = infra_feeBP = 0.003, in BP 0.003 * 10_000 = 30, but in testNet vault.infra_feeBP == 500
+    def test_infra_fee(self, vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP, expected_wei):
+        result = Accounting.calc_fee(vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP)
+        wei = 10 ** 18
+        result_eth = result / wei
+        expected_eth = expected_wei / wei
+
+        assert result_eth == expected_eth
+
+    @pytest.mark.parametrize(
+        "mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP, expected_wei",
+        [
+            (3200 * 10 ** 18, 7_200, 0.03, 30, 789041095890411),
+        ]
+    )
+    # TODO reservation_feeBP does not have references values from excel table
+    def test_reservation_liquidity_fee(self, mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP, expected_wei):
+        result = Accounting.calc_fee(mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP)
+        wei = 10 ** 18
+        assert result / wei == expected_wei / wei
+
+
