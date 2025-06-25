@@ -41,8 +41,8 @@ EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 10_000))
 assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
 
 # Transactions fee calculation variables
-MIN_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
-MAX_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 100_000_000_000))
+MIN_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 10_000_000))
+MAX_PRIORITY_FEE: Final = int(os.getenv('MAX_PRIORITY_FEE', 10_000_000_000))
 PRIORITY_FEE_PERCENTILE: Final = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 DAEMON: Final = os.getenv('DAEMON', 'True').lower() == 'true'
