@@ -104,7 +104,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0x9a58b0cea009f6f245854289c925a5d0e438f97d9a8a8423993c2e6fa04ba67f')
+    assert report_hash == HexBytes('0x67121dd95e262d76aee8747047ae886205e0316661bb7eed9ba407a6b0e61f7f')
 
 
 # ------ Process report hash -----------
