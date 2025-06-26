@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from time import sleep
 
-from eth_typing import HexStr
+from eth_typing import HexStr, BlockNumber
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
@@ -490,7 +490,7 @@ class Accounting(BaseModule, ConsensusModule):
         if prev_ipfs_report_cid != "":
             prev_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
             prev_block_number = prev_report.block_number
-            prev_block_hash = prev_report.block_hash
+            # prev_block_hash = prev_report.block_hash
         else:
             ## When we do not have a report - then we do not have starting point for calculation
             rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
@@ -504,7 +504,7 @@ class Accounting(BaseModule, ConsensusModule):
                 return []
             prev_report = None
             prev_block_number = rebased_event.block_number
-            prev_block_hash = rebased_event.block_hash
+            # prev_block_hash = rebased_event.block_hash
 
         simulation = self.simulate_full_rebase(blockstamp)
         modules_fee, treasury_fee, base_precision = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
@@ -529,7 +529,7 @@ class Accounting(BaseModule, ConsensusModule):
             )
             core_apr_ratio = steth_apr_ratio * TOTAL_BASIS_POINTS / (TOTAL_BASIS_POINTS - lido_fee_bp)
 
-        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockHash(HexStr(prev_block_hash)))
+        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockNumber(prev_block_number))
 
         prev_fee = defaultdict(int)
         if prev_report is not None:

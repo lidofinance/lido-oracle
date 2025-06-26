@@ -443,7 +443,7 @@ class StakingVaults(Module):
             tree_indices=tree_indices,
             merkle_tree_root=data["merkleTreeRoot"],
             ref_slot=data["refSlot"],
-            block_hash=data["blckHash"],
+            #block_hash=data["blockHash"],
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
@@ -467,7 +467,7 @@ class StakingVaults(Module):
             pre_total_pooled_ether: Wei,
             pre_total_shares: Shares,
             core_apr_ratio: float,
-    ) -> [float, Shares]:
+    ) -> tuple[float, Shares]:
         """
              Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
              NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and

@@ -289,7 +289,7 @@ class MerkleTreeData:
     merkle_tree_root: str
     ref_slot: int
     block_number: int
-    block_hash: str
+    #block_hash: str
     timestamp: int
     prev_tree_cid: str
     extra_values: dict[str, ExtraValue]
