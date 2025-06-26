@@ -97,9 +97,11 @@ class BurnedSharesOnVaultEvent:
 @dataclass
 class VaultFeesUpdatedEvent:
     vault: str
+    pre_infra_fee_bp: int
     infra_fee_bp: int
-    prev_liquidity_fee_bp: int
+    pre_liquidity_fee_bp: int
     liquidity_fee_bp: int
+    pre_reservation_fee_bp: int
     reservation_fee_bp: int
     event: str
     log_index: int
@@ -114,9 +116,11 @@ class VaultFeesUpdatedEvent:
         args = log["args"]
         return cls(
             vault=args["vault"],
+            pre_infra_fee_bp=args["preInfraFeeBP"],
             infra_fee_bp=args["infraFeeBP"],
-            prev_liquidity_fee_bp=args["preLiquidityFeeBP"],
+            pre_liquidity_fee_bp=args["preLiquidityFeeBP"],
             liquidity_fee_bp=args["liquidityFeeBP"],
+            pre_reservation_fee_bp=args["preReservationFeeBP"],
             reservation_fee_bp=args["reservationFeeBP"],
             event=log["event"],
             log_index=log["logIndex"],

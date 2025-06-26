@@ -401,7 +401,7 @@ class TestStakingVaults:
     @pytest.mark.unit
     def test_fees(self):
         vault1 = "0xVault1"
-        prev_block_number = 100_000
+        prev_block_number = 0
         cur_block_number = MagicMock()
         block_elapsed = 7_200
         cur_block_number.block_number = prev_block_number + block_elapsed
@@ -523,9 +523,11 @@ class TestStakingVaults:
 
         fee_updated_event = VaultFeesUpdatedEvent(
             vault=address,
+            pre_infra_fee_bp=40,
             infra_fee_bp=50,
-            prev_liquidity_fee_bp=20,
+            pre_liquidity_fee_bp=20,
             liquidity_fee_bp=20 + 5,
+            pre_reservation_fee_bp=5,
             reservation_fee_bp=10,
             event="VaultFeesUpdated",
             log_index=1,
@@ -533,7 +535,7 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'a' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'b' * 64}"),
-            block_number=prev_block_number,
+            block_number=3600,
         )
 
         vaults_fee_updated_events.append(fee_updated_event)
@@ -547,7 +549,7 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'c' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'d' * 64}"),
-            block_number=prev_block_number + 1,
+            block_number=cur_block_number.block_number - 100,
         )
 
         burned_shares_events.append(burned_event)
@@ -562,7 +564,7 @@ class TestStakingVaults:
             transaction_hash=HexBytes(f"0x{'e' * 64}"),
             address=address,
             block_hash=HexBytes(f"0x{'f' * 64}"),
-            block_number=prev_block_number + 2,
+            block_number=cur_block_number.block_number - 200,
         )
 
         minted_shares_events.append(minted_event)
@@ -574,7 +576,7 @@ class TestStakingVaults:
         mock_w3.lido_contracts.vault_hub.get_burned_events = MagicMock(return_value=burned_shares_events)
 
         actual_fees = self.accounting._get_vaults_fees(cur_block_number, vaults, vaults_total_values)
-        expected_fees = [649692079630537]
+        expected_fees = [514358657324699]
 
         assert actual_fees == expected_fees
 
@@ -587,7 +589,7 @@ class TestStakingVaults:
     )
     # TODO according reference excel table = infra_feeBP = 0.003, in BP 0.003 * 10_000 = 30, but in testNet vault.infra_feeBP == 500
     def test_infra_fee(self, vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP, expected_wei):
-        result = Accounting.calc_fee(vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP)
+        result = Accounting.calc_fee_value(vault_total_value, block_elapsed, core_apr_ratio, infra_feeBP)
         wei = 10 ** 18
         result_eth = result / wei
         expected_eth = expected_wei / wei
@@ -602,9 +604,10 @@ class TestStakingVaults:
     )
     # TODO reservation_feeBP does not have references values from excel table
     def test_reservation_liquidity_fee(self, mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP, expected_wei):
-        result = Accounting.calc_fee(mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP)
+        result = Accounting.calc_fee_value(mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP)
         wei = 10 ** 18
         assert result / wei == expected_wei / wei
+
     test_data = [
         #    (
         #        "0xVault1",                          # vault_address
@@ -635,15 +638,41 @@ class TestStakingVaults:
                         address=MagicMock(),
                         transaction_hash=MagicMock(),
                         block_hash=MagicMock(),
+                    ),
+                    BurnedSharesOnVaultEvent(
+                        block_number=3700,
+                        amount_of_shares=50000000,
+                        vault="0xVault1",
+                        event=MagicMock(),
+                        log_index=MagicMock(),
+                        transaction_index=MagicMock(),
+                        address=MagicMock(),
+                        transaction_hash=MagicMock(),
+                        block_hash=MagicMock(),
+                    ),
+                    VaultFeesUpdatedEvent(
+                        block_number=3200,
+                        pre_infra_fee_bp=MagicMock(),
+                        pre_liquidity_fee_bp=10, # 0.001
+                        infra_fee_bp=MagicMock(), # Seems to bug in common code...
+                        pre_reservation_fee_bp=MagicMock(),
+                        reservation_fee_bp=MagicMock(), # Seems to bug in common code...
+                        liquidity_fee_bp=15,
+                        vault="0xVault1",
+                        event=MagicMock(),
+                        log_index=MagicMock(),
+                        transaction_index=MagicMock(),
+                        address=MagicMock(),
+                        transaction_hash=MagicMock(),
+                        block_hash=MagicMock(),
                     )
-                ]
-            },  # No events
+                ]},  # No events
             0,  # prev_block_number
             7_200,  # current_block
             Wei(9165134090291140983725643),  # pre_total_pooled_ether (Wei)
             7598409496266444487755575,  # pre_total_shares (Shares)
             0.03,  # core_apr_ratio (3%)
-            (8177805.60651461, 10000000000000)  # expected result: (fee, shares)
+            (7957499.44487144, 10000050000000)  # expected result: (fee, shares)
         )
     ]
     @pytest.mark.parametrize(
