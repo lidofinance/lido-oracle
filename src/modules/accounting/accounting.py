@@ -543,20 +543,20 @@ class Accounting(BaseModule, ConsensusModule):
         blocks_elapsed = current_block - prev_block_number
         for vault_address, vault_info in vaults.items():
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
-            vault_infrastructure_fee = int(self.calc_fee_value(
+            vault_infrastructure_fee = self.calc_fee_value(
                 Decimal(vaults_total_values[vault_info.id()]),
                 blocks_elapsed,
                 core_apr_ratio,
                 vault_info.infra_feeBP
-            ).to_integral_value(ROUND_UP))
+            )
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee = int(self.calc_fee_value(
+            vault_reservation_liquidity_fee = self.calc_fee_value(
                 Decimal(vault_info.mintable_capacity_StETH),
                 blocks_elapsed,
                 core_apr_ratio,
                 vault_info.reservation_feeBP
-            ).to_integral_value(ROUND_UP))
+            )
 
             vault_liquidity_fee, liability_shares = self.calc_liquidity_fee(
                 vault_address,
@@ -577,7 +577,12 @@ class Accounting(BaseModule, ConsensusModule):
                 if liability_shares != 0:
                     raise ValueError(f"Wrong liability shares by vault {vault_address}")
 
-            out[vault_info.id()] = prev_fee[vault_address] + vault_infrastructure_fee + vault_reservation_liquidity_fee + vault_liquidity_fee
+            out[vault_info.id()] = (
+                prev_fee[vault_address] +
+                int(vault_infrastructure_fee.to_integral_value(ROUND_UP)) +
+                int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)) +
+                int(vault_liquidity_fee.to_integral_value(ROUND_UP))
+            )
 
         return out
 
@@ -596,7 +601,7 @@ class Accounting(BaseModule, ConsensusModule):
             pre_total_pooled_ether: Wei,
             pre_total_shares: Shares,
             core_apr_ratio: Decimal,
-    ) -> tuple[int, Shares]:
+    ) -> tuple[Decimal, Shares]:
         """
              Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
              NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
@@ -641,4 +646,4 @@ class Accounting(BaseModule, ConsensusModule):
             vault_liquidity_fee += Accounting.calc_fee_value(minted_steth, blocks_elapsed_between_events,
                                                              core_apr_ratio, liquidity_fee)
 
-        return int(vault_liquidity_fee.to_integral_value(ROUND_UP)), liability_shares
+        return vault_liquidity_fee, liability_shares

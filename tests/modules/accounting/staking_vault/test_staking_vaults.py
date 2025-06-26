@@ -596,22 +596,24 @@ class TestStakingVaults:
         assert expected_wei == result
 
     test_data = [
-        #    (
-        #        "0xVault1",                          # vault_address
-        #        99984377441024,                      # liability_shares, took from testNet
-        #        15,                                  # excel 0.015 * 10_000 = 15 liquidity_fee_bp (1%)
-        #        {},                                  # No events
-        #        0,                                   # prev_block_number
-        #        7_200,                               # current_block
-        #        Wei(9165134090291140983725643),      # pre_total_pooled_ether (Wei)
-        #        7598409496266444487755575,           # pre_total_shares (Shares)
-        #        0.03,                                # core_apr_ratio (3%)
-        #        (14868526.265733005, 99984377441024) # expected result: (fee, shares)
-        #    ),
+        # Example from the excel table
         (
-            "0xVault1",  # vault_address
+            "0x01",  # vault_address
+            2880 * 10**18,  # liability_shares
+            650,  # 6.5% liquidity_fee_bp (6.5% * 10_000 = 650)
+            {},  # No events
+            0,  # prev_block_number
+            7_200,  # current_block
+            # assuming share rate is 1:1 for simplicity
+            Wei(7598409496266444487755575),  # pre_total_pooled_ether (Wei)
+            7598409496266444487755575,  # pre_total_shares (Shares)
+            0.03,  # core_apr_ratio (3%)
+            (Decimal('15386301369863013.12922260217000000000000000000'), 2880000000000000000000),
+        ),
+        (
+            "0x02",  # vault_address
             99984377441024,  # liability_shares, took from testNet
-            15,  # excel 0.015 * 10_000 = 15 liquidity_fee_bp (1%)
+            650,  # 6.5% liquidity_fee_bp (6.5% * 10_000 = 650)
             {
                 "0xVault1": [
                     MintedSharesOnVaultEvent(
@@ -654,14 +656,15 @@ class TestStakingVaults:
                         block_hash=MagicMock(),
                     ),
                 ]
-            },  # No events
+            },
             0,  # prev_block_number
             7_200,  # current_block
-            Wei(9165134090291140983725643),  # pre_total_pooled_ether (Wei)
+            # assuming share rate is 1:1 for simplicity
+            Wei(7598409496266444487755575),  # pre_total_pooled_ether (Wei)
             7598409496266444487755575,  # pre_total_shares (Shares)
             0.03,  # core_apr_ratio (3%)
-            (7957500, 10000050000000),  # expected result: (fee, shares)
-        )
+            (Decimal('534163112.35615559667034995620000000000'), 99984377441024),  # expected result: (fee, shares)
+        ),
     ]
 
     @pytest.mark.parametrize(
