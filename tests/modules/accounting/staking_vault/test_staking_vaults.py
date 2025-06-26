@@ -21,7 +21,7 @@ from src.modules.accounting.types import (
     StakingRewardsDistribution,
     VaultInfo,
     VaultProof,
-    VaultsMap,
+    VaultsMap, Shares,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.ipfs import MultiIPFSProvider
@@ -605,5 +605,69 @@ class TestStakingVaults:
         result = Accounting.calc_fee(mintable_capacity_StETH, block_elapsed, core_apr_ratio, reservation_feeBP)
         wei = 10 ** 18
         assert result / wei == expected_wei / wei
+    test_data = [
+        #    (
+        #        "0xVault1",                          # vault_address
+        #        99984377441024,                      # liability_shares, took from testNet
+        #        15,                                  # excel 0.015 * 10_000 = 15 liquidity_fee_bp (1%)
+        #        {},                                  # No events
+        #        0,                                   # prev_block_number
+        #        7_200,                               # current_block
+        #        Wei(9165134090291140983725643),      # pre_total_pooled_ether (Wei)
+        #        7598409496266444487755575,           # pre_total_shares (Shares)
+        #        0.03,                                # core_apr_ratio (3%)
+        #        (14868526.265733005, 99984377441024) # expected result: (fee, shares)
+        #    ),
+        (
+            "0xVault1",  # vault_address
+            99984377441024,  # liability_shares, took from testNet
+            15,  # excel 0.015 * 10_000 = 15 liquidity_fee_bp (1%)
+            {
+                "0xVault1": [
+                    MintedSharesOnVaultEvent(
+                        block_number=3600,
+                        amount_of_shares=89984377441024,
+                        vault="0xVault1",
+                        locked_amount=0,
+                        event=MagicMock(),
+                        log_index=MagicMock(),
+                        transaction_index=MagicMock(),
+                        address=MagicMock(),
+                        transaction_hash=MagicMock(),
+                        block_hash=MagicMock(),
+                    )
+                ]
+            },  # No events
+            0,  # prev_block_number
+            7_200,  # current_block
+            Wei(9165134090291140983725643),  # pre_total_pooled_ether (Wei)
+            7598409496266444487755575,  # pre_total_shares (Shares)
+            0.03,  # core_apr_ratio (3%)
+            (8177805.60651461, 10000000000000)  # expected result: (fee, shares)
+        )
+    ]
+    @pytest.mark.parametrize(
+        "vault_address, liability_shares, liquidity_fee_bp, events, prev_block_number, current_block, pre_total_pooled_ether, pre_total_shares, core_apr_ratio, expected",
+        test_data
+    )
+    def test_calc_liquidity_fee(self,
+            vault_address, liability_shares, liquidity_fee_bp,
+            events, prev_block_number, current_block,
+            pre_total_pooled_ether, pre_total_shares,
+            core_apr_ratio, expected
+    ):
+        result = Accounting.calc_liquidity_fee(
+            vault_address,
+            liability_shares,
+            liquidity_fee_bp,
+            events,
+            prev_block_number,
+            current_block,
+            pre_total_pooled_ether,
+            pre_total_shares,
+            core_apr_ratio
+        )
+
+        assert result == expected
 
 

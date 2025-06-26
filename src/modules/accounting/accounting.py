@@ -606,26 +606,32 @@ class Accounting(BaseModule, ConsensusModule):
             # TODO: DRY with the next block
             minted_steth = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
             vault_liquidity_fee = Accounting.calc_fee(minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee)
-
+        elif len(events[vault_address]) > 0:
             # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
             # on the `liability_shares` and the elapsed blocks between events.
-        for event in events[vault_address]:
-            blocks_elapsed_between_events = current_block - event.block_number
-            minted_steth_on_event = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether,
-                                                                    pre_total_shares)
-            vault_liquidity_fee += Accounting.calc_fee(minted_steth_on_event, blocks_elapsed_between_events,
-                                                       core_apr_ratio, liquidity_fee)
+            for event in events[vault_address]:
+                blocks_elapsed_between_events = current_block - event.block_number
+                minted_steth_on_event = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether,
+                                                                        pre_total_shares)
+                vault_liquidity_fee += Accounting.calc_fee(minted_steth_on_event, blocks_elapsed_between_events,
+                                                           core_apr_ratio, liquidity_fee)
 
-            if isinstance(event, VaultFeesUpdatedEvent):
-                liquidity_fee = event.prev_liquidity_fee_bp
-                current_block = event.block_number
-                continue
-            if isinstance(event, BurnedSharesOnVaultEvent):
-                liability_shares += event.amount_of_shares
-                current_block = event.block_number
-                continue
-            if isinstance(event, MintedSharesOnVaultEvent):
-                liability_shares -= event.amount_of_shares
-                current_block = event.block_number
+                if isinstance(event, VaultFeesUpdatedEvent):
+                    liquidity_fee = event.prev_liquidity_fee_bp
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, BurnedSharesOnVaultEvent):
+                    liability_shares += event.amount_of_shares
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, MintedSharesOnVaultEvent):
+                    liability_shares -= event.amount_of_shares
+                    current_block = event.block_number
+
+        blocks_elapsed_between_events = current_block - prev_block_number
+        minted_steth_on_event = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether,
+                                                                pre_total_shares)
+        vault_liquidity_fee += Accounting.calc_fee(minted_steth_on_event, blocks_elapsed_between_events,
+                                                   core_apr_ratio, liquidity_fee)
 
         return vault_liquidity_fee, liability_shares
