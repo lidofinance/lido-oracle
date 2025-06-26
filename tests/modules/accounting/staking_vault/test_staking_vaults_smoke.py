@@ -9,7 +9,6 @@ from src import variables
 from src.main import ipfs_providers
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.staking_vaults import StakingVaults
-from src.modules.submodules.types import ChainConfig
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
@@ -72,7 +71,6 @@ class TestStakingVaultsSmoke:
             self.web3.lido_contracts.lido,
             self.web3.lido_contracts.vault_hub,
             self.web3.lido_contracts.lazy_oracle,
-            self.web3.lido_contracts.oracle_daemon_config,
         )
         init_metrics()
         self.accounting = Accounting(self.web3)

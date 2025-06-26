@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from hexbytes import HexBytes
 
+from src.utils.types import bytes_to_hex_str
+
+
 @dataclass
 class TokenRebasedEvent:
     report_timestamp: int
@@ -15,7 +18,7 @@ class TokenRebasedEvent:
     transaction_index: int
     transaction_hash: HexBytes
     address: str
-    block_hash: HexBytes
+    block_hash: str
     block_number: int
 
     @classmethod
@@ -34,7 +37,7 @@ class TokenRebasedEvent:
             transaction_index=log["transactionIndex"],
             transaction_hash=log["transactionHash"],
             address=log["address"],
-            block_hash=log["blockHash"],
+            block_hash=bytes_to_hex_str(log["blockHash"]),
             block_number=log["blockNumber"],
         )
 

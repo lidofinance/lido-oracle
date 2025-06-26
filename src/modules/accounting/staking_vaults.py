@@ -2,14 +2,17 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
+from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
 from web3.types import Wei
 
-from src.constants import WITHDRAWAL_EPOCH_LEFT_MARGIN, WITHDRAWAL_EPOCH_RIGHT_MARGIN
+from src.constants import SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT, \
+    TOTAL_BASIS_POINTS
+from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
 from src.modules.accounting.types import (
     MerkleTreeData,
     MerkleValue,
@@ -18,24 +21,21 @@ from src.modules.accounting.types import (
     VaultsMap,
     VaultToPendingDeposits,
     VaultToValidators,
-    VaultTreeNode,
+    VaultTreeNode, Shares, BLOCKS_PER_YEAR,
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.oracle_daemon_config import (
-    OracleDaemonConfigContract,
-)
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID, MultiIPFSProvider
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockHash
+from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.types import hex_str_to_bytes
 
 logger = logging.getLogger(__name__)
-
 
 class StakingVaults(Module):
     w3: Web3
@@ -44,9 +44,8 @@ class StakingVaults(Module):
     lido: LidoContract
     vault_hub: VaultHubContract
     lazy_oracle: LazyOracleContract
-    daemon_config: OracleDaemonConfigContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract, daemon_config: OracleDaemonConfigContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
@@ -55,10 +54,9 @@ class StakingVaults(Module):
         self.lido = lido
         self.vault_hub = vault_hub
         self.lazy_oracle = lazy_oracle
-        self.daemon_config = daemon_config
 
-    def get_vaults(self, block_number: int) -> VaultsMap:
-        vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_number)
+    def get_vaults(self, block_identifier: BlockHash | BlockNumber) -> VaultsMap:
+        vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         if len(vaults) == 0:
             return {}
 
@@ -107,8 +105,17 @@ class StakingVaults(Module):
         return vaults_total_values
 
     def get_vaults_slashing_reserve(self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig) -> list[int]:
+        """
+            <- Look back 36 days (by spec 18 days)     Look forward 18 days ->
+            ┌────────────────────────────┬────────────┬────────────────────────────┐
+            │                            │    T=0     │                            │
+            │   Slashings accumulator    │   Slash!   │   Future slashes evaluated │
+            │       history window       │            │     for penalty window     │
+            └────────────────────────────┴────────────┴────────────────────────────┘
+                 Penalty applies here ────────────►  Day 18.25
+        """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        left_margin, right_margin = WITHDRAWAL_EPOCH_LEFT_MARGIN, 2 * WITHDRAWAL_EPOCH_RIGHT_MARGIN
+        left_margin, right_margin = SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, 2 * SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT
 
         vaults_reserves = [0] * len(vaults)
         for vault_address, validator_arr in vaults_validators.items():
@@ -120,19 +127,19 @@ class StakingVaults(Module):
                     we = validator.validator.withdrawable_epoch
 
                     if we - left_margin <= bs.ref_epoch <= we + right_margin:
-                        slot_id = self._withdrawable_epoch_to_past_slot(we, WITHDRAWAL_EPOCH_LEFT_MARGIN, chain_config.slots_per_epoch)
+                        slot_id = self._withdrawable_epoch_to_past_slot(we, SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, chain_config.slots_per_epoch)
                         validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
                         vaults_reserves[vault_id] += Web3.to_wei(int(validator_state.balance), 'gwei') * vaults[
-                            vault_address].reserve_ratioBP // 10_000
+                            vault_address].reserve_ratioBP // TOTAL_BASIS_POINTS
 
                     elif bs.ref_epoch < we - left_margin:
                         vaults_reserves[vault_id] += Web3.to_wei(int(validator.balance), 'gwei') * vaults[
-                            vault_address].reserve_ratioBP // 10_000
+                            vault_address].reserve_ratioBP // TOTAL_BASIS_POINTS
 
         return vaults_reserves
 
     def publish_tree(
-            self, tree: StandardMerkleTree, vaults: VaultsMap, bs: BlockStamp, prev_tree_cid: str,
+            self, tree: StandardMerkleTree, vaults: VaultsMap, bs: ReferenceBlockStamp, prev_tree_cid: str,
             chain_config: ChainConfig
     ) -> CID:
         def encoder(o):
@@ -165,7 +172,8 @@ class StakingVaults(Module):
         output: dict[str, Any] = {
             **dict(tree.dump()),
             "merkleTreeRoot": f"0x{tree.root.hex()}",
-            "refSlot": bs.slot_number,
+            "refSlot": bs.ref_slot,
+            "blockHash": bs.block_hash,
             "blockNumber": bs.block_number,
             "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
             "extraValues": extra_values,
@@ -186,14 +194,13 @@ class StakingVaults(Module):
 
         return cid
 
-    def get_prev_report(self, bs: BlockStamp) -> Optional[MerkleTreeData]:
-        report = self.lazy_oracle.get_report(block_identifier=bs.block_number)
-        if report is None:
-            return None
-        return self.get_vault_report(report.cid)
+    def get_ipfs_report(self, ipfs_report_cid: str) -> MerkleTreeData:
+        if ipfs_report_cid == "":
+            raise ValueError("Arg ipfs_report_cid could not be ''")
+        return self.get_vault_report(ipfs_report_cid)
 
     def get_prev_cid(self, bs: BlockStamp) -> str:
-        report = self.lazy_oracle.get_report(block_identifier=bs.block_number)
+        report = self.lazy_oracle.get_report(block_identifier=bs.block_hash)
         if report is None:
             return ""
         return report.cid
@@ -436,6 +443,7 @@ class StakingVaults(Module):
             tree_indices=tree_indices,
             merkle_tree_root=data["merkleTreeRoot"],
             ref_slot=data["refSlot"],
+            block_hash=data["blckHash"],
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
@@ -447,3 +455,62 @@ class StakingVaults(Module):
         target_epoch = withdrawable_epoch - epochs_ago
         target_slot = target_epoch * slots_per_epoch
         return target_slot
+
+    @staticmethod
+    def calc_fee_value(value: int | float, block_elapsed: int, core_apr_ratio: float, fee_bp: int) -> float:
+        return value * block_elapsed * core_apr_ratio * fee_bp / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+
+    @staticmethod
+    def calc_liquidity_fee(
+            vault_address: str, liability_shares: Shares, liquidity_fee_bp: int,
+            events: dict, prev_block_number: int, current_block: int,
+            pre_total_pooled_ether: Wei,
+            pre_total_shares: Shares,
+            core_apr_ratio: float,
+    ) -> [float, Shares]:
+        """
+             Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
+             NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
+                 fee change events.
+
+             In case of no events, we just use `liability_shares` to calculate minted stETH.
+        """
+        vault_liquidity_fee: float = 0
+        liquidity_fee = liquidity_fee_bp
+
+        if vault_address not in events:
+            # TODO: DRY with the next block
+            blocks_elapsed = current_block - prev_block_number
+            minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
+            vault_liquidity_fee = StakingVaults.calc_fee_value(minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee)
+        elif len(events[vault_address]) > 0:
+            # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
+            # on the `liability_shares` and the elapsed blocks between events.
+            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
+
+            for event in events[vault_address]:
+                blocks_elapsed_between_events = current_block - event.block_number
+                minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether,
+                                                                        pre_total_shares)
+                vault_liquidity_fee += StakingVaults.calc_fee_value(minted_steth_on_event, blocks_elapsed_between_events,
+                                                                 core_apr_ratio, liquidity_fee)
+
+                if isinstance(event, VaultFeesUpdatedEvent):
+                    liquidity_fee = event.pre_liquidity_fee_bp
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, BurnedSharesOnVaultEvent):
+                    liability_shares += event.amount_of_shares
+                    current_block = event.block_number
+                    continue
+                if isinstance(event, MintedSharesOnVaultEvent):
+                    liability_shares -= event.amount_of_shares
+                    current_block = event.block_number
+
+            blocks_elapsed_between_events = current_block - prev_block_number
+            minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether,
+                                                                    pre_total_shares)
+            vault_liquidity_fee += StakingVaults.calc_fee_value(minted_steth_on_event, blocks_elapsed_between_events,
+                                                       core_apr_ratio, liquidity_fee)
+
+        return vault_liquidity_fee, liability_shares

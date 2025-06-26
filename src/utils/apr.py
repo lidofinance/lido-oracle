@@ -26,3 +26,6 @@ def calculate_steth_apr(
         raise ValueError("Cannot compute APR. time_elapsed is 0")
 
     return (rate_diff * SECONDS_IN_YEAR) / (pre_rate * time_elapsed)
+
+def get_steth_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> float:
+    return (shares * pre_total_ether) / pre_total_shares

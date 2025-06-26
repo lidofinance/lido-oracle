@@ -2,12 +2,13 @@ import logging
 from collections import defaultdict
 from time import sleep
 
+from eth_typing import HexStr
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27
+from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
@@ -15,15 +16,10 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.accounting.events import (
-    BurnedSharesOnVaultEvent,
-    MintedSharesOnVaultEvent,
-    VaultFeesUpdatedEvent,
-)
+from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
-    BLOCKS_PER_YEAR,
     AccountingProcessingState,
     BunkerMode,
     GenericExtraData,
@@ -35,7 +31,7 @@ from src.modules.accounting.types import (
     ValidatorsCount,
     VaultsMap,
     VaultsReport,
-    WqReport, Shares,
+    WqReport,
 )
 from src.modules.submodules.consensus import (
     ConsensusModule,
@@ -53,7 +49,7 @@ from src.types import (
     Gwei,
     NodeOperatorGlobalIndex,
     ReferenceBlockStamp,
-    StakingModuleId,
+    StakingModuleId, BlockHash,
 )
 from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
@@ -62,8 +58,6 @@ from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
-
-TOTAL_BASIS_POINTS = 10_000
 
 
 class Accounting(BaseModule, ConsensusModule):
@@ -78,6 +72,7 @@ class Accounting(BaseModule, ConsensusModule):
             Contains stuck and exited validator's updates count by each node operator.
     """
     COMPATIBLE_CONTRACT_VERSION = 3
+    # TODO: COMPATIBLE_CONSENSUS_VERSION = 5 for mainnet!!!
     COMPATIBLE_CONSENSUS_VERSION = 3
 
     def __init__(self, w3: Web3):
@@ -294,25 +289,22 @@ class Accounting(BaseModule, ConsensusModule):
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
-        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
+        cl_validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
         chain_conf = self.get_chain_config(blockstamp)
 
-        withdrawal_share_rate = 0  # For initial calculation we assume 0 share rate
-        withdrawal_finalization_batches: list[int] = []  # For initial calculation we assume no withdrawals
+        withdrawal_share_rate = 0  # For simulation we assume 0 share rate
+        withdrawal_finalization_batches: list[int] = []  # For simulation, we assume no withdrawals
 
         report = ReportValues(
-            # Accounting contract has sanity check that timestamp is not in the future.
-            # That's why we get revert if timestamp in args > call block timestamp.
-            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
-            blockstamp.block_timestamp,  # timestamp
+            blockstamp.block_timestamp,
             self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # timeElapsed
             # CL values
-            validators_count,  # cl_validators
+            cl_validators_count,
             Web3.to_wei(cl_balance, 'gwei'),  # cl_balance
             # EL values
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # withdrawal_vault_balance
             el_rewards,  # el_rewards_vault_balance
-            self.get_shares_to_burn(blockstamp),  # shares_requested_to_burn
+            self.get_shares_to_burn(blockstamp),
             withdrawal_finalization_batches,
         )
 
@@ -392,10 +384,31 @@ class Accounting(BaseModule, ConsensusModule):
         finalization_batches = self._get_finalization_batches(blockstamp)
         return is_bunker, finalization_batches
 
-    # fetches vaults_values, vaults_net_cash_flows from the contract and beacon chain
-    # uploads tree's root, vaults' proofs
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
-        vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_number)
+        """
+            Generates and publishes a Merkle tree report for staking vaults at a given refBlock.
+
+            This function performs the following steps:
+            1. Fetches staking vaults at the given block number.
+            2. If no vaults are found, returns empty report data.
+            3. Retrieves validator data and pending deposits at the refBlock.
+            4. Loads chain configuration for the target block.
+            5. Computes total values for all vaults, including validator balances and pending deposits.
+            6. Calculates vault-specific fees and slashing reserves.
+            7. Constructs structured tree data combining vault values, fees, and slashing reserves.
+            8. Builds a Merkle tree from this data.
+            9. Publishes the Merkle tree to IPFS (or similar) and retrieves a content ID (CID).
+            10. Returns the Merkle tree root and the CID as the vaults report.
+
+            Args:
+                blockstamp (ReferenceBlockStamp): Block context used to fetch vault and validator data.
+
+            Returns:
+                VaultsReport: A tuple containing the Merkle tree root (as `bytes`) and the CID (as `str`)
+                              identifying the published tree data.
+        """
+
+        vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
             return bytes(0), ''
 
@@ -403,13 +416,16 @@ class Accounting(BaseModule, ConsensusModule):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
 
+        prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
         vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
-        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values)
-        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(blockstamp, vaults, validators, chain_config)
-        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
+        vaults_fees = self._get_vaults_fees(blockstamp, vaults, vaults_total_values, prev_report_cid)
+        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(blockstamp, vaults, validators,
+                                                                                     chain_config)
+        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees,
+                                                           vaults_slashing_reserve)
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
+
         tree_cid = self.w3.staking_vaults.publish_tree(
             merkle_tree, vaults, blockstamp, prev_report_cid, chain_config
         )
@@ -468,36 +484,39 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
-    @staticmethod
-    def _get_ether_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> float:
-        return (shares * pre_total_ether) / pre_total_shares
-
     # pylint: disable=too-many-branches,too-many-statements
-    def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int]) -> list[int]:
-        prev_report = self.w3.staking_vaults.get_prev_report(blockstamp)
-        ## When we do not have a report - then we do not have starting point for calculation
-        if prev_report is None:
-            rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(blockstamp.block_number - 7200, blockstamp.block_number)
+    def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int],
+                         prev_ipfs_report_cid: str) -> list[int]:
+        if prev_ipfs_report_cid != "":
+            prev_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
+            prev_block_number = prev_report.block_number
+            prev_block_hash = prev_report.block_hash
+        else:
+            ## When we do not have a report - then we do not have starting point for calculation
+            rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
+                blockstamp.block_number - 7200, blockstamp.block_number
+            )
+
             if rebased_event is None:
                 # This case for testnet when protocol is deployed but no events
                 # So it's impossible to take line for calculations
                 # we need submit empty report before
                 return []
+            prev_report = None
             prev_block_number = rebased_event.block_number
-        else:
-            prev_block_number = prev_report.block_number
-
+            prev_block_hash = rebased_event.block_hash
 
         simulation = self.simulate_full_rebase(blockstamp)
-        modules_fee, treasury_fee, base_precision  = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(blockstamp.block_hash)
+        modules_fee, treasury_fee, base_precision = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
+            blockstamp.block_hash)
         lido_fee_bp = ((modules_fee + treasury_fee) / base_precision) * TOTAL_BASIS_POINTS
 
-        if lido_fee_bp >= 10_000:
-            raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= 10_000 bp")
+        if lido_fee_bp >= TOTAL_BASIS_POINTS:
+            raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {TOTAL_BASIS_POINTS} bp")
 
         chain_conf = self.get_chain_config(blockstamp)
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
-        time_elapsed = slots_elapsed * chain_conf.seconds_per_slot
+        time_elapsed_seconds = slots_elapsed * chain_conf.seconds_per_slot
 
         core_apr_ratio: float = 0.0
         if lido_fee_bp != 0:
@@ -506,11 +525,11 @@ class Accounting(BaseModule, ConsensusModule):
                 simulation.pre_total_pooled_ether,
                 simulation.post_total_shares,
                 simulation.post_total_pooled_ether,
-                time_elapsed,
+                time_elapsed_seconds,
             )
             core_apr_ratio = steth_apr_ratio * TOTAL_BASIS_POINTS / (TOTAL_BASIS_POINTS - lido_fee_bp)
 
-        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(prev_block_number)
+        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockHash(HexStr(prev_block_hash)))
 
         prev_fee = defaultdict(int)
         if prev_report is not None:
@@ -519,7 +538,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         events = defaultdict(list)
         fees_updated_events_map = defaultdict(list)
-        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number,                                                             blockstamp.block_number)
+        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
         minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
         burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
 
@@ -530,7 +549,6 @@ class Accounting(BaseModule, ConsensusModule):
         for event in minted_events:
             events[event.vault].append(event)
 
-
         for event in burn_events:
             events[event.vault].append(event)
 
@@ -539,7 +557,7 @@ class Accounting(BaseModule, ConsensusModule):
         blocks_elapsed = current_block - prev_block_number
         for vault_address, vault_info in vaults.items():
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
-            vault_infrastructure_fee = self.calc_fee_value(
+            vault_infrastructure_fee = StakingVaults.calc_fee_value(
                 vaults_total_values[vault_info.id()],
                 blocks_elapsed,
                 core_apr_ratio,
@@ -547,7 +565,7 @@ class Accounting(BaseModule, ConsensusModule):
             )
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee = self.calc_fee_value(
+            vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
                 vault_info.mintable_capacity_StETH,
                 blocks_elapsed,
                 core_apr_ratio,
@@ -555,13 +573,20 @@ class Accounting(BaseModule, ConsensusModule):
             )
 
             out[vault_info.id()] = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + prev_fee[
-                    vault_address]
+                vault_address]
 
         for vault_address, vault_info in vaults.items():
-            vault_liquidity_fee, liability_shares = self.calc_liquidity_fee(
-                vault_address, vault_info.liability_shares, vault_info.liquidity_feeBP, events
-                , prev_block_number, int(blockstamp.block_number),
-                simulation.pre_total_pooled_ether, simulation.pre_total_shares, core_apr_ratio)
+            vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
+                vault_address,
+                vault_info.liability_shares,
+                vault_info.liquidity_feeBP,
+                events,
+                prev_block_number,
+                int(blockstamp.block_number),
+                simulation.pre_total_pooled_ether,
+                simulation.pre_total_shares,
+                core_apr_ratio
+            )
 
             if vaults_on_prev_report.get(vault_address) is not None:
                 if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
@@ -573,63 +598,3 @@ class Accounting(BaseModule, ConsensusModule):
             out[vault_info.id()] += int(vault_liquidity_fee)
 
         return out
-
-    @staticmethod
-    def calc_fee_value(value: int | float, block_elapsed: int, core_apr_ratio: float, fee_bp: int) -> float:
-        return value * block_elapsed * core_apr_ratio * fee_bp / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
-
-    @staticmethod
-    def calc_liquidity_fee(
-            vault_address: str, liability_shares: Shares, liquidity_fee_bp: int,
-            events: dict, prev_block_number: int, current_block: int,
-            pre_total_pooled_ether: Wei,
-            pre_total_shares: Shares,
-            core_apr_ratio: float,
-    ) -> (float, Shares):
-        """
-             Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
-             NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
-                 fee change events.
-
-             In case of no events, we just use `liability_shares` to calculate minted stETH.
-        """
-        liability_shares = liability_shares
-        vault_liquidity_fee: float = 0
-        liquidity_fee = liquidity_fee_bp
-
-        if vault_address not in events:
-            # TODO: DRY with the next block
-            blocks_elapsed = current_block - prev_block_number
-            minted_steth = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-            vault_liquidity_fee = Accounting.calc_fee_value(minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee)
-        elif len(events[vault_address]) > 0:
-            # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
-            # on the `liability_shares` and the elapsed blocks between events.
-            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
-
-            for event in events[vault_address]:
-                blocks_elapsed_between_events = current_block - event.block_number
-                minted_steth_on_event = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether,
-                                                                        pre_total_shares)
-                vault_liquidity_fee += Accounting.calc_fee_value(minted_steth_on_event, blocks_elapsed_between_events,
-                                                                 core_apr_ratio, liquidity_fee)
-
-                if isinstance(event, VaultFeesUpdatedEvent):
-                    liquidity_fee = event.pre_liquidity_fee_bp
-                    current_block = event.block_number
-                    continue
-                if isinstance(event, BurnedSharesOnVaultEvent):
-                    liability_shares += event.amount_of_shares
-                    current_block = event.block_number
-                    continue
-                if isinstance(event, MintedSharesOnVaultEvent):
-                    liability_shares -= event.amount_of_shares
-                    current_block = event.block_number
-
-            blocks_elapsed_between_events = current_block - prev_block_number
-            minted_steth_on_event = Accounting._get_ether_by_shares(liability_shares, pre_total_pooled_ether,
-                                                                    pre_total_shares)
-            vault_liquidity_fee += Accounting.calc_fee_value(minted_steth_on_event, blocks_elapsed_between_events,
-                                                             core_apr_ratio, liquidity_fee)
-
-        return vault_liquidity_fee, liability_shares

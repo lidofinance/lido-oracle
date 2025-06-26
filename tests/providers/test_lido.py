@@ -6,6 +6,7 @@ from web3.exceptions import Web3Exception
 from src import variables
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
+from src.utils.types import bytes_to_hex_str
 
 
 @pytest.mark.testnet
