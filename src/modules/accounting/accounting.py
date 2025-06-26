@@ -302,8 +302,9 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
     def get_shares_to_burn(self, blockstamp: ReferenceBlockStamp) -> int:
-        shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
-        return shares_data.cover_shares + shares_data.non_cover_shares
+        # shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
+        # return shares_data.cover_shares + shares_data.non_cover_shares
+        return 0
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
         chain_conf = self.get_chain_config(blockstamp)
