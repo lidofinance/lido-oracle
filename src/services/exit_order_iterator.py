@@ -270,10 +270,11 @@ class ValidatorExitIterator:
 
     @staticmethod
     def _no_force_predicate(node_operator: NodeOperatorStats) -> int:
-        return ValidatorExitIterator._get_expected_validators_diff(
-            node_operator.predictable_validators,
-            node_operator.force_exit_to,
-        )
+        # return ValidatorExitIterator._get_expected_validators_diff(
+        #     node_operator.predictable_validators,
+        #     node_operator.force_exit_to,
+        # )
+        return 0
 
     @staticmethod
     def _no_soft_predicate(node_operator: NodeOperatorStats) -> int:
