@@ -572,8 +572,8 @@ class Accounting(BaseModule, ConsensusModule):
                 vault_info.reservation_feeBP
             )
 
-            out[vault_info.id()] = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + prev_fee[
-                vault_address]
+            out[vault_info.id()] = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + int(prev_fee[
+                vault_address])
 
         for vault_address, vault_info in vaults.items():
             vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
