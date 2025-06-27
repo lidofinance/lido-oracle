@@ -1,31 +1,37 @@
+from src.constants import WEI_PRECISION
 from src.modules.accounting.types import SECONDS_IN_YEAR
-
+from decimal import Decimal, localcontext
 
 def calculate_steth_apr(
     pre_total_shares: int,
     pre_total_ether: int,
     post_total_shares: int,
     post_total_ether: int,
-    time_elapsed: int,
-) -> float:
+    time_elapsed_seconds: int,
+) -> Decimal:
     """
     Compute user-facing APR using share rate growth over time.
     Formula follows Lido V2-style:
         apr = (postRate - preRate) * SECONDS_IN_YEAR / preRate / timeElapsed
     """
 
-    if pre_total_shares == 0 or time_elapsed == 0 or post_total_shares == 0:
+    if pre_total_shares == 0 or time_elapsed_seconds == 0 or post_total_shares == 0:
         raise ValueError("Cannot compute APR: zero division risk.")
 
-    pre_rate = pre_total_ether * 10 ** 27 // pre_total_shares
-    post_rate = post_total_ether * 10 ** 27 // post_total_shares
+    with localcontext() as ctx:
+        ctx.prec = WEI_PRECISION
 
-    rate_diff = post_rate - pre_rate
+        pre_rate = Decimal(pre_total_ether) / Decimal(pre_total_shares)
+        post_rate = Decimal(post_total_ether) / Decimal(post_total_shares)
 
-    if time_elapsed == 0:
-        raise ValueError("Cannot compute APR. time_elapsed is 0")
+        rate_diff: Decimal = post_rate - pre_rate
 
-    return (rate_diff * SECONDS_IN_YEAR) / (pre_rate * time_elapsed)
+        if time_elapsed_seconds == 0:
+            raise ValueError("Cannot compute APR. time_elapsed is 0")
 
-def get_steth_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> float:
-    return (shares * pre_total_ether) / pre_total_shares
+        return (rate_diff * Decimal(SECONDS_IN_YEAR)) / (pre_rate * Decimal(time_elapsed_seconds))
+
+def get_steth_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> Decimal:
+    with localcontext() as ctx:
+        ctx.prec = WEI_PRECISION
+        return (Decimal(shares) * Decimal(pre_total_ether)) / Decimal(pre_total_shares)

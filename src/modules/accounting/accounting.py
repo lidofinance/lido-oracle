@@ -2,13 +2,13 @@ import logging
 from collections import defaultdict
 from time import sleep
 
-from eth_typing import HexStr, BlockNumber
+from eth_typing import HexStr
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS
+from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS, WEI_PRECISION
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
@@ -56,6 +56,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
+from decimal import ROUND_UP, Decimal, localcontext
 
 logger = logging.getLogger(__name__)
 
@@ -487,114 +488,119 @@ class Accounting(BaseModule, ConsensusModule):
     # pylint: disable=too-many-branches,too-many-statements
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int],
                          prev_ipfs_report_cid: str) -> list[int]:
-        if prev_ipfs_report_cid != "":
-            prev_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
-            prev_block_number = prev_report.block_number
-            # prev_block_hash = prev_report.block_hash
-        else:
-            ## When we do not have a report - then we do not have starting point for calculation
-            rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
-                blockstamp.block_number - 7200, blockstamp.block_number
-            )
+        with localcontext() as ctx:
+            ctx.prec = WEI_PRECISION
 
-            if rebased_event is None:
-                # This case for testnet when protocol is deployed but no events
-                # So it's impossible to take line for calculations
-                # we need submit empty report before
-                return []
-            prev_report = None
-            prev_block_number = rebased_event.block_number
-            # prev_block_hash = rebased_event.block_hash
-
-        simulation = self.simulate_full_rebase(blockstamp)
-        modules_fee, treasury_fee, base_precision = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
-            blockstamp.block_hash)
-        lido_fee_bp = ((modules_fee + treasury_fee) / base_precision) * TOTAL_BASIS_POINTS
-
-        if lido_fee_bp >= TOTAL_BASIS_POINTS:
-            raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {TOTAL_BASIS_POINTS} bp")
-
-        chain_conf = self.get_chain_config(blockstamp)
-        slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
-        time_elapsed_seconds = slots_elapsed * chain_conf.seconds_per_slot
-
-        core_apr_ratio: float = 0.0
-        if lido_fee_bp != 0:
-            steth_apr_ratio = calculate_steth_apr(
-                simulation.pre_total_shares,
-                simulation.pre_total_pooled_ether,
-                simulation.post_total_shares,
-                simulation.post_total_pooled_ether,
-                time_elapsed_seconds,
-            )
-            core_apr_ratio = steth_apr_ratio * TOTAL_BASIS_POINTS / (TOTAL_BASIS_POINTS - lido_fee_bp)
-
-        vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockNumber(prev_block_number))
-
-        prev_fee = defaultdict(int)
-        if prev_report is not None:
-            for vault in prev_report.values:
-                prev_fee[vault.vault_address] = vault.fee
-
-        events = defaultdict(list)
-        fees_updated_events_map = defaultdict(list)
-        fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
-        minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
-        burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
-
-        for event in fees_updated_events:
-            events[event.vault].append(event)
-            fees_updated_events_map[event.vault].append(event)
-
-        for event in minted_events:
-            events[event.vault].append(event)
-
-        for event in burn_events:
-            events[event.vault].append(event)
-
-        out = [0] * len(vaults)
-        current_block = int(blockstamp.block_number)
-        blocks_elapsed = current_block - prev_block_number
-        for vault_address, vault_info in vaults.items():
-            # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
-            vault_infrastructure_fee = StakingVaults.calc_fee_value(
-                vaults_total_values[vault_info.id()],
-                blocks_elapsed,
-                core_apr_ratio,
-                vault_info.infra_feeBP
-            )
-
-            # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
-                vault_info.mintable_capacity_StETH,
-                blocks_elapsed,
-                core_apr_ratio,
-                vault_info.reservation_feeBP
-            )
-
-            out[vault_info.id()] = int(vault_infrastructure_fee) + int(vault_reservation_liquidity_fee) + int(prev_fee[
-                vault_address])
-
-        for vault_address, vault_info in vaults.items():
-            vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
-                vault_address,
-                vault_info.liability_shares,
-                vault_info.liquidity_feeBP,
-                events,
-                prev_block_number,
-                int(blockstamp.block_number),
-                simulation.pre_total_pooled_ether,
-                simulation.pre_total_shares,
-                core_apr_ratio
-            )
-
-            if vaults_on_prev_report.get(vault_address) is not None:
-                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
-                    raise ValueError(f"Wrong liability shares by vault {vault_address}")
+            if prev_ipfs_report_cid != "":
+                prev_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
+                prev_block_number = prev_report.block_number
+                prev_block_hash = prev_report.block_hash
             else:
-                if liability_shares != 0:
-                    raise ValueError(f"Wrong liability shares by vault {vault_address}")
+                ## When we do not have a report - then we do not have starting point for calculation
+                rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
+                    blockstamp.block_number - 7200, blockstamp.block_number
+                )
 
-            out[vault_info.id()] += int(vault_liquidity_fee)
+                if rebased_event is None:
+                    # This case for testnet when protocol is deployed but no events
+                    # So it's impossible to take line for calculations
+                    # we need submit empty report before
+                    return []
+                prev_report = None
+                prev_block_number = rebased_event.block_number
+                prev_block_hash = rebased_event.block_hash
 
-        return out
+            simulation = self.simulate_full_rebase(blockstamp)
+            total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
+            modules_fee, treasury_fee, base_precision = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
+                blockstamp.block_hash)
+            lido_fee_bp = (Decimal(modules_fee + treasury_fee) * total_basis_points_dec) / Decimal(base_precision)
+
+            if lido_fee_bp >= total_basis_points_dec:
+                raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
+
+            chain_conf = self.get_chain_config(blockstamp)
+            slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
+            time_elapsed_seconds = slots_elapsed * chain_conf.seconds_per_slot
+
+            core_apr_ratio = Decimal(0)
+            if lido_fee_bp != 0:
+                steth_apr_ratio = calculate_steth_apr(
+                    simulation.pre_total_shares,
+                    simulation.pre_total_pooled_ether,
+                    simulation.post_total_shares,
+                    simulation.post_total_pooled_ether,
+                    time_elapsed_seconds,
+                )
+                core_apr_ratio = steth_apr_ratio * total_basis_points_dec / (total_basis_points_dec - lido_fee_bp)
+
+            vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockHash(HexStr(prev_block_hash)))
+
+            prev_fee = defaultdict(int)
+            if prev_report is not None:
+                for vault in prev_report.values:
+                    prev_fee[vault.vault_address] = vault.fee
+
+            events = defaultdict(list)
+            fees_updated_events_map = defaultdict(list)
+            fees_updated_events = self.w3.lido_contracts.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
+            minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
+            burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
+
+            for event in fees_updated_events:
+                events[event.vault].append(event)
+                fees_updated_events_map[event.vault].append(event)
+
+            for event in minted_events:
+                events[event.vault].append(event)
+
+            for event in burn_events:
+                events[event.vault].append(event)
+
+            out = [0] * len(vaults)
+            current_block = int(blockstamp.block_number)
+            blocks_elapsed = current_block - prev_block_number
+            for vault_address, vault_info in vaults.items():
+                # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
+                vault_infrastructure_fee = StakingVaults.calc_fee_value(
+                    Decimal(vaults_total_values[vault_info.id()]),
+                    blocks_elapsed,
+                    core_apr_ratio,
+                    vault_info.infra_feeBP
+                )
+
+                # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
+                vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
+                    Decimal(vault_info.mintable_capacity_StETH),
+                    blocks_elapsed,
+                    core_apr_ratio,
+                    vault_info.reservation_feeBP
+                )
+
+                vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
+                    vault_address,
+                    vault_info.liability_shares,
+                    vault_info.liquidity_feeBP,
+                    events,
+                    prev_block_number,
+                    int(blockstamp.block_number),
+                    simulation.pre_total_pooled_ether,
+                    simulation.pre_total_shares,
+                    core_apr_ratio
+                )
+
+                if vaults_on_prev_report.get(vault_address) is not None:
+                    if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
+                        raise ValueError(f"Wrong liability shares by vault {vault_address}")
+                else:
+                    if liability_shares != 0:
+                        raise ValueError(f"Wrong liability shares by vault {vault_address}")
+
+                out[vault_info.id()] = (
+                        int(prev_fee[vault_address]) +
+                        int(vault_infrastructure_fee.to_integral_value(ROUND_UP)) +
+                        int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)) +
+                        int(vault_liquidity_fee.to_integral_value(ROUND_UP))
+                )
+
+            return out

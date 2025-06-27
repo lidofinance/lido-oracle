@@ -11,7 +11,7 @@ from web3.module import Module
 from web3.types import Wei
 
 from src.constants import SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT, \
-    TOTAL_BASIS_POINTS
+    TOTAL_BASIS_POINTS, WEI_PRECISION
 from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
 from src.modules.accounting.types import (
     MerkleTreeData,
@@ -34,6 +34,7 @@ from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockHash
 from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.types import hex_str_to_bytes
+from decimal import Decimal, localcontext, ROUND_UP
 
 logger = logging.getLogger(__name__)
 
@@ -113,30 +114,45 @@ class StakingVaults(Module):
             │       history window       │            │     for penalty window     │
             └────────────────────────────┴────────────┴────────────────────────────┘
                  Penalty applies here ────────────►  Day 18.25
+
+            1. (we -36d) <= ref_epoch <= (we +36d): use PAST slot for getting validator's balance
+            2. ref_epoch < (we - 36d): use CURRENT validator's balance (before slashing period)
+            3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         left_margin, right_margin = SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, 2 * SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT
 
-        vaults_reserves = [0] * len(vaults)
-        for vault_address, validator_arr in vaults_validators.items():
-            vault_id = vaults[vault_address].id()
-            vaults_reserves[vault_id] = Wei(0)
+        with localcontext() as ctx:
+            ctx.prec = WEI_PRECISION
 
-            for validator in validator_arr:
-                if validator.validator.slashed:
-                    we = validator.validator.withdrawable_epoch
+            def cal_reserve(balance: Wei, reserve_ratioBP: int) -> int:
+                out = Decimal(balance) * Decimal(reserve_ratioBP) / Decimal(TOTAL_BASIS_POINTS)
+                return int(out.to_integral_value(ROUND_UP))
 
-                    if we - left_margin <= bs.ref_epoch <= we + right_margin:
-                        slot_id = self._withdrawable_epoch_to_past_slot(we, SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, chain_config.slots_per_epoch)
-                        validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
-                        vaults_reserves[vault_id] += Web3.to_wei(int(validator_state.balance), 'gwei') * vaults[
-                            vault_address].reserve_ratioBP // TOTAL_BASIS_POINTS
+            vaults_reserves = [0] * len(vaults)
+            for vault_address, validator_arr in vaults_validators.items():
+                vault_id = vaults[vault_address].id()
 
-                    elif bs.ref_epoch < we - left_margin:
-                        vaults_reserves[vault_id] += Web3.to_wei(int(validator.balance), 'gwei') * vaults[
-                            vault_address].reserve_ratioBP // TOTAL_BASIS_POINTS
+                for validator in validator_arr:
+                    if validator.validator.slashed:
+                        we = validator.validator.withdrawable_epoch
 
-        return vaults_reserves
+                        if we - left_margin <= bs.ref_epoch <= we + right_margin:
+                            slot_id = self._withdrawable_epoch_to_past_slot(we, SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, chain_config.slots_per_epoch)
+                            validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
+
+                            vaults_reserves[vault_id] += cal_reserve(
+                                Web3.to_wei(int(validator_state.balance), 'gwei'),
+                                vaults[vault_address].reserve_ratioBP
+                            )
+
+                        elif bs.ref_epoch < we - left_margin:
+                            vaults_reserves[vault_id] += cal_reserve(
+                                Web3.to_wei(int(validator.balance), 'gwei'),
+                                vaults[vault_address].reserve_ratioBP
+                            )
+
+            return vaults_reserves
 
     def publish_tree(
             self, tree: StandardMerkleTree, vaults: VaultsMap, bs: ReferenceBlockStamp, prev_tree_cid: str,
@@ -426,10 +442,10 @@ class StakingVaults(Module):
             value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
             return MerkleValue(
                 vault_address=value_dict["vaultAddress"],
-                total_value_wei=value_dict["totalValueWei"],
-                fee=value_dict["fee"],
-                liability_shares=value_dict["liabilityShares"],
-                slashing_reserve=value_dict["slashingReserve"],
+                total_value_wei=int(value_dict["totalValueWei"]),
+                fee=int(value_dict["fee"]),
+                liability_shares=int(value_dict["liabilityShares"]),
+                slashing_reserve=int(value_dict["slashingReserve"]),
             )
 
         decoded_values = [decode_value(entry) for entry in data["values"]]
@@ -443,7 +459,7 @@ class StakingVaults(Module):
             tree_indices=tree_indices,
             merkle_tree_root=data["merkleTreeRoot"],
             ref_slot=data["refSlot"],
-            #block_hash=data["blockHash"],
+            block_hash=data["blockHash"],
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
@@ -457,8 +473,10 @@ class StakingVaults(Module):
         return target_slot
 
     @staticmethod
-    def calc_fee_value(value: int | float, block_elapsed: int, core_apr_ratio: float, fee_bp: int) -> float:
-        return value * block_elapsed * core_apr_ratio * fee_bp / (BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+    def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
+        with localcontext() as ctx:
+            ctx.prec = WEI_PRECISION
+            return  value * Decimal(block_elapsed) * core_apr_ratio * Decimal(fee_bp) / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
 
     @staticmethod
     def calc_liquidity_fee(
@@ -466,8 +484,8 @@ class StakingVaults(Module):
             events: dict, prev_block_number: int, current_block: int,
             pre_total_pooled_ether: Wei,
             pre_total_shares: Shares,
-            core_apr_ratio: float,
-    ) -> tuple[float, Shares]:
+            core_apr_ratio: Decimal,
+    ) -> tuple[Decimal, Shares]:
         """
              Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
              NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
@@ -475,14 +493,13 @@ class StakingVaults(Module):
 
              In case of no events, we just use `liability_shares` to calculate minted stETH.
         """
-        vault_liquidity_fee: float = 0
+        vault_liquidity_fee = Decimal(0)
         liquidity_fee = liquidity_fee_bp
 
         if vault_address not in events:
-            # TODO: DRY with the next block
             blocks_elapsed = current_block - prev_block_number
             minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-            vault_liquidity_fee = StakingVaults.calc_fee_value(minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee)
+            vault_liquidity_fee += StakingVaults.calc_fee_value(minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee)
         elif len(events[vault_address]) > 0:
             # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
             # on the `liability_shares` and the elapsed blocks between events.
