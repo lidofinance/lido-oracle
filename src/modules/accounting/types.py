@@ -245,6 +245,12 @@ class VaultInfo:
     in_out_delta: Wei
 
     def id(self) -> int:
+        """
+            In the smart contract, vault indexing starts from 1, not 0.
+            Index 0 is reserved as a technical placeholder (i.e., there is no real vault at index 0).
+            However, to ensure a consistent order in the Merkle tree, all vaults are added by their index,
+            so here we subtract 1 to get a zero-based index for internal processing and tree construction.
+        """
         return self.vault_ind - 1
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]

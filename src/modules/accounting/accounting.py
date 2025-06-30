@@ -53,6 +53,7 @@ from src.types import (
 )
 from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.slot import get_blockstamp
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
@@ -497,8 +498,14 @@ class Accounting(BaseModule, ConsensusModule):
                 prev_block_hash = prev_report.block_hash
             else:
                 ## When we do not have a report - then we do not have starting point for calculation
+                last_processing_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+                if last_processing_ref_slot == 0:
+                    return []
+
+                report_block_number = get_blockstamp(self.w3.cc, last_processing_ref_slot, last_processing_ref_slot)
+
                 rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
-                    blockstamp.block_number - 7200, blockstamp.block_number
+                    report_block_number - 100, report_block_number + 100
                 )
 
                 if rebased_event is None:
