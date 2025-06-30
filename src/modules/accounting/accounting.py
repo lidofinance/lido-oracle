@@ -57,7 +57,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains stuck and exited validator's updates count by each node operator.
     """
-    COMPATIBLE_CONTRACT_VERSION = 2
+    COMPATIBLE_CONTRACT_VERSION = 3
     COMPATIBLE_CONSENSUS_VERSION = 4
 
     def __init__(self, w3: Web3):
