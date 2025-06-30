@@ -508,6 +508,8 @@ class Accounting(BaseModule, ConsensusModule):
                 if last_processing_ref_slot:
                     report_block_number = get_blockstamp(self.w3.cc, last_processing_ref_slot, last_processing_ref_slot)
 
+                    ## There is no guarantee that fetched block by ref_slot will correspondent with reported blockNumber
+                    ## for that we take a line for getting rebased event
                     rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
                         report_block_number - 5, report_block_number + 5
                     )
