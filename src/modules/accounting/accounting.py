@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from time import sleep
 
-from eth_typing import HexStr
+from eth_typing import HexStr, BlockNumber
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
@@ -49,7 +49,7 @@ from src.types import (
     Gwei,
     NodeOperatorGlobalIndex,
     ReferenceBlockStamp,
-    StakingModuleId, BlockHash,
+    StakingModuleId, BlockHash, SlotNumber,
 )
 from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
@@ -321,18 +321,20 @@ class Accounting(BaseModule, ConsensusModule):
         return shares_data.cover_shares + shares_data.non_cover_shares
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp) -> int:
+        last_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+        if last_ref_slot:
+            return blockstamp.ref_slot - last_ref_slot
+
+        return self._get_slots_elapsed_from_initial_epoch(blockstamp)
+
+    def _get_slots_elapsed_from_initial_epoch(self, blockstamp: ReferenceBlockStamp) -> int:
+        """
+        https://github.com/lidofinance/core/blob/master/contracts/0.8.9/oracle/HashConsensus.sol#L667
+        """
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
-        last_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
-
-        if last_ref_slot:
-            slots_elapsed = blockstamp.ref_slot - last_ref_slot
-        else:
-            # https://github.com/lidofinance/core/blob/master/contracts/0.8.9/oracle/HashConsensus.sol#L667
-            slots_elapsed = blockstamp.ref_slot - (frame_config.initial_epoch * chain_conf.slots_per_epoch - 1)
-
-        return slots_elapsed
+        return blockstamp.ref_slot - (frame_config.initial_epoch * chain_conf.slots_per_epoch - 1)
 
     @lru_cache(maxsize=1)
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> BunkerMode:
@@ -497,25 +499,28 @@ class Accounting(BaseModule, ConsensusModule):
                 prev_block_number = prev_report.block_number
                 prev_block_hash = prev_report.block_hash
             else:
-                ## When we do not have a report - then we do not have starting point for calculation
-                last_processing_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
-                if last_processing_ref_slot == 0:
-                    return []
-
-                report_block_number = get_blockstamp(self.w3.cc, last_processing_ref_slot, last_processing_ref_slot)
-
-                rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
-                    report_block_number - 100, report_block_number + 100
-                )
-
-                if rebased_event is None:
-                    # This case for testnet when protocol is deployed but no events
-                    # So it's impossible to take line for calculations
-                    # we need submit empty report before
-                    return []
+                ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and testnet
+                ## Mainnet
+                ##      in case when we don't have prev ipfs report - we DO have previous oracle report
+                ##      it means we have to take this point for getting fees at the FIRST time only
                 prev_report = None
-                prev_block_number = rebased_event.block_number
-                prev_block_hash = rebased_event.block_hash
+                last_processing_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+                if last_processing_ref_slot:
+                    report_block_number = get_blockstamp(self.w3.cc, last_processing_ref_slot, last_processing_ref_slot)
+
+                    rebased_event = self.w3.lido_contracts.lido.get_last_token_rebased_event(
+                        report_block_number - 5, report_block_number + 5
+                    )
+
+                    prev_block_number = rebased_event.block_number
+                    prev_block_hash = rebased_event.block_hash
+                else:
+                    ## Fresh TestNet
+                    ##      We DO not have prev IPFS report, and we DO not have prev Oracle report
+                    ##      then we have to take a genesis block for starting point at the first time
+                    block_data = self.w3.eth.get_block(block_identifier=BlockNumber(0))
+                    prev_block_number = block_data['number']
+                    prev_block_hash = block_data['hash']
 
             simulation = self.simulate_full_rebase(blockstamp)
             total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
@@ -526,8 +531,8 @@ class Accounting(BaseModule, ConsensusModule):
             if lido_fee_bp >= total_basis_points_dec:
                 raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
 
-            chain_conf = self.get_chain_config(blockstamp)
             slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
+            chain_conf = self.get_chain_config(blockstamp)
             time_elapsed_seconds = slots_elapsed * chain_conf.seconds_per_slot
 
             core_apr_ratio = Decimal(0)
