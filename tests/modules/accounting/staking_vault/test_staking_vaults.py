@@ -1,5 +1,5 @@
 import copy
-from decimal import Decimal
+from decimal import Decimal, ROUND_UP
 from unittest.mock import MagicMock
 
 import pytest
@@ -360,13 +360,17 @@ class TestStakingVaults:
         100000000000000000000,
     )  # APR ~ 0.03316002451606887481973829228
     core_ratio_apr = Decimal('0.03316002451606887481973829228')
-    liability_shares = 2880 * 10**18
+    liability_shares = 2880 * 10 ** 18
     reserve_ratioBP = 2000
     infra_feeBP = 100
     liquidity_feeBP = 650
     reservation_feeBP = 250
-    mintable_capacity_StETH = 3200 * 10**18
-    vault_total_value = 3200 * 10**18
+    mintable_capacity_StETH = 3200 * 10 ** 18
+    vault_total_value = 3200 * 10 ** 18
+    expected_infra_fee = Decimal('2907180231545764.367757877679')
+    expected_reservation_liquidity_fee = Decimal('7267950578864410.919394694197')
+    expected_liquidity_fee = Decimal('17007082495056342.00729679120')
+    prev_fee = 22169367899378
 
     @pytest.mark.unit
     def test_fees(self):
@@ -387,7 +391,7 @@ class TestStakingVaults:
                 MerkleValue(
                     vault1_adr,  # address
                     MagicMock(),  # total_value_wei
-                    22169367899378,  # fee
+                    self.prev_fee,  # fee
                     MagicMock(),  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
@@ -529,12 +533,17 @@ class TestStakingVaults:
         )
         expected_fees = [27204382673365897]  # 0.02720438267 ETH
 
-        assert actual_fees == expected_fees
+        expected_total_fees = int(self.prev_fee) + int(self.expected_infra_fee.to_integral_value(ROUND_UP)) + int(
+            self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)) + int(
+            self.expected_liquidity_fee.to_integral_value(ROUND_UP))
+
+        assert expected_total_fees == expected_fees[0]
+        assert expected_fees == actual_fees
 
     @pytest.mark.parametrize(
         "vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei",
         [
-            (vault_total_value, 7_200, core_ratio_apr, infra_feeBP, Decimal('2907180231545764.367757877679')),
+            (vault_total_value, 7_200, core_ratio_apr, infra_feeBP, expected_infra_fee),
             (vault_total_value, 7_200 * 364, core_ratio_apr, infra_feeBP, Decimal('1058213604282658229.863867475')),
         ],
     )
@@ -549,24 +558,24 @@ class TestStakingVaults:
         "mintable_capacity_steth, block_elapsed, core_apr_ratio, reservation_fee_bp, expected_wei",
         [
             (
-                mintable_capacity_StETH,
-                7_200,
-                core_ratio_apr,
-                reservation_feeBP,
-                Decimal('7267950578864410.919394694197'),
+                    mintable_capacity_StETH,
+                    7_200,
+                    core_ratio_apr,
+                    reservation_feeBP,
+                    expected_reservation_liquidity_fee,
             ),
             (
-                mintable_capacity_StETH,
-                7_200 * 364,
-                core_ratio_apr,
-                reservation_feeBP,
-                Decimal('2645534010706645574.659668688'),
+                    mintable_capacity_StETH,
+                    7_200 * 364,
+                    core_ratio_apr,
+                    reservation_feeBP,
+                    Decimal('2645534010706645574.659668688'),
             ),
         ],
     )
     # TODO reservation_feeBP does not have references values from excel table
     def test_reservation_liquidity_fee(
-        self, mintable_capacity_steth, block_elapsed, core_apr_ratio, reservation_fee_bp, expected_wei
+            self, mintable_capacity_steth, block_elapsed, core_apr_ratio, reservation_fee_bp, expected_wei
     ):
         result = StakingVaults.calc_fee_value(
             mintable_capacity_steth, block_elapsed, Decimal(str(core_apr_ratio)), reservation_fee_bp
@@ -585,7 +594,7 @@ class TestStakingVaults:
             7_200,  # current_block
             # assuming share rate is 1:1 for simplicity
             pre_total_pooled_ether,  # pre_total_pooled_ether (Wei)
-            pre_total_shares,  #  pre_total_shares (Shares)
+            pre_total_shares,  # pre_total_shares (Shares)
             core_ratio_apr,  # core_apr_ratio (3%)
             (Decimal('20513697696884908.44599671209'), 2880000000000000000000),
         ),
@@ -641,7 +650,7 @@ class TestStakingVaults:
             pre_total_pooled_ether,  # pre_total_pooled_ether (Wei)
             pre_total_shares,  # pre_total_shares (Shares)
             core_ratio_apr,  # core_apr_ratio (3%)
-            (Decimal('17007082495056342.00729679120'), 2879999910015672558976),  # expected result: (fee, shares)
+            (expected_liquidity_fee, 2879999910015672558976),  # expected result: (fee, shares)
         ),
     ]
 
@@ -650,17 +659,17 @@ class TestStakingVaults:
         test_data,
     )
     def test_calc_liquidity_fee(
-        self,
-        vault_address,
-        liability_shares,
-        liquidity_fee_bp,
-        events,
-        prev_block_number,
-        current_block,
-        pre_total_pooled_ether,
-        pre_total_shares,
-        core_apr_ratio,
-        expected,
+            self,
+            vault_address,
+            liability_shares,
+            liquidity_fee_bp,
+            events,
+            prev_block_number,
+            current_block,
+            pre_total_pooled_ether,
+            pre_total_shares,
+            core_apr_ratio,
+            expected,
     ):
         result = StakingVaults.calc_liquidity_fee(
             vault_address,
