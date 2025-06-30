@@ -495,15 +495,15 @@ class Accounting(BaseModule, ConsensusModule):
             ctx.prec = WEI_PRECISION
 
             if prev_ipfs_report_cid != "":
-                prev_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
-                prev_block_number = prev_report.block_number
-                prev_block_hash = prev_report.block_hash
+                prev_ipfs_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)
+                prev_block_number = prev_ipfs_report.block_number
+                prev_block_hash = prev_ipfs_report.block_hash
             else:
                 ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and testnet
                 ## Mainnet
                 ##      in case when we don't have prev ipfs report - we DO have previous oracle report
                 ##      it means we have to take this point for getting fees at the FIRST time only
-                prev_report = None
+                prev_ipfs_report = None
                 last_processing_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
                 if last_processing_ref_slot:
                     report_block_number = get_blockstamp(self.w3.cc, last_processing_ref_slot, last_processing_ref_slot)
@@ -549,8 +549,8 @@ class Accounting(BaseModule, ConsensusModule):
             vaults_on_prev_report = self.w3.staking_vaults.get_vaults(BlockHash(HexStr(prev_block_hash)))
 
             prev_fee = defaultdict(int)
-            if prev_report is not None:
-                for vault in prev_report.values:
+            if prev_ipfs_report is not None:
+                for vault in prev_ipfs_report.values:
                     prev_fee[vault.vault_address] = vault.fee
 
             events = defaultdict(list)
