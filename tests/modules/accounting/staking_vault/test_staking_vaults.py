@@ -371,6 +371,7 @@ class TestStakingVaults:
     expected_reservation_liquidity_fee = Decimal('7267950578864410.919394694197')
     expected_liquidity_fee = Decimal('17007082495056342.00729679120')
     prev_fee = 22169367899378
+    expected_fee = 27204382673365897
 
     @pytest.mark.unit
     def test_fees(self):
@@ -531,7 +532,7 @@ class TestStakingVaults:
         actual_fees = self.accounting._get_vaults_fees(
             cur_block_number, vaults, vaults_total_values, mock_prev_ipfs_report_cid
         )
-        expected_fees = [27204382673365897]  # 0.02720438267 ETH
+        expected_fees = [self.expected_fee]  # 0.02720438267 ETH
 
         expected_total_fees = int(self.prev_fee) + int(self.expected_infra_fee.to_integral_value(ROUND_UP)) + int(
             self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)) + int(
