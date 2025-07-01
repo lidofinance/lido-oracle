@@ -10,7 +10,7 @@ from web3 import Web3
 from web3.module import Module
 from web3.types import Wei
 
-from src.constants import SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT, \
+from src.constants import SLASHINGS_EPOCHS_WINDOW_LEFT, SLASHINGS_EPOCHS_WINDOW_RIGHT, \
     TOTAL_BASIS_POINTS, WEI_PRECISION
 from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
 from src.modules.accounting.types import (
@@ -120,7 +120,6 @@ class StakingVaults(Module):
             3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        left_margin, right_margin = SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, 2 * SLASHINGS_PENALTY_EPOCHS_WINDOW_RIGHT
 
         with localcontext() as ctx:
             ctx.prec = WEI_PRECISION
@@ -137,8 +136,8 @@ class StakingVaults(Module):
                     if validator.validator.slashed:
                         we = validator.validator.withdrawable_epoch
 
-                        if we - left_margin <= bs.ref_epoch <= we + right_margin:
-                            slot_id = self._withdrawable_epoch_to_past_slot(we, SLASHINGS_PENALTY_EPOCHS_WINDOW_LEFT, chain_config.slots_per_epoch)
+                        if we - SLASHINGS_EPOCHS_WINDOW_LEFT <= bs.ref_epoch <= we + SLASHINGS_EPOCHS_WINDOW_RIGHT:
+                            slot_id = (we - SLASHINGS_EPOCHS_WINDOW_LEFT) * chain_config.slots_per_epoch
                             validator_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
 
                             vaults_reserves[vault_id] += cal_reserve(
@@ -146,7 +145,7 @@ class StakingVaults(Module):
                                 vaults[vault_address].reserve_ratioBP
                             )
 
-                        elif bs.ref_epoch < we - left_margin:
+                        elif bs.ref_epoch < we - SLASHINGS_EPOCHS_WINDOW_LEFT:
                             vaults_reserves[vault_id] += cal_reserve(
                                 Web3.to_wei(int(validator.balance), 'gwei'),
                                 vaults[vault_address].reserve_ratioBP
@@ -465,12 +464,6 @@ class StakingVaults(Module):
             prev_tree_cid=data["prevTreeCID"],
             extra_values=data["extraValues"],
         )
-
-    @staticmethod
-    def _withdrawable_epoch_to_past_slot(withdrawable_epoch: int, epochs_ago: int, slots_per_epoch: int) -> int:
-        target_epoch = withdrawable_epoch - epochs_ago
-        target_slot = target_epoch * slots_per_epoch
-        return target_slot
 
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
