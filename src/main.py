@@ -95,6 +95,7 @@ def main(module_name: OracleModule):
         web3.lido_contracts.lido,
         web3.lido_contracts.vault_hub,
         web3.lido_contracts.lazy_oracle,
+        web3.lido_contracts.accounting_oracle,
     )
 
     logger.info({'msg': 'Initialize prometheus metrics.'})

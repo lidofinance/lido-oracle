@@ -2,9 +2,9 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Dict
+from typing import Any, Dict, Optional, cast
 
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, HexStr
 from oz_merkle_tree import StandardMerkleTree
 from web3 import Web3
 from web3.module import Module
@@ -26,6 +26,8 @@ from src.modules.accounting.types import (
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import PendingDeposit, Validator
+from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -33,7 +35,8 @@ from src.providers.ipfs import CID, MultiIPFSProvider
 from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockHash
 from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
-from src.utils.types import hex_str_to_bytes
+from src.utils.slot import get_blockstamp
+from src.utils.types import hex_str_to_bytes, bytes_to_hex_str
 from decimal import Decimal, localcontext, ROUND_UP
 
 logger = logging.getLogger(__name__)
@@ -45,8 +48,9 @@ class StakingVaults(Module):
     lido: LidoContract
     vault_hub: VaultHubContract
     lazy_oracle: LazyOracleContract
+    accounting_oracle: AccountingOracleContract
 
-    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract) -> None:
+    def __init__(self, w3: Web3, cl: ConsensusClient, ipfs: MultiIPFSProvider, lido: LidoContract, vault_hub: VaultHubContract, lazy_oracle: LazyOracleContract, accounting_oracle: AccountingOracleContract) -> None:
         super().__init__(w3)
 
         self.w3 = w3
@@ -55,6 +59,7 @@ class StakingVaults(Module):
         self.lido = lido
         self.vault_hub = vault_hub
         self.lazy_oracle = lazy_oracle
+        self.accounting_oracle = accounting_oracle
 
     def get_vaults(self, block_identifier: BlockHash | BlockNumber) -> VaultsMap:
         vaults = self.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
@@ -524,3 +529,110 @@ class StakingVaults(Module):
                                                        core_apr_ratio, liquidity_fee)
 
         return vault_liquidity_fee, liability_shares
+
+    def _get_start_point_for_fee_calculations(self, blockstamp: ReferenceBlockStamp, prev_ipfs_report_cid: str) -> tuple[
+        Optional[MerkleTreeData], int, str]:
+        if prev_ipfs_report_cid != "":
+            prev_ipfs_report = self.get_ipfs_report(prev_ipfs_report_cid)
+            return prev_ipfs_report, prev_ipfs_report.block_number, prev_ipfs_report.block_hash
+
+        slot_window_right = 100
+        ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and testnet
+        ## Mainnet
+        ##   in case when we don't have prev ipfs report - we DO have previous oracle report
+        ##   it means we have to take this point for getting fees at the FIRST time only
+        last_processing_ref_slot = self.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
+        if last_processing_ref_slot:
+            ref_block = get_blockstamp(self.cl, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slot_window_right))
+            return None, ref_block['number'], bytes_to_hex_str(ref_block['hash'])
+
+        ## Fresh TestNet
+        ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
+        hash_consensus = cast(HashConsensusContract, self.w3.eth.contract(
+            address=self.accounting_oracle.get_consensus_contract(blockstamp.block_hash),
+            ContractFactoryClass=HashConsensusContract,
+            decode_tuples=True,
+        ))
+        initial_ref_slot = hash_consensus.get_initial_ref_slot(blockstamp.block_hash)
+        # If skipped, we reference the block from the first non-missed slot (+100 offset guarantees availability).
+        block = get_blockstamp(self.cl, initial_ref_slot, SlotNumber(int(initial_ref_slot + slot_window_right)))
+        return None, block['number'], bytes_to_hex_str(block['hash'])
+
+    # pylint: disable=too-many-branches,too-many-statements
+    def get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int],
+                        prev_ipfs_report_cid: str, core_apr_ratio: Decimal, pre_total_pooled_ether: int,
+                        pre_total_shares: int) -> list[int]:
+
+        prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
+            blockstamp, prev_ipfs_report_cid
+        )
+        vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
+
+        prev_fee = defaultdict(int)
+        if prev_ipfs_report is not None:
+            for vault in prev_ipfs_report.values:
+                prev_fee[vault.vault_address] = vault.fee
+
+        events = defaultdict(list)
+        fees_updated_events_map = defaultdict(list)
+        fees_updated_events = self.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
+        minted_events = self.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
+        burn_events = self.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
+
+        for event in fees_updated_events:
+            events[event.vault].append(event)
+            fees_updated_events_map[event.vault].append(event)
+
+        for event in minted_events:
+            events[event.vault].append(event)
+
+        for event in burn_events:
+            events[event.vault].append(event)
+
+        out = [0] * len(vaults)
+        current_block = int(blockstamp.block_number)
+        blocks_elapsed = current_block - prev_block_number
+        for vault_address, vault_info in vaults.items():
+            # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
+            vault_infrastructure_fee = StakingVaults.calc_fee_value(
+                Decimal(vaults_total_values[vault_info.id()]),
+                blocks_elapsed,
+                core_apr_ratio,
+                vault_info.infra_feeBP
+            )
+
+            # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
+            vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
+                Decimal(vault_info.mintable_capacity_StETH),
+                blocks_elapsed,
+                core_apr_ratio,
+                vault_info.reservation_feeBP
+            )
+
+            vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
+                vault_address,
+                vault_info.liability_shares,
+                vault_info.liquidity_feeBP,
+                events,
+                prev_block_number,
+                int(blockstamp.block_number),
+                Wei(pre_total_pooled_ether),
+                pre_total_shares,
+                core_apr_ratio
+            )
+
+            if vaults_on_prev_report.get(vault_address) is not None:
+                if vaults_on_prev_report[vault_address].liability_shares != liability_shares:
+                    raise ValueError(f"Wrong liability shares by vault {vault_address}. Actual {liability_shares} != Expected {vaults_on_prev_report[vault_address].liability_shares}")
+            else:
+                if liability_shares != 0:
+                    raise ValueError(f"Wrong liability shares by vault {vault_address}. Should be 0 but got {liability_shares}")
+
+            out[vault_info.id()] = (
+                    int(prev_fee[vault_address]) +
+                    int(vault_infrastructure_fee.to_integral_value(ROUND_UP)) +
+                    int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)) +
+                    int(vault_liquidity_fee.to_integral_value(ROUND_UP))
+            )
+
+        return out
