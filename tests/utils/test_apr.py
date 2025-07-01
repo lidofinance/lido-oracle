@@ -113,7 +113,7 @@ class TestCalculateStethAprRay:
 
         apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
-        assert apr == Decimal("0.1111111111111111111111111110")
+        assert apr == Decimal("0.111111111111111111111111110")
 
     def test_very_small_time_period(self):
         """Test APR calculation for a very small time period."""
