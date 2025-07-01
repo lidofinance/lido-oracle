@@ -8,7 +8,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS, WEI_PRECISION
+from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS, PRECISION_E27
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
@@ -492,7 +492,7 @@ class Accounting(BaseModule, ConsensusModule):
     def _get_vaults_fees(self, blockstamp: ReferenceBlockStamp, vaults: VaultsMap, vaults_total_values: list[int],
                          prev_ipfs_report_cid: str) -> list[int]:
         with localcontext() as ctx:
-            ctx.prec = WEI_PRECISION
+            ctx.prec = PRECISION_E27
 
             if prev_ipfs_report_cid != "":
                 prev_ipfs_report = self.w3.staking_vaults.get_ipfs_report(prev_ipfs_report_cid)

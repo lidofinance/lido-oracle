@@ -42,9 +42,9 @@ MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 # If Lido decides to support 0x2 withdrawal credentials in the future, this variable
 # should be revisited to accommodate potential changes in deposit requirements.
 LIDO_DEPOSIT_AMOUNT = MIN_ACTIVATION_BALANCE
-SHARE_RATE_PRECISION_E27 = 10**27
+PRECISION_E27 = 27
+SHARE_RATE_PRECISION_E27 = 10**PRECISION_E27
 TOTAL_BASIS_POINTS = 10000
-WEI_PRECISION = 28
 
 # Lido CSM constants for network performance calculation
 ATTESTATIONS_WEIGHT = 54

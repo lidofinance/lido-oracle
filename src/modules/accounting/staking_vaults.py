@@ -11,7 +11,7 @@ from web3.module import Module
 from web3.types import Wei
 
 from src.constants import SLASHINGS_EPOCHS_WINDOW_LEFT, SLASHINGS_EPOCHS_WINDOW_RIGHT, \
-    TOTAL_BASIS_POINTS, WEI_PRECISION
+    TOTAL_BASIS_POINTS, PRECISION_E27
 from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
 from src.modules.accounting.types import (
     MerkleTreeData,
@@ -122,7 +122,7 @@ class StakingVaults(Module):
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
 
         with localcontext() as ctx:
-            ctx.prec = WEI_PRECISION
+            ctx.prec = PRECISION_E27
 
             def cal_reserve(balance: Wei, reserve_ratioBP: int) -> int:
                 out = Decimal(balance) * Decimal(reserve_ratioBP) / Decimal(TOTAL_BASIS_POINTS)
@@ -468,7 +468,7 @@ class StakingVaults(Module):
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
         with localcontext() as ctx:
-            ctx.prec = WEI_PRECISION
+            ctx.prec = PRECISION_E27
             return  value * Decimal(block_elapsed) * core_apr_ratio * Decimal(fee_bp) / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
 
     @staticmethod

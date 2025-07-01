@@ -367,9 +367,9 @@ class TestStakingVaults:
     reservation_feeBP = 250
     mintable_capacity_StETH = 3200 * 10 ** 18
     vault_total_value = 3200 * 10 ** 18
-    expected_infra_fee = Decimal('2907180231545764.367757877679')
-    expected_reservation_liquidity_fee = Decimal('7267950578864410.919394694197')
-    expected_liquidity_fee = Decimal('17007082495056342.00729679120')
+    expected_infra_fee = Decimal('2907180231545764.36775787768')
+    expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
+    expected_liquidity_fee = Decimal('17007082495056342.00729679122')
     prev_fee = 22169367899378
     expected_fee = 27204382673365897
 
@@ -545,7 +545,7 @@ class TestStakingVaults:
         "vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei",
         [
             (vault_total_value, 7_200, core_ratio_apr, infra_feeBP, expected_infra_fee),
-            (vault_total_value, 7_200 * 364, core_ratio_apr, infra_feeBP, Decimal('1058213604282658229.863867475')),
+            (vault_total_value, 7_200 * 364, core_ratio_apr, infra_feeBP, Decimal('1058213604282658229.86386748')),
         ],
     )
     def test_infra_fee(self, vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei):
@@ -570,7 +570,7 @@ class TestStakingVaults:
                     7_200 * 364,
                     core_ratio_apr,
                     reservation_feeBP,
-                    Decimal('2645534010706645574.659668688'),
+                    Decimal('2645534010706645574.65966869'),
             ),
         ],
     )
@@ -597,7 +597,7 @@ class TestStakingVaults:
             pre_total_pooled_ether,  # pre_total_pooled_ether (Wei)
             pre_total_shares,  # pre_total_shares (Shares)
             core_ratio_apr,  # core_apr_ratio (3%)
-            (Decimal('20513697696884908.44599671209'), 2880000000000000000000),
+            (Decimal('20513697696884908.4459967120'), 2880000000000000000000),
         ),
         (
             vault1_adr,  # vault_address

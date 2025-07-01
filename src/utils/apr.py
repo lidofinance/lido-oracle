@@ -1,4 +1,4 @@
-from src.constants import WEI_PRECISION
+from src.constants import PRECISION_E27
 from src.modules.accounting.types import SECONDS_IN_YEAR
 from decimal import Decimal, localcontext
 
@@ -19,7 +19,7 @@ def calculate_steth_apr(
         raise ValueError("Cannot compute APR: zero division risk.")
 
     with localcontext() as ctx:
-        ctx.prec = WEI_PRECISION
+        ctx.prec = PRECISION_E27
 
         pre_rate = Decimal(pre_total_ether) / Decimal(pre_total_shares)
         post_rate = Decimal(post_total_ether) / Decimal(post_total_shares)
@@ -33,5 +33,5 @@ def calculate_steth_apr(
 
 def get_steth_by_shares(shares: int, pre_total_ether: int, pre_total_shares: int) -> Decimal:
     with localcontext() as ctx:
-        ctx.prec = WEI_PRECISION
+        ctx.prec = PRECISION_E27
         return (Decimal(shares) * Decimal(pre_total_ether)) / Decimal(pre_total_shares)
