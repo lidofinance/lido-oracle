@@ -317,18 +317,18 @@ class Accounting(BaseModule, ConsensusModule):
         return shares_data.cover_shares + shares_data.non_cover_shares
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp) -> int:
-        last_ref_slot = self.get_last_ref_slot_or_initial(blockstamp)
-        return blockstamp.ref_slot - last_ref_slot
-
-    def get_last_ref_slot_or_initial(self, blockstamp: ReferenceBlockStamp) -> int:
-        last_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
-        if last_ref_slot:
-            return last_ref_slot
-
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
-        return frame_config.initial_epoch * chain_conf.slots_per_epoch - 1
+        last_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(blockstamp)
+
+        if last_ref_slot:
+            slots_elapsed = blockstamp.ref_slot - last_ref_slot
+        else:
+            # https://github.com/lidofinance/core/blob/master/contracts/0.8.9/oracle/HashConsensus.sol#L667
+            slots_elapsed = blockstamp.ref_slot - (frame_config.initial_epoch * chain_conf.slots_per_epoch - 1)
+
+        return slots_elapsed
 
     def _get_slots_elapsed_from_initial_epoch(self, blockstamp: ReferenceBlockStamp) -> int:
         """
