@@ -118,6 +118,7 @@ class BaseModule(ABC):
         """Reset the timeout timer for the current cycle."""
         logger.info({'msg': f'Reset running cycle timeout to {variables.MAX_CYCLE_LIFETIME_IN_SECONDS} seconds'})
         signal.setitimer(signal.ITIMER_REAL, variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
+        pulse()
 
     @staticmethod
     def _sleep_cycle():

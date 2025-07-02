@@ -348,6 +348,7 @@ def test_collect_data_fulfilled_state(
     module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
+    module._reset_cycle_timeout = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = Mock(
         migrate=Mock(),
@@ -746,26 +747,9 @@ def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestPara
                 },
                 expected_tree_values=[
                     (NodeOperatorId(0), HexBytes(b"07c0"), StrikesList([1])),
-                    (NodeOperatorId(UINT64_MAX), HexBytes(b""), StrikesList()),
                 ],
             ),
-            id="put_stone",
-        ),
-        pytest.param(
-            StrikesTreeTestParam(
-                strikes={
-                    (NodeOperatorId(0), HexBytes(b"07c0")): StrikesList([1]),
-                    (NodeOperatorId(1), HexBytes(b"07e8")): StrikesList([1, 2]),
-                    (NodeOperatorId(2), HexBytes(b"0682")): StrikesList([1, 2, 3]),
-                    (NodeOperatorId(UINT64_MAX), HexBytes(b"")): StrikesList(),
-                },
-                expected_tree_values=[
-                    (NodeOperatorId(0), HexBytes(b"07c0"), StrikesList([1])),
-                    (NodeOperatorId(1), HexBytes(b"07e8"), StrikesList([1, 2])),
-                    (NodeOperatorId(2), HexBytes(b"0682"), StrikesList([1, 2, 3])),
-                ],
-            ),
-            id="remove_stone",
+            id="one_item_tree",
         ),
     ],
 )

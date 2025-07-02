@@ -410,10 +410,11 @@ def process_attestations(
 ) -> None:
     for attestation in attestations:
         committee_offset = 0
+        att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
-            att_bits = hex_bitlist_to_list(attestation.aggregation_bits)[committee_offset:][: len(committee)]
-            for index_in_committee in get_set_indices(att_bits):
+            att_committee_bits = att_bits[committee_offset:][: len(committee)]
+            for index_in_committee in get_set_indices(att_committee_bits):
                 committee[index_in_committee].included = True
             committee_offset += len(committee)
 
@@ -424,7 +425,7 @@ def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]
 
 def get_set_indices(bits: Sequence[bool]) -> list[int]:
     """Returns indices of truthy values in the supplied sequence"""
-    return [i for (i, bit) in enumerate(bits) if bit]
+    return [i for i, bit in enumerate(bits) if bit]
 
 
 def hex_bitvector_to_list(bitvector: str) -> list[bool]:

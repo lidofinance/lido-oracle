@@ -237,17 +237,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]) -> StrikesTree:
         if not strikes:
             raise ValueError("No strikes to build a tree")
-
-        # XXX: We put a stone here to make sure, that even with only 1 validator in the tree, it's
-        # still possible to report strikes. The CSStrikes contract reverts if the proof's length
-        # is zero, which is the case when the tree has only one leaf.
-        stone = (NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT), HexBytes(b""))
-        strikes[stone] = StrikesList()
-
-        # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
-        if stone in strikes and len(strikes) > 2:
-            strikes.pop(stone)
-
         tree = StrikesTree.new(tuple((no_id, pubkey, strikes) for ((no_id, pubkey), strikes) in strikes.items()))
         logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree

@@ -66,7 +66,7 @@ def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int
         ['just', '_deploy-impl', '--broadcast', '--private-key', deployer],
         env={
             **os.environ,
-            "ANVIL_PORT": str(anvil_port),
+            "RPC_URL": f"http://localhost:{str(anvil_port)}",
             'CHAIN': chain,
         },
         stdout=subprocess.DEVNULL,
