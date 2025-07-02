@@ -92,19 +92,19 @@ class LazyOracleContract(ContractInterface):
         out: List[VaultInfo] = []
         for vault in response:
             out.append(VaultInfo(
-                vault.vault,
-                vault.balance,
-                bytes_to_hex_str(vault.withdrawalCredentials),
-                vault.liabilityShares,
-                vault.shareLimit,
-                vault.reserveRatioBP,
-                vault.forcedRebalanceThresholdBP,
-                vault.infraFeeBP,
-                vault.liquidityFeeBP,
-                vault.reservationFeeBP,
-                vault.pendingDisconnect,
-                vault.mintableStETH,
-                vault.vaultIndex,
+                vault=vault.vault,
+                balance=vault.balance,
+                withdrawal_credentials=bytes_to_hex_str(vault.withdrawalCredentials),
+                liability_shares=vault.liabilityShares,
+                share_limit=vault.shareLimit,
+                reserve_ratioBP=vault.reserveRatioBP,
+                forced_rebalance_thresholdBP=vault.forcedRebalanceThresholdBP,
+                infra_feeBP=vault.infraFeeBP,
+                liquidity_feeBP=vault.liquidityFeeBP,
+                reservation_feeBP=vault.reservationFeeBP,
+                pending_disconnect=vault.pendingDisconnect,
+                mintable_capacity_StETH=vault.mintableStETH,
+                in_out_delta=vault.inOutDelta,
             ))
 
         return out
