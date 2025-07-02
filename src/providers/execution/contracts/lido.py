@@ -1,9 +1,7 @@
 import logging
-from typing import Optional
 
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.events import TokenRebasedEvent
 from src.modules.accounting.types import BeaconStat
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
@@ -71,22 +69,3 @@ class LidoContract(ContractInterface):
         })
 
         return response
-
-    def get_last_token_rebased_event(self, from_block, to_block: int) -> Optional[TokenRebasedEvent]:
-        logs = self.events.TokenRebased().get_logs(
-            from_block=from_block,
-            to_block=to_block
-        )
-
-        logger.info({
-            'msg': 'Call `getTokenRebasedEvents()`.',
-            'from_block': from_block,
-            'to_block': to_block,
-            'to': self.address,
-            'len(events)': len(logs),
-        })
-
-        if len(logs) == 0:
-            return None
-
-        return TokenRebasedEvent.from_log(logs[-1])

@@ -18,7 +18,7 @@ from src.modules.accounting.types import (
     MerkleTreeData,
     MerkleValue,
     VaultInfo,
-    VaultsMap,
+    VaultsMap, VaultTotalValueMap,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
@@ -27,18 +27,18 @@ from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 class TestStakingVaults:
     staking_vaults: StakingVaults
 
+    vault_adr_0 = ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302')))
+    vault_adr_1 = ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC')))
+    vault_adr_2 = ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014')))
+    vault_adr_3 = ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4')))
+
     def setup_method(self):
         # Vault addresses
-        vault_adr_0 = ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302')))
-        vault_adr_1 = ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC')))
-        vault_adr_2 = ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014')))
-        vault_adr_3 = ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4')))
 
         # --- VaultHub Mock ---
         self.vaults: VaultsMap = {
-            vault_adr_0: VaultInfo(
-                vault_ind=1,
-                vault=vault_adr_0,
+            self.vault_adr_0: VaultInfo(
+                vault=self.vault_adr_0,
                 balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
@@ -52,9 +52,8 @@ class TestStakingVaults:
                 pending_disconnect=False,
                 mintable_capacity_StETH=0,
             ),
-            vault_adr_1: VaultInfo(
-                vault_ind=2,
-                vault=vault_adr_1,
+            self.vault_adr_1: VaultInfo(
+                vault=self.vault_adr_1,
                 balance=Wei(0),
                 in_out_delta=Wei(2000000000000000000),
                 withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
@@ -68,9 +67,8 @@ class TestStakingVaults:
                 pending_disconnect=False,
                 mintable_capacity_StETH=0,
             ),
-            vault_adr_2: VaultInfo(
-                vault_ind=3,
-                vault=vault_adr_2,
+            self.vault_adr_2: VaultInfo(
+                vault=self.vault_adr_2,
                 balance=Wei(2000900000000000000),
                 in_out_delta=Wei(2000900000000000000),
                 withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
@@ -84,9 +82,8 @@ class TestStakingVaults:
                 pending_disconnect=False,
                 mintable_capacity_StETH=0,
             ),
-            vault_adr_3: VaultInfo(
-                vault_ind=4,
-                vault=vault_adr_3,
+            self.vault_adr_3: VaultInfo(
+                vault=self.vault_adr_3,
                 balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
@@ -206,7 +203,13 @@ class TestStakingVaults:
         ]
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
-        expected = [33834904184000000000, 41000000000000000000, 52000900000000000000, 61000000000000000000]
+        expected = {
+            self.vault_adr_0: 33834904184000000000,
+            self.vault_adr_1: 41000000000000000000,
+            self.vault_adr_2: 52000900000000000000,
+            self.vault_adr_3: 61000000000000000000,
+        }
+
         assert vaults_total_values == expected
 
     @pytest.mark.unit
@@ -256,7 +259,13 @@ class TestStakingVaults:
         ]
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
-        expected = [1000000000000000000, 2000000000000000000, 2000900000000000000, 1000000000000000000]
+        expected = {
+            self.vault_adr_0: 1000000000000000000,
+            self.vault_adr_1: 2000000000000000000,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
         assert vaults_total_values == expected
 
     @pytest.mark.unit
@@ -298,7 +307,12 @@ class TestStakingVaults:
         ]
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
-        expected = [1000000000000000000, 0, 2000900000000000000, 1000000000000000000]
+        expected = {
+            self.vault_adr_0: 1000000000000000000,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
 
         assert vaults_total_values == expected
 
@@ -347,9 +361,12 @@ class TestStakingVaults:
         ]
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
-
-        expected = [1000000000000000000, 0, 2000900000000000000, 1000000000000000000]
-
+        expected = {
+            self.vault_adr_0: 1000000000000000000,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
         assert vaults_total_values == expected
 
     pre_total_shares = 7598409496266444487755575
@@ -373,7 +390,7 @@ class TestStakingVaults:
     expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
     expected_liquidity_fee = Decimal('17007082495056342.00729679122')
     prev_fee = 22169367899378
-    expected_fee = 27204382673365897
+    expected_fee = 27204382673365897 # 0.02720438267 ETH
 
     @pytest.mark.unit
     def test_fees(self):
@@ -410,7 +427,6 @@ class TestStakingVaults:
         )
 
         vault1 = VaultInfo(
-            vault_ind=1,
             vault=vault1_adr,
             liability_shares=self.liability_shares,
             reserve_ratioBP=self.reserve_ratioBP,
@@ -433,11 +449,12 @@ class TestStakingVaults:
         mock_prev_vaults = [mock_prev_vault1]
 
         vaults = {}
-        vaults_total_values = []
+        vaults_total_values: VaultTotalValueMap = {
+            ChecksumAddress(HexAddress(HexStr(vault1_adr))): self.vault_total_value
+        }
 
         # 65020000000000000000,0x0200000000000000000000007228fc874c1d08cae68a558d7b650fc4862b1db7
         vaults[vault1.vault] = vault1
-        vaults_total_values.append(self.vault_total_value)
 
         vaults_fee_updated_events = [
             VaultFeesUpdatedEvent(
@@ -521,8 +538,9 @@ class TestStakingVaults:
             self.pre_total_pooled_ether,
             self.pre_total_shares,
         )
-        expected_fees = [self.expected_fee]  # 0.02720438267 ETH
-
+        expected_fees = {
+            vault1_adr: self.expected_fee
+        }
         expected_total_fees = (
             int(self.prev_fee)
             + int(self.expected_infra_fee.to_integral_value(ROUND_UP))
@@ -530,7 +548,7 @@ class TestStakingVaults:
             + int(self.expected_liquidity_fee.to_integral_value(ROUND_UP))
         )
 
-        assert expected_total_fees == expected_fees[0]
+        assert expected_total_fees == expected_fees[vault1_adr]
         assert expected_fees == actual_fees
 
     @pytest.mark.parametrize(

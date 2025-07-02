@@ -506,7 +506,6 @@ def test_simulate_rebase_after_report(
     ]
     vaults: VaultsMap = {
         ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
-            vault_ind=0,
             balance=66951606691371698360,
             in_out_delta=33000000000000000000,
             liability_shares=0,
@@ -522,7 +521,6 @@ def test_simulate_rebase_after_report(
             mintable_capacity_StETH=0,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
-            vault_ind=1,
             balance=2500000000000000000,
             in_out_delta=2500000000000000000,
             liability_shares=1,
@@ -538,7 +536,7 @@ def test_simulate_rebase_after_report(
             mintable_capacity_StETH=0,
         ),
     }
-    vaults_total_values = []
+    vaults_total_values = {}
     mock_vaults_data: VaultsData = (tree_data, vaults, vaults_total_values)
     accounting.w3.staking_vaults = Mock()
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)

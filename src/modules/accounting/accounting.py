@@ -12,7 +12,7 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
     ACCOUNTING_IS_BUNKER,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI, VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
@@ -393,7 +393,7 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         """
-            Generates and publishes a Merkle tree report for staking vaults at a given refBlock.
+            Generates and publishes a Merkle tree report for staking vaults at a given blockstamp.
 
             This function performs the following steps:
             1. Fetches staking vaults at the given block number.
@@ -423,29 +423,37 @@ class Accounting(BaseModule, ConsensusModule):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
-        core_apr_ratio = self._core_apr_ratio(blockstamp,
-                                              simulation.pre_total_shares,
-                                              simulation.pre_total_pooled_ether,
-                                              simulation.post_total_shares,
-                                              simulation.post_total_pooled_ether
-                                              )
+        core_apr_ratio = self._core_apr_ratio(
+            blockstamp,
+            simulation.pre_total_shares,
+            simulation.pre_total_pooled_ether,
+            simulation.post_total_shares,
+            simulation.post_total_pooled_ether
+        )
 
         prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
         vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
         vaults_fees = self.w3.staking_vaults.get_vaults_fees(
-            blockstamp, vaults, vaults_total_values, prev_report_cid,
-            core_apr_ratio, simulation.pre_total_pooled_ether, simulation.pre_total_shares,
+            blockstamp,
+            vaults, vaults_total_values,
+            prev_report_cid,
+            core_apr_ratio,
+            simulation.pre_total_pooled_ether,
+            simulation.pre_total_shares,
         )
-        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(blockstamp, vaults, validators,
-                                                                                     chain_config)
-        tree_data = self.w3.staking_vaults.build_tree_data(vaults, vaults_total_values, vaults_fees,
-                                                           vaults_slashing_reserve)
+        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(
+            blockstamp, vaults, validators,chain_config
+        )
+        tree_data = self.w3.staking_vaults.build_tree_data(
+            vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve
+        )
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-
         tree_cid = self.w3.staking_vaults.publish_tree(
             merkle_tree, vaults, blockstamp, prev_report_cid, chain_config
         )
+
+        VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
         return merkle_tree.root, str(tree_cid)
@@ -501,10 +509,13 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
-    def _core_apr_ratio(self, blockstamp: ReferenceBlockStamp, pre_total_shares: int,
-    pre_total_pooled_ether: int,
-    post_total_shares: int,
-    post_total_pooled_ether: int) -> Decimal:
+    def _core_apr_ratio(self,
+                        blockstamp: ReferenceBlockStamp,
+                        pre_total_shares: int,
+                        pre_total_pooled_ether: int,
+                        post_total_shares: int,
+                        post_total_pooled_ether: int
+    ) -> Decimal:
         with localcontext() as ctx:
             ctx.prec = PRECISION_E27
             total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)

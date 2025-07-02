@@ -105,7 +105,6 @@ class LazyOracleContract(ContractInterface):
                 vault.pendingDisconnect,
                 vault.mintableStETH,
                 vault.vaultIndex,
-                vault.inOutDelta
             ))
 
         return out
@@ -127,8 +126,6 @@ class LazyOracleContract(ContractInterface):
                 break
             vaults.extend(batch)
             offset += limit
-
-        vaults.sort(key=lambda vault: vault.vault_ind)
 
         return vaults
 
