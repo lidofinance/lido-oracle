@@ -454,13 +454,7 @@ class StakingVaults(Module):
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
         with localcontext() as ctx:
             ctx.prec = PRECISION_E27
-            return (
-                value
-                * Decimal(block_elapsed)
-                * core_apr_ratio
-                * Decimal(fee_bp)
-                / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
-            )
+            return value * Decimal(block_elapsed) * core_apr_ratio * Decimal(fee_bp) / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
 
     @staticmethod
     def calc_liquidity_fee(
