@@ -348,6 +348,7 @@ def test_collect_data_fulfilled_state(
     module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
 ):
     module.w3 = Mock()
+    module._reset_cycle_timeout = Mock()
     module._receive_last_finalized_slot = Mock()
     module.state = Mock(
         migrate=Mock(),
