@@ -18,7 +18,8 @@ from src.modules.accounting.types import (
     MerkleTreeData,
     MerkleValue,
     VaultInfo,
-    VaultsMap, VaultTotalValueMap,
+    VaultsMap,
+    VaultTotalValueMap,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
@@ -390,7 +391,7 @@ class TestStakingVaults:
     expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
     expected_liquidity_fee = Decimal('17007082495056342.00729679122')
     prev_fee = 22169367899378
-    expected_fee = 27204382673365897 # 0.02720438267 ETH
+    expected_fee = 27204382673365897  # 0.02720438267 ETH
 
     @pytest.mark.unit
     def test_fees(self):
@@ -538,9 +539,7 @@ class TestStakingVaults:
             self.pre_total_pooled_ether,
             self.pre_total_shares,
         )
-        expected_fees = {
-            vault1_adr: self.expected_fee
-        }
+        expected_fees = {vault1_adr: self.expected_fee}
         expected_total_fees = (
             int(self.prev_fee)
             + int(self.expected_infra_fee.to_integral_value(ROUND_UP))
