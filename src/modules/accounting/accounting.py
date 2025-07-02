@@ -12,7 +12,8 @@ from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
     ACCOUNTING_IS_BUNKER,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI, VAULTS_TOTAL_VALUE,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
+    VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
@@ -384,26 +385,26 @@ class Accounting(BaseModule, ConsensusModule):
 
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         """
-            Generates and publishes a Merkle tree report for staking vaults at a given blockstamp.
+        Generates and publishes a Merkle tree report for staking vaults at a given blockstamp.
 
-            This function performs the following steps:
-            1. Fetches staking vaults at the given block number.
-            2. If no vaults are found, returns empty report data.
-            3. Retrieves validator data and pending deposits at the refBlock.
-            4. Loads chain configuration for the target block.
-            5. Computes total values for all vaults, including validator balances and pending deposits.
-            6. Calculates vault-specific fees and slashing reserves.
-            7. Constructs structured tree data combining vault values, fees, and slashing reserves.
-            8. Builds a Merkle tree from this data.
-            9. Publishes the Merkle tree to IPFS (or similar) and retrieves a content ID (CID).
-            10. Returns the Merkle tree root and the CID as the vaults report.
+        This function performs the following steps:
+        1. Fetches staking vaults at the given block number.
+        2. If no vaults are found, returns empty report data.
+        3. Retrieves validator data and pending deposits at the refBlock.
+        4. Loads chain configuration for the target block.
+        5. Computes total values for all vaults, including validator balances and pending deposits.
+        6. Calculates vault-specific fees and slashing reserves.
+        7. Constructs structured tree data combining vault values, fees, and slashing reserves.
+        8. Builds a Merkle tree from this data.
+        9. Publishes the Merkle tree to IPFS (or similar) and retrieves a content ID (CID).
+        10. Returns the Merkle tree root and the CID as the vaults report.
 
-            Args:
-                blockstamp (ReferenceBlockStamp): Block context used to fetch vault and validator data.
+        Args:
+            blockstamp (ReferenceBlockStamp): Block context used to fetch vault and validator data.
 
-            Returns:
-                VaultsReport: A tuple containing the Merkle tree root (as `bytes`) and the CID (as `str`)
-                              identifying the published tree data.
+        Returns:
+            VaultsReport: A tuple containing the Merkle tree root (as `bytes`) and the CID (as `str`)
+                          identifying the published tree data.
         """
 
         vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_hash)
@@ -419,30 +420,29 @@ class Accounting(BaseModule, ConsensusModule):
             simulation.pre_total_shares,
             simulation.pre_total_pooled_ether,
             simulation.post_total_shares,
-            simulation.post_total_pooled_ether
+            simulation.post_total_pooled_ether,
         )
 
         prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
         vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
         vaults_fees = self.w3.staking_vaults.get_vaults_fees(
             blockstamp,
-            vaults, vaults_total_values,
+            vaults,
+            vaults_total_values,
             prev_report_cid,
             core_apr_ratio,
             simulation.pre_total_pooled_ether,
             simulation.pre_total_shares,
         )
         vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(
-            blockstamp, vaults, validators,chain_config
+            blockstamp, vaults, validators, chain_config
         )
         tree_data = self.w3.staking_vaults.build_tree_data(
             vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve
         )
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        tree_cid = self.w3.staking_vaults.publish_tree(
-            merkle_tree, vaults, blockstamp, prev_report_cid, chain_config
-        )
+        tree_cid = self.w3.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config)
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
@@ -500,18 +500,20 @@ class Accounting(BaseModule, ConsensusModule):
             extra_data_items_count=extra_data.items_count,
         )
 
-    def _core_apr_ratio(self,
-                        blockstamp: ReferenceBlockStamp,
-                        pre_total_shares: int,
-                        pre_total_pooled_ether: int,
-                        post_total_shares: int,
-                        post_total_pooled_ether: int
+    def _core_apr_ratio(
+        self,
+        blockstamp: ReferenceBlockStamp,
+        pre_total_shares: int,
+        pre_total_pooled_ether: int,
+        post_total_shares: int,
+        post_total_pooled_ether: int,
     ) -> Decimal:
         with localcontext() as ctx:
             ctx.prec = PRECISION_E27
             total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
-            modules_fee, treasury_fee, base_precision = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
-                blockstamp.block_hash)
+            modules_fee, treasury_fee, base_precision = (
+                self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(blockstamp.block_hash)
+            )
             lido_fee_bp = (Decimal(modules_fee + treasury_fee) * total_basis_points_dec) / Decimal(base_precision)
 
             if lido_fee_bp >= total_basis_points_dec:
