@@ -330,15 +330,6 @@ class Accounting(BaseModule, ConsensusModule):
 
         return slots_elapsed
 
-    def _get_slots_elapsed_from_initial_epoch(self, blockstamp: ReferenceBlockStamp) -> int:
-        """
-        https://github.com/lidofinance/core/blob/master/contracts/0.8.9/oracle/HashConsensus.sol#L667
-        """
-        chain_conf = self.get_chain_config(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
-
-        return blockstamp.ref_slot - (frame_config.initial_epoch * chain_conf.slots_per_epoch - 1)
-
     @lru_cache(maxsize=1)
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> BunkerMode:
         frame_config = self.get_frame_config(blockstamp)
