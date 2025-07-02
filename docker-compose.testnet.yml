@@ -1,5 +1,3 @@
-version: '3.9'
-
 networks:
   tw-holesky-oracle-v6-network:
     name: tw-holesky-oracle-v6
@@ -64,7 +62,11 @@ services:
     environment:
       - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
       - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_1}"
+      - "MAX_CYCLE_LIFETIME_IN_SECONDS=60000"
+      - "CACHE_PATH=csm-cache"
     command: csm
+    volumes:
+      - ./volumes/csm-cache-1:/app/csm-cache
 
   tw-holesky-oracle-v6-accounting-2:
     build: ./
@@ -121,7 +123,11 @@ services:
     environment:
       - "KUBO_HOST=http://tw-holesky-oracle-v6-ipfs"
       - "MEMBER_PRIV_KEY=${MEMBER_PRIV_KEY_2}"
+      - "MAX_CYCLE_LIFETIME_IN_SECONDS=60000"
+      - "CACHE_PATH=csm-cache"
     command: csm
+    volumes:
+      - ./volumes/csm-cache-2:/app/csm-cache
 
   tw-holesky-oracle-v6-ipfs:
     build: ./kubo
