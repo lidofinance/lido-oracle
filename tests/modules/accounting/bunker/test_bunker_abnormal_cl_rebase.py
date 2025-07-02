@@ -1,8 +1,8 @@
-import pytest
-
 from unittest.mock import Mock
 
-from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX, LIDO_DEPOSIT_AMOUNT
+import pytest
+
+from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
@@ -11,7 +11,7 @@ from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory, PendingDepositFactory
+from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
 
 
@@ -88,7 +88,7 @@ def test_is_abnormal_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     result = abnormal_case.is_abnormal_cl_rebase(blockstamp, all_validators, lido_validators, frame_cl_rebase)
 
     assert result == expected_is_abnormal
@@ -118,7 +118,7 @@ def test_calculate_lido_normal_cl_rebase(
     abnormal_case.lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
     abnormal_case.lido_keys = abnormal_case.w3.kac.get_used_lido_keys(blockstamp)
 
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     result = abnormal_case._calculate_lido_normal_cl_rebase(blockstamp)
 
     assert result == expected_rebase
@@ -168,7 +168,7 @@ def test_is_negative_specific_cl_rebase(
         rebase_check_nearest_epoch_distance=nearest_epoch_distance,
         rebase_check_distant_epoch_distance=far_epoch_distance,
     )
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     if isinstance(expected_is_negative, str):
         with pytest.raises(ValueError, match=expected_is_negative):
             abnormal_case._is_negative_specific_cl_rebase(blockstamp)
@@ -402,7 +402,7 @@ def test_get_lido_validators_balance_with_vault_pre_electra(
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=2)
+    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
 
     assert result == expected_result
@@ -412,7 +412,7 @@ def test_get_lido_validators_balance_with_vault_pre_electra(
 @pytest.mark.parametrize(
     ("blockstamp", "expected_result"),
     [
-        (simple_ref_blockstamp(50), 98001157445),
+        (simple_ref_blockstamp(50), 66001157445),
         (simple_ref_blockstamp(40), 98001157445),
         (simple_ref_blockstamp(20), 77999899300),
     ],
@@ -424,13 +424,6 @@ def test_get_lido_validators_balance_with_vault_post_electra(
     expected_result,
 ):
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
-    abnormal_case.w3.cc.get_state_view = Mock(
-        return_value=Mock(
-            pending_deposits=PendingDepositFactory.generate_for_validators(
-                lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT
-            )
-        )
-    )
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch))

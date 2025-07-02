@@ -1,4 +1,5 @@
 import logging
+import signal
 import time
 import traceback
 from abc import abstractmethod, ABC
@@ -111,6 +112,13 @@ class BaseModule(ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+
+    @staticmethod
+    def _reset_cycle_timeout():
+        """Reset the timeout timer for the current cycle."""
+        logger.info({'msg': f'Reset running cycle timeout to {variables.MAX_CYCLE_LIFETIME_IN_SECONDS} seconds'})
+        signal.setitimer(signal.ITIMER_REAL, variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
+        pulse()
 
     @staticmethod
     def _sleep_cycle():

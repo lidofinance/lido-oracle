@@ -1,4 +1,5 @@
 import random
+import pytest
 
 from hexbytes import HexBytes
 from web3.types import BlockIdentifier
@@ -13,6 +14,7 @@ class Calc:
         return a + b
 
 
+@pytest.mark.unit
 def test_clear_global_cache():
     calc = Calc()
     calc.get(1, 2)
@@ -39,6 +41,7 @@ class Contract(ContractInterface):
         return random.random()
 
 
+@pytest.mark.unit
 def test_cache_do_not_cache_contract_with_relative_blocks():
     c = Contract()
 

@@ -1,0 +1,42 @@
+repos:
+  - repo: local
+    hooks:
+      - id: black-only-tests
+        name: Run Black on tests/ using Poetry
+        entry: poetry run black tests
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: conventional-pre-commit
+        name: Conventional pre-commit
+        entry: poetry run conventional-pre-commit
+        language: system
+        stages: [commit-msg]
+      - id: isort-poetry
+        name: isort
+        entry: poetry run isort
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [python]
+        files: '^(src)/'
+        stages: [commit]
+      - id: pylint
+        name: pylint
+        entry: poetry run pylint src tests
+        language: system
+        types: [python]
+        files: '^(src|test)/'
+        stages: [commit]
+      - id: pytest-unit
+        name: Run pytest unit tests
+        entry: poetry run pytest tests -m "not integration and not e2e"
+        language: system
+        pass_filenames: false
+        stages: [commit]

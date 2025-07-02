@@ -3,11 +3,12 @@ from functools import cached_property
 from typing import Protocol
 
 from eth_typing import BlockNumber
+from hexbytes import HexBytes
 from web3.types import Timestamp
 
-from src.constants import FAR_FUTURE_EPOCH
 from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.types import hex_str_to_bytes
 
 
 @dataclass
@@ -17,7 +18,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
-    ELECTRA_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
 
 @dataclass
@@ -89,25 +89,25 @@ class AttestationData(Nested, FromResponse):
 class BlockAttestationResponse(Nested, FromResponse):
     aggregation_bits: str
     data: AttestationData
-    committee_bits: str | None = None
+    committee_bits: str = ''
 
 
-class BlockAttestationPhase0(Protocol):
+class BlockAttestation(Protocol):
     aggregation_bits: str
+    committee_bits: str
     data: AttestationData
 
 
-class BlockAttestationEIP7549(BlockAttestationPhase0):
-    committee_bits: str
-
-
-type BlockAttestation = BlockAttestationPhase0 | BlockAttestationEIP7549
+@dataclass
+class SyncAggregate(FromResponse):
+    sync_committee_bits: str
 
 
 @dataclass
 class BeaconBlockBody(Nested, FromResponse):
     execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
+    sync_aggregate: SyncAggregate
 
 
 @dataclass
@@ -137,6 +137,10 @@ class Validator(Nested, FromResponse):
     balance: Gwei
     validator: ValidatorState
 
+    @property
+    def pubkey(self) -> HexBytes:
+        return HexBytes(hex_str_to_bytes(self.validator.pubkey))
+
 
 @dataclass
 class BlockDetailsResponse(Nested, FromResponse):
@@ -150,15 +154,6 @@ class SlotAttestationCommittee(Nested, FromResponse):
     index: CommitteeIndex
     slot: SlotNumber
     validators: list[ValidatorIndex]
-
-
-@dataclass
-class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
-    amount: Gwei
-    signature: str
-    slot: SlotNumber
 
 
 @dataclass
@@ -183,7 +178,6 @@ class BeaconStateView(Nested, FromResponse):
     # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
-    pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
 
     @cached_property
@@ -196,3 +190,15 @@ class BeaconStateView(Nested, FromResponse):
             )
             for (i, v) in enumerate(self.validators)
         ]
+
+
+@dataclass
+class SyncCommittee(Nested, FromResponse):
+    validators: list[ValidatorIndex]
+
+
+@dataclass
+class ProposerDuties(Nested, FromResponse):
+    pubkey: str
+    validator_index: ValidatorIndex
+    slot: SlotNumber

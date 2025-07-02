@@ -2,7 +2,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting.types import BeaconStat
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -12,15 +11,13 @@ from tests.factory.no_registry import (
     NodeOperatorFactory,
     StakingModuleFactory,
     ValidatorFactory,
-    PendingDepositFactory,
 )
-
 
 blockstamp = ReferenceBlockStampFactory.build()
 
 
 @pytest.mark.unit
-def test_get_lido_validators(web3, lido_validators, contracts):
+def test_get_lido_validators(web3):
     validators = ValidatorFactory.batch(30)
     lido_keys = LidoKeyFactory.generate_for_validators(validators[:10])
     lido_keys.extend(LidoKeyFactory.batch(10))
@@ -41,40 +38,7 @@ def test_get_lido_validators(web3, lido_validators, contracts):
 
 
 @pytest.mark.unit
-def calculate_total_eth1_bridge_deposits_amount(web3, lido_validators, contracts):
-    lido_validators = LidoValidatorFactory.batch(30)
-    lido_validators.extend(LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(5))
-    pending_deposits = [
-        *PendingDepositFactory.generate_for_validators(lido_validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.generate_for_validators(lido_validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.batch(10),
-    ]
-
-    pending_deposits_sum = web3.lido_validators.calculate_total_eth1_bridge_deposits_amount(
-        lido_validators, pending_deposits
-    )
-
-    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT * 5
-
-
-@pytest.mark.unit
-def test_sum_pending_deposit_requests_for_validator(web3, lido_validators, contracts):
-    validators = LidoValidatorFactory.batch(5)
-    pending_deposits = [
-        *PendingDepositFactory.generate_for_validators(validators, slot=100500, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.generate_for_validators(validators, slot=0, amount=LIDO_DEPOSIT_AMOUNT),
-        *PendingDepositFactory.batch(10),
-    ]
-
-    one_validator, *_ = validators
-
-    pending_deposits_sum = web3.lido_validators.sum_eth1_bridge_deposits_amount(one_validator, pending_deposits)
-
-    assert pending_deposits_sum == LIDO_DEPOSIT_AMOUNT
-
-
-@pytest.mark.unit
-def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validators, contracts):
+def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
     validators = ValidatorFactory.batch(10)
     lido_keys = [LidoKeyFactory.build()]
 
@@ -114,7 +78,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3, lido_validat
 
 
 @pytest.mark.unit
-def test_get_lido_node_operators_by_modules(web3, lido_validators, contracts):
+def test_get_lido_node_operators_by_modules(web3):
     web3.lido_contracts.staking_router.get_staking_modules = Mock(
         return_value=[
             StakingModuleFactory.build(id=1),
@@ -130,7 +94,7 @@ def test_get_lido_node_operators_by_modules(web3, lido_validators, contracts):
 
 
 @pytest.mark.unit
-def test_get_node_operators(web3, lido_validators, contracts):
+def test_get_node_operators(web3):
     web3.lido_validators.get_lido_node_operators_by_modules = Mock(
         return_value={
             0: [0, 2, 3],
@@ -144,7 +108,7 @@ def test_get_node_operators(web3, lido_validators, contracts):
 
 
 @pytest.mark.unit
-def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
+def test_get_lido_validators_by_node_operator(web3):
     # 2 NO in one module
     # 1 NO in 2 module
     sm1 = StakingModuleFactory.build(id=1)
@@ -197,7 +161,6 @@ def test_get_lido_validators_by_node_operator(web3, lido_validators, contracts):
 
 
 @pytest.mark.unit
-@pytest.mark.usefixtures('lido_validators', 'contracts')
 def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
     validator = LidoValidatorFactory.build()
     web3.lido_validators.get_lido_validators = Mock(return_value=[validator])

@@ -1,3 +1,5 @@
+from eth_utils import add_0x_prefix
+
 from src.providers.consensus.types import BlockDetailsResponse
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 
@@ -27,6 +29,6 @@ def _build_blockstamp_data(
         "slot_number": slot_details.message.slot,
         "state_root": slot_details.message.state_root,
         "block_number": execution_payload.block_number,
-        "block_hash": execution_payload.block_hash,
+        "block_hash": add_0x_prefix(execution_payload.block_hash),
         "block_timestamp": execution_payload.timestamp,
     }

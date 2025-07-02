@@ -1,18 +1,22 @@
 import logging
+from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-from typing import Iterable, Sequence, TypeGuard
+from typing import Iterable, Sequence
 
 from src import variables
-from src.constants import SLOTS_PER_HISTORICAL_ROOT
-from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
+from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+from src.metrics.prometheus.csm import CSM_UNPROCESSED_EPOCHS_COUNT, CSM_MIN_UNPROCESSED_EPOCH
 from src.modules.csm.state import State
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestation, BlockAttestationEIP7549
+from src.providers.consensus.types import SyncCommittee, SyncAggregate
+from src.utils.blockstamp import build_blockstamp
+from src.providers.consensus.types import BlockAttestation
 from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
+from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import Web3Converter
@@ -22,6 +26,7 @@ lock = Lock()
 
 
 class MinStepIsNotReached(Exception): ...
+class SlotOutOfRootsRange(Exception): ...
 
 
 @dataclass
@@ -32,7 +37,7 @@ class FrameCheckpoint:
 
 @dataclass
 class ValidatorDuty:
-    index: ValidatorIndex
+    validator_index: ValidatorIndex
     included: bool
 
 
@@ -103,7 +108,22 @@ class FrameCheckpointsIterator:
         return False
 
 
-type Committees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
+type SlotBlockRoot = tuple[SlotNumber, BlockRoot | None]
+type SyncCommittees = dict[SlotNumber, list[ValidatorDuty]]
+type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorDuty]]
+
+
+class SyncCommitteesCache(UserDict):
+
+    max_size = max(2, variables.CSM_ORACLE_MAX_CONCURRENCY)
+
+    def __setitem__(self, sync_committee_period: int, value: SyncCommittee):
+        if len(self) >= self.max_size:
+            self.pop(min(self))
+        super().__setitem__(sync_committee_period, value)
+
+
+SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 
 class FrameCheckpointProcessor:
@@ -113,21 +133,17 @@ class FrameCheckpointProcessor:
     state: State
     finalized_blockstamp: BlockStamp
 
-    eip7549_supported: bool
-
     def __init__(
         self,
         cc: ConsensusClient,
         state: State,
         converter: Web3Converter,
         finalized_blockstamp: BlockStamp,
-        eip7549_supported: bool = True,
     ):
         self.cc = cc
         self.converter = converter
         self.state = state
         self.finalized_blockstamp = finalized_blockstamp
-        self.eip7549_supported = eip7549_supported
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
         logger.info(
@@ -139,10 +155,11 @@ class FrameCheckpointProcessor:
             return 0
         block_roots = self._get_block_roots(checkpoint.slot)
         duty_epochs_roots = {
-            duty_epoch: self._select_block_roots(duty_epoch, block_roots, checkpoint.slot)
+            duty_epoch: self._select_block_roots(block_roots, duty_epoch, checkpoint.slot)
             for duty_epoch in unprocessed_epochs
         }
-        self._process(unprocessed_epochs, duty_epochs_roots)
+        self._process(block_roots, checkpoint.slot, unprocessed_epochs, duty_epochs_roots)
+        self.state.commit()
         return len(unprocessed_epochs)
 
     def _get_block_roots(self, checkpoint_slot: SlotNumber):
@@ -157,8 +174,8 @@ class FrameCheckpointProcessor:
         return [br[i] if i == pivot_index or br[i] != br[i - 1] else None for i in range(len(br))]
 
     def _select_block_roots(
-        self, duty_epoch: EpochNumber, block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
-    ) -> list[BlockRoot]:
+        self, block_roots: list[BlockRoot | None], duty_epoch: EpochNumber, checkpoint_slot: SlotNumber
+    ) -> tuple[list[SlotBlockRoot], list[SlotBlockRoot]]:
         roots_to_check = []
         # To check duties in the current epoch you need to
         # have 32 slots of the current epoch and 32 slots of the next epoch
@@ -167,20 +184,39 @@ class FrameCheckpointProcessor:
             self.converter.get_epoch_last_slot(EpochNumber(duty_epoch + 1)),
         )
         for slot_to_check in slots:
-            # From spec
-            # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
-            if not slot_to_check < checkpoint_slot <= slot_to_check + SLOTS_PER_HISTORICAL_ROOT:
-                raise ValueError("Slot is out of the state block roots range")
-            if br := block_roots[slot_to_check % SLOTS_PER_HISTORICAL_ROOT]:
-                roots_to_check.append(br)
+            block_root = self._select_block_root_by_slot(block_roots, checkpoint_slot, slot_to_check)
+            roots_to_check.append((slot_to_check, block_root))
 
-        return roots_to_check
+        slots_per_epoch = self.converter.chain_config.slots_per_epoch
+        duty_epoch_roots, next_epoch_roots = roots_to_check[:slots_per_epoch], roots_to_check[slots_per_epoch:]
 
-    def _process(self, unprocessed_epochs: list[EpochNumber], duty_epochs_roots: dict[EpochNumber, list[BlockRoot]]):
+        return duty_epoch_roots, next_epoch_roots
+
+    @staticmethod
+    def _select_block_root_by_slot(block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber, root_slot: SlotNumber) -> BlockRoot | None:
+        # From spec
+        # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
+        if not root_slot < checkpoint_slot <= root_slot + SLOTS_PER_HISTORICAL_ROOT:
+            raise SlotOutOfRootsRange("Slot is out of the state block roots range")
+        return block_roots[root_slot % SLOTS_PER_HISTORICAL_ROOT]
+
+    def _process(
+        self,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber,
+        unprocessed_epochs: list[EpochNumber],
+        epochs_roots_to_check: dict[EpochNumber, tuple[list[SlotBlockRoot], list[SlotBlockRoot]]]
+    ):
         executor = ThreadPoolExecutor(max_workers=variables.CSM_ORACLE_MAX_CONCURRENCY)
         try:
             futures = {
-                executor.submit(self._check_duty, duty_epoch, duty_epochs_roots[duty_epoch])
+                executor.submit(
+                    self._check_duties,
+                    checkpoint_block_roots,
+                    checkpoint_slot,
+                    duty_epoch,
+                    *epochs_roots_to_check[duty_epoch]
+                )
                 for duty_epoch in unprocessed_epochs
             }
             for future in as_completed(futures):
@@ -194,28 +230,54 @@ class FrameCheckpointProcessor:
             logger.info({"msg": "The executor was shut down"})
 
     @timeit(lambda args, duration: logger.info({"msg": f"Epoch {args.duty_epoch} processed in {duration:.2f} seconds"}))
-    def _check_duty(
+    def _check_duties(
         self,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber,
         duty_epoch: EpochNumber,
-        block_roots: list[BlockRoot],
+        duty_epoch_roots: list[SlotBlockRoot],
+        next_epoch_roots: list[SlotBlockRoot],
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
-        committees = self._prepare_committees(duty_epoch)
-        for root in block_roots:
-            attestations = self.cc.get_block_attestations(root)
-            process_attestations(attestations, committees, self.eip7549_supported)
+
+        att_committees = self._prepare_attestation_duties(duty_epoch)
+        propose_duties = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
+        sync_committees = self._prepare_sync_committee_duties(duty_epoch, duty_epoch_roots)
+
+        for slot, root in [*duty_epoch_roots, *next_epoch_roots]:
+            missed_slot = root is None
+            if missed_slot:
+                continue
+            attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
+            if (slot, root) in duty_epoch_roots:
+                propose_duties[slot].included = True
+                process_sync(slot, sync_aggregate, sync_committees)
+            process_attestations(attestations, att_committees)
 
         with lock:
-            for committee in committees.values():
-                for validator_duty in committee:
-                    self.state.inc(
-                        validator_duty.index,
-                        included=validator_duty.included,
-                    )
             if duty_epoch not in self.state.unprocessed_epochs:
                 raise ValueError(f"Epoch {duty_epoch} is not in epochs that should be processed")
+            for att_committee in att_committees.values():
+                for att_duty in att_committee:
+                    self.state.save_att_duty(
+                        duty_epoch,
+                        att_duty.validator_index,
+                        included=att_duty.included,
+                    )
+            for sync_committee in sync_committees.values():
+                for sync_duty in sync_committee:
+                    self.state.save_sync_duty(
+                        duty_epoch,
+                        sync_duty.validator_index,
+                        included=sync_duty.included,
+                    )
+            for proposer_duty in propose_duties.values():
+                self.state.save_prop_duty(
+                    duty_epoch,
+                    proposer_duty.validator_index,
+                    included=proposer_duty.included
+                )
             self.state.add_processed_epoch(duty_epoch)
-            self.state.commit()
             self.state.log_progress()
             unprocessed_epochs = self.state.unprocessed_epochs
             CSM_UNPROCESSED_EPOCHS_COUNT.set(len(unprocessed_epochs))
@@ -223,55 +285,147 @@ class FrameCheckpointProcessor:
 
     @timeit(
         lambda args, duration: logger.info(
-            {"msg": f"Committees for epoch {args.epoch} processed in {duration:.2f} seconds"}
+            {"msg": f"Attestation Committees for epoch {args.epoch} prepared in {duration:.2f} seconds"}
         )
     )
-    def _prepare_committees(self, epoch: EpochNumber) -> Committees:
+    def _prepare_attestation_duties(self, epoch: EpochNumber) -> AttestationCommittees:
         committees = {}
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
             validators = []
             # Order of insertion is used to track the positions in the committees.
-            for validator in committee.validators:
-                validators.append(ValidatorDuty(index=validator, included=False))
+            for validator_index in committee.validators:
+                validators.append(ValidatorDuty(validator_index, included=False))
             committees[(committee.slot, committee.index)] = validators
         return committees
+
+    @timeit(
+        lambda args, duration: logger.info(
+            {"msg": f"Sync Committee for epoch {args.epoch} prepared in {duration:.2f} seconds"}
+        )
+    )
+    def _prepare_sync_committee_duties(
+        self, epoch: EpochNumber, epoch_block_roots: list[SlotBlockRoot]
+    ) -> dict[SlotNumber, list[ValidatorDuty]]:
+
+        with lock:
+            sync_committee = self._get_sync_committee(epoch)
+
+        duties = {}
+        for slot, root in epoch_block_roots:
+            missed_slot = root is None
+            if missed_slot:
+                continue
+            duties[slot] = [
+                ValidatorDuty(validator_index=validator_index, included=False)
+                for validator_index in sync_committee.validators
+            ]
+
+        return duties
+
+    def _get_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
+        sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+        if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_period):
+            return cached_sync_committee
+        from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+        to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
+        logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
+        state_blockstamp = build_blockstamp(
+            get_prev_non_missed_slot(
+                self.cc,
+                self.converter.get_epoch_first_slot(epoch),
+                self.finalized_blockstamp.slot_number
+            )
+        )
+        sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
+        SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee
+        return sync_committee
+
+    @timeit(
+        lambda args, duration: logger.info(
+            {"msg": f"Propose Duties for epoch {args.epoch} prepared in {duration:.2f} seconds"}
+        )
+    )
+    def _prepare_propose_duties(
+        self,
+        epoch: EpochNumber,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber
+    ) -> dict[SlotNumber, ValidatorDuty]:
+        duties = {}
+        dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
+        proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
+        for duty in proposer_duties:
+            duties[duty.slot] = ValidatorDuty(validator_index=duty.validator_index, included=False)
+        return duties
+
+    def _get_dependent_root_for_proposer_duties(
+        self,
+        epoch: EpochNumber,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber
+    ) -> BlockRoot:
+        dependent_root = None
+        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        try:
+            while not dependent_root:
+                dependent_root = self._select_block_root_by_slot(
+                    checkpoint_block_roots, checkpoint_slot, dependent_slot
+                )
+                if dependent_root:
+                    logger.debug(
+                        {
+                            "msg": f"Got dependent root from state block roots for epoch {epoch}. "
+                                   f"{dependent_slot=} {dependent_root=}"
+                        }
+                    )
+                    break
+                dependent_slot = SlotNumber(int(dependent_slot - 1))
+        except SlotOutOfRootsRange:
+            dependent_non_missed_slot = get_prev_non_missed_slot(
+                self.cc,
+                dependent_slot,
+                self.finalized_blockstamp.slot_number
+            ).message.slot
+            dependent_root = self.cc.get_block_root(dependent_non_missed_slot).root
+            logger.debug(
+                {
+                    "msg": f"Got dependent root from CL for epoch {epoch}. "
+                           f"{dependent_non_missed_slot=} {dependent_root=}"
+                }
+            )
+        return dependent_root
+
+
+def process_sync(slot: SlotNumber, sync_aggregate: SyncAggregate, committees: SyncCommittees) -> None:
+    committee = committees[slot]
+    # Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#syncaggregate
+    sync_bits = hex_bitvector_to_list(sync_aggregate.sync_committee_bits)
+    for index_in_committee in get_set_indices(sync_bits):
+        committee[index_in_committee].included = True
 
 
 def process_attestations(
     attestations: Iterable[BlockAttestation],
-    committees: Committees,
-    eip7549_supported: bool = True,
+    committees: AttestationCommittees,
 ) -> None:
     for attestation in attestations:
-        if is_eip7549_attestation(attestation) and not eip7549_supported:
-            raise ValueError("EIP-7549 support is not enabled")
         committee_offset = 0
+        att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
         for committee_idx in get_committee_indices(attestation):
             committee = committees.get((attestation.data.slot, committee_idx), [])
-            att_bits = hex_bitlist_to_list(attestation.aggregation_bits)[committee_offset:][: len(committee)]
-            for index_in_committee in get_set_indices(att_bits):
+            att_committee_bits = att_bits[committee_offset:][: len(committee)]
+            for index_in_committee in get_set_indices(att_committee_bits):
                 committee[index_in_committee].included = True
             committee_offset += len(committee)
 
 
 def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
-    if is_eip7549_attestation(attestation):
-        return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
-    return [attestation.data.index]
-
-
-def is_eip7549_attestation(attestation: BlockAttestation) -> TypeGuard[BlockAttestationEIP7549]:
-    # @see https://eips.ethereum.org/EIPS/eip-7549
-    has_committee_bits = getattr(attestation, "committee_bits") is not None
-    has_zero_index = attestation.data.index == 0
-    if has_committee_bits and not has_zero_index:
-        raise ValueError(f"Got invalid {attestation=}")
-    return has_committee_bits and has_zero_index
+    return [CommitteeIndex(i) for i in get_set_indices(hex_bitvector_to_list(attestation.committee_bits))]
 
 
 def get_set_indices(bits: Sequence[bool]) -> list[int]:
     """Returns indices of truthy values in the supplied sequence"""
-    return [i for (i, bit) in enumerate(bits) if bit]
+    return [i for i, bit in enumerate(bits) if bit]
 
 
 def hex_bitvector_to_list(bitvector: str) -> list[bool]:

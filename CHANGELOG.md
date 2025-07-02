@@ -7,14 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
-## [3.0.0](link) - 2023-01-01
-## Lido v2 big upgrade. [Details!](https://blog.lido.fi/introducing-lido-v2/)
+## [6.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/6.0.0) - 2025-07
+
+### Support for Triggerable Withdrawals and CSM V2
+
+### Changed
+- AO and VEBO changes according to [LIP-31](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-31.md)
+- CSM changes according to [LIP-29](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-29.md) 
+
+## [5.1.0](https://github.com/lidofinance/lido-oracle/releases/tag/5.1.0) - 2025-04-01
+
+### Pectra compatibility upgrade!
+
+### Changed
+- All changes according to [LIP-27](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-27.md)
+
+## [4.1.2](https://github.com/lidofinance/lido-oracle/releases/tag/4.1.2) - 2024-02-14
+
+### CSM Introduce! 
+
+### Added
+- New oracle module according to spec: [LIP-26](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-26.md)
+
+## [3.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/3.0.0) - 2023-01-01
+
+### **Lido v2 big upgrade. [Details!](https://blog.lido.fi/introducing-lido-v2/)**
 
 ### Added
 - Withdrawals support
 - Staking router support
 
-### Changes
+### Changed
 - Oracle split in two separate modules: ejector and accounting
 
 ## [2.6.1](https://github.com/lidofinance/lido-oracle/releases/tag/2.6.1) - 2023-04-08

@@ -5,6 +5,7 @@ import pytest
 from src.utils.env import from_file_or_env
 
 
+@pytest.mark.unit
 class TestFromFileOrEnv:
     @pytest.fixture()
     def file_path(self, tmp_path: Path) -> Path:
