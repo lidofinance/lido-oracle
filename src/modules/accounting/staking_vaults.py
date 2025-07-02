@@ -153,11 +153,7 @@ class StakingVaults(Module):
                     if validator.validator.slashed:
                         withdrawable_epoch = validator.validator.withdrawable_epoch
 
-                        if (
-                            withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
-                            <= bs.ref_epoch
-                            <= withdrawable_epoch + EPOCHS_PER_SLASHINGS_VECTOR
-                        ):
+                        if withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR <= bs.ref_epoch <= withdrawable_epoch + EPOCHS_PER_SLASHINGS_VECTOR:
                             slot_id = (withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR) * chain_config.slots_per_epoch
                             validator_past_state = self.cl.get_validator_state(SlotNumber(slot_id), validator.index)
 
