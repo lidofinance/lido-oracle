@@ -417,7 +417,6 @@ class TestStakingVaults:
                 ),
             ],
             tree_indices=[0],
-            merkle_tree_root=MagicMock(),
             block_number=BlockNumber(prev_block_number),
             block_hash=MagicMock(),
             ref_slot=MagicMock(),
@@ -515,6 +514,8 @@ class TestStakingVaults:
         vault_hub_mock = MagicMock()
         ipfs_client = MagicMock()
         account_oracle_mock = MagicMock()
+        chain_config_mock = MagicMock()
+        frame_mock = MagicMock()
 
         lazy_oracle_mock.get_all_vaults = MagicMock(return_value=mock_prev_vaults)
         vault_hub_mock.get_vaults_fee_updated_events = MagicMock(return_value=vaults_fee_updated_events)
@@ -539,6 +540,8 @@ class TestStakingVaults:
             self.core_ratio_apr,
             self.pre_total_pooled_ether,
             self.pre_total_shares,
+            chain_config_mock,
+            frame_mock
         )
 
         expected_fees = {
