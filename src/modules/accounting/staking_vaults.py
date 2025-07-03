@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 from eth_typing import BlockNumber, HexStr
 from oz_merkle_tree import StandardMerkleTree
@@ -27,11 +27,10 @@ from src.modules.accounting.types import (
     VaultReserveMap,
     VaultFee,
 )
-from src.modules.submodules.types import ChainConfig
+from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -518,13 +517,13 @@ class StakingVaults(Module):
         return vault_liquidity_fee, liability_shares
 
     def _get_start_point_for_fee_calculations(
-        self, blockstamp: ReferenceBlockStamp, prev_ipfs_report_cid: str
+        self, blockstamp: ReferenceBlockStamp, prev_ipfs_report_cid: str, frame_config: FrameConfig, chain_config: ChainConfig
     ) -> tuple[Optional[MerkleTreeData], int, str]:
         if prev_ipfs_report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(prev_ipfs_report_cid)
             return prev_ipfs_report, prev_ipfs_report.block_number, prev_ipfs_report.block_hash
 
-        slot_window_right = 100
+        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
         ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
         ##   in case when we don't have prev ipfs report - we DO have previous oracle report
@@ -532,23 +531,15 @@ class StakingVaults(Module):
         last_processing_ref_slot = self.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
         if last_processing_ref_slot:
             ref_block = get_blockstamp(
-                self.cl, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slot_window_right)
+                self.cl, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
             return None, ref_block['number'], bytes_to_hex_str(ref_block['hash'])
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
-        hash_consensus = cast(
-            HashConsensusContract,
-            self.w3.eth.contract(
-                address=self.accounting_oracle.get_consensus_contract(blockstamp.block_hash),
-                ContractFactoryClass=HashConsensusContract,
-                decode_tuples=True,
-            ),
-        )
-        initial_ref_slot = hash_consensus.get_initial_ref_slot(blockstamp.block_hash)
         # If skipped, we reference the block from the first non-missed slot (frame length offset guarantees availability).
-        block = get_blockstamp(self.cl, initial_ref_slot, SlotNumber(int(initial_ref_slot + slot_window_right)))
+        initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
+        block = get_blockstamp(self.cl, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame)))
         return None, block['number'], bytes_to_hex_str(block['hash'])
 
     def get_vaults_fees(
@@ -560,9 +551,11 @@ class StakingVaults(Module):
         core_apr_ratio: Decimal,
         pre_total_pooled_ether: int,
         pre_total_shares: int,
+        frame_config: FrameConfig,
+        chain_config: ChainConfig,
     ) -> VaultFeeMap:
         prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
-            blockstamp, prev_ipfs_report_cid
+            blockstamp, prev_ipfs_report_cid, frame_config, chain_config
         )
         vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
 

@@ -414,6 +414,7 @@ class Accounting(BaseModule, ConsensusModule):
         validators = self.w3.cc.get_validators(blockstamp)
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
         core_apr_ratio = self._core_apr_ratio(
             blockstamp,
@@ -433,6 +434,8 @@ class Accounting(BaseModule, ConsensusModule):
             core_apr_ratio,
             simulation.pre_total_pooled_ether,
             simulation.pre_total_shares,
+            frame_config,
+            chain_config
         )
         vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(
             blockstamp, vaults, validators, chain_config
