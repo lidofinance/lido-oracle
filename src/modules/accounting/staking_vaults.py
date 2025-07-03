@@ -103,7 +103,6 @@ class StakingVaults(Module):
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
                 out[vault_address] += self._calculate_pending_deposits_balances(
-                    validators,
                     pending_deposits,
                     vault_validators,
                     vault_pending_deposits,
@@ -245,13 +244,11 @@ class StakingVaults(Module):
 
     def _calculate_pending_deposits_balances(
         self,
-        validators: list[Validator],
         pending_deposits: list[PendingDeposit],
         vault_validators: list[Validator],
         vault_pending_deposits: list[PendingDeposit],
         vault_withdrawal_credentials: str,
     ) -> int:
-        validator_pubkeys = set(validator.validator.pubkey for validator in validators)
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
 
@@ -268,21 +265,7 @@ class StakingVaults(Module):
                 total_value += deposit_value
                 continue
 
-            # Case 2: Validator exists but not bound to this vault
-            if pubkey in validator_pubkeys:
-                validator = next(v for v in validators if v.validator.pubkey == pubkey)
-                if validator.validator.withdrawal_credentials == vault_withdrawal_credentials:
-                    total_value += deposit_value
-                else:
-                    logger.warning(
-                        {
-                            'msg': f'Skipping pending deposits for key {pubkey} because validator is not bound to the vault',
-                            'validator': validator,
-                        }
-                    )
-                continue
-
-            # Case 3: No validator found for this pubkey - validate deposits
+            # Case 2: No validator found for this pubkey - validate deposits
             deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
             valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
 
