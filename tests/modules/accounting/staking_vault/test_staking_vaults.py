@@ -522,6 +522,10 @@ class TestStakingVaults:
         vault_hub_mock.get_minted_events = MagicMock(return_value=minted_shares_events)
         vault_hub_mock.get_burned_events = MagicMock(return_value=burned_shares_events)
 
+        vault_hub_mock.get_vaults_rebalanced_events = MagicMock(return_value=[])
+        vault_hub_mock.get_vaults_bad_debt_socialized_events = MagicMock(return_value=[])
+        vault_hub_mock.get_written_off_to_be_internalized_events = MagicMock(return_value=[])
+
         self.staking_vaults = StakingVaults(
             w3_mock, cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
         )

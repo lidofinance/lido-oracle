@@ -93,3 +93,88 @@ class VaultFeesUpdatedEvent:
             block_hash=log["blockHash"],
             block_number=log["blockNumber"],
         )
+
+@dataclass
+class VaultRebalancedEvent:
+    vault: str
+    shares_burned: int
+    ether_withdrawn: int
+    event: str
+    log_index: int
+    transaction_index: int
+    transaction_hash: HexBytes
+    address: str
+    block_hash: HexBytes
+    block_number: int
+
+    @classmethod
+    def from_log(cls, log: dict) -> "VaultRebalancedEvent":
+        args = log["args"]
+        return cls(
+            vault=args["vault"],
+            shares_burned=args["sharesBurned"],
+            ether_withdrawn=args["etherWithdrawn"],
+            event=log["event"],
+            log_index=log["logIndex"],
+            transaction_index=log["transactionIndex"],
+            transaction_hash=log["transactionHash"],
+            address=log["address"],
+            block_hash=log["blockHash"],
+            block_number=log["blockNumber"],
+        )
+
+@dataclass
+class BadDebtSocializedEvent:
+    vault_donor: str
+    vault_acceptor: str
+    bad_debt_shares: int
+    event: str
+    log_index: int
+    transaction_index: int
+    transaction_hash: HexBytes
+    address: str
+    block_hash: HexBytes
+    block_number: int
+
+    @classmethod
+    def from_log(cls, log: dict) -> "BadDebtSocializedEvent":
+        args = log["args"]
+        return cls(
+            vault_donor=args["vaultDonor"],
+            vault_acceptor=args["vaultAcceptor"],
+            bad_debt_shares=args["badDebtShares"],
+            event=log["event"],
+            log_index=log["logIndex"],
+            transaction_index=log["transactionIndex"],
+            transaction_hash=log["transactionHash"],
+            address=log["address"],
+            block_hash=log["blockHash"],
+            block_number=log["blockNumber"],
+        )
+
+@dataclass
+class BadDebtWrittenOffToBeInternalizedEvent:
+    vault: str
+    bad_debt_shares: int
+    event: str
+    log_index: int
+    transaction_index: int
+    transaction_hash: HexBytes
+    address: str
+    block_hash: HexBytes
+    block_number: int
+
+    @classmethod
+    def from_log(cls, log: dict) -> "BadDebtWrittenOffToBeInternalizedEvent":
+        args = log["args"]
+        return cls(
+            vault=args["vault"],
+            bad_debt_shares=args["badDebtShares"],
+            event=log["event"],
+            log_index=log["logIndex"],
+            transaction_index=log["transactionIndex"],
+            transaction_hash=log["transactionHash"],
+            address=log["address"],
+            block_hash=log["blockHash"],
+            block_number=log["blockNumber"],
+        )

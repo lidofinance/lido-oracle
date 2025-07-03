@@ -11,7 +11,8 @@ from web3.module import Module
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS, PRECISION_E27, EPOCHS_PER_SLASHINGS_VECTOR
-from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent
+from src.modules.accounting.events import VaultFeesUpdatedEvent, BurnedSharesOnVaultEvent, MintedSharesOnVaultEvent, \
+    VaultRebalancedEvent, BadDebtSocializedEvent, BadDebtWrittenOffToBeInternalizedEvent
 from src.modules.accounting.types import (
     MerkleTreeData,
     MerkleValue,
@@ -452,11 +453,35 @@ class StakingVaults(Module):
         core_apr_ratio: Decimal,
     ) -> tuple[Decimal, Shares]:
         """
-        Liquidity fee = Minted_stETH * Lido_Core_APR * Liquidity_fee_rate
-        NB: below we determine liquidity fee for the vault as a bunch of intervals between minting, burning and
-            fee change events.
+        Liquidity fee = Minted_stETH × Lido_Core_APR × Liquidity_fee_rate
 
-        In case of no events, we just use `liability_shares` to calculate minted stETH.
+        We calculate the liquidity fee for the vault as a series of intervals
+        between minting, burning, and fee update events.
+
+        If there are no events, we just use `liability_shares` to compute minted stETH.
+
+        Burn: In the future, shares go down; backwards, they go up.
+        Mint: In the future, shares go up; backwards, they go down.
+
+          liability_shares (Y)
+                  ↑
+                  │
+                  │
+                  │
+                  │             (shares were higher before burn)
+                  │                 ┌──────────────
+                  │                 │              │
+                  │                 │              │
+                  ┌─────────────────┘              │
+                  │                 │              │  (shares decreased)
+                  │                 │              │───────────│
+                  │                 │              │           │
+                  │                 │              │           │
+                  └─────────────────┴──────────────┴───────────┴────────▶ block_number (X)
+
+                                 mintEvent      burnEvent  current_block
+
+                        ◄─────────────────────── processing backwards in time
         """
         vault_liquidity_fee = Decimal(0)
         liquidity_fee = liquidity_fee_bp
@@ -479,6 +504,8 @@ class StakingVaults(Module):
                     minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
                 )
 
+                # Because we are iterating backward in time, events must be applied in reverse.
+                # E.g., a burn reduces shares in the future, so going backward we add them back.
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
                     current_block = event.block_number
@@ -490,6 +517,24 @@ class StakingVaults(Module):
                 if isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
+
+                if isinstance(event, VaultRebalancedEvent):
+                    liability_shares += event.shares_burned
+                    current_block = event.block_number
+                    continue
+
+                if isinstance(event, BadDebtSocializedEvent):
+                    if vault_address == event.vault_donor:
+                        liability_shares += event.bad_debt_shares
+                    else:
+                        liability_shares -= event.bad_debt_shares
+                    current_block = event.block_number
+                    continue
+
+                if isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
+                    liability_shares += event.bad_debt_shares
+                    current_block = event.block_number
+                    continue
 
             blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
@@ -548,20 +593,32 @@ class StakingVaults(Module):
                 prev_fee[vault.vault_address] = vault.fee
 
         events = defaultdict(list)
-        fees_updated_events_map = defaultdict(list)
         fees_updated_events = self.vault_hub.get_vaults_fee_updated_events(prev_block_number, blockstamp.block_number)
         minted_events = self.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
         burn_events = self.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
 
+        rebalanced_events = self.vault_hub.get_vaults_rebalanced_events(prev_block_number, blockstamp.block_number)
+        bad_debt_socialized_events = self.vault_hub.get_vaults_bad_debt_socialized_events(prev_block_number, blockstamp.block_number)
+        written_off_to_be_internalized_events = self.vault_hub.get_vaults_bad_debt_written_off_to_be_internalized_events(prev_block_number, blockstamp.block_number)
+
         for event in fees_updated_events:
             events[event.vault].append(event)
-            fees_updated_events_map[event.vault].append(event)
 
         for event in minted_events:
             events[event.vault].append(event)
 
         for event in burn_events:
             events[event.vault].append(event)
+
+        for event in rebalanced_events:
+            events[event.vault].append(event)
+
+        for event in written_off_to_be_internalized_events:
+            events[event.vault].append(event)
+
+        for event in bad_debt_socialized_events:
+            events[event.vault_donor].append(event)
+            events[event.vault_acceptor].append(event)
 
         out: VaultFeeMap = {}
         current_block = int(blockstamp.block_number)
