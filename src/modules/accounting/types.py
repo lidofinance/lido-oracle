@@ -299,7 +299,6 @@ class MerkleTreeData:
     tree: List[str]
     values: List[MerkleValue]
     tree_indices: List[int]
-    merkle_tree_root: str
     ref_slot: int
     block_number: int
     block_hash: str

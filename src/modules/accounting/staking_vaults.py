@@ -133,10 +133,8 @@ class StakingVaults(Module):
         │       history window       │            │     for penalty window     │
         └────────────────────────────┴────────────┴────────────────────────────┘
 
-        [-36 days <────────────  slashing event happened ────────────>  +36 days]
-
         1. (we -36d) <= ref_epoch <= (we +36d): use PAST slot for getting validator's balance
-        2. ref_epoch < (we - 36d): use CURRENT validator's balance (before slashing period)
+        2. ref_epoch < (we -36d): use CURRENT validator's balance (before slashing period)
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
@@ -213,7 +211,6 @@ class StakingVaults(Module):
 
         output: dict[str, Any] = {
             **dict(tree.dump()),
-            "merkleTreeRoot": f"0x{tree.root.hex()}",
             "refSlot": bs.ref_slot,
             "blockHash": bs.block_hash,
             "blockNumber": bs.block_number,
@@ -246,14 +243,6 @@ class StakingVaults(Module):
         if report is None:
             return ""
         return report.cid
-
-    @staticmethod
-    def get_vault_prev_fees(report_data: MerkleTreeData) -> dict[str, int]:
-        prev_vault_fees = {}
-        for merkle_value in report_data.values:
-            prev_vault_fees[merkle_value.vault_address] = merkle_value.fee
-
-        return prev_vault_fees
 
     def _calculate_pending_deposits_balances(
         self,
@@ -454,7 +443,6 @@ class StakingVaults(Module):
             tree=data["tree"],
             values=decoded_values,
             tree_indices=tree_indices,
-            merkle_tree_root=data["merkleTreeRoot"],
             ref_slot=data["refSlot"],
             block_hash=data["blockHash"],
             block_number=data["blockNumber"],
@@ -537,7 +525,7 @@ class StakingVaults(Module):
             return prev_ipfs_report, prev_ipfs_report.block_number, prev_ipfs_report.block_hash
 
         slot_window_right = 100
-        ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and testnet
+        ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
         ##   in case when we don't have prev ipfs report - we DO have previous oracle report
         ##   it means we have to take this point for getting fees at the FIRST time only
@@ -548,7 +536,7 @@ class StakingVaults(Module):
             )
             return None, ref_block['number'], bytes_to_hex_str(ref_block['hash'])
 
-        ## Fresh TestNet
+        ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
         hash_consensus = cast(
             HashConsensusContract,
@@ -559,7 +547,7 @@ class StakingVaults(Module):
             ),
         )
         initial_ref_slot = hash_consensus.get_initial_ref_slot(blockstamp.block_hash)
-        # If skipped, we reference the block from the first non-missed slot (+100 offset guarantees availability).
+        # If skipped, we reference the block from the first non-missed slot (frame length offset guarantees availability).
         block = get_blockstamp(self.cl, initial_ref_slot, SlotNumber(int(initial_ref_slot + slot_window_right)))
         return None, block['number'], bytes_to_hex_str(block['hash'])
 
