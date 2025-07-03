@@ -463,21 +463,21 @@ class StakingVaults(Module):
         Burn: In the future, shares go down; backwards, they go up.
         Mint: In the future, shares go up; backwards, they go down.
 
-          liability_shares (Y)
-                  ↑
-                  │
-                  │
-                  │
-                  │             (shares were higher before burn)
-                  │                 ┌──────────────
-                  │                 │              │
-                  │                 │              │
-                  ┌─────────────────┘              │
-                  │                 │              │  (shares decreased)
-                  │                 │              │───────────│
-                  │                 │              │           │
-                  │                 │              │           │
-                  └─────────────────┴──────────────┴───────────┴────────▶ block_number (X)
+        liability_shares (Y)
+                ↑
+                │
+                │
+                │
+                │          (shares were higher before burn)
+                │                 ┌──────────────
+                │                 │              │
+                │                 │              │
+                ┌─────────────────┘              │
+                │                 │              │  (shares decreased)
+                │                 │              │───────────│
+                │                 │              │           │
+                │                 │              │           │
+                └─────────────────┴──────────────┴───────────┴────────▶ block_number (X)
 
                                  mintEvent      burnEvent  current_block
 
