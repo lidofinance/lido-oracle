@@ -541,7 +541,7 @@ class TestStakingVaults:
             self.pre_total_pooled_ether,
             self.pre_total_shares,
             chain_config_mock,
-            frame_mock
+            frame_mock,
         )
 
         expected_fees = {
