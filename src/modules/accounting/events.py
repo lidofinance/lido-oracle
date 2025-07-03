@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from hexbytes import HexBytes
+from typing import Any, Dict
+
 
 @dataclass
-class MintedSharesOnVaultEvent:
-    vault: str
-    amount_of_shares: int
-    locked_amount: int
+class EventBase:
     event: str
     log_index: int
     transaction_index: int
@@ -13,6 +12,26 @@ class MintedSharesOnVaultEvent:
     address: str
     block_hash: HexBytes
     block_number: int
+
+    @classmethod
+    def _extract_common(cls, log: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract fields common to all events."""
+        return {
+            "event": log["event"],
+            "log_index": log["logIndex"],
+            "transaction_index": log["transactionIndex"],
+            "transaction_hash": log["transactionHash"],
+            "address": log["address"],
+            "block_hash": log["blockHash"],
+            "block_number": log["blockNumber"],
+        }
+
+
+@dataclass
+class MintedSharesOnVaultEvent(EventBase):
+    vault: str
+    amount_of_shares: int
+    locked_amount: int
 
     @classmethod
     def from_log(cls, log: dict) -> "MintedSharesOnVaultEvent":
@@ -21,26 +40,14 @@ class MintedSharesOnVaultEvent:
             vault=args["vault"],
             amount_of_shares=args["amountOfShares"],
             locked_amount=args["lockedAmount"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
 
+
 @dataclass
-class BurnedSharesOnVaultEvent:
+class BurnedSharesOnVaultEvent(EventBase):
     vault: str
     amount_of_shares: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
     @classmethod
     def from_log(cls, log: dict) -> "BurnedSharesOnVaultEvent":
@@ -48,17 +55,12 @@ class BurnedSharesOnVaultEvent:
         return cls(
             vault=args["vault"],
             amount_of_shares=args["amountOfShares"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
 
+
 @dataclass
-class VaultFeesUpdatedEvent:
+class VaultFeesUpdatedEvent(EventBase):
     vault: str
     pre_infra_fee_bp: int
     infra_fee_bp: int
@@ -66,13 +68,6 @@ class VaultFeesUpdatedEvent:
     liquidity_fee_bp: int
     pre_reservation_fee_bp: int
     reservation_fee_bp: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
     @classmethod
     def from_log(cls, log: dict) -> "VaultFeesUpdatedEvent":
@@ -85,27 +80,15 @@ class VaultFeesUpdatedEvent:
             liquidity_fee_bp=args["liquidityFeeBP"],
             pre_reservation_fee_bp=args["preReservationFeeBP"],
             reservation_fee_bp=args["reservationFeeBP"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
 
+
 @dataclass
-class VaultRebalancedEvent:
+class VaultRebalancedEvent(EventBase):
     vault: str
     shares_burned: int
     ether_withdrawn: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
     @classmethod
     def from_log(cls, log: dict) -> "VaultRebalancedEvent":
@@ -114,27 +97,15 @@ class VaultRebalancedEvent:
             vault=args["vault"],
             shares_burned=args["sharesBurned"],
             ether_withdrawn=args["etherWithdrawn"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
 
+
 @dataclass
-class BadDebtSocializedEvent:
+class BadDebtSocializedEvent(EventBase):
     vault_donor: str
     vault_acceptor: str
     bad_debt_shares: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
     @classmethod
     def from_log(cls, log: dict) -> "BadDebtSocializedEvent":
@@ -143,26 +114,14 @@ class BadDebtSocializedEvent:
             vault_donor=args["vaultDonor"],
             vault_acceptor=args["vaultAcceptor"],
             bad_debt_shares=args["badDebtShares"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
 
+
 @dataclass
-class BadDebtWrittenOffToBeInternalizedEvent:
+class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
     vault: str
     bad_debt_shares: int
-    event: str
-    log_index: int
-    transaction_index: int
-    transaction_hash: HexBytes
-    address: str
-    block_hash: HexBytes
-    block_number: int
 
     @classmethod
     def from_log(cls, log: dict) -> "BadDebtWrittenOffToBeInternalizedEvent":
@@ -170,11 +129,5 @@ class BadDebtWrittenOffToBeInternalizedEvent:
         return cls(
             vault=args["vault"],
             bad_debt_shares=args["badDebtShares"],
-            event=log["event"],
-            log_index=log["logIndex"],
-            transaction_index=log["transactionIndex"],
-            transaction_hash=log["transactionHash"],
-            address=log["address"],
-            block_hash=log["blockHash"],
-            block_number=log["blockNumber"],
+            **cls._extract_common(log),
         )
