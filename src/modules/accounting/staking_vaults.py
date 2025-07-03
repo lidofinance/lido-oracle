@@ -599,7 +599,7 @@ class StakingVaults(Module):
         for event in burn_events:
             events[event.vault].append(event)
 
-        out: VaultFeeMap = defaultdict(VaultFee)
+        out: VaultFeeMap = {}
         current_block = int(blockstamp.block_number)
         blocks_elapsed = current_block - prev_block_number
         for vault_address, vault_info in vaults.items():

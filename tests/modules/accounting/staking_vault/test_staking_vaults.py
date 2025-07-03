@@ -541,10 +541,14 @@ class TestStakingVaults:
             self.pre_total_shares,
         )
 
-        expected_fees = {vault1_adr: VaultFee(infra_fee=int(self.expected_infra_fee.to_integral_value(ROUND_UP)),
-                              liquidity_fee=int(self.expected_liquidity_fee.to_integral_value(ROUND_UP)),
-                              reservation_fee=int(self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
-                              prev_fee= int(self.prev_fee))}
+        expected_fees = {
+            vault1_adr: VaultFee(
+                infra_fee=int(self.expected_infra_fee.to_integral_value(ROUND_UP)),
+                liquidity_fee=int(self.expected_liquidity_fee.to_integral_value(ROUND_UP)),
+                reservation_fee=int(self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
+                prev_fee=int(self.prev_fee),
+            )
+        }
 
         assert self.expected_total_fee == expected_fees[vault1_adr].total()
         assert actual_fees[ChecksumAddress(HexAddress(HexStr(vault1_adr)))].total() == expected_fees[vault1_adr].total()
