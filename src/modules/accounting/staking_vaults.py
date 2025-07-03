@@ -331,7 +331,7 @@ class StakingVaults(Module):
             if not is_valid:
                 logger.warning(
                     {
-                        'msg': f'Invalid deposit signature for deposit: {deposit}.',
+                        'msg': f'Invalid deposit signature for deposit: {deposit.signature}.',
                     }
                 )
                 continue
@@ -339,7 +339,7 @@ class StakingVaults(Module):
             if deposit.withdrawal_credentials != vault_withdrawal_credentials:
                 logger.warning(
                     {
-                        'msg': f'Invalid withdrawal credentials for proven deposit: {deposit}. Skipping any further pending deposits count.',
+                        'msg': f'Missmatch deposit withdrawal_credentials {deposit.withdrawal_credentials} to vault withdrawal_credentials {vault_withdrawal_credentials}. Skipping any further pending deposits count.',
                     }
                 )
                 # In case the first deposit is a VALID, but WC are NOT matching the vault's WC,
