@@ -243,13 +243,28 @@ class VaultInfo:
     mintable_capacity_StETH: int
     in_out_delta: Wei
 
+@dataclass
+class VaultFee:
+    infra_fee: int
+    liquidity_fee: int
+    reservation_fee: int
+    prev_fee: int
+
+    def total(self):
+        return (
+                self.prev_fee
+                + self.infra_fee
+                + self.liquidity_fee
+                + self.reservation_fee
+        )
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
 VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
 VaultTotalValueMap = dict[ChecksumAddress, int]
-VaultFeeMap = dict[ChecksumAddress, int]
+
+VaultFeeMap = dict[ChecksumAddress, VaultFee]
 VaultReserveMap = dict[ChecksumAddress, int]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]

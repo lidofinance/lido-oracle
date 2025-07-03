@@ -442,7 +442,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        tree_cid = self.w3.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config)
+        tree_cid = self.w3.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config, vaults_fees)
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})

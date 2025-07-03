@@ -25,6 +25,7 @@ from src.modules.accounting.types import (
     VaultTotalValueMap,
     VaultFeeMap,
     VaultReserveMap,
+    VaultFee,
 )
 from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.client import ConsensusClient
@@ -176,6 +177,7 @@ class StakingVaults(Module):
         bs: ReferenceBlockStamp,
         prev_tree_cid: str,
         chain_config: ChainConfig,
+        vaults_fee_map: VaultFeeMap
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):
@@ -201,7 +203,13 @@ class StakingVaults(Module):
 
         extra_values = {}
         for vault_adr, vault_info in vaults.items():
-            extra_values[vault_adr] = {"inOutDelta": str(vault_info.in_out_delta)}
+            extra_values[vault_adr] = {
+                "inOutDelta": str(vault_info.in_out_delta),
+                "prevFee":  str(vaults_fee_map[vault_adr].prev_fee),
+                "infraFee": str(vaults_fee_map[vault_adr].infra_fee),
+                "liquidityFee": str(vaults_fee_map[vault_adr].liquidity_fee),
+                "reservationFee": str(vaults_fee_map[vault_adr].reservation_fee),
+            }
 
         output: dict[str, Any] = {
             **dict(tree.dump()),
@@ -307,11 +315,16 @@ class StakingVaults(Module):
 
         tree_data: list[VaultTreeNode] = []
         for vault_address, vault in vaults.items():
+            vault_total_fee = 0
+            vaults_fee = vaults_fees.get(vault_address)
+            if vaults_fee is not None:
+                vault_total_fee = vaults_fee.total()
+
             tree_data.append(
                 (
                     vault_address,
                     vaults_values.get(vault_address, 0),
-                    vaults_fees.get(vault_address, 0),
+                    vault_total_fee,
                     vault.liability_shares,
                     vaults_slashing_reserve.get(vault_address, 0),
                 )
@@ -586,7 +599,7 @@ class StakingVaults(Module):
         for event in burn_events:
             events[event.vault].append(event)
 
-        out: VaultFeeMap = defaultdict(int)
+        out: VaultFeeMap = defaultdict(VaultFee)
         current_block = int(blockstamp.block_number)
         blocks_elapsed = current_block - prev_block_number
         for vault_address, vault_info in vaults.items():
@@ -625,11 +638,11 @@ class StakingVaults(Module):
                     f"Wrong liability shares by vault {vault_address}. Actual {liability_shares} != Expected {prev_liability_shares}"
                 )
 
-            out[vault_address] = (
-                int(prev_fee[vault_address])
-                + int(vault_infrastructure_fee.to_integral_value(ROUND_UP))
-                + int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP))
-                + int(vault_liquidity_fee.to_integral_value(ROUND_UP))
+            out[vault_address] = VaultFee(
+                prev_fee=int(prev_fee[vault_address]),
+                infra_fee=int(vault_infrastructure_fee.to_integral_value(ROUND_UP)),
+                reservation_fee=int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
+                liquidity_fee=int(vault_liquidity_fee.to_integral_value(ROUND_UP))
             )
 
         return out

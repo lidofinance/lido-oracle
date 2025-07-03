@@ -20,6 +20,7 @@ from src.modules.accounting.types import (
     VaultInfo,
     VaultsMap,
     VaultTotalValueMap,
+    VaultFee,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
@@ -391,7 +392,7 @@ class TestStakingVaults:
     expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
     expected_liquidity_fee = Decimal('17007082495056342.00729679122')
     prev_fee = 22169367899378
-    expected_fee = 27204382673365897  # 0.02720438267 ETH
+    expected_total_fee = 27204382673365897  # 0.02720438267 ETH
 
     @pytest.mark.unit
     def test_fees(self):
@@ -539,16 +540,15 @@ class TestStakingVaults:
             self.pre_total_pooled_ether,
             self.pre_total_shares,
         )
-        expected_fees = {vault1_adr: self.expected_fee}
-        expected_total_fees = (
-            int(self.prev_fee)
-            + int(self.expected_infra_fee.to_integral_value(ROUND_UP))
-            + int(self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP))
-            + int(self.expected_liquidity_fee.to_integral_value(ROUND_UP))
-        )
 
-        assert expected_total_fees == expected_fees[vault1_adr]
-        assert expected_fees == actual_fees
+        expected_fees = {vault1_adr: VaultFee(infra_fee=int(self.expected_infra_fee.to_integral_value(ROUND_UP)),
+                              liquidity_fee=int(self.expected_liquidity_fee.to_integral_value(ROUND_UP)),
+                              reservation_fee=int(self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
+                              prev_fee= int(self.prev_fee))}
+
+        assert self.expected_total_fee == expected_fees[vault1_adr].total()
+        assert actual_fees[ChecksumAddress(HexAddress(HexStr(vault1_adr)))].total() == expected_fees[vault1_adr].total()
+        assert actual_fees == expected_fees
 
     @pytest.mark.parametrize(
         "vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei",
@@ -654,7 +654,7 @@ class TestStakingVaults:
                         block_hash=MagicMock(),
                     ),
                 ]
-            },  # No events
+            },
             0,  # prev_block_number
             7_200,  # current_block
             pre_total_pooled_ether,  # pre_total_pooled_ether (Wei)
