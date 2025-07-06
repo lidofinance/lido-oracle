@@ -91,6 +91,7 @@ class StakingVaults(Module):
     ) -> VaultTotalValueMap:
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
+        validator_pubkeys = set(validator.validator.pubkey for validator in validators)
 
         out: VaultTotalValueMap = defaultdict(int)
         for vault_address, vault in vaults.items():
@@ -104,6 +105,7 @@ class StakingVaults(Module):
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
                 out[vault_address] += self._calculate_pending_deposits_balances(
+                    validator_pubkeys,
                     pending_deposits,
                     vault_validators,
                     vault_pending_deposits,
@@ -244,11 +246,12 @@ class StakingVaults(Module):
         return report.cid
 
     def _calculate_pending_deposits_balances(
-        self,
-        pending_deposits: list[PendingDeposit],
-        vault_validators: list[Validator],
-        vault_pending_deposits: list[PendingDeposit],
-        vault_withdrawal_credentials: str,
+            self,
+            validator_pubkeys: set[str],
+            pending_deposits: list[PendingDeposit],
+            vault_validators: list[Validator],
+            vault_pending_deposits: list[PendingDeposit],
+            vault_withdrawal_credentials: str,
     ) -> int:
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
@@ -266,7 +269,11 @@ class StakingVaults(Module):
                 total_value += deposit_value
                 continue
 
-            # Case 2: No validator found for this pubkey - validate deposits
+            # Case 2: Validator exists but not bound to this vault
+            if pubkey in validator_pubkeys:
+                continue
+
+            # Case 3: No validator found for this pubkey - validate deposits
             deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
             valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
 
