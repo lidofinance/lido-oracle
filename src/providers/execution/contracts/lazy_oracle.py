@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
 
+from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.types import BlockIdentifier
 
