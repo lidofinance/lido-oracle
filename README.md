@@ -1,5 +1,4 @@
-<img src="docs/logo.svg" height="60px" style="margin: 6px -6px -22px" alt="Lido Logo"/>
-<div style="display: inline-block;font-size: 2em;font-weight: bold;">Lido Oracle</div>
+# <img src="docs/logo.svg" height="70px" align="center" alt="Lido Logo"/> Lido Oracle
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
