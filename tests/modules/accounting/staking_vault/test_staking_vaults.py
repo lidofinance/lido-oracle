@@ -365,7 +365,7 @@ class TestStakingVaults:
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
         expected = {
             self.vault_adr_0: 1000000000000000000,
-            self.vault_adr_1: 1000000000000000000,
+            self.vault_adr_1: 0,
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
         }

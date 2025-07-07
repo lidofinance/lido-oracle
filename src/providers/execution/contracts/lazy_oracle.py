@@ -2,13 +2,12 @@ import logging
 from typing import List, Optional
 
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
-from web3.types import BlockIdentifier, Wei
+from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import VaultSocket, LatestReportData, VaultInfo
+from src.modules.accounting.types import LatestReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.types import bytes_to_hex_str
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +93,7 @@ class LazyOracleContract(ContractInterface):
             out.append(VaultInfo(
                 vault=vault.vault,
                 balance=vault.balance,
-                withdrawal_credentials=bytes_to_hex_str(vault.withdrawalCredentials),
+                withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
                 liability_shares=vault.liabilityShares,
                 share_limit=vault.shareLimit,
                 reserve_ratioBP=vault.reserveRatioBP,

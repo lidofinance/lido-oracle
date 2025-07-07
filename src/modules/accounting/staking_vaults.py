@@ -40,7 +40,7 @@ from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockHash
 from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.slot import get_blockstamp
-from src.utils.types import hex_str_to_bytes, bytes_to_hex_str
+from src.utils.types import hex_str_to_bytes
 from decimal import Decimal, localcontext, ROUND_UP
 
 logger = logging.getLogger(__name__)
@@ -513,18 +513,18 @@ class StakingVaults(Module):
 
                 # Because we are iterating backward in time, events must be applied in reverse.
                 # E.g., a burn reduces shares in the future, so going backward we add them back.
+
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
-                    current_block = event.block_number
-                    continue
-                if isinstance(event, BurnedSharesOnVaultEvent):
-                    liability_shares += event.amount_of_shares
                     current_block = event.block_number
                     continue
                 if isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
-
+                if isinstance(event, BurnedSharesOnVaultEvent):
+                    liability_shares += event.amount_of_shares
+                    current_block = event.block_number
+                    continue
                 if isinstance(event, VaultRebalancedEvent):
                     liability_shares += event.shares_burned
                     current_block = event.block_number
@@ -568,14 +568,14 @@ class StakingVaults(Module):
             ref_block = get_blockstamp(
                 self.cl, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block['number'], bytes_to_hex_str(ref_block['hash'])
+            return None, ref_block['number'], Web3.to_hex(ref_block['hash'])
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
-        # If skipped, we reference the block from the first non-missed slot (frame length offset guarantees availability).
+        # If skipped, we reference the block from the first non-missed slot (frame length offset presumes availability).
         initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
         block = get_blockstamp(self.cl, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame)))
-        return None, block['number'], bytes_to_hex_str(block['hash'])
+        return None, block['number'], Web3.to_hex(block['hash'])
 
     def get_vaults_fees(
         self,

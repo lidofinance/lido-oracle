@@ -15,8 +15,11 @@ def calculate_steth_apr(
         apr = (postRate - preRate) * SECONDS_IN_YEAR / preRate / timeElapsed
     """
 
-    if pre_total_shares == 0 or time_elapsed_seconds == 0 or post_total_shares == 0:
+    if pre_total_shares == 0 or post_total_shares == 0:
         raise ValueError("Cannot compute APR: zero division risk.")
+
+    if time_elapsed_seconds == 0:
+        raise ValueError("Cannot compute APR. time_elapsed is 0")
 
     with localcontext() as ctx:
         ctx.prec = PRECISION_E27
@@ -25,9 +28,6 @@ def calculate_steth_apr(
         post_rate = Decimal(post_total_ether) / Decimal(post_total_shares)
 
         rate_diff: Decimal = post_rate - pre_rate
-
-        if time_elapsed_seconds == 0:
-            raise ValueError("Cannot compute APR. time_elapsed is 0")
 
         return (rate_diff * Decimal(SECONDS_IN_YEAR)) / (pre_rate * Decimal(time_elapsed_seconds))
 

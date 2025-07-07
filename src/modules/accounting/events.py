@@ -3,7 +3,7 @@ from hexbytes import HexBytes
 from typing import Any, Dict
 
 
-@dataclass
+@dataclass(frozen=True)
 class EventBase:
     event: str
     log_index: int
@@ -27,7 +27,7 @@ class EventBase:
         }
 
 
-@dataclass
+@dataclass(frozen=True)
 class MintedSharesOnVaultEvent(EventBase):
     vault: str
     amount_of_shares: int
@@ -44,7 +44,7 @@ class MintedSharesOnVaultEvent(EventBase):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class BurnedSharesOnVaultEvent(EventBase):
     vault: str
     amount_of_shares: int
@@ -59,7 +59,7 @@ class BurnedSharesOnVaultEvent(EventBase):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class VaultFeesUpdatedEvent(EventBase):
     vault: str
     pre_infra_fee_bp: int
@@ -84,7 +84,7 @@ class VaultFeesUpdatedEvent(EventBase):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class VaultRebalancedEvent(EventBase):
     vault: str
     shares_burned: int
@@ -101,7 +101,7 @@ class VaultRebalancedEvent(EventBase):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class BadDebtSocializedEvent(EventBase):
     vault_donor: str
     vault_acceptor: str
@@ -118,7 +118,7 @@ class BadDebtSocializedEvent(EventBase):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
     vault: str
     bad_debt_shares: int
