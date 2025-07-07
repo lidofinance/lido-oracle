@@ -23,12 +23,7 @@ class TestCalculateStethAprRay:
 
     def test_zero_time_elapsed_raises_error(self):
         """Test that zero time_elapsed raises ValueError."""
-        with pytest.raises(ValueError, match="Cannot compute APR: zero division risk."):
-            calculate_steth_apr(1000, 1000, 1000, 1100, 0)
-
-    def test_zero_time_elapsed_second_check(self):
-        """Test the second check for zero time_elapsed."""
-        with pytest.raises(ValueError, match="Cannot compute APR: zero division risk."):
+        with pytest.raises(ValueError, match="Cannot compute APR. time_elapsed is 0"):
             calculate_steth_apr(1000, 1000, 1000, 1100, 0)
 
     def test_basic_apr_calculation(self):
