@@ -116,9 +116,8 @@ class StakingVaults(Module):
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        oracle_config = self.oracle_daemon_config
-        epochs_slashing_window = oracle_config.epochs_slashing_window(bs.block_hash)
-        slashing_event_governance_threshold = oracle_config.slashing_event_governance_threshold(bs.block_hash)
+        epochs_slashing_window = self.oracle_daemon_config.epochs_slashing_window(bs.block_hash)
+        slashing_event_governance_threshold = self.oracle_daemon_config.slashing_event_governance_threshold(bs.block_hash)
 
 
         def calc_reserve(balance: Wei, reserve_ratio_bp: int) -> int:
