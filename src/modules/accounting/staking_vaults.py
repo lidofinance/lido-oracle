@@ -500,6 +500,7 @@ class StakingVaults(Module):
                 if isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
+                    continue
                 if isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
                     current_block = event.block_number
