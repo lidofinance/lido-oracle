@@ -551,16 +551,16 @@ class StakingVaults(Module):
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block['number'], Web3.to_hex(ref_block['hash'])
+            return None, ref_block.block_number, Web3.to_hex(ref_block.block_has)
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
         # If skipped, we reference the block from the first non-missed slot (frame length offset presumes availability).
         initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
-        block = get_blockstamp(
+        bs = get_blockstamp(
             self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
         )
-        return None, block['number'], Web3.to_hex(block['hash'])
+        return None, bs.block_number, bs.block_hash
 
     def get_vaults_fees(
         self,
