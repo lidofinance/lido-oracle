@@ -52,7 +52,7 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_StETH=0,
+                mintable_st_eth=0,
             ),
             self.vault_adr_1: VaultInfo(
                 vault=self.vault_adr_1,
@@ -67,7 +67,7 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_StETH=0,
+                mintable_st_eth=0,
             ),
             self.vault_adr_2: VaultInfo(
                 vault=self.vault_adr_2,
@@ -82,7 +82,7 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_StETH=0,
+                mintable_st_eth=0,
             ),
             self.vault_adr_3: VaultInfo(
                 vault=self.vault_adr_3,
@@ -97,7 +97,7 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_StETH=0,
+                mintable_st_eth=0,
             ),
         }
 
@@ -434,7 +434,7 @@ class TestStakingVaults:
             infra_fee_bp=self.infra_feeBP,
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
-            mintable_StETH=self.mintable_capacity_StETH,
+            mintable_st_eth=self.mintable_capacity_StETH,
             balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),

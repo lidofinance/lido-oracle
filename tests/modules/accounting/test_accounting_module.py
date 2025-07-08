@@ -518,7 +518,7 @@ def test_simulate_rebase_after_report(
             liquidity_fee_bp=0,
             reservation_fee_bp=0,
             pending_disconnect=False,
-            mintable_StETH=0,
+            mintable_st_eth=0,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
             balance=2500000000000000000,
@@ -533,7 +533,7 @@ def test_simulate_rebase_after_report(
             liquidity_fee_bp=0,
             reservation_fee_bp=0,
             pending_disconnect=False,
-            mintable_StETH=0,
+            mintable_st_eth=0,
         ),
     }
     vaults_total_values = {}
