@@ -7,7 +7,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27, TOTAL_BASIS_POINTS, PRECISION_E27
+from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
@@ -16,6 +16,7 @@ from src.metrics.prometheus.accounting import (
     VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
@@ -49,12 +50,12 @@ from src.types import (
     ReferenceBlockStamp,
     StakingModuleId,
 )
-from src.utils.apr import calculate_steth_apr
+from src.utils.apr import get_core_apr_ratio
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
-from decimal import Decimal, localcontext
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
+        self.staking_vaults = StakingVaults(self.w3)
 
     def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle  # type: ignore
@@ -238,8 +240,10 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info(
-            {'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+        logger.info({
+            'msg': 'Calculate Lido validators state balance (in Gwei)',
+            'value': lido_validators_state_balance
+        })
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
@@ -295,16 +299,14 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_finalization_batches: list[int] = []  # For simulation, we assume no withdrawals
 
         report = ReportValues(
-            blockstamp.block_timestamp,
-            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # timeElapsed
-            # CL values
-            cl_validators_count,
-            Web3.to_wei(cl_balance, 'gwei'),  # cl_balance
-            # EL values
-            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # withdrawal_vault_balance
-            el_rewards,  # el_rewards_vault_balance
-            self.get_shares_to_burn(blockstamp),
-            withdrawal_finalization_batches,
+            timestamp=blockstamp.block_timestamp,
+            time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
+            cl_validators=cl_validators_count,
+            cl_balance=gwei_to_wei(cl_balance),
+            withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
+            el_rewards_vault_balance=el_rewards,
+            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
+            withdrawal_finalization_batches=withdrawal_finalization_batches,
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
@@ -407,7 +409,7 @@ class Accounting(BaseModule, ConsensusModule):
                           identifying the published tree data.
         """
 
-        vaults = self.w3.staking_vaults.get_vaults(blockstamp.block_hash)
+        vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
             return bytes(0), ''
 
@@ -416,17 +418,21 @@ class Accounting(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
-        core_apr_ratio = self._core_apr_ratio(
-            blockstamp,
+        staking_fee_aggregate_distribution = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
+            blockstamp.block_hash)
+
+        core_apr_ratio = get_core_apr_ratio(
             simulation.pre_total_shares,
             simulation.pre_total_pooled_ether,
             simulation.post_total_shares,
             simulation.post_total_pooled_ether,
+            staking_fee_aggregate_distribution.lido_fee_bp(),
+            self._get_time_elapsed_seconds_from_prev_report(blockstamp)
         )
 
-        prev_report_cid = self.w3.staking_vaults.get_prev_cid(blockstamp)
-        vaults_total_values = self.w3.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
-        vaults_fees = self.w3.staking_vaults.get_vaults_fees(
+        prev_report_cid = self.staking_vaults.get_prev_cid(blockstamp)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
+        vaults_fees = self.staking_vaults.get_vaults_fees(
             blockstamp,
             vaults,
             vaults_total_values,
@@ -437,15 +443,15 @@ class Accounting(BaseModule, ConsensusModule):
             frame_config,
             chain_config
         )
-        vaults_slashing_reserve = self.w3.staking_vaults.get_vaults_slashing_reserve(
+        vaults_slashing_reserve = self.staking_vaults.get_vaults_slashing_reserve(
             blockstamp, vaults, validators, chain_config
         )
-        tree_data = self.w3.staking_vaults.build_tree_data(
+        tree_data = self.staking_vaults.build_tree_data(
             vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve
         )
 
-        merkle_tree = self.w3.staking_vaults.get_merkle_tree(tree_data)
-        tree_cid = self.w3.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config, vaults_fees)
+        merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
+        tree_cid = self.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config, vaults_fees)
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
@@ -496,45 +502,14 @@ class Accounting(BaseModule, ConsensusModule):
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
             is_bunker=is_bunker,
-            tree_root=tree_root,
-            tree_cid=tree_cid,
+            vaults_tree_root=tree_root,
+            vaults_tree_cid=tree_cid,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
 
-    def _core_apr_ratio(
-        self,
-        blockstamp: ReferenceBlockStamp,
-        pre_total_shares: int,
-        pre_total_pooled_ether: int,
-        post_total_shares: int,
-        post_total_pooled_ether: int,
-    ) -> Decimal:
-        with localcontext() as ctx:
-            ctx.prec = PRECISION_E27
-            total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
-            modules_fee, treasury_fee, base_precision = (
-                self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(blockstamp.block_hash)
-            )
-            lido_fee_bp = (Decimal(modules_fee + treasury_fee) * total_basis_points_dec) / Decimal(base_precision)
-
-            if lido_fee_bp >= total_basis_points_dec:
-                raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
-
-            slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
-            chain_conf = self.get_chain_config(blockstamp)
-            time_elapsed_seconds = slots_elapsed * chain_conf.seconds_per_slot
-
-            core_apr_ratio = Decimal(0)
-            if lido_fee_bp != 0:
-                steth_apr_ratio = calculate_steth_apr(
-                    pre_total_shares,
-                    pre_total_pooled_ether,
-                    post_total_shares,
-                    post_total_pooled_ether,
-                    time_elapsed_seconds,
-                )
-                core_apr_ratio = steth_apr_ratio * total_basis_points_dec / (total_basis_points_dec - lido_fee_bp)
-
-            return core_apr_ratio
+    def _get_time_elapsed_seconds_from_prev_report(self, blockstamp: ReferenceBlockStamp) -> int:
+        slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
+        chain_conf = self.get_chain_config(blockstamp)
+        return slots_elapsed * chain_conf.seconds_per_slot

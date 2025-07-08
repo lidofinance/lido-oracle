@@ -19,7 +19,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
+from src.providers.execution.contracts.lazy_oracle import VaultsLazyOracleContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 
 
@@ -136,7 +136,7 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
 def vault_hub_contract(web3_provider_integration, lido_locator_contract):
     return get_contract(
         web3_provider_integration,
-        LazyOracleContract,
+        VaultsLazyOracleContract,
         lido_locator_contract.vault_hub(),
     )
 

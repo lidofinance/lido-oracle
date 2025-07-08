@@ -17,7 +17,7 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
+from src.providers.execution.contracts.lazy_oracle import VaultsLazyOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
@@ -41,7 +41,7 @@ class LidoContracts(Module):
     oracle_daemon_config: OracleDaemonConfigContract
     burner: BurnerContract
     accounting: AccountingContract
-    lazy_oracle: LazyOracleContract
+    lazy_oracle: VaultsLazyOracleContract
     vault_hub: VaultHubContract
 
     def __init__(self, w3: Web3):
@@ -153,11 +153,11 @@ class LidoContracts(Module):
             ),
         )
 
-        self.lazy_oracle: LazyOracleContract = cast(
-            LazyOracleContract,
+        self.lazy_oracle: VaultsLazyOracleContract = cast(
+            VaultsLazyOracleContract,
             self.w3.eth.contract(
                 address=self.lido_locator.lazy_oracle(),
-                ContractFactoryClass=LazyOracleContract,
+                ContractFactoryClass=VaultsLazyOracleContract,
                 decode_tuples=True,
             ),
         )

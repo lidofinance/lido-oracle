@@ -6,7 +6,7 @@ import pytest
 class TestLazyOracleHubSmoke:
 
     def test_vault_lazy_oracle_get_report(self, web3_integration):
-        report = web3_integration.lido_contracts.lazy_oracle.get_report(block_identifier='latest')
+        report = web3_integration.lido_contracts.lazy_oracle.get_latest_report(block_identifier='latest')
         assert report is not None
 
     def test_get_vaults(self, web3_integration):

@@ -24,18 +24,7 @@ class AccountingContract(ContractInterface):
         plugging the returned values to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
 
-        report = {
-            "timestamp": payload.timestamp,
-            "timeElapsed": payload.time_elapsed,
-            "clValidators": payload.cl_validators,
-            "clBalance": payload.cl_balance,
-            "withdrawalVaultBalance": payload.withdrawal_vault_balance,
-            "elRewardsVaultBalance": payload.el_rewards_vault_balance,
-            "sharesRequestedToBurn": payload.shares_requested_to_burn,
-            "withdrawalFinalizationBatches": payload.withdrawal_finalization_batches,
-        }
-
-        response = self.functions.simulateOracleReport(report, withdrawal_share_rate).call(
+        response = self.functions.simulateOracleReport(payload.as_tuple(), withdrawal_share_rate).call(
             block_identifier=block_identifier
         )
 

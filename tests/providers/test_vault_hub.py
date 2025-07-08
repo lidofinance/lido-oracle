@@ -24,7 +24,7 @@ class TestVaultHubSmoke:
 
     def test_get_updated_events(self, web3_integration):
         try:
-            events = web3_integration.lido_contracts.vault_hub.get_vaults_fee_updated_events(634086 - 1_000, 634_086)
+            events = web3_integration.lido_contracts.vault_hub.get_vault_fee_updated_events(634086 - 1_000, 634_086)
 
             assert len(events) == 0
         except Web3Exception as e:

@@ -1,10 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from decimal import Decimal
 from typing import List, NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
+from src.constants import TOTAL_BASIS_POINTS
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.types import (
     ELVaultBalance,
@@ -15,6 +17,7 @@ from src.types import (
     StakingModuleId,
     WithdrawalVaultBalance,
 )
+from src.utils.dataclass import Nested, FromResponse
 
 BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
@@ -34,6 +37,10 @@ type SharesToBurn = int
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches]
 
+def snake_to_camel(s):
+    parts = s.split('_')
+    return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
 @dataclass
 class ReportData:
     consensus_version: int
@@ -47,8 +54,8 @@ class ReportData:
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
     is_bunker: bool
-    tree_root: VaultsTreeRoot
-    tree_cid: VaultsTreeCid
+    vaults_tree_root: VaultsTreeRoot
+    vaults_tree_cid: VaultsTreeCid
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -67,8 +74,8 @@ class ReportData:
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
             self.is_bunker,
-            self.tree_root,
-            self.tree_cid,
+            self.vaults_tree_root,
+            self.vaults_tree_cid,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,
@@ -159,6 +166,18 @@ class ReportValues:
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: List[int]
 
+    def as_tuple(self):
+        return (
+            self.timestamp,
+            self.time_elapsed,
+            self.cl_validators,
+            self.cl_balance,
+            self.withdrawal_vault_balance,
+            self.el_rewards_vault_balance,
+            self.shares_requested_to_burn,
+            self.withdrawal_finalization_batches,
+        )
+
 
 @dataclass(frozen=True)
 class StakingRewardsDistribution:
@@ -189,45 +208,13 @@ class ReportResults:
 
 
 @dataclass(frozen=True)
-class VaultSocket:
-    vault: ChecksumAddress
-    share_limit: Shares
-    liability_shares: Shares
-    reserve_ratio_bp: int
-    rebalance_threshold_bp: int
-    treasury_fee_bp: int
-    pending_disconnect: bool
-
-
-@dataclass
-class VaultData:
-    vault_ind: int
-    balance_wei: Wei
-    in_out_delta: Wei
-    liability_shares: Shares
-    fee: int
-    address: ChecksumAddress
-    withdrawal_credentials: str
-    # Feature smart contract release
-    share_limit: int
-    minted_StETH: int
-    mintable_capacity_StETH: int
-    reserve_ratioBP: int
-    forced_rebalance_thresholdBP: int
-    infra_feeBP: int
-    liquidity_feeBP: int
-    reservation_feeBP: int
-    pending_disconnect: bool
-
-
-@dataclass
 class LatestReportData:
     timestamp: int
     tree_root: VaultsTreeRoot
     cid: VaultsTreeCid
 
 @dataclass
-class VaultInfo:
+class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
     balance: Wei
     withdrawal_credentials: str
@@ -243,7 +230,7 @@ class VaultInfo:
     mintable_capacity_StETH: int
     in_out_delta: Wei
 
-@dataclass
+@dataclass(frozen=True)
 class VaultFee:
     infra_fee: int
     liquidity_fee: int
@@ -269,18 +256,7 @@ VaultReserveMap = dict[ChecksumAddress, int]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
 
-@dataclass
-class VaultProof:
-    id: int
-    totalValueWei: str
-    fee: str
-    liabilityShares: str
-    slashingReserve: str
-    leaf: str
-    proof: List[str]
-    inOutDelta: str
-
-@dataclass
+@dataclass(frozen=True)
 class MerkleValue:
     vault_address: str
     total_value_wei: int
@@ -288,9 +264,17 @@ class MerkleValue:
     liability_shares: int
     slashing_reserve: int
 
-@dataclass
+@dataclass(frozen=True)
 class ExtraValue:
-    inOutDelta: int
+    in_out_delta: str
+    prev_fee: str
+    infra_fee: str
+    liquidity_fee: str
+    reservation_fee: str
+
+    def to_camel_dict(self):
+        orig = asdict(self)
+        return {snake_to_camel(k): v for k, v in orig.items()}
 
 @dataclass
 class MerkleTreeData:
@@ -305,3 +289,18 @@ class MerkleTreeData:
     timestamp: int
     prev_tree_cid: str
     extra_values: dict[str, ExtraValue]
+
+@dataclass(frozen=True)
+class StakingFeeAggregateDistribution:
+    modules_fee: int
+    treasury_fee: int
+    base_precision: int
+
+    def lido_fee_bp(self):
+        total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
+        lido_fee_bp = (Decimal(self.modules_fee + self.treasury_fee) * total_basis_points_dec) / Decimal(self.base_precision)
+
+        if lido_fee_bp >= total_basis_points_dec:
+            raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
+
+        return lido_fee_bp

@@ -67,5 +67,4 @@ class LidoContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address,
         })
-
         return response
