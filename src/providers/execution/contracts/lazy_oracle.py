@@ -62,24 +62,6 @@ class VaultsLazyOracleContract(ContractInterface):
             }
         )
 
-        #out: list[VaultInfo] = []
-        #for vault in response:
-        #    out.append(VaultInfo(
-        #        vault=vault.vault,
-        #        balance=vault.balance,
-        #        withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
-        #        liability_shares=vault.liabilityShares,
-        #        share_limit=vault.shareLimit,
-        #        reserve_ratioBP=vault.reserveRatioBP,
-        #        forced_rebalance_thresholdBP=vault.forcedRebalanceThresholdBP,
-        #        infra_feeBP=vault.infraFeeBP,
-        #        liquidity_feeBP=vault.liquidityFeeBP,
-        #        reservation_feeBP=vault.reservationFeeBP,
-        #        pending_disconnect=vault.pendingDisconnect,
-        #        mintable_capacity_StETH=vault.mintableStETH,
-        #        in_out_delta=vault.inOutDelta,
-        #    ))
-
         return response
 
     def get_all_vaults(self, block_identifier: BlockIdentifier = 'latest') -> list[VaultInfo]:

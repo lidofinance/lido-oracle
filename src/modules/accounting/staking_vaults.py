@@ -134,12 +134,12 @@ class StakingVaults(Module):
 
                         vaults_reserves[vault_address] += calc_reserve(
                             gwei_to_wei(validator_past_state.balance),
-                            vaults[vault_address].reserve_ratioBP,
+                            vaults[vault_address].reserve_ratio_bp,
                         )
 
                     elif bs.ref_epoch < withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR:
                         vaults_reserves[vault_address] += calc_reserve(
-                            gwei_to_wei(validator.balance), vaults[vault_address].reserve_ratioBP
+                            gwei_to_wei(validator.balance), vaults[vault_address].reserve_ratio_bp
                         )
 
         return vaults_reserves
@@ -214,7 +214,7 @@ class StakingVaults(Module):
 
     def get_prev_cid(self, bs: BlockStamp) -> str:
         report = self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
-        return report.cid
+        return report.report_cid
 
     def _calculate_pending_deposits_balances(
         self,
@@ -616,21 +616,21 @@ class StakingVaults(Module):
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
             vaults_total_value = vaults_total_values.get(vault_address, 0)
             vault_infrastructure_fee = StakingVaults.calc_fee_value(
-                Decimal(vaults_total_value), blocks_elapsed, core_apr_ratio, vault_info.infra_feeBP
+                Decimal(vaults_total_value), blocks_elapsed, core_apr_ratio, vault_info.infra_fee_bp
             )
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
             vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
-                Decimal(vault_info.mintable_capacity_StETH),
+                Decimal(vault_info.mintable_StETH),
                 blocks_elapsed,
                 core_apr_ratio,
-                vault_info.reservation_feeBP,
+                vault_info.reservation_fee_bp,
             )
 
             vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
                 vault_address,
                 vault_info.liability_shares,
-                vault_info.liquidity_feeBP,
+                vault_info.liquidity_fee_bp,
                 events,
                 prev_block_number,
                 int(blockstamp.block_number),

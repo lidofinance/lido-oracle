@@ -207,11 +207,11 @@ class ReportResults:
     post_total_pooled_ether: Wei
 
 
-@dataclass(frozen=True)
-class LatestReportData:
+@dataclass
+class LatestReportData(Nested, FromResponse):
     timestamp: int
     tree_root: VaultsTreeRoot
-    cid: VaultsTreeCid
+    report_cid: VaultsTreeCid
 
 @dataclass
 class VaultInfo(Nested, FromResponse):
@@ -221,13 +221,13 @@ class VaultInfo(Nested, FromResponse):
     liability_shares: Shares
     # Feature smart contract release
     share_limit: int
-    reserve_ratioBP: int
-    forced_rebalance_thresholdBP: int
-    infra_feeBP: int
-    liquidity_feeBP: int
-    reservation_feeBP: int
+    reserve_ratio_bp: int
+    forced_rebalance_threshold_bp: int
+    infra_fee_bp: int
+    liquidity_fee_bp: int
+    reservation_fee_bp: int
     pending_disconnect: bool
-    mintable_capacity_StETH: int
+    mintable_st_eth: int
     in_out_delta: Wei
 
 @dataclass(frozen=True)
