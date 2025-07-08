@@ -52,3 +52,11 @@ class OracleDaemonConfigContract(ContractInterface):
     @lru_cache(maxsize=1)
     def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier = 'latest') -> int:
         return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def epochs_slashing_window(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        return self._get('EPOCHS_SLASHING_WINDOW', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def slashing_event_governance_threshold(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        return self._get('SLASHING_EVENT_GOVERNANCE_THRESHOLD', block_identifier)
