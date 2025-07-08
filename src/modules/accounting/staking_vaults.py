@@ -496,23 +496,18 @@ class StakingVaults(Module):
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
                     current_block = event.block_number
-                    continue
                 elif isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
-                    continue
                 elif isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
                     current_block = event.block_number
-                    continue
                 elif isinstance(event, VaultRebalancedEvent):
                     liability_shares += event.shares_burned
                     current_block = event.block_number
-                    continue
                 elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
                     liability_shares += event.bad_debt_shares
                     current_block = event.block_number
-                    continue
                 elif isinstance(event, BadDebtSocializedEvent):
                     if vault_address == event.vault_donor:
                         liability_shares += event.bad_debt_shares
@@ -621,7 +616,7 @@ class StakingVaults(Module):
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
             vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
-                Decimal(vault_info.mintable_StETH),
+                Decimal(vault_info.mintable_st_eth),
                 blocks_elapsed,
                 core_apr_ratio,
                 vault_info.reservation_fee_bp,
