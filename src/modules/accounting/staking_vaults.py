@@ -536,10 +536,10 @@ class StakingVaults(Module):
         prev_ipfs_report_cid: str,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-    ) -> tuple[Optional[MerkleTreeData], int, str]:
+    ) -> tuple[Optional[MerkleTreeData], BlockNumber, HexStr]:
         if prev_ipfs_report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(prev_ipfs_report_cid)
-            return prev_ipfs_report, prev_ipfs_report.block_number, prev_ipfs_report.block_hash
+            return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
         ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
@@ -560,7 +560,7 @@ class StakingVaults(Module):
         bs = get_blockstamp(
             self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
         )
-        return None, bs.block_number, bs.block_hash
+        return None, bs.block_number, Web3.to_hex(bs.block_hash)
 
     def get_vaults_fees(
         self,
