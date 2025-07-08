@@ -497,31 +497,28 @@ class StakingVaults(Module):
                     liquidity_fee = event.pre_liquidity_fee_bp
                     current_block = event.block_number
                     continue
-                if isinstance(event, MintedSharesOnVaultEvent):
+                elif isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
                     current_block = event.block_number
                     continue
-                if isinstance(event, BurnedSharesOnVaultEvent):
+                elif isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
                     current_block = event.block_number
                     continue
-                if isinstance(event, VaultRebalancedEvent):
+                elif isinstance(event, VaultRebalancedEvent):
                     liability_shares += event.shares_burned
                     current_block = event.block_number
                     continue
-
-                if isinstance(event, BadDebtSocializedEvent):
+                elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
+                    liability_shares += event.bad_debt_shares
+                    current_block = event.block_number
+                    continue
+                elif isinstance(event, BadDebtSocializedEvent):
                     if vault_address == event.vault_donor:
                         liability_shares += event.bad_debt_shares
                     else:
                         liability_shares -= event.bad_debt_shares
                     current_block = event.block_number
-                    continue
-
-                if isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
-                    liability_shares += event.bad_debt_shares
-                    current_block = event.block_number
-                    continue
 
             blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
