@@ -103,12 +103,6 @@ class TestStakingVaults:
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
-        cc_mock = MagicMock()
-        lido_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        vault_hub_mock = MagicMock()
-        ipfs_client = MagicMock()
-        account_oracle_mock = MagicMock()
 
         self.staking_vaults = StakingVaults(w3_mock)
 
