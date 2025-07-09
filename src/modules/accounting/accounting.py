@@ -431,7 +431,8 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp)
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
+        genesis_fork_version = self.get_cc_genesis_config().genesis_fork_version
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits, genesis_fork_version)
         vaults_fees = self.staking_vaults.get_vaults_fees(
             blockstamp,
             vaults,

@@ -25,6 +25,10 @@ class ChainConfig:
     seconds_per_slot: int
     genesis_time: int
 
+@dataclass(frozen=True)
+class CCGenesisConfig:
+    genesis_time: int
+    genesis_fork_version: str
 
 @dataclass(frozen=True)
 class CurrentFrame:

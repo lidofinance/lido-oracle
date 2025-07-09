@@ -27,6 +27,7 @@ from src.modules.submodules.exceptions import (
 )
 from src.modules.submodules.types import (
     ZERO_HASH,
+    CCGenesisConfig,
     ChainConfig,
     CurrentFrame,
     FrameConfig,
@@ -80,7 +81,7 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
+        genesis_time = self.get_cc_genesis_config().genesis_time
         GENESIS_TIME.set(genesis_time)
         if any(
             (
@@ -114,6 +115,13 @@ class ConsensusModule(ABC):
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_chain_config(blockstamp.block_hash)
+
+    def get_cc_genesis_config(self) -> CCGenesisConfig:
+        genesis = self.w3.cc.get_genesis()
+        return CCGenesisConfig(
+            genesis_time=genesis.genesis_time,
+            genesis_fork_version=genesis.genesis_fork_version,
+        )
 
     @lru_cache(maxsize=1)
     def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:

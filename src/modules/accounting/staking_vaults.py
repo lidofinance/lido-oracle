@@ -63,7 +63,7 @@ class StakingVaults(Module):
         return VaultsMap({v.vault: v for v in vaults})
 
     def get_vaults_total_values(
-        self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
+        self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> VaultTotalValueMap:
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
@@ -86,6 +86,7 @@ class StakingVaults(Module):
                     vault_validators,
                     vault_pending_deposits,
                     vault.withdrawal_credentials,
+                    genesis_fork_version,
                 )
 
             logger.info(
@@ -224,6 +225,7 @@ class StakingVaults(Module):
         vault_validators: list[Validator],
         vault_pending_deposits: list[PendingDeposit],
         vault_withdrawal_credentials: str,
+        genesis_fork_version: str,
     ) -> int:
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
@@ -247,7 +249,7 @@ class StakingVaults(Module):
 
             # Case 3: No validator found for this pubkey - validate deposits
             deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
-            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
+            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey, genesis_fork_version)
 
             if valid_deposits:
                 valid_value = sum(gwei_to_wei(d.amount) for d in valid_deposits)
@@ -285,7 +287,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def _filter_valid_deposits(
-        vault_withdrawal_credentials: str, deposits: list[PendingDeposit]
+        vault_withdrawal_credentials: str, deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
@@ -306,6 +308,7 @@ class StakingVaults(Module):
                 withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
                 amount_gwei=deposit.amount,
                 signature=hex_str_to_bytes(deposit.signature),
+                fork_version=genesis_fork_version,
             )
 
             if not is_valid:

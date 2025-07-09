@@ -23,6 +23,7 @@ class BeaconSpecResponse(Nested, FromResponse):
 @dataclass
 class GenesisResponse(Nested, FromResponse):
     genesis_time: int
+    genesis_fork_version: str
 
 
 @dataclass
