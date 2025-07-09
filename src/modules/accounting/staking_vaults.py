@@ -116,7 +116,6 @@ class StakingVaults(Module):
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        
         slashing_reserve_we_left_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_left_shift(bs.block_hash)
         slashing_reserve_we_right_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift(bs.block_hash)
 
