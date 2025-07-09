@@ -26,7 +26,7 @@ class ChainConfig:
     genesis_time: int
 
 @dataclass(frozen=True)
-class CCGenesisConfig:
+class ConsensusGenesisConfig:
     genesis_time: int
     genesis_fork_version: str
 
