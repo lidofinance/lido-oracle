@@ -25,6 +25,7 @@ from src.providers.consensus.types import PendingDeposit, Validator, ValidatorSt
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 
 HOODI_FORK_VERSION = "0x10000910"
+MAINNET_FORK_VERSION = "0x00000000"
 
 
 class TestStakingVaults:
@@ -195,7 +196,7 @@ class TestStakingVaults:
             ),
         ]
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
+            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
         )
         expected = {
             self.vault_adr_0: 33834904184000000000,
@@ -253,7 +254,7 @@ class TestStakingVaults:
         ]
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
+            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
         )
         expected = {
             self.vault_adr_0: 1000000000000000000,
