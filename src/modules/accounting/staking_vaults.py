@@ -12,7 +12,7 @@ from src.web3py.types import Web3
 from web3.module import Module
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS, EPOCHS_PER_SLASHINGS_VECTOR
+from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     BurnedSharesOnVaultEvent,
@@ -116,8 +116,9 @@ class StakingVaults(Module):
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        epochs_slashing_window = self.oracle_daemon_config.epochs_slashing_window(bs.block_hash)
-        slashing_event_governance_threshold = self.oracle_daemon_config.slashing_event_governance_threshold(bs.block_hash)
+        
+        slashing_reserve_we_left_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_left_shift(bs.block_hash)
+        slashing_reserve_we_right_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift(bs.block_hash)
 
 
         def calc_reserve(balance: Wei, reserve_ratio_bp: int) -> int:
@@ -130,8 +131,8 @@ class StakingVaults(Module):
                 if validator.validator.slashed:
                     withdrawable_epoch = validator.validator.withdrawable_epoch
 
-                    if withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR <= bs.ref_epoch <= withdrawable_epoch + EPOCHS_PER_SLASHINGS_VECTOR:
-                        slot_id = (withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR) * chain_config.slots_per_epoch
+                    if withdrawable_epoch - slashing_reserve_we_left_shift <= bs.ref_epoch <= withdrawable_epoch + slashing_reserve_we_right_shift:
+                        slot_id = (withdrawable_epoch - slashing_reserve_we_left_shift) * chain_config.slots_per_epoch
                         validator_past_state = self.w3.cc.get_validator_state(SlotNumber(slot_id), validator.index)
 
                         vaults_reserves[vault_address] += calc_reserve(
@@ -139,7 +140,7 @@ class StakingVaults(Module):
                             vaults[vault_address].reserve_ratio_bp,
                         )
 
-                    elif bs.ref_epoch < withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR:
+                    elif bs.ref_epoch < withdrawable_epoch - slashing_reserve_we_left_shift:
                         vaults_reserves[vault_address] += calc_reserve(
                             gwei_to_wei(validator.balance), vaults[vault_address].reserve_ratio_bp
                         )
