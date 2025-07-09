@@ -10,9 +10,7 @@ from src.utils.deposit_signature import (
     DOMAIN_DEPOSIT_TYPE,
 )
 from src.utils.types import hex_str_to_bytes
-
-MAINNET_FORK_VERSION = "0x00000000"
-HOODI_FORK_VERSION = "0x10000910"
+from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
 @pytest.mark.parametrize(

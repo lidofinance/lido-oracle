@@ -23,9 +23,7 @@ from src.modules.accounting.types import (
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
-
-HOODI_FORK_VERSION = "0x10000910"
-MAINNET_FORK_VERSION = "0x00000000"
+from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
 class TestStakingVaults:
