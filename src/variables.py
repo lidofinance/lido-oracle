@@ -30,7 +30,6 @@ CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 CSM_ORACLE_MAX_CONCURRENCY: Final = min(32, int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)))
-GENESIS_FORK_VERSION: Final = os.getenv('GENESIS_FORK_VERSION', "0x00000000")
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block
@@ -125,7 +124,6 @@ PUBLIC_ENV_VARS = {
     for key, value in {
         'ACCOUNT': 'Dry' if ACCOUNT is None else ACCOUNT.address,
         'LIDO_LOCATOR_ADDRESS': LIDO_LOCATOR_ADDRESS,
-        'GENESIS_FORK_VERSION': GENESIS_FORK_VERSION,
         'CSM_MODULE_ADDRESS': CSM_MODULE_ADDRESS,
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
         'EL_REQUESTS_BATCH_SIZE': EL_REQUESTS_BATCH_SIZE,

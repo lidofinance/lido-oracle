@@ -12,7 +12,7 @@ from src.web3py.types import Web3
 from web3.module import Module
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS, EPOCHS_PER_SLASHINGS_VECTOR
+from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     BurnedSharesOnVaultEvent,
@@ -22,7 +22,7 @@ from src.modules.accounting.events import (
     BadDebtWrittenOffToBeInternalizedEvent,
 )
 from src.modules.accounting.types import (
-    MerkleTreeData,
+    IpfsReport,
     MerkleValue,
     VaultInfo,
     VaultsMap,
@@ -34,7 +34,7 @@ from src.modules.accounting.types import (
     VaultTotalValueMap,
     VaultFeeMap,
     VaultReserveMap,
-    VaultFee, ExtraValue,
+    VaultFee, ExtraValue, OnChainIpfsVaultReportData,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
@@ -63,7 +63,7 @@ class StakingVaults(Module):
         return VaultsMap({v.vault: v for v in vaults})
 
     def get_vaults_total_values(
-        self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
+        self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> VaultTotalValueMap:
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
@@ -86,6 +86,7 @@ class StakingVaults(Module):
                     vault_validators,
                     vault_pending_deposits,
                     vault.withdrawal_credentials,
+                    genesis_fork_version,
                 )
 
             logger.info(
@@ -116,6 +117,8 @@ class StakingVaults(Module):
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
+        slashing_reserve_we_left_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_left_shift(bs.block_hash)
+        slashing_reserve_we_right_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift(bs.block_hash)
 
 
         def calc_reserve(balance: Wei, reserve_ratio_bp: int) -> int:
@@ -128,8 +131,8 @@ class StakingVaults(Module):
                 if validator.validator.slashed:
                     withdrawable_epoch = validator.validator.withdrawable_epoch
 
-                    if withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR <= bs.ref_epoch <= withdrawable_epoch + EPOCHS_PER_SLASHINGS_VECTOR:
-                        slot_id = (withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR) * chain_config.slots_per_epoch
+                    if withdrawable_epoch - slashing_reserve_we_left_shift <= bs.ref_epoch <= withdrawable_epoch + slashing_reserve_we_right_shift:
+                        slot_id = (withdrawable_epoch - slashing_reserve_we_left_shift) * chain_config.slots_per_epoch
                         validator_past_state = self.w3.cc.get_validator_state(SlotNumber(slot_id), validator.index)
 
                         vaults_reserves[vault_address] += calc_reserve(
@@ -137,7 +140,7 @@ class StakingVaults(Module):
                             vaults[vault_address].reserve_ratio_bp,
                         )
 
-                    elif bs.ref_epoch < withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR:
+                    elif bs.ref_epoch < withdrawable_epoch - slashing_reserve_we_left_shift:
                         vaults_reserves[vault_address] += calc_reserve(
                             gwei_to_wei(validator.balance), vaults[vault_address].reserve_ratio_bp
                         )
@@ -207,14 +210,13 @@ class StakingVaults(Module):
 
         return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
 
-    def get_ipfs_report(self, ipfs_report_cid: str) -> MerkleTreeData:
+    def get_ipfs_report(self, ipfs_report_cid: str) -> IpfsReport:
         if ipfs_report_cid == "":
             raise ValueError("Arg ipfs_report_cid could not be ''")
         return self.get_vault_report(ipfs_report_cid)
 
-    def get_prev_cid(self, bs: BlockStamp) -> str:
-        report = self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
-        return report.report_cid
+    def get_latest_onchain_ipfs_report_data(self, bs: BlockStamp) -> OnChainIpfsVaultReportData:
+        return self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
 
     def _calculate_pending_deposits_balances(
         self,
@@ -223,6 +225,7 @@ class StakingVaults(Module):
         vault_validators: list[Validator],
         vault_pending_deposits: list[PendingDeposit],
         vault_withdrawal_credentials: str,
+        genesis_fork_version: str,
     ) -> int:
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
@@ -246,7 +249,7 @@ class StakingVaults(Module):
 
             # Case 3: No validator found for this pubkey - validate deposits
             deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
-            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey)
+            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey, genesis_fork_version)
 
             if valid_deposits:
                 valid_value = sum(gwei_to_wei(d.amount) for d in valid_deposits)
@@ -284,7 +287,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def _filter_valid_deposits(
-        vault_withdrawal_credentials: str, deposits: list[PendingDeposit]
+        vault_withdrawal_credentials: str, deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
@@ -305,6 +308,7 @@ class StakingVaults(Module):
                 withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
                 amount_gwei=deposit.amount,
                 signature=hex_str_to_bytes(deposit.signature),
+                fork_version=genesis_fork_version,
             )
 
             if not is_valid:
@@ -374,17 +378,17 @@ class StakingVaults(Module):
 
         return result
 
-    def get_vault_report(self, tree_cid: str) -> MerkleTreeData:
+    def get_vault_report(self, tree_cid: str) -> IpfsReport:
         bb = self.w3.ipfs.fetch(CID(tree_cid))
         return self.parse_merkle_tree_data(bb)
 
     @staticmethod
-    def parse_merkle_tree_data(raw_bytes: bytes) -> MerkleTreeData:
+    def parse_merkle_tree_data(raw_bytes: bytes) -> IpfsReport:
         data = json.loads(raw_bytes.decode("utf-8"))
 
         index_map: Dict[str, str] = data["leafIndexToData"]
 
-        def decode_value(entry: Dict[str, Any]) -> MerkleValue:
+        def decode_value(entry: Dict[str, tuple[str, str, str, str, str]]) -> MerkleValue:
             value_list = entry["value"]
             value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
             return MerkleValue(
@@ -408,7 +412,7 @@ class StakingVaults(Module):
                 reservation_fee=val["reservationFee"],
             )
 
-        return MerkleTreeData(
+        return IpfsReport(
             format=data["format"],
             leaf_encoding=data["leafEncoding"],
             tree=data["tree"],
@@ -421,6 +425,22 @@ class StakingVaults(Module):
             prev_tree_cid=data["prevTreeCID"],
             extra_values=extra_values
         )
+
+    def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: IpfsReport) -> bool:
+        tree_data = []
+        for vault in merkle_tree.values:
+            tree_data.append(
+                (
+                    vault.vault_address,
+                    vault.total_value_wei,
+                    vault.fee,
+                    vault.liability_shares,
+                    vault.slashing_reserve
+                )
+            )
+
+        rebuild_merkle_tree = self.get_merkle_tree(tree_data)
+        return f'0x{rebuild_merkle_tree.root.hex()}' == expected_tree_root
 
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
@@ -492,28 +512,23 @@ class StakingVaults(Module):
 
                 # Because we are iterating backward in time, events must be applied in reverse.
                 # E.g., a burn reduces shares in the future, so going backward we add them back.
-
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
-                    current_block = event.block_number
                 elif isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
-                    current_block = event.block_number
                 elif isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
-                    current_block = event.block_number
                 elif isinstance(event, VaultRebalancedEvent):
                     liability_shares += event.shares_burned
-                    current_block = event.block_number
                 elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
                     liability_shares += event.bad_debt_shares
-                    current_block = event.block_number
                 elif isinstance(event, BadDebtSocializedEvent):
                     if vault_address == event.vault_donor:
                         liability_shares += event.bad_debt_shares
                     else:
                         liability_shares -= event.bad_debt_shares
-                    current_block = event.block_number
+
+                current_block = event.block_number
 
             blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
@@ -526,12 +541,15 @@ class StakingVaults(Module):
     def _get_start_point_for_fee_calculations(
         self,
         blockstamp: ReferenceBlockStamp,
-        prev_ipfs_report_cid: str,
+        latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-    ) -> tuple[Optional[MerkleTreeData], BlockNumber, HexStr]:
-        if prev_ipfs_report_cid != "":
-            prev_ipfs_report = self.get_ipfs_report(prev_ipfs_report_cid)
+    ) -> tuple[Optional[IpfsReport], BlockNumber, HexStr]:
+        if latest_onchain_ipfs_report_data.report_cid != "":
+            prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
+
+            self.is_tree_root_valid(latest_onchain_ipfs_report_data.tree_root, prev_ipfs_report)
+
             return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
@@ -560,7 +578,7 @@ class StakingVaults(Module):
         blockstamp: ReferenceBlockStamp,
         vaults: VaultsMap,
         vaults_total_values: VaultTotalValueMap,
-        prev_ipfs_report_cid: str,
+        latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         core_apr_ratio: Decimal,
         pre_total_pooled_ether: int,
         pre_total_shares: int,
@@ -568,7 +586,7 @@ class StakingVaults(Module):
         chain_config: ChainConfig,
     ) -> VaultFeeMap:
         prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
-            blockstamp, prev_ipfs_report_cid, frame_config, chain_config
+            blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config
         )
         vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
 

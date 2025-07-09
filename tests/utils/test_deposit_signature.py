@@ -6,12 +6,12 @@ from src.utils.deposit_signature import (
     compute_fork_data_root,
     compute_domain,
     is_valid_deposit_signature,
-    GENESIS_FORK_VERSION,
     GENESIS_VALIDATORS_ROOT,
     DOMAIN_DEPOSIT_TYPE,
 )
 from src.utils.types import hex_str_to_bytes
 
+MAINNET_FORK_VERSION = "0x00000000"
 HOODI_FORK_VERSION = "0x10000910"
 
 
@@ -19,7 +19,7 @@ HOODI_FORK_VERSION = "0x10000910"
     "fork_version, genesis_validators_root, expected",
     [
         (
-            GENESIS_FORK_VERSION,
+            MAINNET_FORK_VERSION,
             GENESIS_VALIDATORS_ROOT,
             bytes.fromhex("f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"),
         ),
@@ -46,7 +46,7 @@ def test_compute_fork_data_root(fork_version, genesis_validators_root, expected)
     [
         (
             DOMAIN_DEPOSIT_TYPE,
-            GENESIS_FORK_VERSION,
+            MAINNET_FORK_VERSION,
             GENESIS_VALIDATORS_ROOT,
             bytes.fromhex("03000000f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a9"),
         ),

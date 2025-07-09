@@ -430,13 +430,14 @@ class Accounting(BaseModule, ConsensusModule):
             self._get_time_elapsed_seconds_from_prev_report(blockstamp)
         )
 
-        prev_report_cid = self.staking_vaults.get_prev_cid(blockstamp)
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits)
+        latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp)
+        genesis_fork_version = self.get_cc_genesis_config().genesis_fork_version
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits, genesis_fork_version)
         vaults_fees = self.staking_vaults.get_vaults_fees(
             blockstamp,
             vaults,
             vaults_total_values,
-            prev_report_cid,
+            latest_onchain_ipfs_report_data,
             core_apr_ratio,
             simulation.pre_total_pooled_ether,
             simulation.pre_total_shares,
@@ -451,7 +452,7 @@ class Accounting(BaseModule, ConsensusModule):
         )
 
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
-        tree_cid = self.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, prev_report_cid, chain_config, vaults_fees)
+        tree_cid = self.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, latest_onchain_ipfs_report_data.report_cid, chain_config, vaults_fees)
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
