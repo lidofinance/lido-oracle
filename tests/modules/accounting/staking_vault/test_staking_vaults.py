@@ -111,13 +111,7 @@ class TestStakingVaults:
         account_oracle_mock = MagicMock()
 
         self.staking_vaults = StakingVaults(
-            w3_mock,
-            cc_mock,
-            ipfs_client,
-            lido_mock,
-            vault_hub_mock,
-            lazy_oracle_mock,
-            account_oracle_mock,
+            w3_mock, cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
         )
 
         self.accounting = Accounting(w3_mock)
@@ -533,13 +527,7 @@ class TestStakingVaults:
         vault_hub_mock.get_written_off_to_be_internalized_events = MagicMock(return_value=[])
 
         self.staking_vaults = StakingVaults(
-            w3_mock,
-            cc_mock,
-            ipfs_client,
-            lido_mock,
-            vault_hub_mock,
-            lazy_oracle_mock,
-            account_oracle_mock,
+            w3_mock, cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
         )
         self.staking_vaults._get_start_point_for_fee_calculations = MagicMock(
             return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
