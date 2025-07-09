@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from decimal import Decimal
-from typing import List, NewType, Self
+from typing import NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
@@ -164,7 +164,7 @@ class ReportValues:
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
-    withdrawal_finalization_batches: List[int]
+    withdrawal_finalization_batches: list[int]
 
     def as_tuple(self):
         return (
@@ -181,9 +181,9 @@ class ReportValues:
 
 @dataclass(frozen=True)
 class StakingRewardsDistribution:
-    recipients: List[ChecksumAddress]
-    module_ids: List[int]
-    modules_fees: List[int]
+    recipients: list[ChecksumAddress]
+    module_ids: list[int]
+    modules_fees: list[int]
     total_fee: int
     precision_points: int
 
@@ -208,7 +208,7 @@ class ReportResults:
 
 
 @dataclass
-class LatestReportData(Nested, FromResponse):
+class OnChainIpfsVaultReportData(Nested, FromResponse):
     timestamp: int
     tree_root: VaultsTreeRoot
     report_cid: VaultsTreeCid
@@ -277,12 +277,12 @@ class ExtraValue:
         return {snake_to_camel(k): v for k, v in orig.items()}
 
 @dataclass
-class MerkleTreeData:
+class IpfsReport:
     format: str
-    leaf_encoding: List[str]
-    tree: List[str]
-    values: List[MerkleValue]
-    tree_indices: List[int]
+    leaf_encoding: list[str]
+    tree: list[str]
+    values: list[MerkleValue]
+    tree_indices: list[int]
     ref_slot: int
     block_number: int
     block_hash: str

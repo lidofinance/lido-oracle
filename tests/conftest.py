@@ -9,6 +9,7 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
+from src.main import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -176,6 +177,10 @@ def web3_integration() -> Generator[Web3, None, None]:
             'transaction': TransactionUtils,
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
+            'ipfs': lambda: MultiIPFSProvider(
+                ipfs_providers(),
+                retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+            ),
         }
     )
 

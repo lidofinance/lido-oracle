@@ -22,7 +22,7 @@ from src.modules.accounting.events import (
     BadDebtWrittenOffToBeInternalizedEvent,
 )
 from src.modules.accounting.types import (
-    MerkleTreeData,
+    IpfsReport,
     MerkleValue,
     VaultInfo,
     VaultsMap,
@@ -34,7 +34,7 @@ from src.modules.accounting.types import (
     VaultTotalValueMap,
     VaultFeeMap,
     VaultReserveMap,
-    VaultFee, ExtraValue,
+    VaultFee, ExtraValue, OnChainIpfsVaultReportData,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
@@ -209,14 +209,13 @@ class StakingVaults(Module):
 
         return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
 
-    def get_ipfs_report(self, ipfs_report_cid: str) -> MerkleTreeData:
+    def get_ipfs_report(self, ipfs_report_cid: str) -> IpfsReport:
         if ipfs_report_cid == "":
             raise ValueError("Arg ipfs_report_cid could not be ''")
         return self.get_vault_report(ipfs_report_cid)
 
-    def get_prev_cid(self, bs: BlockStamp) -> str:
-        report = self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
-        return report.report_cid
+    def get_latest_onchain_ipfs_report_data(self, bs: BlockStamp) -> OnChainIpfsVaultReportData:
+        return self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
 
     def _calculate_pending_deposits_balances(
         self,
@@ -376,17 +375,17 @@ class StakingVaults(Module):
 
         return result
 
-    def get_vault_report(self, tree_cid: str) -> MerkleTreeData:
+    def get_vault_report(self, tree_cid: str) -> IpfsReport:
         bb = self.w3.ipfs.fetch(CID(tree_cid))
         return self.parse_merkle_tree_data(bb)
 
     @staticmethod
-    def parse_merkle_tree_data(raw_bytes: bytes) -> MerkleTreeData:
+    def parse_merkle_tree_data(raw_bytes: bytes) -> IpfsReport:
         data = json.loads(raw_bytes.decode("utf-8"))
 
         index_map: Dict[str, str] = data["leafIndexToData"]
 
-        def decode_value(entry: Dict[str, Any]) -> MerkleValue:
+        def decode_value(entry: Dict[str, tuple[str, str, str, str, str]]) -> MerkleValue:
             value_list = entry["value"]
             value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
             return MerkleValue(
@@ -410,7 +409,7 @@ class StakingVaults(Module):
                 reservation_fee=val["reservationFee"],
             )
 
-        return MerkleTreeData(
+        return IpfsReport(
             format=data["format"],
             leaf_encoding=data["leafEncoding"],
             tree=data["tree"],
@@ -423,6 +422,22 @@ class StakingVaults(Module):
             prev_tree_cid=data["prevTreeCID"],
             extra_values=extra_values
         )
+
+    def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: IpfsReport) -> bool:
+        tree_data = []
+        for vault in merkle_tree.values:
+            tree_data.append(
+                (
+                    vault.vault_address,
+                    vault.total_value_wei,
+                    vault.fee,
+                    vault.liability_shares,
+                    vault.slashing_reserve
+                )
+            )
+
+        rebuild_merkle_tree = self.get_merkle_tree(tree_data)
+        return f'0x{rebuild_merkle_tree.root.hex()}' == expected_tree_root
 
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
@@ -494,28 +509,23 @@ class StakingVaults(Module):
 
                 # Because we are iterating backward in time, events must be applied in reverse.
                 # E.g., a burn reduces shares in the future, so going backward we add them back.
-
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
-                    current_block = event.block_number
                 elif isinstance(event, MintedSharesOnVaultEvent):
                     liability_shares -= event.amount_of_shares
-                    current_block = event.block_number
                 elif isinstance(event, BurnedSharesOnVaultEvent):
                     liability_shares += event.amount_of_shares
-                    current_block = event.block_number
                 elif isinstance(event, VaultRebalancedEvent):
                     liability_shares += event.shares_burned
-                    current_block = event.block_number
                 elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
                     liability_shares += event.bad_debt_shares
-                    current_block = event.block_number
                 elif isinstance(event, BadDebtSocializedEvent):
                     if vault_address == event.vault_donor:
                         liability_shares += event.bad_debt_shares
                     else:
                         liability_shares -= event.bad_debt_shares
-                    current_block = event.block_number
+
+                current_block = event.block_number
 
             blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
@@ -528,12 +538,15 @@ class StakingVaults(Module):
     def _get_start_point_for_fee_calculations(
         self,
         blockstamp: ReferenceBlockStamp,
-        prev_ipfs_report_cid: str,
+        latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-    ) -> tuple[Optional[MerkleTreeData], BlockNumber, HexStr]:
-        if prev_ipfs_report_cid != "":
-            prev_ipfs_report = self.get_ipfs_report(prev_ipfs_report_cid)
+    ) -> tuple[Optional[IpfsReport], BlockNumber, HexStr]:
+        if latest_onchain_ipfs_report_data.report_cid != "":
+            prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
+
+            self.is_tree_root_valid(latest_onchain_ipfs_report_data.tree_root, prev_ipfs_report)
+
             return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
@@ -562,7 +575,7 @@ class StakingVaults(Module):
         blockstamp: ReferenceBlockStamp,
         vaults: VaultsMap,
         vaults_total_values: VaultTotalValueMap,
-        prev_ipfs_report_cid: str,
+        latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         core_apr_ratio: Decimal,
         pre_total_pooled_ether: int,
         pre_total_shares: int,
@@ -570,7 +583,7 @@ class StakingVaults(Module):
         chain_config: ChainConfig,
     ) -> VaultFeeMap:
         prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
-            blockstamp, prev_ipfs_report_cid, frame_config, chain_config
+            blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config
         )
         vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
 
@@ -644,6 +657,9 @@ class StakingVaults(Module):
                 raise ValueError(
                     f"Wrong liability shares by vault {vault_address}. Actual {liability_shares} != Expected {prev_liability_shares}"
                 )
+            # expected_infra_fee = Decimal('2907180231545764.36775787768')
+            # expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
+            # expected_liquidity_fee = Decimal('17007082495056342.0072967912')
 
             out[vault_address] = VaultFee(
                 prev_fee=int(prev_fee[vault_address]),

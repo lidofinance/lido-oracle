@@ -1,12 +1,12 @@
 import copy
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal, ROUND_UP, getcontext
 from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Wei
 
-from src.modules.accounting.accounting import Accounting
+from src.constants import PRECISION_E27
 from src.modules.accounting.events import (
     BurnedSharesOnVaultEvent,
     MintedSharesOnVaultEvent,
@@ -15,7 +15,7 @@ from src.modules.accounting.events import (
 from src.modules.accounting.staking_vaults import StakingVaults
 from src.modules.accounting.types import (
     ExtraValue,
-    MerkleTreeData,
+    IpfsReport,
     MerkleValue,
     VaultInfo,
     VaultsMap,
@@ -110,11 +110,7 @@ class TestStakingVaults:
         ipfs_client = MagicMock()
         account_oracle_mock = MagicMock()
 
-        self.staking_vaults = StakingVaults(
-            w3_mock, cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
-        )
-
-        self.accounting = Accounting(w3_mock)
+        self.staking_vaults = StakingVaults(w3_mock)
 
     @pytest.mark.unit
     def test_get_vaults_total_values(self):
@@ -390,7 +386,7 @@ class TestStakingVaults:
     vault_total_value = 3200 * 10**18
     expected_infra_fee = Decimal('2907180231545764.36775787768')
     expected_reservation_liquidity_fee = Decimal('7267950578864410.91939469422')
-    expected_liquidity_fee = Decimal('17007082495056342.00729679122')
+    expected_liquidity_fee = Decimal('17007082495056342.0072967912')
     prev_fee = 22169367899378
     expected_total_fee = 27204382673365897  # 0.02720438267 ETH
 
@@ -403,7 +399,7 @@ class TestStakingVaults:
         prev_block_number = 0
         block_elapsed = 7_200
 
-        mock_merkle_tree_data = MerkleTreeData(
+        mock_merkle_tree_data = IpfsReport(
             format="v1",
             leaf_encoding=["encoding1"],
             tree=["node1"],
@@ -423,7 +419,13 @@ class TestStakingVaults:
             timestamp=MagicMock(),
             prev_tree_cid=MagicMock(),
             extra_values={
-                vault1_adr: ExtraValue(0),
+                vault1_adr: ExtraValue(
+                    in_out_delta=MagicMock(),
+                    prev_fee=str(self.prev_fee),
+                    infra_fee=MagicMock(),
+                    liquidity_fee=MagicMock(),
+                    reservation_fee=MagicMock(),
+                ),
             },
         )
 
@@ -508,17 +510,13 @@ class TestStakingVaults:
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
-        cc_mock = MagicMock()
-        lido_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
         vault_hub_mock = MagicMock()
-        ipfs_client = MagicMock()
-        account_oracle_mock = MagicMock()
         chain_config_mock = MagicMock()
         frame_mock = MagicMock()
 
         lazy_oracle_mock.get_all_vaults = MagicMock(return_value=mock_prev_vaults)
-        vault_hub_mock.get_vaults_fee_updated_events = MagicMock(return_value=vaults_fee_updated_events)
+        vault_hub_mock.get_vault_fee_updated_events = MagicMock(return_value=vaults_fee_updated_events)
         vault_hub_mock.get_minted_events = MagicMock(return_value=minted_shares_events)
         vault_hub_mock.get_burned_events = MagicMock(return_value=burned_shares_events)
 
@@ -526,9 +524,11 @@ class TestStakingVaults:
         vault_hub_mock.get_vaults_bad_debt_socialized_events = MagicMock(return_value=[])
         vault_hub_mock.get_written_off_to_be_internalized_events = MagicMock(return_value=[])
 
-        self.staking_vaults = StakingVaults(
-            w3_mock, cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
-        )
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+
+        # cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
+        self.staking_vaults = StakingVaults(w3_mock)
         self.staking_vaults._get_start_point_for_fee_calculations = MagicMock(
             return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
         )
@@ -594,7 +594,6 @@ class TestStakingVaults:
             ),
         ],
     )
-    # TODO reservation_feeBP does not have references values from excel table
     def test_reservation_liquidity_fee(
         self, mintable_capacity_steth, block_elapsed, core_apr_ratio, reservation_fee_bp, expected_wei
     ):

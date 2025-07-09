@@ -1,7 +1,7 @@
 import logging
 from web3.types import BlockIdentifier
 from src import variables
-from src.modules.accounting.types import LatestReportData, VaultInfo
+from src.modules.accounting.types import OnChainIpfsVaultReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
@@ -31,7 +31,7 @@ class VaultsLazyOracleContract(ContractInterface):
 
         return response
 
-    def get_latest_report(self, block_identifier: BlockIdentifier = 'latest') -> LatestReportData:
+    def get_latest_report(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
         response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
         logger.info(
@@ -43,7 +43,7 @@ class VaultsLazyOracleContract(ContractInterface):
             }
         )
 
-        response = named_tuple_to_dataclass(response, LatestReportData)
+        response = named_tuple_to_dataclass(response, OnChainIpfsVaultReportData)
         return response
 
     @list_of_dataclasses(VaultInfo.from_response)
