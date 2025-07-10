@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+
+from eth_typing import BlockNumber
 from hexbytes import HexBytes
 from typing import Any, Dict, Union
 from web3.types import EventData
@@ -11,7 +13,7 @@ class EventBase:
     transaction_hash: HexBytes
     address: str
     block_hash: HexBytes
-    block_number: int
+    block_number: BlockNumber
 
     @classmethod
     def _extract_common(cls, log: EventData) -> Dict[str, Any]:
