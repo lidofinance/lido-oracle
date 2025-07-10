@@ -336,7 +336,7 @@ class IpfsReport:
         for entry in data["values"]:
             values.append(MerkleValue(
                 vault_address=entry["value"][vault_address_index],
-                total_value_wei=Wei(entry["value"][total_value_index]),
+                total_value_wei=int(entry["value"][total_value_index]),
                 fee=int(entry["value"][fee_index]),
                 liability_shares=int(entry["value"][liability_shares_index]),
                 slashing_reserve=int(entry["value"][slashing_reserve_index]),
