@@ -28,3 +28,7 @@ class TestStakingVaultsContractsSmoke:
     def test_get_vaults(self, web3_integration):
         vaults = web3_integration.lido_contracts.lazy_oracle.get_all_vaults()
         assert len(vaults) != 0
+
+    def test_get_slashing_reserve(self, web3_integration):
+        slashing_reserve = web3_integration.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift()
+        assert slashing_reserve != 0

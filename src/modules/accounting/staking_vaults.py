@@ -98,7 +98,6 @@ class StakingVaults(Module):
 
         return out
 
-    @lru_cache(maxsize=1)
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig
     ) -> VaultReserveMap:
