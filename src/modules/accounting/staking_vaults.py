@@ -67,7 +67,7 @@ class StakingVaults(Module):
     ) -> VaultTotalValueMap:
         vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
         vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
-        validator_pubkeys = set(validator.validator.pubkey for validator in validators)
+        # validator_pubkeys = set(validator.validator.pubkey for validator in validators)
 
         out: VaultTotalValueMap = defaultdict(int)
         for vault_address, vault in vaults.items():
@@ -81,7 +81,7 @@ class StakingVaults(Module):
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
                 out[vault_address] += self._calculate_pending_deposits_balances(
-                    validator_pubkeys,
+                    validators,
                     pending_deposits,
                     vault_validators,
                     vault_pending_deposits,
@@ -219,13 +219,14 @@ class StakingVaults(Module):
 
     def _calculate_pending_deposits_balances(
         self,
-        validator_pubkeys: set[str],
+        validators: list[Validator],
         pending_deposits: list[PendingDeposit],
         vault_validators: list[Validator],
         vault_pending_deposits: list[PendingDeposit],
         vault_withdrawal_credentials: str,
         genesis_fork_version: str,
     ) -> int:
+        validator_pubkeys = set(validator.validator.pubkey for validator in validators)
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
 
@@ -242,8 +243,17 @@ class StakingVaults(Module):
                 total_value += deposit_value
                 continue
 
-            # Case 2: Validator exists but not bound to this vault
+                # Case 2: Validator exists but not bound to this vault
             if pubkey in validator_pubkeys:
+                validator = next(v for v in validators if v.validator.pubkey == pubkey)
+                if validator.validator.withdrawal_credentials == vault_withdrawal_credentials:
+                    total_value += deposit_value
+                else:
+                    logger.warning(
+                        {
+                            'msg': f'Skipping pending deposits for key {pubkey} because validator is not bound to the vault',
+                            'validator': validator, }
+                    )
                 continue
 
             # Case 3: No validator found for this pubkey - validate deposits
@@ -547,7 +557,8 @@ class StakingVaults(Module):
         if latest_onchain_ipfs_report_data.report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
 
-            self.is_tree_root_valid(latest_onchain_ipfs_report_data.tree_root, prev_ipfs_report)
+            if not self.is_tree_root_valid(latest_onchain_ipfs_report_data.tree_root, prev_ipfs_report):
+                raise ValueError("Invalid tree root in IPFS report data.")
 
             return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
