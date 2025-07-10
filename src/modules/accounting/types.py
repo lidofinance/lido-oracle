@@ -1,9 +1,12 @@
+import json
 from dataclasses import dataclass, asdict
 from decimal import Decimal
+from enum import Enum
 from typing import NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from oz_merkle_tree import StandardMerkleTree
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
@@ -256,6 +259,20 @@ VaultReserveMap = dict[ChecksumAddress, int]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
 
+class VaultTreeValueKey(Enum):
+    VAULT_ADDRESS = "vaultAddress"
+    TOTAL_VALUE = "totalValueWei"
+    Fee = "fee"
+    LIABILITY_SHARES = "liabilityShares"
+    SLASHING_RESERVE = "slashingReserve"
+
+class VaultTreeValueIndex(Enum):
+    VAULT_ADDRESS = 0
+    TOTAL_VALUE_WEI = 1
+    Fee = 2
+    LIABILITY_SHARES = 3
+    SLASHING_RESERVE = 4
+
 @dataclass(frozen=True)
 class MerkleValue:
     vault_address: str
@@ -263,6 +280,20 @@ class MerkleValue:
     fee: int
     liability_shares: int
     slashing_reserve: int
+
+    @staticmethod
+    def leaf_index_to_data() -> dict[VaultTreeValueKey, VaultTreeValueIndex]:
+        return {
+            VaultTreeValueKey.VAULT_ADDRESS: VaultTreeValueIndex.VAULT_ADDRESS,
+            VaultTreeValueKey.TOTAL_VALUE: VaultTreeValueIndex.TOTAL_VALUE_WEI,
+            VaultTreeValueKey.Fee: VaultTreeValueIndex.Fee,
+            VaultTreeValueKey.LIABILITY_SHARES: VaultTreeValueIndex.LIABILITY_SHARES,
+            VaultTreeValueKey.SLASHING_RESERVE: VaultTreeValueIndex.SLASHING_RESERVE,
+        }
+
+    @staticmethod
+    def get_tree_value_ind(key: VaultTreeValueKey) -> int:
+        return MerkleValue.leaf_index_to_data()[key].value
 
 @dataclass(frozen=True)
 class ExtraValue:
@@ -282,13 +313,57 @@ class IpfsReport:
     leaf_encoding: list[str]
     tree: list[str]
     values: list[MerkleValue]
-    tree_indices: list[int]
     ref_slot: int
     block_number: int
     block_hash: str
     timestamp: int
     prev_tree_cid: str
     extra_values: dict[str, ExtraValue]
+
+    @classmethod
+    def parse_merkle_tree_data(cls, raw_bytes: bytes) -> "IpfsReport":
+        data = json.loads(raw_bytes.decode("utf-8"))
+
+        if data["format"] != StandardMerkleTree.FORMAT:
+            raise ValueError("Invalid format of merkle tree")
+
+        values: list[MerkleValue] = []
+        vault_address_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.VAULT_ADDRESS)
+        total_value_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.TOTAL_VALUE)
+        fee_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.Fee)
+        liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.LIABILITY_SHARES)
+        slashing_reserve_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.SLASHING_RESERVE)
+        for entry in data["values"]:
+            values.append(MerkleValue(
+                vault_address=entry["value"][vault_address_index],
+                total_value_wei=Wei(entry["value"][total_value_index]),
+                fee=int(entry["value"][fee_index]),
+                liability_shares=int(entry["value"][liability_shares_index]),
+                slashing_reserve=int(entry["value"][slashing_reserve_index]),
+            ))
+
+        extra_values = {}
+        for vault_addr, val in data.get("extraValues", {}).items():
+            extra_values[vault_addr] = ExtraValue(
+                in_out_delta=val["inOutDelta"],
+                prev_fee=val["prevFee"],
+                infra_fee=val["infraFee"],
+                liquidity_fee=val["liquidityFee"],
+                reservation_fee=val["reservationFee"],
+            )
+
+        return IpfsReport(
+            format=data["format"],
+            leaf_encoding=data["leafEncoding"],
+            tree=data["tree"],
+            values=values,
+            ref_slot=data["refSlot"],
+            block_hash=data["blockHash"],
+            block_number=data["blockNumber"],
+            timestamp=data["timestamp"],
+            prev_tree_cid=data["prevTreeCID"],
+            extra_values=extra_values
+        )
 
 @dataclass(frozen=True)
 class StakingFeeAggregateDistribution:

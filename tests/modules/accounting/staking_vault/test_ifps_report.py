@@ -1,6 +1,7 @@
 import pytest
 
-from src.modules.accounting.staking_vaults import StakingVaults
+from src.modules.accounting.staking_vaults import StakingVaultsService
+from src.modules.accounting.types import IpfsReport
 from src.providers.ipfs import CIDv0
 
 
@@ -9,12 +10,12 @@ from src.providers.ipfs import CIDv0
 class TestIpfsReportSmoke:
 
     def test_get_burned_events(self, web3_integration):
-        cid = CIDv0("QmepSgVe53jH2nyWZS4wsB9CQwFjApN1319KvN1fqjwYqr")
-        expected_tree_root = "0xcf8af6f8f5faecb3fb3e0b2a680908a21b3dbc2cfd05c6d514708bf6ce3b8200"
+        cid = CIDv0("QmQkmpTStCSJ1gLNVAwNDQDHRgTVGXX2HZ8fG6N1tpAG6q")
+        expected_tree_root = "0xb250c9feab479d1ee57f080d689f47e1bd11b74b2316fb0422242c2366a43a39"
+
         bb = web3_integration.ipfs.fetch(cid)
+        tree = IpfsReport.parse_merkle_tree_data(bb)
 
-        sv = StakingVaults(web3_integration)
-        merkle_tree_data = sv.parse_merkle_tree_data(bb)
+        sv = StakingVaultsService(web3_integration)
 
-        assert merkle_tree_data.tree[0] == expected_tree_root
-        assert True == sv.is_tree_root_valid(expected_tree_root, merkle_tree_data)
+        assert True == sv.is_tree_root_valid(expected_tree_root, tree)

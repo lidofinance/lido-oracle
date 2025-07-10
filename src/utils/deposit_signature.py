@@ -3,12 +3,10 @@ import ssz
 from py_ecc.bls import G2ProofOfPossession as BLSVerifier
 from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
+from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_VALIDATORS_ROOT
 from src.utils.types import hex_str_to_bytes
 
-GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
 
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
-DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
 
 
 class DepositMessage(ssz.Serializable):

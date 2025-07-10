@@ -9,7 +9,7 @@ from web3.types import Wei
 from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting, logger as accounting_logger
-from src.modules.accounting.staking_vaults import StakingVaults
+from src.modules.accounting.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
@@ -542,7 +542,7 @@ def test_simulate_rebase_after_report(
     accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
     accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
     accounting.w3.staking_vaults.publish_tree = Mock(return_value='tree_cid')
-    accounting.w3.staking_vaults.get_merkle_tree = Mock(return_value=StakingVaults.get_merkle_tree(tree_data))
+    accounting.w3.staking_vaults.get_merkle_tree = Mock(return_value=StakingVaultsService.get_merkle_tree(tree_data))
 
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)

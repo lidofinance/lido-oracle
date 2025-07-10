@@ -2,14 +2,14 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Dict, Optional
+from typing import Any, Optional, cast
 
 from eth_typing import BlockNumber, HexStr
 from oz_merkle_tree import StandardMerkleTree
 
 from src.utils.units import gwei_to_wei
+from src.utils.validator_state import calculate_vault_validators_balances
 from src.web3py.types import Web3
-from web3.module import Module
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
@@ -19,7 +19,7 @@ from src.modules.accounting.events import (
     MintedSharesOnVaultEvent,
     VaultRebalancedEvent,
     BadDebtSocializedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent,
+    BadDebtWrittenOffToBeInternalizedEvent, VaultEventType,
 )
 from src.modules.accounting.types import (
     IpfsReport,
@@ -34,7 +34,9 @@ from src.modules.accounting.types import (
     VaultTotalValueMap,
     VaultFeeMap,
     VaultReserveMap,
-    VaultFee, ExtraValue, OnChainIpfsVaultReportData,
+    VaultFee,
+    ExtraValue,
+    OnChainIpfsVaultReportData,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
@@ -49,12 +51,10 @@ from decimal import Decimal, ROUND_UP
 logger = logging.getLogger(__name__)
 
 
-class StakingVaults(Module):
+class StakingVaultsService():
     w3: Web3
 
     def __init__(self, w3: Web3) -> None:
-        super().__init__(w3)
-
         self.w3 = w3
 
     def get_vaults(self, block_identifier: BlockHash | BlockNumber) -> VaultsMap:
@@ -64,34 +64,34 @@ class StakingVaults(Module):
     def get_vaults_total_values(
         self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> VaultTotalValueMap:
-        vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
-        vaults_pending_deposits = StakingVaults._connect_vaults_to_pending_deposits(pending_deposits, vaults)
+        vaults_validators = StakingVaultsService.get_validators_by_vaults(validators, vaults)
+        vaults_pending_deposits = StakingVaultsService.get_pending_deposits_by_vaults(pending_deposits, vaults)
         validator_pubkeys = set(validator.validator.pubkey for validator in validators)
 
-        out: VaultTotalValueMap = defaultdict(int)
+        out: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
             out[vault_address] = vault.balance
-            vault_validators = vaults_validators.get(vault_address, [])
+            vault_validators = vaults_validators[vault_address]
             vault_pending_deposits = vaults_pending_deposits.get(vault_address, [])
 
             if vault_address in vaults_validators:
-                out[vault_address] += self._calculate_vault_validators_balances(vault_validators)
+                out[vault_address] += calculate_vault_validators_balances(vault_validators)
 
             # Add pending deposits balances
             if vault_address in vaults_pending_deposits:
                 out[vault_address] += self._calculate_pending_deposits_balances(
-                    validator_pubkeys,
-                    pending_deposits,
-                    vault_validators,
-                    vault_pending_deposits,
-                    vault.withdrawal_credentials,
-                    genesis_fork_version,
+                    validator_pubkeys=validator_pubkeys,
+                    pending_deposits=pending_deposits,
+                    vault_validators=vault_validators,
+                    vault_pending_deposits=vault_pending_deposits,
+                    vault_withdrawal_credentials=vault.withdrawal_credentials,
+                    genesis_fork_version=genesis_fork_version
                 )
 
             logger.info(
                 {
-                    'msg': f'Vault values for vault: {vault_address}.',
-                    'vault_value': out[vault_address],
+                    'msg': f'Calculate vault TVL: {vault_address}.',
+                    'value': out[vault_address],
                 }
             )
 
@@ -114,7 +114,7 @@ class StakingVaults(Module):
         2. ref_epoch < (we -36d): use CURRENT validator's balance (before slashing period)
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
-        vaults_validators = StakingVaults._connect_vaults_to_validators(validators, vaults)
+        vaults_validators = StakingVaultsService.get_validators_by_vaults(validators, vaults)
         slashing_reserve_we_left_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_left_shift(bs.block_hash)
         slashing_reserve_we_right_shift = self.w3.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift(bs.block_hash)
 
@@ -194,13 +194,7 @@ class StakingVaults(Module):
             "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
-            "leafIndexToData": {
-                "0": "vaultAddress",
-                "1": "totalValueWei",
-                "2": "fee",
-                "3": "liabilityShares",
-                "4": "slashingReserve",
-            },
+            "leafIndexToData": MerkleValue.leaf_index_to_data(),
         }
         output.update(values=values)
 
@@ -250,15 +244,14 @@ class StakingVaults(Module):
             valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey, genesis_fork_version)
 
             if valid_deposits:
-                valid_value = sum(gwei_to_wei(d.amount) for d in valid_deposits)
-                total_value += valid_value
+                total_value += sum(gwei_to_wei(d.amount) for d in valid_deposits)
 
         return total_value
 
     @staticmethod
     def build_tree_data(
         vaults: VaultsMap,
-        vaults_values: VaultTotalValueMap,
+        vaults_total_values: VaultTotalValueMap,
         vaults_fees: VaultFeeMap,
         vaults_slashing_reserve: VaultReserveMap,
     ) -> list[VaultTreeNode]:
@@ -266,16 +259,17 @@ class StakingVaults(Module):
 
         tree_data: list[VaultTreeNode] = []
         for vault_address, vault in vaults.items():
-            vault_total_fee = 0
-            vaults_fee = vaults_fees.get(vault_address)
-            if vaults_fee is not None:
-                vault_total_fee = vaults_fee.total()
+            if vault_address not in vaults_total_values:
+                raise ValueError(f'Vault {vault_address} is not in total_values')
+
+            if vault_address not in vaults_fees:
+                raise ValueError(f'Vault {vault_address} is not in vaults_fees')
 
             tree_data.append(
                 (
                     vault_address,
-                    vaults_values.get(vault_address, 0),
-                    vault_total_fee,
+                    vaults_total_values[vault_address],
+                    vaults_fees[vault_address].total(),
                     vault.liability_shares,
                     vaults_slashing_reserve.get(vault_address, 0),
                 )
@@ -285,7 +279,7 @@ class StakingVaults(Module):
 
     @staticmethod
     def _filter_valid_deposits(
-        vault_withdrawal_credentials: str, deposits: list[PendingDeposit], genesis_fork_version: str
+        vault_withdrawal_credentials: str, pubkey_deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> list[PendingDeposit]:
         """
         Validates deposit signatures and returns a list of valid deposits.
@@ -294,7 +288,7 @@ class StakingVaults(Module):
         valid_deposits = []
         valid_found = False
 
-        for deposit in deposits:
+        for deposit in pubkey_deposits:
             # If we've already found a valid pending deposit, accept all subsequent ones
             if valid_found:
                 valid_deposits.append(deposit)
@@ -320,7 +314,13 @@ class StakingVaults(Module):
             if deposit.withdrawal_credentials != vault_withdrawal_credentials:
                 logger.warning(
                     {
-                        'msg': f'Missmatch deposit withdrawal_credentials {deposit.withdrawal_credentials} to vault withdrawal_credentials {vault_withdrawal_credentials}. Skipping any further pending deposits count.',
+                        "msg": (
+                            "Missmatch deposit withdrawal_credentials "
+                            f"{deposit.withdrawal_credentials} "
+                            "to vault withdrawal_credentials "
+                            f"{vault_withdrawal_credentials}. "
+                            "Skipping any further pending deposits count."
+                        )
                     }
                 )
                 # In case the first deposit is a VALID, but WC are NOT matching the vault's WC,
@@ -339,90 +339,41 @@ class StakingVaults(Module):
         return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "int256"))
 
     @staticmethod
-    def _calculate_vault_validators_balances(validators: list[Validator]) -> int:
-        return sum(gwei_to_wei(validator.balance) for validator in validators)
-
-    @staticmethod
-    def _connect_vaults_to_validators(validators: list[Validator], vault_addresses: VaultsMap) -> VaultToValidators:
+    def get_validators_by_vaults(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
         wc_vault_map: dict[str, VaultInfo] = {
-            vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
+            vault_data.withdrawal_credentials: vault_data for vault_data in vaults.values()
         }
 
         result: VaultToValidators = defaultdict(list)
         for validator in validators:
             wc = validator.validator.withdrawal_credentials
 
-            if wc in wc_vault_map:
-                vault = wc_vault_map[validator.validator.withdrawal_credentials]
+            if vault := wc_vault_map.get(wc):
                 result[vault.vault].append(validator)
 
         return result
 
     @staticmethod
-    def _connect_vaults_to_pending_deposits(
-        pending_deposits: list[PendingDeposit], vault_addresses: VaultsMap
+    def get_pending_deposits_by_vaults(
+        pending_deposits: list[PendingDeposit],
+        vaults: VaultsMap
     ) -> VaultToPendingDeposits:
         wc_vault_map: dict[str, VaultInfo] = {
-            vault_data.withdrawal_credentials: vault_data for vault_data in vault_addresses.values()
+            vault_data.withdrawal_credentials: vault_data for vault_data in vaults.values()
         }
 
         result: VaultToPendingDeposits = defaultdict(list)
         for deposit in pending_deposits:
             wc = deposit.withdrawal_credentials
 
-            if wc in wc_vault_map:
-                vault = wc_vault_map[deposit.withdrawal_credentials]
+            if vault := wc_vault_map.get(wc):
                 result[vault.vault].append(deposit)
 
         return result
 
     def get_vault_report(self, tree_cid: str) -> IpfsReport:
         bb = self.w3.ipfs.fetch(CID(tree_cid))
-        return self.parse_merkle_tree_data(bb)
-
-    @staticmethod
-    def parse_merkle_tree_data(raw_bytes: bytes) -> IpfsReport:
-        data = json.loads(raw_bytes.decode("utf-8"))
-
-        index_map: Dict[str, str] = data["leafIndexToData"]
-
-        def decode_value(entry: Dict[str, tuple[str, str, str, str, str]]) -> MerkleValue:
-            value_list = entry["value"]
-            value_dict = {index_map[str(i)]: v for i, v in enumerate(value_list)}
-            return MerkleValue(
-                vault_address=value_dict["vaultAddress"],
-                total_value_wei=int(value_dict["totalValueWei"]),
-                fee=int(value_dict["fee"]),
-                liability_shares=int(value_dict["liabilityShares"]),
-                slashing_reserve=int(value_dict["slashingReserve"]),
-            )
-
-        decoded_values = [decode_value(entry) for entry in data["values"]]
-        tree_indices = [entry["treeIndex"] for entry in data["values"]]
-
-        extra_values = {}
-        for key, val in data.get("extraValues", {}).items():
-            extra_values[key] = ExtraValue(
-                in_out_delta=val["inOutDelta"],
-                prev_fee=val["prevFee"],
-                infra_fee=val["infraFee"],
-                liquidity_fee=val["liquidityFee"],
-                reservation_fee=val["reservationFee"],
-            )
-
-        return IpfsReport(
-            format=data["format"],
-            leaf_encoding=data["leafEncoding"],
-            tree=data["tree"],
-            values=decoded_values,
-            tree_indices=tree_indices,
-            ref_slot=data["refSlot"],
-            block_hash=data["blockHash"],
-            block_number=data["blockNumber"],
-            timestamp=data["timestamp"],
-            prev_tree_cid=data["prevTreeCID"],
-            extra_values=extra_values
-        )
+        return IpfsReport.parse_merkle_tree_data(bb)
 
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: IpfsReport) -> bool:
         tree_data = []
@@ -438,7 +389,8 @@ class StakingVaults(Module):
             )
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)
-        return f'0x{rebuild_merkle_tree.root.hex()}' == expected_tree_root
+        root_hex = f'0x{rebuild_merkle_tree.root.hex()}'
+        return merkle_tree.tree[0] == root_hex and root_hex == expected_tree_root
 
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
@@ -449,7 +401,7 @@ class StakingVaults(Module):
         vault_address: str,
         liability_shares: Shares,
         liquidity_fee_bp: int,
-        events: dict,
+        events: defaultdict[str, list[VaultEventType]],
         prev_block_number: int,
         current_block: int,
         pre_total_pooled_ether: Wei,
@@ -493,7 +445,7 @@ class StakingVaults(Module):
         if vault_address not in events:
             blocks_elapsed = current_block - prev_block_number
             minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-            vault_liquidity_fee += StakingVaults.calc_fee_value(
+            vault_liquidity_fee += StakingVaultsService.calc_fee_value(
                 minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee
             )
         elif len(events[vault_address]) > 0:
@@ -504,7 +456,7 @@ class StakingVaults(Module):
             for event in events[vault_address]:
                 blocks_elapsed_between_events = current_block - event.block_number
                 minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-                vault_liquidity_fee += StakingVaults.calc_fee_value(
+                vault_liquidity_fee += StakingVaultsService.calc_fee_value(
                     minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
                 )
 
@@ -530,7 +482,7 @@ class StakingVaults(Module):
 
             blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-            vault_liquidity_fee += StakingVaults.calc_fee_value(
+            vault_liquidity_fee += StakingVaultsService.calc_fee_value(
                 minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
             )
 
@@ -552,7 +504,7 @@ class StakingVaults(Module):
             return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
-        ## When we do NOT HANE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
+        ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
         ##   in case when we don't have prev ipfs report - we DO have previous oracle report
         ##   it means we have to take this point for getting fees at the FIRST time only
@@ -594,7 +546,7 @@ class StakingVaults(Module):
             for vault in prev_ipfs_report.values:
                 prev_fee[vault.vault_address] = vault.fee
 
-        events = defaultdict(list)
+        events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
         fees_updated_events = self.w3.lido_contracts.vault_hub.get_vault_fee_updated_events(prev_block_number, blockstamp.block_number)
         minted_events = self.w3.lido_contracts.vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
         burn_events = self.w3.lido_contracts.vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
@@ -603,43 +555,43 @@ class StakingVaults(Module):
         written_off_to_be_internalized_events = self.w3.lido_contracts.vault_hub.get_bad_debt_written_off_to_be_internalized_events(prev_block_number, blockstamp.block_number)
 
         for event in fees_updated_events:
-            events[event.vault].append(event)
+            events[event.vault].append(cast(VaultFeesUpdatedEvent, event))
 
         for event in minted_events:
-            events[event.vault].append(event)
+            events[event.vault].append(cast(MintedSharesOnVaultEvent, event))
 
         for event in burn_events:
-            events[event.vault].append(event)
+            events[event.vault].append(cast(BurnedSharesOnVaultEvent, event))
 
         for event in rebalanced_events:
-            events[event.vault].append(event)
+            events[event.vault].append(cast(VaultRebalancedEvent, event))
 
         for event in written_off_to_be_internalized_events:
-            events[event.vault].append(event)
+            events[event.vault].append(cast(BadDebtWrittenOffToBeInternalizedEvent, event))
 
         for event in bad_debt_socialized_events:
-            events[event.vault_donor].append(event)
-            events[event.vault_acceptor].append(event)
+            events[event.vault_donor].append(cast(BadDebtSocializedEvent, event))
+            events[event.vault_acceptor].append(cast(BadDebtSocializedEvent, event))
 
         out: VaultFeeMap = {}
-        current_block = int(blockstamp.block_number)
+        current_block = blockstamp.block_number
         blocks_elapsed = current_block - prev_block_number
         for vault_address, vault_info in vaults.items():
             # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
             vaults_total_value = vaults_total_values.get(vault_address, 0)
-            vault_infrastructure_fee = StakingVaults.calc_fee_value(
+            vault_infrastructure_fee = StakingVaultsService.calc_fee_value(
                 Decimal(vaults_total_value), blocks_elapsed, core_apr_ratio, vault_info.infra_fee_bp
             )
 
             # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee = StakingVaults.calc_fee_value(
+            vault_reservation_liquidity_fee = StakingVaultsService.calc_fee_value(
                 Decimal(vault_info.mintable_st_eth),
                 blocks_elapsed,
                 core_apr_ratio,
                 vault_info.reservation_fee_bp,
             )
 
-            vault_liquidity_fee, liability_shares = StakingVaults.calc_liquidity_fee(
+            vault_liquidity_fee, liability_shares = StakingVaultsService.calc_liquidity_fee(
                 vault_address,
                 vault_info.liability_shares,
                 vault_info.liquidity_fee_bp,
@@ -652,8 +604,8 @@ class StakingVaults(Module):
             )
 
             prev_liability_shares = 0
-            if vaults_on_prev_report.get(vault_address) is not None:
-                prev_liability_shares = vaults_on_prev_report.get(vault_address).liability_shares  # type: ignore[union-attr]
+            if vault_address in vaults_on_prev_report:
+                prev_liability_shares = vaults_on_prev_report[vault_address].liability_shares
 
             if prev_liability_shares != liability_shares:
                 raise ValueError(

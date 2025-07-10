@@ -19,56 +19,56 @@ logger = logging.getLogger(__name__)
 class VaultHubContract(ContractInterface):
     abi_path = './assets/VaultHub.json'
 
-    def get_minted_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_minted_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[MintedSharesOnVaultEvent]:
         logs = get_events_in_range(
             self.events.MintedSharesOnVault(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [MintedSharesOnVaultEvent.from_log(log) for log in logs]
 
-    def get_burned_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_burned_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[BurnedSharesOnVaultEvent]:
         logs = get_events_in_range(
             self.events.BurnedSharesOnVault(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [BurnedSharesOnVaultEvent.from_log(log) for log in logs]
 
-    def get_vault_fee_updated_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_vault_fee_updated_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[VaultFeesUpdatedEvent]:
         logs = get_events_in_range(
             self.events.VaultFeesUpdated(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [VaultFeesUpdatedEvent.from_log(log) for log in logs]
 
-    def get_vault_rebalanced_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_vault_rebalanced_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[VaultRebalancedEvent]:
         logs = get_events_in_range(
             self.events.VaultRebalanced(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [VaultRebalancedEvent.from_log(log) for log in logs]
 
-    def get_bad_debt_socialized_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_bad_debt_socialized_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[BadDebtSocializedEvent]:
         logs = get_events_in_range(
             self.events.BadDebtSocialized(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [BadDebtSocializedEvent.from_log(log) for log in logs]
 
-    def get_bad_debt_written_off_to_be_internalized_events(self, from_block_number: int, to_block_number: int) -> list:
+    def get_bad_debt_written_off_to_be_internalized_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[BadDebtWrittenOffToBeInternalizedEvent]:
         logs = get_events_in_range(
             self.events.BadDebtWrittenOffToBeInternalized(),
-            BlockNumber(from_block_number),
-            BlockNumber(to_block_number)
+            from_block_number,
+            to_block_number
         )
 
         return [BadDebtWrittenOffToBeInternalizedEvent.from_log(log) for log in logs]

@@ -33,6 +33,8 @@ MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#sync-committee
 EPOCHS_PER_SYNC_COMMITTEE_PERIOD = 256
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
+DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
@@ -58,3 +60,5 @@ UINT64_MAX = 2**64 - 1
 UINT256_MAX = 2**256 - 1
 
 ALLOWED_KAPI_VERSION = Version('1.5.0')
+
+GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits

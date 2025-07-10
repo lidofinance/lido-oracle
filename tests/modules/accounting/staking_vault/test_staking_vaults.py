@@ -11,7 +11,7 @@ from src.modules.accounting.events import (
     MintedSharesOnVaultEvent,
     VaultFeesUpdatedEvent,
 )
-from src.modules.accounting.staking_vaults import StakingVaults
+from src.modules.accounting.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import (
     ExtraValue,
     IpfsReport,
@@ -27,7 +27,7 @@ from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
 class TestStakingVaults:
-    staking_vaults: StakingVaults
+    staking_vaults: StakingVaultsService
 
     vault_adr_0 = ChecksumAddress(HexAddress(HexStr('0xE312f1ed35c4dBd010A332118baAD69d45A0E302')))
     vault_adr_1 = ChecksumAddress(HexAddress(HexStr('0x652b70E0Ae932896035d553fEaA02f37Ab34f7DC')))
@@ -104,7 +104,7 @@ class TestStakingVaults:
         # --- Web3 Mock ---
         w3_mock = MagicMock()
 
-        self.staking_vaults = StakingVaults(w3_mock)
+        self.staking_vaults = StakingVaultsService(w3_mock)
 
     @pytest.mark.unit
     def test_get_vaults_total_values(self):
@@ -529,7 +529,7 @@ class TestStakingVaults:
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
 
         # cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
-        self.staking_vaults = StakingVaults(w3_mock)
+        self.staking_vaults = StakingVaultsService(w3_mock)
         self.staking_vaults._get_start_point_for_fee_calculations = MagicMock(
             return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
         )
@@ -570,7 +570,7 @@ class TestStakingVaults:
         ],
     )
     def test_infra_fee(self, vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei):
-        result = StakingVaults.calc_fee_value(
+        result = StakingVaultsService.calc_fee_value(
             Decimal(vault_total_value), block_elapsed, Decimal(str(core_apr_ratio)), infra_fee_bp
         )
 
@@ -598,7 +598,7 @@ class TestStakingVaults:
     def test_reservation_liquidity_fee(
         self, mintable_capacity_steth, block_elapsed, core_apr_ratio, reservation_fee_bp, expected_wei
     ):
-        result = StakingVaults.calc_fee_value(
+        result = StakingVaultsService.calc_fee_value(
             mintable_capacity_steth, block_elapsed, Decimal(str(core_apr_ratio)), reservation_fee_bp
         )
 
@@ -692,7 +692,7 @@ class TestStakingVaults:
         core_apr_ratio,
         expected,
     ):
-        result = StakingVaults.calc_liquidity_fee(
+        result = StakingVaultsService.calc_liquidity_fee(
             vault_address,
             liability_shares,
             liquidity_fee_bp,

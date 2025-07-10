@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from hexbytes import HexBytes
-from typing import Any, Dict
+from typing import Any, Dict, Union
 from web3.types import EventData
-
 
 @dataclass(frozen=True)
 class EventBase:
@@ -132,3 +131,12 @@ class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
             bad_debt_shares=args["badDebtShares"],
             **cls._extract_common(log),
         )
+
+VaultEventType = Union[
+    MintedSharesOnVaultEvent,
+    BurnedSharesOnVaultEvent,
+    VaultFeesUpdatedEvent,
+    VaultRebalancedEvent,
+    BadDebtSocializedEvent,
+    BadDebtWrittenOffToBeInternalizedEvent
+]

@@ -16,7 +16,7 @@ from src.metrics.prometheus.accounting import (
     VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.accounting.staking_vaults import StakingVaults
+from src.modules.accounting.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
@@ -81,7 +81,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
-        self.staking_vaults = StakingVaults(self.w3)
+        self.staking_vaults = StakingVaultsService(self.w3)
 
     def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle  # type: ignore
@@ -422,37 +422,55 @@ class Accounting(BaseModule, ConsensusModule):
             blockstamp.block_hash)
 
         core_apr_ratio = get_core_apr_ratio(
-            simulation.pre_total_shares,
-            simulation.pre_total_pooled_ether,
-            simulation.post_total_shares,
-            simulation.post_total_pooled_ether,
-            staking_fee_aggregate_distribution.lido_fee_bp(),
-            self._get_time_elapsed_seconds_from_prev_report(blockstamp)
+            pre_total_shares=simulation.pre_total_shares,
+            pre_total_pooled_ether=simulation.pre_total_pooled_ether,
+            post_total_shares=simulation.post_total_shares,
+            post_total_pooled_ether=simulation.post_total_pooled_ether,
+            lido_fee_bp=staking_fee_aggregate_distribution.lido_fee_bp(),
+            time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp)
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp)
-        genesis_fork_version = self.get_cc_genesis_config().genesis_fork_version
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(vaults, validators, pending_deposits, genesis_fork_version)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            vaults=vaults,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            genesis_fork_version=self.get_cc_genesis_config().genesis_fork_version
+        )
+
         vaults_fees = self.staking_vaults.get_vaults_fees(
-            blockstamp,
-            vaults,
-            vaults_total_values,
-            latest_onchain_ipfs_report_data,
-            core_apr_ratio,
-            simulation.pre_total_pooled_ether,
-            simulation.pre_total_shares,
-            frame_config,
-            chain_config
+            blockstamp=blockstamp,
+            vaults=vaults,
+            vaults_total_values=vaults_total_values,
+            latest_onchain_ipfs_report_data=latest_onchain_ipfs_report_data,
+            core_apr_ratio=core_apr_ratio,
+            pre_total_pooled_ether=simulation.pre_total_pooled_ether,
+            pre_total_shares=simulation.pre_total_shares,
+            frame_config=frame_config,
+            chain_config=chain_config
         )
         vaults_slashing_reserve = self.staking_vaults.get_vaults_slashing_reserve(
-            blockstamp, vaults, validators, chain_config
+            bs=blockstamp,
+            vaults=vaults,
+            validators=validators,
+            chain_config=chain_config
         )
         tree_data = self.staking_vaults.build_tree_data(
-            vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve
+            vaults=vaults,
+            vaults_total_values=vaults_total_values,
+            vaults_fees=vaults_fees,
+            vaults_slashing_reserve=vaults_slashing_reserve,
         )
 
         merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
-        tree_cid = self.staking_vaults.publish_tree(merkle_tree, vaults, blockstamp, latest_onchain_ipfs_report_data.report_cid, chain_config, vaults_fees)
+        tree_cid = self.staking_vaults.publish_tree(
+            bs=blockstamp,
+            tree=merkle_tree,
+            vaults=vaults,
+            prev_tree_cid=latest_onchain_ipfs_report_data.report_cid,
+            chain_config=chain_config,
+            vaults_fee_map=vaults_fees
+        )
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})

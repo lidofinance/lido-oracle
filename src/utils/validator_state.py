@@ -14,6 +14,7 @@ from src.constants import (
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
+from src.utils.units import gwei_to_wei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
@@ -135,3 +136,7 @@ def get_max_effective_balance(validator: ValidatorState) -> Gwei:
     if has_compounding_withdrawal_credential(validator):
         return MAX_EFFECTIVE_BALANCE_ELECTRA
     return MIN_ACTIVATION_BALANCE
+
+
+def calculate_vault_validators_balances(validators: list[Validator]) -> int:
+    return sum(gwei_to_wei(validator.balance) for validator in validators)
