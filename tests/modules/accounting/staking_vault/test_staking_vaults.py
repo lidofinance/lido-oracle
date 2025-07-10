@@ -14,7 +14,7 @@ from src.modules.accounting.events import (
 from src.modules.accounting.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import (
     ExtraValue,
-    IpfsReport,
+    StakingVaultIpfsReport,
     MerkleValue,
     VaultInfo,
     VaultsMap,
@@ -396,11 +396,11 @@ class TestStakingVaults:
         """
         Main purpose is check code behavior, not digits
         """
-        vault1_adr = "0xVault1"
+        vault1_adr = ChecksumAddress(HexAddress(HexStr("0xVault1")))
         prev_block_number = 0
         block_elapsed = 7_200
 
-        mock_merkle_tree_data = IpfsReport(
+        mock_merkle_tree_data = StakingVaultIpfsReport(
             format="v1",
             leaf_encoding=["encoding1"],
             tree=["node1"],

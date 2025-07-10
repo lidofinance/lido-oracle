@@ -22,7 +22,7 @@ from src.modules.accounting.events import (
     BadDebtWrittenOffToBeInternalizedEvent, VaultEventType,
 )
 from src.modules.accounting.types import (
-    IpfsReport,
+    StakingVaultIpfsReport,
     MerkleValue,
     VaultInfo,
     VaultsMap,
@@ -51,7 +51,7 @@ from decimal import Decimal, ROUND_UP
 logger = logging.getLogger(__name__)
 
 
-class StakingVaultsService():
+class StakingVaultsService:
     w3: Web3
 
     def __init__(self, w3: Web3) -> None:
@@ -202,7 +202,7 @@ class StakingVaultsService():
 
         return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
 
-    def get_ipfs_report(self, ipfs_report_cid: str) -> IpfsReport:
+    def get_ipfs_report(self, ipfs_report_cid: str) -> StakingVaultIpfsReport:
         if ipfs_report_cid == "":
             raise ValueError("Arg ipfs_report_cid could not be ''")
         return self.get_vault_report(ipfs_report_cid)
@@ -268,7 +268,7 @@ class StakingVaultsService():
             tree_data.append(
                 (
                     vault_address,
-                    vaults_total_values[vault_address],
+                    Wei(vaults_total_values[vault_address]),
                     vaults_fees[vault_address].total(),
                     vault.liability_shares,
                     vaults_slashing_reserve.get(vault_address, 0),
@@ -371,11 +371,11 @@ class StakingVaultsService():
 
         return result
 
-    def get_vault_report(self, tree_cid: str) -> IpfsReport:
+    def get_vault_report(self, tree_cid: str) -> StakingVaultIpfsReport:
         bb = self.w3.ipfs.fetch(CID(tree_cid))
-        return IpfsReport.parse_merkle_tree_data(bb)
+        return StakingVaultIpfsReport.parse_merkle_tree_data(bb)
 
-    def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: IpfsReport) -> bool:
+    def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
             tree_data.append(
@@ -402,8 +402,8 @@ class StakingVaultsService():
         liability_shares: Shares,
         liquidity_fee_bp: int,
         events: defaultdict[str, list[VaultEventType]],
-        prev_block_number: int,
-        current_block: int,
+        prev_block_number: BlockNumber,
+        current_block: BlockNumber,
         pre_total_pooled_ether: Wei,
         pre_total_shares: Shares,
         core_apr_ratio: Decimal,
@@ -494,7 +494,7 @@ class StakingVaultsService():
         latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-    ) -> tuple[Optional[IpfsReport], BlockNumber, HexStr]:
+    ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber, HexStr]:
         if latest_onchain_ipfs_report_data.report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
 
@@ -592,15 +592,15 @@ class StakingVaultsService():
             )
 
             vault_liquidity_fee, liability_shares = StakingVaultsService.calc_liquidity_fee(
-                vault_address,
-                vault_info.liability_shares,
-                vault_info.liquidity_fee_bp,
-                events,
-                prev_block_number,
-                int(blockstamp.block_number),
-                Wei(pre_total_pooled_ether),
-                pre_total_shares,
-                core_apr_ratio,
+                vault_address=vault_address,
+                liability_shares=vault_info.liability_shares,
+                liquidity_fee_bp=vault_info.liquidity_fee_bp,
+                events=events,
+                prev_block_number=prev_block_number,
+                current_block=blockstamp.block_number,
+                pre_total_pooled_ether=Wei(pre_total_pooled_ether),
+                pre_total_shares=pre_total_shares,
+                core_apr_ratio=core_apr_ratio,
             )
 
             prev_liability_shares = 0

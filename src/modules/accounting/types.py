@@ -29,7 +29,7 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[str, int, int, int, int]
+type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000
@@ -275,8 +275,8 @@ class VaultTreeValueIndex(Enum):
 
 @dataclass(frozen=True)
 class MerkleValue:
-    vault_address: str
-    total_value_wei: int
+    vault_address: ChecksumAddress
+    total_value_wei: Wei
     fee: int
     liability_shares: int
     slashing_reserve: int
@@ -308,7 +308,7 @@ class ExtraValue:
         return {snake_to_camel(k): v for k, v in orig.items()}
 
 @dataclass
-class IpfsReport:
+class StakingVaultIpfsReport:
     format: str
     leaf_encoding: list[str]
     tree: list[str]
@@ -321,7 +321,7 @@ class IpfsReport:
     extra_values: dict[str, ExtraValue]
 
     @classmethod
-    def parse_merkle_tree_data(cls, raw_bytes: bytes) -> "IpfsReport":
+    def parse_merkle_tree_data(cls, raw_bytes: bytes) -> "StakingVaultIpfsReport":
         data = json.loads(raw_bytes.decode("utf-8"))
 
         if data["format"] != StandardMerkleTree.FORMAT:
@@ -336,7 +336,7 @@ class IpfsReport:
         for entry in data["values"]:
             values.append(MerkleValue(
                 vault_address=entry["value"][vault_address_index],
-                total_value_wei=int(entry["value"][total_value_index]),
+                total_value_wei=Wei(int(entry["value"][total_value_index])),
                 fee=int(entry["value"][fee_index]),
                 liability_shares=int(entry["value"][liability_shares_index]),
                 slashing_reserve=int(entry["value"][slashing_reserve_index]),
@@ -352,7 +352,7 @@ class IpfsReport:
                 reservation_fee=val["reservationFee"],
             )
 
-        return IpfsReport(
+        return StakingVaultIpfsReport(
             format=data["format"],
             leaf_encoding=data["leafEncoding"],
             tree=data["tree"],
