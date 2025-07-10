@@ -413,7 +413,6 @@ class TestStakingVaults:
                     MagicMock(),  # slashing_reserve
                 ),
             ],
-            tree_indices=[0],
             block_number=BlockNumber(prev_block_number),
             block_hash=MagicMock(),
             ref_slot=MagicMock(),

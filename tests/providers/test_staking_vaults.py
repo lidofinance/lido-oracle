@@ -1,4 +1,5 @@
 import pytest
+from eth_typing import BlockNumber
 
 
 @pytest.mark.testnet
@@ -6,15 +7,15 @@ import pytest
 class TestStakingVaultsContractsSmoke:
 
     def test_get_burned_events(self, web3_integration):
-        events = web3_integration.lido_contracts.vault_hub.get_burned_events(634086 - 1_000, 634086)
+        events = web3_integration.lido_contracts.vault_hub.get_burned_events(BlockNumber(634086 - 1_000), BlockNumber(634086))
         assert len(events) != 0
 
     def test_get_minted_events(self, web3_integration):
-        events = web3_integration.lido_contracts.vault_hub.get_minted_events(634086 - 1_000, 634086)
+        events = web3_integration.lido_contracts.vault_hub.get_minted_events(BlockNumber(634086 - 1_000), BlockNumber(634086))
         assert len(events) != 0
 
     def test_get_updated_events(self, web3_integration):
-        events = web3_integration.lido_contracts.vault_hub.get_vault_fee_updated_events(634086 - 1_000, 634_086)
+        events = web3_integration.lido_contracts.vault_hub.get_vault_fee_updated_events(BlockNumber(634086 - 1_000), BlockNumber(634_086))
         assert len(events) == 0
 
     def test_staking_fee_aggregate_distribution(self, web3_integration):
