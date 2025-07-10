@@ -499,7 +499,7 @@ class StakingVaultsService:
             prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
 
             if not self.is_tree_root_valid(Web3.to_hex(latest_onchain_ipfs_report_data.tree_root), prev_ipfs_report):
-                raise ValueError(f"Invalid tree root in IPFS report data. Expected: {prev_ipfs_report} actual: {Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)}")
+                raise ValueError(f"Invalid tree root in IPFS report data. Expected: {Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)} actual: {prev_ipfs_report.tree[0]}")
 
             return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
 
