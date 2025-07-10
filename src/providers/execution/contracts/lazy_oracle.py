@@ -1,11 +1,12 @@
 import logging
+
+from web3 import Web3
 from web3.types import BlockIdentifier
 from src import variables
 from src.modules.accounting.types import OnChainIpfsVaultReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import list_of_dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,29 @@ class VaultsLazyOracleContract(ContractInterface):
         response = named_tuple_to_dataclass(response, OnChainIpfsVaultReportData)
         return response
 
-    @list_of_dataclasses(VaultInfo.from_response)
     def get_vaults(self, offset: int, limit: int, block_identifier: BlockIdentifier = 'latest') -> list[VaultInfo]:
         """
         Returns the Vaults
         """
         response = self.functions.batchVaultsInfo(offset, limit).call(block_identifier=block_identifier)
+
+        out: list[VaultInfo] = []
+        for vault in response:
+            out.append(VaultInfo(
+                vault=vault.vault,
+                balance=vault.balance,
+                withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
+                liability_shares=vault.liabilityShares,
+                share_limit=vault.shareLimit,
+                reserve_ratio_bp=vault.reserveRatioBP,
+                forced_rebalance_threshold_bp=vault.forcedRebalanceThresholdBP,
+                infra_fee_bp=vault.infraFeeBP,
+                liquidity_fee_bp=vault.liquidityFeeBP,
+                reservation_fee_bp=vault.reservationFeeBP,
+                pending_disconnect=vault.pendingDisconnect,
+                mintable_st_eth=vault.mintableStETH,
+                in_out_delta=vault.inOutDelta,
+            ))
 
         logger.info(
             {
@@ -62,7 +80,7 @@ class VaultsLazyOracleContract(ContractInterface):
             }
         )
 
-        return response
+        return out
 
     def get_all_vaults(self, block_identifier: BlockIdentifier = 'latest') -> list[VaultInfo]:
         """
