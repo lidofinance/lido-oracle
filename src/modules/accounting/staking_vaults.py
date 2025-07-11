@@ -509,10 +509,10 @@ class StakingVaultsService:
 
             last_processing_ref_slot = self.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
 
-            ref_block = get_blockstamp(self.w3.cc,
-                                       last_processing_ref_slot,
-                                       SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
-                                       )
+            ref_block = get_blockstamp(
+                self.w3.cc,last_processing_ref_slot,
+                SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
+            )
             return prev_ipfs_report, ref_block.block_number, ref_block.block_hash
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
