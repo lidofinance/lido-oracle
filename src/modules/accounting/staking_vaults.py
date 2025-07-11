@@ -41,7 +41,7 @@ from src.modules.accounting.types import (
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.ipfs import CID
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, BlockHash
+from src.types import ReferenceBlockStamp, SlotNumber, BlockHash
 from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.slot import get_blockstamp
@@ -513,7 +513,7 @@ class StakingVaultsService:
                                        last_processing_ref_slot,
                                        SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
                                        )
-            return prev_ipfs_report, ref_block.block_number, Web3.to_hex(ref_block.block_hash)
+            return prev_ipfs_report, ref_block.block_number, ref_block.block_hash
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
@@ -524,7 +524,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number, Web3.to_hex(ref_block.block_hash)
+            return None, ref_block.block_number, ref_block.block_hash
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
@@ -533,7 +533,7 @@ class StakingVaultsService:
         bs = get_blockstamp(
             self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
         )
-        return None, bs.block_number, Web3.to_hex(bs.block_hash)
+        return None, bs.block_number, bs.block_hash
 
     def get_vaults_fees(
         self,
