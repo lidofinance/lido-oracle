@@ -29,7 +29,9 @@ class TestIpfsReportSmoke:
         bb = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data.report_cid)
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)
 
-        last_processing_ref_slot = web3_integration.lido_contracts.accounting_oracle.get_last_processing_ref_slot(block_identifier=HexStr('latest'))
+        last_processing_ref_slot = web3_integration.lido_contracts.accounting_oracle.get_last_processing_ref_slot(
+            block_identifier=HexStr('latest')
+        )
 
         if last_processing_ref_slot:
             ref_block = get_blockstamp(
@@ -39,7 +41,9 @@ class TestIpfsReportSmoke:
             assert tree.block_number == ref_block.block_number
             assert tree.ref_slot == ref_block.slot_number
 
-        latest_onchain_ipfs_report_data_2 = sv.get_latest_onchain_ipfs_report_data(block_identifier=HexStr(tree.block_hash))
+        latest_onchain_ipfs_report_data_2 = sv.get_latest_onchain_ipfs_report_data(
+            block_identifier=HexStr(tree.block_hash)
+        )
         bb_2 = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data_2.report_cid)
         tree_2 = StakingVaultIpfsReport.parse_merkle_tree_data(bb_2)
 
