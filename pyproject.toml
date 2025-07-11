@@ -30,7 +30,6 @@ oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
 py-multiformats-cid = "^0.4.4"
 ssz = "^0.5.2"
 py-ecc = "^8.0.0"
-py-evm = "^0.12.1b1"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
