@@ -32,7 +32,7 @@ class VaultsLazyOracleContract(ContractInterface):
 
         return response
 
-    def get_latest_report(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
+    def get_latest_report_data(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
         response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
         logger.info(

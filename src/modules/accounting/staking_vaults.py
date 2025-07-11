@@ -10,7 +10,7 @@ from oz_merkle_tree import StandardMerkleTree
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import calculate_vault_validators_balances
 from src.web3py.types import Web3
-from web3.types import Wei
+from web3.types import Wei, BlockIdentifier
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
@@ -207,8 +207,8 @@ class StakingVaultsService:
             raise ValueError("Arg ipfs_report_cid could not be ''")
         return self.get_vault_report(ipfs_report_cid)
 
-    def get_latest_onchain_ipfs_report_data(self, bs: BlockStamp) -> OnChainIpfsVaultReportData:
-        return self.w3.lido_contracts.lazy_oracle.get_latest_report(block_identifier=bs.block_hash)
+    def get_latest_onchain_ipfs_report_data(self, block_identifier: BlockIdentifier) -> OnChainIpfsVaultReportData:
+        return self.w3.lido_contracts.lazy_oracle.get_latest_report_data(block_identifier)
 
     def _calculate_pending_deposits_balances(
         self,
@@ -495,15 +495,26 @@ class StakingVaultsService:
         frame_config: FrameConfig,
         chain_config: ChainConfig,
     ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber, HexStr]:
+        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
+
         if latest_onchain_ipfs_report_data.report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
+            tree_root_hex = Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)
 
-            if not self.is_tree_root_valid(Web3.to_hex(latest_onchain_ipfs_report_data.tree_root), prev_ipfs_report):
-                raise ValueError(f"Invalid tree root in IPFS report data. Expected: {Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)} actual: {prev_ipfs_report.tree[0]}")
+            if not self.is_tree_root_valid(tree_root_hex, prev_ipfs_report):
+                raise ValueError(
+                    f"Invalid tree root in IPFS report data. "
+                    f"Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
+            )
 
-            return prev_ipfs_report, BlockNumber(prev_ipfs_report.block_number), HexStr(prev_ipfs_report.block_hash)
+            last_processing_ref_slot = self.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
 
-        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
+            ref_block = get_blockstamp(self.w3.cc,
+                                       last_processing_ref_slot,
+                                       SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
+                                       )
+            return prev_ipfs_report, ref_block.block_number, Web3.to_hex(ref_block.block_hash)
+
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
         ##   in case when we don't have prev ipfs report - we DO have previous oracle report

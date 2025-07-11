@@ -29,7 +29,7 @@ class TestStakingVaultsContractsSmoke:
         assert out.lido_fee_bp() != 0
 
     def test_vault_lazy_oracle_get_report(self, web3_integration):
-        report = web3_integration.lido_contracts.lazy_oracle.get_latest_report()
+        report = web3_integration.lido_contracts.lazy_oracle.get_latest_report_data()
         assert report is not None
 
     def test_get_vaults(self, web3_integration):
