@@ -1,7 +1,7 @@
 import pytest
 from eth_typing import HexStr
 
-from src.modules.accounting.staking_vaults import StakingVaultsService
+from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import StakingVaultIpfsReport
 from src.providers.ipfs import CIDv0
 from src.types import SlotNumber

@@ -11,7 +11,7 @@ from src.modules.accounting.events import (
     MintedSharesOnVaultEvent,
     VaultFeesUpdatedEvent,
 )
-from src.modules.accounting.staking_vaults import StakingVaultsService
+from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import (
     ExtraValue,
     StakingVaultIpfsReport,

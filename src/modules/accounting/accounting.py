@@ -16,7 +16,7 @@ from src.metrics.prometheus.accounting import (
     VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.accounting.staking_vaults import StakingVaultsService
+from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (

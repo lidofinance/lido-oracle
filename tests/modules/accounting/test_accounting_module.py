@@ -9,7 +9,7 @@ from web3.types import Wei
 from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting, logger as accounting_logger
-from src.modules.accounting.staking_vaults import StakingVaultsService
+from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
