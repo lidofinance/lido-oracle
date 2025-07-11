@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from eth_typing import BlockNumber, HexStr
 from oz_merkle_tree import StandardMerkleTree
@@ -565,24 +565,24 @@ class StakingVaultsService:
         bad_debt_socialized_events = self.w3.lido_contracts.vault_hub.get_bad_debt_socialized_events(prev_block_number, blockstamp.block_number)
         written_off_to_be_internalized_events = self.w3.lido_contracts.vault_hub.get_bad_debt_written_off_to_be_internalized_events(prev_block_number, blockstamp.block_number)
 
-        for event in fees_updated_events:
-            events[event.vault].append(cast(VaultFeesUpdatedEvent, event))
+        for fees_updated_event in fees_updated_events:
+            events[fees_updated_event.vault].append(fees_updated_event)
 
-        for event in minted_events:
-            events[event.vault].append(cast(MintedSharesOnVaultEvent, event))
+        for minted_event in minted_events:
+            events[minted_event.vault].append(minted_event)
 
-        for event in burn_events:
-            events[event.vault].append(cast(BurnedSharesOnVaultEvent, event))
+        for burned_event in burn_events:
+            events[burned_event.vault].append(burned_event)
 
-        for event in rebalanced_events:
-            events[event.vault].append(cast(VaultRebalancedEvent, event))
+        for rebalanced_event in rebalanced_events:
+            events[rebalanced_event.vault].append(rebalanced_event)
 
-        for event in written_off_to_be_internalized_events:
-            events[event.vault].append(cast(BadDebtWrittenOffToBeInternalizedEvent, event))
+        for written_off_event in written_off_to_be_internalized_events:
+            events[written_off_event.vault].append(written_off_event)
 
-        for event in bad_debt_socialized_events:
-            events[event.vault_donor].append(cast(BadDebtSocializedEvent, event))
-            events[event.vault_acceptor].append(cast(BadDebtSocializedEvent, event))
+        for socialized_event in bad_debt_socialized_events:
+            events[socialized_event.vault_donor].append(socialized_event)
+            events[socialized_event.vault_acceptor].append(socialized_event)
 
         out: VaultFeeMap = {}
         current_block = blockstamp.block_number
