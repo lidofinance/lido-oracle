@@ -194,7 +194,7 @@ class StakingVaultsService:
             "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
-            "leafIndexToData": {v.value: k.name for k, v in MerkleValue.leaf_index_to_data().items()},
+            "leafIndexToData": {k.value: v.value for k, v in MerkleValue.leaf_index_to_data().items()},
         }
         output.update(values=values)
 
