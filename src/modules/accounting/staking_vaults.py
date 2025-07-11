@@ -163,7 +163,7 @@ class StakingVaultsService:
                 return asdict(o)
             raise TypeError(f"Object of type {type(o)} is not JSON serializable")
 
-        def stringify_values(data) -> list[dict[str, Any]]:
+        def stringify_values(data) -> list[dict[str, str|int]]:
             out = []
             for item in data:
                 out.append(
