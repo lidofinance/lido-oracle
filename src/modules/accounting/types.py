@@ -262,14 +262,14 @@ type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
 class VaultTreeValueKey(Enum):
     VAULT_ADDRESS = "vaultAddress"
     TOTAL_VALUE = "totalValueWei"
-    Fee = "fee"
+    FEE = "fee"
     LIABILITY_SHARES = "liabilityShares"
     SLASHING_RESERVE = "slashingReserve"
 
 class VaultTreeValueIndex(Enum):
     VAULT_ADDRESS = 0
     TOTAL_VALUE_WEI = 1
-    Fee = 2
+    FEE = 2
     LIABILITY_SHARES = 3
     SLASHING_RESERVE = 4
 
@@ -286,7 +286,7 @@ class MerkleValue:
         return {
             VaultTreeValueKey.VAULT_ADDRESS: VaultTreeValueIndex.VAULT_ADDRESS,
             VaultTreeValueKey.TOTAL_VALUE: VaultTreeValueIndex.TOTAL_VALUE_WEI,
-            VaultTreeValueKey.Fee: VaultTreeValueIndex.Fee,
+            VaultTreeValueKey.FEE: VaultTreeValueIndex.FEE,
             VaultTreeValueKey.LIABILITY_SHARES: VaultTreeValueIndex.LIABILITY_SHARES,
             VaultTreeValueKey.SLASHING_RESERVE: VaultTreeValueIndex.SLASHING_RESERVE,
         }
@@ -330,7 +330,7 @@ class StakingVaultIpfsReport:
         values: list[MerkleValue] = []
         vault_address_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.VAULT_ADDRESS)
         total_value_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.TOTAL_VALUE)
-        fee_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.Fee)
+        fee_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.FEE)
         liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.LIABILITY_SHARES)
         slashing_reserve_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.SLASHING_RESERVE)
         for entry in data["values"]:
