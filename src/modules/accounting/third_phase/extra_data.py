@@ -25,7 +25,7 @@ class ExtraDataService:
 
     itemPayload format:
     | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-    | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+    | moduleId | nodeOpsCount |      nodeOperatorIds     |   exitedValsCount  |
 
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
