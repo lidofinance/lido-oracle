@@ -2,51 +2,51 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import asdict
+from decimal import ROUND_UP, Decimal
 from typing import Any, Optional
 
 from eth_typing import BlockNumber, HexStr
 from oz_merkle_tree import StandardMerkleTree
-
-from src.utils.units import gwei_to_wei
-from src.utils.validator_state import calculate_vault_validators_balances
-from src.web3py.types import Web3
-from web3.types import Wei, BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
-    VaultFeesUpdatedEvent,
+    BadDebtSocializedEvent,
+    BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
     MintedSharesOnVaultEvent,
+    VaultEventType,
+    VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
-    BadDebtSocializedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent, VaultEventType,
 )
 from src.modules.accounting.types import (
-    StakingVaultIpfsReport,
+    BLOCKS_PER_YEAR,
+    ExtraValue,
     MerkleValue,
+    OnChainIpfsVaultReportData,
+    Shares,
+    StakingVaultIpfsReport,
+    VaultFee,
+    VaultFeeMap,
     VaultInfo,
+    VaultReserveMap,
     VaultsMap,
     VaultToPendingDeposits,
+    VaultTotalValueMap,
     VaultToValidators,
     VaultTreeNode,
-    Shares,
-    BLOCKS_PER_YEAR,
-    VaultTotalValueMap,
-    VaultFeeMap,
-    VaultReserveMap,
-    VaultFee,
-    ExtraValue,
-    OnChainIpfsVaultReportData,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.ipfs import CID
-from src.types import ReferenceBlockStamp, SlotNumber, BlockHash
+from src.types import BlockHash, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.deposit_signature import is_valid_deposit_signature
 from src.utils.slot import get_blockstamp
 from src.utils.types import hex_str_to_bytes
-from decimal import Decimal, ROUND_UP
+from src.utils.units import gwei_to_wei
+from src.utils.validator_state import calculate_vault_validators_balances
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -220,31 +220,26 @@ class StakingVaultsService:
         genesis_fork_version: str,
     ) -> int:
         vault_validator_pubkeys = set(validator.validator.pubkey for validator in vault_validators)
-        deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
+        vault_deposits_by_pubkey: dict[str, list[PendingDeposit]] = defaultdict(list)
 
         for deposit in vault_pending_deposits:
-            deposits_by_pubkey[deposit.pubkey].append(deposit)
+            vault_deposits_by_pubkey[deposit.pubkey].append(deposit)
 
         total_value = 0
 
-        for pubkey, deposits in deposits_by_pubkey.items():
-            deposit_value = sum(gwei_to_wei(deposit.amount) for deposit in deposits)
-
-            # Case 1: Validator exists and is already bound to this vault
+        for pubkey, deposits in vault_deposits_by_pubkey.items():
+            # Case 1: Validator exists and is already bound to this vault, count all deposits for this pubkey
             if pubkey in vault_validator_pubkeys:
-                total_value += deposit_value
+                total_value += sum(gwei_to_wei(deposit.amount) for deposit in deposits)
                 continue
 
-                # Case 2: Validator exists but not bound to this vault
+            # Case 2: Validator exists but not bound to this vault, thus we should not count deposits for this pubkey
             if pubkey in validator_pubkeys:
                 continue
 
             # Case 3: No validator found for this pubkey - validate deposits
-            deposits_for_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
-            valid_deposits = self._filter_valid_deposits(vault_withdrawal_credentials, deposits_for_pubkey, genesis_fork_version)
-
-            if valid_deposits:
-                total_value += sum(gwei_to_wei(d.amount) for d in valid_deposits)
+            deposits_by_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
+            total_value += self._get_valid_deposits_value(vault_withdrawal_credentials, deposits_by_pubkey, genesis_fork_version)
 
         return total_value
 
@@ -278,20 +273,20 @@ class StakingVaultsService:
         return tree_data
 
     @staticmethod
-    def _filter_valid_deposits(
+    def _get_valid_deposits_value(
         vault_withdrawal_credentials: str, pubkey_deposits: list[PendingDeposit], genesis_fork_version: str
-    ) -> list[PendingDeposit]:
+    ) -> int:
         """
         Validates deposit signatures and returns a list of valid deposits.
         Once a valid pending deposit is found, all subsequent deposits are considered valid.
         """
-        valid_deposits = []
+        valid_deposits_value = 0
         valid_found = False
 
         for deposit in pubkey_deposits:
             # If we've already found a valid pending deposit, accept all subsequent ones
             if valid_found:
-                valid_deposits.append(deposit)
+                valid_deposits_value += gwei_to_wei(deposit.amount)
                 continue
 
             # Verify the deposit signature
@@ -326,13 +321,13 @@ class StakingVaultsService:
                 # In case the first deposit is a VALID, but WC are NOT matching the vault's WC,
                 # we should return an empty deposit list because it means that all the future deposits
                 # will be mapped to the wrong WC and will not be under the vault's control
-                return []
+                return 0
 
             # Mark that we found a valid deposit and include it
             valid_found = True
-            valid_deposits.append(deposit)
+            valid_deposits_value += gwei_to_wei(deposit.amount)
 
-        return valid_deposits
+        return valid_deposits_value
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
