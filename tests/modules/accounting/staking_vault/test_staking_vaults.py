@@ -314,6 +314,47 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_calculate_pending_deposits(self):
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            )
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # Valid deposit with correct withdrawal credentials
+            PendingDeposit(
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                amount=Gwei(31000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
+        )
+        expected = {
+            self.vault_adr_0: 1000000000000000000,
+            self.vault_adr_1: 32000000000000000000,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
     def test_existing_validator_with_wrong_withdrawal_credentials(self):
         validators: list[Validator] = [
             Validator(
