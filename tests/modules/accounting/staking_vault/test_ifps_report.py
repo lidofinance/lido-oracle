@@ -25,12 +25,14 @@ class TestIpfsReportSmoke:
 
     def test_ipfs_window(self, web3_integration):
         sv = StakingVaultsService(web3_integration)
-        latest_onchain_ipfs_report_data = sv.get_latest_onchain_ipfs_report_data(block_identifier='latest')
+
+        block_hash = HexStr('0xa6c886c4f37d8b298a27a29bdd5c06461ea92bc5d67d971fec371035c87698ef')
+        latest_onchain_ipfs_report_data = sv.get_latest_onchain_ipfs_report_data(block_identifier=block_hash)
         bb = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data.report_cid)
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)
 
         last_processing_ref_slot = web3_integration.lido_contracts.accounting_oracle.get_last_processing_ref_slot(
-            block_identifier=HexStr('latest')
+            block_identifier=block_hash
         )
 
         if last_processing_ref_slot:
