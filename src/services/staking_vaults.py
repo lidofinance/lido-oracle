@@ -18,6 +18,7 @@ from src.modules.accounting.events import (
     VaultEventType,
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
+    VaultConnectedEvent,
 )
 from src.modules.accounting.types import (
     BLOCKS_PER_YEAR,
@@ -455,6 +456,12 @@ class StakingVaultsService:
                     minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
                 )
 
+                if isinstance(event, VaultConnectedEvent):
+                    # If we catch a VaultConnectedEvent, it means that in the past there can be no more events,
+                    # because the vault was previously disconnected.
+                    # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
+                    return vault_liquidity_fee, liability_shares
+
                 # Because we are iterating backward in time, events must be applied in reverse.
                 # E.g., a burn reduces shares in the future, so going backward we add them back.
                 if isinstance(event, VaultFeesUpdatedEvent):
@@ -530,6 +537,9 @@ class StakingVaultsService:
         )
         return None, bs.block_number, bs.block_hash
 
+    # This function is complex by design (business logic-heavy),
+    # so we disable the pylint warning for too many branches.
+    # pylint: disable=too-many-branches
     def get_vaults_fees(
         self,
         blockstamp: ReferenceBlockStamp,
@@ -559,6 +569,7 @@ class StakingVaultsService:
         rebalanced_events = self.w3.lido_contracts.vault_hub.get_vault_rebalanced_events(prev_block_number, blockstamp.block_number)
         bad_debt_socialized_events = self.w3.lido_contracts.vault_hub.get_bad_debt_socialized_events(prev_block_number, blockstamp.block_number)
         written_off_to_be_internalized_events = self.w3.lido_contracts.vault_hub.get_bad_debt_written_off_to_be_internalized_events(prev_block_number, blockstamp.block_number)
+        vault_connected_events = self.w3.lido_contracts.vault_hub.get_vault_connected_events(prev_block_number, blockstamp.block_number)
 
         for fees_updated_event in fees_updated_events:
             events[fees_updated_event.vault].append(fees_updated_event)
@@ -578,6 +589,11 @@ class StakingVaultsService:
         for socialized_event in bad_debt_socialized_events:
             events[socialized_event.vault_donor].append(socialized_event)
             events[socialized_event.vault_acceptor].append(socialized_event)
+
+        vault_connected_events_set = set()
+        for vault_connected_event in vault_connected_events:
+            events[vault_connected_event.vault].append(vault_connected_event)
+            vault_connected_events_set.add(vault_connected_event.vault)
 
         out: VaultFeeMap = {}
         current_block = blockstamp.block_number
@@ -609,8 +625,15 @@ class StakingVaultsService:
                 core_apr_ratio=core_apr_ratio,
             )
 
-            prev_liability_shares = 0
-            if vault_address in vaults_on_prev_report:
+            vault_got_connected_event = vault_address in vault_connected_events_set
+
+            ## If the vault was disconnected and then reconnected between reports,
+            ## we must not carry over liability_shares from the previous report.
+            ##
+            ## The fees were already paid, and the vault essentially starts a new lifecycle from zero.
+            if vault_got_connected_event or vault_address not in vaults_on_prev_report:
+                prev_liability_shares = 0
+            else:
                 prev_liability_shares = vaults_on_prev_report[vault_address].liability_shares
 
             if prev_liability_shares != liability_shares:
@@ -619,7 +642,7 @@ class StakingVaultsService:
                 )
 
             out[vault_address] = VaultFee(
-                prev_fee=int(prev_fee[vault_address]),
+                prev_fee=int(0) if vault_got_connected_event else int(prev_fee[vault_address]),
                 infra_fee=int(vault_infrastructure_fee.to_integral_value(ROUND_UP)),
                 reservation_fee=int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
                 liquidity_fee=int(vault_liquidity_fee.to_integral_value(ROUND_UP)),
