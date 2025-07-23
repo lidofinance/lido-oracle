@@ -393,6 +393,7 @@ class StakingVaultsService:
         return value * Decimal(block_elapsed) * core_apr_ratio * Decimal(fee_bp) / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
 
     @staticmethod
+    # pylint: disable=too-many-branches
     def calc_liquidity_fee(
         vault_address: str,
         liability_shares: Shares,
@@ -457,9 +458,14 @@ class StakingVaultsService:
                 )
 
                 if isinstance(event, VaultConnectedEvent):
-                    # If we catch a VaultConnectedEvent, it means that in the past there can be no more events,
+                    # If we catch a VaultConnectedEvent, it means that in the past there could be no more events,
                     # because the vault was previously disconnected.
                     # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
+                    if vault_liquidity_fee != 0:
+                        raise ValueError(
+                            f"Wrong vault liquidity fee by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_fee must be 0. got {vault_liquidity_fee}"
+                        )
+
                     return vault_liquidity_fee, liability_shares
 
                 # Because we are iterating backward in time, events must be applied in reverse.
