@@ -146,6 +146,16 @@ class StakingVaultsService:
 
         return vaults_reserves
 
+    @staticmethod
+    def tree_encoder(o):
+        if isinstance(o, bytes):
+            return f"0x{o.hex()}"
+        if isinstance(o, CID):
+            return str(o)
+        if hasattr(o, "__dataclass_fields__"):
+            return asdict(o)
+        raise TypeError(f"Object of type {type(o)} is not JSON serializable")
+
     def publish_tree(
         self,
         tree: StandardMerkleTree,
@@ -155,16 +165,29 @@ class StakingVaultsService:
         chain_config: ChainConfig,
         vaults_fee_map: VaultFeeMap,
     ) -> CID:
-        def encoder(o):
-            if isinstance(o, bytes):
-                return f"0x{o.hex()}"
-            if isinstance(o, CID):
-                return str(o)
-            if hasattr(o, "__dataclass_fields__"):
-                return asdict(o)
-            raise TypeError(f"Object of type {type(o)} is not JSON serializable")
+        output = self.get_dumped_tree(
+            tree=tree,
+            vaults=vaults,
+            bs=bs,
+            prev_tree_cid=prev_tree_cid,
+            chain_config=chain_config,
+            vaults_fee_map=vaults_fee_map,
+        )
 
-        def stringify_values(data) -> list[dict[str, str|int]]:
+        dumped_tree_str = json.dumps(output, default=self.tree_encoder)
+
+        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
+
+    @staticmethod
+    def get_dumped_tree(
+            tree: StandardMerkleTree,
+            vaults: VaultsMap,
+            bs: ReferenceBlockStamp,
+            prev_tree_cid: str,
+            chain_config: ChainConfig,
+            vaults_fee_map: VaultFeeMap
+    ) -> dict[str, Any]:
+        def stringify_values(data) -> list[dict[str, str | int]]:
             out = []
             for item in data:
                 out.append(
@@ -199,14 +222,16 @@ class StakingVaultsService:
         }
         output.update(values=values)
 
-        dumped_tree_str = json.dumps(output, default=encoder)
-
-        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
+        return output
 
     def get_ipfs_report(self, ipfs_report_cid: str) -> StakingVaultIpfsReport:
         if ipfs_report_cid == "":
             raise ValueError("Arg ipfs_report_cid could not be ''")
         return self.get_vault_report(ipfs_report_cid)
+
+    def get_vault_report(self, tree_cid: str) -> StakingVaultIpfsReport:
+        bb = self.w3.ipfs.fetch(CID(tree_cid))
+        return StakingVaultIpfsReport.parse_merkle_tree_data(bb)
 
     def get_latest_onchain_ipfs_report_data(self, block_identifier: BlockIdentifier) -> OnChainIpfsVaultReportData:
         return self.w3.lido_contracts.lazy_oracle.get_latest_report_data(block_identifier)
@@ -367,10 +392,6 @@ class StakingVaultsService:
 
         return result
 
-    def get_vault_report(self, tree_cid: str) -> StakingVaultIpfsReport:
-        bb = self.w3.ipfs.fetch(CID(tree_cid))
-        return StakingVaultIpfsReport.parse_merkle_tree_data(bb)
-
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
@@ -518,7 +539,8 @@ class StakingVaultsService:
             last_processing_ref_slot = self.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
 
             ref_block = get_blockstamp(
-                self.w3.cc,last_processing_ref_slot,
+                self.w3.cc,
+                last_processing_ref_slot,
                 SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
             return prev_ipfs_report, ref_block.block_number, ref_block.block_hash

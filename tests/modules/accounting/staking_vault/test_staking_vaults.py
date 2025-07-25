@@ -1,16 +1,25 @@
 import copy
+import json
+from collections import defaultdict
 from decimal import Decimal, ROUND_UP
 from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
-from web3.types import Wei
+from web3.types import Wei, Timestamp
 
+from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
     BurnedSharesOnVaultEvent,
     MintedSharesOnVaultEvent,
     VaultFeesUpdatedEvent,
+    VaultRebalancedEvent,
+    BadDebtWrittenOffToBeInternalizedEvent,
+    BadDebtSocializedEvent,
+    VaultConnectedEvent, VaultEventType,
 )
+from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.providers.ipfs import CID
 from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import (
     ExtraValue,
@@ -20,9 +29,16 @@ from src.modules.accounting.types import (
     VaultsMap,
     VaultTotalValueMap,
     VaultFee,
+    VaultFeeMap,
+    VaultReserveMap,
+    OnChainIpfsVaultReportData,
 )
-from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
-from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
+from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState, BlockDetailsResponse, BlockMessage, \
+    BeaconBlockBody, ExecutionPayload, SyncAggregate, BlockHeaderFullResponse, BlockHeaderResponseData, BlockHeader, \
+    BlockHeaderMessage
+from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex, ReferenceBlockStamp, StateRoot, BlockHash
+from src.utils.units import gwei_to_wei
+from src.web3py.types import Web3
 from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
@@ -409,6 +425,31 @@ class TestStakingVaults:
         }
         assert vaults_total_values == expected
 
+    @pytest.mark.unit
+    def test_valid_signature_but_wrong_vault_withdrawal_credentials(self):
+        valid_withdrawal_credentials = '0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc'
+
+        deposit = PendingDeposit(
+            pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+            withdrawal_credentials=valid_withdrawal_credentials,
+            amount=Gwei(1_000_000_000),
+            signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+            slot=SlotNumber(259388),
+        )
+
+        # WC — different!
+        vault_withdrawal_credentials = '0x0200000000000000000000001111111111111111111111111111111111111111'
+        genesis_fork_version = '0x00000000'
+
+        result = StakingVaultsService._get_valid_deposits_value(
+            vault_withdrawal_credentials=vault_withdrawal_credentials,
+            pubkey_deposits=[deposit],
+            genesis_fork_version=genesis_fork_version
+        )
+
+        # THEN: valid signature, но WC не совпадает => return 0
+        assert result == 0
+
     pre_total_shares = 7598409496266444487755575
     pre_total_pooled_ether = Wei(9165134090291140983725643)
     post_total_shares = 7589357999778578274703354
@@ -438,6 +479,12 @@ class TestStakingVaults:
         Main purpose is check code behavior, not digits
         """
         vault1_adr = ChecksumAddress(HexAddress(HexStr("0xVault1")))
+        vault2_adr = ChecksumAddress(HexAddress(HexStr("0xVault2")))
+        vault3_adr = ChecksumAddress(HexAddress(HexStr("0xVault3")))
+        vault4_adr = ChecksumAddress(HexAddress(HexStr("0xVault4")))
+        vault5_adr = ChecksumAddress(HexAddress(HexStr("0xVault5")))
+        vault6_adr = ChecksumAddress(HexAddress(HexStr("0xVault6")))
+
         prev_block_number = 0
         block_elapsed = 7_200
 
@@ -453,6 +500,13 @@ class TestStakingVaults:
                     MagicMock(),  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
+                MerkleValue(
+                    vault6_adr,  # address
+                    MagicMock(),  # total_value_wei
+                    123412,       # Must prove that prev fee didn't applied
+                    MagicMock(),  # liability_shares
+                    MagicMock(),  # slashing_reserve
+                ),
             ],
             block_number=BlockNumber(prev_block_number),
             block_hash=MagicMock(),
@@ -463,6 +517,13 @@ class TestStakingVaults:
                 vault1_adr: ExtraValue(
                     in_out_delta=MagicMock(),
                     prev_fee=str(self.prev_fee),
+                    infra_fee=MagicMock(),
+                    liquidity_fee=MagicMock(),
+                    reservation_fee=MagicMock(),
+                ),
+                vault6_adr: ExtraValue(
+                    in_out_delta=MagicMock(),
+                    prev_fee=str(123412),
                     infra_fee=MagicMock(),
                     liquidity_fee=MagicMock(),
                     reservation_fee=MagicMock(),
@@ -486,23 +547,143 @@ class TestStakingVaults:
             in_out_delta=MagicMock(),
         )
 
+        vault2 = VaultInfo(
+            vault=vault2_adr,
+            liability_shares=self.liability_shares,
+            reserve_ratio_bp=self.reserve_ratioBP,
+            infra_fee_bp=self.infra_feeBP,
+            liquidity_fee_bp=self.liquidity_feeBP,
+            reservation_fee_bp=self.reservation_feeBP,
+            mintable_st_eth=self.mintable_capacity_StETH,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            share_limit=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vault3 = VaultInfo(
+            vault=vault3_adr,
+            liability_shares=self.liability_shares,
+            reserve_ratio_bp=self.reserve_ratioBP,
+            infra_fee_bp=self.infra_feeBP,
+            liquidity_fee_bp=self.liquidity_feeBP,
+            reservation_fee_bp=self.reservation_feeBP,
+            mintable_st_eth=self.mintable_capacity_StETH,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            share_limit=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vault4 = VaultInfo(
+            vault=vault4_adr,
+            liability_shares=self.liability_shares,
+            reserve_ratio_bp=self.reserve_ratioBP,
+            infra_fee_bp=self.infra_feeBP,
+            liquidity_fee_bp=self.liquidity_feeBP,
+            reservation_fee_bp=self.reservation_feeBP,
+            mintable_st_eth=self.mintable_capacity_StETH,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            share_limit=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vault5 = VaultInfo(
+            vault=vault5_adr,
+            liability_shares=self.liability_shares,
+            reserve_ratio_bp=self.reserve_ratioBP,
+            infra_fee_bp=self.infra_feeBP,
+            liquidity_fee_bp=self.liquidity_feeBP,
+            reservation_fee_bp=self.reservation_feeBP,
+            mintable_st_eth=self.mintable_capacity_StETH,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            share_limit=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vault6 = VaultInfo(
+            vault=vault6_adr,
+            # test for "reconnected event"
+            # In past was reconnected and event and no further events
+            # liability_shares must by 0 - cause no actions after reconnected event
+            liability_shares=0,
+            reserve_ratio_bp=self.reserve_ratioBP,
+            infra_fee_bp=self.infra_feeBP,
+            liquidity_fee_bp=self.liquidity_feeBP,
+            reservation_fee_bp=self.reservation_feeBP,
+            mintable_st_eth=self.mintable_capacity_StETH,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            share_limit=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
         mock_prev_vault1 = copy.copy(vault1)
         mock_prev_vault1.liability_shares = 2879999910015672558976
         mock_prev_vault1.liquidity_fee_bp = 300
 
-        mock_prev_vaults = [mock_prev_vault1]
+        mock_prev_vault2 = copy.copy(vault2)
+        mock_prev_vault2.liability_shares = 2880000000000500000000
+        mock_prev_vault2.liquidity_fee_bp = 300
 
-        vaults = {}
+        mock_prev_vault3 = copy.copy(vault3)
+        mock_prev_vault3.liability_shares = 2880000000000000400000
+        mock_prev_vault3.liquidity_fee_bp = 300
+
+        mock_prev_vault4 = copy.copy(vault4)
+        mock_prev_vault4.liability_shares = 2880000000000000200000
+        mock_prev_vault4.liquidity_fee_bp = 300
+
+        mock_prev_vault5 = copy.copy(vault5)
+        mock_prev_vault5.liability_shares = 2879999999999999800000
+        mock_prev_vault5.liquidity_fee_bp = 300
+
+        mock_prev_vault6 = copy.copy(vault6)
+        mock_prev_vault6.liability_shares = 0
+        mock_prev_vault6.liquidity_fee_bp = 300
+
+        mock_prev_vaults = [
+            mock_prev_vault1,
+            mock_prev_vault2,
+            mock_prev_vault3,
+            mock_prev_vault4,
+            mock_prev_vault5
+        ]
+
         vaults_total_values: VaultTotalValueMap = {
-            ChecksumAddress(HexAddress(HexStr(vault1_adr))): self.vault_total_value
+            ChecksumAddress(HexAddress(HexStr(vault1_adr))): self.vault_total_value,
+            ChecksumAddress(HexAddress(HexStr(vault2_adr))): self.vault_total_value,
+            ChecksumAddress(HexAddress(HexStr(vault3_adr))): self.vault_total_value,
+            ChecksumAddress(HexAddress(HexStr(vault4_adr))): self.vault_total_value,
+            ChecksumAddress(HexAddress(HexStr(vault5_adr))): self.vault_total_value,
+            ChecksumAddress(HexAddress(HexStr(vault6_adr))): self.vault_total_value,
         }
 
-        # 65020000000000000000,0x0200000000000000000000007228fc874c1d08cae68a558d7b650fc4862b1db7
-        vaults[vault1.vault] = vault1
+        vaults = {
+            vault6.vault: vault6,
+            vault1.vault: vault1,
+            vault2.vault: vault2,
+            vault3.vault: vault3,
+            vault4.vault: vault4,
+            vault5.vault: vault5,
+
+        }
 
         vaults_fee_updated_events = [
             VaultFeesUpdatedEvent(
-                block_number=3200,
+                block_number=BlockNumber(3200),
                 pre_infra_fee_bp=MagicMock(),
                 pre_liquidity_fee_bp=400,
                 infra_fee_bp=MagicMock(),
@@ -520,7 +701,7 @@ class TestStakingVaults:
         ]
         burned_shares_events = [
             BurnedSharesOnVaultEvent(
-                block_number=3700,
+                block_number=BlockNumber(3700),
                 amount_of_shares=50_000_000,
                 vault=vault1_adr,
                 event=MagicMock(),
@@ -534,10 +715,85 @@ class TestStakingVaults:
 
         minted_shares_events = [
             MintedSharesOnVaultEvent(
-                block_number=3600,
-                amount_of_shares=8_998_437_744_1024,
                 vault=vault1_adr,
+                block_number=BlockNumber(3600),
+                amount_of_shares=8_998_437_744_1024,
                 locked_amount=MagicMock(),
+                event=MagicMock(),
+                log_index=MagicMock(),
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            )
+        ]
+
+        vault_rebalance_events = [
+            VaultRebalancedEvent(
+                vault=vault2_adr,
+                block_number=BlockNumber(3600),
+                shares_burned=500_000_000,
+                ether_withdrawn=MagicMock(),
+                event=MagicMock(),
+                log_index=MagicMock(),
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            )
+        ]
+
+        written_off_to_be_internalized_events = [
+            BadDebtWrittenOffToBeInternalizedEvent(
+                vault=vault3_adr,
+                block_number=BlockNumber(3600),
+                bad_debt_shares=400_000,
+                event=MagicMock(),
+                log_index=MagicMock(),
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            )
+        ]
+
+        bad_debt_socialized_events = [
+            BadDebtSocializedEvent(
+                vault_donor=vault4_adr,
+                vault_acceptor=vault5_adr,
+                block_number=BlockNumber(3600),
+                bad_debt_shares=400_000,
+                event=MagicMock(),
+                log_index=MagicMock(),
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+            BadDebtSocializedEvent(
+                vault_donor=vault5_adr,
+                vault_acceptor=vault4_adr,
+                block_number=BlockNumber(3500),
+                bad_debt_shares=200_000,
+                event=MagicMock(),
+                log_index=MagicMock(),
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            )
+        ]
+
+        vault_connected_events = [
+            VaultConnectedEvent(
+                vault=vault6_adr,
+                share_limit=MagicMock(),
+                reserve_ratio_bp=MagicMock(),
+                forced_rebalance_threshold_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                block_number=BlockNumber(3500),
                 event=MagicMock(),
                 log_index=MagicMock(),
                 transaction_index=MagicMock(),
@@ -561,9 +817,10 @@ class TestStakingVaults:
         vault_hub_mock.get_minted_events = MagicMock(return_value=minted_shares_events)
         vault_hub_mock.get_burned_events = MagicMock(return_value=burned_shares_events)
 
-        vault_hub_mock.get_vaults_rebalanced_events = MagicMock(return_value=[])
-        vault_hub_mock.get_vaults_bad_debt_socialized_events = MagicMock(return_value=[])
-        vault_hub_mock.get_written_off_to_be_internalized_events = MagicMock(return_value=[])
+        vault_hub_mock.get_vault_rebalanced_events = MagicMock(return_value=vault_rebalance_events)
+        vault_hub_mock.get_bad_debt_socialized_events = MagicMock(return_value=bad_debt_socialized_events)
+        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(return_value=written_off_to_be_internalized_events)
+        vault_hub_mock.get_vault_connected_events = MagicMock(return_value=vault_connected_events)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
@@ -595,12 +852,193 @@ class TestStakingVaults:
                 liquidity_fee=int(self.expected_liquidity_fee.to_integral_value(ROUND_UP)),
                 reservation_fee=int(self.expected_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
                 prev_fee=int(self.prev_fee),
+            ),
+            vault2_adr: VaultFee(
+                infra_fee=2907180231545765,
+                liquidity_fee=20513697696886690,
+                reservation_fee=7267950578864411,
+                prev_fee=0
+            ),
+            vault3_adr: VaultFee(
+                infra_fee=2907180231545765,
+                liquidity_fee=20513697696884910,
+                reservation_fee=7267950578864411,
+                prev_fee=0
+            ),
+            vault4_adr: VaultFee(
+                infra_fee=2907180231545765,
+                liquidity_fee=20513697696884910,
+                reservation_fee=7267950578864411,
+                prev_fee=0
+            ),
+            vault5_adr: VaultFee(
+                infra_fee=2907180231545765,
+                liquidity_fee=20513697696884908,
+                reservation_fee=7267950578864411,
+                prev_fee=0
+            ),
+            vault6_adr: VaultFee(
+                infra_fee=2907180231545765,
+                liquidity_fee=0,
+                reservation_fee=7267950578864411,
+                prev_fee=0
             )
         }
 
         assert self.expected_total_fee == expected_fees[vault1_adr].total()
         assert actual_fees[ChecksumAddress(HexAddress(HexStr(vault1_adr)))].total() == expected_fees[vault1_adr].total()
         assert actual_fees == expected_fees
+
+    @pytest.mark.unit
+    def test_calc_liquidity_fee_raises_if_connected_with_non_zero_fee(self):
+        vault_address = "0xVault123"
+
+        pre_total_pooled_ether = Wei(1_000_000_000_000_000_000_000)
+        pre_total_shares = 1_000_000_000_000_000_000_000
+        core_apr_ratio = Decimal("0.10")
+
+        prev_block = BlockNumber(100)
+        current_block = BlockNumber(110)
+        liquidity_fee_bp = 100  # 1%
+
+        minted_event = MintedSharesOnVaultEvent(
+            vault=vault_address,
+            block_number=BlockNumber(105),
+            amount_of_shares=1_000_000,
+            locked_amount=MagicMock(),
+            event=MagicMock(),
+            log_index=MagicMock(),
+            transaction_index=MagicMock(),
+            address=MagicMock(),
+            transaction_hash=MagicMock(),
+            block_hash=MagicMock(),
+        )
+
+        connected_event = VaultConnectedEvent(
+            vault=vault_address,
+            share_limit=MagicMock(),
+            reserve_ratio_bp=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            infra_fee_bp=MagicMock(),
+            liquidity_fee_bp=MagicMock(),
+            reservation_fee_bp=MagicMock(),
+            block_number=BlockNumber(101),
+            event=MagicMock(),
+            log_index=MagicMock(),
+            transaction_index=MagicMock(),
+            address=MagicMock(),
+            transaction_hash=MagicMock(),
+            block_hash=MagicMock(),
+        )
+
+        events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
+        events[vault_address] = [minted_event, connected_event]
+
+        with pytest.raises(ValueError, match=r"Wrong vault liquidity fee by vault .* got .*"):
+            StakingVaultsService.calc_liquidity_fee(
+                vault_address=vault_address,
+                liability_shares=10_000_000,
+                liquidity_fee_bp=liquidity_fee_bp,
+                events=events,
+                prev_block_number=prev_block,
+                current_block=current_block,
+                pre_total_pooled_ether=pre_total_pooled_ether,
+                pre_total_shares=pre_total_shares,
+                core_apr_ratio=core_apr_ratio,
+            )
+
+    @pytest.mark.unit
+    def test_fees_raises_if_liability_shares_mismatch(self):
+        vault1_adr = ChecksumAddress(HexAddress(HexStr("0xVault1")))
+        prev_block_number = 0
+        block_elapsed = 7200
+
+        mock_merkle_tree_data = StakingVaultIpfsReport(
+            format="v1",
+            leaf_encoding=["encoding1"],
+            tree=["node1"],
+            values=[
+                MerkleValue(
+                    vault_address=vault1_adr,
+                    total_value_wei=Wei(0),
+                    fee=1000,
+                    liability_shares=123456789,  # << prev value. Raises Error
+                    slashing_reserve=0,
+                )
+            ],
+            block_number=BlockNumber(prev_block_number),
+            block_hash=MagicMock(),
+            ref_slot=MagicMock(),
+            timestamp=MagicMock(),
+            prev_tree_cid=MagicMock(),
+            extra_values={
+                vault1_adr: ExtraValue(
+                    in_out_delta="0",
+                    prev_fee="1000",
+                    infra_fee="0",
+                    liquidity_fee="0",
+                    reservation_fee="0",
+                )
+            },
+        )
+
+        vault1 = VaultInfo(
+            vault=vault1_adr,
+            liability_shares=999999999,  # << отличие
+            reserve_ratio_bp=0,
+            infra_fee_bp=0,
+            liquidity_fee_bp=0,
+            reservation_fee_bp=0,
+            mintable_st_eth=0,
+            balance=Wei(0),
+            withdrawal_credentials="0x0",
+            share_limit=0,
+            forced_rebalance_threshold_bp=0,
+            pending_disconnect=False,
+            in_out_delta=Wei(0),
+        )
+
+        vaults_total_values = {vault1_adr: 0}
+        vaults = {vault1_adr: vault1}
+
+        mock_prev_ipfs_report_cid = MagicMock()
+
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        vault_hub_mock = MagicMock()
+
+        vault_hub_mock.get_vault_fee_updated_events = MagicMock(return_value=[])
+        vault_hub_mock.get_minted_events = MagicMock(return_value=[])
+        vault_hub_mock.get_burned_events = MagicMock(return_value=[])
+        vault_hub_mock.get_vault_rebalanced_events = MagicMock(return_value=[])
+        vault_hub_mock.get_bad_debt_socialized_events = MagicMock(return_value=[])
+        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(return_value=[])
+        vault_hub_mock.get_vault_connected_events = MagicMock(return_value=[])
+
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+
+        staking_vaults = StakingVaultsService(w3_mock)
+
+        staking_vaults._get_start_point_for_fee_calculations = MagicMock(
+            return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
+        )
+
+        mock_ref_block = MagicMock()
+        mock_ref_block.block_number = prev_block_number + block_elapsed
+
+        with pytest.raises(ValueError, match="Wrong liability shares by vault"):
+            staking_vaults.get_vaults_fees(
+                blockstamp=mock_ref_block,
+                vaults=vaults,
+                vaults_total_values=vaults_total_values,
+                latest_onchain_ipfs_report_data=mock_prev_ipfs_report_cid,
+                core_apr_ratio=Decimal(0.3),
+                pre_total_pooled_ether=1,
+                pre_total_shares=1,
+                chain_config=MagicMock(),
+                frame_config=MagicMock(),
+            )
 
     @pytest.mark.parametrize(
         "vault_total_value, block_elapsed, core_apr_ratio, infra_fee_bp, expected_wei",
@@ -666,7 +1104,7 @@ class TestStakingVaults:
             {
                 vault1_adr: [
                     MintedSharesOnVaultEvent(
-                        block_number=3600,
+                        block_number=BlockNumber(3600),
                         amount_of_shares=8_998_437_744_1024,
                         vault=vault1_adr,
                         locked_amount=MagicMock(),
@@ -678,7 +1116,7 @@ class TestStakingVaults:
                         block_hash=MagicMock(),
                     ),
                     BurnedSharesOnVaultEvent(
-                        block_number=3700,
+                        block_number=BlockNumber(3700),
                         amount_of_shares=50_000_000,
                         vault=vault1_adr,
                         event=MagicMock(),
@@ -689,7 +1127,7 @@ class TestStakingVaults:
                         block_hash=MagicMock(),
                     ),
                     VaultFeesUpdatedEvent(
-                        block_number=3200,
+                        block_number=BlockNumber(3200),
                         pre_infra_fee_bp=MagicMock(),
                         pre_liquidity_fee_bp=400,
                         infra_fee_bp=MagicMock(),
@@ -706,8 +1144,8 @@ class TestStakingVaults:
                     ),
                 ]
             },
-            0,  # prev_block_number
-            7_200,  # current_block
+            BlockNumber(0),  # prev_block_number
+            BlockNumber(7_200),  # current_block
             pre_total_pooled_ether,  # pre_total_pooled_ether (Wei)
             pre_total_shares,  # pre_total_shares (Shares)
             core_ratio_apr,  # core_apr_ratio (3%)
@@ -745,3 +1183,795 @@ class TestStakingVaults:
         )
 
         assert result == expected
+
+    @pytest.mark.unit
+    def test_slashing_reserver(self):
+        mock_ref_epoch = EpochNumber(40_000)
+
+        ref_block_stamp = ReferenceBlockStamp(
+            state_root=MagicMock(),
+            slot_number=MagicMock(),
+            block_hash=MagicMock(),
+            block_number=MagicMock(),
+            block_timestamp=MagicMock(),
+            ref_slot=MagicMock(),
+            ref_epoch=mock_ref_epoch,
+        )
+
+        # VaultsMap
+        vault_address_1 = ChecksumAddress(HexAddress(HexStr("0x1234567890abcdef1234567890abcdef12345678")))
+        vault_address_2 = ChecksumAddress(HexAddress(HexStr("0x2222222222222222222222222222222222222222")))
+        vault_address_3 = ChecksumAddress(HexAddress(HexStr("0x3333333333333333333333333333333333333333")))
+        vault_address_4 = ChecksumAddress(HexAddress(HexStr("0x4444444444444444444444444444444444444444")))
+        withdrawal_credentials_1 = "withdrawal_credentials_1"
+        withdrawal_credentials_2 = "withdrawal_credentials_2"
+        withdrawal_credentials_3 = "withdrawal_credentials_3"
+        withdrawal_credentials_4 = "withdrawal_credentials_4"
+        vaults_map = {
+            vault_address_1: VaultInfo(
+                vault=vault_address_1,
+                balance=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_1,
+                liability_shares=MagicMock(),
+                share_limit=MagicMock(),
+                reserve_ratio_bp=650,
+                forced_rebalance_threshold_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                pending_disconnect=MagicMock(),
+                mintable_st_eth=MagicMock(),
+                in_out_delta=MagicMock(),
+            ),
+            vault_address_2: VaultInfo(
+                vault=vault_address_2,
+                balance=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_2,
+                liability_shares=MagicMock(),
+                share_limit=MagicMock(),
+                reserve_ratio_bp=650,
+                forced_rebalance_threshold_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                pending_disconnect=MagicMock(),
+                mintable_st_eth=MagicMock(),
+                in_out_delta=MagicMock(),
+            ),
+            vault_address_3: VaultInfo(
+                vault=vault_address_3,
+                balance=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_3,
+                liability_shares=MagicMock(),
+                share_limit=MagicMock(),
+                reserve_ratio_bp=650,
+                forced_rebalance_threshold_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                pending_disconnect=MagicMock(),
+                mintable_st_eth=MagicMock(),
+                in_out_delta=MagicMock(),
+            ),
+            vault_address_4: VaultInfo(
+                vault=vault_address_4,
+                balance=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_4,
+                liability_shares=MagicMock(),
+                share_limit=MagicMock(),
+                reserve_ratio_bp=650,
+                forced_rebalance_threshold_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                pending_disconnect=MagicMock(),
+                mintable_st_eth=MagicMock(),
+                in_out_delta=MagicMock(),
+            ),
+        }
+
+        # Validator
+        validator_1 = Validator(
+            index=ValidatorIndex(1),
+            balance=Gwei(32_000_000_000),
+            validator=ValidatorState(
+                pubkey=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_1,
+                effective_balance=MagicMock(),
+                slashed=True,
+                activation_eligibility_epoch=MagicMock(),
+                activation_epoch=MagicMock(),
+                exit_epoch=MagicMock(),
+                withdrawable_epoch=mock_ref_epoch,
+            )
+        )
+        validator_2 = Validator(
+            index=ValidatorIndex(2),
+            balance=Gwei(64_000_000_000),
+            validator=ValidatorState(
+                pubkey=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_2,
+                effective_balance=MagicMock(),
+                slashed=True,
+                activation_eligibility_epoch=MagicMock(),
+                activation_epoch=MagicMock(),
+                exit_epoch=MagicMock(),
+                withdrawable_epoch=EpochNumber(50_000),
+            ),
+        )
+        validator_3 = Validator(
+            index=ValidatorIndex(3),
+            balance=Gwei(64_000_000_000),
+            validator=ValidatorState(
+                pubkey=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_3,
+                effective_balance=MagicMock(),
+                slashed=False,
+                activation_eligibility_epoch=MagicMock(),
+                activation_epoch=MagicMock(),
+                exit_epoch=MagicMock(),
+                withdrawable_epoch=MagicMock(),
+            ),
+        )
+        validator_4 = Validator(
+            index=ValidatorIndex(3),
+            balance=Gwei(64_000_000_000),
+            validator=ValidatorState(
+                pubkey=MagicMock(),
+                withdrawal_credentials=withdrawal_credentials_3,
+                effective_balance=MagicMock(),
+                slashed=True,
+                activation_eligibility_epoch=MagicMock(),
+                activation_epoch=MagicMock(),
+                exit_epoch=MagicMock(),
+                withdrawable_epoch=EpochNumber(25_000),
+            ),
+        )
+        validators = [validator_1, validator_2, validator_3, validator_4]
+
+        # ChainConfig
+        chain_config = ChainConfig(
+            slots_per_epoch=32,
+            seconds_per_slot=MagicMock(),
+            genesis_time=MagicMock(),
+        )
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+
+        # oracle_daemon_config mock with left/right shifts
+        oracle_daemon_config_mock = MagicMock()
+        oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=8192)
+        oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=8192)
+
+        cc_mock = MagicMock()
+        cc_mock.get_validator_state = MagicMock(
+            return_value=validator_1
+        )
+
+        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        w3_mock.cc = cc_mock
+
+        self.staking_vaults = StakingVaultsService(w3_mock)
+        result = self.staking_vaults.get_vaults_slashing_reserve(
+            ref_block_stamp,
+            vaults_map,
+            validators,
+            chain_config
+        )
+
+        expected_reserve_1 = Decimal(gwei_to_wei(validator_1.balance)) * Decimal(vaults_map[vault_address_1].reserve_ratio_bp) / Decimal(TOTAL_BASIS_POINTS)
+        expected_reserve_1 = int(expected_reserve_1.to_integral_value(ROUND_UP))
+
+        expected_reserve_2 = Decimal(gwei_to_wei(validator_2.balance)) * Decimal(
+            vaults_map[vault_address_2].reserve_ratio_bp) / Decimal(TOTAL_BASIS_POINTS)
+        expected_reserve_2 = int(expected_reserve_2.to_integral_value(ROUND_UP))
+
+        assert expected_reserve_1 == 2080000000000000000
+        assert expected_reserve_2 == 4160000000000000000
+        expected = {
+            vault_address_1: expected_reserve_1,
+            vault_address_2: expected_reserve_2,
+        }
+
+        assert result == expected
+
+    @pytest.mark.unit
+    def test_build_tree_happy_path(self):
+        vault_address = ChecksumAddress(HexAddress(HexStr("0x1234567890abcdef1234567890abcdef12345678")))
+
+        vault_info = VaultInfo(
+            vault=vault_address,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            liability_shares=2880 * 10**18,
+            share_limit=MagicMock(),
+            reserve_ratio_bp=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            infra_fee_bp=MagicMock(),
+            liquidity_fee_bp=MagicMock(),
+            reservation_fee_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            mintable_st_eth=MagicMock(),
+            in_out_delta=Wei(1_234_567_890_000_000_000)
+        )
+
+        vaults: VaultsMap = {
+            vault_address: vault_info
+        }
+
+        total_value = 1_000_000_000_000_000_000  # 1 ETH
+        vaults_total_values: VaultTotalValueMap = {
+            vault_address: total_value
+        }
+
+        vault_fee = VaultFee(
+            infra_fee=100,
+            liquidity_fee=200,
+            reservation_fee=300,
+            prev_fee=400,
+        )
+        vaults_fees: VaultFeeMap = {
+            vault_address: vault_fee
+        }
+
+        slashing_reserve_mock = 5555
+        vaults_slashing_reserve: VaultReserveMap = {
+            vault_address: slashing_reserve_mock
+        }
+
+        tree_data = StakingVaultsService.build_tree_data(
+            vaults,
+            vaults_total_values,
+            vaults_fees,
+            vaults_slashing_reserve,
+        )
+
+        fees = 1000
+        expected_tree_data = [(vault_address, total_value, fees, vault_info.liability_shares, slashing_reserve_mock)]
+        assert tree_data == expected_tree_data
+
+        # --- Web3 Mock ---
+        ipfs_mock = MagicMock()
+        expected_cid = "QmMockCID123"
+        ipfs_mock.publish.return_value = expected_cid
+
+        # Web3 mock with IPFS
+        w3_mock = MagicMock()
+        w3_mock.ipfs = ipfs_mock
+
+        staking_vaults = StakingVaultsService(w3_mock)
+        merkle_tree = staking_vaults.get_merkle_tree(tree_data)
+        expected_merkle_tree = '0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee'
+        assert expected_merkle_tree == f'0x{merkle_tree.root.hex()}'
+
+        bs = ReferenceBlockStamp(
+            state_root=MagicMock(),
+            slot_number=SlotNumber(123456),
+            block_hash=BlockHash(HexStr("0xabc123")),
+            block_number=BlockNumber(789654),
+            block_timestamp=MagicMock(),
+            ref_slot=SlotNumber(123450),
+            ref_epoch=MagicMock(),
+        )
+
+        prev_tree_cid = 'prev_tree_cid'
+
+        chain_config = ChainConfig(
+            slots_per_epoch=MagicMock(),
+            seconds_per_slot=12,
+            genesis_time=1_600_000_000
+        )
+
+        dumped_tree = staking_vaults.get_dumped_tree(
+            tree=merkle_tree,
+            vaults=vaults,
+            bs=bs,
+            prev_tree_cid=prev_tree_cid,
+            chain_config=chain_config,
+            vaults_fee_map=vaults_fees
+        )
+
+        expected_dumped_tree = {
+            'format': 'standard-v1',
+            'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'int256'),
+            'tree': (b'\xdebR\xc9\n\xfe\xb1u\xb7\xe7\x88eX\x11\xee\xce\x8e~\x11\x94>67z'
+                     b'wRyG\x9d0\xbc\xee',),
+            'blockHash': '0xabc123',
+            'blockNumber': bs.block_number,
+            'prevTreeCID': 'prev_tree_cid',
+            'refSlot': bs.ref_slot,
+            'timestamp': 1601481472,
+            'values': [
+                {
+                    'treeIndex': 0,
+                    'value': (
+                        vault_address,
+                        str(vaults_total_values[vault_address]),
+                        str(fees),
+                        str(vault_info.liability_shares),
+                        str(vaults_slashing_reserve[vault_address])
+                    )
+                }
+            ],
+            'extraValues': {
+                vault_address: {
+                    'inOutDelta': str(vault_info.in_out_delta),
+                    'infraFee': str(vaults_fees[vault_address].infra_fee),
+                    'liquidityFee': str(vaults_fees[vault_address].liquidity_fee),
+                    'prevFee': str(vaults_fees[vault_address].prev_fee),
+                    'reservationFee': str(vaults_fees[vault_address].reservation_fee),
+                }
+            },
+            'leafIndexToData': {
+                'fee': 2,
+                'liabilityShares': 3,
+                'slashingReserve': 4,
+                'totalValueWei': 1,
+                'vaultAddress': 0
+            }
+        }
+
+        assert dumped_tree == expected_dumped_tree
+
+        cid = staking_vaults.publish_tree(
+            tree=merkle_tree,
+            vaults=vaults,
+            bs=bs,
+            prev_tree_cid=prev_tree_cid,
+            chain_config=chain_config,
+            vaults_fee_map=vaults_fees
+        )
+
+        dumped_tree_str = json.dumps(dumped_tree, default=StakingVaultsService.tree_encoder)
+        print(dumped_tree_str)
+
+        ipfs_mock.publish.assert_called_with(
+            dumped_tree_str.encode('utf-8'),
+            "merkle_tree.json"
+        )
+
+        assert cid == expected_cid
+
+    @pytest.mark.unit
+    def test_build_tree_empty_total_value(self):
+        vault_address = ChecksumAddress(HexAddress(HexStr("0x1234567890abcdef1234567890abcdef12345678")))
+
+        vault_info = VaultInfo(
+            vault=vault_address,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            liability_shares=2880 * 10**18,
+            share_limit=MagicMock(),
+            reserve_ratio_bp=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            infra_fee_bp=MagicMock(),
+            liquidity_fee_bp=MagicMock(),
+            reservation_fee_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            mintable_st_eth=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vaults: VaultsMap = {
+            vault_address: vault_info
+        }
+
+        total_value = 1_000_000_000_000_000_000  # 1 ETH
+        vaults_total_values: VaultTotalValueMap = {
+            ChecksumAddress(HexAddress(HexStr("0xanother_vault_address_rauses_errror"))): total_value
+        }
+
+        vaults_slashing_reserve: VaultReserveMap = {}
+        vaults_fees: VaultFeeMap = {}
+
+        with pytest.raises(ValueError, match=f"Vault {vault_address} is not in total_values"):
+            StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
+
+    @pytest.mark.unit
+    def test_build_tree_empty_vaults_fees(self):
+        vault_address = ChecksumAddress(HexAddress(HexStr("0x1234567890abcdef1234567890abcdef12345678")))
+
+        vault_info = VaultInfo(
+            vault=vault_address,
+            balance=MagicMock(),
+            withdrawal_credentials=MagicMock(),
+            liability_shares=2880 * 10 ** 18,
+            share_limit=MagicMock(),
+            reserve_ratio_bp=MagicMock(),
+            forced_rebalance_threshold_bp=MagicMock(),
+            infra_fee_bp=MagicMock(),
+            liquidity_fee_bp=MagicMock(),
+            reservation_fee_bp=MagicMock(),
+            pending_disconnect=MagicMock(),
+            mintable_st_eth=MagicMock(),
+            in_out_delta=MagicMock(),
+        )
+
+        vaults: VaultsMap = {
+            vault_address: vault_info
+        }
+
+        total_value = 1_000_000_000_000_000_000  # 1 ETH
+        vaults_total_values: VaultTotalValueMap = {
+            vault_address: total_value
+        }
+
+        vault_fee = VaultFee(
+            infra_fee=100,
+            liquidity_fee=200,
+            reservation_fee=300,
+            prev_fee=400,
+        )
+        vaults_fees: VaultFeeMap = {
+            ChecksumAddress(HexAddress(HexStr("0xanother_vault_address_rauses_errror"))): vault_fee
+        }
+
+        vaults_slashing_reserve: VaultReserveMap = {
+            vault_address: 5555
+        }
+
+        with pytest.raises(ValueError, match=f"Vault {vault_address} is not in vaults_fees"):
+            StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
+
+    @pytest.mark.unit
+    def test_tree_encoder(self):
+        # tree_encoder_bytes
+        b = b"\x12\x34"
+        result = StakingVaultsService.tree_encoder(b)
+        assert result == "0x1234"
+
+        # tree_encoder_cid:
+        cid= CID("cid12345")
+        result = StakingVaultsService.tree_encoder(cid)
+        assert result == "cid12345"
+
+        bs = ReferenceBlockStamp(
+            state_root=StateRoot(HexStr("state_root")),
+            slot_number=SlotNumber(123456),
+            block_hash=BlockHash(HexStr("0xabc123")),
+            block_number=BlockNumber(789654),
+            block_timestamp=Timestamp(1234),
+            ref_slot=SlotNumber(123450),
+            ref_epoch=EpochNumber(123451),
+        )
+
+        result = StakingVaultsService.tree_encoder(bs)
+        assert result == {
+            'block_hash': '0xabc123',
+            'block_number': 789654,
+            'block_timestamp': 1234,
+            'ref_epoch': 123451,
+            'ref_slot': 123450,
+            'slot_number': 123456,
+            'state_root': 'state_root'
+        }
+
+        # tree_encoder_invalid_type:
+        with pytest.raises(TypeError, match="Object of type <class 'int'> is not JSON serializable"):
+           StakingVaultsService.tree_encoder(42)
+
+    @pytest.mark.unit
+    def test_get_ipfs_report(self):
+        w3_mock = MagicMock()
+        mock_fetched_bytes = (b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
+                              b'"int256"], "tree": ['
+                              b'"0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee"], "values": [{'
+                              b'"value": ["0x1234567890abcdef1234567890abcdef12345678", "1000000000000000000", '
+                              b'"1000", "2880000000000000000000", "5555"], "treeIndex": 0}], "refSlot": 123450, '
+                              b'"blockHash": "0xabc123", "blockNumber": 789654, "timestamp": 1601481472, '
+                              b'"extraValues": {"0x1234567890abcdef1234567890abcdef12345678": {"inOutDelta": '
+                              b'"1234567890000000000", "prevFee": "400", "infraFee": "100", "liquidityFee": "200", '
+                              b'"reservationFee": "300"}}, "prevTreeCID": "prev_tree_cid", "leafIndexToData": {'
+                              b'"vaultAddress": 0, "totalValueWei": 1, "fee": 2, "liabilityShares": 3, '
+                              b'"slashingReserve": 4}}')
+        w3_mock.ipfs.fetch.return_value = mock_fetched_bytes
+
+        staking_vaults = StakingVaultsService(w3_mock)
+        test_cid = "QmMockCID123"
+        result = staking_vaults.get_ipfs_report(test_cid)
+
+        assert result.tree[0] == '0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee'
+
+        with pytest.raises(ValueError, match="Arg ipfs_report_cid could not be ''"):
+            staking_vaults.get_ipfs_report('')
+
+    @pytest.mark.unit
+    def test_get_start_point_happy_path_with_valid_ipfs(self):
+        web3 = MagicMock()
+        web3.cc.get_block_header.return_value = BlockHeaderFullResponse(
+            execution_optimistic=MagicMock(),
+            data=BlockHeaderResponseData(
+                root=MagicMock(),
+                canonical=MagicMock(),
+                header=BlockHeader(
+                    message=BlockHeaderMessage(
+                        slot=SlotNumber(10_000),
+                        proposer_index=MagicMock(),
+                        parent_root=MagicMock(),
+                        state_root=MagicMock(),
+                        body_root=MagicMock(),
+                    ),
+                    signature=MagicMock(),
+                ),
+            ),
+            finalized=True
+        )
+
+        expected_block_hash = BlockHash(HexStr("0x0abc1234def56789abc01234def0abcd12345678"))
+        expected_block_number = BlockNumber(5_000)
+        web3.cc.get_block_details.return_value = BlockDetailsResponse(
+            message=BlockMessage(
+                slot=MagicMock(),
+                proposer_index=MagicMock(),
+                parent_root=MagicMock(),
+                state_root=MagicMock(),
+                body=BeaconBlockBody(
+                    execution_payload=ExecutionPayload(
+                        parent_hash=MagicMock(),
+                        block_number=expected_block_number,
+                        timestamp=MagicMock(),
+                        block_hash=expected_block_hash,
+                    ),
+                    attestations=MagicMock(),
+                    sync_aggregate=SyncAggregate(
+                        sync_committee_bits=MagicMock(),
+                    ),
+                ),
+            ),
+            signature=MagicMock(),
+        )
+
+        staking_vaults = StakingVaultsService(w3=web3)
+
+        blockstamp = ReferenceBlockStamp(
+            state_root=StateRoot(HexStr("0xabcabc")),
+            slot_number=SlotNumber(1234),
+            block_hash=BlockHash(HexStr("0xdeadbeef")),
+            block_number=BlockNumber(4321),
+            block_timestamp=Timestamp(1690000000),
+            ref_slot=SlotNumber(1230),
+            ref_epoch=EpochNumber(40),
+        )
+
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100,
+            tree_root=b'\xab\xcd\xef',
+            report_cid="cid123"
+        )
+
+        frame_config = FrameConfig(
+            initial_epoch=10,
+            epochs_per_frame=2,
+            fast_lane_length_slots=16
+        )
+
+        chain_config = ChainConfig(
+            slots_per_epoch=32,
+            seconds_per_slot=12,
+            genesis_time=1600000000
+        )
+
+        # previous report mocked
+        expected_report_root = "0xabcdef"
+        prev_report = StakingVaultIpfsReport(
+            format=MagicMock(),
+            leaf_encoding=MagicMock(),
+            tree=[
+                expected_report_root
+            ],
+            values=MagicMock(),
+            ref_slot=MagicMock(),
+            block_number=MagicMock(),
+            block_hash=MagicMock(),
+            timestamp=MagicMock(),
+            prev_tree_cid=MagicMock(),
+            extra_values=MagicMock(),
+        )
+
+        # get_ipfs_report returns prev_report
+        staking_vaults.get_ipfs_report = MagicMock(return_value=prev_report)
+        staking_vaults.is_tree_root_valid = MagicMock(return_value=True)
+        staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=SlotNumber(6400))
+
+        repot, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(blockstamp, ipfs_data, frame_config, chain_config)
+
+        assert repot.tree[0] == expected_report_root
+        assert block_number == expected_block_number
+        assert block_hash == expected_block_hash
+
+    @pytest.mark.unit
+    def test_get_start_point_invalid_tree_root_raises(self):
+        staking_vaults = StakingVaultsService(w3=MagicMock())
+
+        blockstamp = ReferenceBlockStamp(
+            state_root=StateRoot(HexStr("0xabcabc")),
+            slot_number=SlotNumber(1234),
+            block_hash=BlockHash(HexStr("0xdeadbeef")),
+            block_number=BlockNumber(4321),
+            block_timestamp=Timestamp(1690000000),
+            ref_slot=SlotNumber(1230),
+            ref_epoch=EpochNumber(40),
+        )
+
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100,
+            tree_root=b'\xab\xcd\xef',
+            report_cid="cid123"
+        )
+
+        frame_config = FrameConfig(
+            initial_epoch=10,
+            epochs_per_frame=2,
+            fast_lane_length_slots=16
+        )
+
+        chain_config = ChainConfig(
+            slots_per_epoch=32,
+            seconds_per_slot=12,
+            genesis_time=1600000000
+        )
+
+        fake_prev_report = StakingVaultIpfsReport(
+            format=MagicMock(),
+            leaf_encoding=MagicMock(),
+            tree=["0xWRONGROOT"],
+            values=MagicMock(),
+            ref_slot=MagicMock(),
+            block_number=MagicMock(),
+            block_hash=MagicMock(),
+            timestamp=MagicMock(),
+            prev_tree_cid=MagicMock(),
+            extra_values=MagicMock(),
+        )
+
+        staking_vaults.get_ipfs_report = MagicMock(return_value=fake_prev_report)
+        staking_vaults.is_tree_root_valid = MagicMock(return_value=False)
+
+        with pytest.raises(ValueError) as exc_info:
+            staking_vaults._get_start_point_for_fee_calculations(blockstamp, ipfs_data, frame_config, chain_config)
+
+        expected_hex = Web3.to_hex(ipfs_data.tree_root)
+        assert f"Expected: {expected_hex}" in str(exc_info.value)
+
+    @pytest.mark.unit
+    def test_get_start_point_no_ipfs_but_has_oracle_data(self):
+        web3 = MagicMock()
+
+        expected_block_hash = BlockHash(HexStr("0x0abc1234def56789abc01234def0abcd12345678"))
+        expected_block_number = BlockNumber(5_000)
+
+        web3.cc.get_block_details.return_value = BlockDetailsResponse(
+            message=BlockMessage(
+                slot=MagicMock(),
+                proposer_index=MagicMock(),
+                parent_root=MagicMock(),
+                state_root=MagicMock(),
+                body=BeaconBlockBody(
+                    execution_payload=ExecutionPayload(
+                        parent_hash=MagicMock(),
+                        block_number=expected_block_number,
+                        timestamp=MagicMock(),
+                        block_hash=expected_block_hash,
+                    ),
+                    attestations=MagicMock(),
+                    sync_aggregate=SyncAggregate(
+                        sync_committee_bits=MagicMock(),
+                    ),
+                ),
+            ),
+            signature=MagicMock(),
+        )
+
+        staking_vaults = StakingVaultsService(w3=web3)
+
+        blockstamp = ReferenceBlockStamp(
+            state_root=StateRoot(HexStr("0xabcabc")),
+            slot_number=SlotNumber(1234),
+            block_hash=BlockHash(HexStr("0xdeadbeef")),
+            block_number=BlockNumber(4321),
+            block_timestamp=Timestamp(1690000000),
+            ref_slot=SlotNumber(1230),
+            ref_epoch=EpochNumber(40),
+        )
+
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100,
+            tree_root=b'',
+            report_cid=""  # NO DATA
+        )
+
+        frame_config = FrameConfig(
+            initial_epoch=10,
+            epochs_per_frame=2,
+            fast_lane_length_slots=16
+        )
+
+        chain_config = ChainConfig(
+            slots_per_epoch=32,
+            seconds_per_slot=12,
+            genesis_time=1600000000
+        )
+
+        slot_val = SlotNumber(6400)
+        staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(
+            return_value=slot_val)
+
+        prev_report, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+            blockstamp,
+            ipfs_data,
+            frame_config,
+            chain_config,
+        )
+
+        assert prev_report is None
+        assert block_number == expected_block_number
+        assert block_hash == expected_block_hash
+
+    @pytest.mark.unit
+    def test_get_start_point_fresh_devnet_case(self):
+        web3 = MagicMock()
+
+        expected_block_hash = BlockHash(HexStr("0x0abc1234def56789abc01234def0abcd12345678"))
+        expected_block_number = BlockNumber(6000)
+
+        web3.cc.get_block_details.return_value = BlockDetailsResponse(
+            message=BlockMessage(
+                slot=MagicMock(),
+                proposer_index=MagicMock(),
+                parent_root=MagicMock(),
+                state_root=MagicMock(),
+                body=BeaconBlockBody(
+                    execution_payload=ExecutionPayload(
+                        parent_hash=MagicMock(),
+                        block_number=expected_block_number,
+                        timestamp=MagicMock(),
+                        block_hash=expected_block_hash,
+                    ),
+                    attestations=MagicMock(),
+                    sync_aggregate=SyncAggregate(sync_committee_bits=MagicMock()),
+                ),
+            ),
+            signature=MagicMock(),
+        )
+
+        staking_vaults = StakingVaultsService(w3=web3)
+
+        blockstamp = ReferenceBlockStamp(
+            state_root=StateRoot(HexStr("0xabcabc")),
+            slot_number=SlotNumber(1234),
+            block_hash=BlockHash(HexStr("0xdeadbeef")),
+            block_number=BlockNumber(4321),
+            block_timestamp=Timestamp(1690000000),
+            ref_slot=SlotNumber(1230),
+            ref_epoch=EpochNumber(40),
+        )
+
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100,
+            tree_root=b'\xab\xcd\xef',
+            report_cid=""  # важно!
+        )
+
+        frame_config = FrameConfig(
+            initial_epoch=10,
+            epochs_per_frame=2,
+            fast_lane_length_slots=16
+        )
+
+        chain_config = ChainConfig(
+            slots_per_epoch=32,
+            seconds_per_slot=12,
+            genesis_time=1600000000
+        )
+
+        # NO DATA from prev report
+        staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=None)
+
+        prev_report, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+            blockstamp, ipfs_data, frame_config, chain_config
+        )
+
+        assert prev_report is None
+        assert block_number == expected_block_number
+        assert block_hash == expected_block_hash
