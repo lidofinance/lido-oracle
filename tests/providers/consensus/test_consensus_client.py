@@ -83,7 +83,7 @@ def test_get_sync_committee(consensus_client: ConsensusClient):
     consensus_client._get = Mock(
         side_effect=[
             NotOkResponse(status=404, text=consensus_client.PRYSM_STATE_NOT_FOUND_ERROR),
-            (sync_committee.__dict__, "dummy_metadata")
+            (sync_committee.__dict__, "dummy_metadata"),
         ]
     )
     sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
