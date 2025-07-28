@@ -170,15 +170,14 @@ class FrameCheckpointProcessor:
         # If `s` is `checkpoint_slot -> state.slot`, then it cannot yet be in `block_roots`.
         # So it is the index that will be overwritten in the next slot, i.e. the index of the oldest root.
         pivot_index = checkpoint_slot % SLOTS_PER_HISTORICAL_ROOT
-
-        # Replace duplicated roots with `None` to mark missing slots
-        br = [br[i] if i == pivot_index or br[i] != br[i - 1] else None for i in range(len(br))]
-
         # The oldest root can be missing, so we need to check it and mark it as well as other missing slots
         pivot_block_root = br[pivot_index]
         slot_by_pivot_block_root = self.cc.get_block_header(pivot_block_root).data.header.message.slot
-        calculated_pivot_slot = checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT
+        calculated_pivot_slot = max(checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT, 0)
         is_pivot_missing = slot_by_pivot_block_root != calculated_pivot_slot
+
+        # Replace duplicated roots with `None` to mark missing slots
+        br = [br[i] if i == pivot_index or br[i] != br[i - 1] else None for i in range(len(br))]
         if is_pivot_missing:
             br[pivot_index] = None
 
