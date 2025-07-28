@@ -141,14 +141,14 @@ def mock_get_state_block_roots(consensus_client, missing_slots):
 
     def _get_state_block_roots(state_id: int):
         roots_count = 8192
-        br = ["0x0"] * roots_count
+        br = [checkpoint_module.ZERO_BLOCK_ROOT] * roots_count
         for i in range(min(roots_count, state_id), 0, -1):
             slot = state_id - i
             index = slot % roots_count
             prev_slot_index = (slot - 1) % roots_count
             br[index] = br[prev_slot_index] if slot in missing_slots else f"0x{slot}"
         oldest_slot = max(state_id - roots_count, 0)
-        oldest_slot_index = state_id % roots_count
+        oldest_slot_index = oldest_slot % roots_count
         br[oldest_slot_index] = f"0x{max(oldest_slot - 1, 0)}" if oldest_slot in missing_slots else f"0x{oldest_slot}"
         return br
 
@@ -165,6 +165,8 @@ def mock_get_state_block_roots(consensus_client, missing_slots):
 @pytest.mark.parametrize(
     "state_id, missing_slots, expected_existing_roots_count",
     [
+        pytest.param(5, set(), 5, id="chain before 8192 slots"),
+        pytest.param(15, {1, 3}, 13, id="missing slots in chain before 8192 slots"),
         pytest.param(8192, set(), 8192, id="all slots present"),
         pytest.param(8192, {8191}, 8191, id="last slot is missing"),
         pytest.param(8192, {100, 2543, 3666, 4444, 8191}, 8187, id="multiple missing slots"),
