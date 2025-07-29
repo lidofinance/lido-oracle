@@ -7,6 +7,7 @@ from tests.integration.contracts.contract_utils import (
 )
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_vebo(validators_exit_bus_oracle_contract, caplog):
     check_contract(

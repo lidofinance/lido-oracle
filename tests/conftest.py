@@ -9,6 +9,7 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
+from src.main import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.providers.ipfs import MultiIPFSProvider
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -100,8 +101,10 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'EXECUTION_CLIENT_URI', TESTNET_EXECUTION_CLIENT_URI)
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
 
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79CEf36D84743222f37765204Bec41E92a93E59d')
+        # TODO: temporary from https://docs.lido.fi/deployed-contracts/hoodi-lidov3, need to
+        # TODO: revert to https://docs.lido.fi/deployed-contracts/hoodi after vaults deploy
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xD7c1B80fA86965B48cCA3aDcCB08E1DAEa291980')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
     yield
 
@@ -172,6 +175,10 @@ def web3_integration() -> Generator[Web3, None, None]:
             'transaction': TransactionUtils,
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
+            'ipfs': lambda: MultiIPFSProvider(
+                ipfs_providers(),
+                retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
+            ),
         }
     )
 

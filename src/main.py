@@ -6,6 +6,7 @@ from prometheus_client import start_http_server
 from web3_multi_provider.metrics import init_metrics
 
 from src import constants, variables
+from src.constants import PRECISION_E27
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
@@ -28,6 +29,9 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
+from decimal import getcontext
+
+getcontext().prec = PRECISION_E27
 
 logger = logging.getLogger(__name__)
 
