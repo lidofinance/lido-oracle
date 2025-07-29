@@ -95,7 +95,7 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._consensus_version = 0
+        self._version = STATE_VERSION
 
     @property
     def version(self) -> int | None:
