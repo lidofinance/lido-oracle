@@ -132,39 +132,52 @@ def consensus_client():
 
 
 @pytest.fixture
-def mock_get_state_block_roots(consensus_client):
-    def _get_state_block_roots(state_id):
-        return [f'0x{r}' for r in range(state_id, state_id + 8192)]
-
-    consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
+def missing_slots():
+    return set()
 
 
 @pytest.fixture
-def mock_get_state_block_roots_with_duplicates(consensus_client):
-    def _get_state_block_roots(state_id):
-        br = [f'0x{r}' for r in range(0, 8192)]
-        return [br[i - 1] if i % 2 == 0 else br[i] for i in range(len(br))]
+def mock_get_state_block_roots(consensus_client, missing_slots):
+
+    def _get_state_block_roots(state_id: int):
+        roots_count = 8192
+        br = [checkpoint_module.ZERO_BLOCK_ROOT] * roots_count
+        for i in range(min(roots_count, state_id), 0, -1):
+            slot = state_id - i
+            index = slot % roots_count
+            prev_slot_index = (slot - 1) % roots_count
+            br[index] = br[prev_slot_index] if slot in missing_slots else f"0x{slot}"
+        oldest_slot = max(state_id - roots_count, 0)
+        oldest_slot_index = oldest_slot % roots_count
+        br[oldest_slot_index] = f"0x{max(oldest_slot - 1, 0)}" if oldest_slot in missing_slots else f"0x{oldest_slot}"
+        return br
+
+    def _get_block_header(state_id: str):
+        return Mock(
+            data=Mock(header=Mock(message=Mock(slot=int(state_id.split('0x')[1])))),
+        )
 
     consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
+    consensus_client.get_block_header = Mock(side_effect=_get_block_header)
 
 
 @pytest.mark.unit
-def test_checkpoints_processor_get_block_roots(consensus_client, mock_get_state_block_roots, converter: Web3Converter):
-    state = ...
-    finalized_blockstamp = ...
-    processor = FrameCheckpointProcessor(
-        consensus_client,
-        converter,
-        state,
-        finalized_blockstamp,
-    )
-    roots = processor._get_block_roots(0)
-    assert len([r for r in roots if r is not None]) == 8192
-
-
-@pytest.mark.unit
-def test_checkpoints_processor_get_block_roots_with_duplicates(
-    consensus_client, mock_get_state_block_roots_with_duplicates, converter: Web3Converter
+@pytest.mark.parametrize(
+    "state_id, missing_slots, expected_existing_roots_count",
+    [
+        pytest.param(5, set(), 5, id="chain before 8192 slots"),
+        pytest.param(15, {1, 3}, 13, id="missing slots in chain before 8192 slots"),
+        pytest.param(8192, set(), 8192, id="all slots present"),
+        pytest.param(8192, {8191}, 8191, id="last slot is missing"),
+        pytest.param(8192, {100, 2543, 3666, 4444, 8191}, 8187, id="multiple missing slots"),
+        pytest.param(8192, {1000, 1001, 1002, 1003, 1004, 1005}, 8186, id="multiple missing slots in a row"),
+        pytest.param(8192, {8193}, 8192, id="future missing slot"),
+        pytest.param(100500, {11}, 8192, id="past missing slot"),
+        pytest.param(15000, {15000 - 8192}, 8191, id="the oldest slot is missing"),
+    ],
+)
+def test_checkpoints_processor_get_block_roots(
+    consensus_client, mock_get_state_block_roots, converter: Web3Converter, state_id, expected_existing_roots_count
 ):
     state = ...
     finalized_blockstamp = ...
@@ -174,8 +187,8 @@ def test_checkpoints_processor_get_block_roots_with_duplicates(
         state,
         finalized_blockstamp,
     )
-    roots = processor._get_block_roots(1)
-    assert len([r for r in roots if r is not None]) == 4096
+    roots = processor._get_block_roots(state_id)
+    assert len([r for r in roots if r is not None]) == expected_existing_roots_count
 
 
 @pytest.fixture
@@ -197,7 +210,7 @@ def test_checkpoints_processor_select_block_roots(
         converter,
         finalized_blockstamp,
     )
-    roots = processor._get_block_roots(0)
+    roots = processor._get_block_roots(8192)
     selected = processor._select_block_roots(roots, 10, 8192)
     duty_epoch_roots, next_epoch_roots = selected
     assert len(duty_epoch_roots) == 32
@@ -218,7 +231,7 @@ def test_checkpoints_processor_select_block_roots_out_of_range(
         converter,
         finalized_blockstamp,
     )
-    roots = processor._get_block_roots(0)
+    roots = processor._get_block_roots(8192)
     with pytest.raises(checkpoint_module.SlotOutOfRootsRange, match="Slot is out of the state block roots range"):
         processor._select_block_roots(roots, 255, 8192)
 
