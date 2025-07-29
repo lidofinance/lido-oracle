@@ -156,8 +156,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
 
-        consensus_version = self.get_consensus_version(blockstamp)
-
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -188,7 +186,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame, consensus_version)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
         if self.state.is_fulfilled:

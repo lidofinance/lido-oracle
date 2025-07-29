@@ -65,6 +65,9 @@ class NetworkDuties:
 type Frame = tuple[EpochNumber, EpochNumber]
 type StateData = dict[Frame, NetworkDuties]
 
+# NOTE: Do not forget to bump if needed to discard cache.
+STATE_VERSION = 1
+
 
 class State:
     # pylint: disable=too-many-public-methods
@@ -84,7 +87,9 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _consensus_version: int
+    _version: int
+
+    EXTENSION = ".pkl"
 
     def __init__(self) -> None:
         self.data = {}
@@ -92,7 +97,9 @@ class State:
         self._processed_epochs = set()
         self._consensus_version = 0
 
-    EXTENSION = ".pkl"
+    @property
+    def version(self) -> int | None:
+        return getattr(self, "_version", None)
 
     @classmethod
     def load(cls) -> Self:
@@ -185,16 +192,15 @@ class State:
     def log_progress(self) -> None:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
-    def migrate(
-        self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int
-    ) -> None:
-        if self._consensus_version and consensus_version != self._consensus_version:
-            logger.warning(
-                {
-                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
-                    f"Discarding data to migrate to consensus version {consensus_version}"
-                }
-            )
+    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
+        if self.version != STATE_VERSION:
+            if self.version is not None:
+                logger.warning(
+                    {
+                        "msg": f"Cache was built with version={self.version}. "
+                        f"Discarding data to migrate to cache version={STATE_VERSION}"
+                    }
+                )
             self.clear()
 
         new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
@@ -205,7 +211,7 @@ class State:
 
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._consensus_version = consensus_version
+        self._version = STATE_VERSION
         self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):
