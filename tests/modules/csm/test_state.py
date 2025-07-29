@@ -346,7 +346,6 @@ def test_migrate_discards_data_on_version_change():
 @pytest.mark.unit
 def test_migrate_no_migration_needed():
     state = State()
-    state._consensus_version = 1
     state.data = {
         (0, 31): defaultdict(DutyAccumulator),
         (32, 63): defaultdict(DutyAccumulator),
@@ -357,14 +356,13 @@ def test_migrate_no_migration_needed():
 
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state._consensus_version == 1
+    assert state.version == STATE_VERSION
     state.commit.assert_not_called()
 
 
 @pytest.mark.unit
 def test_migrate_migrates_data():
     state = State()
-    state._consensus_version = 1
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -389,7 +387,7 @@ def test_migrate_migrates_data():
     }
     assert state.frames == [(0, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state._consensus_version == 1
+    assert state.version == STATE_VERSION
     state.commit.assert_called_once()
 
 
