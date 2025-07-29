@@ -14,3 +14,4 @@ Describe how you tested the changes:
 ## Checklist
 - [ ] Documentation updated (if required)
 - [ ] New tests added (if applicable)
+- [ ] `STATE_VERSION` in CSM is bumped (if applicable)
