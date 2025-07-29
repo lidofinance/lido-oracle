@@ -163,7 +163,6 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
-        self._consensus_version = 0
         assert self.is_empty
 
     @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
