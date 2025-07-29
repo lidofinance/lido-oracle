@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Self
 
 from src import variables
+from src.constants import CSM_STATE_VERSION
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -65,9 +66,6 @@ class NetworkDuties:
 type Frame = tuple[EpochNumber, EpochNumber]
 type StateData = dict[Frame, NetworkDuties]
 
-# NOTE: Do not forget to bump if needed to discard cache.
-STATE_VERSION = 1
-
 
 class State:
     # pylint: disable=too-many-public-methods
@@ -95,7 +93,7 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._version = STATE_VERSION
+        self._version = CSM_STATE_VERSION
 
     @property
     def version(self) -> int | None:
@@ -192,12 +190,12 @@ class State:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
-        if self.version != STATE_VERSION:
+        if self.version != CSM_STATE_VERSION:
             if self.version is not None:
                 logger.warning(
                     {
                         "msg": f"Cache was built with version={self.version}. "
-                        f"Discarding data to migrate to cache version={STATE_VERSION}"
+                        f"Discarding data to migrate to cache version={CSM_STATE_VERSION}"
                     }
                 )
             self.clear()
@@ -210,7 +208,7 @@ class State:
 
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._version = STATE_VERSION
+        self._version = CSM_STATE_VERSION
         self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):

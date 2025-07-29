@@ -7,7 +7,8 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.modules.csm.state import STATE_VERSION, DutyAccumulator, InvalidState, NetworkDuties, State
+from src.constants import CSM_STATE_VERSION
+from src.modules.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 
@@ -331,7 +332,7 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
 @pytest.mark.unit
 def test_migrate_discards_data_on_version_change():
     state = State()
-    state._version = STATE_VERSION + 1
+    state._version = CSM_STATE_VERSION + 1
     state.clear = Mock()
     state.commit = Mock()
     state.migrate(0, 63, 32)
@@ -340,7 +341,7 @@ def test_migrate_discards_data_on_version_change():
     state.commit.assert_called_once()
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == STATE_VERSION
+    assert state.version == CSM_STATE_VERSION
 
 
 @pytest.mark.unit
@@ -356,7 +357,7 @@ def test_migrate_no_migration_needed():
 
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == STATE_VERSION
+    assert state.version == CSM_STATE_VERSION
     state.commit.assert_not_called()
 
 
@@ -387,7 +388,7 @@ def test_migrate_migrates_data():
     }
     assert state.frames == [(0, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == STATE_VERSION
+    assert state.version == CSM_STATE_VERSION
     state.commit.assert_called_once()
 
 
