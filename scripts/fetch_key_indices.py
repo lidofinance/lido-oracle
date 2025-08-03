@@ -10,12 +10,31 @@ This script:
 5. Encodes the data similar to the oracle's approach
 
 Example usage:
+    # Using specific public keys
     python scripts/fetch_key_indices.py \
         --kapi-url ... \
         --cl-url ... \
         --operator-id 38 \
         --module-id 1 \
         --public-keys 0x9230d23e9e516d950be5ade42ae270021062628cea83b6a8a5207e5e6fe36af320545257306b968556d9f9a4648a2f9e
+
+    # Using key range (much more convenient for bulk operations)
+    python scripts/fetch_key_indices.py \
+        --kapi-url ... \
+        --cl-url ... \
+        --operator-id 38 \
+        --module-id 1 \
+        --key-range 100 300
+        --output-format abi-hex
+
+    # Output as ABI-encoded hex for Solidity contract (single key by index)
+    python scripts/fetch_key_indices.py \
+        --kapi-url ... \
+        --cl-url ... \
+        --operator-id 38 \
+        --module-id 1 \
+        --key-range 549 549 \
+        --output-format abi-hex
 """
 
 import argparse
@@ -25,6 +44,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import requests
+from eth_abi import encode
 from eth_typing import HexStr
 
 
@@ -56,6 +76,53 @@ class ExitRequestInput:
     valIndex: int
     valPubkey: HexStr
     valPubKeyIndex: int
+
+def encode_exit_requests_abi(exit_requests: List[ExitRequestInput]) -> bytes:
+    """
+    ABI encode exit requests as array of structs for Solidity contract
+    
+    This creates the _evmScriptCallData that can be passed to:
+    function createEVMScript(address _creator, bytes memory _evmScriptCallData)
+    
+    The contract expects: SubmitExitRequestHashesUtils.ExitRequestInput[] memory
+    
+    Args:
+        exit_requests: List of exit request inputs
+        
+    Returns:
+        ABI-encoded bytes data ready for Solidity contract
+    """
+    # Convert to format suitable for ABI encoding
+    # Each struct becomes a tuple: (uint256, uint256, uint64, bytes, uint256)
+    struct_tuples = []
+    
+    for req in exit_requests:
+        # Convert public key to bytes
+        if req.valPubkey.startswith('0x'):
+            pubkey_hex = req.valPubkey[2:]
+        else:
+            pubkey_hex = req.valPubkey
+        
+        pubkey_bytes = bytes.fromhex(pubkey_hex)
+        if len(pubkey_bytes) != 48:
+            raise ValueError(f'Invalid public key length: {len(pubkey_bytes)} bytes, expected 48')
+        
+        struct_tuples.append((
+            req.moduleId,      # uint256
+            req.nodeOpId,      # uint256
+            req.valIndex,      # uint64
+            pubkey_bytes,      # bytes
+            req.valPubKeyIndex # uint256
+        ))
+    
+    # ABI encode as array of structs
+    # The type signature matches: (uint256,uint256,uint64,bytes,uint256)[]
+    encoded = encode(
+        ['(uint256,uint256,uint64,bytes,uint256)[]'],
+        [struct_tuples]
+    )
+    
+    return encoded
 
 
 class KeysAPIClient:
@@ -299,14 +366,66 @@ def encode_exit_requests(exit_requests: List[ExitRequestInput]) -> bytes:
     return result
 
 
+def get_keys_by_range(operator_keys: List[KeyData], from_key: int, to_key: int) -> List[HexStr]:
+    """
+    Get public keys from a range of key indices
+    
+    Args:
+        operator_keys: List of all operator keys
+        from_key: Starting key index (inclusive)
+        to_key: Ending key index (inclusive)
+        
+    Returns:
+        List of public keys in the specified range
+    """
+    if from_key > to_key:
+        raise ValueError(f"Invalid range: from_key ({from_key}) must be <= to_key ({to_key})")
+    
+    # Create mapping from index to key
+    index_to_key = {key.index: key.key for key in operator_keys}
+    
+    # Get all available indices in sorted order
+    available_indices = sorted(index_to_key.keys())
+    
+    if not available_indices:
+        raise ValueError("No keys found for the operator")
+    
+    # Check if the range is valid
+    min_available = min(available_indices)
+    max_available = max(available_indices)
+    
+    if from_key < min_available:
+        raise ValueError(f"from_key ({from_key}) is less than minimum available index ({min_available})")
+    
+    if to_key > max_available:
+        raise ValueError(f"to_key ({to_key}) is greater than maximum available index ({max_available})")
+    
+    # Get keys in the specified range
+    selected_keys = []
+    for idx in range(from_key, to_key + 1):
+        if idx in index_to_key:
+            selected_keys.append(index_to_key[idx])
+        else:
+            print(f"Warning: Key index {idx} not found for operator, skipping")
+    
+    if not selected_keys:
+        raise ValueError(f"No keys found in the range {from_key} to {to_key}")
+    
+    return selected_keys
+
+
 def main():
     parser = argparse.ArgumentParser(description='Fetch key indices from Lido Keys API and validator indices from CL, then encode exit request data')
     parser.add_argument('--kapi-url', required=True, help='Keys API base URL (e.g., https://keys-api.lido.fi)')
     parser.add_argument('--cl-url', required=True, help='Consensus Layer API base URL (e.g., https://beacon-api.example.com)')
     parser.add_argument('--operator-id', type=int, required=True, help='Node operator ID')
     parser.add_argument('--module-id', type=int, required=True, help='Staking module ID')
-    parser.add_argument('--public-keys', nargs='+', required=True, help='List of validator public keys')
-    parser.add_argument('--output-format', choices=['json', 'hex', 'bytes'], default='json', help='Output format')
+    # Key selection options (mutually exclusive)
+    key_group = parser.add_mutually_exclusive_group(required=True)
+    key_group.add_argument('--public-keys', nargs='+', help='List of validator public keys')
+    key_group.add_argument('--key-range', nargs=2, type=int, metavar=('FROM_KEY', 'TO_KEY'), 
+                          help='Range of key indices in the module (e.g., --key-range 100 300)')
+    parser.add_argument('--output-format', choices=['json', 'hex', 'bytes', 'abi-encoded', 'abi-hex'], default='json', help='Output format')
     parser.add_argument('--output-file', help='Output file path (optional)')
     
     args = parser.parse_args()
@@ -325,22 +444,32 @@ def main():
         # Create mapping from public key to key index
         key_index_mapping = create_pubkey_to_index_mapping(operator_keys)
         
+        # Determine which public keys to process
+        if args.public_keys:
+            public_keys_to_process = args.public_keys
+            print(f"Processing {len(public_keys_to_process)} specified public keys")
+        else:
+            # Use key range
+            from_key, to_key = args.key_range
+            public_keys_to_process = get_keys_by_range(operator_keys, from_key, to_key)
+            print(f"Processing {len(public_keys_to_process)} keys from range {from_key} to {to_key}")
+        
         # Validate that all requested keys are available
-        missing_keys = validate_public_keys(args.public_keys, key_index_mapping)
+        missing_keys = validate_public_keys(public_keys_to_process, key_index_mapping)
         if missing_keys:
             print(f"Error: The following public keys were not found for operator {args.operator_id}:")
             for key in missing_keys:
                 print(f"  - {key}")
             sys.exit(1)
         
-        print(f"Fetching validator indices from CL for {len(args.public_keys)} validators...")
+        print(f"Fetching validator indices from CL for {len(public_keys_to_process)} validators...")
         
         # Fetch validator information from CL
-        validators_info = cl_client.get_validators_by_pubkeys(args.public_keys)
+        validators_info = cl_client.get_validators_by_pubkeys(public_keys_to_process)
         
         # Check if all validators were found in CL
         missing_validators = []
-        for pubkey in args.public_keys:
+        for pubkey in public_keys_to_process:
             if pubkey.lower() not in validators_info:
                 missing_validators.append(pubkey)
         
@@ -354,7 +483,7 @@ def main():
         exit_requests = create_exit_requests(
             args.module_id,
             args.operator_id,
-            args.public_keys,
+            public_keys_to_process,
             validators_info,
             key_index_mapping
         )
@@ -397,8 +526,15 @@ def main():
         elif args.output_format == 'bytes':
             encoded_bytes = encode_exit_requests(exit_requests)
             output = str(list(encoded_bytes))
+            
+        elif args.output_format == 'abi-encoded':
+            encoded_bytes = encode_exit_requests_abi(exit_requests)
+            output = str(list(encoded_bytes))
+            
+        elif args.output_format == 'abi-hex':
+            encoded_bytes = encode_exit_requests_abi(exit_requests)
+            output = f"0x{encoded_bytes.hex()}"        
         
-        # Output results
         if args.output_file:
             with open(args.output_file, 'w') as f:
                 f.write(output)
