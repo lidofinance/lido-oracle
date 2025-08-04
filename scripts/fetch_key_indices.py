@@ -35,6 +35,15 @@ Example usage:
         --module-id 1 \
         --key-range 549 549 \
         --output-format abi-hex
+
+    # Output as ExitRequestsData struct (ejector format)
+    python scripts/fetch_key_indices.py \
+        --kapi-url ... \
+        --cl-url ... \
+        --operator-id 38 \
+        --module-id 1 \
+        --key-range 0 199 \
+        --output-format exit-data-abi
 """
 
 import argparse
@@ -123,6 +132,58 @@ def encode_exit_requests_abi(exit_requests: List[ExitRequestInput]) -> bytes:
     )
     
     return encoded
+
+
+def encode_exit_requests_data_abi(exit_requests: List[ExitRequestInput]) -> bytes:
+    """
+    ABI encode exit requests as ExitRequestsData struct for Solidity contract
+    
+    This creates raw encoded bytes matching the original ejector format (WITHOUT valPubKeyIndex)
+    
+    Format:
+    MSB <------------------------------------------------------- LSB
+    |  3 bytes   |  5 bytes   |     8 bytes      |    48 bytes     |
+    |  moduleId  |  nodeOpId  |  validatorIndex  | validatorPubkey |
+    
+    Args:
+        exit_requests: List of exit request inputs
+        
+    Returns:
+        ABI-encoded ExitRequestsData struct
+    """
+    # Constants matching the original ejector format
+    MODULE_ID_LENGTH = 3      # 3 bytes
+    NODE_OPERATOR_ID_LENGTH = 5  # 5 bytes
+    VALIDATOR_INDEX_LENGTH = 8   # 8 bytes
+    VALIDATOR_PUB_KEY_LENGTH = 48  # 48 bytes
+    
+    # Encode the inner data (matching original ejector format)
+    inner_data = b''
+    
+    for request in exit_requests:
+        # Module ID (3 bytes) - matching original format
+        inner_data += request.moduleId.to_bytes(MODULE_ID_LENGTH, byteorder='big')
+        
+        # Node Operator ID (5 bytes) - matching original format  
+        inner_data += request.nodeOpId.to_bytes(NODE_OPERATOR_ID_LENGTH, byteorder='big')
+        
+        # Validator Index (8 bytes)
+        inner_data += request.valIndex.to_bytes(VALIDATOR_INDEX_LENGTH, byteorder='big')
+        
+        # Validator Public Key (48 bytes)
+        if request.valPubkey.startswith('0x'):
+            pubkey_hex = request.valPubkey[2:]
+        else:
+            pubkey_hex = request.valPubkey
+            
+        pubkey_bytes = bytes.fromhex(pubkey_hex)
+        if len(pubkey_bytes) != VALIDATOR_PUB_KEY_LENGTH:
+            raise ValueError(f'Invalid public key length: {len(pubkey_bytes)} bytes, expected {VALIDATOR_PUB_KEY_LENGTH}')
+        inner_data += pubkey_bytes
+        
+        # Note: NOT including valPubKeyIndex in this format (matches original ejector)
+    
+    return inner_data
 
 
 class KeysAPIClient:
@@ -425,7 +486,7 @@ def main():
     key_group.add_argument('--public-keys', nargs='+', help='List of validator public keys')
     key_group.add_argument('--key-range', nargs=2, type=int, metavar=('FROM_KEY', 'TO_KEY'), 
                           help='Range of key indices in the module (e.g., --key-range 100 300)')
-    parser.add_argument('--output-format', choices=['json', 'hex', 'bytes', 'abi-encoded', 'abi-hex'], default='json', help='Output format')
+    parser.add_argument('--output-format', choices=['json', 'hex', 'bytes', 'abi-encoded', 'abi-hex', 'exit-data-abi'], default='json', help='Output format')
     parser.add_argument('--output-file', help='Output file path (optional)')
     
     args = parser.parse_args()
@@ -534,6 +595,10 @@ def main():
         elif args.output_format == 'abi-hex':
             encoded_bytes = encode_exit_requests_abi(exit_requests)
             output = f"0x{encoded_bytes.hex()}"        
+        
+        elif args.output_format == 'exit-data-abi':
+            encoded_bytes = encode_exit_requests_data_abi(exit_requests)
+            output = f"0x{encoded_bytes.hex()}"
         
         if args.output_file:
             with open(args.output_file, 'w') as f:
