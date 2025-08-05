@@ -543,7 +543,12 @@ class StakingVaultsService:
                 last_processing_ref_slot,
                 SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return prev_ipfs_report, ref_block.block_number, ref_block.block_hash
+
+            # Prevent double-counting of vault events:
+            # If any vault-related event occurred in the same block as the previous IPFS report,
+            # it has already been included in that report. To avoid overlapping calculations,
+            # we shift the starting point by one block forward.
+            return prev_ipfs_report, ref_block.block_number + 1, ref_block.block_hash
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet

@@ -1478,7 +1478,7 @@ class TestStakingVaults:
 
         expected_dumped_tree = {
             'format': 'standard-v1',
-            'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'int256'),
+            'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'uint256'),
             'tree': (b'\xdebR\xc9\n\xfe\xb1u\xb7\xe7\x88eX\x11\xee\xce\x8e~\x11\x94>67z'
                      b'wRyG\x9d0\xbc\xee',),
             'blockHash': '0xabc123',
@@ -1703,7 +1703,8 @@ class TestStakingVaults:
         )
 
         expected_block_hash = BlockHash(HexStr("0x0abc1234def56789abc01234def0abcd12345678"))
-        expected_block_number = BlockNumber(5_000)
+        ref_block_number = BlockNumber(5_000)
+        expected_block_number = ref_block_number + 1
         web3.cc.get_block_details.return_value = BlockDetailsResponse(
             message=BlockMessage(
                 slot=MagicMock(),
@@ -1713,7 +1714,7 @@ class TestStakingVaults:
                 body=BeaconBlockBody(
                     execution_payload=ExecutionPayload(
                         parent_hash=MagicMock(),
-                        block_number=expected_block_number,
+                        block_number=ref_block_number,
                         timestamp=MagicMock(),
                         block_hash=expected_block_hash,
                     ),
