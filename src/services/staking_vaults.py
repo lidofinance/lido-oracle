@@ -357,7 +357,7 @@ class StakingVaultsService:
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "int256"))
+        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
 
     @staticmethod
     def get_validators_by_vaults(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
