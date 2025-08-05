@@ -83,10 +83,10 @@ class KeysAPIClient(HTTPProvider):
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
         data = cast(dict, self._get_with_blockstamp(self.USED_MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
-        data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
-
         if (kapi_module_address := data['module']['stakingModuleAddress']) != module_address:
             raise KAPIInconsistentData(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
+
+        data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
 
         return cast(ModuleOperatorsKeys, data)
