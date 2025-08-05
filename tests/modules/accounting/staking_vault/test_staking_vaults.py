@@ -21,7 +21,7 @@ from src.modules.accounting.events import (
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.ipfs import CID
-from src.services.staking_vaults import StakingVaultsService
+from src.services.staking_vaults import StakingVaultsService, MERKLE_TREE_VAULTS_FILENAME
 from src.modules.accounting.types import (
     ExtraValue,
     StakingVaultIpfsReport,
@@ -671,7 +671,8 @@ class TestStakingVaults:
             mock_prev_vault2,
             mock_prev_vault3,
             mock_prev_vault4,
-            mock_prev_vault5
+            mock_prev_vault5,
+            mock_prev_vault6,
         ]
 
         vaults_total_values: VaultTotalValueMap = {
@@ -1560,7 +1561,7 @@ class TestStakingVaults:
         dumped_tree_str = json.dumps(dumped_tree, default=StakingVaultsService.tree_encoder)
         print(dumped_tree_str)
 
-        ipfs_mock.publish.assert_called_with(dumped_tree_str.encode('utf-8'), "merkle_tree.json")
+        ipfs_mock.publish.assert_called_with(dumped_tree_str.encode('utf-8'), MERKLE_TREE_VAULTS_FILENAME)
 
         assert cid == expected_cid
 
