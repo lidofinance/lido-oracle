@@ -21,10 +21,14 @@ empty_blockstamp = ReferenceBlockStampFactory.build(block_number=0)
 
 
 @pytest.mark.integration
-def test_get_used_lido_keys(keys_api_client):
+def test_get_used_lido_keys(keys_api_client: KeysAPIClient):
     lido_keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
+    keys_seen: list[str] = []
     for lido_key in lido_keys:
         assert lido_key.used
+        assert lido_key.key not in keys_seen
+        keys_seen.append(lido_key.key)
+
     assert lido_keys
 
 
@@ -39,10 +43,13 @@ def test_get_used_module_operators_keys__csm_module(keys_api_client: KeysAPIClie
     assert csm_module_operators_keys['module']['id'] >= 0
     assert len(csm_module_operators_keys['keys']) > 0
     assert len(csm_module_operators_keys['operators']) > 0
+    keys_seen: list[str] = []
     for lido_key in csm_module_operators_keys['keys']:
         assert lido_key.used
         assert lido_key.operatorIndex >= 0
         assert Web3.is_address(lido_key.moduleAddress)
+        assert lido_key.key not in keys_seen
+        keys_seen.append(lido_key.key)
     for operator in csm_module_operators_keys['operators']:
         assert operator['index'] >= 0
         assert operator['moduleAddress'] == variables.CSM_MODULE_ADDRESS
