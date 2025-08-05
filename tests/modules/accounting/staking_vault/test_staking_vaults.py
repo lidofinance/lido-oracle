@@ -16,7 +16,8 @@ from src.modules.accounting.events import (
     VaultRebalancedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BadDebtSocializedEvent,
-    VaultConnectedEvent, VaultEventType,
+    VaultConnectedEvent,
+    VaultEventType,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.ipfs import CID
@@ -33,9 +34,20 @@ from src.modules.accounting.types import (
     VaultReserveMap,
     OnChainIpfsVaultReportData,
 )
-from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState, BlockDetailsResponse, BlockMessage, \
-    BeaconBlockBody, ExecutionPayload, SyncAggregate, BlockHeaderFullResponse, BlockHeaderResponseData, BlockHeader, \
-    BlockHeaderMessage
+from src.providers.consensus.types import (
+    PendingDeposit,
+    Validator,
+    ValidatorState,
+    BlockDetailsResponse,
+    BlockMessage,
+    BeaconBlockBody,
+    ExecutionPayload,
+    SyncAggregate,
+    BlockHeaderFullResponse,
+    BlockHeaderResponseData,
+    BlockHeader,
+    BlockHeaderMessage,
+)
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex, ReferenceBlockStamp, StateRoot, BlockHash
 from src.utils.units import gwei_to_wei
 from src.web3py.types import Web3
@@ -444,7 +456,7 @@ class TestStakingVaults:
         result = StakingVaultsService._get_valid_deposits_value(
             vault_withdrawal_credentials=vault_withdrawal_credentials,
             pubkey_deposits=[deposit],
-            genesis_fork_version=genesis_fork_version
+            genesis_fork_version=genesis_fork_version,
         )
 
         # THEN: valid signature, но WC не совпадает => return 0
@@ -503,7 +515,7 @@ class TestStakingVaults:
                 MerkleValue(
                     vault6_adr,  # address
                     MagicMock(),  # total_value_wei
-                    123412,       # Must prove that prev fee didn't applied
+                    123412,  # Must prove that prev fee didn't applied
                     MagicMock(),  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
@@ -672,13 +684,12 @@ class TestStakingVaults:
         }
 
         vaults = {
-            vault6.vault: vault6,
             vault1.vault: vault1,
             vault2.vault: vault2,
             vault3.vault: vault3,
             vault4.vault: vault4,
             vault5.vault: vault5,
-
+            vault6.vault: vault6,
         }
 
         vaults_fee_updated_events = [
@@ -781,7 +792,7 @@ class TestStakingVaults:
                 address=MagicMock(),
                 transaction_hash=MagicMock(),
                 block_hash=MagicMock(),
-            )
+            ),
         ]
 
         vault_connected_events = [
@@ -806,7 +817,7 @@ class TestStakingVaults:
         mock_prev_ipfs_report_cid = OnChainIpfsVaultReportData(
             timestamp=MagicMock(),
             tree_root=MagicMock(),
-            report_cid="report_cid", # for getting prev report data
+            report_cid="report_cid",  # for getting prev report data
         )
 
         # --- Web3 Mock ---
@@ -823,7 +834,9 @@ class TestStakingVaults:
 
         vault_hub_mock.get_vault_rebalanced_events = MagicMock(return_value=vault_rebalance_events)
         vault_hub_mock.get_bad_debt_socialized_events = MagicMock(return_value=bad_debt_socialized_events)
-        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(return_value=written_off_to_be_internalized_events)
+        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(
+            return_value=written_off_to_be_internalized_events
+        )
         vault_hub_mock.get_vault_connected_events = MagicMock(return_value=vault_connected_events)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
@@ -867,42 +880,53 @@ class TestStakingVaults:
                 infra_fee=2907180231545765,
                 liquidity_fee=20513697696886690,
                 reservation_fee=7267950578864411,
-                prev_fee=0
+                prev_fee=0,
             ),
             vault3_adr: VaultFee(
                 infra_fee=2907180231545765,
                 liquidity_fee=20513697696884910,
                 reservation_fee=7267950578864411,
-                prev_fee=0
+                prev_fee=0,
             ),
             vault4_adr: VaultFee(
                 infra_fee=2907180231545765,
                 liquidity_fee=20513697696884910,
                 reservation_fee=7267950578864411,
-                prev_fee=0
+                prev_fee=0,
             ),
             vault5_adr: VaultFee(
                 infra_fee=2907180231545765,
                 liquidity_fee=20513697696884908,
                 reservation_fee=7267950578864411,
-                prev_fee=0
+                prev_fee=0,
             ),
             vault6_adr: VaultFee(
-                infra_fee=2907180231545765,
-                liquidity_fee=0,
-                reservation_fee=7267950578864411,
-                prev_fee=0
-            )
+                infra_fee=2907180231545765, liquidity_fee=0, reservation_fee=7267950578864411, prev_fee=0
+            ),
         }
 
         # That's proof and check that we fetch events from prev_report_number + 1
-        vault_hub_mock.get_vault_fee_updated_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_minted_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_burned_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_vault_rebalanced_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_bad_debt_socialized_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
-        vault_hub_mock.get_vault_connected_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_vault_fee_updated_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_minted_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_burned_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_vault_rebalanced_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_bad_debt_socialized_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
+        vault_hub_mock.get_vault_connected_events.assert_called_once_with(
+            started_block_for_calculation, expected_destination_block
+        )
 
         assert self.expected_total_fee == expected_fees[vault1_adr].total()
         assert actual_fees[ChecksumAddress(HexAddress(HexStr(vault1_adr)))].total() == expected_fees[vault1_adr].total()
@@ -1306,7 +1330,7 @@ class TestStakingVaults:
                 activation_epoch=MagicMock(),
                 exit_epoch=MagicMock(),
                 withdrawable_epoch=mock_ref_epoch,
-            )
+            ),
         )
         validator_2 = Validator(
             index=ValidatorIndex(2),
@@ -1368,26 +1392,26 @@ class TestStakingVaults:
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=8192)
 
         cc_mock = MagicMock()
-        cc_mock.get_validator_state = MagicMock(
-            return_value=validator_1
-        )
+        cc_mock.get_validator_state = MagicMock(return_value=validator_1)
 
         w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
         w3_mock.cc = cc_mock
 
         self.staking_vaults = StakingVaultsService(w3_mock)
-        result = self.staking_vaults.get_vaults_slashing_reserve(
-            ref_block_stamp,
-            vaults_map,
-            validators,
-            chain_config
-        )
+        result = self.staking_vaults.get_vaults_slashing_reserve(ref_block_stamp, vaults_map, validators, chain_config)
 
-        expected_reserve_1 = Decimal(gwei_to_wei(validator_1.balance)) * Decimal(vaults_map[vault_address_1].reserve_ratio_bp) / Decimal(TOTAL_BASIS_POINTS)
+        expected_reserve_1 = (
+            Decimal(gwei_to_wei(validator_1.balance))
+            * Decimal(vaults_map[vault_address_1].reserve_ratio_bp)
+            / Decimal(TOTAL_BASIS_POINTS)
+        )
         expected_reserve_1 = int(expected_reserve_1.to_integral_value(ROUND_UP))
 
-        expected_reserve_2 = Decimal(gwei_to_wei(validator_2.balance)) * Decimal(
-            vaults_map[vault_address_2].reserve_ratio_bp) / Decimal(TOTAL_BASIS_POINTS)
+        expected_reserve_2 = (
+            Decimal(gwei_to_wei(validator_2.balance))
+            * Decimal(vaults_map[vault_address_2].reserve_ratio_bp)
+            / Decimal(TOTAL_BASIS_POINTS)
+        )
         expected_reserve_2 = int(expected_reserve_2.to_integral_value(ROUND_UP))
 
         assert expected_reserve_1 == 2080000000000000000
@@ -1416,17 +1440,13 @@ class TestStakingVaults:
             reservation_fee_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             mintable_st_eth=MagicMock(),
-            in_out_delta=Wei(1_234_567_890_000_000_000)
+            in_out_delta=Wei(1_234_567_890_000_000_000),
         )
 
-        vaults: VaultsMap = {
-            vault_address: vault_info
-        }
+        vaults: VaultsMap = {vault_address: vault_info}
 
         total_value = 1_000_000_000_000_000_000  # 1 ETH
-        vaults_total_values: VaultTotalValueMap = {
-            vault_address: total_value
-        }
+        vaults_total_values: VaultTotalValueMap = {vault_address: total_value}
 
         vault_fee = VaultFee(
             infra_fee=100,
@@ -1434,14 +1454,10 @@ class TestStakingVaults:
             reservation_fee=300,
             prev_fee=400,
         )
-        vaults_fees: VaultFeeMap = {
-            vault_address: vault_fee
-        }
+        vaults_fees: VaultFeeMap = {vault_address: vault_fee}
 
         slashing_reserve_mock = 5555
-        vaults_slashing_reserve: VaultReserveMap = {
-            vault_address: slashing_reserve_mock
-        }
+        vaults_slashing_reserve: VaultReserveMap = {vault_address: slashing_reserve_mock}
 
         tree_data = StakingVaultsService.build_tree_data(
             vaults,
@@ -1480,11 +1496,7 @@ class TestStakingVaults:
 
         prev_tree_cid = 'prev_tree_cid'
 
-        chain_config = ChainConfig(
-            slots_per_epoch=MagicMock(),
-            seconds_per_slot=12,
-            genesis_time=1_600_000_000
-        )
+        chain_config = ChainConfig(slots_per_epoch=MagicMock(), seconds_per_slot=12, genesis_time=1_600_000_000)
 
         dumped_tree = staking_vaults.get_dumped_tree(
             tree=merkle_tree,
@@ -1492,14 +1504,13 @@ class TestStakingVaults:
             bs=bs,
             prev_tree_cid=prev_tree_cid,
             chain_config=chain_config,
-            vaults_fee_map=vaults_fees
+            vaults_fee_map=vaults_fees,
         )
 
         expected_dumped_tree = {
             'format': 'standard-v1',
             'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'uint256'),
-            'tree': (b'\xdebR\xc9\n\xfe\xb1u\xb7\xe7\x88eX\x11\xee\xce\x8e~\x11\x94>67z'
-                     b'wRyG\x9d0\xbc\xee',),
+            'tree': (b'\xdebR\xc9\n\xfe\xb1u\xb7\xe7\x88eX\x11\xee\xce\x8e~\x11\x94>67z' b'wRyG\x9d0\xbc\xee',),
             'blockHash': '0xabc123',
             'blockNumber': bs.block_number,
             'prevTreeCID': 'prev_tree_cid',
@@ -1513,8 +1524,8 @@ class TestStakingVaults:
                         str(vaults_total_values[vault_address]),
                         str(fees),
                         str(vault_info.liability_shares),
-                        str(vaults_slashing_reserve[vault_address])
-                    )
+                        str(vaults_slashing_reserve[vault_address]),
+                    ),
                 }
             ],
             'extraValues': {
@@ -1531,8 +1542,8 @@ class TestStakingVaults:
                 'liabilityShares': 3,
                 'slashingReserve': 4,
                 'totalValueWei': 1,
-                'vaultAddress': 0
-            }
+                'vaultAddress': 0,
+            },
         }
 
         assert dumped_tree == expected_dumped_tree
@@ -1543,16 +1554,13 @@ class TestStakingVaults:
             bs=bs,
             prev_tree_cid=prev_tree_cid,
             chain_config=chain_config,
-            vaults_fee_map=vaults_fees
+            vaults_fee_map=vaults_fees,
         )
 
         dumped_tree_str = json.dumps(dumped_tree, default=StakingVaultsService.tree_encoder)
         print(dumped_tree_str)
 
-        ipfs_mock.publish.assert_called_with(
-            dumped_tree_str.encode('utf-8'),
-            "merkle_tree.json"
-        )
+        ipfs_mock.publish.assert_called_with(dumped_tree_str.encode('utf-8'), "merkle_tree.json")
 
         assert cid == expected_cid
 
@@ -1576,9 +1584,7 @@ class TestStakingVaults:
             in_out_delta=MagicMock(),
         )
 
-        vaults: VaultsMap = {
-            vault_address: vault_info
-        }
+        vaults: VaultsMap = {vault_address: vault_info}
 
         total_value = 1_000_000_000_000_000_000  # 1 ETH
         vaults_total_values: VaultTotalValueMap = {
@@ -1599,7 +1605,7 @@ class TestStakingVaults:
             vault=vault_address,
             balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
-            liability_shares=2880 * 10 ** 18,
+            liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
             reserve_ratio_bp=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -1611,14 +1617,10 @@ class TestStakingVaults:
             in_out_delta=MagicMock(),
         )
 
-        vaults: VaultsMap = {
-            vault_address: vault_info
-        }
+        vaults: VaultsMap = {vault_address: vault_info}
 
         total_value = 1_000_000_000_000_000_000  # 1 ETH
-        vaults_total_values: VaultTotalValueMap = {
-            vault_address: total_value
-        }
+        vaults_total_values: VaultTotalValueMap = {vault_address: total_value}
 
         vault_fee = VaultFee(
             infra_fee=100,
@@ -1630,9 +1632,7 @@ class TestStakingVaults:
             ChecksumAddress(HexAddress(HexStr("0xanother_vault_address_rauses_errror"))): vault_fee
         }
 
-        vaults_slashing_reserve: VaultReserveMap = {
-            vault_address: 5555
-        }
+        vaults_slashing_reserve: VaultReserveMap = {vault_address: 5555}
 
         with pytest.raises(ValueError, match=f"Vault {vault_address} is not in vaults_fees"):
             StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve)
@@ -1645,7 +1645,7 @@ class TestStakingVaults:
         assert result == "0x1234"
 
         # tree_encoder_cid:
-        cid= CID("cid12345")
+        cid = CID("cid12345")
         result = StakingVaultsService.tree_encoder(cid)
         assert result == "cid12345"
 
@@ -1667,27 +1667,29 @@ class TestStakingVaults:
             'ref_epoch': 123451,
             'ref_slot': 123450,
             'slot_number': 123456,
-            'state_root': 'state_root'
+            'state_root': 'state_root',
         }
 
         # tree_encoder_invalid_type:
         with pytest.raises(TypeError, match="Object of type <class 'int'> is not JSON serializable"):
-           StakingVaultsService.tree_encoder(42)
+            StakingVaultsService.tree_encoder(42)
 
     @pytest.mark.unit
     def test_get_ipfs_report(self):
         w3_mock = MagicMock()
-        mock_fetched_bytes = (b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
-                              b'"int256"], "tree": ['
-                              b'"0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee"], "values": [{'
-                              b'"value": ["0x1234567890abcdef1234567890abcdef12345678", "1000000000000000000", '
-                              b'"1000", "2880000000000000000000", "5555"], "treeIndex": 0}], "refSlot": 123450, '
-                              b'"blockHash": "0xabc123", "blockNumber": 789654, "timestamp": 1601481472, '
-                              b'"extraValues": {"0x1234567890abcdef1234567890abcdef12345678": {"inOutDelta": '
-                              b'"1234567890000000000", "prevFee": "400", "infraFee": "100", "liquidityFee": "200", '
-                              b'"reservationFee": "300"}}, "prevTreeCID": "prev_tree_cid", "leafIndexToData": {'
-                              b'"vaultAddress": 0, "totalValueWei": 1, "fee": 2, "liabilityShares": 3, '
-                              b'"slashingReserve": 4}}')
+        mock_fetched_bytes = (
+            b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
+            b'"int256"], "tree": ['
+            b'"0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee"], "values": [{'
+            b'"value": ["0x1234567890abcdef1234567890abcdef12345678", "1000000000000000000", '
+            b'"1000", "2880000000000000000000", "5555"], "treeIndex": 0}], "refSlot": 123450, '
+            b'"blockHash": "0xabc123", "blockNumber": 789654, "timestamp": 1601481472, '
+            b'"extraValues": {"0x1234567890abcdef1234567890abcdef12345678": {"inOutDelta": '
+            b'"1234567890000000000", "prevFee": "400", "infraFee": "100", "liquidityFee": "200", '
+            b'"reservationFee": "300"}}, "prevTreeCID": "prev_tree_cid", "leafIndexToData": {'
+            b'"vaultAddress": 0, "totalValueWei": 1, "fee": 2, "liabilityShares": 3, '
+            b'"slashingReserve": 4}}'
+        )
         w3_mock.ipfs.fetch.return_value = mock_fetched_bytes
 
         staking_vaults = StakingVaultsService(w3_mock)
@@ -1718,7 +1720,7 @@ class TestStakingVaults:
                     signature=MagicMock(),
                 ),
             ),
-            finalized=True
+            finalized=True,
         )
 
         expected_block_hash = BlockHash(HexStr("0x0abc1234def56789abc01234def0abcd12345678"))
@@ -1758,32 +1760,18 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(
-            timestamp=1690000100,
-            tree_root=b'\xab\xcd\xef',
-            report_cid="cid123"
-        )
+        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="cid123")
 
-        frame_config = FrameConfig(
-            initial_epoch=10,
-            epochs_per_frame=2,
-            fast_lane_length_slots=16
-        )
+        frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
-        chain_config = ChainConfig(
-            slots_per_epoch=32,
-            seconds_per_slot=12,
-            genesis_time=1600000000
-        )
+        chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1600000000)
 
         # previous report mocked
         expected_report_root = "0xabcdef"
         prev_report = StakingVaultIpfsReport(
             format=MagicMock(),
             leaf_encoding=MagicMock(),
-            tree=[
-                expected_report_root
-            ],
+            tree=[expected_report_root],
             values=MagicMock(),
             ref_slot=MagicMock(),
             block_number=MagicMock(),
@@ -1796,9 +1784,13 @@ class TestStakingVaults:
         # get_ipfs_report returns prev_report
         staking_vaults.get_ipfs_report = MagicMock(return_value=prev_report)
         staking_vaults.is_tree_root_valid = MagicMock(return_value=True)
-        staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=SlotNumber(6400))
+        staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(
+            return_value=SlotNumber(6400)
+        )
 
-        repot, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(blockstamp, ipfs_data, frame_config, chain_config)
+        repot, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+            blockstamp, ipfs_data, frame_config, chain_config
+        )
 
         assert repot.tree[0] == expected_report_root
         assert block_number == expected_block_number
@@ -1818,23 +1810,11 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(
-            timestamp=1690000100,
-            tree_root=b'\xab\xcd\xef',
-            report_cid="cid123"
-        )
+        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="cid123")
 
-        frame_config = FrameConfig(
-            initial_epoch=10,
-            epochs_per_frame=2,
-            fast_lane_length_slots=16
-        )
+        frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
-        chain_config = ChainConfig(
-            slots_per_epoch=32,
-            seconds_per_slot=12,
-            genesis_time=1600000000
-        )
+        chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1600000000)
 
         fake_prev_report = StakingVaultIpfsReport(
             format=MagicMock(),
@@ -1899,27 +1879,16 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(
-            timestamp=1690000100,
-            tree_root=b'',
-            report_cid=""  # NO DATA
-        )
+        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'', report_cid="")  # NO DATA
 
-        frame_config = FrameConfig(
-            initial_epoch=10,
-            epochs_per_frame=2,
-            fast_lane_length_slots=16
-        )
+        frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
-        chain_config = ChainConfig(
-            slots_per_epoch=32,
-            seconds_per_slot=12,
-            genesis_time=1600000000
-        )
+        chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1600000000)
 
         slot_val = SlotNumber(6400)
         staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(
-            return_value=slot_val)
+            return_value=slot_val
+        )
 
         prev_report, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
             blockstamp,
@@ -1971,23 +1940,11 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(
-            timestamp=1690000100,
-            tree_root=b'\xab\xcd\xef',
-            report_cid=""  # важно!
-        )
+        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="")  # важно!
 
-        frame_config = FrameConfig(
-            initial_epoch=10,
-            epochs_per_frame=2,
-            fast_lane_length_slots=16
-        )
+        frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
-        chain_config = ChainConfig(
-            slots_per_epoch=32,
-            seconds_per_slot=12,
-            genesis_time=1600000000
-        )
+        chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1600000000)
 
         # NO DATA from prev report
         staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=None)
