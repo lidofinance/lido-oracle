@@ -485,7 +485,7 @@ class TestStakingVaults:
         vault5_adr = ChecksumAddress(HexAddress(HexStr("0xVault5")))
         vault6_adr = ChecksumAddress(HexAddress(HexStr("0xVault6")))
 
-        prev_block_number = 0
+        prev_report_block_number = 0
         block_elapsed = 7_200
 
         mock_merkle_tree_data = StakingVaultIpfsReport(
@@ -508,7 +508,7 @@ class TestStakingVaults:
                     MagicMock(),  # slashing_reserve
                 ),
             ],
-            block_number=BlockNumber(prev_block_number),
+            block_number=BlockNumber(prev_report_block_number),
             block_hash=MagicMock(),
             ref_slot=MagicMock(),
             timestamp=MagicMock(),
@@ -683,7 +683,7 @@ class TestStakingVaults:
 
         vaults_fee_updated_events = [
             VaultFeesUpdatedEvent(
-                block_number=BlockNumber(3200),
+                block_number=BlockNumber(3201),
                 pre_infra_fee_bp=MagicMock(),
                 pre_liquidity_fee_bp=400,
                 infra_fee_bp=MagicMock(),
@@ -701,7 +701,7 @@ class TestStakingVaults:
         ]
         burned_shares_events = [
             BurnedSharesOnVaultEvent(
-                block_number=BlockNumber(3700),
+                block_number=BlockNumber(3701),
                 amount_of_shares=50_000_000,
                 vault=vault1_adr,
                 event=MagicMock(),
@@ -716,7 +716,7 @@ class TestStakingVaults:
         minted_shares_events = [
             MintedSharesOnVaultEvent(
                 vault=vault1_adr,
-                block_number=BlockNumber(3600),
+                block_number=BlockNumber(3601),
                 amount_of_shares=8_998_437_744_1024,
                 locked_amount=MagicMock(),
                 event=MagicMock(),
@@ -731,7 +731,7 @@ class TestStakingVaults:
         vault_rebalance_events = [
             VaultRebalancedEvent(
                 vault=vault2_adr,
-                block_number=BlockNumber(3600),
+                block_number=BlockNumber(3601),
                 shares_burned=500_000_000,
                 ether_withdrawn=MagicMock(),
                 event=MagicMock(),
@@ -746,7 +746,7 @@ class TestStakingVaults:
         written_off_to_be_internalized_events = [
             BadDebtWrittenOffToBeInternalizedEvent(
                 vault=vault3_adr,
-                block_number=BlockNumber(3600),
+                block_number=BlockNumber(3601),
                 bad_debt_shares=400_000,
                 event=MagicMock(),
                 log_index=MagicMock(),
@@ -761,7 +761,7 @@ class TestStakingVaults:
             BadDebtSocializedEvent(
                 vault_donor=vault4_adr,
                 vault_acceptor=vault5_adr,
-                block_number=BlockNumber(3600),
+                block_number=BlockNumber(3601),
                 bad_debt_shares=400_000,
                 event=MagicMock(),
                 log_index=MagicMock(),
@@ -773,7 +773,7 @@ class TestStakingVaults:
             BadDebtSocializedEvent(
                 vault_donor=vault5_adr,
                 vault_acceptor=vault4_adr,
-                block_number=BlockNumber(3500),
+                block_number=BlockNumber(3501),
                 bad_debt_shares=200_000,
                 event=MagicMock(),
                 log_index=MagicMock(),
@@ -793,7 +793,7 @@ class TestStakingVaults:
                 infra_fee_bp=MagicMock(),
                 liquidity_fee_bp=MagicMock(),
                 reservation_fee_bp=MagicMock(),
-                block_number=BlockNumber(3500),
+                block_number=BlockNumber(3501),
                 event=MagicMock(),
                 log_index=MagicMock(),
                 transaction_index=MagicMock(),
@@ -803,7 +803,11 @@ class TestStakingVaults:
             )
         ]
 
-        mock_prev_ipfs_report_cid = MagicMock()
+        mock_prev_ipfs_report_cid = OnChainIpfsVaultReportData(
+            timestamp=MagicMock(),
+            tree_root=MagicMock(),
+            report_cid="report_cid", # for getting prev report data
+        )
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
@@ -827,12 +831,18 @@ class TestStakingVaults:
 
         # cc_mock, ipfs_client, lido_mock, vault_hub_mock, lazy_oracle_mock, account_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
+
+        # Note: when we have prev report - all events on that block are already included in prev report.
+        # We shift the starting point by one block forward.
+        # This's synthetic but closely to real situation
+        started_block_for_calculation = prev_report_block_number + 1
         self.staking_vaults._get_start_point_for_fee_calculations = MagicMock(
-            return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
+            return_value=[mock_merkle_tree_data, started_block_for_calculation, MagicMock()]
         )
 
         mock_ref_block = MagicMock()
-        mock_ref_block.block_number = prev_block_number + block_elapsed
+        mock_ref_block.block_number = started_block_for_calculation + block_elapsed
+        expected_destination_block = mock_ref_block.block_number
 
         actual_fees = self.staking_vaults.get_vaults_fees(
             mock_ref_block,
@@ -884,6 +894,15 @@ class TestStakingVaults:
                 prev_fee=0
             )
         }
+
+        # That's proof and check that we fetch events from prev_report_number + 1
+        vault_hub_mock.get_vault_fee_updated_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_minted_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_burned_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_vault_rebalanced_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_bad_debt_socialized_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
+        vault_hub_mock.get_vault_connected_events.assert_called_once_with(started_block_for_calculation, expected_destination_block)
 
         assert self.expected_total_fee == expected_fees[vault1_adr].total()
         assert actual_fees[ChecksumAddress(HexAddress(HexStr(vault1_adr)))].total() == expected_fees[vault1_adr].total()
