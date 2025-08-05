@@ -51,6 +51,7 @@ from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
+MERKLE_TREE_VAULTS_FILENAME = 'staking_vaults_merkle_tree.json'
 
 class StakingVaultsService:
     w3: Web3
@@ -176,7 +177,7 @@ class StakingVaultsService:
 
         dumped_tree_str = json.dumps(output, default=self.tree_encoder)
 
-        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
+        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), MERKLE_TREE_VAULTS_FILENAME)
 
     @staticmethod
     def get_dumped_tree(
