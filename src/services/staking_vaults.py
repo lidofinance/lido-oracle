@@ -482,9 +482,9 @@ class StakingVaultsService:
                     # If we catch a VaultConnectedEvent, it means that in the past there could be no more events,
                     # because the vault was previously disconnected.
                     # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
-                    if vault_liquidity_fee != 0:
+                    if liability_shares != 0:
                         raise ValueError(
-                            f"Wrong vault liquidity fee by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_fee must be 0. got {vault_liquidity_fee}"
+                            f"Wrong vault liquidity shares by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_shares must be 0. got {liability_shares}"
                         )
 
                     return vault_liquidity_fee, liability_shares

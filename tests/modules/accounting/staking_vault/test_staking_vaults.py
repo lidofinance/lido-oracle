@@ -901,10 +901,14 @@ class TestStakingVaults:
         current_block = BlockNumber(110)
         liquidity_fee_bp = 100  # 1%
 
+        minted_shares = 1_000_000
+        # TIP: specially wrong value. Could not greater than shares in minted event
+        wrong_shares = 10_000_000
+
         minted_event = MintedSharesOnVaultEvent(
             vault=vault_address,
             block_number=BlockNumber(105),
-            amount_of_shares=1_000_000,
+            amount_of_shares=minted_shares,
             locked_amount=MagicMock(),
             event=MagicMock(),
             log_index=MagicMock(),
@@ -934,10 +938,10 @@ class TestStakingVaults:
         events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
         events[vault_address] = [minted_event, connected_event]
 
-        with pytest.raises(ValueError, match=r"Wrong vault liquidity fee by vault .* got .*"):
+        with pytest.raises(ValueError, match=r"Wrong vault liquidity shares by vault .* got .*"):
             StakingVaultsService.calc_liquidity_fee(
                 vault_address=vault_address,
-                liability_shares=10_000_000,
+                liability_shares=wrong_shares,
                 liquidity_fee_bp=liquidity_fee_bp,
                 events=events,
                 prev_block_number=prev_block,
