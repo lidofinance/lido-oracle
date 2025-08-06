@@ -14,7 +14,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
+from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS, Storacha
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -151,6 +151,18 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
     if variables.PINATA_JWT:
         yield Pinata(
             variables.PINATA_JWT,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if (
+        variables.STORACHA_AUTH_SECRET and
+        variables.STORACHA_AUTHORIZATION and
+        variables.STORACHA_SPACE_DID
+    ):
+        yield Storacha(
+            variables.STORACHA_AUTH_SECRET,
+            variables.STORACHA_AUTHORIZATION,
+            variables.STORACHA_SPACE_DID,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
