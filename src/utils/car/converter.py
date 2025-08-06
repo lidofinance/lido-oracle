@@ -1,4 +1,4 @@
-from typing import Final, Tuple, Union
+from typing import Final, Tuple, Union, cast
 
 import dag_cbor
 from .schemes import merkledag_pb2, unixfs_pb2
@@ -24,7 +24,9 @@ class CARConverter:
                 "version": CAR_VERSION,
                 "roots": roots
             }
-            header_bytes = dag_cbor.encode(header_data)
+            header_bytes = dag_cbor.encode(
+                cast(dag_cbor.IPLDKind, header_data)
+            )
             header_len = varint.encode(len(header_bytes))
             return header_len + header_bytes
         except Exception as e:
@@ -70,15 +72,15 @@ class CARConverter:
 
     def _serialize_unixfs_file(self, data_bytes: bytes) -> bytes:
         """Serialize UnixFS Data for File using protobuf."""
-        unixfs = unixfs_pb2.Data()
-        unixfs.Type = unixfs_pb2.Data.File
+        unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
+        unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
         unixfs.Data = data_bytes
         unixfs.filesize = len(data_bytes)
         return unixfs.SerializeToString()
 
     def _serialize_dag_pb_node(self, unixfs_serialized: bytes) -> bytes:
         """Serialize DAG-PB PBNode using protobuf."""
-        pb_node = merkledag_pb2.PBNode()
+        pb_node = merkledag_pb2.PBNode()  # type: ignore[attr-defined]
         pb_node.Data = unixfs_serialized
         return pb_node.SerializeToString()
 

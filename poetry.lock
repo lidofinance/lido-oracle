@@ -3238,6 +3238,18 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<8.2)", "pytest-mock", "pytest-mypy-testing"]
 
 [[package]]
+name = "types-protobuf"
+version = "6.30.2.20250703"
+description = "Typing stubs for protobuf"
+category = "dev"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "types_protobuf-6.30.2.20250703-py3-none-any.whl", hash = "sha256:fa5aff9036e9ef432d703abbdd801b436a249b6802e4df5ef74513e272434e57"},
+    {file = "types_protobuf-6.30.2.20250703.tar.gz", hash = "sha256:609a974754bbb71fa178fc641f51050395e8e1849f49d0420a6281ed8d1ddf46"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.0.20250602"
 description = "Typing stubs for requests"
@@ -3646,4 +3658,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "f8ed7b23a4047ab6a47dc8bc640c8d9d7d482ffb3078cf1c8435b9701fdce770"
+content-hash = "b97d705454bb3b6fa9bc5d5b234ce7ffc3a15ceefb92ee44582c09696375cca6"
