@@ -1,7 +1,7 @@
 from typing import Final, Tuple, Union
 
 import dag_cbor
-from car.schemes import merkledag_pb2, unixfs_pb2
+from .schemes import merkledag_pb2, unixfs_pb2
 from multiformats import CID, multihash, varint
 
 BytesLike = Union[bytes, bytearray, memoryview]

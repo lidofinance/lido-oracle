@@ -73,6 +73,10 @@ addopts = "-s -vv --strict-markers"
 [tool.coverage.run]
 branch = true
 
+[tool.pylint.master]
+ignore-patterns = ".*_pb2\\.py"
+generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
+
 [tool.pylint.format]
 max-line-length = "120"
 min-similarity-lines = 6
