@@ -4,7 +4,7 @@ from typing import Optional
 
 import requests
 
-from utils.car.converter import CARConverter
+from src.utils.car import CARConverter
 
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
@@ -37,14 +37,14 @@ class Storacha(IPFSProvider):
 
         self.timeout = timeout
         self.car_converter = CARConverter()
-    
+
     def _get_headers(self) -> dict[str, str]:
         return {
             'X-Auth-Secret': self.auth_secret,
             'Authorization': self.authorization,
             'Content-Type': 'application/json'
         }
-    
+
     def _upload(self, content: bytes, name: Optional[str] = None) -> str:
         """Upload content to Storacha.
 
@@ -131,8 +131,8 @@ class Storacha(IPFSProvider):
             response.raise_for_status()
             return response.content
         except requests.RequestException as e:
-            logger.error(f"Failed to fetch {cid} from Storacha: {e}")
+            logger.error("Failed to fetch %s from Storacha: %s", cid, e)
             raise FetchError(cid) from e
-    
+
     def pin(self, cid: CID) -> None:
-        logger.info(f"Pin operation is not needed for Storacha, content {cid} is already persisted")
+        logger.info("Pin operation is not needed for Storacha, content %s is already persisted", cid)
