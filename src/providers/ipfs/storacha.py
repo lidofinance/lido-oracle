@@ -75,9 +75,14 @@ class Storacha(IPFSProvider):
             ]
         }
 
-        response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(store_payload), timeout=self.timeout)
-        response.raise_for_status()
-        resp_json = response.json()
+        try:
+            response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(store_payload), timeout=self.timeout)
+            response.raise_for_status()
+            resp_json = response.json()
+        except requests.RequestException as ex:
+            logger.error({"msg": "Store request failed", "error": str(ex)})
+            raise UploadError(f"Store request failed: {ex}") from ex
+
         store_out = resp_json[0]['p']['out']
         if 'ok' in store_out:
             store_result = store_out['ok']
@@ -89,8 +94,13 @@ class Storacha(IPFSProvider):
         if store_result['status'] == 'upload':
             upload_url = store_result['url']
             upload_headers = store_result['headers']
-            upload_response = requests.put(upload_url, headers=upload_headers, data=car_bytes, timeout=self.timeout)
-            upload_response.raise_for_status()
+
+            try:
+                upload_response = requests.put(upload_url, headers=upload_headers, data=car_bytes, timeout=self.timeout)
+                upload_response.raise_for_status()
+            except requests.RequestException as ex:
+                logger.error({"msg": "Upload request failed", "error": str(ex)})
+                raise UploadError(f"Upload request failed: {ex}") from ex
 
         upload_payload = {
             "tasks": [
@@ -104,9 +114,15 @@ class Storacha(IPFSProvider):
                 ]
             ]
         }
-        response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(upload_payload), timeout=self.timeout)
-        response.raise_for_status()
-        resp_json = response.json()
+
+        try:
+            response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(upload_payload), timeout=self.timeout)
+            response.raise_for_status()
+            resp_json = response.json()
+        except requests.RequestException as ex:
+            logger.error({"msg": "Upload/add request failed", "error": str(ex)})
+            raise UploadError(f"Upload/add request failed: {ex}") from ex
+
         upload_out = resp_json[0]['p']['out']
         if 'ok' in upload_out:
             uploaded_cid = upload_out['ok']['root']['/']
@@ -130,9 +146,9 @@ class Storacha(IPFSProvider):
             response = requests.get(f"{self.GATEWAY_URL}{cid}", timeout=self.timeout)
             response.raise_for_status()
             return response.content
-        except requests.RequestException as e:
-            logger.error("Failed to fetch %s from Storacha: %s", cid, e)
-            raise FetchError(cid) from e
+        except requests.RequestException as ex:
+            logger.error({"msg": "Fetch request failed", "error": str(ex)})
+            raise FetchError(cid) from ex
 
     def pin(self, cid: CID) -> None:
         logger.info("Pin operation is not needed for Storacha, content %s is already persisted", cid)
