@@ -16,9 +16,18 @@ class KAPIClientError(NotOkResponse):
     pass
 
 
+class KAPIInconsistentData(Exception):
+    pass
+
+
+class KAPIModule(TypedDict):
+    id: int
+    stakingModuleAddress: str
+
+
 class ModuleOperatorsKeys(TypedDict):
     keys: List[LidoKey]
-    module: dict
+    module: KAPIModule
     operators: list
 
 
@@ -36,7 +45,7 @@ class KeysAPIClient(HTTPProvider):
     PROMETHEUS_HISTOGRAM = KEYS_API_REQUESTS_DURATION
     PROVIDER_EXCEPTION = KAPIClientError
 
-    MODULE_OPERATORS_KEYS = 'v1/modules/{}/operators/keys'
+    USED_MODULE_OPERATORS_KEYS = 'v1/modules/{}/operators/keys?used=true'
     USED_KEYS = 'v1/keys?used=true'
     STATUS = 'v1/status'
 
@@ -61,17 +70,24 @@ class KeysAPIClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        return [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
+        data = list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
+        self._check_used_keys(data)
+        return data
 
     @lru_cache(maxsize=1)
-    def get_module_operators_keys(
+    def get_used_module_operators_keys(
         self, module_address: StakingModuleAddress, blockstamp: BlockStamp
     ) -> ModuleOperatorsKeys:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
-        data = cast(dict, self._get_with_blockstamp(self.MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
+        data = cast(dict, self._get_with_blockstamp(self.USED_MODULE_OPERATORS_KEYS.format(module_address), blockstamp))
+        if (kapi_module_address := data['module']['stakingModuleAddress']) != module_address:
+            raise KAPIInconsistentData(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
+
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
+        self._check_used_keys(data['keys'])
+
         return cast(ModuleOperatorsKeys, data)
 
     def get_status(self) -> KeysApiStatus:
@@ -82,3 +98,12 @@ class KeysAPIClient(HTTPProvider):
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
         data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, retval_validator=data_is_dict)
         return KeysApiStatus.from_response(**data).chainId
+
+    def _check_used_keys(self, keys: list[LidoKey]):
+        keys_seen: dict[str, LidoKey] = {}
+        for k in keys:
+            if not k.used:
+                raise KAPIInconsistentData(f"Got unused key={k}")
+            if k.key in keys_seen:
+                raise KAPIInconsistentData(f"Got duplicated key={k}, previously found={keys_seen[k.key]}")
+            keys_seen[k.key] = k
