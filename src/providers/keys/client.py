@@ -70,7 +70,7 @@ class KeysAPIClient(HTTPProvider):
     @lru_cache(maxsize=1)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        data = list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
+        data = [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
         self._check_used_keys(data)
         return data
 
