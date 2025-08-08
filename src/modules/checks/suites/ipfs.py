@@ -4,7 +4,7 @@ import random
 import string
 
 from src.main import ipfs_providers
-from src.providers.ipfs import Pinata, PublicIPFS, Storacha
+from src.providers.ipfs import Pinata, Storacha
 
 REQUIRED_PROVIDERS = (Pinata, Storacha)
 
@@ -18,7 +18,7 @@ def check_ipfs_providers():
 
     Warning! Parametrize decorator is not used here to avoid parallel run via pytest-xdist
     """
-    configured_providers = [p for p in ipfs_providers() if not isinstance(p, PublicIPFS)]
+    configured_providers = list(ipfs_providers())
 
     missing_providers = []
     for required_provider in REQUIRED_PROVIDERS:

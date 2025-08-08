@@ -14,7 +14,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS, Storacha
+from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, Storacha
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -166,7 +166,6 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
-    yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
 
 if __name__ == '__main__':
