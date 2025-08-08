@@ -416,9 +416,9 @@ def test_get_shares_to_burn(
     out = accounting.get_shares_to_burn(bs)
 
     assert (
-        out == 0  # shares_data.cover_shares + shares_data.non_cover_shares
+        out == shares_data.cover_shares + shares_data.non_cover_shares
     ), "get_shares_to_burn returned unexpected value"
-    # call_mock.assert_called_once()
+    call_mock.assert_called_once()
 
 
 @pytest.mark.unit
