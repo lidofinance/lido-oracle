@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch, Mock
 
-import pytest
 from eth_account import Account
 from requests import Response
 
@@ -8,7 +7,6 @@ from src import variables
 from src.web3py.extensions.tx_bundle import TransactionBundle
 
 
-@pytest.mark.unit
 @patch("src.web3py.extensions.tx_bundle.TransactionBundle._send_payload")
 @patch("time.sleep", return_value=None)
 def test_send_bundle(sleep, mock_send_payload):
@@ -29,7 +27,6 @@ def test_send_bundle(sleep, mock_send_payload):
     )
 
 
-@pytest.mark.unit
 @patch("eth_account.Account.create", return_value=Account.from_key(b'0' * 32))
 @patch("requests.post")
 def test_send_payload(mock_post, account):
@@ -54,7 +51,6 @@ def test_send_payload(mock_post, account):
             assert mock_post.call_args_list[i][0][0] == "relay1"
 
 
-@pytest.mark.unit
 @patch("requests.post", side_effect=[Exception('fail'), Response(), Exception('fail'), Response()])
 def test_send_payload_error(mock_post, caplog):
     variables.PRIVATE_RELAYS_LIST = ['relay1', 'relay2']
@@ -67,7 +63,6 @@ def test_send_payload_error(mock_post, caplog):
         assert 'Sent bundle to relay' in caplog.messages[3]
 
 
-@pytest.mark.unit
 def test_sign_transactions():
     w3 = MagicMock()
     w3.eth.get_transaction_count.return_value = 7
