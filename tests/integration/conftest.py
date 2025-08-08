@@ -4,7 +4,6 @@ import pytest
 from web3 import Web3, HTTPProvider
 
 from src import variables
-from src.constants import CURATED_MODULE_TYPE
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
@@ -12,7 +11,6 @@ from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_module import NodeOperatorRegistry
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 
@@ -119,20 +117,3 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
         BurnerContract,
         lido_locator_contract.burner(),
     )
-
-
-@pytest.fixture
-def node_operator_registry_contract(web3_provider_integration, staking_router_contract):
-    sms = staking_router_contract.get_staking_modules()
-
-    for sm in sms:
-        sm_contract = get_contract(
-            web3_provider_integration,
-            NodeOperatorRegistry,
-            sm.staking_module_address,
-        )
-
-        if sm_contract.get_type() == CURATED_MODULE_TYPE:
-            return sm_contract
-
-    raise ValueError

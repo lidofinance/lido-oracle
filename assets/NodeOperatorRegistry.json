@@ -1,1 +1,0 @@
-[{"constant":true,"inputs":[],"name":"getType","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"distributeReward","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]

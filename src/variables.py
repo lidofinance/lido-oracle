@@ -41,7 +41,7 @@ assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
 
 # Transactions fee calculation variables
 MIN_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
-MAX_PRIORITY_FEE: Final = int(os.getenv('MAX_PRIORITY_FEE', 100_000_000_000))
+MAX_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 100_000_000_000))
 PRIORITY_FEE_PERCENTILE: Final = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 DAEMON: Final = os.getenv('DAEMON', 'True').lower() == 'true'
@@ -85,13 +85,6 @@ MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECO
 
 CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
 
-PRIVATE_RELAYS_LIST = []
-if PRIVATE_RELAYS_STR := os.getenv('PRIVATE_RELAYS_LIST', ''):
-    PRIVATE_RELAYS_LIST = PRIVATE_RELAYS_STR.split(',')
-
-BUNDLE_GAS_LIMIT_FOR_EACH_TX = int(os.getenv('BUNDLE_GAS_LIMIT_FOR_EACH_TX', 7_000_000))
-# Time in seconds after which bundling will be skipped and the default method will be used to send the transactions.
-BUNDLE_TIMEOUT_SECONDS = int(os.getenv('BUNDLE_TIMEOUT_SECONDS', 15 * 60 + 2 * 32 * 12))
 
 def check_all_required_variables(module: OracleModule):
     errors = check_uri_required_variables()
@@ -151,7 +144,6 @@ PUBLIC_ENV_VARS = {
         'HEALTHCHECK_SERVER_PORT': HEALTHCHECK_SERVER_PORT,
         'MAX_CYCLE_LIFETIME_IN_SECONDS': MAX_CYCLE_LIFETIME_IN_SECONDS,
         'CACHE_PATH': CACHE_PATH,
-        'PRIVATE_RELAYS_LIST': PRIVATE_RELAYS_LIST,
     }.items()
 }
 
