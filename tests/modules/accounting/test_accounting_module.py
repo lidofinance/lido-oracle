@@ -1,25 +1,22 @@
-from datetime import datetime
 from typing import Iterable, cast
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import LIDO_DEPOSIT_AMOUNT, CURATED_MODULE_TYPE
+from src.constants import LIDO_DEPOSIT_AMOUNT
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.accounting import logger as accounting_logger
-from src.modules.accounting.third_phase.types import FormatList, ExtraData
+from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import LidoReportRebase, AccountingProcessingState
-from src.modules.submodules.consensus import ConsensusModule
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
 from src.services.withdrawal import Withdrawal
 from src.types import BlockStamp, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
-from src.web3py.extensions.tx_bundle import TransactionBundle
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -416,9 +413,9 @@ def test_get_shares_to_burn(
     out = accounting.get_shares_to_burn(bs)
 
     assert (
-        out == 0  # shares_data.cover_shares + shares_data.non_cover_shares
+        out == shares_data.cover_shares + shares_data.non_cover_shares
     ), "get_shares_to_burn returned unexpected value"
-    # call_mock.assert_called_once()
+    call_mock.assert_called_once()
 
 
 @pytest.mark.unit
@@ -533,106 +530,3 @@ def test_accounting_get_processing_state(accounting: Accounting):
     result = accounting._get_processing_state(bs)
 
     assert accounting_processing_state == result
-
-
-@pytest.mark.unit
-def test_use_private_relay(accounting: Accounting):
-    current_timestamp = datetime.now().timestamp()
-
-    variables.PRIVATE_RELAYS_LIST = []
-    bs = ReferenceBlockStampFactory.build(block_timestamp=current_timestamp)
-    assert not accounting._use_private_relays(bs)
-
-    variables.PRIVATE_RELAYS_LIST = ['hey']
-    assert accounting._use_private_relays(bs)
-
-    bs = ReferenceBlockStampFactory.build(block_timestamp=current_timestamp - variables.BUNDLE_TIMEOUT_SECONDS / 2)
-    assert accounting._use_private_relays(bs)
-
-    bs = ReferenceBlockStampFactory.build(block_timestamp=current_timestamp - variables.BUNDLE_TIMEOUT_SECONDS - 1)
-    assert not accounting._use_private_relays(bs)
-
-
-@pytest.mark.unit
-def test_process_report_data_classic(accounting: Accounting, monkeypatch, caplog):
-    accounting._use_private_relays = Mock(return_value=False)
-
-    report_funct = Mock()
-
-    monkeypatch.setattr(ConsensusModule, "_process_report_data", report_funct)
-
-    bs = ReferenceBlockStampFactory.build()
-    report_data = (1, 2)
-    report_hash = b'0x0'
-
-    accounting._process_report_data(bs, report_data, report_hash)
-
-    report_funct.assert_called_once_with(bs, report_data, report_hash)
-    assert not caplog.messages
-
-
-@pytest.mark.unit
-def test_process_report_data_in_bundle(accounting: Accounting, monkeypatch, caplog):
-    accounting._use_private_relays = Mock(return_value=True)
-    accounting._is_main_data_submittable = Mock(return_value=True)
-    contract_version = 1
-    accounting.report_contract.get_contract_version = Mock(return_value=contract_version)
-    accounting.report_contract.submit_report_data = Mock(return_value='second_phase_transaction')
-    accounting.report_contract.submit_report_extra_data_empty = Mock(return_value='third_phase_empty_transaction')
-    accounting.get_extra_data = Mock(return_value=ExtraData(b'', b'', FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value, 0))
-    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[Mock(), Mock(), Mock()])
-
-    sm1 = sm3 = MagicMock()
-    sm1.get_type.return_value = CURATED_MODULE_TYPE
-    sm1.distribute_reward.return_value = 'distribute_rewards'
-    sm2 = MagicMock()
-    sm2.get_type.return_value = b'other type'
-    accounting._get_sm_contract = Mock(side_effect=[sm1, sm2, sm3])
-
-    send_bundle = Mock()
-    monkeypatch.setattr(TransactionBundle, "send_tx_bundle", send_bundle)
-
-    bs = ReferenceBlockStampFactory.build()
-    report_data = (1, 2)
-
-    # Test empty third phase
-    accounting._process_report_data(bs, report_data, None)
-    send_bundle.assert_called_once_with(
-        accounting.w3,
-        [
-            'second_phase_transaction',
-            'third_phase_empty_transaction',
-            'distribute_rewards',
-            'distribute_rewards',
-        ],
-    )
-    accounting.report_contract.submit_report_data.assert_called_once_with(report_data, contract_version)
-
-    # Check multi third phase
-    send_bundle = Mock()
-    monkeypatch.setattr(TransactionBundle, "send_tx_bundle", send_bundle)
-
-    accounting.get_extra_data = Mock(
-        return_value=ExtraData([b'1', b'2'], b'', FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value, 0)
-    )
-    accounting._get_sm_contract = Mock(side_effect=[sm1, sm2, sm3])
-    accounting.report_contract.submit_report_extra_data_list = Mock(
-        side_effect=[
-            'third_phase_first_transaction',
-            'third_phase_second_transaction',
-            'third_phase_third_transaction',
-        ]
-    )
-
-    accounting._process_report_data(bs, report_data, None)
-
-    send_bundle.assert_called_once_with(
-        accounting.w3,
-        [
-            'second_phase_transaction',
-            'third_phase_first_transaction',
-            'third_phase_second_transaction',
-            'distribute_rewards',
-            'distribute_rewards',
-        ],
-    )

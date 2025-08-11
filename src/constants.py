@@ -43,9 +43,6 @@ LIDO_DEPOSIT_AMOUNT = MIN_ACTIVATION_BALANCE
 SHARE_RATE_PRECISION_E27 = 10**27
 TOTAL_BASIS_POINTS = 10000
 
-# Staking modules inherited from NOR that support reward distribution
-CURATED_MODULE_TYPE = b'curated-onchain-v1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-
 # Local constants
 GWEI_TO_WEI = 10**9
 MAX_BLOCK_GAS_LIMIT = 30_000_000

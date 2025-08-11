@@ -310,24 +310,11 @@ class ConsensusModule(ABC):
         return None
 
     def _process_report_data(self, blockstamp: ReferenceBlockStamp, report_data: tuple, report_hash: HexBytes):
-        if not self._is_main_data_submittable(report_hash):
-            return
-
-        self._sleep_delay(blockstamp)
-
-        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
-
-        logger.info({'msg': f'Send report data. Contract version: [{contract_version}]'})
-        # If data already submitted transaction will be locally reverted, no need to check status manually
-        self._submit_report(report_data, contract_version)
-
-    def _is_main_data_submittable(self, report_hash: HexBytes) -> bool:
-        """Checks if provided data can be submitted to the contract"""
         latest_blockstamp, member_info = self._get_latest_data()
 
         if member_info.current_frame_consensus_report == ZERO_HASH:
             logger.info({'msg': 'Quorum is not ready.'})
-            return False
+            return
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
             msg = 'Oracle`s hash differs from consensus report hash.'
@@ -336,16 +323,11 @@ class ConsensusModule(ABC):
                 'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
                 'report_hash': report_hash.hex(),
             })
-            return False
+            return
 
         if self.is_main_data_submitted(latest_blockstamp):
             logger.info({'msg': 'Main data already submitted.'})
-            return False
-
-        return True
-
-    def _sleep_delay(self, blockstamp: ReferenceBlockStamp):
-        latest_blockstamp = self._get_latest_blockstamp()
+            return
 
         slots_to_sleep = self._get_slot_delay_before_data_submit(latest_blockstamp)
         if slots_to_sleep:
@@ -355,10 +337,20 @@ class ConsensusModule(ABC):
             for _ in range(slots_to_sleep):
                 sleep(chain_configs.seconds_per_slot)
 
-                latest_blockstamp = self._get_latest_blockstamp()
+                latest_blockstamp, member_info = self._get_latest_data()
                 if self.is_main_data_submitted(latest_blockstamp):
                     logger.info({'msg': 'Main data already submitted.'})
                     return
+
+        if self.is_main_data_submitted(latest_blockstamp):
+            logger.info({'msg': 'Main data already submitted.'})
+            return
+
+        contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
+
+        logger.info({'msg': f'Send report data. Contract version: [{contract_version}]'})
+        # If data already submitted transaction will be locally reverted, no need to check status manually
+        self._submit_report(report_data, contract_version)
 
     def _get_latest_data(self) -> tuple[BlockStamp, MemberInfo]:
         latest_blockstamp = self._get_latest_blockstamp()
