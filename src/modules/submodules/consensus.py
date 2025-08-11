@@ -477,6 +477,16 @@ class ConsensusModule(ABC):
         frame_config = self.get_frame_config(blockstamp)
         return Web3Converter(chain_config, frame_config)
 
+    def get_frame_number_by_slot(self, blockstamp: ReferenceBlockStamp) -> int:
+        converter = self._get_web3_converter(blockstamp)
+        frame_number = converter.get_frame_by_slot(blockstamp.ref_slot)
+        logger.info({
+            "msg": "Get current frame from blockstamp", 
+            "frame": frame_number, 
+            "slot": blockstamp.ref_slot
+        })
+        return int(frame_number)
+
     @abstractmethod
     @lru_cache(maxsize=1)
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
