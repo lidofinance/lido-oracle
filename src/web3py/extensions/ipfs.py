@@ -1,9 +1,11 @@
 import logging
 from functools import wraps
 from typing import Iterable
+from web3 import Web3
+from web3.module import Module
 
-from .cid import CID
-from .types import IPFSError, IPFSProvider
+from src.providers.ipfs.cid import CID
+from src.providers.ipfs.types import IPFSError, IPFSProvider
 
 logger = logging.getLogger(__name__)
 
@@ -11,19 +13,17 @@ logger = logging.getLogger(__name__)
 class MaxRetryError(IPFSError): ...
 
 
-class MultiIPFSProvider(IPFSProvider):
-    """Fallback-driven provider for IPFS"""
-
-    # NOTE: The provider is NOT thread-safe.
-
-    providers: list[IPFSProvider]
-    current_provider_index: int = 0
-    last_working_provider_index: int = 0
-
-    def __init__(self, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
-        super().__init__()
+class IPFS(Module):
+    """IPFS web3 module with multi-provider fallback support"""
+    
+    w3: Web3
+    
+    def __init__(self, w3: Web3, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
+        super().__init__(w3)
         self.retries = retries
         self.providers = list(providers)
+        self.current_provider_index: int = 0
+        self.last_working_provider_index: int = 0
         assert self.providers
         for p in self.providers:
             assert isinstance(p, IPFSProvider)
@@ -31,7 +31,7 @@ class MultiIPFSProvider(IPFSProvider):
     @staticmethod
     def with_fallback(fn):
         @wraps(fn)
-        def wrapped(self: "MultiIPFSProvider", *args, **kwargs):
+        def wrapped(self: "IPFS", *args, **kwargs):
             try:
                 result = fn(self, *args, **kwargs)
             except Exception:  # pylint: disable=broad-exception-caught
@@ -49,7 +49,7 @@ class MultiIPFSProvider(IPFSProvider):
     @staticmethod
     def retry(fn):
         @wraps(fn)
-        def wrapped(self: "MultiIPFSProvider", *args, **kwargs):
+        def wrapped(self: "IPFS", *args, **kwargs):
             retries_left = self.retries
             while retries_left:
                 try:
@@ -77,15 +77,4 @@ class MultiIPFSProvider(IPFSProvider):
     @with_fallback
     @retry
     def publish(self, content: bytes, name: str | None = None) -> CID:
-        # If the current provider fails to upload or pin a file, it makes sense
-        # to try to both upload and to pin via a different provider.
         return self.provider.publish(content, name)
-
-    def _upload(self, content: bytes, name: str | None = None) -> str:
-        # It doesn't make sense to upload a file to a different providers networks
-        # without a guarantee the file will be available via another one.
-        raise NotImplementedError
-
-    def pin(self, cid: CID) -> None:
-        # CID can be unavailable for the next provider in the providers list.
-        raise NotImplementedError

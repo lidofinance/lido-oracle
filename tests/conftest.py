@@ -11,11 +11,11 @@ from web3 import EthereumTesterProvider
 from src import variables
 from src.main import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
-from src.providers.ipfs import MultiIPFSProvider
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
     ConsensusClientModule,
+    IPFS,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
@@ -150,7 +150,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             # Modules relying on network level highly - mocked fully
             'cc': lambda: Mock(spec=ConsensusClientModule),
             'kac': lambda: Mock(spec=KeysAPIClientModule),
-            'ipfs': lambda: Mock(spec=MultiIPFSProvider),
+            'ipfs': lambda: Mock(spec=IPFS),
         }
     )
 
@@ -175,10 +175,7 @@ def web3_integration() -> Generator[Web3, None, None]:
             'transaction': TransactionUtils,
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
-            'ipfs': lambda: MultiIPFSProvider(
-                ipfs_providers(),
-                retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
-            ),
+            'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
         }
     )
 

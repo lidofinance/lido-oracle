@@ -14,7 +14,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, Storacha
+from src.providers.ipfs import IPFSProvider, Kubo, Pinata, Storacha
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -22,6 +22,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
     FallbackProviderModule,
+    IPFS,
     KeysAPIClientModule,
     LazyCSM,
     LidoContracts,
@@ -72,10 +73,7 @@ def main(module_name: OracleModule):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     logger.info({'msg': 'Initialize IPFS providers.'})
-    ipfs = MultiIPFSProvider(
-        ipfs_providers(),
-        retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
-    )
+    ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
 
     logger.info({'msg': 'Check configured providers.'})
     if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
