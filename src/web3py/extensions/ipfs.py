@@ -69,12 +69,30 @@ class IPFS(Module):
     def provider(self) -> IPFSProvider:
         return self.providers[self.current_provider_index]
 
+    def _set_provider_for_frame(self, frame: int) -> None:
+        self.current_provider_index = frame % len(self.providers)
+
     @with_fallback
     @retry
-    def fetch(self, cid: CID) -> bytes:
+    def fetch(self, cid: CID, frame: int) -> bytes:
+        self._set_provider_for_frame(frame)
+        logger.info({
+            "msg": "IPFS fetch",
+            "frame": frame, 
+            "provider_index": self.current_provider_index,
+            "provider_class": self.provider.__class__.__name__,
+            "cid": str(cid)
+        })
         return self.provider.fetch(cid)
 
     @with_fallback
     @retry
-    def publish(self, content: bytes, name: str | None = None) -> CID:
+    def publish(self, content: bytes, frame: int, name: str | None = None) -> CID:
+        self._set_provider_for_frame(frame)
+        logger.info({
+            "msg": "IPFS publish",
+            "frame": frame, 
+            "provider_index": self.current_provider_index,
+            "provider_class": self.provider.__class__.__name__
+        })
         return self.provider.publish(content, name)
