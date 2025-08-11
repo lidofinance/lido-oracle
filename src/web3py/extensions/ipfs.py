@@ -74,11 +74,11 @@ class IPFS(Module):
 
     @with_fallback
     @retry
-    def fetch(self, cid: CID, frame: int) -> bytes:
-        self._set_provider_for_frame(frame)
+    def fetch(self, cid: CID, provider_rotation_frame: int) -> bytes:
+        self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
             "msg": "IPFS fetch",
-            "frame": frame, 
+            "provider_rotation_frame": provider_rotation_frame,
             "provider_index": self.current_provider_index,
             "provider_class": self.provider.__class__.__name__,
             "cid": str(cid)
@@ -87,11 +87,11 @@ class IPFS(Module):
 
     @with_fallback
     @retry
-    def publish(self, content: bytes, frame: int, name: str | None = None) -> CID:
-        self._set_provider_for_frame(frame)
+    def publish(self, content: bytes, provider_rotation_frame: int, name: str | None = None) -> CID:
+        self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
             "msg": "IPFS publish",
-            "frame": frame, 
+            "provider_rotation_frame": provider_rotation_frame,
             "provider_index": self.current_provider_index,
             "provider_class": self.provider.__class__.__name__
         })

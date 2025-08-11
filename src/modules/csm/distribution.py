@@ -45,7 +45,7 @@ class Distribution:
         self.converter = converter
         self.state = state
 
-    def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
+    def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport, current_frame: FrameNumber) -> DistributionResult:
         """Computes distribution of fee shares at the given timestamp"""
         result = DistributionResult()
         result.strikes.update(last_report.strikes.items())
