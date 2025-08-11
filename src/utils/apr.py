@@ -26,6 +26,9 @@ def calculate_steth_apr(
 
     rate_diff: Decimal = post_rate - pre_rate
 
+    if rate_diff < 0:
+        raise ValueError("Prevent negative APR calculation")
+
     return (rate_diff * Decimal(SECONDS_IN_YEAR)) / (pre_rate * Decimal(time_elapsed_seconds))
 
 def get_steth_by_shares(shares: int, total_ether: int, total_shares: int) -> Decimal:
