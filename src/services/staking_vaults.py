@@ -153,6 +153,7 @@ class StakingVaultsService:
         prev_tree_cid: str,
         chain_config: ChainConfig,
         vaults_fee_map: VaultFeeMap,
+        frame: int,
     ) -> CID:
         def encoder(o):
             if isinstance(o, bytes):
@@ -200,12 +201,12 @@ class StakingVaultsService:
 
         dumped_tree_str = json.dumps(output, default=encoder)
 
-        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), 'merkle_tree.json')
+        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), frame, 'merkle_tree.json')
 
-    def get_ipfs_report(self, ipfs_report_cid: str) -> StakingVaultIpfsReport:
+    def get_ipfs_report(self, ipfs_report_cid: str, frame: int) -> StakingVaultIpfsReport:
         if ipfs_report_cid == "":
             raise ValueError("Arg ipfs_report_cid could not be ''")
-        return self.get_vault_report(ipfs_report_cid)
+        return self.get_vault_report(ipfs_report_cid, frame)
 
     def get_latest_onchain_ipfs_report_data(self, block_identifier: BlockIdentifier) -> OnChainIpfsVaultReportData:
         return self.w3.lido_contracts.lazy_oracle.get_latest_report_data(block_identifier)
@@ -366,8 +367,8 @@ class StakingVaultsService:
 
         return result
 
-    def get_vault_report(self, tree_cid: str) -> StakingVaultIpfsReport:
-        bb = self.w3.ipfs.fetch(CID(tree_cid))
+    def get_vault_report(self, tree_cid: str, frame: int) -> StakingVaultIpfsReport:
+        bb = self.w3.ipfs.fetch(CID(tree_cid), frame)
         return StakingVaultIpfsReport.parse_merkle_tree_data(bb)
 
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
@@ -489,11 +490,12 @@ class StakingVaultsService:
         latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
+        frame: int,
     ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber, HexStr]:
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
 
         if latest_onchain_ipfs_report_data.report_cid != "":
-            prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid)
+            prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid, frame)
             tree_root_hex = Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)
 
             if not self.is_tree_root_valid(tree_root_hex, prev_ipfs_report):
@@ -541,9 +543,10 @@ class StakingVaultsService:
         pre_total_shares: int,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
+        frame: int,
     ) -> VaultFeeMap:
         prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
-            blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config
+            blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config, frame
         )
         vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
 
