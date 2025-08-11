@@ -50,7 +50,7 @@ from src.types import (
     ReferenceBlockStamp,
     StakingModuleId,
 )
-from src.utils.apr import get_core_apr_ratio
+from src.utils.apr import calculate_steth_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
@@ -418,15 +418,13 @@ class Accounting(BaseModule, ConsensusModule):
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
-        staking_fee_aggregate_distribution = self.w3.lido_contracts.staking_router.get_staking_fee_aggregate_distribution(
-            blockstamp.block_hash)
 
-        core_apr_ratio = get_core_apr_ratio(
+        core_apr_ratio = calculate_steth_apr(
             pre_total_shares=simulation.pre_total_shares,
             pre_total_pooled_ether=simulation.pre_total_pooled_ether,
-            post_total_shares=simulation.post_total_shares,
+            # reducing post total shares by shares minted as fees we'll get gross apr
+            post_total_shares=simulation.post_total_shares - simulation.shares_to_mint_as_fees,
             post_total_pooled_ether=simulation.post_total_pooled_ether,
-            lido_fee_bp=staking_fee_aggregate_distribution.lido_fee_bp(),
             time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp)
         )
 

@@ -30,25 +30,3 @@ def calculate_steth_apr(
 
 def get_steth_by_shares(shares: int, total_ether: int, total_shares: int) -> Decimal:
     return (Decimal(shares) * Decimal(total_ether)) / Decimal(total_shares)
-
-def get_core_apr_ratio(
-        pre_total_shares: int,
-        pre_total_pooled_ether: int,
-        post_total_shares: int,
-        post_total_pooled_ether: int,
-        lido_fee_bp: Decimal,
-        time_elapsed_seconds: int
-) -> Decimal:
-    if lido_fee_bp == 0:
-        return Decimal(0)
-
-    steth_apr_ratio = calculate_steth_apr(
-            pre_total_shares=pre_total_shares,
-            pre_total_ether=pre_total_pooled_ether,
-            post_total_shares=post_total_shares,
-            post_total_ether=post_total_pooled_ether,
-            time_elapsed_seconds=time_elapsed_seconds,
-    )
-
-    total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
-    return steth_apr_ratio * total_basis_points_dec / (total_basis_points_dec - lido_fee_bp)
