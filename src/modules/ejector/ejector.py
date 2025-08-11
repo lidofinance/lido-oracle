@@ -178,6 +178,7 @@ class Ejector(BaseModule, ConsensusModule):
         EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
 
         future_withdrawals = self._get_withdrawable_lido_validators_balance(withdrawal_epoch, blockstamp)
+        logger.info({'msg': 'Calculate future withdrawals sum.', 'value': future_withdrawals})
         future_rewards = (withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch) * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
