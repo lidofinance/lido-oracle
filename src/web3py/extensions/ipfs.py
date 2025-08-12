@@ -6,6 +6,7 @@ from web3.module import Module
 
 from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import IPFSError, IPFSProvider
+from src.types import FrameNumber
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class IPFS(Module):
         self.providers = list(providers)
         self.current_provider_index: int = 0
         self.last_working_provider_index: int = 0
-        self.current_frame: int | None = None
+        self.current_frame: FrameNumber | None = None
 
         assert self.providers
 
@@ -72,16 +73,16 @@ class IPFS(Module):
     def provider(self) -> IPFSProvider:
         return self.providers[self.current_provider_index]
 
-    def _set_provider_for_frame(self, frame: int) -> None:
+    def _set_provider_for_frame(self, provider_rotation_frame: FrameNumber) -> None:
         # Preserve fallback state within the same frame if occurred
-        if self.current_frame != frame:
-            self.current_frame = frame
-            self.current_provider_index = frame % len(self.providers)
+        if self.current_frame != provider_rotation_frame:
+            self.current_frame = provider_rotation_frame
+            self.current_provider_index = provider_rotation_frame % len(self.providers)
             self.last_working_provider_index = self.current_provider_index
 
     @with_fallback
     @retry
-    def fetch(self, cid: CID, provider_rotation_frame: int) -> bytes:
+    def fetch(self, cid: CID, provider_rotation_frame: FrameNumber) -> bytes:
         self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
             "msg": "Called: w3.ipfs.fetch(...)",
@@ -94,7 +95,7 @@ class IPFS(Module):
 
     @with_fallback
     @retry
-    def publish(self, content: bytes, provider_rotation_frame: int, name: str | None = None) -> CID:
+    def publish(self, content: bytes, provider_rotation_frame: FrameNumber, name: str | None = None) -> CID:
         self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
             "msg": "Called: w3.ipfs.publish(...)",

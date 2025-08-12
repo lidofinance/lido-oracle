@@ -35,7 +35,14 @@ from src.variables import (
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import IPFS, KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.extensions import (
+    IPFS,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
 
 logger = logging.getLogger('fork_tests')
 

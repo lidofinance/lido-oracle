@@ -129,9 +129,9 @@ class CSOracle(BaseModule, ConsensusModule):
         return LastReport.load(self.w3, blockstamp, current_frame)
 
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
-        frame = self.get_frame_number_by_slot(blockstamp)
+        current_frame = self.get_frame_number_by_slot(blockstamp)
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        result = distribution.calculate(blockstamp, last_report, frame)
+        result = distribution.calculate(blockstamp, last_report, current_frame)
         return result
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
@@ -244,15 +244,15 @@ class CSOracle(BaseModule, ConsensusModule):
         return tree
 
     def publish_tree(self, tree: Tree, blockstamp: ReferenceBlockStamp) -> CID:
-        frame = self.get_frame_number_by_slot(blockstamp)
-        tree_cid = self.w3.ipfs.publish(tree.encode(), frame)
-        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid), "frame": frame})
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        tree_cid = self.w3.ipfs.publish(tree.encode(), current_frame)
+        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid), "current_frame": current_frame})
         return tree_cid
 
     def publish_log(self, logs: list[FramePerfLog], blockstamp: ReferenceBlockStamp) -> CID:
-        frame = self.get_frame_number_by_slot(blockstamp)
-        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs), frame)
-        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid), "frame": frame})
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs), current_frame)
+        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid), "current_frame": current_frame})
         return log_cid
 
     @lru_cache(maxsize=1)
