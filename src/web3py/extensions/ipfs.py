@@ -15,16 +15,19 @@ class MaxRetryError(IPFSError): ...
 
 class IPFS(Module):
     """IPFS web3 module with multi-provider fallback support"""
-    
+
     w3: Web3
-    
+
     def __init__(self, w3: Web3, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
         super().__init__(w3)
         self.retries = retries
         self.providers = list(providers)
         self.current_provider_index: int = 0
         self.last_working_provider_index: int = 0
+        self.current_frame: int | None = None
+
         assert self.providers
+
         for p in self.providers:
             assert isinstance(p, IPFSProvider)
 
@@ -70,14 +73,18 @@ class IPFS(Module):
         return self.providers[self.current_provider_index]
 
     def _set_provider_for_frame(self, frame: int) -> None:
-        self.current_provider_index = frame % len(self.providers)
+        # Preserve fallback state within the same frame if occurred
+        if self.current_frame != frame:
+            self.current_frame = frame
+            self.current_provider_index = frame % len(self.providers)
+            self.last_working_provider_index = self.current_provider_index
 
     @with_fallback
     @retry
     def fetch(self, cid: CID, provider_rotation_frame: int) -> bytes:
         self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
-            "msg": "IPFS fetch",
+            "msg": "Called: w3.ipfs.fetch(...)",
             "provider_rotation_frame": provider_rotation_frame,
             "provider_index": self.current_provider_index,
             "provider_class": self.provider.__class__.__name__,
@@ -90,7 +97,7 @@ class IPFS(Module):
     def publish(self, content: bytes, provider_rotation_frame: int, name: str | None = None) -> CID:
         self._set_provider_for_frame(provider_rotation_frame)
         logger.info({
-            "msg": "IPFS publish",
+            "msg": "Called: w3.ipfs.publish(...)",
             "provider_rotation_frame": provider_rotation_frame,
             "provider_index": self.current_provider_index,
             "provider_class": self.provider.__class__.__name__
