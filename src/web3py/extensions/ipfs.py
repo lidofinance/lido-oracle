@@ -11,7 +11,12 @@ from src.types import FrameNumber
 logger = logging.getLogger(__name__)
 
 
-class MaxRetryError(IPFSError): ...
+class MaxRetryError(IPFSError):
+    pass
+
+
+class NoMoreProvidersError(IPFSError):
+    pass
 
 
 class IPFS(Module):
@@ -38,11 +43,11 @@ class IPFS(Module):
         def wrapped(self: "IPFS", *args, **kwargs):
             try:
                 result = fn(self, *args, **kwargs)
-            except Exception:  # pylint: disable=broad-exception-caught
+            except Exception as ex:  # pylint: disable=broad-exception-caught
                 self.current_provider_index = (self.current_provider_index + 1) % len(self.providers)
                 if self.last_working_provider_index == self.current_provider_index:
                     logger.error({"msg": "No more IPFS providers left to call"})
-                    raise
+                    raise NoMoreProvidersError from ex
                 return wrapped(self, *args, **kwargs)
 
             self.last_working_provider_index = self.current_provider_index
@@ -74,7 +79,7 @@ class IPFS(Module):
         return self.providers[self.current_provider_index]
 
     def _set_provider_for_frame(self, provider_rotation_frame: FrameNumber) -> None:
-        # Preserve fallback state within the same frame if occurred
+        # Preserve the fallback state within the same frame if occurred
         if self.current_frame != provider_rotation_frame:
             self.current_frame = provider_rotation_frame
             self.current_provider_index = provider_rotation_frame % len(self.providers)
