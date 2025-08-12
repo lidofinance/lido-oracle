@@ -244,21 +244,17 @@ class LidoValidatorsProvider(Module):
         Returns:
             ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
         """
-        # Fetch module operator keys from the KeysAPI
-        kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
-        if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
-            raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
-        operators = kapi['operators']
-        keys = {k.key: k for k in kapi['keys']}
-        validators = self.w3.cc.get_validators(blockstamp)
-        module_id = StakingModuleId(int(kapi['module']['id']))
+        kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
+        module_id = StakingModuleId(kapi['module']['id'])
 
         # Make sure even empty NO will be presented in dict
         no_validators: ValidatorsByNodeOperator = {
-            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in operators
+            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
         }
 
         # Map validators to their corresponding node operators
+        validators = self.w3.cc.get_validators(blockstamp)
+        keys = {k.key: k for k in kapi['keys']}
         for validator in validators:
             lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:

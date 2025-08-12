@@ -14,7 +14,7 @@ from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
-from src.providers.keys.client import KeysOutdatedException
+from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.blockstamp import build_blockstamp
@@ -101,6 +101,8 @@ class BaseModule(ABC):
             logger.error({'msg': ''.join(traceback.format_exception(error))})
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
+        except KAPIInconsistentData as error:
+            logger.error({'msg': 'Inconsistent response from Keys API service', 'error': str(error)})
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except CountOfKeysDiffersException as error:

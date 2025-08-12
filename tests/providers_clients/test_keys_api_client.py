@@ -3,6 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
+from web3 import Web3
 
 import src.providers.keys.client as keys_api_client_module
 from src import variables
@@ -20,9 +21,38 @@ empty_blockstamp = ReferenceBlockStampFactory.build(block_number=0)
 
 
 @pytest.mark.integration
-def test_get_used_lido_keys(keys_api_client):
+def test_get_used_lido_keys(keys_api_client: KeysAPIClient):
     lido_keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
+    keys_seen: list[str] = []
+    for lido_key in lido_keys:
+        assert lido_key.used
+        assert lido_key.key not in keys_seen
+        keys_seen.append(lido_key.key)
+
     assert lido_keys
+
+
+@pytest.mark.integration
+def test_get_used_module_operators_keys__csm_module(keys_api_client: KeysAPIClient):
+    csm_module_operators_keys = keys_api_client.get_used_module_operators_keys(
+        module_address=variables.CSM_MODULE_ADDRESS,  # type: ignore
+        blockstamp=empty_blockstamp,
+    )
+
+    assert csm_module_operators_keys['module']['stakingModuleAddress'] == variables.CSM_MODULE_ADDRESS
+    assert csm_module_operators_keys['module']['id'] >= 0
+    assert len(csm_module_operators_keys['keys']) > 0
+    assert len(csm_module_operators_keys['operators']) > 0
+    keys_seen: list[str] = []
+    for lido_key in csm_module_operators_keys['keys']:
+        assert lido_key.used
+        assert lido_key.operatorIndex >= 0
+        assert Web3.is_address(lido_key.moduleAddress)
+        assert lido_key.key not in keys_seen
+        keys_seen.append(lido_key.key)
+    for operator in csm_module_operators_keys['operators']:
+        assert operator['index'] >= 0
+        assert operator['moduleAddress'] == variables.CSM_MODULE_ADDRESS
 
 
 @pytest.mark.integration
@@ -33,7 +63,6 @@ def test_get_status(keys_api_client):
 
 @pytest.mark.unit
 def test_get_with_blockstamp_retries_exhausted(keys_api_client, monkeypatch):
-    variables.HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS = 1
     keys_api_client._get = Mock(
         return_value=(
             None,
