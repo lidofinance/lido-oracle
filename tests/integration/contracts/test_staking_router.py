@@ -5,6 +5,7 @@ from tests.factory.no_registry import StakingModuleFactory
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
+@pytest.mark.mainnet
 @pytest.mark.integration
 def test_staking_router(staking_router_contract, caplog):
     check_contract(

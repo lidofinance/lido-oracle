@@ -100,8 +100,12 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'EXECUTION_CLIENT_URI', TESTNET_EXECUTION_CLIENT_URI)
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
 
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79CEf36D84743222f37765204Bec41E92a93E59d')
+        # TODO: temporary from https://docs.lido.fi/deployed-contracts/hoodi-lidov3, need to
+        # TODO: revert to https://docs.lido.fi/deployed-contracts/hoodi after vaults deploy
+        # monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', LIDO_LOCATOR_ADDRESS)
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xD7c1B80fA86965B48cCA3aDcCB08E1DAEa291980')
+        # monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', CSM_MODULE_ADDRESS)
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
     yield
 

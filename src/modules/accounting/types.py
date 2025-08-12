@@ -1,20 +1,38 @@
 from dataclasses import dataclass
-from typing import Self, NewType
+from typing import List, NewType, Self
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
 
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.types import (
-    SlotNumber,
-    Gwei,
-    StakingModuleId,
-    FinalizationBatches,
     ELVaultBalance,
-    WithdrawalVaultBalance,
+    FinalizationBatches,
+    Gwei,
     OperatorsValidatorCount,
+    SlotNumber,
+    StakingModuleId,
+    WithdrawalVaultBalance,
 )
 
+BunkerMode = NewType('BunkerMode', bool)
+ValidatorsCount = NewType('ValidatorsCount', int)
+ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
+
+type Shares = NewType('Shares', int)
+type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
+type VaultsTreeCid = NewType('VaultsTreeCid', str)
+type VaultTreeNode = tuple[str, int, int, int, int]
+
+SECONDS_IN_YEAR = 365 * 24 * 60 * 60
+BLOCKS_PER_YEAR = 2_628_000
+FinalizationShareRate = NewType('FinalizationShareRate', int)
+
+
+type SharesToBurn = int
+type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
+type WqReport = tuple[BunkerMode, FinalizationBatches]
 
 @dataclass
 class ReportData:
@@ -26,10 +44,11 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
-    shares_requested_to_burn: int
+    shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
-    finalization_share_rate: int
     is_bunker: bool
+    tree_root: VaultsTreeRoot
+    tree_cid: VaultsTreeCid
     extra_data_format: int
     extra_data_hash: bytes
     extra_data_items_count: int
@@ -47,8 +66,9 @@ class ReportData:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
-            self.finalization_share_rate,
             self.is_bunker,
+            self.tree_root,
+            self.tree_cid,
             self.extra_data_format,
             self.extra_data_hash,
             self.extra_data_items_count,
@@ -67,13 +87,11 @@ class AccountingProcessingState:
     extra_data_items_count: int
     extra_data_items_submitted: int
 
-
 @dataclass
 class OracleReportLimits:
     exited_validators_per_day_limit: int
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
-    simulated_share_rate_deviation_bp_limit: int
     max_validator_exit_requests_per_report: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
@@ -90,14 +108,7 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
-
-@dataclass(frozen=True)
-class LidoReportRebase:
-    post_total_pooled_ether: int
-    post_total_shares: int
-    withdrawals: Wei
-    el_reward: Wei
-
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
 
 @dataclass
 class BatchState:
@@ -117,8 +128,8 @@ class BatchState:
 
 @dataclass
 class SharesRequestedToBurn:
-    cover_shares: int
-    non_cover_shares: int
+    cover_shares: Shares
+    non_cover_shares: Shares
 
 
 @dataclass
@@ -130,20 +141,167 @@ class WithdrawalRequestStatus:
     is_finalized: bool
     is_claimed: bool
 
-
-BunkerMode = NewType('BunkerMode', bool)
-FinalizationShareRate = NewType('FinalizationShareRate', int)
-ValidatorsCount = NewType('ValidatorsCount', int)
-ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
-
-type SharesToBurn = int
-type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
-type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
-
-
 @dataclass
 class BeaconStat:
     deposited_validators: int
     beacon_validators: int
     beacon_balance: int
+
+
+@dataclass(frozen=True)
+class ReportValues:
+    timestamp: int
+    time_elapsed: int
+    cl_validators: int
+    cl_balance: Wei
+    withdrawal_vault_balance: Wei
+    el_rewards_vault_balance: Wei
+    shares_requested_to_burn: Shares
+    withdrawal_finalization_batches: List[int]
+
+
+@dataclass(frozen=True)
+class StakingRewardsDistribution:
+    recipients: List[ChecksumAddress]
+    module_ids: List[int]
+    modules_fees: List[int]
+    total_fee: int
+    precision_points: int
+
+
+@dataclass(frozen=True)
+class ReportResults:
+    withdrawals: Wei
+    el_rewards: Wei
+    ether_to_finalize_wq: Wei
+    shares_to_finalize_wq: Shares
+    shares_to_burn_for_withdrawals: Shares
+    total_shares_to_burn: SharesToBurn
+    shares_to_mint_as_fees: Shares
+    reward_distribution: StakingRewardsDistribution
+    principal_cl_balance: Wei
+    pre_total_shares: Shares
+    pre_total_pooled_ether: Wei
+    post_internal_shares: Shares
+    post_internal_ether: Wei
+    post_total_shares: Shares
+    post_total_pooled_ether: Wei
+
+
+@dataclass(frozen=True)
+class VaultSocket:
+    vault: ChecksumAddress
+    share_limit: Shares
+    liability_shares: Shares
+    reserve_ratio_bp: int
+    rebalance_threshold_bp: int
+    treasury_fee_bp: int
+    pending_disconnect: bool
+
+
+@dataclass
+class VaultData:
+    vault_ind: int
+    balance_wei: Wei
+    in_out_delta: Wei
+    liability_shares: Shares
+    fee: int
+    address: ChecksumAddress
+    withdrawal_credentials: str
+    # Feature smart contract release
+    share_limit: int
+    minted_StETH: int
+    mintable_capacity_StETH: int
+    reserve_ratioBP: int
+    forced_rebalance_thresholdBP: int
+    infra_feeBP: int
+    liquidity_feeBP: int
+    reservation_feeBP: int
+    pending_disconnect: bool
+
+
+@dataclass
+class LatestReportData:
+    timestamp: int
+    tree_root: VaultsTreeRoot
+    cid: VaultsTreeCid
+
+@dataclass
+class VaultInfo:
+    vault: ChecksumAddress
+    balance: Wei
+    withdrawal_credentials: str
+    liability_shares: Shares
+    # Feature smart contract release
+    share_limit: int
+    reserve_ratioBP: int
+    forced_rebalance_thresholdBP: int
+    infra_feeBP: int
+    liquidity_feeBP: int
+    reservation_feeBP: int
+    pending_disconnect: bool
+    mintable_capacity_StETH: int
+    in_out_delta: Wei
+
+@dataclass
+class VaultFee:
+    infra_fee: int
+    liquidity_fee: int
+    reservation_fee: int
+    prev_fee: int
+
+    def total(self):
+        return (
+                self.prev_fee
+                + self.infra_fee
+                + self.liquidity_fee
+                + self.reservation_fee
+        )
+
+VaultToValidators = dict[ChecksumAddress, list[Validator]]
+VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
+
+VaultsMap = dict[ChecksumAddress, VaultInfo]
+VaultTotalValueMap = dict[ChecksumAddress, int]
+
+VaultFeeMap = dict[ChecksumAddress, VaultFee]
+VaultReserveMap = dict[ChecksumAddress, int]
+type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
+type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
+
+@dataclass
+class VaultProof:
+    id: int
+    totalValueWei: str
+    fee: str
+    liabilityShares: str
+    slashingReserve: str
+    leaf: str
+    proof: List[str]
+    inOutDelta: str
+
+@dataclass
+class MerkleValue:
+    vault_address: str
+    total_value_wei: int
+    fee: int
+    liability_shares: int
+    slashing_reserve: int
+
+@dataclass
+class ExtraValue:
+    inOutDelta: int
+
+@dataclass
+class MerkleTreeData:
+    format: str
+    leaf_encoding: List[str]
+    tree: List[str]
+    values: List[MerkleValue]
+    tree_indices: List[int]
+    ref_slot: int
+    block_number: int
+    block_hash: str
+    timestamp: int
+    prev_tree_cid: str
+    extra_values: dict[str, ExtraValue]
