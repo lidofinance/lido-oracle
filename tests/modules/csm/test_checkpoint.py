@@ -8,18 +8,20 @@ import src.modules.csm.checkpoint as checkpoint_module
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 from src.modules.csm.checkpoint import (
     FrameCheckpoint,
+    FrameCheckpointProcessor,
     FrameCheckpointsIterator,
     MinStepIsNotReached,
+    SlotNumber,
+    SlotOutOfRootsRange,
+    SyncCommitteesCache,
+    ValidatorDuty,
     process_attestations,
 )
 from src.modules.csm.state import State
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import SyncCommittee
-
-from src.types import EpochNumber, BlockRoot
-from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee
-from src.types import ValidatorIndex
+from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
+from src.types import BlockRoot, EpochNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
@@ -28,14 +30,6 @@ from tests.factory.configs import (
     ChainConfigFactory,
     FrameConfigFactory,
     SlotAttestationCommitteeFactory,
-)
-from src.modules.csm.checkpoint import (
-    FrameCheckpointProcessor,
-    ValidatorDuty,
-    SlotNumber,
-    SlotOutOfRootsRange,
-    SYNC_COMMITTEES_CACHE,
-    SyncCommitteesCache,
 )
 
 
@@ -63,6 +57,12 @@ def chain_config() -> ChainConfig:
 @pytest.fixture
 def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Converter:
     return Web3Converter(chain_config, frame_config)
+
+
+@pytest.fixture
+def sync_committees_cache():
+    with patch('src.modules.csm.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
+        yield cache
 
 
 @pytest.mark.unit
@@ -138,7 +138,6 @@ def missing_slots():
 
 @pytest.fixture
 def mock_get_state_block_roots(consensus_client, missing_slots):
-
     def _get_state_block_roots(state_id: int):
         roots_count = 8192
         br = [checkpoint_module.ZERO_BLOCK_ROOT] * roots_count
@@ -459,18 +458,22 @@ def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_p
 
 
 @pytest.mark.unit
-def test_get_sync_committee_returns_cached_sync_committee(frame_checkpoint_processor):
+def test_get_sync_committee_returns_cached_sync_committee(
+    frame_checkpoint_processor, sync_committees_cache: SyncCommitteesCache
+):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
     cached_sync_committee = Mock(spec=SyncCommittee)
+    sync_committees_cache[sync_committee_period] = cached_sync_committee
 
-    with patch('src.modules.csm.checkpoint.SYNC_COMMITTEES_CACHE', {sync_committee_period: cached_sync_committee}):
-        result = frame_checkpoint_processor._get_sync_committee(epoch)
-        assert result == cached_sync_committee
+    result = frame_checkpoint_processor._get_sync_committee(epoch)
+    assert result == cached_sync_committee
 
 
 @pytest.mark.unit
-def test_get_sync_committee_fetches_and_caches_when_not_cached(frame_checkpoint_processor):
+def test_get_sync_committee_fetches_and_caches_when_not_cached(
+    frame_checkpoint_processor, sync_committees_cache: SyncCommitteesCache
+):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
     sync_committee = Mock(spec=SyncCommittee)
@@ -485,32 +488,32 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(frame_checkpoint_
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
     assert result.validators == sync_committee.validators
-    assert SYNC_COMMITTEES_CACHE[sync_committee_period].validators == sync_committee.validators
+    assert sync_committees_cache[sync_committee_period].validators == sync_committee.validators
 
 
 @pytest.mark.unit
-def test_get_sync_committee_handles_cache_eviction(frame_checkpoint_processor):
+def test_get_sync_committee_handles_cache_eviction(
+    frame_checkpoint_processor, sync_committees_cache: SyncCommitteesCache
+):
     epoch = EpochNumber(10)
     sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
     old_sync_committee_period = sync_committee_period - 1
     old_sync_committee = Mock(spec=SyncCommittee)
     sync_committee = Mock(spec=SyncCommittee)
-    frame_checkpoint_processor.converter.get_epoch_first_slot = Mock(return_value=SlotNumber(0))
     frame_checkpoint_processor.cc.get_sync_committee = Mock(return_value=sync_committee)
 
-    with patch('src.modules.csm.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
-        cache.max_size = 1
-        cache[old_sync_committee_period] = old_sync_committee
+    sync_committees_cache.max_size = 1
+    sync_committees_cache[old_sync_committee_period] = old_sync_committee
 
-        prev_slot_response = Mock()
-        prev_slot_response.message.slot = SlotNumber(0)
-        prev_slot_response.message.body.execution_payload.block_hash = "0x00"
-        with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
-            result = frame_checkpoint_processor._get_sync_committee(epoch)
+    prev_slot_response = Mock()
+    prev_slot_response.message.slot = SlotNumber(0)
+    prev_slot_response.message.body.execution_payload.block_hash = "0x00"
+    with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+        result = frame_checkpoint_processor._get_sync_committee(epoch)
 
-        assert result == sync_committee
-        assert sync_committee_period in SYNC_COMMITTEES_CACHE
-        assert old_sync_committee_period not in SYNC_COMMITTEES_CACHE
+    assert result == sync_committee
+    assert sync_committee_period in sync_committees_cache
+    assert old_sync_committee_period not in sync_committees_cache
 
 
 @pytest.mark.unit
