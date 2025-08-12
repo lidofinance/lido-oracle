@@ -22,7 +22,7 @@ from src.modules.accounting.types import (
     VaultFee,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
-from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex, FrameNumber
 from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
@@ -587,6 +587,7 @@ class TestStakingVaults:
             self.pre_total_shares,
             chain_config_mock,
             frame_mock,
+            FrameNumber(0),
         )
 
         expected_fees = {

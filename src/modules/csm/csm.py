@@ -124,14 +124,13 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_cid=strikes_cid or "",
         ).as_tuple()
 
-    def _get_last_report(self, blockstamp: BlockStamp) -> LastReport:
+    def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
         current_frame = self.get_frame_number_by_slot(blockstamp)
         return LastReport.load(self.w3, blockstamp, current_frame)
 
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
-        current_frame = self.get_frame_number_by_slot(blockstamp)
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
-        result = distribution.calculate(blockstamp, last_report, current_frame)
+        result = distribution.calculate(blockstamp, last_report)
         return result
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
