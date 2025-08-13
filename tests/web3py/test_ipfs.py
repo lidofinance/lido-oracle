@@ -160,7 +160,9 @@ class TestIPFS:
         assert isinstance(excinfo.value.__cause__, MaxRetryError)
         assert provider.publish.call_count == 3
 
-    def test_publish__first_provider_fails__falls_back_to_second_provider(self, mock_w3, mock_provider1, mock_provider2):
+    def test_publish__first_provider_fails__falls_back_to_second_provider(
+        self, mock_w3, mock_provider1, mock_provider2
+    ):
         provider1 = mock_provider1
         provider1.publish = MagicMock(side_effect=Exception("fail"))
         provider2 = mock_provider2
