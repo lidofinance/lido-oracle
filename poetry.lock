@@ -199,7 +199,7 @@ tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 name = "base58"
 version = "2.1.1"
 description = "Base58 and Base58Check implementation."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.5"
 files = [
@@ -1776,17 +1776,6 @@ files = [
 ]
 
 [[package]]
-name = "morphys"
-version = "1.0"
-description = "Smart conversions between unicode and bytes types for common cases"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "morphys-1.0-py2.py3-none-any.whl", hash = "sha256:76d6dbaa4d65f597e59d332c81da786d83e4669387b9b2a750cfec74e7beec20"},
-]
-
-[[package]]
 name = "multiaddr"
 version = "0.0.9"
 description = "Python implementation of jbenet's multiaddr"
@@ -2424,76 +2413,6 @@ docs = ["sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx_rtd_theme 
 test = ["pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
-name = "py-multibase"
-version = "1.0.3"
-description = "Multibase implementation for Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multibase-1.0.3.tar.gz", hash = "sha256:d28a20efcbb61eec28f55827a0bf329c7cea80fffd933aecaea6ae8431267fe4"},
-    {file = "py_multibase-1.0.3-py2.py3-none-any.whl", hash = "sha256:2677c1fafcc0ae15ddb9c7f444c5becc2530b3889124fd4fa2959ddfefb8c15b"},
-]
-
-[package.dependencies]
-morphys = ">=1.0,<2.0"
-python-baseconv = ">=1.2.0,<2.0"
-six = ">=1.10.0,<2.0"
-
-[[package]]
-name = "py-multicodec"
-version = "0.2.1"
-description = "Multicodec implementation in Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multicodec-0.2.1.tar.gz", hash = "sha256:83021ffe8c0e272d19b5b86bc5b39efa67c8e9f4735ce6cafdbc1ace767ec647"},
-    {file = "py_multicodec-0.2.1-py2.py3-none-any.whl", hash = "sha256:55b6bb53088a63e56c434cb11b29795e8805652bac43d50a8f2a9bcf5ca84e1f"},
-]
-
-[package.dependencies]
-morphys = ">=1.0,<2.0"
-six = ">=1.10.0,<2.0"
-varint = ">=1.0.2,<2.0.0"
-
-[[package]]
-name = "py-multiformats-cid"
-version = "0.4.4"
-description = "Self-describing content-addressed identifiers for distributed systems"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "py_multiformats_cid-0.4.4-py2.py3-none-any.whl", hash = "sha256:83f6c3109ed56664799c7367703a68d1724b1e9bd79b45c8935c77660560d1dd"},
-]
-
-[package.dependencies]
-base58 = "*"
-morphys = "*"
-py-multibase = "*"
-py-multicodec = "*"
-py-multihash = "*"
-
-[[package]]
-name = "py-multihash"
-version = "2.0.1"
-description = "Multihash implementation in Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multihash-2.0.1.tar.gz", hash = "sha256:b97511a87b7091f8b37a3d74ccb4a898e133529e7c5e431f9a27f78248a75e60"},
-    {file = "py_multihash-2.0.1-py2.py3-none-any.whl", hash = "sha256:c388728b3456d35cd6668b42a3d9ba32dd640493c8e93b992979668dcf2c0676"},
-]
-
-[package.dependencies]
-base58 = ">=1.0.2,<3.0"
-morphys = ">=1.0,<2.0"
-six = ">=1.10.0,<2.0"
-varint = ">=1.0.2,<2.0"
-
-[[package]]
 name = "pycryptodome"
 version = "3.23.0"
 description = "Cryptographic library for Python"
@@ -2825,17 +2744,6 @@ setproctitle = ["setproctitle"]
 testing = ["filelock"]
 
 [[package]]
-name = "python-baseconv"
-version = "1.2.2"
-description = "Convert numbers from base 10 integers to base X strings and back again."
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "python-baseconv-1.2.2.tar.gz", hash = "sha256:0539f8bd0464013b05ad62e0a1673f0ac9086c76b43ebf9f833053527cd9931b"},
-]
-
-[[package]]
 name = "pyunormalize"
 version = "16.0.0"
 description = "Unicode normalization forms (NFC, NFKC, NFD, NFKD). A library independent of the Python core Unicode database."
@@ -3123,7 +3031,7 @@ doc = ["Sphinx", "sphinx-rtd-theme"]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 files = [
@@ -3364,7 +3272,7 @@ zstd = ["zstandard (>=0.18.0)"]
 name = "varint"
 version = "1.0.2"
 description = "Simple python varint implementation"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -3658,4 +3566,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "1fc6d8361def2dbcbddf953eaf439cfab6b9b73f974319bfa475084f2bb93fd7"
+content-hash = "29d030ec7b1b0b5edc45521922f07a5f40c324c90bc3186b90fc047ad7268dfb"
