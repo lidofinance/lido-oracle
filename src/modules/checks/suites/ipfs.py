@@ -33,14 +33,29 @@ def check_ipfs_providers():
     for upload_provider in configured_providers:
         test_content = "".join(random.choice(string.printable) for _ in range(128))
 
-        uploaded_cid = upload_provider.publish(test_content.encode())
+        try:
+            uploaded_cid = upload_provider.publish(test_content.encode())
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            errors.append(
+                f"Upload failed on provider {upload_provider.__class__.__name__} during publish stage: "
+                f"{type(e).__name__}: {e}"
+            )
+            continue
 
         downloaded_contents = {}
 
         # Check content between different IPFS providers
         for download_provider in configured_providers:
-            downloaded_content = download_provider.fetch(uploaded_cid).decode()
-            downloaded_contents[download_provider.__class__.__name__] = downloaded_content
+            try:
+                downloaded_content = download_provider.fetch(uploaded_cid).decode()
+                downloaded_contents[download_provider.__class__.__name__] = downloaded_content
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                errors.append(
+                    f"Download failed on provider {download_provider.__class__.__name__} during fetch stage "
+                    f"for CID {uploaded_cid} (uploaded via {upload_provider.__class__.__name__}): "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
 
             if downloaded_content != test_content:
                 errors.append(
@@ -52,8 +67,20 @@ def check_ipfs_providers():
         # Check CID's between different IPFS providers
         # Separate cycle to avoid corruption of fetched content checking
         for download_provider in configured_providers:
+            if download_provider.__class__.__name__ not in downloaded_contents:
+                continue
+
             downloaded_content = downloaded_contents[download_provider.__class__.__name__]
-            download_cid = download_provider.publish(downloaded_content.encode())
+
+            try:
+                download_cid = download_provider.publish(downloaded_content.encode())
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                errors.append(
+                    f"Re-upload failed on provider {download_provider.__class__.__name__} during publish stage "
+                    f"for content from {upload_provider.__class__.__name__}: {type(e).__name__}: {e}"
+                )
+                continue
+
             if download_cid != uploaded_cid:
                 errors.append(
                     f"CID mismatch: uploaded via {upload_provider.__class__.__name__}, "
@@ -61,4 +88,5 @@ def check_ipfs_providers():
                     f"expected {uploaded_cid}, got {download_cid}"
                 )
 
-    assert not errors, "Provider compatibility issues found:\n" + "\n".join(errors)
+    numbered_errors = [f"{i+1}. {error}" for i, error in enumerate(errors)]
+    assert not errors, f"Provider issues found ({len(errors)} total):\n" + "\n".join(numbered_errors)
