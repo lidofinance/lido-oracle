@@ -234,6 +234,49 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_get_vaults_total_values_wrong_deposit_wc(self):
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32834904184),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302', # <-
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # pubkey is ok, Wrong wc
+            PendingDeposit(
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                amount=Gwei(3000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+        ]
+        # 33834904184000000000
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
+        )
+
+        expected = {
+            self.vault_adr_0: gwei_to_wei(Gwei(validators[0].balance + pending_deposits[0].amount)) + self.vaults[self.vault_adr_0].balance,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
     def test_get_vaults_data_multiple_pending_deposits(self):
         validators: list[Validator] = [
             Validator(

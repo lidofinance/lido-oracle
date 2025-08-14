@@ -67,7 +67,12 @@ class StakingVaultsService:
         self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit], genesis_fork_version: str
     ) -> VaultTotalValueMap:
         vaults_validators = StakingVaultsService.get_validators_by_vaults(validators, vaults)
-        vaults_pending_deposits = StakingVaultsService.get_pending_deposits_by_vaults(pending_deposits, vaults)
+
+        pending_deposit_map: dict[str, list[PendingDeposit]] = defaultdict(list)
+        for pending_deposit in pending_deposits:
+            pending_deposit_map[pending_deposit.pubkey].append(pending_deposit)
+
+        vaults_pending_deposits = StakingVaultsService.get_pending_deposits_by_vaults(vaults_validators, pending_deposits, pending_deposit_map, vaults)
         validator_pubkeys = set(validator.validator.pubkey for validator in validators)
 
         out: VaultTotalValueMap = {}
@@ -79,11 +84,9 @@ class StakingVaultsService:
             if vault_address in vaults_validators:
                 out[vault_address] += calculate_vault_validators_balances(vault_validators)
 
-            # Add pending deposits balances
-            if vault_address in vaults_pending_deposits:
                 out[vault_address] += self._calculate_pending_deposits_balances(
                     validator_pubkeys=validator_pubkeys,
-                    pending_deposits=pending_deposits,
+                    pending_deposits_map=pending_deposit_map,
                     vault_validators=vault_validators,
                     vault_pending_deposits=vault_pending_deposits,
                     vault_withdrawal_credentials=vault.withdrawal_credentials,
@@ -239,10 +242,10 @@ class StakingVaultsService:
 
     def _calculate_pending_deposits_balances(
         self,
-        validator_pubkeys: set[str],
-        pending_deposits: list[PendingDeposit],
-        vault_validators: list[Validator],
-        vault_pending_deposits: list[PendingDeposit],
+        validator_pubkeys: set[str], # all_validators_in_network
+        pending_deposits_map: dict[str, list[PendingDeposit]], # all_deposits_in_network
+        vault_validators: list[Validator], # validators grouped by vault wc
+        vault_pending_deposits: list[PendingDeposit], # pending deposits group by vault.
         vault_withdrawal_credentials: str,
         genesis_fork_version: str,
     ) -> int:
@@ -254,6 +257,8 @@ class StakingVaultsService:
 
         total_value = 0
 
+        # Run through all pending deposits grouped by vault (this collection gathered in self.get_pending_deposits_by_vaults)
+        # This collection contains deposits as on active validators and validators in pending_queued
         for pubkey, deposits in vault_deposits_by_pubkey.items():
             # Case 1: Validator exists and is already bound to this vault, count all deposits for this pubkey
             if pubkey in vault_validator_pubkeys:
@@ -265,8 +270,11 @@ class StakingVaultsService:
                 continue
 
             # Case 3: No validator found for this pubkey - validate deposits
-            deposits_by_pubkey = [d for d in pending_deposits if d.pubkey == pubkey]
-            total_value += self._get_valid_deposits_value(vault_withdrawal_credentials, deposits_by_pubkey, genesis_fork_version)
+            total_value += self._get_valid_deposits_value(
+                vault_withdrawal_credentials=vault_withdrawal_credentials,
+                pubkey_deposits=pending_deposits_map.get(pubkey, []),
+                genesis_fork_version=genesis_fork_version
+            )
 
         return total_value
 
@@ -377,17 +385,30 @@ class StakingVaultsService:
 
     @staticmethod
     def get_pending_deposits_by_vaults(
+        vault_validators: VaultToValidators,
         pending_deposits: list[PendingDeposit],
+        pending_deposit_map: dict[str, list[PendingDeposit]],
         vaults: VaultsMap
     ) -> VaultToPendingDeposits:
+        result: VaultToPendingDeposits = defaultdict(list)
+        used_deposits_signatures: set[str] = set()
+
+        for vault_adr, vault in vaults.items():
+            for validator in vault_validators.get(vault.vault, []):
+                for deposit in pending_deposit_map.get(validator.validator.pubkey, []):
+                    result[vault_adr].append(deposit)
+                    used_deposits_signatures.add(deposit.signature)
+
         wc_vault_map: dict[str, VaultInfo] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vaults.values()
         }
 
-        result: VaultToPendingDeposits = defaultdict(list)
         for deposit in pending_deposits:
-            wc = deposit.withdrawal_credentials
+            # That deposit is already used on previous step. Skipping
+            if deposit.signature in used_deposits_signatures:
+                continue
 
+            wc = deposit.withdrawal_credentials
             if vault := wc_vault_map.get(wc):
                 result[vault.vault].append(deposit)
 
