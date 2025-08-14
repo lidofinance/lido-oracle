@@ -408,9 +408,8 @@ class StakingVaultsService:
             if deposit.signature in used_deposits_signatures:
                 continue
 
-            wc = deposit.withdrawal_credentials
-            if vault := wc_vault_map.get(wc):
-                result[vault.vault].append(deposit)
+            if vault_info := wc_vault_map.get(deposit.withdrawal_credentials):
+                result[vault_info.vault].append(deposit)
 
         return result
 
