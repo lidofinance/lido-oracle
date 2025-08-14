@@ -1,4 +1,5 @@
 import pytest
+from multiformats.multibase.err import MultibaseKeyError
 
 from src.providers.ipfs import IPFSProvider, CID, CIDv0
 
@@ -30,6 +31,6 @@ def test_ipfs_upload():
         # Unsupported hash code 30
         TestIPFSProvider('bagaaihraf4oq2kddg6o5ewlu6aol6xab75xkwbgzx2dlot7cdun7iirve23a').upload(b'hello world')
 
-    with pytest.raises(ValueError):
+    with pytest.raises(MultibaseKeyError):
         # multihash is not a valid base58 encoded multihash
         TestIPFSProvider('invalidcid').upload(b'hello world')

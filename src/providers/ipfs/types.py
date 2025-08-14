@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from multiformats_cid import make_cid, CIDv1 as MultiCIDv1
+import multiformats
 
 from .cid import CID, CIDv0
 
@@ -19,7 +19,10 @@ class FetchError(IPFSError):
         self.cid = cid
 
     def __str__(self) -> str:
-        return f"Unable to fetch {repr(self.cid)}"
+        base_msg = f"Unable to fetch {repr(self.cid)}"
+        if self.__cause__ is not None:
+            return f"{base_msg}: {self.__cause__}"
+        return base_msg
 
 
 class UploadError(IPFSError): ...
@@ -53,12 +56,12 @@ class IPFSProvider(ABC):
     def upload(self, content: bytes, name: str | None = None) -> CIDv0:
         cid_str = self._upload(content, name)
 
-        cid = make_cid(cid_str)
+        cid = multiformats.CID.decode(cid_str)
 
-        if isinstance(cid, MultiCIDv1):
-            cid = cid.to_v0()
+        if cid.version == 1:
+            cid = cid.set(version=0, base='base58btc')
 
-        return CIDv0(cid)
+        return CIDv0(str(cid))
 
     @abstractmethod
     def pin(self, cid: CID) -> None:
