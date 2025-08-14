@@ -26,7 +26,7 @@ def calculate_steth_apr(
     rate_diff: Decimal = post_rate - pre_rate
 
     if rate_diff < 0:
-        raise ValueError("Prevent negative APR calculation")
+        return Decimal(0)
 
     return (rate_diff * Decimal(SECONDS_IN_YEAR)) / (pre_rate * Decimal(time_elapsed_seconds))
 

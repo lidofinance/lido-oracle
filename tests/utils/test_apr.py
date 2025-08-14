@@ -58,8 +58,9 @@ class TestCalculateStethAprRay:
         post_total_ether = 900  # 10% decrease
         time_elapsed = SECONDS_IN_YEAR
 
-        with pytest.raises(ValueError, match="Prevent negative APR calculation"):
-            calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+
+        assert apr == Decimal("0")
 
     def test_large_numbers_precision(self):
         """Test APR calculation with high precision values."""
