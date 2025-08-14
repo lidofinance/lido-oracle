@@ -8,7 +8,8 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
     BadDebtSocializedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent
+    BadDebtWrittenOffToBeInternalizedEvent,
+    VaultConnectedEvent
 )
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.events import get_events_in_range
@@ -72,3 +73,12 @@ class VaultHubContract(ContractInterface):
         )
 
         return [BadDebtWrittenOffToBeInternalizedEvent.from_log(log) for log in logs]
+
+    def get_vault_connected_events(self, from_block_number: BlockNumber, to_block_number: BlockNumber) -> list[VaultConnectedEvent]:
+        logs = get_events_in_range(
+            self.events.VaultConnected(),
+            from_block_number,
+            to_block_number
+        )
+
+        return [VaultConnectedEvent.from_log(log) for log in logs]

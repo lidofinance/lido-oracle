@@ -121,6 +121,30 @@ class BadDebtSocializedEvent(EventBase):
 
 
 @dataclass(frozen=True)
+class VaultConnectedEvent(EventBase):
+    vault: str
+    share_limit: int
+    reserve_ratio_bp: int
+    forced_rebalance_threshold_bp: int
+    infra_fee_bp: int
+    liquidity_fee_bp: int
+    reservation_fee_bp: int
+
+    @classmethod
+    def from_log(cls, log: EventData) -> "VaultConnectedEvent":
+        args = log["args"]
+        return cls(
+            vault=args["vault"],
+            share_limit=args["shareLimit"],
+            reserve_ratio_bp=args["reserveRatioBP"],
+            forced_rebalance_threshold_bp=args["forcedRebalanceThresholdBP"],
+            infra_fee_bp=args["infraFeeBP"],
+            liquidity_fee_bp=args["liquidityFeeBP"],
+            reservation_fee_bp=args["reservationFeeBP"],
+            **cls._extract_common(log),
+        )
+
+@dataclass(frozen=True)
 class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
     vault: str
     bad_debt_shares: int
@@ -140,5 +164,6 @@ VaultEventType = Union[
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
     BadDebtSocializedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent
+    BadDebtWrittenOffToBeInternalizedEvent,
+    VaultConnectedEvent
 ]
