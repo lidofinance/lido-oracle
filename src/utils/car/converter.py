@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Final, Tuple, Union, cast
 
 import dag_cbor
@@ -9,6 +10,14 @@ Block = Tuple[CID, BytesLike]
 
 CAR_VERSION = 1
 BYTES_LIKE_TYPES: Final = (bytes, bytearray, memoryview)
+
+
+@dataclass
+class CarFile:
+    car_bytes: bytes
+    root_cid: str
+    shard_cid: str
+    size: int
 
 
 class CAREncodingError(Exception):
@@ -84,7 +93,7 @@ class CARConverter:
         pb_node.Data = unixfs_serialized
         return pb_node.SerializeToString()
 
-    def create_car_from_data(self, data_bytes: bytes) -> Tuple[bytes, str, str, int]:
+    def create_car_from_data(self, data_bytes: bytes) -> CarFile:
         """Create CAR archive from raw data."""
         unixfs_serialized = self._serialize_unixfs_file(data_bytes)
         pb_node_serialized = self._serialize_dag_pb_node(unixfs_serialized)
@@ -105,4 +114,9 @@ class CARConverter:
 
         size = len(car_bytes)
 
-        return car_bytes, root_cid.encode(), shard_cid, size
+        return CarFile(
+            car_bytes=car_bytes,
+            root_cid=root_cid.encode(),
+            shard_cid=shard_cid,
+            size=size
+        )

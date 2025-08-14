@@ -1,6 +1,6 @@
 import pytest
 
-from src.utils.car.converter import CARConverter
+from src.utils.car import CARConverter
 from src.providers.ipfs.cid import is_cid_v0
 
 
@@ -16,53 +16,53 @@ class TestCARConverter:
         return b"test content for CAR archive"
 
     def test_create_car_from_data__valid_data__returns_car_archive(self, converter, test_data):
-        car_bytes, root_cid, shard_cid, size = converter.create_car_from_data(test_data)
+        car_file = converter.create_car_from_data(test_data)
 
-        assert len(car_bytes) > 0
-        assert size == len(car_bytes)
-        assert is_cid_v0(root_cid)
+        assert len(car_file.car_bytes) > 0
+        assert car_file.size == len(car_file.car_bytes)
+        assert is_cid_v0(car_file.root_cid)
 
     def test_create_car_from_data__empty_data__returns_car_archive(self, converter):
         empty_data = b""
 
-        car_bytes, root_cid, shard_cid, size = converter.create_car_from_data(empty_data)
+        car_file = converter.create_car_from_data(empty_data)
 
-        assert len(car_bytes) > 0
-        assert is_cid_v0(root_cid)
-        assert size == len(car_bytes)
+        assert len(car_file.car_bytes) > 0
+        assert is_cid_v0(car_file.root_cid)
+        assert car_file.size == len(car_file.car_bytes)
 
     def test_create_car_from_data__large_data__returns_car_archive(self, converter):
         large_data = b"x" * 500000
 
-        car_bytes, root_cid, shard_cid, size = converter.create_car_from_data(large_data)
+        car_file = converter.create_car_from_data(large_data)
 
-        assert len(car_bytes) > len(large_data)
-        assert is_cid_v0(root_cid)
-        assert size == len(car_bytes)
+        assert len(car_file.car_bytes) > 0
+        assert is_cid_v0(car_file.root_cid)
+        assert car_file.size == len(car_file.car_bytes)
 
     def test_create_car_from_data__different_data__returns_different_cids(self, converter):
         data1 = b"first test content"
         data2 = b"second test content"
 
-        car_bytes1, root_cid1, shard_cid1, size1 = converter.create_car_from_data(data1)
-        car_bytes2, root_cid2, shard_cid2, size2 = converter.create_car_from_data(data2)
+        car_file1 = converter.create_car_from_data(data1)
+        car_file2 = converter.create_car_from_data(data2)
 
-        assert root_cid1 != root_cid2
-        assert is_cid_v0(root_cid1)
-        assert is_cid_v0(root_cid2)
-        assert shard_cid1 != shard_cid2
-        assert car_bytes1 != car_bytes2
-        assert size1 != size2
+        assert car_file1.root_cid != car_file2.root_cid
+        assert is_cid_v0(car_file1.root_cid)
+        assert is_cid_v0(car_file2.root_cid)
+        assert car_file1.shard_cid != car_file2.shard_cid
+        assert car_file1.car_bytes != car_file2.car_bytes
+        assert car_file1.size != car_file2.size
 
     def test_create_car_from_data__same_data__returns_same_cids(self, converter):
         data = b"identical test content"
 
-        car_bytes1, root_cid1, shard_cid1, size1 = converter.create_car_from_data(data)
-        car_bytes2, root_cid2, shard_cid2, size2 = converter.create_car_from_data(data)
+        car_file1 = converter.create_car_from_data(data)
+        car_file2 = converter.create_car_from_data(data)
 
-        assert root_cid1 == root_cid2
-        assert is_cid_v0(root_cid1)
-        assert is_cid_v0(root_cid2)
-        assert shard_cid1 == shard_cid2
-        assert size1 == size2
-        assert car_bytes1 == car_bytes2
+        assert car_file1.root_cid == car_file2.root_cid
+        assert is_cid_v0(car_file1.root_cid)
+        assert is_cid_v0(car_file2.root_cid)
+        assert car_file1.shard_cid == car_file2.shard_cid
+        assert car_file1.size == car_file2.size
+        assert car_file1.car_bytes == car_file2.car_bytes

@@ -58,7 +58,7 @@ class Storacha(IPFSProvider):
         Returns:
             Root CID as string
         """
-        car_bytes, root_cid, shard_cid, size = self.car_converter.create_car_from_data(content)
+        car_file = self.car_converter.create_car_from_data(content)
 
         headers = self._get_headers()
 
@@ -68,8 +68,8 @@ class Storacha(IPFSProvider):
                     "store/add",
                     self.space_did,
                     {
-                        "link": {"/": shard_cid},
-                        "size": size
+                        "link": {"/": car_file.shard_cid},
+                        "size": car_file.size
                     }
                 ]
             ]
@@ -96,7 +96,7 @@ class Storacha(IPFSProvider):
             upload_headers = store_result['headers']
 
             try:
-                upload_response = requests.put(upload_url, headers=upload_headers, data=car_bytes, timeout=self.timeout)
+                upload_response = requests.put(upload_url, headers=upload_headers, data=car_file.car_bytes, timeout=self.timeout)
                 upload_response.raise_for_status()
             except requests.RequestException as ex:
                 logger.error({"msg": "Upload request failed", "error": str(ex)})
@@ -108,8 +108,8 @@ class Storacha(IPFSProvider):
                     "upload/add",
                     self.space_did,
                     {
-                        "root": {"/": root_cid},
-                        "shards": [{"/": shard_cid}]
+                        "root": {"/": car_file.root_cid},
+                        "shards": [{"/": car_file.shard_cid}]
                     }
                 ]
             ]

@@ -6,6 +6,7 @@ import responses
 from src.providers.ipfs.storacha import Storacha
 from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import FetchError, UploadError
+from src.utils.car.converter import CarFile
 
 
 @pytest.mark.unit
@@ -13,11 +14,11 @@ class TestStoracha:
 
     @pytest.fixture
     def mock_car_data(self):
-        return (
-            b"mock_car_bytes",
-            "QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB",
-            "QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR",
-            100,
+        return CarFile(
+            car_bytes=b"mock_car_bytes",
+            root_cid="QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB",
+            shard_cid="QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR",
+            size=100,
         )
 
     @pytest.fixture
