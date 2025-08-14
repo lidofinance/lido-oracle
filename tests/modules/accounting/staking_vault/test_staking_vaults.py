@@ -241,7 +241,7 @@ class TestStakingVaults:
                 balance=Gwei(32834904184),
                 validator=ValidatorState(
                     pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
-                    withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302', # <-
+                    withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',  # <-
                     effective_balance=Gwei(32000000000),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(225469),
@@ -268,7 +268,8 @@ class TestStakingVaults:
         )
 
         expected = {
-            self.vault_adr_0: gwei_to_wei(Gwei(validators[0].balance + pending_deposits[0].amount)) + self.vaults[self.vault_adr_0].balance,
+            self.vault_adr_0: gwei_to_wei(Gwei(validators[0].balance + pending_deposits[0].amount))
+            + self.vaults[self.vault_adr_0].balance,
             self.vault_adr_1: 0,
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
