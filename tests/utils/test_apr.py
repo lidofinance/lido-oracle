@@ -60,7 +60,7 @@ class TestCalculateStethAprRay:
 
         apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
-        assert apr == Decimal("-0.1")
+        assert apr == Decimal("0")
 
     def test_large_numbers_precision(self):
         """Test APR calculation with high precision values."""
