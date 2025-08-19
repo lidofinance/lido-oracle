@@ -79,28 +79,31 @@ class CARConverter:
 
         return memoryview(buffer)
 
-    def _serialize_unixfs_file(self, data_bytes: bytes) -> bytes:
-        """Serialize UnixFS Data for File using protobuf."""
+    def _serialize_unixfs_pb_node(self, data_bytes: bytes) -> bytes:
+        """Serialize UnixFS file data into DAG-PB node using protobuf."""
+        # Create UnixFS data structure
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
         unixfs.Data = data_bytes
         unixfs.filesize = len(data_bytes)
-        return unixfs.SerializeToString()
+        unixfs_serialized = unixfs.SerializeToString()
 
-    def _serialize_dag_pb_node(self, unixfs_serialized: bytes) -> bytes:
-        """Serialize DAG-PB PBNode using protobuf."""
+        # Wrap in DAG-PB node
         pb_node = merkledag_pb2.PBNode()  # type: ignore[attr-defined]
         pb_node.Data = unixfs_serialized
         return pb_node.SerializeToString()
 
-    def create_car_from_data(self, data_bytes: bytes) -> CarFile:
-        """Create CAR archive from raw data."""
-        unixfs_serialized = self._serialize_unixfs_file(data_bytes)
-        pb_node_serialized = self._serialize_dag_pb_node(unixfs_serialized)
-
-        # Create root CID as CIDv0 to match other providers
+    def _create_cid_from_pb_node(self, pb_node_serialized: bytes) -> CID:
         root_digest = multihash.digest(pb_node_serialized, "sha2-256")
-        root_cid = CID("base58btc", 0, "dag-pb", root_digest)
+        return CID("base58btc", 0, "dag-pb", root_digest)
+
+    def create_unixfs_based_cid(self, data_bytes: bytes) -> str:
+        pb_node_serialized = self._serialize_unixfs_pb_node(data_bytes)
+        return self._create_cid_from_pb_node(pb_node_serialized).encode()
+
+    def create_car_from_data(self, data_bytes: bytes) -> CarFile:
+        pb_node_serialized = self._serialize_unixfs_pb_node(data_bytes)
+        root_cid = self._create_cid_from_pb_node(pb_node_serialized)
 
         blocks = [(root_cid, pb_node_serialized)]
 

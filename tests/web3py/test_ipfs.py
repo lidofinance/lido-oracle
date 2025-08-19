@@ -8,20 +8,23 @@ from src.types import FrameNumber
 from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError
 
 
-HARDCODED_CID = CID("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
 HARDCODED_FETCH_CONTENT = b"hardcoded_fetched_content"
+HARDCODED_FETCH_CID = CID("QmWWiPYSquMJAizMhWMimhmZiHdz8Q9owhv9NyzZm4RDX3")
+HARDCODED_PUBLISH_CONTENT = b"any_content"
+HARDCODED_PUBLISH_CID = CID("QmdAjYn2fs94anbsRsTxYkjpaRSaCv7uz9pMnSwiivW77J")
 
 
 class MockIPFSProvider(IPFSProvider):
 
     def __init__(self, name):
+        super().__init__()
         self.name = name
 
-    def fetch(self, cid: CID) -> bytes:
+    def _fetch(self, cid: CID) -> bytes:
         return HARDCODED_FETCH_CONTENT
 
     def _upload(self, content: bytes, name: str | None = None) -> str:
-        return str(HARDCODED_CID)
+        return str(HARDCODED_PUBLISH_CID)
 
     def pin(self, cid: CID) -> None:
         pass
@@ -58,51 +61,47 @@ class TestIPFS:
 
     def test_provider_selection__different_frames__rotates_providers(self, mock_w3, mock_provider1, mock_provider2):
         ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2])
-        cid = CID("any_cid")
 
-        ipfs.fetch(cid, FrameNumber(0))
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert ipfs.provider == mock_provider1
 
-        ipfs.publish(b"", FrameNumber(1), "")
+        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "")
         assert ipfs.provider == mock_provider2
 
-        ipfs.fetch(cid, FrameNumber(2))
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(2))
         assert ipfs.provider == mock_provider1
 
-        ipfs.fetch(cid, FrameNumber(3))
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(3))
         assert ipfs.provider == mock_provider2
 
     def test_provider_selection__same_frame__keeps_same_provider(self, mock_w3, mock_provider1, mock_provider2):
         ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2])
-        cid = CID("any_cid")
 
-        ipfs.fetch(cid, FrameNumber(1))
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(1))
         assert ipfs.provider == mock_provider2
 
-        ipfs.fetch(cid, FrameNumber(1))
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(1))
         assert ipfs.provider == mock_provider2
 
-        ipfs.publish(b"", FrameNumber(1), "")
+        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "")
         assert ipfs.provider == mock_provider2
 
     def test_fetch__valid_cid__returns_content(self, mock_w3, mock_provider1):
         ipfs = IPFS(mock_w3, [mock_provider1])
-        cid = CID("any_cid")
-        result = ipfs.fetch(cid, FrameNumber(0))
+        result = ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert result == HARDCODED_FETCH_CONTENT
 
     def test_publish__valid_content__returns_cid(self, mock_w3, mock_provider1):
         ipfs = IPFS(mock_w3, [mock_provider1])
-        content = b"any_content"
         name = "any_name"
-        cid = ipfs.publish(content, FrameNumber(0), name)
-        assert cid == HARDCODED_CID
+        cid = ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(0), name)
+        assert cid == HARDCODED_PUBLISH_CID
 
     def test_fetch__first_attempt_fails__retries_and_succeeds(self, mock_w3, mock_provider1):
         provider = mock_provider1
         provider.fetch = MagicMock(side_effect=[IPFSError("fail"), HARDCODED_FETCH_CONTENT])
         ipfs = IPFS(mock_w3, [provider], retries=2)
-        result = ipfs.fetch(HARDCODED_CID, FrameNumber(0))
+        result = ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert result == HARDCODED_FETCH_CONTENT
         assert provider.fetch.call_count == 2
 
@@ -111,7 +110,7 @@ class TestIPFS:
         provider.fetch = MagicMock(side_effect=IPFSError("fail"))
         ipfs = IPFS(mock_w3, [provider], retries=3)
         with pytest.raises(NoMoreProvidersError) as excinfo:
-            ipfs.fetch(HARDCODED_CID, FrameNumber(0))
+            ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert isinstance(excinfo.value.__cause__, MaxRetryError)
         assert provider.fetch.call_count == 3
 
@@ -122,7 +121,7 @@ class TestIPFS:
         provider2.fetch = MagicMock(return_value=HARDCODED_FETCH_CONTENT)
 
         ipfs = IPFS(mock_w3, [provider1, provider2])
-        result = ipfs.fetch(HARDCODED_CID, FrameNumber(0))
+        result = ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
 
         assert result == HARDCODED_FETCH_CONTENT
         assert provider1.fetch.call_count == 1
@@ -137,7 +136,7 @@ class TestIPFS:
         ipfs = IPFS(mock_w3, [provider1, provider2])
 
         with pytest.raises(NoMoreProvidersError) as excinfo:
-            ipfs.fetch(HARDCODED_CID, FrameNumber(0))
+            ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert "fail2" in str(excinfo.value.__cause__)
 
         assert provider1.fetch.call_count == 1
@@ -145,10 +144,10 @@ class TestIPFS:
 
     def test_publish__first_attempt_fails__retries_and_succeeds(self, mock_w3, mock_provider1):
         provider = mock_provider1
-        provider.publish = MagicMock(side_effect=[IPFSError("fail"), HARDCODED_CID])
+        provider.publish = MagicMock(side_effect=[IPFSError("fail"), HARDCODED_PUBLISH_CID])
         ipfs = IPFS(mock_w3, [provider], retries=2)
         result = ipfs.publish(b"test", FrameNumber(0), "test")
-        assert result == HARDCODED_CID
+        assert result == HARDCODED_PUBLISH_CID
         assert provider.publish.call_count == 2
 
     def test_publish__all_retries_fail__raises_no_more_providers_error(self, mock_w3, mock_provider1):
@@ -166,12 +165,12 @@ class TestIPFS:
         provider1 = mock_provider1
         provider1.publish = MagicMock(side_effect=Exception("fail"))
         provider2 = mock_provider2
-        provider2.publish = MagicMock(return_value=HARDCODED_CID)
+        provider2.publish = MagicMock(return_value=HARDCODED_PUBLISH_CID)
 
         ipfs = IPFS(mock_w3, [provider1, provider2])
         result = ipfs.publish(b"test", FrameNumber(0), "test")
 
-        assert result == HARDCODED_CID
+        assert result == HARDCODED_PUBLISH_CID
         assert provider1.publish.call_count == 1
         assert provider2.publish.call_count == 1
 

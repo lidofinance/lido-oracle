@@ -2,35 +2,70 @@ import pytest
 from multiformats.multibase.err import MultibaseKeyError
 
 from src.providers.ipfs import IPFSProvider, CID, CIDv0
+from src.providers.ipfs.types import CIDValidationError
 
 
 @pytest.mark.unit
-def test_ipfs_upload():
-    class TestIPFSProvider(IPFSProvider):
-        def __init__(self, cid: str):
-            self.cid = cid
+class TestIPFS:
 
-        def _upload(self, *args):
-            return self.cid
+    @pytest.fixture
+    def test_provider(self):
+        class TestIPFSProvider(IPFSProvider):
+            def __init__(self, upload_cid: str = "QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB"):
+                super().__init__()
+                self.upload_cid = upload_cid
 
-        def fetch(self, cid: CID) -> bytes: ...
+            def _upload(self, content: bytes, name=None):
+                return self.upload_cid
 
-        def pin(self, cid: CID) -> None: ...
+            def _fetch(self, cid: CID) -> bytes:
+                return b'test content'
 
-    cid = TestIPFSProvider('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB').upload(b'hello world')
+            def pin(self, cid: CID) -> None:
+                pass
 
-    assert isinstance(cid, CIDv0)
-    assert cid == 'QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB'
+        return TestIPFSProvider
 
-    cid = TestIPFSProvider('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi').upload(b'hello world')
-    assert isinstance(cid, CIDv0)
-    assert cid == 'QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR'
+    def test_upload__v0_cid__returns_cidv0(self, test_provider):
+        provider = test_provider('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB')
+        cid = provider.upload(b'hello world')
 
-    with pytest.raises(ValueError):
-        # valid cid with json multicodec
-        # Unsupported hash code 30
-        TestIPFSProvider('bagaaihraf4oq2kddg6o5ewlu6aol6xab75xkwbgzx2dlot7cdun7iirve23a').upload(b'hello world')
+        assert isinstance(cid, CIDv0)
+        assert cid == 'QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB'
 
-    with pytest.raises(MultibaseKeyError):
-        # multihash is not a valid base58 encoded multihash
-        TestIPFSProvider('invalidcid').upload(b'hello world')
+    def test_upload__v1_cid__converts_to_v0(self, test_provider):
+        provider = test_provider('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
+        cid = provider.upload(b'hello world')
+
+        assert isinstance(cid, CIDv0)
+        assert cid == 'QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR'
+
+    def test_upload__json_multicodec__raises_value_error(self, test_provider):
+        provider = test_provider('bagaaihraf4oq2kddg6o5ewlu6aol6xab75xkwbgzx2dlot7cdun7iirve23a')
+
+        with pytest.raises(ValueError):
+            # valid cid with json multicodec
+            # Unsupported hash code 30
+            provider.upload(b'hello world')
+
+    def test_upload__invalid_cid__raises_multibase_key_error(self, test_provider):
+        provider = test_provider('invalidcid')
+
+        with pytest.raises(MultibaseKeyError):
+            # multihash is not a valid base58 encoded multihash
+            provider.upload(b'hello world')
+
+    def test_fetch__cid_validation_fails__raises_validation_error(self, test_provider):
+        provider = test_provider()
+        cid = CID("QmInvalidCid123456789")
+
+        with pytest.raises(CIDValidationError):
+            provider.fetch(cid)
+
+    def test_publish__cid_validation_fails__raises_validation_error(self, test_provider):
+        # Use a valid CID that doesn't match the content
+        provider = test_provider("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
+        content = b"mock car content for upload test"
+
+        with pytest.raises(CIDValidationError):
+            provider.publish(content)
