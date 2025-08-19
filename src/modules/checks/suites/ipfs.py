@@ -2,11 +2,25 @@
 
 import random
 import string
+import time
+from typing import Callable, Any
 
 from src.main import ipfs_providers
 from src.providers.ipfs import Pinata, Storacha
 
 REQUIRED_PROVIDERS = (Pinata, Storacha)
+
+
+def retry_fetch(func: Callable, *args, max_retries: int = 3, delay: int = 30, **kwargs) -> Any:
+    """Retry function with exponential backoff for IPFS fetch operations."""
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            if attempt == max_retries - 1:
+                raise e
+            time.sleep(delay)
+    return None
 
 
 def check_ipfs_providers():
@@ -47,12 +61,12 @@ def check_ipfs_providers():
         # Check content between different IPFS providers
         for download_provider in configured_providers:
             try:
-                downloaded_content = download_provider.fetch(uploaded_cid).decode()
+                downloaded_content = retry_fetch(download_provider.fetch, uploaded_cid).decode()
                 downloaded_contents[download_provider.__class__.__name__] = downloaded_content
             except Exception as e:  # pylint: disable=broad-exception-caught
                 errors.append(
                     f"Download failed on provider {download_provider.__class__.__name__} during fetch stage "
-                    f"for CID {uploaded_cid} (uploaded via {upload_provider.__class__.__name__}): "
+                    f"for CID {uploaded_cid} (uploaded via {upload_provider.__class__.__name__}) after retries: "
                     f"{type(e).__name__}: {e}"
                 )
                 continue
