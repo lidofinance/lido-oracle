@@ -18,6 +18,7 @@ from src.modules.accounting.events import (
     BadDebtSocializedEvent,
     VaultConnectedEvent,
     VaultEventType,
+    sort,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.ipfs import CID
@@ -2001,3 +2002,98 @@ class TestStakingVaults:
         assert prev_report is None
         assert block_number == expected_block_number
         assert block_hash == expected_block_hash
+
+    @pytest.mark.unit
+    def test_sort_events_in_reverse_order(self):
+        vault1_adr = "vault1_adr"
+
+        events = [
+            # block 3600, log_index 1
+            MintedSharesOnVaultEvent(
+                block_number=BlockNumber(3600),
+                amount_of_shares=10,
+                vault=vault1_adr,
+                locked_amount=MagicMock(),
+                event=MagicMock(),
+                log_index=1,
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+            # block 3600, log_index 3 → should come before log_index=1
+            BurnedSharesOnVaultEvent(
+                block_number=BlockNumber(3600),
+                amount_of_shares=5,
+                vault=vault1_adr,
+                event=MagicMock(),
+                log_index=3,
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+            # block 3601, log_index 0 → newest block → should be first overall
+            VaultFeesUpdatedEvent(
+                block_number=BlockNumber(3601),
+                vault=vault1_adr,
+                pre_infra_fee_bp=MagicMock(),
+                infra_fee_bp=MagicMock(),
+                pre_liquidity_fee_bp=MagicMock(),
+                liquidity_fee_bp=MagicMock(),
+                pre_reservation_fee_bp=MagicMock(),
+                reservation_fee_bp=MagicMock(),
+                event=MagicMock(),
+                log_index=0,
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+            # block 3599, log_index 7 → oldest block → should be last overall
+            VaultRebalancedEvent(
+                block_number=BlockNumber(3599),
+                vault=vault1_adr,
+                shares_burned=MagicMock(),
+                ether_withdrawn=MagicMock(),
+                event=MagicMock(),
+                log_index=7,
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+            # block 3600, log_index 2 → should be between log_index=3 and log_index=1
+            BadDebtSocializedEvent(
+                block_number=BlockNumber(3600),
+                vault_donor=vault1_adr,
+                vault_acceptor="vault2",
+                bad_debt_shares=MagicMock(),
+                event=MagicMock(),
+                log_index=2,
+                transaction_index=MagicMock(),
+                address=MagicMock(),
+                transaction_hash=MagicMock(),
+                block_hash=MagicMock(),
+            ),
+        ]
+
+        # expected order:
+        # 1. block 3601, log_index=0
+        # 2. block 3600, log_index=3
+        # 3. block 3600, log_index=2
+        # 4. block 3600, log_index=1
+        # 5. block 3599, log_index=7
+        expected = [
+            copy.copy(events[2]),
+            copy.copy(events[1]),
+            copy.copy(events[4]),
+            copy.copy(events[0]),
+            copy.copy(events[3]),
+        ]
+
+        sort(events)
+
+        assert events == expected
+
+

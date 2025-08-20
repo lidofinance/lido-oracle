@@ -18,7 +18,7 @@ from src.modules.accounting.events import (
     VaultEventType,
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
-    VaultConnectedEvent,
+    VaultConnectedEvent, sort,
 )
 from src.modules.accounting.types import (
     BLOCKS_PER_YEAR,
@@ -490,7 +490,7 @@ class StakingVaultsService:
         elif len(events[vault_address]) > 0:
             # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
             # on the `liability_shares` and the elapsed blocks between events.
-            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
+            sort(events[vault_address])
 
             for event in events[vault_address]:
                 blocks_elapsed_between_events = current_block - event.block_number
