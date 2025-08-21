@@ -391,13 +391,13 @@ class StakingVaultsService:
         vaults: VaultsMap
     ) -> VaultToPendingDeposits:
         result: VaultToPendingDeposits = defaultdict(list)
-        used_deposits_signatures: set[str] = set()
+        used_pubkeys: set[str] = set()
 
         for vault_adr, vault in vaults.items():
             for validator in vault_validators.get(vault.vault, []):
                 for deposit in pending_deposit_map.get(validator.validator.pubkey, []):
                     result[vault_adr].append(deposit)
-                    used_deposits_signatures.add(deposit.signature)
+                    used_pubkeys.add(deposit.pubkey)
 
         wc_vault_map: dict[str, VaultInfo] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vaults.values()
@@ -405,7 +405,7 @@ class StakingVaultsService:
 
         for deposit in pending_deposits:
             # That deposit is already used on previous step. Skipping
-            if deposit.signature in used_deposits_signatures:
+            if deposit.pubkey in used_pubkeys:
                 continue
 
             if vault_info := wc_vault_map.get(deposit.withdrawal_credentials):
