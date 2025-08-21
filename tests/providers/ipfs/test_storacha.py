@@ -23,7 +23,7 @@ class TestStoracha:
 
         responses.add(
             responses.GET,
-            f"{Storacha.GATEWAY_URL}QmXvrr3gPtddcNrisH7i2nan9rY7v7RcxVQ9jjRreoWwRS",
+            f"{Storacha.GATEWAY_URL}{cid}",
             body=expected_content,
             status=200,
         )
@@ -145,10 +145,11 @@ class TestStoracha:
 
     @responses.activate
     def test_fetch__cid_validation_fails__raises_validation_error(self, storacha_provider):
-        cid = CID("QmInvalidCid123456789")
+        # Use a valid CID format but with content that doesn't match
+        cid = CID("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
         wrong_content = b"test content"
 
-        responses.add(responses.GET, f"{Storacha.GATEWAY_URL}QmInvalidCid123456789", body=wrong_content, status=200)
+        responses.add(responses.GET, f"{Storacha.GATEWAY_URL}{cid}", body=wrong_content, status=200)
 
         with pytest.raises(CIDValidationError):
             storacha_provider.fetch(cid)

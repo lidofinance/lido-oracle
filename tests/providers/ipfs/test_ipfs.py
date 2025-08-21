@@ -57,7 +57,8 @@ class TestIPFS:
 
     def test_fetch__cid_validation_fails__raises_validation_error(self, test_provider):
         provider = test_provider()
-        cid = CID("QmInvalidCid123456789")
+        # Use a valid CID format but with content that doesn't match
+        cid = CID("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
 
         with pytest.raises(CIDValidationError):
             provider.fetch(cid)

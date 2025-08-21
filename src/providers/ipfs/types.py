@@ -54,9 +54,16 @@ class IPFSProvider(ABC):
     def __init__(self) -> None:
         self.car_converter = CARConverter()
 
+    def _normalize_cid(self, cid: str) -> CID:
+        parsed_cid = multiformats.CID.decode(cid)
+        if parsed_cid.version == 1:
+            parsed_cid = parsed_cid.set(version=0, base='base58btc')
+        return CID(str(parsed_cid))
+
     def fetch(self, cid: CID) -> bytes:
         content = self._fetch(cid)
-        self._validate_cid(cid, content)
+        normalized_cid = self._normalize_cid(str(cid))
+        self._validate_cid(normalized_cid, content)
         return content
 
     @abstractmethod
@@ -77,13 +84,8 @@ class IPFSProvider(ABC):
 
     def upload(self, content: bytes, name: str | None = None) -> CIDv0:
         cid_str = self._upload(content, name)
-
-        cid = multiformats.CID.decode(cid_str)
-
-        if cid.version == 1:
-            cid = cid.set(version=0, base='base58btc')
-
-        return CIDv0(str(cid))
+        normalized_cid = self._normalize_cid(cid_str)
+        return CIDv0(str(normalized_cid))
 
     @abstractmethod
     def pin(self, cid: CID) -> None:
