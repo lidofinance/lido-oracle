@@ -167,3 +167,10 @@ VaultEventType = Union[
     BadDebtWrittenOffToBeInternalizedEvent,
     VaultConnectedEvent
 ]
+
+
+def sort_events(events: list[VaultEventType]) -> None:
+    events.sort(
+        key=lambda e: (e.block_number, e.log_index),
+        reverse=True
+    )

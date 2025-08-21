@@ -5,7 +5,7 @@ from dataclasses import asdict
 from decimal import ROUND_UP, Decimal
 from typing import Any, Optional
 
-from eth_typing import BlockNumber, HexStr
+from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
@@ -19,6 +19,7 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
     VaultConnectedEvent,
+    sort_events,
 )
 from src.modules.accounting.types import (
     BLOCKS_PER_YEAR,
@@ -181,7 +182,7 @@ class StakingVaultsService:
 
         dumped_tree_str = json.dumps(output, default=self.tree_encoder)
 
-        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), current_frame, MERKLE_TREE_VAULTS_FILENAME)
+        return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), current_frame, MERKLE_TREE_VAULTS_FILENAME)
 
     @staticmethod
     def get_dumped_tree(
@@ -392,13 +393,13 @@ class StakingVaultsService:
         vaults: VaultsMap
     ) -> VaultToPendingDeposits:
         result: VaultToPendingDeposits = defaultdict(list)
-        used_deposits_signatures: set[str] = set()
+        used_pubkeys: set[str] = set()
 
         for vault_adr, vault in vaults.items():
             for validator in vault_validators.get(vault.vault, []):
                 for deposit in pending_deposit_map.get(validator.validator.pubkey, []):
                     result[vault_adr].append(deposit)
-                    used_deposits_signatures.add(deposit.signature)
+                    used_pubkeys.add(deposit.pubkey)
 
         wc_vault_map: dict[str, VaultInfo] = {
             vault_data.withdrawal_credentials: vault_data for vault_data in vaults.values()
@@ -406,7 +407,7 @@ class StakingVaultsService:
 
         for deposit in pending_deposits:
             # That deposit is already used on previous step. Skipping
-            if deposit.signature in used_deposits_signatures:
+            if deposit.pubkey in used_pubkeys:
                 continue
 
             if vault_info := wc_vault_map.get(deposit.withdrawal_credentials):
@@ -491,7 +492,7 @@ class StakingVaultsService:
         elif len(events[vault_address]) > 0:
             # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
             # on the `liability_shares` and the elapsed blocks between events.
-            events[vault_address].sort(key=lambda x: x.block_number, reverse=True)
+            sort_events(events[vault_address])
 
             for event in events[vault_address]:
                 blocks_elapsed_between_events = current_block - event.block_number
@@ -546,7 +547,7 @@ class StakingVaultsService:
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         current_frame: FrameNumber,
-    ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber, HexStr]:
+    ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber]:
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
 
         if latest_onchain_ipfs_report_data.report_cid != "":
@@ -571,7 +572,7 @@ class StakingVaultsService:
             # If any vault-related event occurred in the same block as the previous IPFS report,
             # it has already been included in that report. To avoid overlapping calculations,
             # we shift the starting point by one block forward.
-            return prev_ipfs_report, ref_block.block_number + 1, ref_block.block_hash
+            return prev_ipfs_report, ref_block.block_number + 1
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
@@ -582,7 +583,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number, ref_block.block_hash
+            return None, ref_block.block_number
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
@@ -591,7 +592,7 @@ class StakingVaultsService:
         bs = get_blockstamp(
             self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
         )
-        return None, bs.block_number, bs.block_hash
+        return None, bs.block_number
 
     # This function is complex by design (business logic-heavy),
     # so we disable the pylint warning for too many branches.
@@ -609,15 +610,16 @@ class StakingVaultsService:
         chain_config: ChainConfig,
         current_frame: FrameNumber,
     ) -> VaultFeeMap:
-        prev_ipfs_report, prev_block_number, prev_block_hash = self._get_start_point_for_fee_calculations(
+        prev_ipfs_report, prev_block_number = self._get_start_point_for_fee_calculations(
             blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config, current_frame
         )
-        vaults_on_prev_report = self.get_vaults(BlockHash(HexStr(prev_block_hash)))
 
-        prev_fee = defaultdict(int)
+        prev_fee_map = defaultdict(int)
+        prev_liability_shares_map = defaultdict(int)
         if prev_ipfs_report is not None:
             for vault in prev_ipfs_report.values:
-                prev_fee[vault.vault_address] = vault.fee
+                prev_fee_map[vault.vault_address] = vault.fee
+                prev_liability_shares_map[vault.vault_address] = vault.liability_shares
 
         events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
         fees_updated_events = self.w3.lido_contracts.vault_hub.get_vault_fee_updated_events(prev_block_number, blockstamp.block_number)
@@ -647,10 +649,10 @@ class StakingVaultsService:
             events[socialized_event.vault_donor].append(socialized_event)
             events[socialized_event.vault_acceptor].append(socialized_event)
 
-        vault_connected_events_set = set()
+        connected_vaults_set = set()
         for vault_connected_event in vault_connected_events:
             events[vault_connected_event.vault].append(vault_connected_event)
-            vault_connected_events_set.add(vault_connected_event.vault)
+            connected_vaults_set.add(vault_connected_event.vault)
 
         out: VaultFeeMap = {}
         current_block = blockstamp.block_number
@@ -682,16 +684,15 @@ class StakingVaultsService:
                 core_apr_ratio=core_apr_ratio,
             )
 
-            vault_got_connected_event = vault_address in vault_connected_events_set
+            vault_got_connected_event = vault_address in connected_vaults_set
 
             ## If the vault was disconnected and then reconnected between reports,
             ## we must not carry over liability_shares from the previous report.
             ##
             ## The fees were already paid, and the vault essentially starts a new lifecycle from zero.
-            if vault_got_connected_event or vault_address not in vaults_on_prev_report:
+            prev_liability_shares = prev_liability_shares_map[vault_address]
+            if vault_got_connected_event:
                 prev_liability_shares = 0
-            else:
-                prev_liability_shares = vaults_on_prev_report[vault_address].liability_shares
 
             if prev_liability_shares != liability_shares:
                 raise ValueError(
@@ -699,7 +700,7 @@ class StakingVaultsService:
                 )
 
             out[vault_address] = VaultFee(
-                prev_fee=int(0) if vault_got_connected_event else int(prev_fee[vault_address]),
+                prev_fee=int(0) if vault_got_connected_event else int(prev_fee_map[vault_address]),
                 infra_fee=int(vault_infrastructure_fee.to_integral_value(ROUND_UP)),
                 reservation_fee=int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
                 liquidity_fee=int(vault_liquidity_fee.to_integral_value(ROUND_UP)),
