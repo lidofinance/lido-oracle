@@ -18,7 +18,7 @@ from src.modules.accounting.events import (
     BadDebtSocializedEvent,
     VaultConnectedEvent,
     VaultEventType,
-    sort,
+    sort_events,
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.ipfs import CID
@@ -2092,7 +2092,7 @@ class TestStakingVaults:
             copy.copy(events[3]),
         ]
 
-        sort(events)
+        sort_events(events)
 
         assert events == expected
 
