@@ -6,8 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
-from hexbytes import HexBytes
-from web3.types import Wei, Timestamp, BlockData
+from web3.types import Wei, Timestamp
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
@@ -1930,7 +1929,7 @@ class TestStakingVaults:
             return_value=slot_val
         )
 
-        prev_report, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+        prev_report, block_number = staking_vaults._get_start_point_for_fee_calculations(
             blockstamp,
             ipfs_data,
             frame_config,
@@ -1939,7 +1938,6 @@ class TestStakingVaults:
 
         assert prev_report is None
         assert block_number == expected_block_number
-        assert block_hash == expected_block_hash
 
     @pytest.mark.unit
     def test_get_start_point_fresh_devnet_case(self):
@@ -1989,13 +1987,12 @@ class TestStakingVaults:
         # NO DATA from prev report
         staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=None)
 
-        prev_report, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+        prev_report, block_number = staking_vaults._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config
         )
 
         assert prev_report is None
         assert block_number == expected_block_number
-        assert block_hash == expected_block_hash
 
     @pytest.mark.unit
     def test_sort_events_in_reverse_order(self):
