@@ -555,13 +555,41 @@ class TestStakingVaults:
                     vault1_adr,  # address
                     MagicMock(),  # total_value_wei
                     self.prev_fee,  # fee
-                    MagicMock(),  # liability_shares
+                    2879999910015672558976,  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
-                    vault6_adr,  # address
+                    vault2_adr,  # address
                     MagicMock(),  # total_value_wei
-                    123412,  # Must prove that prev fee didn't applied
+                    0,  # fee
+                    2880000000000500000000,  # liability_shares
+                    MagicMock(),  # slashing_reserve
+                ),
+                MerkleValue(
+                    vault3_adr,  # address
+                    MagicMock(),  # total_value_wei
+                    0,  # fee
+                    2880000000000000400000,  # liability_shares
+                    MagicMock(),  # slashing_reserve
+                ),
+                MerkleValue(
+                    vault4_adr,  # address
+                    MagicMock(),  # total_value_wei
+                    0,  # fee
+                    2880000000000000200000,  # liability_shares
+                    MagicMock(),  # slashing_reserve
+                ),
+                MerkleValue(
+                    vault5_adr,  # address
+                    MagicMock(),  # total_value_wei
+                    0,  # fee
+                    2879999999999999800000,  # liability_shares
+                    MagicMock(),  # slashing_reserve
+                ),
+                MerkleValue(
+                    vault6_adr,   # address
+                    MagicMock(),  # total_value_wei
+                    123412,       # Must prove that prev fee didn't applied
                     MagicMock(),  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
@@ -687,39 +715,6 @@ class TestStakingVaults:
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
         )
-
-        mock_prev_vault1 = copy.copy(vault1)
-        mock_prev_vault1.liability_shares = 2879999910015672558976
-        mock_prev_vault1.liquidity_fee_bp = 300
-
-        mock_prev_vault2 = copy.copy(vault2)
-        mock_prev_vault2.liability_shares = 2880000000000500000000
-        mock_prev_vault2.liquidity_fee_bp = 300
-
-        mock_prev_vault3 = copy.copy(vault3)
-        mock_prev_vault3.liability_shares = 2880000000000000400000
-        mock_prev_vault3.liquidity_fee_bp = 300
-
-        mock_prev_vault4 = copy.copy(vault4)
-        mock_prev_vault4.liability_shares = 2880000000000000200000
-        mock_prev_vault4.liquidity_fee_bp = 300
-
-        mock_prev_vault5 = copy.copy(vault5)
-        mock_prev_vault5.liability_shares = 2879999999999999800000
-        mock_prev_vault5.liquidity_fee_bp = 300
-
-        mock_prev_vault6 = copy.copy(vault6)
-        mock_prev_vault6.liability_shares = 0
-        mock_prev_vault6.liquidity_fee_bp = 300
-
-        mock_prev_vaults = [
-            mock_prev_vault1,
-            mock_prev_vault2,
-            mock_prev_vault3,
-            mock_prev_vault4,
-            mock_prev_vault5,
-            mock_prev_vault6,
-        ]
 
         vaults_total_values: VaultTotalValueMap = {
             ChecksumAddress(HexAddress(HexStr(vault1_adr))): self.vault_total_value,
@@ -874,7 +869,6 @@ class TestStakingVaults:
         chain_config_mock = MagicMock()
         frame_mock = MagicMock()
 
-        lazy_oracle_mock.get_all_vaults = MagicMock(return_value=mock_prev_vaults)
         vault_hub_mock.get_vault_fee_updated_events = MagicMock(return_value=vaults_fee_updated_events)
         vault_hub_mock.get_minted_events = MagicMock(return_value=minted_shares_events)
         vault_hub_mock.get_burned_events = MagicMock(return_value=burned_shares_events)
@@ -897,7 +891,7 @@ class TestStakingVaults:
         # This's synthetic but closely to real situation
         started_block_for_calculation = prev_report_block_number + 1
         self.staking_vaults._get_start_point_for_fee_calculations = MagicMock(
-            return_value=[mock_merkle_tree_data, started_block_for_calculation, MagicMock()]
+            return_value=[mock_merkle_tree_data, started_block_for_calculation]
         )
 
         mock_ref_block = MagicMock()
@@ -1078,7 +1072,7 @@ class TestStakingVaults:
 
         vault1 = VaultInfo(
             vault=vault1_adr,
-            liability_shares=999999999,  # << отличие
+            liability_shares=999999999,
             reserve_ratio_bp=0,
             infra_fee_bp=0,
             liquidity_fee_bp=0,
@@ -1115,7 +1109,7 @@ class TestStakingVaults:
         staking_vaults = StakingVaultsService(w3_mock)
 
         staking_vaults._get_start_point_for_fee_calculations = MagicMock(
-            return_value=[mock_merkle_tree_data, prev_block_number, MagicMock()]
+            return_value=[mock_merkle_tree_data, prev_block_number]
         )
 
         mock_ref_block = MagicMock()
@@ -1795,11 +1789,6 @@ class TestStakingVaults:
             signature=MagicMock(),
         )
 
-        web3.eth.get_block.return_value: BlockData = {
-            "number": BlockNumber(expected_block_number),
-            "hash": HexBytes(Web3.to_bytes(hexstr=expected_block_hash)),
-        }
-
         staking_vaults = StakingVaultsService(w3=web3)
 
         blockstamp = ReferenceBlockStamp(
@@ -1840,13 +1829,12 @@ class TestStakingVaults:
             return_value=SlotNumber(6400)
         )
 
-        repot, block_number, block_hash = staking_vaults._get_start_point_for_fee_calculations(
+        repot, block_number = staking_vaults._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config
         )
 
         assert repot.tree[0] == expected_report_root
         assert block_number == expected_block_number
-        assert block_hash == expected_block_hash
 
     @pytest.mark.unit
     def test_get_start_point_invalid_tree_root_raises(self):
