@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
-from web3.types import Wei, Timestamp
+from hexbytes import HexBytes
+from web3.types import Wei, Timestamp, BlockData
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
@@ -1794,6 +1795,11 @@ class TestStakingVaults:
             signature=MagicMock(),
         )
 
+        web3.eth.get_block.return_value: BlockData = {
+            "number": BlockNumber(expected_block_number),
+            "hash": HexBytes(Web3.to_bytes(hexstr=expected_block_hash)),
+        }
+
         staking_vaults = StakingVaultsService(w3=web3)
 
         blockstamp = ReferenceBlockStamp(
@@ -2095,5 +2101,3 @@ class TestStakingVaults:
         sort_events(events)
 
         assert events == expected
-
-

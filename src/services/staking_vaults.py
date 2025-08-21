@@ -566,11 +566,13 @@ class StakingVaultsService:
                 SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
 
+            next_block = self.w3.eth.get_block(ref_block.block_number + 1)
+
             # Prevent double-counting of vault events:
             # If any vault-related event occurred in the same block as the previous IPFS report,
             # it has already been included in that report. To avoid overlapping calculations,
             # we shift the starting point by one block forward.
-            return prev_ipfs_report, ref_block.block_number + 1, ref_block.block_hash
+            return prev_ipfs_report, next_block['number'], Web3.to_hex(next_block['hash'])
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
