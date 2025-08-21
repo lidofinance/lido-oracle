@@ -181,7 +181,7 @@ class StakingVaultsService:
 
         dumped_tree_str = json.dumps(output, default=self.tree_encoder)
 
-        return self.w3.ipfs.publish(dumped_tree_str.encode('utf-8'), MERKLE_TREE_VAULTS_FILENAME)
+        return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), MERKLE_TREE_VAULTS_FILENAME)
 
     @staticmethod
     def get_dumped_tree(
