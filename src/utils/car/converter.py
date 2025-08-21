@@ -25,7 +25,11 @@ class CAREncodingError(Exception):
 
 
 class CARConverter:
-    """CAR (Content Addressable aRchive) format converter."""
+    """CAR (Content Addressable aRchive) format converter.
+
+    Spec: https://ipld.io/specs/transport/car/carv1/
+
+    """
 
     def _encode_header(self, roots: list[CID]) -> bytes:
         try:
@@ -80,7 +84,13 @@ class CARConverter:
         return memoryview(buffer)
 
     def _serialize_unixfs_pb_node(self, data_bytes: bytes) -> bytes:
-        """Serialize UnixFS file data into DAG-PB node using protobuf."""
+        """Serialize UnixFS file data into DAG-PB node using protobuf.
+
+        Specs:
+        https://ipld.io/specs/codecs/dag-pb/spec/
+        https://docs.ipfs.tech/concepts/file-systems/#unix-file-system-unixfs
+
+        """
         # Create UnixFS data structure
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]

@@ -22,7 +22,7 @@ class Storacha(IPFSProvider):
         timeout: int = 30
     ):
         """Initialize Storacha provider.
-        
+
         Args:
             auth_secret: Storacha authentication secret
             authorization: Storacha authorization token
