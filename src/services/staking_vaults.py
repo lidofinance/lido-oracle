@@ -647,10 +647,10 @@ class StakingVaultsService:
             events[socialized_event.vault_donor].append(socialized_event)
             events[socialized_event.vault_acceptor].append(socialized_event)
 
-        vault_connected_events_set = set()
+        connected_vaults_set = set()
         for vault_connected_event in vault_connected_events:
             events[vault_connected_event.vault].append(vault_connected_event)
-            vault_connected_events_set.add(vault_connected_event.vault)
+            connected_vaults_set.add(vault_connected_event.vault)
 
         out: VaultFeeMap = {}
         current_block = blockstamp.block_number
@@ -682,7 +682,7 @@ class StakingVaultsService:
                 core_apr_ratio=core_apr_ratio,
             )
 
-            vault_got_connected_event = vault_address in vault_connected_events_set
+            vault_got_connected_event = vault_address in connected_vaults_set
 
             ## If the vault was disconnected and then reconnected between reports,
             ## we must not carry over liability_shares from the previous report.
