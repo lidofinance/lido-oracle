@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from src.modules.accounting.types import SECONDS_IN_YEAR
-from src.utils.apr import calculate_steth_apr
+from src.utils.apr import calculate_gross_core_apr
 
 pytestmark = pytest.mark.unit
 
@@ -14,17 +14,17 @@ class TestCalculateStethAprRay:
     def test_zero_pre_total_shares_raises_error(self):
         """Test that zero pre_total_shares raises ValueError."""
         with pytest.raises(ValueError, match="Cannot compute APR: zero division risk."):
-            calculate_steth_apr(0, 1000, 1000, 1100, SECONDS_IN_YEAR)
+            calculate_gross_core_apr(0, 1000, 1000, 1100, SECONDS_IN_YEAR)
 
     def test_zero_post_total_shares_raises_error(self):
         """Test that zero post_total_shares raises ValueError."""
         with pytest.raises(ValueError, match="Cannot compute APR: zero division risk."):
-            calculate_steth_apr(1000, 1000, 0, 1100, SECONDS_IN_YEAR)
+            calculate_gross_core_apr(1000, 1000, 0, 1100, SECONDS_IN_YEAR)
 
     def test_zero_time_elapsed_raises_error(self):
         """Test that zero time_elapsed raises ValueError."""
         with pytest.raises(ValueError, match="Cannot compute APR. time_elapsed is 0"):
-            calculate_steth_apr(1000, 1000, 1000, 1100, 0)
+            calculate_gross_core_apr(1000, 1000, 1000, 1100, 0)
 
     def test_basic_apr_calculation(self):
         """Test basic APR calculation with simple values."""
@@ -34,7 +34,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 1100
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.1")
 
@@ -46,7 +46,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 1000  # No change
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0")
 
@@ -58,7 +58,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 900  # 10% decrease
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0")
 
@@ -70,7 +70,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 10**27 + 5 * 10**25  # 5% increase
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.05")
 
@@ -82,7 +82,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 10**18 + 10
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.00000000000000001")
 
@@ -94,7 +94,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 1100
         time_elapsed = SECONDS_IN_YEAR // 2
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.2")
 
@@ -106,7 +106,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 1000  # Ether stayed the same
         time_elapsed = SECONDS_IN_YEAR
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.111111111111111111111111110")
 
@@ -118,7 +118,7 @@ class TestCalculateStethAprRay:
         post_total_ether = 10**27 + 10**24
         time_elapsed = 3600
 
-        apr = calculate_steth_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_total_shares, pre_total_ether, post_total_shares, post_total_ether, time_elapsed)
 
         assert apr == Decimal("0.001") * Decimal(SECONDS_IN_YEAR) / Decimal("3600")
 
@@ -139,5 +139,5 @@ class TestCalculateStethAprRay:
     )
     def test_various_growth_rates(self, pre_shares, pre_ether, post_shares, post_ether, time_elapsed, expected_apr):
         """Test APR calculation with various growth rates."""
-        apr = calculate_steth_apr(pre_shares, pre_ether, post_shares, post_ether, time_elapsed)
+        apr = calculate_gross_core_apr(pre_shares, pre_ether, post_shares, post_ether, time_elapsed)
         assert apr == expected_apr

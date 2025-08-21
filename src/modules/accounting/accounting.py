@@ -50,7 +50,7 @@ from src.types import (
     ReferenceBlockStamp,
     StakingModuleId,
 )
-from src.utils.apr import calculate_steth_apr
+from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
@@ -419,7 +419,7 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
-        core_apr_ratio = calculate_steth_apr(
+        core_apr_ratio = calculate_gross_core_apr(
             pre_total_shares=simulation.pre_total_shares,
             pre_total_ether=simulation.pre_total_pooled_ether,
             post_total_shares=simulation.post_total_shares - simulation.shares_to_mint_as_fees,

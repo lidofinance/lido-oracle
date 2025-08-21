@@ -1,7 +1,7 @@
 from src.modules.accounting.types import SECONDS_IN_YEAR
 from decimal import Decimal
 
-def calculate_steth_apr(
+def calculate_gross_core_apr(
         pre_total_shares: int,
         pre_total_ether: int,
         post_total_shares: int,
