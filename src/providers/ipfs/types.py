@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import multiformats
 
 from src.utils.car import CARConverter
+from src import variables
 from .cid import CID, CIDv0
 
 
@@ -62,8 +63,9 @@ class IPFSProvider(ABC):
 
     def fetch(self, cid: CID) -> bytes:
         content = self._fetch(cid)
-        normalized_cid = self._normalize_cid(str(cid))
-        self._validate_cid(normalized_cid, content)
+        if variables.IPFS_VALIDATE_CID:
+            normalized_cid = self._normalize_cid(str(cid))
+            self._validate_cid(normalized_cid, content)
         return content
 
     @abstractmethod
@@ -73,7 +75,8 @@ class IPFSProvider(ABC):
     def publish(self, content: bytes, name: str | None = None) -> CID:
         cid = self.upload(content, name)
 
-        self._validate_cid(cid, content)
+        if variables.IPFS_VALIDATE_CID:
+            self._validate_cid(cid, content)
 
         self.pin(cid)
         return cid

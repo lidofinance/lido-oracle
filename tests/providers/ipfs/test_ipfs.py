@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from multiformats.multibase.err import MultibaseKeyError
 
 from src.providers.ipfs import IPFSProvider, CID, CIDv0
@@ -70,3 +71,21 @@ class TestIPFS:
 
         with pytest.raises(CIDValidationError):
             provider.publish(content)
+
+    @patch('src.variables.IPFS_VALIDATE_CID', False)
+    def test_fetch__validation_disabled__no_validation_performed(self, test_provider):
+        provider = test_provider()
+        cid = CID("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
+
+        # Should not raise CIDValidationError when validation is disabled
+        result = provider.fetch(cid)
+        assert result == b'test content'
+
+    @patch('src.variables.IPFS_VALIDATE_CID', False)
+    def test_publish__validation_disabled__no_validation_performed(self, test_provider):
+        provider = test_provider("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
+        content = b"mock car content for upload test"
+
+        # Should not raise CIDValidationError when validation is disabled
+        result = provider.publish(content)
+        assert isinstance(result, CIDv0)
