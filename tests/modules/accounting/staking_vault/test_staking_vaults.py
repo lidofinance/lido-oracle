@@ -587,9 +587,9 @@ class TestStakingVaults:
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
-                    vault6_adr,   # address
+                    vault6_adr,  # address
                     MagicMock(),  # total_value_wei
-                    123412,       # Must prove that prev fee didn't applied
+                    123412,  # Must prove that prev fee didn't applied
                     MagicMock(),  # liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
