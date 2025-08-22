@@ -59,7 +59,23 @@ class TestIPFS:
         with pytest.raises(AssertionError):
             IPFS(mock_w3, ["not a provider"])
 
-    def test_provider_selection__different_frames__rotates_providers(self, mock_w3, mock_provider1, mock_provider2):
+    def test_providers_order__shuffled_once_at_init__order_remain_the_same_during_operations(
+        self, mock_w3, mock_provider1, mock_provider2
+    ):
+        ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2])
+        initial_providers_order = ipfs.providers[:]
+
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
+        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "test")
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(2))
+
+        assert ipfs.providers == initial_providers_order
+
+    @patch('random.shuffle')
+    def test_provider_selection__different_frames__rotates_providers(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
         ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2])
 
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
@@ -74,7 +90,11 @@ class TestIPFS:
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(3))
         assert ipfs.provider == mock_provider2
 
-    def test_provider_selection__same_frame__keeps_same_provider(self, mock_w3, mock_provider1, mock_provider2):
+    @patch('random.shuffle')
+    def test_provider_selection__same_frame__keeps_same_provider(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
         ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2])
 
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(1))
@@ -114,7 +134,11 @@ class TestIPFS:
         assert isinstance(excinfo.value.__cause__, MaxRetryError)
         assert provider.fetch.call_count == 3
 
-    def test_fetch__first_provider_fails__falls_back_to_second_provider(self, mock_w3, mock_provider1, mock_provider2):
+    @patch('random.shuffle')
+    def test_fetch__first_provider_fails__falls_back_to_second_provider(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
         provider1 = mock_provider1
         provider1.fetch = MagicMock(side_effect=Exception("fail"))
         provider2 = mock_provider2
@@ -127,7 +151,11 @@ class TestIPFS:
         assert provider1.fetch.call_count == 1
         assert provider2.fetch.call_count == 1
 
-    def test_fetch__all_providers_fail__raises_no_more_providers_error(self, mock_w3, mock_provider1, mock_provider2):
+    @patch('random.shuffle')
+    def test_fetch__all_providers_fail__raises_no_more_providers_error(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
         provider1 = mock_provider1
         provider1.fetch = MagicMock(side_effect=Exception("fail1"))
         provider2 = mock_provider2
@@ -159,9 +187,11 @@ class TestIPFS:
         assert isinstance(excinfo.value.__cause__, MaxRetryError)
         assert provider.publish.call_count == 3
 
+    @patch('random.shuffle')
     def test_publish__first_provider_fails__falls_back_to_second_provider(
-        self, mock_w3, mock_provider1, mock_provider2
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
     ):
+        mock_shuffle.return_value = None
         provider1 = mock_provider1
         provider1.publish = MagicMock(side_effect=Exception("fail"))
         provider2 = mock_provider2
@@ -174,7 +204,11 @@ class TestIPFS:
         assert provider1.publish.call_count == 1
         assert provider2.publish.call_count == 1
 
-    def test_publish__all_providers_fail__raises_no_more_providers_error(self, mock_w3, mock_provider1, mock_provider2):
+    @patch('random.shuffle')
+    def test_publish__all_providers_fail__raises_no_more_providers_error(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
         provider1 = mock_provider1
         provider1.publish = MagicMock(side_effect=Exception("fail1"))
         provider2 = mock_provider2

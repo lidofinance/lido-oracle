@@ -1,4 +1,5 @@
 import logging
+import random
 from functools import wraps
 from typing import Iterable
 from web3 import Web3
@@ -27,10 +28,15 @@ class IPFS(Module):
     def __init__(self, w3: Web3, providers: Iterable[IPFSProvider], *, retries: int = 3) -> None:
         super().__init__(w3)
         self.retries = retries
-        self.providers = list(providers)
+
         self.current_provider_index: int = 0
         self.last_working_provider_index: int = 0
         self.current_frame: FrameNumber | None = None
+
+        self.providers = list(providers)
+        # Randomize provider order to reduce probability that
+        # all oracles use the same provider simultaneously in one frame
+        random.shuffle(self.providers)
 
         assert self.providers
 
