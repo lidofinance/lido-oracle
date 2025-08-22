@@ -10,7 +10,14 @@ from src.modules.csm.state import Frame, State, ValidatorDuties
 from src.modules.csm.types import RewardsShares, StrikesList, StrikesValidator, ParticipationShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.providers.execution.exceptions import InconsistentData
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, StakingModuleAddress, ValidatorIndex
+from src.types import (
+    EpochNumber,
+    NodeOperatorId,
+    ReferenceBlockStamp,
+    StakingModuleAddress,
+    ValidatorIndex,
+)
+
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
