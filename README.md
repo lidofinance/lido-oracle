@@ -28,7 +28,7 @@ Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator
 There are 3 modules in the oracle:
 
 - Accounting (accounting)
-- Valdiators Exit Bus (ejector)
+- Validators Exit Bus (ejector)
 - CSM (csm)
 
 ### Accounting module
@@ -61,7 +61,7 @@ Work is divided into frames (~8 hours / 75 epochs):
 Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the CSM.
 
 Work is divided into frames (~28 days / 6300 epochs):
-- **Data collection**: Processes new epoches and collect attestations.
+- **Data collection**: Processes new epochs and collect attestations.
 - **IPFS data submittion**: Uploads report and full logs to IPFS.
 - **Update report**: Submits report to the CSFeeOracle contract.
 
@@ -110,7 +110,7 @@ Separate service to collect and store validator keys from clients. [Lido Keys AP
 
 ## Setup
 
-Oracle daemon could be run using a docker container. Images is available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
+Oracle daemon could be run using a docker container. Images are available on [Docker Hub](https://hub.docker.com/r/lidofinance/oracle).
 Pull the image using the following command:
 
 ```bash
@@ -118,7 +118,7 @@ docker pull lidofinance/oracle:{tag}
 ```
 
 Where `{tag}` is a version of the image. You can find the latest version in the [releases](https://github.com/lidofinance/lido-oracle/releases)\
-**OR** You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
+**OR** You can build it locally using the following command (make sure to build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
 ```bash
 docker build -t lidofinance/oracle .
@@ -187,7 +187,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                                   |
 | `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`                         |
 | `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | CSM only | `aBcD1234...`                              |
-| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pintata_secret`                      |
+| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | CSM only | `/app/pinata_secret`                      |
 | `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | CSM only | `localhost`                                |
 | `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | CSM only | `5001`                                     |
 | `KUBO_GATEWAY_PORT`                                    | Port to access gateway provided by Kubo IPFS node                                                                                                                        | CSM only | `8080`                                     |
