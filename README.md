@@ -28,7 +28,7 @@ Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator
 There are 3 modules in the oracle:
 
 - Accounting (accounting)
-- Valdiators Exit Bus (ejector)
+- Validators Exit Bus (ejector)
 - CSM (csm)
 
 ### Accounting module
@@ -61,7 +61,7 @@ Work is divided into frames (~8 hours / 75 epochs):
 Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the CSM.
 
 Work is divided into frames (~28 days / 6300 epochs):
-- **Data collection**: Processes new epoches and collect attestations.
+- **Data collection**: Processes new epochs and collect attestations.
 - **IPFS data submittion**: Uploads report and full logs to IPFS.
 - **Update report**: Submits report to the CSFeeOracle contract.
 
