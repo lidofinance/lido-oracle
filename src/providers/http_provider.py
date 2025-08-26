@@ -322,15 +322,21 @@ class HTTPProvider(BaseHTTPProvider):
             stream=stream,
         )
 
+        # Get text before consuming stream
+        response_text = ""
         try:
             if stream:
                 json_response = json_stream_requests.load(response)
+                # For streaming responses, we can't get the full text after consumption
+                response_text = f"<streaming response {response.status_code}>"
             else:
                 json_response = response.json()
+                response_text = response.text
         except JSONDecodeError as error:
-            raise JSONDecodeError("JSON decode error", response.text, 0) from error
+            response_text = getattr(response, 'text', str(error))
+            raise JSONDecodeError("JSON decode error", response_text, 0) from error
 
-        return json_response, response.status_code, response.text
+        return json_response, response.status_code, response_text
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
         raise NotImplementedError("HTTPProvider subclasses should implement _get_chain_id_with_provider")
