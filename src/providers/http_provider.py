@@ -97,8 +97,6 @@ class BaseHTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
-
-
     def _get(
         self,
         endpoint: str,
