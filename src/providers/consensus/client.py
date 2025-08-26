@@ -165,13 +165,22 @@ class ConsensusClient(HTTPProvider):
 
     def get_sync_committee(self, blockstamp: BlockStamp, epoch: EpochNumber) -> SyncCommittee:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees"""
-        data, _ = self._get(
-            self.API_GET_SYNC_COMMITTEE,
-            path_params=(blockstamp.state_root,),
-            query_params={'epoch': epoch},
-            force_raise=self.__raise_on_prysm_error,
-            retval_validator=data_is_dict,
-        )
+        try:
+            data, _ = self._get(
+                self.API_GET_SYNC_COMMITTEE,
+                path_params=(blockstamp.state_root,),
+                query_params={'epoch': epoch},
+                force_raise=self.__raise_on_prysm_error,
+                retval_validator=data_is_dict,
+            )
+        except NotOkResponse as error:
+            if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
+                data = self._get_sync_committee_with_prysm(
+                    blockstamp,
+                    epoch,
+                )
+            else:
+                raise error
         return SyncCommittee.from_response(**data)
 
     @list_of_dataclasses(ProposerDuties.from_response)
@@ -287,6 +296,21 @@ class ConsensusClient(HTTPProvider):
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
             retval_validator=data_is_list,
+        )
+        return data
+
+    def _get_sync_committee_with_prysm(
+        self,
+        blockstamp: BlockStamp,
+        epoch: EpochNumber,
+    ) -> list[dict]:
+        # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
+        # Trying to get committees by slot number
+        data, _ = self._get(
+            self.API_GET_SYNC_COMMITTEE,
+            path_params=(blockstamp.slot_number,),
+            query_params={'epoch': epoch},
+            retval_validator=data_is_dict,
         )
         return data
 

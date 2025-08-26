@@ -62,3 +62,4 @@ UINT256_MAX = 2**256 - 1
 ALLOWED_KAPI_VERSION = Version('1.5.0')
 
 GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
+CSM_STATE_VERSION = 1
