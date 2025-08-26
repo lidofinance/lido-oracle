@@ -328,7 +328,7 @@ class ConsensusClient(HTTPProvider):
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
         data, _ = self._get_without_fallbacks(
-            self.hosts[provider_index],
+            self.managers[provider_index],
             self.API_GET_SPEC,
             retval_validator=data_is_dict,
         )

@@ -1,5 +1,5 @@
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from http import HTTPStatus
 from typing import Any, Callable, NoReturn, Protocol, Sequence
 from urllib.parse import urljoin, urlparse
@@ -11,6 +11,7 @@ from prometheus_client import Histogram
 from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from web3_multi_provider import HTTPSessionManagerProxy
 
 from src.providers.consistency import ProviderConsistencyModule
 
@@ -54,7 +55,7 @@ def data_is_transient_dict(data: Any, meta: dict, *, endpoint: str):
         raise ValueError(f"Expected mapping response from {endpoint}")
 
 
-class HTTPProvider(ProviderConsistencyModule, ABC):
+class BaseHTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
@@ -96,6 +97,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
+
+
     def _get(
         self,
         endpoint: str,
@@ -114,12 +117,14 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         """
         errors: list[Exception] = []
 
+        if path_params:
+            endpoint = endpoint.format(*path_params)
+
         for host in self.hosts:
             try:
                 return self._get_without_fallbacks(
                     host,
                     endpoint,
-                    path_params,
                     query_params,
                     stream=stream,
                     retval_validator=retval_validator,
@@ -142,11 +147,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         # Raise error from last provider.
         raise errors[-1]
 
+    @abstractmethod
     def _get_without_fallbacks(
         self,
-        host: str,
+        provider: Any,
         endpoint: str,
-        path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,
         retval_validator: ReturnValueValidator = data_is_any,
@@ -155,16 +160,108 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         Simple get request without fallbacks
         Returns (data, meta) or raises an exception
         """
-        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+        raise NotImplementedError
+
+    def get_all_providers(self) -> list[str]:
+        return self.hosts
+
+    @abstractmethod
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
+        raise NotImplementedError("_get_chain_id_with_provider should be implemented")
+
+
+class HTTPProvider(BaseHTTPProvider):
+    """
+    HTTP Provider with HTTPSessionManagerProxy for consensus layer clients.
+    """
+
+    managers: list[HTTPSessionManagerProxy]
+
+    def __init__(
+        self,
+        hosts: list[str],
+        request_timeout: int,
+        retry_total: int,
+        retry_backoff_factor: int,
+    ):
+        super().__init__(hosts, request_timeout, retry_total, retry_backoff_factor)
+
+        self.managers = [
+            HTTPSessionManagerProxy(
+                chain_id=1,
+                uri=h,
+                network="ethereum",
+                layer="cl",
+                session=self.session,
+            ) for h in hosts
+        ]
+
+    def _get(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
+        stream: bool = False,
+    ) -> tuple[Any, dict]:
+        """
+        Get plain or streamed request with fallbacks
+        Returns (data, meta) or raises exception
+
+        force_raise - function that returns an Exception if it should be thrown immediately.
+        Sometimes NotOk response from first provider is the response that we are expecting.
+        """
+        errors: list[Exception] = []
+
+        if path_params:
+            endpoint = endpoint.format(*path_params)
+
+        for manager in self.managers:
+            try:
+                return self._get_without_fallbacks(
+                    manager,
+                    endpoint,
+                    query_params,
+                    stream=stream,
+                    retval_validator=retval_validator,
+                )
+            except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+
+                # Check if exception should be raised immediately
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
+
+                logger.warning(
+                    {
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(manager._uri).netloc}] responded with error',  # pylint: disable=protected-access
+                        'error': str(e),
+                        'provider': urlparse(manager._uri).netloc,  # pylint: disable=protected-access
+                    }
+                )
+
+        # Raise error from last provider.
+        raise errors[-1]
+
+    def _get_without_fallbacks(
+        self,
+        provider: HTTPSessionManagerProxy,
+        endpoint: str,
+        query_params: dict | None = None,
+        stream: bool = False,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[Any, dict]:
+        """
+        Simple get request without fallbacks using HTTPSessionManagerProxy
+        Returns (data, meta) or raises an exception
+        """
+        host = provider._uri  # pylint: disable=protected-access
+        complete_endpoint = self._urljoin(host, endpoint)
 
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
-                response = self.session.get(
-                    self._urljoin(host, complete_endpoint if path_params else endpoint),
-                    params=query_params,
-                    timeout=self.request_timeout,
-                    stream=stream,
-                )
+                response, status_code, text = self._make_request(provider, complete_endpoint, query_params, stream)
             except Exception as error:
                 logger.error({'msg': str(error)})
                 t.labels(
@@ -176,27 +273,27 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
             t.labels(
                 endpoint=endpoint,
-                code=response.status_code,
+                code=status_code,
                 domain=urlparse(host).netloc,
             )
 
-            if response.status_code != HTTPStatus.OK:
+            if status_code != HTTPStatus.OK:
                 response_fail_msg = (
-                    f'Response from {complete_endpoint} [{response.status_code}]'
-                    f' with text: "{str(response.text)}" returned.'
+                    f'Response from {complete_endpoint} [{status_code}]'
+                    f' with text: "{text}" returned.'
                 )
                 logger.debug({'msg': response_fail_msg})
-                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=status_code, text=text)
 
             try:
                 if stream:
                     # There's no guarantee the JSON is valid at this point.
-                    json_response = json_stream_requests.load(response)
+                    json_response = response
                 else:
-                    json_response = response.json()
+                    json_response = response
             except JSONDecodeError as error:
                 response_fail_msg = (
-                    f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{text}"'
                 )
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
@@ -216,8 +313,120 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         retval_validator(data, meta, endpoint=endpoint)
         return data, meta
 
-    def get_all_providers(self) -> list[str]:
-        return self.hosts
+    def _make_request(self, provider: HTTPSessionManagerProxy, complete_endpoint: str, query_params: dict | None, stream: bool) -> tuple[Any, int, str]:
+        """Make HTTP request using HTTPSessionManagerProxy"""
+        response = provider.get_response_from_get_request(
+            complete_endpoint,
+            params=query_params,
+            timeout=self.request_timeout,
+            stream=stream,
+        )
+
+        try:
+            if stream:
+                json_response = json_stream_requests.load(response)
+            else:
+                json_response = response.json()
+        except JSONDecodeError as error:
+            raise JSONDecodeError("JSON decode error", response.text, 0) from error
+
+        return json_response, response.status_code, response.text
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
-        raise NotImplementedError("_chain_id should be implemented")
+        raise NotImplementedError("HTTPProvider subclasses should implement _get_chain_id_with_provider")
+
+
+class SimpleHTTPProvider(BaseHTTPProvider):
+    """
+    Simple HTTP Provider using regular requests for Keys API clients.
+    """
+
+    def _get_without_fallbacks(
+        self,
+        provider: str,
+        endpoint: str,
+        query_params: dict | None = None,
+        stream: bool = False,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[Any, dict]:
+        """
+        Simple get request without fallbacks using regular requests session
+        Returns (data, meta) or raises an exception
+        """
+        complete_endpoint = self._urljoin(provider, endpoint)
+
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response, status_code, text = self._make_request(provider, complete_endpoint, query_params, stream)
+            except Exception as error:
+                logger.error({'msg': str(error)})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(provider).netloc,
+                )
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
+
+            t.labels(
+                endpoint=endpoint,
+                code=status_code,
+                domain=urlparse(provider).netloc,
+            )
+
+            if status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{status_code}]'
+                    f' with text: "{text}" returned.'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=status_code, text=text)
+
+            try:
+                if stream:
+                    # There's no guarantee the JSON is valid at this point.
+                    json_response = response
+                else:
+                    json_response = response
+            except JSONDecodeError as error:
+                response_fail_msg = (
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{text}"'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
+
+        try:
+            data = json_response["data"]
+            meta = {}
+
+            if not stream:
+                del json_response["data"]
+                meta = json_response
+        except KeyError:
+            # NOTE: Used by KeysAPIClient only.
+            data = json_response
+            meta = {}
+
+        retval_validator(data, meta, endpoint=endpoint)
+        return data, meta
+
+    def _make_request(self, provider: str, complete_endpoint: str, query_params: dict | None, stream: bool) -> tuple[Any, int, str]:
+        """Make HTTP request using regular requests session"""
+        response = self.session.get(
+            complete_endpoint,
+            params=query_params,
+            timeout=self.request_timeout,
+            stream=stream,
+        )
+
+        try:
+            if stream:
+                json_response = json_stream_requests.load(response)
+            else:
+                json_response = response.json()
+        except JSONDecodeError as error:
+            raise JSONDecodeError("JSON decode error", response.text, 0) from error
+
+        return json_response, response.status_code, response.text
+
+    def _get_chain_id_with_provider(self, provider_index: int) -> int:
+        raise NotImplementedError("SimpleHTTPProvider subclasses should implement _get_chain_id_with_provider")
