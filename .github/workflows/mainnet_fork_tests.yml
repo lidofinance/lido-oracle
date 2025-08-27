@@ -81,6 +81,12 @@ jobs:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          KUBO_HOST: ${{ secrets.KUBO_HOST }}
+          KUBO_RPC_PORT: ${{ secrets.KUBO_RPC_PORT }}
+          KUBO_GATEWAY_PORT: ${{ secrets.KUBO_GATEWAY_PORT }}
+          STORACHA_AUTH_SECRET: ${{ secrets.STORACHA_AUTH_SECRET }}
+          STORACHA_AUTHORIZATION: ${{ secrets.STORACHA_AUTHORIZATION }}
+          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
           LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
           CSM_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
-
