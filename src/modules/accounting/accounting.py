@@ -413,6 +413,7 @@ class Accounting(BaseModule, ConsensusModule):
         if len(vaults) == 0:
             return bytes(0), ''
 
+        current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
@@ -444,7 +445,8 @@ class Accounting(BaseModule, ConsensusModule):
             pre_total_pooled_ether=simulation.pre_total_pooled_ether,
             pre_total_shares=simulation.pre_total_shares,
             frame_config=frame_config,
-            chain_config=chain_config
+            chain_config=chain_config,
+            current_frame=current_frame
         )
         vaults_slashing_reserve = self.staking_vaults.get_vaults_slashing_reserve(
             bs=blockstamp,
@@ -466,7 +468,8 @@ class Accounting(BaseModule, ConsensusModule):
             vaults=vaults,
             prev_tree_cid=latest_onchain_ipfs_report_data.report_cid,
             chain_config=chain_config,
-            vaults_fee_map=vaults_fees
+            vaults_fee_map=vaults_fees,
+            current_frame=current_frame
         )
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))

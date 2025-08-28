@@ -49,7 +49,16 @@ from src.providers.consensus.types import (
     BlockHeader,
     BlockHeaderMessage,
 )
-from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex, ReferenceBlockStamp, StateRoot, BlockHash
+from src.types import (
+    EpochNumber,
+    Gwei,
+    SlotNumber,
+    ValidatorIndex,
+    ReferenceBlockStamp,
+    StateRoot,
+    BlockHash,
+    FrameNumber,
+)
 from src.utils.units import gwei_to_wei
 from src.web3py.types import Web3
 from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
@@ -905,8 +914,9 @@ class TestStakingVaults:
             self.core_ratio_apr,
             self.pre_total_pooled_ether,
             self.pre_total_shares,
-            chain_config_mock,
             frame_mock,
+            chain_config_mock,
+            FrameNumber(0),
         )
 
         expected_fees = {
@@ -1123,8 +1133,9 @@ class TestStakingVaults:
                 core_apr_ratio=Decimal(0.3),
                 pre_total_pooled_ether=1,
                 pre_total_shares=1,
-                chain_config=MagicMock(),
                 frame_config=MagicMock(),
+                chain_config=MagicMock(),
+                current_frame=FrameNumber(0),
             )
 
     @pytest.mark.parametrize(
@@ -1595,12 +1606,15 @@ class TestStakingVaults:
             prev_tree_cid=prev_tree_cid,
             chain_config=chain_config,
             vaults_fee_map=vaults_fees,
+            current_frame=FrameNumber(0),
         )
 
         dumped_tree_str = json.dumps(dumped_tree, default=StakingVaultsService.tree_encoder)
         print(dumped_tree_str)
 
-        ipfs_mock.publish.assert_called_with(dumped_tree_str.encode('utf-8'), MERKLE_TREE_VAULTS_FILENAME)
+        ipfs_mock.publish.assert_called_with(
+            dumped_tree_str.encode('utf-8'), FrameNumber(0), MERKLE_TREE_VAULTS_FILENAME
+        )
 
         assert cid == expected_cid
 
@@ -1734,12 +1748,12 @@ class TestStakingVaults:
 
         staking_vaults = StakingVaultsService(w3_mock)
         test_cid = "QmMockCID123"
-        result = staking_vaults.get_ipfs_report(test_cid)
+        result = staking_vaults.get_ipfs_report(test_cid, FrameNumber(0))
 
         assert result.tree[0] == '0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee'
 
         with pytest.raises(ValueError, match="Arg ipfs_report_cid could not be ''"):
-            staking_vaults.get_ipfs_report('')
+            staking_vaults.get_ipfs_report('', FrameNumber(0))
 
     @pytest.mark.unit
     def test_get_start_point_happy_path_with_valid_ipfs(self):
@@ -1829,7 +1843,7 @@ class TestStakingVaults:
         )
 
         repot, block_number = staking_vaults._get_start_point_for_fee_calculations(
-            blockstamp, ipfs_data, frame_config, chain_config
+            blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert repot.tree[0] == expected_report_root
@@ -1872,7 +1886,9 @@ class TestStakingVaults:
         staking_vaults.is_tree_root_valid = MagicMock(return_value=False)
 
         with pytest.raises(ValueError) as exc_info:
-            staking_vaults._get_start_point_for_fee_calculations(blockstamp, ipfs_data, frame_config, chain_config)
+            staking_vaults._get_start_point_for_fee_calculations(
+                blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
+            )
 
         expected_hex = Web3.to_hex(ipfs_data.tree_root)
         assert f"Expected: {expected_hex}" in str(exc_info.value)
@@ -1934,6 +1950,7 @@ class TestStakingVaults:
             ipfs_data,
             frame_config,
             chain_config,
+            FrameNumber(0),
         )
 
         assert prev_report is None
@@ -1988,7 +2005,7 @@ class TestStakingVaults:
         staking_vaults.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot = MagicMock(return_value=None)
 
         prev_report, block_number = staking_vaults._get_start_point_for_fee_calculations(
-            blockstamp, ipfs_data, frame_config, chain_config
+            blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert prev_report is None

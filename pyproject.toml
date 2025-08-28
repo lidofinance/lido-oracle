@@ -27,9 +27,11 @@ web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
-py-multiformats-cid = "^0.4.4"
+multiformats = "^0.3.1"
 ssz = "^0.5.2"
 py-ecc = "^8.0.0"
+protobuf="^6.31.1"
+dag-cbor="^0.3.3"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
@@ -41,6 +43,7 @@ polyfactory = "^2.19.0"
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
+types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
 black = "^24.8"
@@ -70,6 +73,10 @@ addopts = "-s -vv --strict-markers"
 
 [tool.coverage.run]
 branch = true
+
+[tool.pylint.master]
+ignore-patterns = ".*_pb2\\.py"
+generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
 
 [tool.pylint.format]
 max-line-length = "120"

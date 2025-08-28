@@ -96,12 +96,12 @@ class CSOracle(BaseModule, ConsensusModule):
         if distribution.total_rewards:
             rewards_tree = self.make_rewards_tree(distribution.total_rewards_map)
             rewards_tree_root = rewards_tree.root
-            rewards_cid = self.publish_tree(rewards_tree)
+            rewards_cid = self.publish_tree(rewards_tree, blockstamp)
 
         if distribution.strikes:
             strikes_tree = self.make_strikes_tree(distribution.strikes)
             strikes_tree_root = strikes_tree.root
-            strikes_cid = self.publish_tree(strikes_tree)
+            strikes_cid = self.publish_tree(strikes_tree, blockstamp)
             if strikes_tree_root == last_report.strikes_tree_root:
                 logger.info({"msg": "Strikes tree is the same as the previous one"})
             if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
@@ -110,7 +110,7 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
 
-        logs_cid = self.publish_log(distribution.logs)
+        logs_cid = self.publish_log(distribution.logs, blockstamp)
 
         return ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
@@ -124,8 +124,9 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_cid=strikes_cid or "",
         ).as_tuple()
 
-    def _get_last_report(self, blockstamp: BlockStamp) -> LastReport:
-        return LastReport.load(self.w3, blockstamp)
+    def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        return LastReport.load(self.w3, blockstamp, current_frame)
 
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
@@ -241,14 +242,16 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree) -> CID:
-        tree_cid = self.w3.ipfs.publish(tree.encode())
-        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
+    def publish_tree(self, tree: Tree, blockstamp: ReferenceBlockStamp) -> CID:
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        tree_cid = self.w3.ipfs.publish(tree.encode(), current_frame)
+        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid), "current_frame": current_frame})
         return tree_cid
 
-    def publish_log(self, logs: list[FramePerfLog]) -> CID:
-        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs))
-        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
+    def publish_log(self, logs: list[FramePerfLog], blockstamp: ReferenceBlockStamp) -> CID:
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs), current_frame)
+        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid), "current_frame": current_frame})
         return log_cid
 
     @lru_cache(maxsize=1)
