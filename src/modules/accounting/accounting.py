@@ -55,7 +55,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send report data (with extra data hash inside)
             Contains information about lido state, withdrawal requests to finalize and exited validators count by module.
         - Send extra data
-            Contains stuck and exited validator's updates count by each node operator.
+            Contains exited validator's updates count by each node operator.
     """
     COMPATIBLE_CONTRACT_VERSION = 3
     COMPATIBLE_CONSENSUS_VERSION = 4
