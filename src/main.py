@@ -3,33 +3,31 @@ from typing import Iterator, cast
 
 from packaging.version import Version
 from prometheus_client import start_http_server
-from web3.middleware import simple_cache_middleware
+from web3_multi_provider.metrics import init_metrics
 
-from src import variables
+from src import constants, variables
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import ENV_VARIABLES_INFO, BUILD_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.modules.accounting.accounting import Accounting
-from src.modules.ejector.ejector import Ejector
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
-from src.providers.ipfs import GW3, IPFSProvider, MultiIPFSProvider, Pinata, PublicIPFS
+from src.modules.ejector.ejector import Ejector
+from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
-from src.web3py.extensions import (
-    LidoContracts,
-    TransactionUtils,
-    ConsensusClientModule,
-    KeysAPIClientModule,
-    LidoValidatorsProvider,
-    FallbackProviderModule,
-    LazyCSM,
-)
-from src.web3py.middleware import metrics_collector
-from src.web3py.types import Web3
-
 from src.web3py.contract_tweak import tweak_w3_contracts
+from src.web3py.extensions import (
+    ConsensusClientModule,
+    FallbackProviderModule,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +54,8 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(FallbackProviderModule(
         variables.EXECUTION_CLIENT_URI,
-        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
     ))
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
@@ -75,8 +74,8 @@ def main(module_name: OracleModule):
     )
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < Version('1.5.0'):
-        raise IncompatibleException('Incompatible KAPI version. Required >= 1.5.0.')
+    if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
+        raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
 
     check_providers_chain_ids(web3, cc, kac)
 
@@ -90,11 +89,8 @@ def main(module_name: OracleModule):
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
     })
 
-    logger.info({'msg': 'Add metrics middleware for ETH1 requests.'})
-    web3.middleware_onion.add(metrics_collector)
-    web3.middleware_onion.add(simple_cache_middleware)
-
-    logger.info({'msg': 'Sanity checks.'})
+    logger.info({'msg': 'Initialize prometheus metrics.'})
+    init_metrics()
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
@@ -140,10 +136,11 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
 
 
 def ipfs_providers() -> Iterator[IPFSProvider]:
-    if variables.GW3_ACCESS_KEY and variables.GW3_SECRET_KEY:
-        yield GW3(
-            variables.GW3_ACCESS_KEY,
-            variables.GW3_SECRET_KEY,
+    if variables.KUBO_HOST:
+        yield Kubo(
+            variables.KUBO_HOST,
+            variables.KUBO_RPC_PORT,
+            variables.KUBO_GATEWAY_PORT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 

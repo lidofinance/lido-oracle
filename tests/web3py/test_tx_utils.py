@@ -22,7 +22,6 @@ def fake_transaction_utils():
 
 @pytest.mark.unit
 class TestTransactionUtils:
-
     def test_check_and_send_transaction_dry_mode(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
@@ -91,7 +90,7 @@ class TestTransactionUtils:
         transaction.build_transaction.return_value = built_tx
 
         signed_tx = MagicMock()
-        signed_tx.rawTransaction = HexBytes("0xabc")
+        signed_tx.raw_transaction = HexBytes("0xabc")
         utils.w3.eth.account.sign_transaction.return_value = signed_tx
 
         tx_hash = HexBytes("0x123")
@@ -99,7 +98,7 @@ class TestTransactionUtils:
 
         utils._sign_and_send_transaction(transaction, params, account)
 
-        utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.rawTransaction)
+        utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.raw_transaction)
         mock_handle_sent.assert_called_with(tx_hash)
 
     def test_estimate_gas(self, fake_transaction_utils):

@@ -31,11 +31,15 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Test with pytest
+        timeout-minutes: 60
         run: poetry run pytest --cov=src tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
+          TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
+          TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
           CSM_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
 
   linters:

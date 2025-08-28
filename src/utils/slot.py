@@ -19,7 +19,7 @@ class SlotNotFinalized(Exception):
     pass
 
 
-def _get_non_missed_slot_header(
+def get_non_missed_slot_header(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
@@ -92,7 +92,7 @@ def get_prev_non_missed_slot(
     """
     Get non-missed slot data. In case of missed slot, we take parent root and get parent slot data.
     """
-    is_slot_missing, existing_header = _get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
+    is_slot_missing, existing_header = get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
 
     if not is_slot_missing:
         return cc.get_block_details(existing_header.data.root)
@@ -112,18 +112,6 @@ def get_prev_non_missed_slot(
 
     _check_block_header(parent_header)
     return cc.get_block_details(parent_header.data.root)
-
-
-def get_next_non_missed_slot(
-    cc: ConsensusClient,
-    slot: SlotNumber,
-    last_finalized_slot_number: SlotNumber,
-) -> BlockDetailsResponse:
-    """
-    Get non-missed slot data. In case of missed slot, we take first next non-missed slot.
-    """
-    _, existing_header = _get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
-    return cc.get_block_details(existing_header.data.root)
 
 
 def get_blockstamp(

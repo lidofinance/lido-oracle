@@ -36,6 +36,14 @@ def check_attestation_committees(web3: Web3, blockstamp):
     assert web3.cc.get_attestation_committees(blockstamp, epoch), "consensus-client provide no attestation committees"
 
 
-def check_block_attestations(web3: Web3, blockstamp):
+def check_sync_committee(web3: Web3, blockstamp):
+    """Check that consensus-client able to provide sync committee"""
+    cc_config = web3.cc.get_config_spec()
+    slots_per_epoch = cc_config.SLOTS_PER_EPOCH
+    epoch = blockstamp.slot_number // slots_per_epoch
+    assert web3.cc.get_sync_committee(blockstamp, epoch), "consensus-client provide no sync committee"
+
+
+def check_block_attestations_and_sync(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block attestations"""
-    assert web3.cc.get_block_attestations(blockstamp.slot_number), "consensus-client provide no block attestations"
+    assert web3.cc.get_block_attestations_and_sync(blockstamp.slot_number), "consensus-client provide no block attestations and sync"

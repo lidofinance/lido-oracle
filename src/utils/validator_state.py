@@ -10,9 +10,7 @@ from src.constants import (
     MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT,
     MAX_SEED_LOOKAHEAD,
     MIN_ACTIVATION_BALANCE,
-    MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
-    SHARD_COMMITTEE_PERIOD,
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
@@ -33,11 +31,6 @@ def is_exited_validator(validator: Validator, epoch: EpochNumber) -> bool:
 def is_on_exit(validator: Validator) -> bool:
     """Validator exited or is going to exit"""
     return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
-
-
-def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
-    """Validator age in epochs from activation to ref_epoch"""
-    return max(ref_epoch - validator.validator.activation_epoch, 0)
 
 
 def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
@@ -91,19 +84,6 @@ def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, ep
     )
 
 
-def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> bool:
-    """
-    Check if `validator` can exit.
-    Verify the validator has been active long enough.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#voluntary-exits
-
-    The validator can only exit if it has no pending withdrawals in the queue.
-    This method don't take partial withdrawals into account because Lido protocol doesn't support partial withdrawals.
-    """
-    active_long_enough = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= epoch
-    return active_long_enough and not is_on_exit(validator)
-
-
 def calculate_total_active_effective_balance(all_validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
     """
     Return the combined effective balance of the active validators.
@@ -134,10 +114,6 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
     Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
     """
     return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
-
-
-def get_validator_churn_limit(active_validators_count: int):
-    return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
 
 
 # @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit

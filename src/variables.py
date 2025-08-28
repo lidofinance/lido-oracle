@@ -12,9 +12,10 @@ EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
 KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
 
-GW3_ACCESS_KEY: Final = from_file_or_env('GW3_ACCESS_KEY')
-GW3_SECRET_KEY: Final = from_file_or_env('GW3_SECRET_KEY')
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
+KUBO_HOST: Final = os.getenv('KUBO_HOST')
+KUBO_GATEWAY_PORT: Final = int(os.getenv('KUBO_GATEWAY_PORT', 8080))
+KUBO_RPC_PORT: Final = int(os.getenv('KUBO_RPC_PORT', 5001))
 
 # - Account -
 ACCOUNT = None
@@ -28,7 +29,7 @@ LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
 CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
-CSM_ORACLE_MAX_CONCURRENCY: Final = int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)) or None
+CSM_ORACLE_MAX_CONCURRENCY: Final = min(32, int(os.getenv('CSM_ORACLE_MAX_CONCURRENCY', 2)))
 
 # We add some gas to the transaction to be sure that we have enough gas to execute corner cases
 # eg when we tried to submit a few reports in a single block
@@ -40,8 +41,8 @@ EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 10_000))
 assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
 
 # Transactions fee calculation variables
-MIN_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 50_000_000))
-MAX_PRIORITY_FEE: Final = int(os.getenv('MAX_PRIORITY_FEE', 100_000_000_000))
+MIN_PRIORITY_FEE: Final = int(os.getenv('MIN_PRIORITY_FEE', 10_000_000))
+MAX_PRIORITY_FEE: Final = int(os.getenv('MAX_PRIORITY_FEE', 10_000_000_000))
 PRIORITY_FEE_PERCENTILE: Final = int(os.getenv('PRIORITY_FEE_PERCENTILE', 3))
 
 DAEMON: Final = os.getenv('DAEMON', 'True').lower() == 'true'
@@ -78,6 +79,10 @@ HTTP_REQUEST_RETRY_COUNT_IPFS: Final = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_I
 # - Metrics -
 PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
+
+# - OpsGenie -
+OPSGENIE_API_KEY: Final[str] = os.getenv('OPSGENIE_API_KEY', '')
+OPSGENIE_API_URL: Final[str] = os.getenv('OPSGENIE_API_URL', '')
 
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
 
@@ -151,10 +156,10 @@ PRIVATE_ENV_VARS = {
     'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,
     'CONSENSUS_CLIENT_URI': CONSENSUS_CLIENT_URI,
     'KEYS_API_URI': KEYS_API_URI,
-    'GW3_ACCESS_KEY': GW3_ACCESS_KEY,
-    'GW3_SECRET_KEY': GW3_SECRET_KEY,
     'PINATA_JWT': PINATA_JWT,
     'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,
+    'OPSGENIE_API_KEY': OPSGENIE_API_KEY,
+    'OPSGENIE_API_URL': OPSGENIE_API_URL,
 }
 
 assert not set(PRIVATE_ENV_VARS.keys()).intersection(set(PUBLIC_ENV_VARS.keys()))

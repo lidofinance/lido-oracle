@@ -1,13 +1,14 @@
 # pylint: disable=protected-access
 import unittest
+import pytest
 from typing import Any
 from unittest.mock import Mock
 
 from src.providers.consistency import ProviderConsistencyModule, NotHealthyProvider, InconsistentProviders
 
 
+@pytest.mark.unit
 class TestProviderConsistencyModule(unittest.TestCase):
-
     def setUp(self):
         # Set up a concrete subclass for testing
         class TestProviderConsistencyModule(ProviderConsistencyModule):

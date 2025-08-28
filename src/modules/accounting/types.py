@@ -137,7 +137,7 @@ ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
 type SharesToBurn = int
-type GenericExtraData = tuple[OperatorsValidatorCount, OperatorsValidatorCount, OracleReportLimits]
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationShareRate, FinalizationBatches]
 
