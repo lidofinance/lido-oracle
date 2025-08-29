@@ -1,8 +1,11 @@
 from time import sleep
 from typing import List, TypedDict, cast
 
-from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
-from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
+from src.metrics.prometheus.basic import (
+    KEYS_API_LATEST_BLOCKNUMBER,
+    KEYS_API_REQUESTS_DURATION,
+)
+from src.providers.http_provider import NotOkResponse, SimpleHTTPProvider, data_is_dict
 from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
@@ -31,7 +34,7 @@ class ModuleOperatorsKeys(TypedDict):
     operators: list
 
 
-class KeysAPIClient(HTTPProvider):
+class KeysAPIClient(SimpleHTTPProvider):
     """
     Lido Keys are stored in different modules in on-chain and off-chain format.
     Keys API service fetches all lido keys and provide them in convenient format.
@@ -96,7 +99,11 @@ class KeysAPIClient(HTTPProvider):
         return KeysApiStatus.from_response(**data)
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
-        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, retval_validator=data_is_dict)
+        data, _ = self._get_without_fallbacks(
+            self.hosts[provider_index],
+            self.STATUS,
+            retval_validator=data_is_dict
+        )
         return KeysApiStatus.from_response(**data).chainId
 
     def _check_used_keys(self, keys: list[LidoKey]):
