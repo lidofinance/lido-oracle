@@ -6,7 +6,7 @@ import requests
 from src.utils.jwt import validate_jwt
 
 from .cid import CID
-from .types import FetchError, IPFSProvider, PinError, UploadError
+from .types import FetchError, IPFSProvider, UploadError
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class Pinata(IPFSProvider):
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
 
-    def fetch(self, cid: CID) -> bytes:
+    def _fetch(self, cid: CID) -> bytes:
         url = f"{self.GATEWAY}/ipfs/{cid}"
         try:
             resp = requests.get(url, timeout=self.timeout)
@@ -33,10 +33,6 @@ class Pinata(IPFSProvider):
             logger.error({"msg": "Request has been failed", "error": str(ex)})
             raise FetchError(cid) from ex
         return resp.content
-
-    def publish(self, content: bytes, name: str | None = None) -> CID:
-        # NOTE: The content is pinned by the `upload` method.
-        return self.upload(content)
 
     def _upload(self, content: bytes, name: str | None = None) -> str:
         """Pinata has no dedicated endpoint for uploading, so pinFileToIPFS is used"""
@@ -59,5 +55,4 @@ class Pinata(IPFSProvider):
         return cid
 
     def pin(self, cid: CID) -> None:
-        """pinByHash is a paid feature"""
-        raise PinError(cid)
+        pass

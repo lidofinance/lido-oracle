@@ -24,7 +24,7 @@ from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.ipfs import CID, MultiIPFSProvider
+from src.providers.ipfs import CID
 from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
@@ -35,7 +35,14 @@ from src.variables import (
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.extensions import (
+    IPFS,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
 
 logger = logging.getLogger('fork_tests')
 
@@ -283,13 +290,13 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
 
 
 @pytest.fixture()
-def mocked_ipfs_client(monkeypatch):
+def mocked_ipfs_client(monkeypatch, forked_el_client):
     def _publish(self, content: bytes, name: str | None = None) -> CID:
         return CID('Qm' + 'f' * 46)
 
     with monkeypatch.context():
-        monkeypatch.setattr(MultiIPFSProvider, 'publish', _publish)
-        ipfs = MultiIPFSProvider(ipfs_providers())
+        monkeypatch.setattr(IPFS, 'publish', _publish)
+        ipfs = IPFS(forked_el_client, ipfs_providers())  # Web3 instance not needed for mocked publish
         yield ipfs
 
 

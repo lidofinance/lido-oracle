@@ -123,7 +123,8 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
     resp.status_code = 200
     resp._content = b'{"data": 1}'
 
-    consensus_client.session.get = Mock(return_value=resp)
+    for manager in consensus_client.managers:
+        manager.get_response_from_get_request = Mock(return_value=resp)
     bs = BlockStampFactory.build()
 
     raises = pytest.raises(ValueError, match='Expected (mapping|list) response')
@@ -174,7 +175,8 @@ def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClie
     resp.status_code = 200
     resp._content = b'{"data": [], "dependent_root": "0x01"}'
 
-    consensus_client.session.get = Mock(return_value=resp)
+    for manager in consensus_client.managers:
+        manager.get_response_from_get_request = Mock(return_value=resp)
 
     with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
         consensus_client.get_proposer_duties(EpochNumber(0), "0x02")

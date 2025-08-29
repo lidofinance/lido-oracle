@@ -3,3 +3,4 @@ from .multi_http_provider import FallbackProvider as FallbackProvider
 from .multi_http_provider import MultiProvider as MultiProvider
 from .multi_http_provider import NoActiveProviderError as NoActiveProviderError
 from .multi_http_provider import ProtocolNotSupported as ProtocolNotSupported
+from .multi_http_provider import HTTPSessionManagerProxy as HTTPSessionManagerProxy
