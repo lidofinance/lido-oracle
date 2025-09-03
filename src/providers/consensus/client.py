@@ -60,7 +60,6 @@ class ConsensusClient(HTTPProvider):
     API_GET_SYNC_COMMITTEE = 'eth/v1/beacon/states/{}/sync_committees'
     API_GET_PROPOSER_DUTIES = 'eth/v1/validator/duties/proposer/{}'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
-    API_GET_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
     API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
