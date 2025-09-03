@@ -30,7 +30,7 @@ class Kubo(IPFSProvider):
         self.rpc_port = rpc_port
         self.gateway_port = gateway_port
 
-    def fetch(self, cid: CID) -> bytes:
+    def _fetch(self, cid: CID) -> bytes:
         url = f"{self.host}:{self.gateway_port}/ipfs/{cid}"
         try:
             resp = requests.get(url, timeout=self.timeout)

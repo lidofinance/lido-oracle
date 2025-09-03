@@ -2,75 +2,105 @@
 
 import random
 import string
+import time
+from typing import Callable, Any
 
-import pytest
-
-from src import variables
 from src.main import ipfs_providers
-from src.providers.ipfs import IPFSError, IPFSProvider, Kubo, Pinata, PublicIPFS
-from src.providers.ipfs.cid import CIDv0
+from src.providers.ipfs import Pinata, Storacha
+
+REQUIRED_PROVIDERS = (Pinata, Storacha)
 
 
-@pytest.fixture()
-def content():
-    letters = string.ascii_letters
-    return "".join(random.choice(letters) for _ in range(255))
-
-
-def providers():
-    configured_providers = tuple(ipfs_providers())
-
-    for typ in (Pinata, Kubo):
+def retry_fetch(func: Callable, *args, max_retries: int = 3, delay: int = 30, **kwargs) -> Any:
+    """Retry function with exponential backoff for IPFS fetch operations."""
+    for attempt in range(max_retries):
         try:
-            provider = [p for p in configured_providers if isinstance(p, typ)].pop()
-        except IndexError:
-            yield pytest.param(
-                None,
-                marks=pytest.mark.skip(f"{typ.__name__} provider is not configured"),
-                id=typ.__name__,
+            return func(*args, **kwargs)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            if attempt == max_retries - 1:
+                raise e
+            time.sleep(delay)
+    return None
+
+
+def check_ipfs_providers():
+    """Checks:
+    1. Required providers (Pinata, Storacha) are configured
+    2. Cross-compatibility - CIDs and content between different IPFS providers must be the same
+    3. Provider stability - Non-working providers will return HTTP errors
+    4. Authentication - If credentials are incorrect, upload/fetch will fail
+
+    Warning! Parametrize decorator is not used here to avoid parallel run via pytest-xdist
+    """
+    configured_providers = list(ipfs_providers())
+
+    missing_providers = []
+    for required_provider in REQUIRED_PROVIDERS:
+        provider_configured = any(isinstance(p, required_provider) for p in configured_providers)
+        if not provider_configured:
+            missing_providers.append(required_provider.__name__)
+
+    assert not missing_providers, f"Required providers not configured: {', '.join(missing_providers)}"
+
+    errors = []
+
+    for upload_provider in configured_providers:
+        test_content = "".join(random.choice(string.printable) for _ in range(128))
+
+        try:
+            uploaded_cid = upload_provider.publish(test_content.encode())
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            errors.append(
+                f"Upload failed on provider {upload_provider.__class__.__name__} during publish stage: "
+                f"{type(e).__name__}: {e}"
             )
-        else:
-            yield pytest.param(provider, id=typ.__name__)
+            continue
 
+        downloaded_contents = {}
 
-@pytest.mark.parametrize("provider", providers())
-def check_ipfs_provider(provider: IPFSProvider, content: str):
-    """Checks that configured IPFS provider can be used by CSM"""
+        # Check content between different IPFS providers
+        for download_provider in configured_providers:
+            try:
+                downloaded_content = retry_fetch(download_provider.fetch, uploaded_cid).decode()
+                downloaded_contents[download_provider.__class__.__name__] = downloaded_content
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                errors.append(
+                    f"Download failed on provider {download_provider.__class__.__name__} during fetch stage "
+                    f"for CID {uploaded_cid} (uploaded via {upload_provider.__class__.__name__}) after retries: "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
 
-    try:
-        cid = provider.publish(content.encode())
-        ret = provider.fetch(cid).decode()
-        if ret != content:
-            raise IPFSError(f"Content mismatch, got={ret}, expected={content}")
-    except IPFSError as e:
-        raise AssertionError(f"Provider {provider.__class__.__name__} is not working") from e
+            if downloaded_content != test_content:
+                errors.append(
+                    f"Content mismatch: uploaded via {upload_provider.__class__.__name__}, "
+                    f"downloaded via {download_provider.__class__.__name__} for CID {uploaded_cid}: "
+                    f"expected {test_content}, got {downloaded_content}"
+                )
 
+        # Check CID's between different IPFS providers
+        # Separate cycle to avoid corruption of fetched content checking
+        for download_provider in configured_providers:
+            if download_provider.__class__.__name__ not in downloaded_contents:
+                continue
 
-def check_csm_requires_ipfs_provider():
-    if not variables.CSM_MODULE_ADDRESS:
-        pytest.skip("IPFS provider is not requirement for non-CSM oracle")
+            downloaded_content = downloaded_contents[download_provider.__class__.__name__]
 
-    providers = [p for p in ipfs_providers() if not isinstance(p, PublicIPFS)]
-    if not providers:
-        pytest.fail("CSM oracle requires IPFS provider with pinnig support")
+            try:
+                download_cid = download_provider.publish(downloaded_content.encode())
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                errors.append(
+                    f"Re-upload failed on provider {download_provider.__class__.__name__} during publish stage "
+                    f"for content from {upload_provider.__class__.__name__}: {type(e).__name__}: {e}"
+                )
+                continue
 
+            if download_cid != uploaded_cid:
+                errors.append(
+                    f"CID mismatch: uploaded via {upload_provider.__class__.__name__}, "
+                    f"re-uploaded via {download_provider.__class__.__name__}: "
+                    f"expected {uploaded_cid}, got {download_cid}"
+                )
 
-@pytest.fixture()
-def well_known_content() -> tuple[str, CIDv0]:
-    rnd = random.getstate()
-    random.seed("KNOWN")
-    data = "".join(random.choice(string.ascii_letters) for _ in range(544 * 1024))
-    random.setstate(rnd)
-    return data, CIDv0("QmTDcDoauLrFR2YGS9L6iRSdsmgqzxsrhuDeVQkGAgqA1f")
-
-
-@pytest.mark.parametrize("provider", providers())
-def check_ipfs_provider_returns_expected_cid(provider: IPFSProvider, well_known_content: tuple[str, CIDv0]):
-    """Checks that configured IPFS providers return the expected CID"""
-
-    content, cid = well_known_content
-    assert len(content.encode()) > 256 * 1024, "Too small content length to check"
-
-    new_cid = provider.publish(content.encode())
-    if new_cid != cid:
-        raise IPFSError(f"Invalid CID, got={new_cid}, expected={cid}")
+    numbered_errors = [f"{i+1}. {error}" for i, error in enumerate(errors)]
+    assert not errors, f"Provider issues found ({len(errors)} total):\n" + "\n".join(numbered_errors)
