@@ -3,12 +3,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_locator",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_stETH",
+        "name": "_lidoLocator",
         "type": "address"
       }
     ],
@@ -17,95 +12,58 @@
   },
   {
     "inputs": [],
-    "name": "AppAuthFailed",
+    "name": "AccessControlBadConfirmation",
     "type": "error"
   },
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "requestedAmount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       },
       {
-        "internalType": "uint256",
-        "name": "actualAmount",
-        "type": "uint256"
+        "internalType": "bytes32",
+        "name": "neededRole",
+        "type": "bytes32"
       }
     ],
-    "name": "BurnAmountExceedsActual",
+    "name": "AccessControlUnauthorizedAccount",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "DirectETHTransfer",
+    "name": "AdminCannotBeZero",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidContractVersionIncrement",
+    "name": "InvalidInitialization",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "MigrationNotAllowedOrAlreadyMigrated",
+    "name": "InvalidProof",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "NonZeroContractVersionOnInit",
+    "name": "NotAuthorized",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "NotInitialized",
+    "name": "NotInitializing",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "OnlyLidoCanMigrate",
+    "name": "TotalValueTooLarge",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "StETHRecoveryWrongFunc",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "expected",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "received",
-        "type": "uint256"
-      }
-    ],
-    "name": "UnexpectedContractVersion",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "field",
-        "type": "string"
-      }
-    ],
-    "name": "ZeroAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ZeroBurnAmount",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ZeroRecoveryAmount",
+    "name": "UnderflowInTotalValueCalculation",
     "type": "error"
   },
   {
@@ -113,12 +71,12 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "version",
-        "type": "uint256"
+        "type": "uint64"
       }
     ],
-    "name": "ContractVersionSet",
+    "name": "Initialized",
     "type": "event"
   },
   {
@@ -127,23 +85,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "requestedBy",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "token",
+        "name": "vault",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "uint128",
+        "name": "delta",
+        "type": "uint128"
       }
     ],
-    "name": "ERC20Recovered",
+    "name": "QuarantineExpired",
     "type": "event"
   },
   {
@@ -152,48 +104,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "requestedBy",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "token",
+        "name": "vault",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
+        "internalType": "uint128",
+        "name": "delta",
+        "type": "uint128"
       }
     ],
-    "name": "ERC721Recovered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "requestedBy",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfStETH",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfShares",
-        "type": "uint256"
-      }
-    ],
-    "name": "ExcessStETHRecovered",
+    "name": "QuarantinedDeposit",
     "type": "event"
   },
   {
@@ -275,31 +196,19 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "bool",
-        "name": "isCover",
-        "type": "bool"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "requestedBy",
-        "type": "address"
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "quarantinePeriod",
+        "type": "uint64"
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfStETH",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfShares",
-        "type": "uint256"
+        "internalType": "uint16",
+        "name": "maxRewardRatioBP",
+        "type": "uint16"
       }
     ],
-    "name": "StETHBurnRequested",
+    "name": "SanityParamsUpdated",
     "type": "event"
   },
   {
@@ -307,24 +216,24 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "bool",
-        "name": "isCover",
-        "type": "bool"
-      },
-      {
-        "indexed": false,
         "internalType": "uint256",
-        "name": "amountOfStETH",
+        "name": "timestamp",
         "type": "uint256"
       },
       {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "root",
+        "type": "bytes32"
+      },
+      {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amountOfShares",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "cid",
+        "type": "string"
       }
     ],
-    "name": "StETHBurnt",
+    "name": "VaultsReportDataUpdated",
     "type": "event"
   },
   {
@@ -342,20 +251,7 @@
   },
   {
     "inputs": [],
-    "name": "LIDO",
-    "outputs": [
-      {
-        "internalType": "contract ILido",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "LOCATOR",
+    "name": "LIDO_LOCATOR",
     "outputs": [
       {
         "internalType": "contract ILidoLocator",
@@ -368,20 +264,7 @@
   },
   {
     "inputs": [],
-    "name": "REQUEST_BURN_MY_STETH_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "REQUEST_BURN_SHARES_ROLE",
+    "name": "UPDATE_SANITY_PARAMS_ROLE",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -395,63 +278,123 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
-        "name": "_sharesToBurn",
+        "name": "_totalValue",
         "type": "uint256"
       }
     ],
-    "name": "commitSharesToBurn",
-    "outputs": [],
+    "name": "_handleSanityChecks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalValueWithoutQuarantine",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "inOutDeltaOnRefSlot",
+        "type": "int256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getContractVersion",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "_offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_limit",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getCoverSharesBurnt",
+    "name": "batchVaultsInfo",
     "outputs": [
       {
-        "internalType": "uint256",
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "uint96",
+            "name": "vaultIndex",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint256",
+            "name": "balance",
+            "type": "uint256"
+          },
+          {
+            "internalType": "int256",
+            "name": "inOutDelta",
+            "type": "int256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "withdrawalCredentials",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "liabilityShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "mintableStETH",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint96",
+            "name": "shareLimit",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint16",
+            "name": "reserveRatioBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "forcedRebalanceThresholdBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "infraFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "liquidityFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "uint16",
+            "name": "reservationFeeBP",
+            "type": "uint16"
+          },
+          {
+            "internalType": "bool",
+            "name": "pendingDisconnect",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct LazyOracle.VaultInfo[]",
         "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getExcessStETH",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getNonCoverSharesBurnt",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
+        "type": "tuple[]"
       }
     ],
     "stateMutability": "view",
@@ -520,18 +463,19 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getSharesRequestedToBurn",
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getRoleMembers",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "coverShares",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "nonCoverShares",
-        "type": "uint256"
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
       }
     ],
     "stateMutability": "view",
@@ -587,9 +531,14 @@
         "type": "address"
       },
       {
-        "internalType": "bool",
-        "name": "_isMigrationAllowed",
-        "type": "bool"
+        "internalType": "uint64",
+        "name": "_quarantinePeriod",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_maxRewardRatioBP",
+        "type": "uint16"
       }
     ],
     "name": "initialize",
@@ -599,71 +548,64 @@
   },
   {
     "inputs": [],
-    "name": "isMigrationAllowed",
+    "name": "latestReportData",
     "outputs": [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
+        "internalType": "uint64",
+        "name": "timestamp",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "treeRoot",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "reportCid",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "latestReportTimestamp",
+    "outputs": [
       {
-        "internalType": "address",
-        "name": "_oldBurner",
-        "type": "address"
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
       }
     ],
-    "name": "migrate",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_token",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "recoverERC20",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_token",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "recoverERC721",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "recoverExcessStETH",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "name": "maxRewardRatioBP",
+    "outputs": [
+      {
+        "internalType": "uint16",
+        "name": "",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "quarantinePeriod",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -675,86 +617,11 @@
       },
       {
         "internalType": "address",
-        "name": "account",
+        "name": "callerConfirmation",
         "type": "address"
       }
     ],
     "name": "renounceRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_sharesAmountToBurn",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestBurnMyShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_stETHAmountToBurn",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestBurnMyStETH",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_stETHAmountToBurn",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestBurnMyStETHForCover",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_from",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_sharesAmountToBurn",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestBurnShares",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_from",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_sharesAmountToBurn",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestBurnSharesForCover",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -797,7 +664,136 @@
     "type": "function"
   },
   {
-    "stateMutability": "payable",
-    "type": "receive"
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_vaultsDataTimestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_vaultsDataTreeRoot",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "_vaultsDataReportCid",
+        "type": "string"
+      }
+    ],
+    "name": "updateReportData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "_quarantinePeriod",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_maxRewardRatioBP",
+        "type": "uint16"
+      }
+    ],
+    "name": "updateSanityParams",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_totalValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_cumulativeLidoFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_liabilityShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_slashingReserve",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "_proof",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "updateVaultData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      }
+    ],
+    "name": "vaultQuarantine",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "isActive",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "pendingTotalValueIncrease",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "startTimestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "endTimestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LazyOracle.QuarantineInfo",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "vaultsCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ]

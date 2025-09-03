@@ -5,6 +5,7 @@ from src.modules.accounting.types import AccountingProcessingState
 from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
 
 
+@pytest.mark.testnet  # TODO: Bounded to hoodie due to st. vaults task, move to mainnet after release
 @pytest.mark.integration
 def test_accounting_oracle_contract(accounting_oracle_contract, caplog):
     check_contract(
