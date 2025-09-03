@@ -1,9 +1,26 @@
 import pytest
+from eth_typing import BlockNumber
+from web3.types import Timestamp
 
 from src.modules.submodules.types import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
-from tests.conftest import get_blockstamp_by_state
+from src.types import ReferenceBlockStamp, SlotNumber, EpochNumber
+
+
+def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
+    root = w3.cc.get_block_root(state_id).root
+    slot_details = w3.cc.get_block_details(root)
+
+    return ReferenceBlockStamp(
+        slot_number=SlotNumber(int(slot_details.message.slot)),
+        state_root=slot_details.message.state_root,
+        block_number=BlockNumber(int(slot_details.message.body.execution_payload.block_number)),
+        block_hash=slot_details.message.body.execution_payload.block_hash,
+        block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
+        ref_slot=SlotNumber(int(slot_details.message.slot)),
+        ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
+    )
 
 
 @pytest.fixture
@@ -17,15 +34,16 @@ def frame_config():
 
 
 @pytest.fixture
-def past_blockstamp(web3, consensus_client):
-    return get_blockstamp_by_state(web3, 'finalized')
+def past_blockstamp(web3_integration):
+    return get_blockstamp_by_state(web3_integration, 'finalized')
 
 
 @pytest.fixture
-def subject(web3, past_blockstamp, chain_config, frame_config, contracts, keys_api_client, consensus_client):
-    return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
+def subject(web3_integration, past_blockstamp, chain_config, frame_config):
+    return Withdrawal(web3_integration, past_blockstamp, chain_config, frame_config)
 
 
+@pytest.mark.integration
 def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)

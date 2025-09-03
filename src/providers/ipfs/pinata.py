@@ -3,6 +3,8 @@ from json import JSONDecodeError
 
 import requests
 
+from src.utils.jwt import validate_jwt
+
 from .cid import CID
 from .types import FetchError, IPFSProvider, PinError, UploadError
 
@@ -17,6 +19,7 @@ class Pinata(IPFSProvider):
 
     def __init__(self, jwt_token: str, *, timeout: int) -> None:
         super().__init__()
+        validate_jwt(jwt_token)
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"

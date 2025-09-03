@@ -153,7 +153,7 @@ def test_dataclass_ignore_extra_fields():
 def test_dataclass_raises_missing_field():
     response = {"name": "Bob"}
     with pytest.raises(TypeError, match="age"):
-        pet = Pet.from_response(**response)
+        Pet.from_response(**response)
 
 
 @dataclass

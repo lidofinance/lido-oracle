@@ -115,10 +115,10 @@ def blockstamp():
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "slashings_in_frame, last_finalized_withdrawal_request_slot, expected",
+    "slashings_in_frame, last_finalized_withdrawal_request_epoch, expected",
     [
-        (True, 144, 90),
-        (False, 144, 98),
+        (True, 12, 90),
+        (False, 12, 98),
     ],
 )
 def test_find_earliest_slashed_epoch_rounded_to_frame(
@@ -127,13 +127,13 @@ def test_find_earliest_slashed_epoch_rounded_to_frame(
     chain_config,
     blockstamp,
     slashings_in_frame,
-    last_finalized_withdrawal_request_slot,
+    last_finalized_withdrawal_request_epoch,
     expected,
 ):
     SafeBorder._retrieve_constants = Mock()
     SafeBorder._get_negative_rebase_border_epoch = Mock()
     SafeBorder._get_associated_slashings_border_epoch = Mock()
-    SafeBorder._get_last_finalized_withdrawal_request_slot = Mock(return_value=last_finalized_withdrawal_request_slot)
+    SafeBorder._get_last_finalized_withdrawal_request_epoch = Mock(return_value=last_finalized_withdrawal_request_epoch)
     SafeBorder._slashings_in_frame = Mock(return_value=slashings_in_frame)
 
     web3Mock = Mock()

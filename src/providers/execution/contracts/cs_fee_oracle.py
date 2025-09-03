@@ -1,5 +1,7 @@
 import logging
 
+from eth_typing import ChecksumAddress
+from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
@@ -23,15 +25,15 @@ class CSFeeOracleContract(BaseOracleContract):
         )
         return resp
 
-    def perf_leeway_bp(self, block_identifier: BlockIdentifier = "latest") -> int:
-        """Performance threshold leeway used to determine underperforming validators"""
+    def strikes(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+        """Return the address of the CSStrikes contract"""
 
-        resp = self.functions.avgPerfLeewayBP().call(block_identifier=block_identifier)
+        resp = self.functions.STRIKES().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call `avgPerfLeewayBP()`.",
+                "msg": "Call `STRIKES()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
         )
-        return resp
+        return Web3.to_checksum_address(resp)

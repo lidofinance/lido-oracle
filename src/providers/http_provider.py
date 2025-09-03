@@ -1,20 +1,18 @@
 import logging
 from abc import ABC
 from http import HTTPStatus
-from typing import Sequence, Callable
+from typing import Any, Callable, NoReturn, Protocol, Sequence
 from urllib.parse import urljoin, urlparse
 
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
 from json_stream import requests as json_stream_requests  # type: ignore
-from json_stream.base import TransientStreamingJSONList, TransientStreamingJSONObject  # type: ignore
-
+from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
-from requests import Session, JSONDecodeError
+from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
-
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +31,34 @@ class NotOkResponse(Exception):
         super().__init__(*args)
 
 
+class ReturnValueValidator(Protocol):
+    def __call__(self, data: Any, meta: dict, *, endpoint: str) -> None | NoReturn: ...
+
+
+def data_is_any(data: Any, meta: dict, *, endpoint: str):
+    pass
+
+
+def data_is_dict(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected mapping response from {endpoint}")
+
+
+def data_is_list(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, list):
+        raise ValueError(f"Expected list response from {endpoint}")
+
+
+def data_is_transient_dict(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, TransientStreamingJSONObject):
+        raise ValueError(f"Expected mapping response from {endpoint}")
+
+
 class HTTPProvider(ProviderConsistencyModule, ABC):
     """
     Base HTTP Provider with metrics and retry strategy integrated inside.
     """
+
     PROMETHEUS_HISTOGRAM: Histogram
     request_timeout: int
 
@@ -80,8 +102,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
         stream: bool = False,
-    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
+    ) -> tuple[Any, dict]:
         """
         Get plain or streamed request with fallbacks
         Returns (data, meta) or raises exception
@@ -93,7 +116,14 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         for host in self.hosts:
             try:
-                return self._get_without_fallbacks(host, endpoint, path_params, query_params, stream)
+                return self._get_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    stream=stream,
+                    retval_validator=retval_validator,
+                )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
 
@@ -119,10 +149,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,
-    ) -> tuple[dict | list, dict] | TransientStreamingJSONObject | TransientStreamingJSONList:
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[Any, dict]:
         """
         Simple get request without fallbacks
-        Returns (data, meta) or streamed transient list-like or dict-like object JSON or raises exception
+        Returns (data, meta) or raises an exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
 
@@ -132,7 +163,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
-                    stream=stream
+                    stream=stream,
                 )
             except Exception as error:
                 logger.error({'msg': str(error)})
@@ -157,11 +188,12 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
-            if stream:
-                return json_stream_requests.load(response)
-
             try:
-                json_response = response.json()
+                if stream:
+                    # There's no guarantee the JSON is valid at this point.
+                    json_response = json_stream_requests.load(response)
+                else:
+                    json_response = response.json()
             except JSONDecodeError as error:
                 response_fail_msg = (
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
@@ -169,14 +201,19 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
-        if 'data' in json_response:
-            data = json_response['data']
-            del json_response['data']
-            meta = json_response
-        else:
+        try:
+            data = json_response["data"]
+            meta = {}
+
+            if not stream:
+                del json_response["data"]
+                meta = json_response
+        except KeyError:
+            # NOTE: Used by KeysAPIClient only.
             data = json_response
             meta = {}
 
+        retval_validator(data, meta, endpoint=endpoint)
         return data, meta
 
     def get_all_providers(self) -> list[str]:
