@@ -421,10 +421,11 @@ class Accounting(BaseModule, ConsensusModule):
         simulation = self.simulate_full_rebase(blockstamp)
 
         core_apr_ratio = calculate_gross_core_apr(
-            pre_total_shares=simulation.pre_total_shares,
             pre_total_ether=simulation.pre_total_pooled_ether,
-            post_total_shares=simulation.post_total_shares - simulation.shares_to_mint_as_fees,
-            post_total_ether=simulation.post_total_pooled_ether,
+            pre_total_shares=simulation.pre_total_shares,
+            post_internal_ether=simulation.post_internal_ether,
+            post_internal_shares=simulation.post_internal_shares,
+            shares_minted_as_fees=simulation.shares_to_mint_as_fees,
             time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp)
         )
 
