@@ -64,7 +64,7 @@ def check_ipfs_providers():
             # LidoIPFS can only download content uploaded via LidoIPFS (by design)
             if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
                 continue
-            
+
             try:
                 downloaded_content = retry_fetch(download_provider.fetch, uploaded_cid).decode()
                 downloaded_contents[download_provider.__class__.__name__] = downloaded_content
@@ -90,7 +90,7 @@ def check_ipfs_providers():
             # LidoIPFS can only download content uploaded via LidoIPFS (by design)
             if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
                 continue
-                
+
             if download_provider.__class__.__name__ not in downloaded_contents:
                 continue
 
