@@ -252,7 +252,7 @@ VaultToValidators = dict[ChecksumAddress, list[Validator]]
 VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
-VaultTotalValueMap = dict[ChecksumAddress, Wei]
+VaultTotalValueMap = dict[ChecksumAddress, int]
 
 VaultFeeMap = dict[ChecksumAddress, VaultFee]
 VaultReserveMap = dict[ChecksumAddress, int]
