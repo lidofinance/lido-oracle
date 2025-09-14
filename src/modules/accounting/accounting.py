@@ -16,7 +16,6 @@ from src.metrics.prometheus.accounting import (
     VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
@@ -40,6 +39,7 @@ from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
+from src.services.staking_vaults import StakingVaultsService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
 from src.types import (
@@ -433,7 +433,6 @@ class Accounting(BaseModule, ConsensusModule):
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
-            genesis_fork_version=self.get_cc_genesis_config().genesis_fork_version
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)

@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import NewType, Self
@@ -20,7 +20,7 @@ from src.types import (
     StakingModuleId,
     WithdrawalVaultBalance,
 )
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
 
 BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
@@ -252,7 +252,7 @@ VaultToValidators = dict[ChecksumAddress, list[Validator]]
 VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
-VaultTotalValueMap = dict[ChecksumAddress, int]
+VaultTotalValueMap = dict[ChecksumAddress, Wei]
 
 VaultFeeMap = dict[ChecksumAddress, VaultFee]
 VaultReserveMap = dict[ChecksumAddress, int]
