@@ -61,17 +61,11 @@ class StakingVaultsService:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         return VaultsMap({v.vault: v for v in vaults})
 
-    @staticmethod
-    def get_total_pending_balance(pubkey: str, pending_deposits_by_pubkey: dict[str, list[PendingDeposit]]) -> Gwei:
-        if pubkey in pending_deposits_by_pubkey:
-            return Gwei(sum(deposit.amount for deposit in pending_deposits_by_pubkey[pubkey]))
-        return Gwei(0)
-
     def get_vaults_total_values(
         self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
     ) -> VaultTotalValueMap:
         validators_by_vault = StakingVaultsService.get_validators_by_vaults(validators, vaults)
-        pending_deposits_by_pubkey = StakingVaultsService.get_pending_deposits_by_pubkey(pending_deposits)
+        pending_deposits_balances_by_pubkey = StakingVaultsService.get_pending_deposits_by_pubkey(pending_deposits)
 
         out: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -82,7 +76,7 @@ class StakingVaultsService:
 
                 for validator in vault_validators:
                     pubkey = validator.pubkey.to_0x_hex()
-                    pending_balance = StakingVaultsService.get_total_pending_balance(pubkey, pending_deposits_by_pubkey)
+                    pending_balance = pending_deposits_balances_by_pubkey.get(pubkey, 0)
                     total_gwei = Gwei(validator.balance + pending_balance)
 
                     if validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH:
@@ -274,11 +268,11 @@ class StakingVaultsService:
         return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
 
     @staticmethod
-    def get_pending_deposits_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, list[PendingDeposit]]:
-        pending_deposit_map: dict[str, list[PendingDeposit]] = defaultdict(list)
+    def get_pending_deposits_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
+        balances: dict[str, Gwei] = defaultdict(lambda: Gwei(0))
         for deposit in pending_deposits:
-            pending_deposit_map[deposit.pubkey].append(deposit)
-        return pending_deposit_map
+            balances[deposit.pubkey] += deposit.amount
+        return dict(balances)
 
     @staticmethod
     def get_validators_by_vaults(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
