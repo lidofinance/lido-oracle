@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 MERKLE_TREE_VAULTS_FILENAME = 'staking_vaults_merkle_tree.json'
 
+
 class StakingVaultsService:
     w3: Web3
 
@@ -61,39 +62,50 @@ class StakingVaultsService:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         return VaultsMap({v.vault: v for v in vaults})
 
+    @staticmethod
+    def _is_validator_active_or_eligible_for_activation(validator: Validator, total_balance: Gwei) -> bool:
+        """
+        Checks if ``validator`` is already active or eligible to be placed into the activation queue.
+        """
+        return (
+            validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+            or total_balance >= MIN_ACTIVATION_BALANCE
+        )
+
     def get_vaults_total_values(
         self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
     ) -> VaultTotalValueMap:
-        validators_by_vault = StakingVaultsService.get_validators_by_vaults(validators, vaults)
-        pending_deposits_balances_by_pubkey = StakingVaultsService.get_pending_deposits_by_pubkey(pending_deposits)
+        """
+        Calculate the total value (TV) of all vaults.
+        """
+        validators_by_vault_address = self.get_validators_by_vaults(validators, vaults)
+        total_pending_amounts_by_pubkey = self.get_total_pending_amounts_by_pubkey(pending_deposits)
 
-        out: VaultTotalValueMap = {}
+        total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
-            out[vault_address] = vault.balance
+            # Start with the vault's balance
+            vault_total_value = vault.balance
 
-            if vault_address in validators_by_vault:
-                vault_validators = validators_by_vault[vault_address]
+            # The vault may have no validators on the beacon chain (e.g. new vaults)
+            associated_validators = validators_by_vault_address.get(vault_address, [])
+            for validator in associated_validators:
+                validator_pending_balance = total_pending_amounts_by_pubkey.get(validator.pubkey.to_0x_hex(), 0)
+                validator_total_balance = Gwei(validator.balance + validator_pending_balance)
 
-                for validator in vault_validators:
-                    pubkey = validator.pubkey.to_0x_hex()
-                    pending_balance = pending_deposits_balances_by_pubkey.get(pubkey, 0)
-                    total_gwei = Gwei(validator.balance + pending_balance)
+                # Add the validator's balance only if it's active or eligible for activation
+                if self._is_validator_active_or_eligible_for_activation(validator, validator_total_balance):
+                    vault_total_value += gwei_to_wei(validator_total_balance)
 
-                    if validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH:
-                        # Activated or eligible: always count balance + pending
-                        out[vault_address] += gwei_to_wei(total_gwei)
-                    elif total_gwei >= MIN_ACTIVATION_BALANCE:
-                        # Not yet eligible: only count if meets min activation
-                        out[vault_address] += gwei_to_wei(total_gwei)
-
+            # Update the vault's total value
+            total_values[vault_address] = vault_total_value
             logger.info(
                 {
                     'msg': f'Calculate vault TVL: {vault_address}.',
-                    'value': out[vault_address],
+                    'value': total_values[vault_address],
                 }
             )
 
-        return out
+        return total_values
 
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig
@@ -127,7 +139,11 @@ class StakingVaultsService:
                 if validator.validator.slashed:
                     withdrawable_epoch = validator.validator.withdrawable_epoch
 
-                    if withdrawable_epoch - slashing_reserve_we_left_shift <= bs.ref_epoch <= withdrawable_epoch + slashing_reserve_we_right_shift:
+                    if (
+                        withdrawable_epoch - slashing_reserve_we_left_shift
+                        <= bs.ref_epoch
+                        <= withdrawable_epoch + slashing_reserve_we_right_shift
+                    ):
                         slot_id = (withdrawable_epoch - slashing_reserve_we_left_shift) * chain_config.slots_per_epoch
                         validator_past_state = self.w3.cc.get_validator_state(SlotNumber(slot_id), validator.index)
 
@@ -178,12 +194,12 @@ class StakingVaultsService:
 
     @staticmethod
     def get_dumped_tree(
-            tree: StandardMerkleTree,
-            vaults: VaultsMap,
-            bs: ReferenceBlockStamp,
-            prev_tree_cid: str,
-            chain_config: ChainConfig,
-            vaults_fee_map: VaultFeeMap
+        tree: StandardMerkleTree,
+        vaults: VaultsMap,
+        bs: ReferenceBlockStamp,
+        prev_tree_cid: str,
+        chain_config: ChainConfig,
+        vaults_fee_map: VaultFeeMap,
     ) -> dict[str, Any]:
         def stringify_values(data) -> list[dict[str, str | int]]:
             out = []
@@ -205,7 +221,7 @@ class StakingVaultsService:
                 prev_fee=str(vaults_fee_map[vault_adr].prev_fee),
                 infra_fee=str(vaults_fee_map[vault_adr].infra_fee),
                 liquidity_fee=str(vaults_fee_map[vault_adr].liquidity_fee),
-                reservation_fee=str(vaults_fee_map[vault_adr].reservation_fee)
+                reservation_fee=str(vaults_fee_map[vault_adr].reservation_fee),
             ).to_camel_dict()
 
         output: dict[str, Any] = {
@@ -268,7 +284,7 @@ class StakingVaultsService:
         return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
 
     @staticmethod
-    def get_pending_deposits_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
+    def get_total_pending_amounts_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
         balances: dict[str, Gwei] = defaultdict(lambda: Gwei(0))
         for deposit in pending_deposits:
             balances[deposit.pubkey] += deposit.amount
@@ -294,7 +310,7 @@ class StakingVaultsService:
         vault_validators: VaultToValidators,
         pending_deposits: list[PendingDeposit],
         pending_deposit_map: dict[str, list[PendingDeposit]],
-        vaults: VaultsMap
+        vaults: VaultsMap,
     ) -> VaultToPendingDeposits:
         result: VaultToPendingDeposits = defaultdict(list)
         used_pubkeys: set[str] = set()
@@ -338,7 +354,13 @@ class StakingVaultsService:
 
     @staticmethod
     def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
-        return value * Decimal(block_elapsed) * core_apr_ratio * Decimal(fee_bp) / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+        return (
+            value
+            * Decimal(block_elapsed)
+            * core_apr_ratio
+            * Decimal(fee_bp)
+            / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+        )
 
     @staticmethod
     # pylint: disable=too-many-branches
@@ -462,14 +484,14 @@ class StakingVaultsService:
                 raise ValueError(
                     f"Invalid tree root in IPFS report data. "
                     f"Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
+                )
+
+            last_processing_ref_slot = self.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot(
+                blockstamp.block_hash
             )
 
-            last_processing_ref_slot = self.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-
             ref_block = get_blockstamp(
-                self.w3.cc,
-                last_processing_ref_slot,
-                SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
+                self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
 
             # Prevent double-counting of vault events:
