@@ -55,6 +55,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': f'Start http server with prometheus metrics on port {variables.PROMETHEUS_PORT}'})
     start_http_server(variables.PROMETHEUS_PORT)
+    init_metrics()
 
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = Web3(FallbackProviderModule(
@@ -92,7 +93,6 @@ def main(module_name: OracleModule):
     })
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
-    init_metrics()
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:

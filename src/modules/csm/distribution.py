@@ -118,7 +118,7 @@ class Distribution:
         )
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_module_validators_by_node_operators(
+        return self.w3.lido_validators.get_used_module_validators_by_node_operators(
             StakingModuleAddress(self.w3.csm.module.address), blockstamp
         )
 
