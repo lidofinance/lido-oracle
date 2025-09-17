@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.9.0
 FROM python:3.12.4-slim AS base
 
 ARG POETRY_VERSION=1.3.2
