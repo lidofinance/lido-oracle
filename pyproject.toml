@@ -26,7 +26,7 @@ more-itertools = "^10.1.0"
 web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
-oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
+oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
 py-multiformats-cid = "^0.4.4"
 
 [tool.poetry.group.dev.dependencies]
