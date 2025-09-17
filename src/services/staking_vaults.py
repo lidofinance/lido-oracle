@@ -66,32 +66,30 @@ class StakingVaultsService:
     ) -> VaultTotalValueMap:
         """
         Calculates the total value (TV) for all staking vaults connected to the protocol.
+        A validator is included in the TV calculation if EITHER of the following conditions is true:
 
-        A validator is included in TV calculation when EITHER condition is true:
+        1. The validator is ready for activation:
 
-        1. Validator is ready for activation:
+            activation_eligibility_epoch == FAR_FUTURE_EPOCH
+            and
+            validator balance + pending deposits >= MIN_ACTIVATION_BALANCE
 
-            `activation_eligibility_epoch` == `FAR_FUTURE_EPOCH` and `total_balance` >= `MIN_ACTIVATION_BALANCE`
+        - The validator is eligible for the activation queue but not yet activated.
+        - This prevents dropping the total value during the on-chain `predeposit` => `activation` phase.
 
-        - Validator is eligible for activation queue, but not yet activated
-        - Prevents dropping the total value during the `predeposit` => `activation` phase on-chain
+        2. The validator has already been processed for activation / is already activated:
 
-        2. Validator is already was processed for activation or is already activated:
+            activation_eligibility_epoch != FAR_FUTURE_EPOCH
 
-            `activation_eligibility_epoch != FAR_FUTURE_EPOCH`
-
-        - This field is set once when validator becomes eligible and NEVER changes after that
-        - Validator has been processed by the beacon chain for activation
+        - The validator has been processed by the beacon chain for activation.
+        - This field is set once when the validator becomes eligible and NEVER changes after that.
 
         Simplified check:
 
-            `activation_eligibility_epoch` != `FAR_FUTURE_EPOCH` or `total_balance` >= `MIN_ACTIVATION_BALANCE`
+            activation_eligibility_epoch != FAR_FUTURE_EPOCH or total_balance >= MIN_ACTIVATION_BALANCE
 
-            NB!: the order is important here, because we want to check the balance only for validators that are
-            eligible for activation queue, but not yet activated.
-
-        The key insight is that `activation_eligibility_epoch` serves as a permanent flag that never resets, allowing
-        us to track validators during all its lifecycle since it was eligible for activation.
+        NB!: The order is important here, because we want to check the balance only for validators that are
+        eligible for the activation queue but not yet activated.
         """
         validators_by_vaults = self._get_validators_by_vaults(validators, vaults)
         pending_balances_by_pubkeys = self._get_total_pending_balances_by_pubkeys(pending_deposits)
@@ -105,8 +103,8 @@ class StakingVaultsService:
                 total_balance = Gwei(validator.balance + pending_balance)
 
                 if (
-                    # NB!: The order is important here, because we want to check the balance only for validators that
-                    # are eligible for activation queue, but not yet activated.
+                    # NB!: The order is important here, because we want to check the balance only for validators that are
+                    # eligible for the activation queue but not yet activated.
                     validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH or
                     total_balance >= MIN_ACTIVATION_BALANCE
                 ):
