@@ -27,8 +27,8 @@ from src.modules.submodules.exceptions import (
 )
 from src.modules.submodules.types import (
     ZERO_HASH,
-    ConsensusGenesisConfig,
     ChainConfig,
+    ConsensusGenesisConfig,
     CurrentFrame,
     FrameConfig,
     MemberInfo,
@@ -119,10 +119,7 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def get_cc_genesis_config(self) -> ConsensusGenesisConfig:
         genesis = self.w3.cc.get_genesis()
-        return ConsensusGenesisConfig(
-            genesis_time=genesis.genesis_time,
-            genesis_fork_version=genesis.genesis_fork_version,
-        )
+        return ConsensusGenesisConfig(genesis_time=genesis.genesis_time)
 
     @lru_cache(maxsize=1)
     def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
@@ -482,8 +479,8 @@ class ConsensusModule(ABC):
         converter = self._get_web3_converter(blockstamp)
         frame_number = converter.get_frame_by_slot(blockstamp.ref_slot)
         logger.info({
-            "msg": "Get current frame from blockstamp", 
-            "frame": frame_number, 
+            "msg": "Get current frame from blockstamp",
+            "frame": frame_number,
             "slot": blockstamp.ref_slot
         })
         return FrameNumber(frame_number)

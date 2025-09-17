@@ -6,12 +6,12 @@ import time
 from typing import Callable, Any
 
 from src.main import ipfs_providers
-from src.providers.ipfs import Pinata, Storacha
+from src.providers.ipfs import Pinata, Storacha, LidoIPFS
 
-REQUIRED_PROVIDERS = (Pinata, Storacha)
+REQUIRED_PROVIDERS = (Pinata, Storacha, LidoIPFS)
 
 
-def retry_fetch(func: Callable, *args, max_retries: int = 3, delay: int = 30, **kwargs) -> Any:
+def _retry_fetch(func: Callable, *args, max_retries: int = 3, delay: int = 30, **kwargs) -> Any:
     """Retry function with exponential backoff for IPFS fetch operations."""
     for attempt in range(max_retries):
         try:
@@ -23,15 +23,7 @@ def retry_fetch(func: Callable, *args, max_retries: int = 3, delay: int = 30, **
     return None
 
 
-def check_ipfs_providers():
-    """Checks:
-    1. Required providers (Pinata, Storacha) are configured
-    2. Cross-compatibility - CIDs and content between different IPFS providers must be the same
-    3. Provider stability - Non-working providers will return HTTP errors
-    4. Authentication - If credentials are incorrect, upload/fetch will fail
-
-    Warning! Parametrize decorator is not used here to avoid parallel run via pytest-xdist
-    """
+def _get_and_validate_providers():
     configured_providers = list(ipfs_providers())
 
     missing_providers = []
@@ -41,7 +33,19 @@ def check_ipfs_providers():
             missing_providers.append(required_provider.__name__)
 
     assert not missing_providers, f"Required providers not configured: {', '.join(missing_providers)}"
+    return configured_providers
 
+
+def check_ipfs_providers():
+    """Checks:
+    1. Required providers are configured
+    2. Cross-compatibility - CIDs and content between different IPFS providers must be the same
+    3. Provider stability - Non-working providers will return HTTP errors
+    4. Authentication - If credentials are incorrect, upload/fetch will fail
+
+    Warning! Parametrize decorator is not used here to avoid parallel run via pytest-xdist
+    """
+    configured_providers = _get_and_validate_providers()
     errors = []
 
     for upload_provider in configured_providers:
@@ -60,8 +64,13 @@ def check_ipfs_providers():
 
         # Check content between different IPFS providers
         for download_provider in configured_providers:
+
+            # LidoIPFS can only download content uploaded via LidoIPFS (by design)
+            if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
+                continue
+
             try:
-                downloaded_content = retry_fetch(download_provider.fetch, uploaded_cid).decode()
+                downloaded_content = _retry_fetch(download_provider.fetch, uploaded_cid).decode()
                 downloaded_contents[download_provider.__class__.__name__] = downloaded_content
             except Exception as e:  # pylint: disable=broad-exception-caught
                 errors.append(
@@ -81,6 +90,11 @@ def check_ipfs_providers():
         # Check CID's between different IPFS providers
         # Separate cycle to avoid corruption of fetched content checking
         for download_provider in configured_providers:
+
+            # LidoIPFS can only download content uploaded via LidoIPFS (by design)
+            if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
+                continue
+
             if download_provider.__class__.__name__ not in downloaded_contents:
                 continue
 

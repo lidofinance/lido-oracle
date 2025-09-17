@@ -39,7 +39,3 @@ class TestStakingVaultsContractsSmoke:
     def test_get_slashing_reserve(self, web3_integration):
         slashing_reserve = web3_integration.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift()
         assert slashing_reserve != 0
-
-    def test_genesis(self, web3_integration):
-        out = web3_integration.cc.get_genesis()
-        assert out.genesis_fork_version == '0x10000910'  ## HOODIE

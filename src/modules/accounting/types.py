@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import NewType, Self
@@ -10,7 +10,7 @@ from oz_merkle_tree import StandardMerkleTree
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.providers.consensus.types import PendingDeposit, Validator
+from src.providers.consensus.types import Validator
 from src.types import (
     ELVaultBalance,
     FinalizationBatches,
@@ -20,7 +20,7 @@ from src.types import (
     StakingModuleId,
     WithdrawalVaultBalance,
 )
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
 
 BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
@@ -219,7 +219,7 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
-    balance: Wei
+    aggregate_balance: Wei
     withdrawal_credentials: str
     liability_shares: Shares
     # Feature smart contract release
@@ -249,10 +249,9 @@ class VaultFee:
         )
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
-VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
-VaultTotalValueMap = dict[ChecksumAddress, int]
+VaultTotalValueMap = dict[ChecksumAddress, Wei]
 
 VaultFeeMap = dict[ChecksumAddress, VaultFee]
 VaultReserveMap = dict[ChecksumAddress, int]

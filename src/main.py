@@ -14,7 +14,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import IPFSProvider, Kubo, Pinata, Storacha
+from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -161,6 +161,13 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             variables.STORACHA_AUTH_SECRET,
             variables.STORACHA_AUTHORIZATION,
             variables.STORACHA_SPACE_DID,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.LIDO_IPFS_HOST and variables.LIDO_IPFS_TOKEN:
+        yield LidoIPFS(
+            variables.LIDO_IPFS_HOST,
+            variables.LIDO_IPFS_TOKEN,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
