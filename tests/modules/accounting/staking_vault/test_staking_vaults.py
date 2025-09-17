@@ -1607,15 +1607,12 @@ class TestStakingVaults:
             prev_tree_cid=prev_tree_cid,
             chain_config=chain_config,
             vaults_fee_map=vaults_fees,
-            current_frame=FrameNumber(0),
         )
 
         dumped_tree_str = json.dumps(dumped_tree, default=StakingVaultsService.tree_encoder)
         print(dumped_tree_str)
 
-        ipfs_mock.publish.assert_called_with(
-            dumped_tree_str.encode('utf-8'), FrameNumber(0), MERKLE_TREE_VAULTS_FILENAME
-        )
+        ipfs_mock.publish.assert_called_with(dumped_tree_str.encode('utf-8'), MERKLE_TREE_VAULTS_FILENAME)
 
         assert cid == expected_cid
 

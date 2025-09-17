@@ -469,7 +469,6 @@ class Accounting(BaseModule, ConsensusModule):
             prev_tree_cid=latest_onchain_ipfs_report_data.report_cid,
             chain_config=chain_config,
             vaults_fee_map=vaults_fees,
-            current_frame=current_frame
         )
 
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))

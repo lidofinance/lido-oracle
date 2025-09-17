@@ -219,7 +219,6 @@ class StakingVaultsService:
         prev_tree_cid: str,
         chain_config: ChainConfig,
         vaults_fee_map: VaultFeeMap,
-        current_frame: FrameNumber,
     ) -> CID:
         output = self.get_dumped_tree(
             tree=tree,
@@ -232,7 +231,7 @@ class StakingVaultsService:
 
         dumped_tree_str = json.dumps(output, default=self.tree_encoder)
 
-        return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), current_frame, MERKLE_TREE_VAULTS_FILENAME)
+        return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), MERKLE_TREE_VAULTS_FILENAME)
 
     @staticmethod
     def get_dumped_tree(
