@@ -65,29 +65,53 @@ class StakingVaultsService:
         self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
     ) -> VaultTotalValueMap:
         """
-        Calculates the total value (TV) for all connected vaults, including EL balances and
-        eligible beacon chain validator balances.
+        Calculates the total value (TV) for all staking vaults connected to the protocol.
+
+        A validator is included in TV calculation when EITHER condition is true:
+
+        1. Validator is ready for activation:
+
+            `activation_eligibility_epoch` == `FAR_FUTURE_EPOCH` and `total_balance` >= `MIN_ACTIVATION_BALANCE`
+
+        - Validator is eligible for activation queue, but not yet activated
+        - Prevents dropping the total value during the `predeposit` => `activation` phase on-chain
+
+        2. Validator is already was processed for activation or is already activated:
+
+            `activation_eligibility_epoch != FAR_FUTURE_EPOCH`
+
+        - This field is set once when validator becomes eligible and NEVER changes after that
+        - Validator has been processed by the beacon chain for activation
+
+        Simplified check:
+
+            `activation_eligibility_epoch` != `FAR_FUTURE_EPOCH` or `total_balance` >= `MIN_ACTIVATION_BALANCE`
+
+            NB!: the order is important here, because we want to check the balance only for validators that are
+            eligible for activation queue, but not yet activated.
+
+        The key insight is that `activation_eligibility_epoch` serves as a permanent flag that never resets, allowing
+        us to track validators during all its lifecycle since it was eligible for activation.
         """
-        validators_by_vault = self._get_validators_by_vaults(validators, vaults)
-        pending_by_pubkey = self._get_total_pending_amounts_by_pubkeys(pending_deposits)
+        validators_by_vaults = self._get_validators_by_vaults(validators, vaults)
+        pending_balances_by_pubkeys = self._get_total_pending_balances_by_pubkeys(pending_deposits)
 
         total_values: VaultTotalValueMap = {}
-
-        # Calculate the total value for each vault
         for vault_address, vault in vaults.items():
-            # Start with the EL vault balance
-            vault_total: int = int(vault.balance)
+            vault_total: int = int(vault.aggregate_balance)
 
-            # Add the pending balances to the validator's balance
-            for validator in validators_by_vault.get(vault_address, []):
-                pending = pending_by_pubkey.get(validator.pubkey.to_0x_hex(), 0)
-                total_balance = Gwei(validator.balance + pending)
+            for validator in validators_by_vaults.get(vault_address, []):
+                pending_balance = pending_balances_by_pubkeys.get(validator.pubkey.to_0x_hex(), 0)
+                total_balance = Gwei(validator.balance + pending_balance)
 
-                # Add the total beacon chain validator's balance only if it's active or eligible for activation
-                if self._is_validator_active_or_eligible_for_activation(validator, total_balance):
+                if (
+                    # NB!: The order is important here, because we want to check the balance only for validators that
+                    # are eligible for activation queue, but not yet activated.
+                    validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH or
+                    total_balance >= MIN_ACTIVATION_BALANCE
+                ):
                     vault_total += int(gwei_to_wei(total_balance))
 
-            # Update the vault's total value with the beacon chain validator's balance
             total_values[vault_address] = Wei(vault_total)
             logger.info({
                 'msg': f'Calculate vault TVL: {vault_address}.',
@@ -97,7 +121,7 @@ class StakingVaultsService:
         return total_values
 
     @staticmethod
-    def _get_total_pending_amounts_by_pubkeys(
+    def _get_total_pending_balances_by_pubkeys(
         pending_deposits: list[PendingDeposit],
     ) -> dict[str, Gwei]:
         """
@@ -124,14 +148,6 @@ class StakingVaultsService:
                 vault_to_validators[vault_info.vault].append(validator)
 
         return vault_to_validators
-
-    @staticmethod
-    def _is_validator_active_or_eligible_for_activation(validator: Validator, total_balance: Gwei) -> bool:
-        """
-        Returns True if the validator is either already active or has enough balance to be eligible for activation.
-        """
-        eligibility_epoch = validator.validator.activation_eligibility_epoch
-        return eligibility_epoch != FAR_FUTURE_EPOCH or total_balance >= MIN_ACTIVATION_BALANCE
 
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig

@@ -9,17 +9,16 @@ from web3.types import Wei
 from src import variables
 from src.modules.accounting import accounting as accounting_module
 from src.modules.accounting.accounting import Accounting, logger as accounting_logger
-from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportResults,
     ReportValues,
     StakingRewardsDistribution,
+    VaultInfo,
     VaultsData,
     VaultsMap,
     VaultTreeNode,
-    VaultInfo,
 )
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import (
@@ -29,6 +28,7 @@ from src.modules.submodules.types import (
     FrameConfig,
 )
 from src.providers.consensus.types import Validator, ValidatorState
+from src.services.staking_vaults import StakingVaultsService
 from src.services.withdrawal import Withdrawal
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
@@ -506,8 +506,8 @@ def test_simulate_rebase_after_report(
     ]
     vaults: VaultsMap = {
         ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
-            balance=66951606691371698360,
-            in_out_delta=33000000000000000000,
+            aggregate_balance=Wei(66951606691371698360),
+            in_out_delta=Wei(33000000000000000000),
             liability_shares=0,
             vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
             withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
@@ -521,8 +521,8 @@ def test_simulate_rebase_after_report(
             mintable_st_eth=0,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
-            balance=2500000000000000000,
-            in_out_delta=2500000000000000000,
+            aggregate_balance=Wei(2500000000000000000),
+            in_out_delta=Wei(2500000000000000000),
             liability_shares=1,
             vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
             withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
@@ -553,7 +553,7 @@ def test_simulate_rebase_after_report(
         return_value=ReportResults(
             withdrawals=Wei(0),
             el_rewards=Wei(0),
-            ether_to_finalize_wq=0,
+            ether_to_finalize_wq=Wei(0),
             shares_to_finalize_wq=0,
             shares_to_burn_for_withdrawals=0,
             total_shares_to_burn=0,
@@ -561,13 +561,13 @@ def test_simulate_rebase_after_report(
             reward_distribution=StakingRewardsDistribution(
                 recipients=[], module_ids=[], modules_fees=[], total_fee=0, precision_points=0
             ),
-            principal_cl_balance=0,
+            principal_cl_balance=Wei(0),
             post_internal_shares=0,
-            post_internal_ether=0,
+            post_internal_ether=Wei(0),
             post_total_shares=0,
-            post_total_pooled_ether=0,
+            post_total_pooled_ether=Wei(0),
             pre_total_shares=0,
-            pre_total_pooled_ether=0,
+            pre_total_pooled_ether=Wei(0),
         )
     )
 

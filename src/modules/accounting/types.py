@@ -219,7 +219,7 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
-    balance: Wei
+    aggregate_balance: Wei
     withdrawal_credentials: str
     liability_shares: Shares
     # Feature smart contract release
