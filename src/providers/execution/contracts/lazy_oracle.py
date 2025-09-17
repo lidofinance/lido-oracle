@@ -2,6 +2,7 @@ import logging
 
 from web3 import Web3
 from web3.types import BlockIdentifier
+
 from src import variables
 from src.modules.accounting.types import OnChainIpfsVaultReportData, VaultInfo
 from src.providers.execution.base_interface import ContractInterface
@@ -57,7 +58,7 @@ class VaultsLazyOracleContract(ContractInterface):
         for vault in response:
             out.append(VaultInfo(
                 vault=vault.vault,
-                balance=vault.balance,
+                aggregate_balance=vault.balance,
                 withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
                 liability_shares=vault.liabilityShares,
                 share_limit=vault.shareLimit,

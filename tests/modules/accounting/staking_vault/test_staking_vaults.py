@@ -1,67 +1,69 @@
 import copy
 import json
 from collections import defaultdict
-from decimal import Decimal, ROUND_UP
+from decimal import ROUND_UP, Decimal
 from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
-from web3.types import Wei, Timestamp
+from web3.types import Timestamp, Wei
 
-from src.constants import TOTAL_BASIS_POINTS
+from src.constants import FAR_FUTURE_EPOCH, TOTAL_BASIS_POINTS
 from src.modules.accounting.events import (
+    BadDebtSocializedEvent,
+    BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
     MintedSharesOnVaultEvent,
-    VaultFeesUpdatedEvent,
-    VaultRebalancedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent,
-    BadDebtSocializedEvent,
     VaultConnectedEvent,
     VaultEventType,
+    VaultFeesUpdatedEvent,
+    VaultRebalancedEvent,
     sort_events,
 )
-from src.modules.submodules.types import ChainConfig, FrameConfig
-from src.providers.ipfs import CID
-from src.services.staking_vaults import StakingVaultsService, MERKLE_TREE_VAULTS_FILENAME
 from src.modules.accounting.types import (
     ExtraValue,
-    StakingVaultIpfsReport,
     MerkleValue,
-    VaultInfo,
-    VaultsMap,
-    VaultTotalValueMap,
+    OnChainIpfsVaultReportData,
+    StakingVaultIpfsReport,
     VaultFee,
     VaultFeeMap,
+    VaultInfo,
     VaultReserveMap,
-    OnChainIpfsVaultReportData,
+    VaultsMap,
+    VaultTotalValueMap,
 )
+from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (
+    BeaconBlockBody,
+    BlockDetailsResponse,
+    BlockHeader,
+    BlockHeaderFullResponse,
+    BlockHeaderMessage,
+    BlockHeaderResponseData,
+    BlockMessage,
+    ExecutionPayload,
     PendingDeposit,
+    SyncAggregate,
     Validator,
     ValidatorState,
-    BlockDetailsResponse,
-    BlockMessage,
-    BeaconBlockBody,
-    ExecutionPayload,
-    SyncAggregate,
-    BlockHeaderFullResponse,
-    BlockHeaderResponseData,
-    BlockHeader,
-    BlockHeaderMessage,
+)
+from src.providers.ipfs import CID
+from src.services.staking_vaults import (
+    MERKLE_TREE_VAULTS_FILENAME,
+    StakingVaultsService,
 )
 from src.types import (
-    EpochNumber,
-    Gwei,
-    SlotNumber,
-    ValidatorIndex,
-    ReferenceBlockStamp,
-    StateRoot,
     BlockHash,
+    EpochNumber,
     FrameNumber,
+    Gwei,
+    ReferenceBlockStamp,
+    SlotNumber,
+    StateRoot,
+    ValidatorIndex,
 )
 from src.utils.units import gwei_to_wei
 from src.web3py.types import Web3
-from tests.utils.constants import HOODI_FORK_VERSION, MAINNET_FORK_VERSION
 
 
 class TestStakingVaults:
@@ -72,6 +74,11 @@ class TestStakingVaults:
     vault_adr_2 = ChecksumAddress(HexAddress(HexStr('0x20d34FD0482E3BdC944952D0277A306860be0014')))
     vault_adr_3 = ChecksumAddress(HexAddress(HexStr('0x60B614c42d92d6c2E68AF7f4b741867648aBf9A4')))
 
+    vault_wc_0 = '0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302'
+    vault_wc_1 = '0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc'
+    vault_wc_2 = '0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014'
+    vault_wc_3 = '0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4'
+
     def setup_method(self):
         # Vault addresses
 
@@ -79,9 +86,9 @@ class TestStakingVaults:
         self.vaults: VaultsMap = {
             self.vault_adr_0: VaultInfo(
                 vault=self.vault_adr_0,
-                balance=Wei(1000000000000000000),
+                aggregate_balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
-                withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
+                withdrawal_credentials=self.vault_wc_0,
                 liability_shares=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
@@ -94,9 +101,9 @@ class TestStakingVaults:
             ),
             self.vault_adr_1: VaultInfo(
                 vault=self.vault_adr_1,
-                balance=Wei(0),
+                aggregate_balance=Wei(0),
                 in_out_delta=Wei(2000000000000000000),
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                withdrawal_credentials=self.vault_wc_1,
                 liability_shares=490000000000000000,
                 share_limit=0,
                 reserve_ratio_bp=0,
@@ -109,9 +116,9 @@ class TestStakingVaults:
             ),
             self.vault_adr_2: VaultInfo(
                 vault=self.vault_adr_2,
-                balance=Wei(2000900000000000000),
+                aggregate_balance=Wei(2000900000000000000),
                 in_out_delta=Wei(2000900000000000000),
-                withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
+                withdrawal_credentials=self.vault_wc_2,
                 liability_shares=1200000000000010001,
                 share_limit=0,
                 reserve_ratio_bp=0,
@@ -124,9 +131,9 @@ class TestStakingVaults:
             ),
             self.vault_adr_3: VaultInfo(
                 vault=self.vault_adr_3,
-                balance=Wei(1000000000000000000),
+                aggregate_balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
-                withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+                withdrawal_credentials=self.vault_wc_3,
                 liability_shares=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
@@ -149,10 +156,10 @@ class TestStakingVaults:
         validators: list[Validator] = [
             Validator(
                 index=ValidatorIndex(1985),
-                balance=Gwei(32834904184),
+                balance=Gwei(32834904184),  # + 1 ETH on EL
                 validator=ValidatorState(
                     pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
-                    withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',
+                    withdrawal_credentials=self.vault_wc_0,
                     effective_balance=Gwei(32000000000),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(225469),
@@ -163,10 +170,10 @@ class TestStakingVaults:
             ),
             Validator(
                 index=ValidatorIndex(1986),
-                balance=Gwei(40000000000),
+                balance=Gwei(40000000000),  # + 0 ETH on EL
                 validator=ValidatorState(
                     pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                    withdrawal_credentials=self.vault_wc_1,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -177,10 +184,10 @@ class TestStakingVaults:
             ),
             Validator(
                 index=ValidatorIndex(1987),
-                balance=Gwei(50000000000),
+                balance=Gwei(50000000000),  # + 2,0009 ETH on EL
                 validator=ValidatorState(
-                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x02000000000000000000000020d34fd0482e3bdc944952d0277a306860be0014',
+                    pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                    withdrawal_credentials=self.vault_wc_2,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -190,11 +197,11 @@ class TestStakingVaults:
                 ),
             ),
             Validator(
-                index=ValidatorIndex(1987),
-                balance=Gwei(60000000000),
+                index=ValidatorIndex(1988),
+                balance=Gwei(60000000000),  # + 1 ETH on EL
                 validator=ValidatorState(
-                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x02000000000000000000000060b614c42d92d6c2e68af7f4b741867648abf9a4',
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307c1',
+                    withdrawal_credentials=self.vault_wc_3,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -206,39 +213,40 @@ class TestStakingVaults:
         ]
 
         pending_deposits: list[PendingDeposit] = [
-            # Valid
+            # for vault_adr_0, Valid
             PendingDeposit(
-                pubkey='0xa50a7821c793e80710f51c681b28f996e5c2f1fa00318dbf91b5844822d58ac2fef892b79aea386a3b97829e090a393e',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                withdrawal_credentials=self.vault_wc_0,
                 amount=Gwei(1000000000),
                 signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
                 slot=SlotNumber(259388),
             ),
-            # Invalid
+            # for vault_adr_1, Valid
             PendingDeposit(
-                pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
                 amount=Gwei(1000000000),
                 signature='0x978f286178050a3dbf6f8551b8020f72dd1de8223fc9cb8553d5ebb22f71164f4278d9b970467084a9dcd54ad07ec8d60792104ff82887b499346f3e8adc55a86f26bfbb032ac2524da42d5186c5a8ed0ccf9d98e9f6ff012cfafbd712335aa5',
                 slot=SlotNumber(259654),
             ),
-            # Invalid
+            # for vault_adr_2, Valid
             PendingDeposit(
-                pubkey='0x99eeb66e77fef5c71d3b303774ecded0d52d521e8d665c2d0f350c33f5f82e7ddd88dd9bc4f8014fb22820beda3a8a85',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                withdrawal_credentials='0x0200000000000000000000004473426150869040d523681669d14b5315964b5a',
                 amount=Gwei(1000000000),
                 signature='0xb4ea337eb8d0fc47361672d4a153dbe3cd943a0418c9f1bc586bca95cdcf8615d60a2394b7680276c4597a2524f9bcf1088c40a08902841ff68d508a9f825803b9fac3bc6333cf3afa7503f560ccf6f689be5b0f5d08fa9e21cb203aa1f53259',
                 slot=SlotNumber(260393),
             ),
         ]
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        print(vaults_total_values)
+
         expected = {
-            self.vault_adr_0: 33834904184000000000,
-            self.vault_adr_1: 41000000000000000000,
-            self.vault_adr_2: 52000900000000000000,
-            self.vault_adr_3: 61000000000000000000,
+            self.vault_adr_0: 34834904184000000000,  # 3.2834904184 + 1 EL + 1 pending deposit
+            self.vault_adr_1: 41000000000000000000,  # 40 + 0 EL + 1 pending deposit
+            self.vault_adr_2: 53000900000000000000,  # 50 + 2,0009 EL + 0 pending deposit
+            self.vault_adr_3: 61000000000000000000,  # 60 + 1 EL + 0 pending deposit
         }
 
         assert vaults_total_values == expected
@@ -251,7 +259,7 @@ class TestStakingVaults:
                 balance=Gwei(32834904184),
                 validator=ValidatorState(
                     pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
-                    withdrawal_credentials='0x020000000000000000000000e312f1ed35c4dbd010a332118baad69d45a0e302',  # <-
+                    withdrawal_credentials=self.vault_wc_0,  # <-
                     effective_balance=Gwei(32000000000),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(225469),
@@ -266,20 +274,16 @@ class TestStakingVaults:
             # pubkey is ok, Wrong wc
             PendingDeposit(
                 pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                withdrawal_credentials=self.vault_wc_1,  # <-
                 amount=Gwei(3000000000),
                 signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
                 slot=SlotNumber(259388),
             ),
         ]
-        # 33834904184000000000
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
         expected = {
-            self.vault_adr_0: gwei_to_wei(Gwei(validators[0].balance + pending_deposits[0].amount))
-            + self.vaults[self.vault_adr_0].balance,
+            self.vault_adr_0: 36834904184000000000,  # includes EL, CL and pending deposit
             self.vault_adr_1: 0,
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
@@ -292,10 +296,10 @@ class TestStakingVaults:
         validators: list[Validator] = [
             Validator(
                 index=ValidatorIndex(1986),
-                balance=Gwei(0),
+                balance=Gwei(32000000000),
                 validator=ValidatorState(
                     pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                    withdrawal_credentials=self.vault_wc_1,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -307,38 +311,34 @@ class TestStakingVaults:
         ]
 
         pending_deposits: list[PendingDeposit] = [
-            # Invalid (generated with fork_version 0x10000910, Hoodi)
             PendingDeposit(
-                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
                 amount=Gwei(1000000000),
                 signature='0xb859ffb4f3b6ead09dc2be1ac3902194d84a17efe4da195c07c57e8593f2bba4b58d74da113db0dddc96813808a106e215044670bd4230af50ed812a41d5cca0c4dfbffd0d9e0129cfbaf1dbcef9d7479bb27301aa74e1a69e3306b59eb051bb',
                 slot=SlotNumber(259387),
             ),
-            # Valid (generated with fork_version 0x00000000, Mainnet)
             PendingDeposit(
-                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
                 amount=Gwei(1000000000),
                 signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
                 slot=SlotNumber(259388),
             ),
-            # Again for hoodi, but should be counted as valid
             PendingDeposit(
-                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
                 amount=Gwei(1000000000),
                 signature='0xb859ffb4f3b6ead09dc2be1ac3902194d84a17efe4da195c07c57e8593f2bba4b58d74da113db0dddc96813808a106e215044670bd4230af50ed812a41d5cca0c4dfbffd0d9e0129cfbaf1dbcef9d7479bb27301aa74e1a69e3306b59eb051bb',
                 slot=SlotNumber(259389),
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, MAINNET_FORK_VERSION
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
         expected = {
             self.vault_adr_0: 1000000000000000000,
-            self.vault_adr_1: 2000000000000000000,
+            self.vault_adr_1: 35000000000000000000,  # 0 (EL) + 32 (validator) + 3 (pending deposits)
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
         }
@@ -353,7 +353,7 @@ class TestStakingVaults:
                 balance=Gwei(0),
                 validator=ValidatorState(
                     pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                    withdrawal_credentials=self.vault_wc_1,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -376,16 +376,14 @@ class TestStakingVaults:
             # Valid deposit with correct withdrawal credentials
             PendingDeposit(
                 pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                amount=Gwei(1000000000),
+                withdrawal_credentials=self.vault_wc_1,
+                amount=Gwei(31000000000),
                 signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
                 slot=SlotNumber(259388),
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
         expected = {
             self.vault_adr_0: 1000000000000000000,
             self.vault_adr_1: 0,
@@ -396,47 +394,6 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
-    def test_calculate_pending_deposits(self):
-        validators: list[Validator] = [
-            Validator(
-                index=ValidatorIndex(1986),
-                balance=Gwei(1000000000),
-                validator=ValidatorState(
-                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                    effective_balance=Gwei(1000000000),
-                    slashed=False,
-                    activation_eligibility_epoch=EpochNumber(226130),
-                    activation_epoch=EpochNumber(226136),
-                    exit_epoch=EpochNumber(227556),
-                    withdrawable_epoch=EpochNumber(227812),
-                ),
-            )
-        ]
-
-        pending_deposits: list[PendingDeposit] = [
-            # Valid deposit with correct withdrawal credentials
-            PendingDeposit(
-                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
-                amount=Gwei(31000000000),
-                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
-                slot=SlotNumber(259388),
-            ),
-        ]
-
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
-        )
-        expected = {
-            self.vault_adr_0: 1000000000000000000,
-            self.vault_adr_1: 32000000000000000000,
-            self.vault_adr_2: 2000900000000000000,
-            self.vault_adr_3: 1000000000000000000,
-        }
-        assert vaults_total_values == expected
-
-    @pytest.mark.unit
     def test_existing_validator_with_wrong_withdrawal_credentials(self):
         validators: list[Validator] = [
             Validator(
@@ -444,7 +401,7 @@ class TestStakingVaults:
                 balance=Gwei(0),
                 validator=ValidatorState(
                     pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                    withdrawal_credentials=self.vault_wc_1,
                     effective_balance=Gwei(0),
                     slashed=False,
                     activation_eligibility_epoch=EpochNumber(226130),
@@ -470,19 +427,18 @@ class TestStakingVaults:
         ]
 
         pending_deposits: list[PendingDeposit] = [
-            # Valid deposit with correct withdrawal credentials
+            # Valid deposit with correct withdrawal credentials but they are not for vault
             PendingDeposit(
                 pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                withdrawal_credentials='0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc',
+                withdrawal_credentials=self.vault_wc_1,
                 amount=Gwei(1000000000),
                 signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
                 slot=SlotNumber(259388),
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, HOODI_FORK_VERSION
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
         expected = {
             self.vault_adr_0: 1000000000000000000,
             self.vault_adr_1: 0,
@@ -492,29 +448,74 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
-    def test_valid_signature_but_wrong_vault_withdrawal_credentials(self):
-        valid_withdrawal_credentials = '0x020000000000000000000000652b70e0ae932896035d553feaa02f37ab34f7dc'
+    def test_not_activated_validators_with_pending_deposits(self):
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_1,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=EpochNumber(0),
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1987),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=EpochNumber(0),
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+        ]
 
-        deposit = PendingDeposit(
-            pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-            withdrawal_credentials=valid_withdrawal_credentials,
-            amount=Gwei(1_000_000_000),
-            signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
-            slot=SlotNumber(259388),
-        )
+        pending_deposits: list[PendingDeposit] = [
+            # 2 pending deposits for validator 1987 for 31 ETH, should be counted in total value
+            PendingDeposit(
+                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+            PendingDeposit(
+                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(30000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+            # 1 pending deposit for validator 1986 for 30 ETH, should not be counted in total value
+            PendingDeposit(
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
+                amount=Gwei(30000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+        ]
 
-        # WC — different!
-        vault_withdrawal_credentials = '0x0200000000000000000000001111111111111111111111111111111111111111'
-        genesis_fork_version = '0x00000000'
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
-        result = StakingVaultsService._get_valid_deposits_value(
-            vault_withdrawal_credentials=vault_withdrawal_credentials,
-            pubkey_deposits=[deposit],
-            genesis_fork_version=genesis_fork_version,
-        )
+        expected = {
+            self.vault_adr_0: 33000000000000000000,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
 
-        # THEN: valid signature, но WC не совпадает => return 0
-        assert result == 0
+        assert vaults_total_values == expected
 
     pre_total_shares = 7598409496266444487755575
     pre_total_pooled_ether = Wei(9165134090291140983725643)
@@ -633,7 +634,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -649,7 +650,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -665,7 +666,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -681,7 +682,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -697,7 +698,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -716,7 +717,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -1087,7 +1088,7 @@ class TestStakingVaults:
             liquidity_fee_bp=0,
             reservation_fee_bp=0,
             mintable_st_eth=0,
-            balance=Wei(0),
+            aggregate_balance=Wei(0),
             withdrawal_credentials="0x0",
             share_limit=0,
             forced_rebalance_threshold_bp=0,
@@ -1308,7 +1309,7 @@ class TestStakingVaults:
         vaults_map = {
             vault_address_1: VaultInfo(
                 vault=vault_address_1,
-                balance=MagicMock(),
+                aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_1,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
@@ -1323,7 +1324,7 @@ class TestStakingVaults:
             ),
             vault_address_2: VaultInfo(
                 vault=vault_address_2,
-                balance=MagicMock(),
+                aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_2,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
@@ -1338,7 +1339,7 @@ class TestStakingVaults:
             ),
             vault_address_3: VaultInfo(
                 vault=vault_address_3,
-                balance=MagicMock(),
+                aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_3,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
@@ -1353,7 +1354,7 @@ class TestStakingVaults:
             ),
             vault_address_4: VaultInfo(
                 vault=vault_address_4,
-                balance=MagicMock(),
+                aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_4,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
@@ -1480,7 +1481,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
@@ -1624,7 +1625,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
@@ -1657,7 +1658,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            balance=MagicMock(),
+            aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             share_limit=MagicMock(),

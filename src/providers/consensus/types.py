@@ -6,7 +6,16 @@ from eth_typing import BlockNumber
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
-from src.types import BlockHash, BlockRoot, CommitteeIndex, EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
+from src.types import (
+    BlockHash,
+    BlockRoot,
+    CommitteeIndex,
+    EpochNumber,
+    Gwei,
+    SlotNumber,
+    StateRoot,
+    ValidatorIndex,
+)
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
 
@@ -23,7 +32,6 @@ class BeaconSpecResponse(Nested, FromResponse):
 @dataclass
 class GenesisResponse(Nested, FromResponse):
     genesis_time: int
-    genesis_fork_version: str
 
 
 @dataclass
