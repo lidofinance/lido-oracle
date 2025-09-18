@@ -454,8 +454,8 @@ class TestStakingVaults:
                 index=ValidatorIndex(1986),
                 balance=Gwei(1000000000),
                 validator=ValidatorState(
-                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                    withdrawal_credentials=self.vault_wc_1,
+                    pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+                    withdrawal_credentials=self.vault_wc_0,
                     effective_balance=Gwei(1000000000),
                     slashed=False,
                     activation_eligibility_epoch=FAR_FUTURE_EPOCH,
@@ -468,8 +468,23 @@ class TestStakingVaults:
                 index=ValidatorIndex(1987),
                 balance=Gwei(1000000000),
                 validator=ValidatorState(
-                    pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
-                    withdrawal_credentials=self.vault_wc_0,
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_1,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=EpochNumber(0),
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+            # Pending deposits for this validator is processed, but activation_eligibility_epoch is not set yet
+            Validator(
+                index=ValidatorIndex(1988),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_2,
                     effective_balance=Gwei(1000000000),
                     slashed=False,
                     activation_eligibility_epoch=FAR_FUTURE_EPOCH,
@@ -481,7 +496,7 @@ class TestStakingVaults:
         ]
 
         pending_deposits: list[PendingDeposit] = [
-            # 2 pending deposits for validator 1987 for 31 ETH, should be counted in total value
+            # 2 pending deposits for validator 1987 for 31 ETH, should not be counted in total value
             PendingDeposit(
                 pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
                 withdrawal_credentials=self.vault_wc_0,
@@ -496,11 +511,18 @@ class TestStakingVaults:
                 signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
                 slot=SlotNumber(259388),
             ),
-            # 1 pending deposit for validator 1986 for 30 ETH, should not be counted in total value
+            # 2 pending deposit for validator 1986 for 33 ETH, should be counted in total value because one is 31 ETH
             PendingDeposit(
                 pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
                 withdrawal_credentials=self.vault_wc_1,
-                amount=Gwei(30000000000),
+                amount=Gwei(31000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+            PendingDeposit(
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
+                amount=Gwei(2000000000),
                 signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
                 slot=SlotNumber(259388),
             ),
@@ -509,9 +531,9 @@ class TestStakingVaults:
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
         expected = {
-            self.vault_adr_0: 33000000000000000000,
-            self.vault_adr_1: 0,
-            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_0: 1000000000000000000,
+            self.vault_adr_1: 34000000000000000000,
+            self.vault_adr_2: 34000900000000000000,
             self.vault_adr_3: 1000000000000000000,
         }
 
