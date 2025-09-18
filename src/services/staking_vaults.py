@@ -93,7 +93,9 @@ class StakingVaultsService:
             vault_total: int = int(vault.aggregate_balance)
 
             for validator in validators_by_vaults.get(vault_address, []):
-                pending_balances = pending_balances_by_pubkeys.get(validator.pubkey.to_0x_hex(), PendingBalances([]))
+                pending_balances = pending_balances_by_pubkeys.get(
+                    validator.pubkey.to_0x_hex(), PendingBalances(pending_deposits=[])
+                )
 
                 is_already_passed_activation_eligibility = self._is_already_passed_activation_eligibility(validator)
                 is_ready_for_activation = self._is_ready_for_activation(validator, pending_balances)
@@ -126,12 +128,8 @@ class StakingVaultsService:
         NB: We count on PDG validator proving flow, and take into account pending deposits only if one of them
             is at least 31 ETH. This prevents 1 ETH top-ups leading to not activation issues.
         """
-        return (
-            validator.validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
-            and (
-                validator.balance >= MIN_ACTIVATION_BALANCE or
-                pending_balances.max >= MIN_ACTIVATION_DEPOSIT
-            )
+        return validator.validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and (
+            validator.balance >= MIN_ACTIVATION_BALANCE or pending_balances.max >= MIN_ACTIVATION_DEPOSIT
         )
 
     @staticmethod
