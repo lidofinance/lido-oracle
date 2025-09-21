@@ -25,8 +25,8 @@ from src.modules.accounting.types import (
     GenericExtraData,
     RebaseReport,
     ReportData,
-    ReportSimulationResults,
     ReportSimulationPayload,
+    ReportSimulationResults,
     ValidatorsBalance,
     ValidatorsCount,
     VaultsReport,
@@ -73,8 +73,7 @@ class Accounting(BaseModule, ConsensusModule):
             Contains stuck and exited validator's updates count by each node operator.
     """
     COMPATIBLE_CONTRACT_VERSION = 3
-    # TODO: COMPATIBLE_CONSENSUS_VERSION = 5 for mainnet!!!
-    COMPATIBLE_CONSENSUS_VERSION = 3
+    COMPATIBLE_CONSENSUS_VERSION = 5
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -412,7 +411,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
-            return bytes(0), ''
+            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', ''
 
         current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)

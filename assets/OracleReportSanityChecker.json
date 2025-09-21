@@ -1,14 +1,26 @@
 [
   {
     "inputs": [
-      { "internalType": "address", "name": "_lidoLocator", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "_lidoLocator",
+        "type": "address"
+      },
       {
         "internalType": "address",
         "name": "_accountingOracle",
         "type": "address"
       },
-      { "internalType": "address", "name": "_accounting", "type": "address" },
-      { "internalType": "address", "name": "_admin", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "_accounting",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_admin",
+        "type": "address"
+      },
       {
         "components": [
           {
@@ -24,6 +36,11 @@
           {
             "internalType": "uint256",
             "name": "annualBalanceIncreaseBPLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "simulatedShareRateDeviationBPLimit",
             "type": "uint256"
           },
           {
@@ -75,21 +92,44 @@
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
-  { "inputs": [], "name": "ActualShareRateIsZero", "type": "error" },
-  { "inputs": [], "name": "AdminCannotBeZero", "type": "error" },
+  {
+    "inputs": [],
+    "name": "AdminCannotBeZero",
+    "type": "error"
+  },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "value", "type": "uint256" },
-      { "internalType": "uint256", "name": "maxValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxValue",
+        "type": "uint256"
+      }
     ],
     "name": "BasisPointsOverflow",
     "type": "error"
   },
-  { "inputs": [], "name": "CalledNotFromAccounting", "type": "error" },
+  {
+    "inputs": [],
+    "name": "CalledNotFromAccounting",
+    "type": "error"
+  },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "limitPerDay", "type": "uint256" },
-      { "internalType": "uint256", "name": "exitedPerDay", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "limitPerDay",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "exitedPerDay",
+        "type": "uint256"
+      }
     ],
     "name": "ExitedValidatorsLimitExceeded",
     "type": "error"
@@ -156,7 +196,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "value", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "minAllowedValue",
@@ -208,6 +252,22 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "simulatedShareRate",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "actualShareRate",
+        "type": "uint256"
+      }
+    ],
+    "name": "IncorrectSimulatedShareRate",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "actualWithdrawalVaultBalance",
         "type": "uint256"
       }
@@ -217,9 +277,21 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "reportedValue", "type": "uint256" },
-      { "internalType": "uint256", "name": "provedValue", "type": "uint256" },
-      { "internalType": "uint256", "name": "limitBP", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "reportedValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "provedValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limitBP",
+        "type": "uint256"
+      }
     ],
     "name": "NegativeRebaseFailedCLBalanceMismatch",
     "type": "error"
@@ -231,18 +303,42 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "reportedValue", "type": "uint256" },
-      { "internalType": "uint256", "name": "provedValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "reportedValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "provedValue",
+        "type": "uint256"
+      }
     ],
     "name": "NegativeRebaseFailedWithdrawalVaultBalanceMismatch",
     "type": "error"
   },
-  { "inputs": [], "name": "NegativeTotalPooledEther", "type": "error" },
-  { "inputs": [], "name": "TooHighTokenRebaseLimit", "type": "error" },
-  { "inputs": [], "name": "TooLowTokenRebaseLimit", "type": "error" },
+  {
+    "inputs": [],
+    "name": "NegativeTotalPooledEther",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TooHighTokenRebaseLimit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TooLowTokenRebaseLimit",
+    "type": "error"
+  },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "maxItemsCount", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "maxItemsCount",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "receivedItemsCount",
@@ -254,8 +350,16 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "itemIndex", "type": "uint256" },
-      { "internalType": "uint256", "name": "nodeOpsCount", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "itemIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nodeOpsCount",
+        "type": "uint256"
+      }
     ],
     "name": "TooManyNodeOpsPerExtraDataItem",
     "type": "error"
@@ -548,100 +652,199 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "simulatedShareRateDeviationBPLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "SimulatedShareRateDeviationBPLimitSet",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "ALL_LIMITS_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "ANNUAL_BALANCE_INCREASE_LIMIT_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "APPEARED_VALIDATORS_PER_DAY_LIMIT_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "DEFAULT_ADMIN_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "EXITED_VALIDATORS_PER_DAY_LIMIT_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "INITIAL_SLASHING_AND_PENALTIES_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "MAX_ITEMS_PER_EXTRA_DATA_TRANSACTION_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "MAX_NODE_OPERATORS_PER_EXTRA_DATA_ITEM_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "MAX_POSITIVE_TOKEN_REBASE_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "REQUEST_TIMESTAMP_MARGIN_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "SECOND_OPINION_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "SHARE_RATE_DEVIATION_LIMIT_MANAGER_ROLE",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "_timeElapsed", "type": "uint256" },
-      { "internalType": "uint256", "name": "_preCLBalance", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "_timeElapsed",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_preCLBalance",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "_postCLBalance",
@@ -719,7 +922,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "_itemIndex", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "_itemIndex",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "_nodeOperatorsCount",
@@ -727,6 +934,39 @@
       }
     ],
     "name": "checkNodeOperatorsPerExtraDataItemCount",
+    "outputs": [],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_postInternalEther",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_postInternalShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_etherToFinalizeWQ",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sharesToBurnForWithdrawals",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_simulatedShareRate",
+        "type": "uint256"
+      }
+    ],
+    "name": "checkSimulatedShareRate",
     "outputs": [],
     "stateMutability": "view",
     "type": "function"
@@ -752,14 +992,26 @@
   {
     "inputs": [],
     "name": "getLidoLocator",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getMaxPositiveTokenRebase",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -782,6 +1034,11 @@
           {
             "internalType": "uint256",
             "name": "annualBalanceIncreaseBPLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "simulatedShareRateDeviationBPLimit",
             "type": "uint256"
           },
           {
@@ -836,42 +1093,90 @@
   {
     "inputs": [],
     "name": "getReportDataCount",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      }
     ],
     "name": "getRoleAdmin",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" },
-      { "internalType": "uint256", "name": "index", "type": "uint256" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
     ],
     "name": "getRoleMember",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      }
     ],
     "name": "getRoleMemberCount",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" },
-      { "internalType": "address", "name": "account", "type": "address" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
     "name": "grantRole",
     "outputs": [],
@@ -880,18 +1185,40 @@
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" },
-      { "internalType": "address", "name": "account", "type": "address" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
     "name": "hasRole",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" },
-      { "internalType": "address", "name": "account", "type": "address" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
     "name": "renounceRole",
     "outputs": [],
@@ -899,10 +1226,20 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "name": "reportData",
     "outputs": [
-      { "internalType": "uint64", "name": "timestamp", "type": "uint64" },
+      {
+        "internalType": "uint64",
+        "name": "timestamp",
+        "type": "uint64"
+      },
       {
         "internalType": "uint64",
         "name": "totalExitedValidators",
@@ -919,8 +1256,16 @@
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "role", "type": "bytes32" },
-      { "internalType": "address", "name": "account", "type": "address" }
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
     "name": "revokeRole",
     "outputs": [],
@@ -1070,6 +1415,11 @@
           },
           {
             "internalType": "uint256",
+            "name": "simulatedShareRateDeviationBPLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
             "name": "maxValidatorExitRequestsPerReport",
             "type": "uint256"
           },
@@ -1159,15 +1509,32 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_preTotalPooledEther",
+        "name": "_simulatedShareRateDeviationBPLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSimulatedShareRateDeviationBPLimit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_preInternalEther",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_preTotalShares",
+        "name": "_preInternalShares",
         "type": "uint256"
       },
-      { "internalType": "uint256", "name": "_preCLBalance", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "_preCLBalance",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "_postCLBalance",
@@ -1201,24 +1568,46 @@
     ],
     "name": "smoothenTokenRebase",
     "outputs": [
-      { "internalType": "uint256", "name": "withdrawals", "type": "uint256" },
-      { "internalType": "uint256", "name": "elRewards", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "withdrawals",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "elRewards",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "sharesFromWQToBurn",
         "type": "uint256"
       },
-      { "internalType": "uint256", "name": "sharesToBurn", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "sharesToBurn",
+        "type": "uint256"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes4", "name": "interfaceId", "type": "bytes4" }
+      {
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
+      }
     ],
     "name": "supportsInterface",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   }
