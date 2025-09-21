@@ -314,6 +314,7 @@ class StakingVaultsService:
                     Wei(vaults_total_values[vault_address]),
                     vaults_fees[vault_address].total(),
                     vault.liability_shares,
+                    vault.max_liability_shares,
                     vaults_slashing_reserve.get(vault_address, 0),
                 )
             )
@@ -322,13 +323,20 @@ class StakingVaultsService:
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
+        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256", "uint256"))
 
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
             tree_data.append(
-                (vault.vault_address, vault.total_value_wei, vault.fee, vault.liability_shares, vault.slashing_reserve)
+                (
+                    vault.vault_address,
+                    vault.total_value_wei,
+                    vault.fee,
+                    vault.liability_shares,
+                    vault.max_liability_shares,
+                    vault.slashing_reserve,
+                )
             )
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)

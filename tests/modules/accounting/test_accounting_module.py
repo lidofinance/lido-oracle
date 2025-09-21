@@ -191,9 +191,9 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     assert share_rate == expected_share_rate
 
     if post_total_pooled_ether > post_total_shares:
-        assert share_rate > 10 ** 27
+        assert share_rate > 10**27
     else:
-        assert share_rate <= 10 ** 27
+        assert share_rate <= 10**27
 
 
 @pytest.mark.unit
@@ -506,14 +506,29 @@ def test_simulate_rebase_after_report(
     accounting.w3.cc.get_validators = Mock(return_value=validators)
 
     tree_data: list[VaultTreeNode] = [
-        ('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60', 99786510875371698360, 33000000000000000000, 0, 0),
-        ('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db', 2500000000000000000, 2500000000000000000, 0, 1),
+        (
+            '0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+            99786510875371698360,
+            33000000000000000000,
+            33000000000000000000,
+            0,
+            0,
+        ),
+        (
+            '0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+            2500000000000000000,
+            2500000000000000000,
+            2500000000000000000,
+            0,
+            1,
+        ),
     ]
     vaults: VaultsMap = {
         ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
             aggregate_balance=Wei(66951606691371698360),
             in_out_delta=Wei(33000000000000000000),
             liability_shares=0,
+            max_liability_shares=0,
             vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
             withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
             share_limit=0,
@@ -529,6 +544,7 @@ def test_simulate_rebase_after_report(
             aggregate_balance=Wei(2500000000000000000),
             in_out_delta=Wei(2500000000000000000),
             liability_shares=1,
+            max_liability_shares=1,
             vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
             withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
             share_limit=0,
@@ -556,8 +572,8 @@ def test_simulate_rebase_after_report(
 
     accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(
         return_value=ReportSimulationResults(
-            withdrawals=Wei(0),
-            el_rewards=Wei(0),
+            withdrawals_vault_transfer=Wei(0),
+            el_rewards_vault_transfer=Wei(0),
             ether_to_finalize_wq=Wei(0),
             shares_to_finalize_wq=0,
             shares_to_burn_for_withdrawals=0,

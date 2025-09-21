@@ -29,7 +29,7 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int]
+type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000
@@ -223,9 +223,11 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
     aggregate_balance: Wei
+    in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
-    # Feature smart contract release
+    max_liability_shares: Shares
+    mintable_st_eth: int
     share_limit: int
     reserve_ratio_bp: int
     forced_rebalance_threshold_bp: int
@@ -233,8 +235,7 @@ class VaultInfo(Nested, FromResponse):
     liquidity_fee_bp: int
     reservation_fee_bp: int
     pending_disconnect: bool
-    mintable_st_eth: int
-    in_out_delta: Wei
+
 
 @dataclass(frozen=True)
 class VaultFee:
@@ -266,6 +267,7 @@ class VaultTreeValueKey(Enum):
     TOTAL_VALUE = "totalValueWei"
     FEE = "fee"
     LIABILITY_SHARES = "liabilityShares"
+    MAX_LIABILITY_SHARES = "maxLiabilityShares"
     SLASHING_RESERVE = "slashingReserve"
 
 class VaultTreeValueIndex(Enum):
@@ -273,7 +275,8 @@ class VaultTreeValueIndex(Enum):
     TOTAL_VALUE_WEI = 1
     FEE = 2
     LIABILITY_SHARES = 3
-    SLASHING_RESERVE = 4
+    MAX_LIABILITY_SHARES = 4
+    SLASHING_RESERVE = 5
 
 @dataclass(frozen=True)
 class MerkleValue:
@@ -281,6 +284,7 @@ class MerkleValue:
     total_value_wei: Wei
     fee: int
     liability_shares: int
+    max_liability_shares: int
     slashing_reserve: int
 
     @staticmethod
@@ -290,6 +294,7 @@ class MerkleValue:
             VaultTreeValueKey.TOTAL_VALUE: VaultTreeValueIndex.TOTAL_VALUE_WEI,
             VaultTreeValueKey.FEE: VaultTreeValueIndex.FEE,
             VaultTreeValueKey.LIABILITY_SHARES: VaultTreeValueIndex.LIABILITY_SHARES,
+            VaultTreeValueKey.MAX_LIABILITY_SHARES: VaultTreeValueIndex.MAX_LIABILITY_SHARES,
             VaultTreeValueKey.SLASHING_RESERVE: VaultTreeValueIndex.SLASHING_RESERVE,
         }
 
@@ -334,13 +339,16 @@ class StakingVaultIpfsReport:
         total_value_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.TOTAL_VALUE)
         fee_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.FEE)
         liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.LIABILITY_SHARES)
+        max_liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.MAX_LIABILITY_SHARES)
         slashing_reserve_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.SLASHING_RESERVE)
+
         for entry in data["values"]:
             values.append(MerkleValue(
                 vault_address=entry["value"][vault_address_index],
                 total_value_wei=Wei(int(entry["value"][total_value_index])),
                 fee=int(entry["value"][fee_index]),
                 liability_shares=int(entry["value"][liability_shares_index]),
+                max_liability_shares=int(entry["value"][max_liability_shares_index]),
                 slashing_reserve=int(entry["value"][slashing_reserve_index]),
             ))
 

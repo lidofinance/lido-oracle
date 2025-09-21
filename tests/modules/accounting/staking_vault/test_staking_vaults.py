@@ -90,6 +90,8 @@ class TestStakingVaults:
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials=self.vault_wc_0,
                 liability_shares=0,
+                max_liability_shares=0,
+                mintable_st_eth=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
                 forced_rebalance_threshold_bp=0,
@@ -97,7 +99,6 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_st_eth=0,
             ),
             self.vault_adr_1: VaultInfo(
                 vault=self.vault_adr_1,
@@ -105,6 +106,8 @@ class TestStakingVaults:
                 in_out_delta=Wei(2000000000000000000),
                 withdrawal_credentials=self.vault_wc_1,
                 liability_shares=490000000000000000,
+                max_liability_shares=0,
+                mintable_st_eth=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
                 forced_rebalance_threshold_bp=0,
@@ -112,7 +115,6 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_st_eth=0,
             ),
             self.vault_adr_2: VaultInfo(
                 vault=self.vault_adr_2,
@@ -120,6 +122,8 @@ class TestStakingVaults:
                 in_out_delta=Wei(2000900000000000000),
                 withdrawal_credentials=self.vault_wc_2,
                 liability_shares=1200000000000010001,
+                max_liability_shares=0,
+                mintable_st_eth=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
                 forced_rebalance_threshold_bp=0,
@@ -127,7 +131,6 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_st_eth=0,
             ),
             self.vault_adr_3: VaultInfo(
                 vault=self.vault_adr_3,
@@ -135,6 +138,8 @@ class TestStakingVaults:
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials=self.vault_wc_3,
                 liability_shares=0,
+                max_liability_shares=0,
+                mintable_st_eth=0,
                 share_limit=0,
                 reserve_ratio_bp=0,
                 forced_rebalance_threshold_bp=0,
@@ -142,7 +147,6 @@ class TestStakingVaults:
                 liquidity_fee_bp=0,
                 reservation_fee_bp=0,
                 pending_disconnect=False,
-                mintable_st_eth=0,
             ),
         }
 
@@ -565,6 +569,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     self.prev_fee,  # fee
                     2879999910015672558976,  # liability_shares
+                    2879999910015672558976,  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
@@ -572,6 +577,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     0,  # fee
                     2880000000000500000000,  # liability_shares
+                    2880000000000500000000,  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
@@ -579,6 +585,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     0,  # fee
                     2880000000000000400000,  # liability_shares
+                    2880000000000000400000,  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
@@ -586,6 +593,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     0,  # fee
                     2880000000000000200000,  # liability_shares
+                    2880000000000000200000,  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
@@ -593,6 +601,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     0,  # fee
                     2879999999999999800000,  # liability_shares
+                    2879999999999999800000,  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
                 MerkleValue(
@@ -600,6 +609,7 @@ class TestStakingVaults:
                     MagicMock(),  # total_value_wei
                     123412,  # Must prove that prev fee didn't applied
                     MagicMock(),  # liability_shares
+                    MagicMock(),  # max_liability_shares
                     MagicMock(),  # slashing_reserve
                 ),
             ],
@@ -640,6 +650,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vault2 = VaultInfo(
@@ -656,6 +667,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vault3 = VaultInfo(
@@ -672,6 +684,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vault4 = VaultInfo(
@@ -688,6 +701,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vault5 = VaultInfo(
@@ -704,6 +718,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vault6 = VaultInfo(
@@ -723,6 +738,7 @@ class TestStakingVaults:
             forced_rebalance_threshold_bp=MagicMock(),
             pending_disconnect=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vaults_total_values: VaultTotalValueMap = {
@@ -1061,6 +1077,7 @@ class TestStakingVaults:
                     total_value_wei=Wei(0),
                     fee=1000,
                     liability_shares=123456789,  # << prev value. Raises Error
+                    max_liability_shares=123456789,  # << prev value. Raises Error
                     slashing_reserve=0,
                 )
             ],
@@ -1083,6 +1100,7 @@ class TestStakingVaults:
         vault1 = VaultInfo(
             vault=vault1_adr,
             liability_shares=999999999,
+            max_liability_shares=999999999,
             reserve_ratio_bp=0,
             infra_fee_bp=0,
             liquidity_fee_bp=0,
@@ -1312,6 +1330,7 @@ class TestStakingVaults:
                 aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_1,
                 liability_shares=MagicMock(),
+                max_liability_shares=MagicMock(),
                 share_limit=MagicMock(),
                 reserve_ratio_bp=650,
                 forced_rebalance_threshold_bp=MagicMock(),
@@ -1327,6 +1346,7 @@ class TestStakingVaults:
                 aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_2,
                 liability_shares=MagicMock(),
+                max_liability_shares=MagicMock(),
                 share_limit=MagicMock(),
                 reserve_ratio_bp=650,
                 forced_rebalance_threshold_bp=MagicMock(),
@@ -1343,6 +1363,7 @@ class TestStakingVaults:
                 withdrawal_credentials=withdrawal_credentials_3,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
+                max_liability_shares=MagicMock(),
                 reserve_ratio_bp=650,
                 forced_rebalance_threshold_bp=MagicMock(),
                 infra_fee_bp=MagicMock(),
@@ -1357,6 +1378,7 @@ class TestStakingVaults:
                 aggregate_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_4,
                 liability_shares=MagicMock(),
+                max_liability_shares=MagicMock(),
                 share_limit=MagicMock(),
                 reserve_ratio_bp=650,
                 forced_rebalance_threshold_bp=MagicMock(),
@@ -1484,6 +1506,7 @@ class TestStakingVaults:
             aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
+            max_liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
             reserve_ratio_bp=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -1519,7 +1542,16 @@ class TestStakingVaults:
         )
 
         fees = 1000
-        expected_tree_data = [(vault_address, total_value, fees, vault_info.liability_shares, slashing_reserve_mock)]
+        expected_tree_data = [
+            (
+                vault_address,
+                total_value,
+                fees,
+                vault_info.liability_shares,
+                vault_info.max_liability_shares,
+                slashing_reserve_mock,
+            )
+        ]
         assert tree_data == expected_tree_data
 
         # --- Web3 Mock ---
@@ -1533,7 +1565,7 @@ class TestStakingVaults:
 
         staking_vaults = StakingVaultsService(w3_mock)
         merkle_tree = staking_vaults.get_merkle_tree(tree_data)
-        expected_merkle_tree = '0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee'
+        expected_merkle_tree = '0x7ca488c27e66ddc3fb44b8cc14e72181b71d420ed65f5b77d6da1ca329b4f3c1'
         assert expected_merkle_tree == f'0x{merkle_tree.root.hex()}'
 
         bs = ReferenceBlockStamp(
@@ -1561,8 +1593,11 @@ class TestStakingVaults:
 
         expected_dumped_tree = {
             'format': 'standard-v1',
-            'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'uint256'),
-            'tree': (b'\xdebR\xc9\n\xfe\xb1u\xb7\xe7\x88eX\x11\xee\xce\x8e~\x11\x94>67z' b'wRyG\x9d0\xbc\xee',),
+            'leafEncoding': ('address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'),
+            'tree': (
+                b'|\xa4\x88\xc2~f\xdd\xc3\xfbD\xb8\xcc\x14\xe7!\x81\xb7\x1dB\x0e'
+                b'\xd6_[w\xd6\xda\x1c\xa3)\xb4\xf3\xc1',
+            ),
             'blockHash': '0xabc123',
             'blockNumber': bs.block_number,
             'prevTreeCID': 'prev_tree_cid',
@@ -1576,6 +1611,7 @@ class TestStakingVaults:
                         str(vaults_total_values[vault_address]),
                         str(fees),
                         str(vault_info.liability_shares),
+                        str(vault_info.max_liability_shares),
                         str(vaults_slashing_reserve[vault_address]),
                     ),
                 }
@@ -1592,7 +1628,8 @@ class TestStakingVaults:
             'leafIndexToData': {
                 'fee': 2,
                 'liabilityShares': 3,
-                'slashingReserve': 4,
+                'maxLiabilityShares': 4,
+                'slashingReserve': 5,
                 'totalValueWei': 1,
                 'vaultAddress': 0,
             },
@@ -1625,6 +1662,7 @@ class TestStakingVaults:
             aggregate_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
+            max_liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
             reserve_ratio_bp=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -1667,6 +1705,7 @@ class TestStakingVaults:
             pending_disconnect=MagicMock(),
             mintable_st_eth=MagicMock(),
             in_out_delta=MagicMock(),
+            max_liability_shares=MagicMock(),
         )
 
         vaults: VaultsMap = {vault_address: vault_info}
@@ -1732,10 +1771,10 @@ class TestStakingVaults:
         mock_fetched_bytes = (
             b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
             b'"int256"], "tree": ['
-            b'"0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee"], "values": [{'
+            b'"0x7ca488c27e66ddc3fb44b8cc14e72181b71d420ed65f5b77d6da1ca329b4f3c1"], "values": [{'
             b'"value": ["0x1234567890abcdef1234567890abcdef12345678", "1000000000000000000", '
-            b'"1000", "2880000000000000000000", "5555"], "treeIndex": 0}], "refSlot": 123450, '
-            b'"blockHash": "0xabc123", "blockNumber": 789654, "timestamp": 1601481472, '
+            b'"1000", "2880000000000000000000", "2880000000000000000000", "5555"], "treeIndex": 0}], '
+            b'"refSlot": 123450, "blockHash": "0xabc123", "blockNumber": 789654, "timestamp": 1601481472, '
             b'"extraValues": {"0x1234567890abcdef1234567890abcdef12345678": {"inOutDelta": '
             b'"1234567890000000000", "prevFee": "400", "infraFee": "100", "liquidityFee": "200", '
             b'"reservationFee": "300"}}, "prevTreeCID": "prev_tree_cid", "leafIndexToData": {'
@@ -1748,7 +1787,7 @@ class TestStakingVaults:
         test_cid = "QmMockCID123"
         result = staking_vaults.get_ipfs_report(test_cid, FrameNumber(0))
 
-        assert result.tree[0] == '0xde6252c90afeb175b7e788655811eece8e7e11943e36377a775279479d30bcee'
+        assert result.tree[0] == '0x7ca488c27e66ddc3fb44b8cc14e72181b71d420ed65f5b77d6da1ca329b4f3c1'
 
         with pytest.raises(ValueError, match="Arg ipfs_report_cid could not be ''"):
             staking_vaults.get_ipfs_report('', FrameNumber(0))

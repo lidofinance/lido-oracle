@@ -271,7 +271,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return batches, share_rate
+        return batches, FinalizationShareRate(share_rate)
 
     @lru_cache(maxsize=1)
     def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
