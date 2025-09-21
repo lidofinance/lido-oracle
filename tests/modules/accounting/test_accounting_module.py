@@ -12,9 +12,9 @@ from src.modules.accounting.accounting import Accounting, logger as accounting_l
 from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
-    ReportResults,
-    ReportValues,
-    StakingRewardsDistribution,
+    ReportSimulationFeeDistribution,
+    ReportSimulationResults,
+    ReportSimulationPayload,
     VaultInfo,
     VaultsData,
     VaultsMap,
@@ -35,7 +35,7 @@ from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
-from tests.factory.contract_responses import ReportResultsFactory
+from tests.factory.contract_responses import ReportSimulationResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
 
 
@@ -154,22 +154,21 @@ def test_get_consensus_lido_state(accounting: Accounting):
     ],
 )
 def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, post_total_shares, expected_share_rate):
-    lido_rebase = ReportResultsFactory.build(
+    lido_rebase = ReportSimulationResultsFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
-        withdrawals=Wei(0),
-        el_rewards=Wei(0),
+        withdrawals_vault_transfer=Wei(10),
+        el_rewards_vault_transfer=Wei(10),
         ether_to_finalize_wq=0,
         shares_to_finalize_wq=0,
         shares_to_burn_for_withdrawals=0,
         total_shares_to_burn=0,
         shares_to_mint_as_fees=0,
-        reward_distribution=StakingRewardsDistribution(
-            recipients=[],
+        fee_distribution=ReportSimulationFeeDistribution(
+            module_fee_recipients=[],
             module_ids=[],
-            modules_fees=[],
-            total_fee=0,
-            precision_points=0,
+            module_shares_to_mint=0,
+            treasury_shares_to_mint=0,
         ),
         principal_cl_balance=0,
         post_internal_shares=0,
@@ -186,9 +185,15 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
         Withdrawal, 'get_finalization_batches', return_value=[]
     ):
-        batches = accounting._get_finalization_batches(bs)
+        batches, share_rate = accounting._get_finalization_data(bs)
 
     assert batches == []
+    assert share_rate == expected_share_rate
+
+    if post_total_pooled_ether > post_total_shares:
+        assert share_rate > 10 ** 27
+    else:
+        assert share_rate <= 10 ** 27
 
 
 @pytest.mark.unit
@@ -550,7 +555,7 @@ def test_simulate_rebase_after_report(
     accounting.w3.lido_contracts.accounting = Mock()
 
     accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(
-        return_value=ReportResults(
+        return_value=ReportSimulationResults(
             withdrawals=Wei(0),
             el_rewards=Wei(0),
             ether_to_finalize_wq=Wei(0),
@@ -558,8 +563,11 @@ def test_simulate_rebase_after_report(
             shares_to_burn_for_withdrawals=0,
             total_shares_to_burn=0,
             shares_to_mint_as_fees=0,
-            reward_distribution=StakingRewardsDistribution(
-                recipients=[], module_ids=[], modules_fees=[], total_fee=0, precision_points=0
+            fee_distribution=ReportSimulationFeeDistribution(
+                module_fee_recipients=[],
+                module_ids=[],
+                module_shares_to_mint=[],
+                treasury_shares_to_mint=0,
             ),
             principal_cl_balance=Wei(0),
             post_internal_shares=0,
@@ -573,7 +581,7 @@ def test_simulate_rebase_after_report(
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
     accounting.w3.lido_contracts.accounting.simulate_oracle_report.assert_called_once_with(
-        ReportValues(
+        ReportSimulationPayload(
             timestamp=1678794852,
             time_elapsed=504,
             cl_validators=0,
@@ -582,11 +590,11 @@ def test_simulate_rebase_after_report(
             el_rewards_vault_balance=Wei(0),
             shares_requested_to_burn=13,
             withdrawal_finalization_batches=[],
+            simulated_share_rate=0,
         ),
-        0,
         '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',
     )
-    assert isinstance(out, ReportResults), "simulate_rebase_after_report returned unexpected value"
+    assert isinstance(out, ReportSimulationResults), "simulate_rebase_after_report returned unexpected value"
 
 
 @pytest.mark.unit

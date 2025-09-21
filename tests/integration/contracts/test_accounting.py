@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import ReportValues, ReportResults
+from src.modules.accounting.types import ReportSimulationPayload, ReportSimulationResults
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
@@ -13,7 +13,7 @@ def test_accounting_contract_call(accounting_contract, caplog):
             (
                 'simulate_oracle_report',
                 (
-                    ReportValues(
+                    ReportSimulationPayload(
                         timestamp=0,
                         time_elapsed=0,
                         cl_validators=100,
@@ -22,9 +22,10 @@ def test_accounting_contract_call(accounting_contract, caplog):
                         el_rewards_vault_balance=0,
                         shares_requested_to_burn=0,
                         withdrawal_finalization_batches=[],
+                        simulated_share_rate=0,
                     ),
                 ),
-                lambda response: check_value_type(response, ReportResults),
+                lambda response: check_value_type(response, ReportSimulationResults),
             ),
         ],
         caplog,

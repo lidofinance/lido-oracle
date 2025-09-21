@@ -38,7 +38,7 @@ FinalizationShareRate = NewType('FinalizationShareRate', int)
 
 type SharesToBurn = int
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationBatches]
+type WqReport = tuple[BunkerMode, FinalizationBatches, FinalizationShareRate]
 
 def snake_to_camel(s):
     parts = s.split('_')
@@ -56,6 +56,7 @@ class ReportData:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
+    finalization_share_rate: int
     is_bunker: bool
     vaults_tree_root: VaultsTreeRoot
     vaults_tree_cid: VaultsTreeCid
@@ -76,6 +77,7 @@ class ReportData:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
+            self.finalization_share_rate,
             self.is_bunker,
             self.vaults_tree_root,
             self.vaults_tree_cid,
@@ -159,7 +161,7 @@ class BeaconStat:
 
 
 @dataclass(frozen=True)
-class ReportValues:
+class ReportSimulationPayload:
     timestamp: int
     time_elapsed: int
     cl_validators: int
@@ -168,6 +170,7 @@ class ReportValues:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
+    simulated_share_rate: int
 
     def as_tuple(self):
         return (
@@ -179,28 +182,28 @@ class ReportValues:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
+            self.simulated_share_rate,
         )
 
 
 @dataclass(frozen=True)
-class StakingRewardsDistribution:
-    recipients: list[ChecksumAddress]
+class ReportSimulationFeeDistribution:
+    module_fee_recipients: list[ChecksumAddress]
     module_ids: list[int]
-    modules_fees: list[int]
-    total_fee: int
-    precision_points: int
+    module_shares_to_mint: list[int]
+    treasury_shares_to_mint: int
 
 
 @dataclass(frozen=True)
-class ReportResults:
-    withdrawals: Wei
-    el_rewards: Wei
+class ReportSimulationResults:
+    withdrawals_vault_transfer: Wei
+    el_rewards_vault_transfer: Wei
     ether_to_finalize_wq: Wei
     shares_to_finalize_wq: Shares
     shares_to_burn_for_withdrawals: Shares
     total_shares_to_burn: SharesToBurn
     shares_to_mint_as_fees: Shares
-    reward_distribution: StakingRewardsDistribution
+    fee_distribution: ReportSimulationFeeDistribution
     principal_cl_balance: Wei
     pre_total_shares: Shares
     pre_total_pooled_ether: Wei

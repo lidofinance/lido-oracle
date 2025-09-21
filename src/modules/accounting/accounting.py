@@ -21,11 +21,12 @@ from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
     BunkerMode,
+    FinalizationShareRate,
     GenericExtraData,
     RebaseReport,
     ReportData,
-    ReportResults,
-    ReportValues,
+    ReportSimulationResults,
+    ReportSimulationPayload,
     ValidatorsBalance,
     ValidatorsCount,
     VaultsReport,
@@ -247,7 +248,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
-    def _get_finalization_batches(self, blockstamp: ReferenceBlockStamp) -> FinalizationBatches:
+    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationBatches, FinalizationShareRate]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -264,23 +265,23 @@ class Accounting(BaseModule, ConsensusModule):
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             share_rate,
-            simulation.withdrawals,
-            simulation.el_rewards,
+            simulation.withdrawals_vault_transfer,
+            simulation.el_rewards_vault_transfer,
         )
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return batches
+        return batches, share_rate
 
     @lru_cache(maxsize=1)
-    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportResults:
+    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
         """
         Simulate rebase excluding any execution rewards.
         This used to check worst scenarios in bunker service.
         """
         return self.simulate_rebase_after_report(blockstamp, el_rewards=Wei(0))
 
-    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportResults:
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
@@ -288,17 +289,17 @@ class Accounting(BaseModule, ConsensusModule):
         self,
         blockstamp: ReferenceBlockStamp,
         el_rewards: Wei,
-    ) -> ReportResults:
+    ) -> ReportSimulationResults:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
         cl_validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
         chain_conf = self.get_chain_config(blockstamp)
 
-        withdrawal_share_rate = 0  # For simulation we assume 0 share rate
+        simulated_share_rate = 0  # For simulation we assume 0 share rate
         withdrawal_finalization_batches: list[int] = []  # For simulation, we assume no withdrawals
 
-        report = ReportValues(
+        report = ReportSimulationPayload(
             timestamp=blockstamp.block_timestamp,
             time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
             cl_validators=cl_validators_count,
@@ -307,11 +308,11 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards,
             shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
             withdrawal_finalization_batches=withdrawal_finalization_batches,
+            simulated_share_rate=simulated_share_rate,
         )
 
         return self.w3.lido_contracts.accounting.simulate_oracle_report(
             report,
-            withdrawal_share_rate,
             blockstamp.block_hash,
         )
 
@@ -382,8 +383,8 @@ class Accounting(BaseModule, ConsensusModule):
     # calculates is_bunker, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
         is_bunker = self._is_bunker(blockstamp)
-        finalization_batches = self._get_finalization_batches(blockstamp)
-        return is_bunker, finalization_batches
+        finalization_batches, finalization_share_rate = self._get_finalization_data(blockstamp)
+        return is_bunker, finalization_batches, finalization_share_rate
 
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         """
@@ -505,7 +506,7 @@ class Accounting(BaseModule, ConsensusModule):
             report_rebase_part
         )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
-        is_bunker, finalization_batches = report_wq_part
+        is_bunker, finalization_batches, finalization_share_rate = report_wq_part
         tree_root, tree_cid = report_vaults_part
 
         return ReportData(
@@ -519,6 +520,7 @@ class Accounting(BaseModule, ConsensusModule):
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
             withdrawal_finalization_batches=finalization_batches,
+            finalization_share_rate=finalization_share_rate,
             is_bunker=is_bunker,
             vaults_tree_root=tree_root,
             vaults_tree_cid=tree_cid,

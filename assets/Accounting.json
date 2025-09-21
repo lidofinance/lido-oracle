@@ -6,7 +6,11 @@
         "name": "_lidoLocator",
         "type": "address"
       },
-      { "internalType": "contract ILido", "name": "_lido", "type": "address" }
+      {
+        "internalType": "contract ILido",
+        "name": "_lido",
+        "type": "address"
+      }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
@@ -34,41 +38,50 @@
         "name": "reportValidators",
         "type": "uint256"
       },
-      { "internalType": "uint256", "name": "minValidators", "type": "uint256" },
-      { "internalType": "uint256", "name": "maxValidators", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "minValidators",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxValidators",
+        "type": "uint256"
+      }
     ],
     "name": "IncorrectReportValidators",
     "type": "error"
   },
   {
-    "inputs": [
-      { "internalType": "string", "name": "operation", "type": "string" },
-      { "internalType": "address", "name": "addr", "type": "address" }
-    ],
-    "name": "NotAuthorized",
+    "inputs": [],
+    "name": "InternalSharesCantBeZero",
     "type": "error"
   },
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "firstArrayLength",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "operation",
+        "type": "string"
       },
       {
-        "internalType": "uint256",
-        "name": "secondArrayLength",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
       }
     ],
-    "name": "UnequalArrayLengths",
+    "name": "NotAuthorized",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "LIDO",
     "outputs": [
-      { "internalType": "contract ILido", "name": "", "type": "address" }
+      {
+        "internalType": "contract ILido",
+        "name": "",
+        "type": "address"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -77,7 +90,11 @@
     "inputs": [],
     "name": "LIDO_LOCATOR",
     "outputs": [
-      { "internalType": "contract ILidoLocator", "name": "", "type": "address" }
+      {
+        "internalType": "contract ILidoLocator",
+        "name": "",
+        "type": "address"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -86,7 +103,11 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "timeElapsed",
@@ -97,7 +118,11 @@
             "name": "clValidators",
             "type": "uint256"
           },
-          { "internalType": "uint256", "name": "clBalance", "type": "uint256" },
+          {
+            "internalType": "uint256",
+            "name": "clBalance",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "withdrawalVaultBalance",
@@ -117,6 +142,11 @@
             "internalType": "uint256[]",
             "name": "withdrawalFinalizationBatches",
             "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "simulatedShareRate",
+            "type": "uint256"
           }
         ],
         "internalType": "struct ReportValues",
@@ -133,7 +163,11 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "timeElapsed",
@@ -144,7 +178,11 @@
             "name": "clValidators",
             "type": "uint256"
           },
-          { "internalType": "uint256", "name": "clBalance", "type": "uint256" },
+          {
+            "internalType": "uint256",
+            "name": "clBalance",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "withdrawalVaultBalance",
@@ -164,16 +202,16 @@
             "internalType": "uint256[]",
             "name": "withdrawalFinalizationBatches",
             "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "simulatedShareRate",
+            "type": "uint256"
           }
         ],
         "internalType": "struct ReportValues",
         "name": "_report",
         "type": "tuple"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_withdrawalShareRate",
-        "type": "uint256"
       }
     ],
     "name": "simulateOracleReport",
@@ -182,10 +220,14 @@
         "components": [
           {
             "internalType": "uint256",
-            "name": "withdrawals",
+            "name": "withdrawalsVaultTransfer",
             "type": "uint256"
           },
-          { "internalType": "uint256", "name": "elRewards", "type": "uint256" },
+          {
+            "internalType": "uint256",
+            "name": "elRewardsVaultTransfer",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "etherToFinalizeWQ",
@@ -215,7 +257,7 @@
             "components": [
               {
                 "internalType": "address[]",
-                "name": "recipients",
+                "name": "moduleFeeRecipients",
                 "type": "address[]"
               },
               {
@@ -224,23 +266,18 @@
                 "type": "uint256[]"
               },
               {
-                "internalType": "uint96[]",
-                "name": "modulesFees",
-                "type": "uint96[]"
-              },
-              {
-                "internalType": "uint96",
-                "name": "totalFee",
-                "type": "uint96"
+                "internalType": "uint256[]",
+                "name": "moduleSharesToMint",
+                "type": "uint256[]"
               },
               {
                 "internalType": "uint256",
-                "name": "precisionPoints",
+                "name": "treasurySharesToMint",
                 "type": "uint256"
               }
             ],
-            "internalType": "struct Accounting.StakingRewardsDistribution",
-            "name": "rewardDistribution",
+            "internalType": "struct Accounting.FeeDistribution",
+            "name": "feeDistribution",
             "type": "tuple"
           },
           {
