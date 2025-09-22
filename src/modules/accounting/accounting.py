@@ -72,6 +72,7 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains exited validator's updates count by each node operator.
     """
+
     COMPATIBLE_CONTRACT_VERSION = 3
     COMPATIBLE_CONSENSUS_VERSION = 5
 
@@ -426,7 +427,7 @@ class Accounting(BaseModule, ConsensusModule):
             post_internal_ether=simulation.post_internal_ether,
             post_internal_shares=simulation.post_internal_shares,
             shares_minted_as_fees=simulation.shares_to_mint_as_fees,
-            time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp)
+            time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp),
         )
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
@@ -446,13 +447,10 @@ class Accounting(BaseModule, ConsensusModule):
             pre_total_shares=simulation.pre_total_shares,
             frame_config=frame_config,
             chain_config=chain_config,
-            current_frame=current_frame
+            current_frame=current_frame,
         )
         vaults_slashing_reserve = self.staking_vaults.get_vaults_slashing_reserve(
-            bs=blockstamp,
-            vaults=vaults,
-            validators=validators,
-            chain_config=chain_config
+            bs=blockstamp, vaults=vaults, validators=validators, chain_config=chain_config
         )
         tree_data = self.staking_vaults.build_tree_data(
             vaults=vaults,

@@ -10,7 +10,7 @@ from oz_merkle_tree import StandardMerkleTree
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.types import (
     ELVaultBalance,
     FinalizationBatches,
@@ -40,9 +40,11 @@ type SharesToBurn = int
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
 type WqReport = tuple[BunkerMode, FinalizationBatches, FinalizationShareRate]
 
+
 def snake_to_camel(s):
     parts = s.split('_')
     return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
 
 @dataclass
 class ReportData:
@@ -99,6 +101,7 @@ class AccountingProcessingState:
     extra_data_items_count: int
     extra_data_items_submitted: int
 
+
 @dataclass
 class OracleReportLimits:
     exited_validators_per_day_limit: int
@@ -121,7 +124,9 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
+
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
+
 
 @dataclass
 class BatchState:
@@ -153,6 +158,7 @@ class WithdrawalRequestStatus:
     timestamp: int
     is_finalized: bool
     is_claimed: bool
+
 
 @dataclass
 class BeaconStat:
@@ -221,6 +227,7 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
     tree_root: VaultsTreeRoot
     report_cid: VaultsTreeCid
 
+
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
@@ -239,6 +246,7 @@ class VaultInfo(Nested, FromResponse):
     pending_disconnect: bool
 
 
+
 @dataclass(frozen=True)
 class VaultFee:
     infra_fee: int
@@ -247,12 +255,8 @@ class VaultFee:
     prev_fee: int
 
     def total(self):
-        return (
-                self.prev_fee
-                + self.infra_fee
-                + self.liquidity_fee
-                + self.reservation_fee
-        )
+        return self.prev_fee + self.infra_fee + self.liquidity_fee + self.reservation_fee
+
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
 
@@ -264,6 +268,7 @@ VaultReserveMap = dict[ChecksumAddress, int]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
 
+
 class VaultTreeValueKey(Enum):
     VAULT_ADDRESS = "vaultAddress"
     TOTAL_VALUE = "totalValueWei"
@@ -272,6 +277,7 @@ class VaultTreeValueKey(Enum):
     MAX_LIABILITY_SHARES = "maxLiabilityShares"
     SLASHING_RESERVE = "slashingReserve"
 
+
 class VaultTreeValueIndex(Enum):
     VAULT_ADDRESS = 0
     TOTAL_VALUE_WEI = 1
@@ -279,6 +285,7 @@ class VaultTreeValueIndex(Enum):
     LIABILITY_SHARES = 3
     MAX_LIABILITY_SHARES = 4
     SLASHING_RESERVE = 5
+
 
 @dataclass(frozen=True)
 class MerkleValue:
@@ -304,6 +311,7 @@ class MerkleValue:
     def get_tree_value_ind(key: VaultTreeValueKey) -> int:
         return MerkleValue.leaf_index_to_data()[key].value
 
+
 @dataclass(frozen=True)
 class ExtraValue:
     in_out_delta: str
@@ -315,6 +323,7 @@ class ExtraValue:
     def to_camel_dict(self):
         orig = asdict(self)
         return {snake_to_camel(k): v for k, v in orig.items()}
+
 
 @dataclass
 class StakingVaultIpfsReport:
@@ -345,12 +354,13 @@ class StakingVaultIpfsReport:
         slashing_reserve_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.SLASHING_RESERVE)
 
         for entry in data["values"]:
-            values.append(MerkleValue(
-                vault_address=entry["value"][vault_address_index],
-                total_value_wei=Wei(int(entry["value"][total_value_index])),
-                fee=int(entry["value"][fee_index]),
-                liability_shares=int(entry["value"][liability_shares_index]),
-                max_liability_shares=int(entry["value"][max_liability_shares_index]),
+            values.append(
+                MerkleValue(
+                    vault_address=entry["value"][vault_address_index],
+                    total_value_wei=Wei(int(entry["value"][total_value_index])),
+                    fee=int(entry["value"][fee_index]),
+                    liability_shares=int(entry["value"][liability_shares_index]),
+                    max_liability_shares=int(entry["value"][max_liability_shares_index]),
                 slashing_reserve=int(entry["value"][slashing_reserve_index]),
             ))
 
@@ -374,8 +384,9 @@ class StakingVaultIpfsReport:
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
-            extra_values=extra_values
+            extra_values=extra_values,
         )
+
 
 @dataclass(frozen=True)
 class StakingFeeAggregateDistribution:
@@ -385,9 +396,24 @@ class StakingFeeAggregateDistribution:
 
     def lido_fee_bp(self):
         total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
-        lido_fee_bp = (Decimal(self.modules_fee + self.treasury_fee) * total_basis_points_dec) / Decimal(self.base_precision)
+        numerator = Decimal(self.modules_fee + self.treasury_fee) * total_basis_points_dec
+        denominator = Decimal(self.base_precision)
 
+        lido_fee_bp = numerator / denominator
         if lido_fee_bp >= total_basis_points_dec:
             raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
 
         return lido_fee_bp
+
+
+@dataclass(frozen=True)
+class PendingBalances:
+    pending_deposits: list[PendingDeposit]
+
+    @property
+    def total(self) -> Gwei:
+        return Gwei(sum(deposit.amount for deposit in self.pending_deposits))
+
+    @property
+    def max(self) -> Gwei:
+        return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
