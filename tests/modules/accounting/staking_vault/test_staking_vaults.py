@@ -1851,7 +1851,9 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="cid123")
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'\xab\xcd\xef', report_cid="cid123"
+        )
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
@@ -1900,7 +1902,9 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="cid123")
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'\xab\xcd\xef', report_cid="cid123"
+        )
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
@@ -1971,7 +1975,9 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'', report_cid="")  # NO DATA
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'', report_cid=""
+        )  # NO DATA
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 
@@ -2032,7 +2038,9 @@ class TestStakingVaults:
             ref_epoch=EpochNumber(40),
         )
 
-        ipfs_data = OnChainIpfsVaultReportData(timestamp=1690000100, tree_root=b'\xab\xcd\xef', report_cid="")  # важно!
+        ipfs_data = OnChainIpfsVaultReportData(
+            timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'\xab\xcd\xef', report_cid=""
+        )  # важно!
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 

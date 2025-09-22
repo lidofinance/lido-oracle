@@ -217,6 +217,7 @@ class ReportSimulationResults:
 @dataclass
 class OnChainIpfsVaultReportData(Nested, FromResponse):
     timestamp: int
+    ref_slot: SlotNumber
     tree_root: VaultsTreeRoot
     report_cid: VaultsTreeCid
 

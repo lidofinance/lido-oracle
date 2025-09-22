@@ -42,7 +42,7 @@ Work is divided into frames (~24 hours / 225 epochs):
 - **Data collection**: Gathers state data from Execution and Consensus layers.
 - **Hash consensus**: Hash of report is submitted to the HashConsensus contract.
 - **Core update report**: Once quorum is reached, actual report is submitted to AccountingOracle to trigger state updates (rebases, withdrawals, bunker check).
-- **Extra data report**: Multi-transactional report for stuck/exited validators, reward unlocking, etc.
+- **Extra data report**: Multi-transactional report for exited validators, reward unlocking, etc.
 
 ### Ejector module
 

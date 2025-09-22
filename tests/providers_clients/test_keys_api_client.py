@@ -9,9 +9,8 @@ from packaging.version import Version
 from web3 import Web3
 
 import src.providers.keys.client as keys_api_client_module
-from src import constants
-from src import variables
-from src.providers.keys.client import KAPIClientError, KeysAPIClient, KeysOutdatedException
+from src import constants, variables
+from src.providers.keys.client import KAPIClientError, KAPIInconsistentData, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
 from src.types import StakingModuleAddress
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -20,7 +19,6 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 @pytest.mark.integration
 @pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:
-
     # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
     BLS_PUBLIC_KEY_SIZE = 48
     BLS_SIGNATURE_SIZE = 96
@@ -63,31 +61,39 @@ class TestIntegrationKeysAPIClient:
 
     def test_get_used_lido_keys__all_used_keys__response_data_is_valid(
         self,
-        keys_api_client,
+        keys_api_client: KeysAPIClient,
         empty_blockstamp,
     ):
         keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
 
         assert len(keys) > 0
+        keys_seen: list[str] = []
         for lido_key in keys:
-            assert lido_key.used is True
+            assert lido_key.used
             self._assert_lido_key(lido_key)
+            assert lido_key.key not in keys_seen
+            keys_seen.append(lido_key.key)
 
-    def test_get_module_operators_keys__csm_module__response_data_is_valid(
+    def test_get_used_module_operators_keys__csm_module__response_data_is_valid(
         self,
-        keys_api_client,
+        keys_api_client: KeysAPIClient,
         empty_blockstamp,
     ):
-        csm_module_operators_keys = keys_api_client.get_module_operators_keys(
-            module_address=variables.CSM_MODULE_ADDRESS, blockstamp=empty_blockstamp
+        csm_module_operators_keys = keys_api_client.get_used_module_operators_keys(
+            module_address=variables.CSM_MODULE_ADDRESS,  # type: ignore
+            blockstamp=empty_blockstamp,
         )
 
         assert csm_module_operators_keys['module']['stakingModuleAddress'] == variables.CSM_MODULE_ADDRESS
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
+        keys_seen: list[str] = []
         for lido_key in csm_module_operators_keys['keys']:
+            assert lido_key.used
             self._assert_lido_key(lido_key)
+            assert lido_key.key not in keys_seen
+            keys_seen.append(lido_key.key)
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
@@ -95,7 +101,7 @@ class TestIntegrationKeysAPIClient:
 
     def test_get_status__response_version_is_allowed(
         self,
-        keys_api_client,
+        keys_api_client: KeysAPIClient,
     ):
         status = keys_api_client.get_status()
 
@@ -128,7 +134,7 @@ class TestUnitKeysAPIClient:
     @responses.activate
     def test_get_used_lido_keys__empty_response__empty_list(
         self,
-        keys_api_client,
+        keys_api_client: KeysAPIClient,
         empty_blockstamp,
     ):
         responses.get(
@@ -152,7 +158,10 @@ class TestUnitKeysAPIClient:
 
     @responses.activate
     def test_get_used_lido_keys__outdated_block__raises_keys_outdated_exception(
-        self, keys_api_client, empty_blockstamp, monkeypatch
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        monkeypatch,
     ):
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
@@ -177,7 +186,11 @@ class TestUnitKeysAPIClient:
         assert sleep_mock.call_count == keys_api_client.retry_count - 1
 
     @responses.activate
-    def test_get_used_lido_keys__server_error__raises_kapi_client_error(self, keys_api_client, empty_blockstamp):
+    def test_get_used_lido_keys__server_error__raises_kapi_client_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS, status=500, json={'error': 'Internal Server Error'}
         )
@@ -186,7 +199,11 @@ class TestUnitKeysAPIClient:
             keys_api_client.get_used_lido_keys(empty_blockstamp)
 
     @responses.activate
-    def test_get_used_lido_keys__two_calls__one_http_request_cached(self, keys_api_client, empty_blockstamp):
+    def test_get_used_lido_keys__two_calls__one_http_request_cached(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
             json={
@@ -202,14 +219,14 @@ class TestUnitKeysAPIClient:
         assert len(responses.calls) == 1
 
     @responses.activate
-    def test_get_module_operators_keys__empty_response__empty_lists(
+    def test_get_used_module_operators_keys__empty_response__empty_lists(
         self,
-        keys_api_client,
+        keys_api_client: KeysAPIClient,
         empty_blockstamp,
     ):
-        module_address = cast('0xdtestest', StakingModuleAddress)
+        module_address = cast(StakingModuleAddress, '0xdtestest')
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
             json={
                 'data': {'keys': [], 'module': {'stakingModuleAddress': str(module_address), 'id': 1}, 'operators': []},
                 'meta': {
@@ -223,18 +240,21 @@ class TestUnitKeysAPIClient:
             },
         )
 
-        result = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
+        result = keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
 
         assert len(result['keys']) == 0
         assert len(result['operators']) == 0
 
     @responses.activate
-    def test_get_module_operators_keys__outdated_block__raises_keys_outdated_exception(
-        self, keys_api_client, empty_blockstamp, monkeypatch
+    def test_get_used_module_operators_keys__outdated_block__raises_keys_outdated_exception(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        monkeypatch,
     ):
-        module_address = cast('0xdtestest', StakingModuleAddress)
+        module_address = cast(StakingModuleAddress, '0xdtestest')
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
             json={
                 'data': {'keys': [], 'module': {'stakingModuleAddress': str(module_address), 'id': 1}, 'operators': []},
                 'meta': {
@@ -251,27 +271,78 @@ class TestUnitKeysAPIClient:
 
         with monkeypatch.context() as m, pytest.raises(KeysOutdatedException):
             m.setattr(keys_api_client_module, 'sleep', sleep_mock)
-            keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
+            keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
 
         assert sleep_mock.call_count == keys_api_client.retry_count - 1
 
     @responses.activate
-    def test_get_module_operators_keys__server_error__raises_kapi_client_error(self, keys_api_client, empty_blockstamp):
-        module_address = cast('0xdtestest', StakingModuleAddress)
+    def test_get_used_lido_keys__used_False__raises_inconsistent_data_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={
+                'data': [{'key': '', 'used': False, 'operatorIndex': 0, 'moduleAddress': '', 'depositSignature': ''}],
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        with pytest.raises(KAPIInconsistentData, match="unused"):
+            keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_lido_keys__duplicates__raises_inconsistent_data_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={
+                'data': [
+                    {
+                        'key': '',
+                        'used': True,
+                        'operatorIndex': 0,
+                        'moduleAddress': '',
+                        'depositSignature': '',
+                    }
+                ]
+                * 2,
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        with pytest.raises(KAPIInconsistentData, match="duplicated"):
+            keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_module_operators_keys__server_error__raises_kapi_client_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        module_address = cast(StakingModuleAddress, '0xdtestest')
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
             status=500,
             json={'error': 'Internal Server Error'},
         )
 
         with pytest.raises(KAPIClientError):
-            keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
+            keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
 
     @responses.activate
-    def test_get_module_operators_keys__two_calls__one_http_request_cached(self, keys_api_client, empty_blockstamp):
-        module_address = cast('0xdtestest', StakingModuleAddress)
+    def test_get_used_module_operators_keys__two_calls__one_http_request_cached(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        module_address = cast(StakingModuleAddress, '0xdtestest')
         responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.MODULE_OPERATORS_KEYS.format(module_address),
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
             json={
                 'data': {
                     'keys': [
@@ -290,8 +361,88 @@ class TestUnitKeysAPIClient:
             },
         )
 
-        result1 = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
-        result2 = keys_api_client.get_module_operators_keys(module_address, empty_blockstamp)
+        result1 = keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+        result2 = keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
 
         assert result1 == result2
         assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_get_used_module_operators_keys__invalid_module__raises_inconsistent_data_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        module_address = cast(StakingModuleAddress, '0xdtestest')
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
+            json={
+                'data': {
+                    'keys': [],
+                    'module': {'stakingModuleAddress': 'SOME_OTHER_MODULE', 'id': 1},
+                },
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        with pytest.raises(KAPIInconsistentData, match="address mismatch"):
+            keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_module_operators_keys__used_False__raises_inconsistent_data_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        module_address = cast(StakingModuleAddress, '0xdtestest')
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
+            json={
+                'data': {
+                    'keys': [
+                        {
+                            'key': '',
+                            'used': False,
+                            'operatorIndex': 0,
+                            'moduleAddress': str(module_address),
+                            'depositSignature': '',
+                        }
+                    ],
+                    'module': {'stakingModuleAddress': str(module_address), 'id': 1},
+                },
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        with pytest.raises(KAPIInconsistentData, match="unused"):
+            keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_module_operators_keys__duplicates__raises_inconsistent_data_error(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        module_address = cast(StakingModuleAddress, '0xdtestest')
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address),
+            json={
+                'data': {
+                    'keys': [
+                        {
+                            'key': '',
+                            'used': True,
+                            'operatorIndex': 0,
+                            'moduleAddress': str(module_address),
+                            'depositSignature': '',
+                        }
+                    ]
+                    * 2,
+                    'module': {'stakingModuleAddress': str(module_address), 'id': 1},
+                },
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        with pytest.raises(KAPIInconsistentData, match="duplicated"):
+            keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)

@@ -9,8 +9,16 @@ from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
+from src.modules.csm.checkpoint import (
+    FrameCheckpointProcessor,
+    FrameCheckpointsIterator,
+    MinStepIsNotReached,
+)
+from src.modules.csm.distribution import (
+    Distribution,
+    DistributionResult,
+    StrikesValidator,
+)
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -157,8 +165,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
 
-        consensus_version = self.get_consensus_version(blockstamp)
-
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -189,7 +195,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame, consensus_version)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
         if self.state.is_fulfilled:
