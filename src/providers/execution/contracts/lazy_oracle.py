@@ -58,9 +58,12 @@ class VaultsLazyOracleContract(ContractInterface):
         for vault in response:
             out.append(VaultInfo(
                 vault=vault.vault,
-                aggregate_balance=vault.balance,
+                aggregate_balance=vault.aggregateBalance,
+                in_out_delta=vault.inOutDelta,
                 withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
                 liability_shares=vault.liabilityShares,
+                max_liability_shares=vault.maxLiabilityShares,
+                mintable_st_eth=vault.mintableStETH,
                 share_limit=vault.shareLimit,
                 reserve_ratio_bp=vault.reserveRatioBP,
                 forced_rebalance_threshold_bp=vault.forcedRebalanceThresholdBP,
@@ -68,8 +71,6 @@ class VaultsLazyOracleContract(ContractInterface):
                 liquidity_fee_bp=vault.liquidityFeeBP,
                 reservation_fee_bp=vault.reservationFeeBP,
                 pending_disconnect=vault.pendingDisconnect,
-                mintable_st_eth=vault.mintableStETH,
-                in_out_delta=vault.inOutDelta,
             ))
 
         logger.info(

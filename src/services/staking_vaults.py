@@ -9,7 +9,12 @@ from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
-from src.constants import FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE, TOTAL_BASIS_POINTS
+from src.constants import (
+    FAR_FUTURE_EPOCH,
+    MIN_ACTIVATION_BALANCE,
+    PDG_ACTIVATION_DEPOSIT,
+    TOTAL_BASIS_POINTS,
+)
 from src.modules.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
@@ -26,6 +31,7 @@ from src.modules.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
+    PendingBalances,
     Shares,
     StakingVaultIpfsReport,
     VaultFee,
@@ -69,47 +75,33 @@ class StakingVaultsService:
 
         A validator is included in the TV calculation if EITHER of the following conditions is true:
 
-        1. Ready for activation (but not yet eligible):
+        1. Already passed activation eligibility (see `_is_already_passed_activation_eligibility`)
+        2. Ready for activation (but not yet eligible) (see `_is_ready_for_activation`)
 
-            activation_eligibility_epoch == FAR_FUTURE_EPOCH
-            and
-            validator.balance + pending_deposits >= MIN_ACTIVATION_BALANCE
-
-        Rationale: according to the PDG validator proving flow, a validator already has 1 ETH on the consensus layer
-        (from the predeposit), while an additional 31 ETH becomes a pending deposit immediately after the proof.
-        Without accounting for the pending deposit, TV would appear to drop by 31 ETH until the deposit is processed.
-        Including pending deposits prevents this artificial dip.
-
-        2. Already passed activation eligibility:
-
-            activation_eligibility_epoch != FAR_FUTURE_EPOCH
-
-        The `activation_eligibility_epoch` is set once when a validator becomes eligible and never changes.
-        This makes it a reliable lifecycle marker. After activation, balances may fall below
-        `MIN_ACTIVATION_BALANCE` (due to slashing or withdrawals), so balance checks alone cannot be used.
-
-        Simplified condition:
-
-            activation_eligibility_epoch != FAR_FUTURE_EPOCH
-            or
-            validator.balance + pending_deposits >= MIN_ACTIVATION_BALANCE
+        NB: According to the PDG validator proving flow, a validator starts with 1 ETH on the consensus layer from the
+            predeposit. Once the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
+            as a pending deposit. If pending deposits are ignored, the TV would seem to drop by 32 ETH until the
+            pending deposit is processed and the validator activates. To prevent this artificial dip, the calculation
+            of a validator's total balance should include pending deposits (of 31+ ETH) and count such validators in
+            the total value (TV) as soon as the proof is submitted.
         """
         validators_by_vaults = self._get_validators_by_vaults(validators, vaults)
-        pending_balances_by_pubkeys = self._get_total_pending_balances_by_pubkeys(pending_deposits)
+        pending_balances_by_pubkeys = self._get_pending_balances_by_pubkeys(pending_deposits)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
             vault_total: int = int(vault.aggregate_balance)
 
             for validator in validators_by_vaults.get(vault_address, []):
-                pending_balance = pending_balances_by_pubkeys.get(validator.pubkey.to_0x_hex(), 0)
-                total_balance = Gwei(validator.balance + pending_balance)
+                pending_balances = pending_balances_by_pubkeys.get(
+                    validator.pubkey.to_0x_hex(), PendingBalances(pending_deposits=[])
+                )
 
-                if (
-                    validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH or
-                    total_balance >= MIN_ACTIVATION_BALANCE
-                ):
-                    vault_total += int(gwei_to_wei(total_balance))
+                is_already_passed_activation_eligibility = self._is_already_passed_activation_eligibility(validator)
+                is_ready_for_activation = self._is_ready_for_activation(validator, pending_balances)
+
+                if is_already_passed_activation_eligibility or is_ready_for_activation:
+                    vault_total += int(gwei_to_wei(Gwei(validator.balance + pending_balances.total)))
 
             total_values[vault_address] = Wei(vault_total)
             logger.info({
@@ -120,17 +112,42 @@ class StakingVaultsService:
         return total_values
 
     @staticmethod
-    def _get_total_pending_balances_by_pubkeys(
-        pending_deposits: list[PendingDeposit],
-    ) -> dict[str, Gwei]:
+    def _is_already_passed_activation_eligibility(validator: Validator) -> bool:
         """
-        Aggregates pending deposit amounts by pubkey.
+        The `activation_eligibility_epoch` is set once when a validator becomes eligible and never changes.
+        This makes it a reliable lifecycle marker.
         """
-        balances: dict[str, int] = defaultdict(int)
-        for deposit in pending_deposits:
-            balances[deposit.pubkey] += int(deposit.amount)
+        return validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
 
-        return {pubkey: Gwei(amount) for pubkey, amount in balances.items()}
+    @staticmethod
+    def _is_ready_for_activation(validator: Validator, pending_balances: PendingBalances) -> bool:
+        """
+        A validator is considered ready for activation if it has not yet been marked as eligible but
+        already has sufficient balance (including pending deposits) to meet the activation criteria.
+
+        NB: We align activation readiness with the PDG validator proving flow and only consider pending deposits if one
+            of them is at least 31 ETH. This prevents issues where 1 ETH top-ups could cause activation problems that
+            might be exploited (https://github.com/ethereum/consensus-specs/issues/3049). Since pending deposits are
+            processed every block, but effective balance and activation eligibility are checked only once per epoch, we
+            need to support the state where the effective balance has not yet been updated, but pending deposits are
+            already included in the validator’s balance. In that case, we force a check that the difference between the
+            balance and the effective balance is at least 31 ETH.
+        """
+        total_balance = validator.balance + pending_balances.total
+        has_pdg_pending_deposit = pending_balances.max >= PDG_ACTIVATION_DEPOSIT and total_balance >= MIN_ACTIVATION_BALANCE
+        has_pdg_balance_difference = validator.balance - validator.validator.effective_balance >= PDG_ACTIVATION_DEPOSIT
+
+        return has_pdg_pending_deposit or has_pdg_balance_difference
+
+    @staticmethod
+    def _get_pending_balances_by_pubkeys(
+        pending_deposits: list[PendingDeposit],
+    ) -> dict[str, PendingBalances]:
+        deposits = defaultdict(list)
+        for deposit in pending_deposits:
+            deposits[deposit.pubkey].append(deposit)
+
+        return {pubkey: PendingBalances(pending_deposits=deposits) for pubkey, deposits in deposits.items()}
 
     @staticmethod
     def _get_validators_by_vaults(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
@@ -314,6 +331,7 @@ class StakingVaultsService:
                     Wei(vaults_total_values[vault_address]),
                     vaults_fees[vault_address].total(),
                     vault.liability_shares,
+                    vault.max_liability_shares,
                     vaults_slashing_reserve.get(vault_address, 0),
                 )
             )
@@ -322,13 +340,20 @@ class StakingVaultsService:
 
     @staticmethod
     def get_merkle_tree(data: list[VaultTreeNode]) -> StandardMerkleTree:
-        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256"))
+        return StandardMerkleTree(data, ("address", "uint256", "uint256", "uint256", "uint256", "uint256"))
 
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
             tree_data.append(
-                (vault.vault_address, vault.total_value_wei, vault.fee, vault.liability_shares, vault.slashing_reserve)
+                (
+                    vault.vault_address,
+                    vault.total_value_wei,
+                    vault.fee,
+                    vault.liability_shares,
+                    vault.max_liability_shares,
+                    vault.slashing_reserve,
+                )
             )
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)

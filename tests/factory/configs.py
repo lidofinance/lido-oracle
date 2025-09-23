@@ -1,12 +1,12 @@
 from src.modules.accounting.types import OracleReportLimits
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (
-    BeaconSpecResponse,
-    SlotAttestationCommittee,
-    BlockAttestationResponse,
     AttestationData,
-    Checkpoint,
+    BeaconSpecResponse,
+    BlockAttestationResponse,
     BlockDetailsResponse,
+    Checkpoint,
+    SlotAttestationCommittee,
 )
 from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3DataclassFactory
@@ -27,6 +27,7 @@ class OracleReportLimitsFactory(Web3DataclassFactory[OracleReportLimits]):
     churn_validators_per_day_limit = 0
     appeared_validators_per_day_limit = 0
     annual_balance_increase_bp_limit = 0
+    simulated_share_rate_deviation_bp_limit = 0
     max_validator_exit_requests_per_report = 0
     max_items_per_extra_data_transaction = 0
     max_node_operators_per_extra_data_item = 0

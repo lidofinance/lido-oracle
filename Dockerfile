@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.9.0
 FROM python:3.12.4-slim AS base
 
 ARG POETRY_VERSION=1.3.2
@@ -38,6 +39,8 @@ RUN python3 -m venv "$VENV_PATH" && \
     find "$VENV_PATH" -type d -name '.git' -exec rm -rf {} + && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/RECORD \; && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/WHEEL \; && \
+    find "$VENV_PATH" -path '*/oz_merkle_tree*/LICENSE*' -type f -delete && \
+    find "$VENV_PATH" -path '*/oz_merkle_tree*' -type d -name 'licenses' -exec rm -rf {} + && \
     find "$VENV_PATH" -name '__pycache__' -exec rm -rf {} +
 
 FROM base AS development

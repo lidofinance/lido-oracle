@@ -13,8 +13,8 @@ from src.utils.slot import get_blockstamp
 class TestIpfsReportSmoke:
 
     def test_ipfs_report_valid(self, web3_integration):
-        cid = CIDv0("QmQkmpTStCSJ1gLNVAwNDQDHRgTVGXX2HZ8fG6N1tpAG6q")
-        expected_tree_root = "0xb250c9feab479d1ee57f080d689f47e1bd11b74b2316fb0422242c2366a43a39"
+        cid = CIDv0("QmYnQ9gCriLj29uWC6DC3yFm6gYXNEAkMoHLjtJun8ASeQ")
+        expected_tree_root = "0x82d726a060e4133328fb77dac69cfd84e14bb66fb0fd1b2c99ba058efb2f5a30"
 
         bb = web3_integration.ipfs.fetch(cid, FrameNumber(0))
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)
@@ -26,7 +26,7 @@ class TestIpfsReportSmoke:
     def test_ipfs_window(self, web3_integration):
         sv = StakingVaultsService(web3_integration)
 
-        block_hash = HexStr('0xa6c886c4f37d8b298a27a29bdd5c06461ea92bc5d67d971fec371035c87698ef')
+        block_hash = HexStr('0xfd4ca3e0bda85d4687811dcfd492fa9d8ca84df6c0af161d9a901d5434171bbd')
         latest_onchain_ipfs_report_data = sv.get_latest_onchain_ipfs_report_data(block_identifier=block_hash)
         bb = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data.report_cid, FrameNumber(0))
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)

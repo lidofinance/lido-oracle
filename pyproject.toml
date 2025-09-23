@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "6.0.0"
-description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
+version = "7.0.0-beta.0"
+description = "Oracle daemon for Lido decentralized staking service. Collects and reports consensus layer states (the number of visible validators and their summarized balances) to the Lido dApp contracts running on execution layer."
 authors = [
     "Dmitry Chernukhin",
     "Dmitry Suldin",
@@ -26,7 +26,7 @@ more-itertools = "^10.1.0"
 web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
-oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
+oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
 dag-cbor="^0.3.3"
