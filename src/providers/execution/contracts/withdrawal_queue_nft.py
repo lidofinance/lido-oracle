@@ -122,13 +122,12 @@ class WithdrawalQueueNftContract(ContractInterface):
         })
         return response
 
-    @lru_cache(maxsize=1)
     def calculate_finalization_batches(
         self,
         share_rate: int,
         timestamp: int,
         max_batch_request_count: int,
-        batch_state: tuple,
+        batch_state: list,
         block_identifier: BlockIdentifier = 'latest',
     ) -> BatchState:
         """
