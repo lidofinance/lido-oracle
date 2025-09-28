@@ -433,6 +433,13 @@ class Accounting(BaseModule, ConsensusModule):
             block_identifier=blockstamp.block_hash,
         )
 
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            vaults=vaults,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            validator_stages=validator_stages,
+        )
+
         core_apr_ratio = calculate_gross_core_apr(
             pre_total_ether=simulation.pre_total_pooled_ether,
             pre_total_shares=simulation.pre_total_shares,
@@ -440,13 +447,6 @@ class Accounting(BaseModule, ConsensusModule):
             post_internal_shares=simulation.post_internal_shares,
             shares_minted_as_fees=simulation.shares_to_mint_as_fees,
             time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp),
-        )
-
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            vaults=vaults,
-            validators=validators,
-            pending_deposits=pending_deposits,
-            validator_stages=validator_stages,
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)

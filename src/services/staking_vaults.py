@@ -125,7 +125,7 @@ class StakingVaultsService:
                 # For not-yet-eligible validators, use lazy oracle stages:
                 # - PREDEPOSITED: add 1 ETH (guaranteed)
                 # - ACTIVATED: add full balance + pending deposits
-                # All other stages are skipped as not related to the non eligible for activation validators
+                # All other stages are skipped as not related to the non-eligible for activation validators
                 else:
                     stage = validator_stages.get(pubkey)
                     if stage == ValidatorStage.PREDEPOSITED:

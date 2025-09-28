@@ -13,12 +13,11 @@ from src.modules.accounting.types import (
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.types import hex_str_to_bytes
 
 logger = logging.getLogger(__name__)
 
 
-class VaultsLazyOracleContract(ContractInterface):
+class LazyOracleContract(ContractInterface):
     abi_path = './assets/LazyOracle.json'
 
     @lru_cache(maxsize=1)
@@ -28,28 +27,24 @@ class VaultsLazyOracleContract(ContractInterface):
         """
         response = self.functions.vaultsCount.call(block_identifier=block_identifier)
 
-        logger.info(
-            {
-                'msg': 'Call `vaultsCount().',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `vaultsCount().',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         return response
 
     def get_latest_report_data(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
         response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
-        logger.info(
-            {
-                'msg': 'Call `latestReportData()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `latestReportData()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         response = named_tuple_to_dataclass(response, OnChainIpfsVaultReportData)
         return response
@@ -62,33 +57,29 @@ class VaultsLazyOracleContract(ContractInterface):
 
         out: list[VaultInfo] = []
         for vault in response:
-            out.append(
-                VaultInfo(
-                    vault=vault.vault,
-                    aggregated_balance=vault.aggregateBalance,
-                    in_out_delta=vault.inOutDelta,
-                    withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
-                    liability_shares=vault.liabilityShares,
-                    max_liability_shares=vault.maxLiabilityShares,
-                    mintable_st_eth=vault.mintableStETH,
-                    share_limit=vault.shareLimit,
-                    reserve_ratio_bp=vault.reserveRatioBP,
-                    forced_rebalance_threshold_bp=vault.forcedRebalanceThresholdBP,
-                    infra_fee_bp=vault.infraFeeBP,
-                    liquidity_fee_bp=vault.liquidityFeeBP,
-                    reservation_fee_bp=vault.reservationFeeBP,
-                    pending_disconnect=vault.pendingDisconnect,
-                )
-            )
+            out.append(VaultInfo(
+                vault=vault.vault,
+                aggregated_balance=vault.aggregateBalance,
+                in_out_delta=vault.inOutDelta,
+                withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
+                liability_shares=vault.liabilityShares,
+                max_liability_shares=vault.maxLiabilityShares,
+                mintable_st_eth=vault.mintableStETH,
+                share_limit=vault.shareLimit,
+                reserve_ratio_bp=vault.reserveRatioBP,
+                forced_rebalance_threshold_bp=vault.forcedRebalanceThresholdBP,
+                infra_fee_bp=vault.infraFeeBP,
+                liquidity_fee_bp=vault.liquidityFeeBP,
+                reservation_fee_bp=vault.reservationFeeBP,
+                pending_disconnect=vault.pendingDisconnect,
+            ))
 
-        logger.info(
-            {
-                'msg': f'Call `batchVaultsInfo({offset}, {limit}).',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': f'Call `batchVaultsInfo({offset}, {limit}).',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         return out
 
@@ -126,17 +117,13 @@ class VaultsLazyOracleContract(ContractInterface):
             batch = list(map(HexBytes, pubkeys[i : i + batch_size]))
             response = self.functions.batchValidatorStages(batch).call(block_identifier=block_identifier)
 
-            logger.debug(
-                {
-                    'msg': 'Call `batchValidatorStages()`.',
-                    'count': len(batch),
-                    'block_identifier': repr(block_identifier),
-                    'to': self.address,
-                }
-            )
+            logger.debug({
+                'msg': 'Call `batchValidatorStages()`.',
+                'count': len(batch),
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            })
 
-            # Assume response is a list of ints corresponding to ValidatorStage enum values
-            for pubkey, stage in zip(batch, response):
-                out[pubkey.to_0x_hex()] = ValidatorStage(stage)
+            out.update({pk: ValidatorStage(stage) for pk, stage in zip(batch, response)})
 
         return out

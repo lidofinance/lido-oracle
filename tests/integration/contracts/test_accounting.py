@@ -1,13 +1,16 @@
 import pytest
 from web3.types import Wei
 
-from src.modules.accounting.types import ReportSimulationPayload, ReportSimulationResults
+from src.modules.accounting.types import (
+    ReportSimulationPayload,
+    ReportSimulationResults,
+)
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
 @pytest.mark.testnet  # TODO: Bounded to hoodie due to st. vaults task, move to mainnet after release
 @pytest.mark.integration
-@pytest.mark.skip
+@pytest.mark.skip("Some real numbers required for simulation to pass")
 def test_accounting_contract_call(accounting_contract, caplog):
     check_contract(
         accounting_contract,
