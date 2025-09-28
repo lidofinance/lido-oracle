@@ -2,7 +2,10 @@ import logging
 
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import ReportSimulationPayload, ReportSimulationResults
+from src.modules.accounting.types import (
+    ReportSimulationPayload,
+    ReportSimulationResults,
+)
 from src.providers.execution.base_interface import ContractInterface
 
 logger = logging.getLogger(__name__)
@@ -23,9 +26,7 @@ class AccountingContract(ContractInterface):
         plugging the returned values to the following formula: `_simulatedShareRate = (postTotalPooledEther * 1e27) / postTotalShares`
         """
 
-        response = self.functions.simulateOracleReport(payload.as_tuple()).call(
-            block_identifier=block_identifier
-        )
+        response = self.functions.simulateOracleReport(payload.as_tuple()).call(block_identifier=block_identifier)
 
         response = ReportSimulationResults(*response)
 

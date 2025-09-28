@@ -250,7 +250,7 @@ class ConsensusClient(HTTPProvider):
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
 
-    def get_validator_state(self, state_id: SlotNumber | BlockRoot, validator_id: int) -> Validator:
+    def get_validator_state(self, state_id: SlotNumber, validator_id: int) -> Validator:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"""
         data, _ = self._get(
             self.API_GET_VALIDATOR,

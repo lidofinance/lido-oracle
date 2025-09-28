@@ -231,7 +231,7 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
-    aggregate_balance: Wei
+    aggregated_balance: Wei
     in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
@@ -417,3 +417,10 @@ class PendingBalances:
     @property
     def max(self) -> Gwei:
         return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
+
+class ValidatorStage(Enum):
+    NONE = 0
+    PREDEPOSITED = 1
+    PROVEN = 2
+    ACTIVATED = 3
+    COMPENSATED = 4

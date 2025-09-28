@@ -13,8 +13,8 @@ from src.modules.accounting.third_phase.types import FormatList
 from src.modules.accounting.types import (
     AccountingProcessingState,
     ReportSimulationFeeDistribution,
-    ReportSimulationResults,
     ReportSimulationPayload,
+    ReportSimulationResults,
     VaultInfo,
     VaultsData,
     VaultsMap,
@@ -525,7 +525,7 @@ def test_simulate_rebase_after_report(
     ]
     vaults: VaultsMap = {
         ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
-            aggregate_balance=Wei(66951606691371698360),
+            aggregated_balance=Wei(66951606691371698360),
             in_out_delta=Wei(33000000000000000000),
             liability_shares=0,
             max_liability_shares=0,
@@ -541,7 +541,7 @@ def test_simulate_rebase_after_report(
             mintable_st_eth=0,
         ),
         ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
-            aggregate_balance=Wei(2500000000000000000),
+            aggregated_balance=Wei(2500000000000000000),
             in_out_delta=Wei(2500000000000000000),
             liability_shares=1,
             max_liability_shares=1,
