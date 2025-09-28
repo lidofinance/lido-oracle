@@ -6,6 +6,7 @@ from decimal import ROUND_UP, Decimal
 from typing import Any, Optional
 
 from eth_typing import BlockNumber
+from hexbytes import HexBytes
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
@@ -146,7 +147,7 @@ class StakingVaultsService:
     def _get_total_pending_amount_by_pubkey(
         pending_deposits: list[PendingDeposit],
     ) -> dict[str, Gwei]:
-        deposits = defaultdict(int)
+        deposits: defaultdict[str, int] = defaultdict(int)
         for deposit in pending_deposits:
             deposits[deposit.pubkey] += int(deposit.amount)
 
