@@ -6,6 +6,7 @@ from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 from src import variables
 from src.types import EpochNumber, SlotNumber, BlockRoot
 from src.utils.blockstamp import build_blockstamp
+from src.utils.api import opsgenie_api
 from src.utils.slot import get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -21,6 +22,8 @@ from src.web3py.types import Web3
 
 
 TITLE_PROPERTY_NAME = "test_title"
+
+_config = None
 
 
 @pytest.fixture()
@@ -101,6 +104,9 @@ class CustomTerminal(TerminalDistReporter):
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):
+    global _config
+    _config = config
+
     class SessionLike:
         config = None
 
@@ -133,10 +139,35 @@ def pytest_report_teststatus(report, config):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report) -> None:
+    global _config  # pylint: disable=global-variable-not-assigned
+    if _config is None:
+        return
+
+    class SessionLike:
+        config = None
+
+    session_like = SessionLike()
+    session_like.config = _config
+
+    if not is_xdist_controller(session_like):
+        return
+
     if report.when == 'setup' and not report.passed:
         print(report.head_line, end="")
     if report.when == 'call':
         print(report.head_line, end="")
+
+        if report.failed:
+            check_name = report.nodeid
+            reason = str(report.longrepr) if report.longrepr else 'Unknown failure reason'
+            opsgenie_api.send_opsgenie_alert({
+                'message': f'Oracle check: {check_name}',
+                'description': f'Reason: {reason}',
+                'priority': opsgenie_api.AlertPriority.MINOR.value,
+                'tags': ['oracle_checks', 'oracle'],
+                'details': {'alertname': 'OracleDailyChecks'},
+            })
+
     if report.when == 'teardown':
         print()
 

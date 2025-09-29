@@ -1,6 +1,6 @@
 from enum import Enum
 
-from prometheus_client import Gauge, Histogram, Counter, Info
+from prometheus_client import Counter, Gauge, Histogram, Info
 from prometheus_client.utils import INF
 
 from src.variables import PROMETHEUS_PREFIX
@@ -59,14 +59,6 @@ FUNCTIONS_DURATION = Histogram(
 )
 
 requests_buckets = (.01, .05, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 120.0, INF)
-
-EL_REQUESTS_DURATION = Histogram(
-    'el_requests_duration',
-    'Duration of requests to EL RPC',
-    ['endpoint', 'call_method', 'call_to', 'code', 'domain'],
-    namespace=PROMETHEUS_PREFIX,
-    buckets=requests_buckets,
-)
 
 CL_REQUESTS_DURATION = Histogram(
     'cl_requests_duration',

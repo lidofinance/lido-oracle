@@ -25,7 +25,7 @@ class ExtraDataService:
 
     itemPayload format:
     | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-    | moduleId | nodeOpsCount |      nodeOperatorIds     |   stuckOrExitedValsCount  |
+    | moduleId | nodeOpsCount |      nodeOperatorIds     |   exitedValsCount  |
 
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
@@ -33,14 +33,12 @@ class ExtraDataService:
     @classmethod
     def collect(
         cls,
-        stuck_validators: dict[NodeOperatorGlobalIndex, int],
         exited_validators: dict[NodeOperatorGlobalIndex, int],
         max_items_count_per_tx: int,
         max_no_in_payload_count: int,
     ) -> ExtraData:
-        stuck_payloads = cls.build_validators_payloads(stuck_validators, max_no_in_payload_count)
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
-        items_count, txs = cls.build_extra_transactions_data(stuck_payloads, exited_payloads, max_items_count_per_tx)
+        items_count, txs = cls.build_extra_transactions_data(exited_payloads, max_items_count_per_tx)
         first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
 
         if items_count:
@@ -87,12 +85,10 @@ class ExtraDataService:
     @classmethod
     def build_extra_transactions_data(
         cls,
-        stuck_payloads: list[ItemPayload],
         exited_payloads: list[ItemPayload],
         max_items_count_per_tx: int,
     ) -> tuple[int, list[bytes]]:
         all_payloads = [
-            *[(ItemType.EXTRA_DATA_TYPE_STUCK_VALIDATORS, payload) for payload in stuck_payloads],
             *[(ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, payload) for payload in exited_payloads],
         ]
 
@@ -111,7 +107,7 @@ class ExtraDataService:
                     for no_id in payload.node_operator_ids
                 )
                 tx_body += b''.join(
-                    count.to_bytes(ExtraDataLengths.STUCK_OR_EXITED_VALS_COUNT)
+                    count.to_bytes(ExtraDataLengths.EXITED_VALS_COUNT)
                     for count in payload.vals_counts
                 )
 

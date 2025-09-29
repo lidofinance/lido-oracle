@@ -9,17 +9,15 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
+    LidoValidator,
     NodeOperator,
     StakingModule,
-    LidoValidatorsProvider,
-    LidoValidator,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 TESTING_REF_EPOCH = 100
-
 
 blockstamp = ReferenceBlockStampFactory.build(
     ref_slot=9024,
@@ -29,12 +27,6 @@ blockstamp = ReferenceBlockStampFactory.build(
 
 @pytest.fixture
 def lido_validators(web3):
-    web3.attach_modules(
-        {
-            'lido_validators': LidoValidatorsProvider,
-        }
-    )
-
     sm = StakingModule(
         id=1,
         staking_module_address='0x8a1E2986E52b441058325c315f83C9D4129bDF72',
@@ -60,9 +52,7 @@ def lido_validators(web3):
                 is_active=True,
                 is_target_limit_active=False,
                 target_validators_count=0,
-                stuck_validators_count=0,
                 refunded_validators_count=0,
-                stuck_penalty_end_timestamp=0,
                 total_exited_validators=0,
                 total_deposited_validators=5,
                 depositable_validators_count=0,
@@ -73,9 +63,7 @@ def lido_validators(web3):
                 is_active=True,
                 is_target_limit_active=False,
                 target_validators_count=0,
-                stuck_validators_count=0,
                 refunded_validators_count=0,
-                stuck_penalty_end_timestamp=0,
                 total_exited_validators=1,
                 total_deposited_validators=5,
                 depositable_validators_count=0,
@@ -132,31 +120,13 @@ def lido_validators(web3):
 
 
 @pytest.fixture
-def validator_state(web3, contracts, consensus_client, lido_validators):
-    service = LidoValidatorStateService(web3)
-    service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
-        return_value=[3, 8]
-    )
-    return service
+def validator_state(web3, lido_validators):
+    return LidoValidatorStateService(web3)
 
 
 @pytest.fixture
 def chain_config():
     return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
-
-
-@pytest.mark.unit
-def test_get_lido_new_stuck_validators(web3, validator_state, chain_config):
-    validator_state.get_last_requested_to_exit_pubkeys = Mock(return_value={"0x8"})
-    validator_state.w3.lido_contracts.oracle_daemon_config.validator_delinquent_timeout_in_slots = Mock(return_value=0)
-    stuck_validators = validator_state.get_lido_newly_stuck_validators(blockstamp, chain_config)
-    assert stuck_validators == {(1, 0): 1}
-
-
-@pytest.mark.unit
-def test_get_operators_with_last_exited_validator_indexes(web3, validator_state):
-    indexes = validator_state.get_operators_with_last_exited_validator_indexes(blockstamp)
-    assert indexes == {(1, 0): 3, (1, 1): 8}
 
 
 @pytest.mark.unit
@@ -168,21 +138,25 @@ def test_get_lido_new_exited_validators(web3, validator_state):
 
 @pytest.mark.unit
 def test_get_recently_requested_validators_by_operator(monkeypatch, web3, validator_state):
-    mocked_events = [
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
-    ]
-    mock_get_events_in_past = Mock(return_value=mocked_events)
+    exit_event_lookback_window = 7200
+    mock_get_events_in_past = Mock(
+        return_value=[
+            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
+            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+        ]
+    )
     monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(
+        return_value=exit_event_lookback_window
+    )
 
-    global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
-
+    global_indexes = validator_state.get_recently_requested_to_exit_validators_by_node_operator(12, blockstamp)
     assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
     mock_get_events_in_past.assert_called_once_with(
         web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
         to_blockstamp=blockstamp,
-        for_slots=7200,
+        for_slots=exit_event_lookback_window,
         seconds_per_slot=12,
     )
 
@@ -195,7 +169,7 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
     ]
     mock_get_events_in_past = Mock(return_value=mocked_events)
     monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.validator_delayed_timeout_in_slots = Mock(return_value=7200)
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
 
     blockstamp = ReferenceBlockStampFactory.build(
         ref_slot=15392,
@@ -204,5 +178,6 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
     recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
         blockstamp, chain_config
     )
+    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 
-    assert [int(v.index) for v in recently_requested_validators] == [1, 5, 6]
+    assert [int(v.index) for v in recently_requested_validators] == [1]

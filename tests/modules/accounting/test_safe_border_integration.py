@@ -1,14 +1,13 @@
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from src.types import ReferenceBlockStamp
+from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.services.safe_border import SafeBorder
+from src.types import ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory, OracleReportLimitsFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
-
-from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 
 @pytest.fixture()
@@ -25,10 +24,6 @@ def finalization_max_negative_rebase_epoch_shift():
 def subject(
     past_blockstamp,
     web3,
-    contracts,
-    keys_api_client,
-    consensus_client,
-    lido_validators,
     finalization_max_negative_rebase_epoch_shift,
 ):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
@@ -42,7 +37,7 @@ def subject(
     return SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
 
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = False
 
@@ -51,7 +46,7 @@ def test_happy_path(subject, past_blockstamp: ReferenceBlockStamp):
     )
 
 
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockStamp):
     is_bunker_mode = True
 
@@ -63,7 +58,7 @@ def test_bunker_mode_negative_rebase(subject, past_blockstamp: ReferenceBlockSta
     )
 
 
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_bunker_mode_associated_slashing_predicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
@@ -90,7 +85,7 @@ def test_bunker_mode_associated_slashing_predicted(
     )
 
 
-@pytest.mark.possible_integration
+@pytest.mark.unit
 def test_bunker_mode_associated_slashing_unpredicted(
     subject: SafeBorder, past_blockstamp: ReferenceBlockStamp, finalization_max_negative_rebase_epoch_shift: int
 ):
@@ -103,8 +98,8 @@ def test_bunker_mode_associated_slashing_unpredicted(
     subject._get_bunker_start_or_last_successful_report_epoch = MagicMock(
         return_value=past_blockstamp.ref_epoch - finalization_max_negative_rebase_epoch_shift - 1
     )
-    subject._get_last_finalized_withdrawal_request_slot = MagicMock(
-        return_value=withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 2
+    subject._get_last_finalized_withdrawal_request_epoch = MagicMock(
+        return_value=(withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR - 2) // subject.chain_config.slots_per_epoch
     )
     subject.w3.lido_validators.get_lido_validators = MagicMock(
         return_value=[

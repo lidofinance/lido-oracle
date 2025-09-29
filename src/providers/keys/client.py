@@ -1,9 +1,9 @@
 from time import sleep
-from typing import cast, TypedDict, List
+from typing import List, TypedDict, cast
 
-from src.metrics.prometheus.basic import KEYS_API_REQUESTS_DURATION, KEYS_API_LATEST_BLOCKNUMBER
-from src.providers.http_provider import HTTPProvider, NotOkResponse
-from src.providers.keys.types import LidoKey, KeysApiStatus
+from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
+from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
+from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -63,21 +63,20 @@ class KeysAPIClient(HTTPProvider):
             if i != self.retry_count - 1:
                 sleep(self.backoff_factor)
 
-        raise KeysOutdatedException(f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.')
+        raise KeysOutdatedException(
+            f'Keys API Service stuck, no updates for {self.backoff_factor * self.retry_count} seconds.'
+        )
 
     @lru_cache(maxsize=1)
     def get_used_lido_keys(self, blockstamp: BlockStamp) -> list[LidoKey]:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
-        data = list(map(lambda x: LidoKey.from_response(**x), self._get_with_blockstamp(self.USED_KEYS, blockstamp)))
+        data = [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
         self._check_used_keys(data)
         return data
 
-
     @lru_cache(maxsize=1)
     def get_used_module_operators_keys(
-        self,
-        module_address: StakingModuleAddress,
-        blockstamp: BlockStamp,
+        self, module_address: StakingModuleAddress, blockstamp: BlockStamp
     ) -> ModuleOperatorsKeys:
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
@@ -93,12 +92,12 @@ class KeysAPIClient(HTTPProvider):
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
-        data, _ = self._get(self.STATUS)
-        return KeysApiStatus.from_response(**cast(dict, data))
+        data, _ = self._get(self.STATUS, retval_validator=data_is_dict)
+        return KeysApiStatus.from_response(**data)
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
-        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS)
-        return KeysApiStatus.from_response(**cast(dict, data)).chainId
+        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, retval_validator=data_is_dict)
+        return KeysApiStatus.from_response(**data).chainId
 
     def _check_used_keys(self, keys: list[LidoKey]):
         keys_seen: dict[str, LidoKey] = {}
