@@ -1,5 +1,4 @@
 import pytest
-from hexbytes import HexBytes
 
 from src.modules.accounting.types import OnChainIpfsVaultReportData
 from tests.integration.contracts.contract_utils import check_contract, check_value_type

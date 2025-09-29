@@ -414,7 +414,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
-            return (ZERO_HASH, '')
+            return ZERO_HASH, ''
 
         current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
@@ -423,21 +423,11 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
-        non_eligible_for_activation_pubkeys = self.staking_vaults.get_non_eligible_for_activation_pubkeys(
-            vaults=vaults,
-            validators=validators,
-        )
-
-        validator_stages = self.w3.lido_contracts.lazy_oracle.get_validator_stages(
-            pubkeys=non_eligible_for_activation_pubkeys,
-            block_identifier=blockstamp.block_hash,
-        )
-
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
-            validator_stages=validator_stages,
+            block_identifier=blockstamp.block_hash
         )
 
         core_apr_ratio = calculate_gross_core_apr(

@@ -574,11 +574,13 @@ class TestStakingVaults:
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, validator_stages
-        )
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
         expected_vault_adr_0 = sum(
             [
@@ -690,9 +692,15 @@ class TestStakingVaults:
             "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124": ValidatorStage.ACTIVATED,
         }
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            self.vaults, validators, pending_deposits, validator_stages
-        )
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
         expected_vault_adr_0 = sum(
             [

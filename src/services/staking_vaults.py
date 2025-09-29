@@ -6,7 +6,6 @@ from decimal import ROUND_UP, Decimal
 from typing import Any, Optional
 
 from eth_typing import BlockNumber
-from hexbytes import HexBytes
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
@@ -46,10 +45,11 @@ from src.modules.accounting.types import (
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.ipfs import CID
-from src.types import BlockHash, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.slot import get_blockstamp
 from src.utils.units import gwei_to_wei
+from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -63,50 +63,38 @@ class StakingVaultsService:
     def __init__(self, w3: Web3) -> None:
         self.w3 = w3
 
-    def get_vaults(self, block_identifier: BlockHash | BlockNumber) -> VaultsMap:
+    def get_vaults(self, block_identifier: BlockIdentifier = 'latest') -> VaultsMap:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         return VaultsMap({v.vault: v for v in vaults})
-
-    def get_non_eligible_for_activation_pubkeys(
-        self,
-        vaults: VaultsMap,
-        validators: list[Validator],
-    ) -> list[str]:
-        """
-        Returns the pubkeys of the validators that are not eligible for activation.
-        """
-        wcs = [v.withdrawal_credentials for v in vaults.values()]
-        return [
-            v.pubkey.to_0x_hex()
-            for v in validators
-            if v.validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
-            and v.validator.withdrawal_credentials in wcs
-        ]
 
     def get_vaults_total_values(
         self,
         vaults: VaultsMap,
         validators: list[Validator],
         pending_deposits: list[PendingDeposit],
-        validator_stages: dict[str, ValidatorStage],
+        block_identifier: BlockIdentifier = 'latest',
     ) -> VaultTotalValueMap:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
 
         A validator is included in the TV calculation if EITHER of the following conditions is true:
 
-        1. Already passed activation eligibility (see `_is_already_passed_activation_eligibility`)
-        2. Ready for activation (but not yet eligible) (see `_is_ready_for_activation`)
+        1. Already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+        2. If not yet passed activation eligibility, the validator then is checked over the lazy oracle stages:
+            - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
+            - ACTIVATED: add full balance + pending deposits to TV, as the validator is for sure will be activated
 
-        NB: According to the PDG validator proving flow, a validator starts with 1 ETH on the consensus layer from the
-            predeposit. Once the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
-            as a pending deposit. If pending deposits are ignored, the TV would seem to drop by 32 ETH until the
-            pending deposit is processed and the validator activates. To prevent this artificial dip, the calculation
-            of a validator's total balance should include pending deposits (of 31+ ETH) and count such validators in
-            the total value (TV) as soon as the proof is submitted.
+        # NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
+        #     predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
+        #     as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
+        #     until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
+        #     the calculation of a validator's total balance must include all pending deposits, but only for those
+        #     validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
+        #     validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
+        inactive_validator_stages = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -127,7 +115,7 @@ class StakingVaultsService:
                 # - ACTIVATED: add full balance + pending deposits
                 # All other stages are skipped as not related to the non-eligible for activation validators
                 else:
-                    stage = validator_stages.get(validator_pubkey, ValidatorStage.NONE)
+                    stage = inactive_validator_stages.get(validator_pubkey, ValidatorStage.NONE)
                     if stage == ValidatorStage.PREDEPOSITED:
                         vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
                     elif stage == ValidatorStage.ACTIVATED:
@@ -140,6 +128,29 @@ class StakingVaultsService:
             })
 
         return total_values
+
+    def _get_non_activated_validator_stages(
+        self,
+        validators: list[Validator],
+        vaults: VaultsMap,
+        block_identifier: BlockIdentifier = 'latest',
+    ) -> dict[str, ValidatorStage]:
+        """
+        Get validator stages for non-activated validators for connected vaults from the lazy oracle.
+        """
+
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+        pubkeys = [
+            v.pubkey.to_0x_hex()
+            for v in validators
+            if has_far_future_activation_eligibility_epoch(v.validator)
+            and v.validator.withdrawal_credentials in vault_wcs
+        ]
+
+        return self.w3.lido_contracts.lazy_oracle.get_validator_stages(
+            pubkeys=pubkeys,
+            block_identifier=block_identifier,
+        )
 
     @staticmethod
     def _get_total_pending_amount_by_pubkey(

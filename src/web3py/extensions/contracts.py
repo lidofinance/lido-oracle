@@ -157,11 +157,11 @@ class LidoContracts(Module):
             ),
         )
 
-        self.lazy_oracle: VaultsLazyOracleContract = cast(
-            VaultsLazyOracleContract,
+        self.lazy_oracle: LazyOracleContract = cast(
+            LazyOracleContract,
             self.w3.eth.contract(
                 address=self.lido_locator.lazy_oracle(),
-                ContractFactoryClass=VaultsLazyOracleContract,
+                ContractFactoryClass=LazyOracleContract,
                 decode_tuples=True,
             ),
         )
