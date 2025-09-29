@@ -99,7 +99,7 @@ MAX_CYCLE_LIFETIME_IN_SECONDS: Final = int(os.getenv("MAX_CYCLE_LIFETIME_IN_SECO
 CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
 
 VAULT_PAGINATION_LIMIT: Final = int(os.getenv("VAULT_PAGINATION_LIMIT", 1_000))
-
+VAULT_VALIDATOR_STAGES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STAGES_BATCH_SIZE", 1_00))
 
 def check_all_required_variables(module: OracleModule):
     errors = check_uri_required_variables()
@@ -161,6 +161,7 @@ PUBLIC_ENV_VARS = {
         'MAX_CYCLE_LIFETIME_IN_SECONDS': MAX_CYCLE_LIFETIME_IN_SECONDS,
         'CACHE_PATH': CACHE_PATH,
         'VAULT_PAGINATION_LIMIT': VAULT_PAGINATION_LIMIT,
+        'VAULT_VALIDATOR_STAGES_BATCH_SIZE': VAULT_VALIDATOR_STAGES_BATCH_SIZE,
     }.items()
 }
 

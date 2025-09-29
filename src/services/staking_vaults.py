@@ -113,33 +113,31 @@ class StakingVaultsService:
             vault_total: int = int(vault.aggregated_balance)
 
             for validator in validators_by_vault.get(vault_address, []):
-                pubkey = validator.pubkey.to_0x_hex()
-                pending_balance = total_pending_amount_by_pubkey.get(pubkey, Gwei(0))
-                total_balance = gwei_to_wei(Gwei(validator.balance + pending_balance))
+                validator_pubkey = validator.pubkey.to_0x_hex()
+                validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
+                total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
 
                 # NB: Include validator balance and all pending deposits in TV when validator is eligible for activation
                 #     or has already passed activation: activation_eligibility_epoch stays unchanged != FAR_FUTURE_EPOCH
                 if validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH:
-                    vault_total += int(total_balance)
+                    vault_total += int(total_validator_balance)
 
                 # For not-yet-eligible validators, use lazy oracle stages:
                 # - PREDEPOSITED: add 1 ETH (guaranteed)
                 # - ACTIVATED: add full balance + pending deposits
                 # All other stages are skipped as not related to the non-eligible for activation validators
                 else:
-                    stage = validator_stages.get(pubkey)
+                    stage = validator_stages.get(validator_pubkey, ValidatorStage.NONE)
                     if stage == ValidatorStage.PREDEPOSITED:
                         vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
                     elif stage == ValidatorStage.ACTIVATED:
-                        vault_total += int(total_balance)
+                        vault_total += int(total_validator_balance)
 
             total_values[vault_address] = Wei(vault_total)
-            logger.info(
-                {
-                    'msg': f'Calculate vault TVL: {vault_address}.',
-                    'value': total_values[vault_address],
-                }
-            )
+            logger.info({
+                'msg': f'Calculate vault TVL: {vault_address}.',
+                'value': total_values[vault_address],
+            })
 
         return total_values
 
@@ -266,12 +264,10 @@ class StakingVaultsService:
         def stringify_values(data) -> list[dict[str, str | int]]:
             out = []
             for item in data:
-                out.append(
-                    {
-                        "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
-                        "treeIndex": item["treeIndex"],
-                    }
-                )
+                out.append({
+                    "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
+                    "treeIndex": item["treeIndex"],
+                })
             return out
 
         values = stringify_values(tree.values)
@@ -329,16 +325,14 @@ class StakingVaultsService:
             if vault_address not in vaults_fees:
                 raise ValueError(f'Vault {vault_address} is not in vaults_fees')
 
-            tree_data.append(
-                (
-                    vault_address,
-                    Wei(vaults_total_values[vault_address]),
-                    vaults_fees[vault_address].total(),
-                    vault.liability_shares,
-                    vault.max_liability_shares,
-                    vaults_slashing_reserve.get(vault_address, 0),
-                )
-            )
+            tree_data.append((
+                vault_address,
+                Wei(vaults_total_values[vault_address]),
+                vaults_fees[vault_address].total(),
+                vault.liability_shares,
+                vault.max_liability_shares,
+                vaults_slashing_reserve.get(vault_address, 0),
+            ))
 
         return tree_data
 
@@ -349,16 +343,14 @@ class StakingVaultsService:
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
-            tree_data.append(
-                (
-                    vault.vault_address,
-                    vault.total_value_wei,
-                    vault.fee,
-                    vault.liability_shares,
-                    vault.max_liability_shares,
-                    vault.slashing_reserve,
-                )
-            )
+            tree_data.append((
+                vault.vault_address,
+                vault.total_value_wei,
+                vault.fee,
+                vault.liability_shares,
+                vault.max_liability_shares,
+                vault.slashing_reserve,
+            ))
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)
         root_hex = f'0x{rebuild_merkle_tree.root.hex()}'

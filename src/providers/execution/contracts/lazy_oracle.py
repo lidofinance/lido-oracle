@@ -106,7 +106,10 @@ class LazyOracleContract(ContractInterface):
         return vaults
 
     def get_validator_stages(
-        self, pubkeys: list[str], batch_size: int = 100, block_identifier: BlockIdentifier = 'latest'
+        self,
+        pubkeys: list[str],
+        batch_size: int = variables.VAULT_VALIDATOR_STAGES_BATCH_SIZE,
+        block_identifier: BlockIdentifier = 'latest'
     ) -> dict[str, ValidatorStage]:
         """
         Fetch validator stages for a list of pubkeys, batching requests for efficiency.
@@ -124,6 +127,8 @@ class LazyOracleContract(ContractInterface):
                 'to': self.address,
             })
 
-            out.update({pk: ValidatorStage(stage) for pk, stage in zip(batch, response)})
+            out.update({
+                str(pk): ValidatorStage(stage) for pk, stage in zip(batch, response)
+            })
 
         return out
