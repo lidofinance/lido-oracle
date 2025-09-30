@@ -1,6 +1,8 @@
 import logging
 import re
-from typing import Any, Callable, Type
+from dataclasses import is_dataclass, fields
+from types import UnionType
+from typing import Any, Callable, Type, get_type_hints, get_origin
 
 from eth_typing import Address, ChecksumAddress
 
@@ -37,11 +39,34 @@ def check_contract(
 def check_is_instance_of(type_: Type) -> Callable[[FuncArgs], None]:
     if type_ is Address or type_ is ChecksumAddress:
         return lambda resp: check_is_address(resp) and check_value_type(resp, type_)
+
+    if is_dataclass(type_):
+        return lambda resp: check_dataclass_types(resp, type_)
+
     return lambda resp: check_value_type(resp, type_)
 
 
 def check_value_type(value, type_) -> None:
     assert isinstance(value, type_), f"Got invalid type={type(value)}, expected={repr(type_)}"
+
+
+def check_dataclass_types(instance, dataclass_type_) -> None:
+    hints = get_type_hints(dataclass_type_)  # declared types
+    for f in fields(instance):
+        value = getattr(instance, f.name)
+        expected_type = hints[f.name]
+
+        # If an annotation was created using NewType, we have to find the base type.
+        while hasattr(expected_type, "__supertype__"):
+            expected_type = expected_type.__supertype__
+
+        if origin := get_origin(expected_type):
+            if origin is not UnionType:
+                expected_type = origin
+        elif hasattr(expected_type, "__base__"):
+            expected_type = expected_type.__base__
+
+        assert isinstance(value, expected_type), f"Got invalid type={type(value)}, expected={repr(origin)}"
 
 
 def check_is_address(resp: FuncResp) -> None:

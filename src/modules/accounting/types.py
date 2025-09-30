@@ -103,7 +103,7 @@ class LidoReportRebase:
 class BatchState:
     remaining_eth_budget: int
     finished: bool
-    batches: tuple[int, ...]
+    batches: list[int]
     batches_length: int
 
     def as_tuple(self):
