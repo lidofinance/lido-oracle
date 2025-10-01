@@ -523,7 +523,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number
+            return None, ref_block.block_number + 1
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
