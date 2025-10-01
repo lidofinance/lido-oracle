@@ -6,14 +6,14 @@ from eth_typing import BlockNumber
 @pytest.mark.integration
 class TestStakingVaultsContractsSmoke:
 
-    @pytest.mark.skip
+    @pytest.mark.skip("No events in the range, need to update the test")
     def test_get_burned_events(self, web3_integration):
         events = web3_integration.lido_contracts.vault_hub.get_burned_events(
             BlockNumber(1272666 - 1_000), BlockNumber(1272666)
         )
         assert len(events) != 0
 
-    @pytest.mark.skip
+    @pytest.mark.skip("No events in the range, need to update the test")
     def test_get_minted_events(self, web3_integration):
         events = web3_integration.lido_contracts.vault_hub.get_minted_events(
             BlockNumber(1272666 - 1_000), BlockNumber(1272666)
@@ -26,7 +26,7 @@ class TestStakingVaultsContractsSmoke:
         )
         assert len(events) == 0
 
-    @pytest.mark.skip
+    @pytest.mark.skip("Distribution disabled on devnet")
     def test_staking_fee_aggregate_distribution(self, web3_integration):
         out = web3_integration.lido_contracts.staking_router.get_staking_fee_aggregate_distribution()
         assert 0 != out.lido_fee_bp()

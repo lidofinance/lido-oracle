@@ -243,12 +243,14 @@ class Accounting(BaseModule, ConsensusModule):
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info({
             'msg': 'Calculate Lido validators state balance (in Gwei)',
-            'value': lido_validators_state_balance
+            'value': lido_validators_state_balance,
         })
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationBatches, FinalizationShareRate]:
+    def _get_finalization_data(
+        self, blockstamp: ReferenceBlockStamp
+    ) -> tuple[FinalizationBatches, FinalizationShareRate]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -412,7 +414,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
-            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', ''
+            return ZERO_HASH, ''
 
         current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
@@ -421,6 +423,13 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            vaults=vaults,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier=blockstamp.block_hash
+        )
+
         core_apr_ratio = calculate_gross_core_apr(
             pre_total_ether=simulation.pre_total_pooled_ether,
             pre_total_shares=simulation.pre_total_shares,
@@ -428,12 +437,6 @@ class Accounting(BaseModule, ConsensusModule):
             post_internal_shares=simulation.post_internal_shares,
             shares_minted_as_fees=simulation.shares_to_mint_as_fees,
             time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp),
-        )
-
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            vaults=vaults,
-            validators=validators,
-            pending_deposits=pending_deposits,
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)
