@@ -1,5 +1,6 @@
 import logging
 
+from web3 import Web3
 from web3.types import Wei, BlockIdentifier
 
 from src.modules.accounting.types import BeaconStat
@@ -68,3 +69,25 @@ class LidoContract(ContractInterface):
             'to': self.address,
         })
         return response
+
+    @lru_cache(maxsize=1)
+    def get_withdrawal_credentials(self, block_identifier: BlockIdentifier = 'latest') -> str:
+        """
+        Returns withdrawal credentials used by the Lido protocol for all validators.
+
+        These credentials are used to identify validators managed by the Lido protocol
+        and are checked against pending deposits to ensure they belong to Lido.
+
+        Returns:
+            str: 32-byte withdrawal credentials in hex format (0x...)
+        """
+        response = self.functions.getWithdrawalCredentials().call(block_identifier=block_identifier)
+        result = Web3.to_hex(response)
+
+        logger.info({
+            'msg': 'Call `getWithdrawalCredentials()`.',
+            'value': result,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+        return result
