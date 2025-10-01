@@ -10,7 +10,6 @@ from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
 from src.constants import (
-    FAR_FUTURE_EPOCH,
     MIN_DEPOSIT_AMOUNT,
     TOTAL_BASIS_POINTS,
 )
@@ -79,18 +78,20 @@ class StakingVaultsService:
 
         A validator is included in the TV calculation if EITHER of the following conditions is true:
 
-        1. Already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
-        2. If not yet passed activation eligibility, the validator then is checked over the lazy oracle stages:
+        1. It has already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+            - add full balance + pending deposits are added to TV, as the validator is for sure will be activated
+        2. If not-yet-eligible, then validator is checked over the registered PDG validator stages:
             - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
-            - ACTIVATED: add full balance + pending deposits to TV, as the validator is for sure will be activated
+            - ACTIVATED: count as `already passed activation`, thus add full balance + pending deposits to TV
+            - all other stages are skipped as not related to the non-eligible for activation validators
 
-        # NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
-        #     predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
-        #     as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
-        #     until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
-        #     the calculation of a validator's total balance must include all pending deposits, but only for those
-        #     validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
-        #     validator becomes eligible for activation.
+        NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
+            predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
+            as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
+            until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
+            the calculation of a validator's total balance must include all pending deposits, but only for those
+            validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
+            validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
@@ -105,12 +106,12 @@ class StakingVaultsService:
                 validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
                 total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
 
-                # NB: Include validator balance and all pending deposits in TV when validator is eligible for activation
-                #     or has already passed activation: activation_eligibility_epoch stays unchanged != FAR_FUTURE_EPOCH
-                if validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH:
+                # Include validator balance and all pending deposits in TV when validator is eligible for activation or
+                # has already passed activation
+                if not has_far_future_activation_eligibility_epoch(validator.validator):
                     vault_total += int(total_validator_balance)
 
-                # For not-yet-eligible validators, use lazy oracle stages:
+                # For not-yet-eligible validators, use PDG stages:
                 # - PREDEPOSITED: add 1 ETH (guaranteed)
                 # - ACTIVATED: add full balance + pending deposits
                 # All other stages are skipped as not related to the non-eligible for activation validators
@@ -136,7 +137,7 @@ class StakingVaultsService:
         block_identifier: BlockIdentifier = 'latest',
     ) -> dict[str, ValidatorStage]:
         """
-        Get validator stages for non-activated validators for connected vaults from the lazy oracle.
+        Get PDG validator stages for non-activated validators for connected vaults from the lazy oracle.
         """
 
         vault_wcs = {v.withdrawal_credentials for v in vaults.values()}

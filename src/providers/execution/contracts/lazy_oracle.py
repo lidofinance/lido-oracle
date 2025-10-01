@@ -59,7 +59,7 @@ class LazyOracleContract(ContractInterface):
         for vault in response:
             out.append(VaultInfo(
                 vault=vault.vault,
-                aggregated_balance=vault.aggregateBalance,
+                aggregated_balance=vault.aggregatedBalance,
                 in_out_delta=vault.inOutDelta,
                 withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
                 liability_shares=vault.liabilityShares,
