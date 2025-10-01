@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Upgrade lido-sdk library to new one to increase performance ([#0135](https://github.com/lidofinance/lido-oracle/pull/135))
-- Various improves for DockerFile (added multistage, permissions, healthcheck) ([#0132](https://github.com/lidofinance/lido-oracle/pull/132))
+- Various improvements for DockerFile (added multistage, permissions, healthcheck) ([#0132](https://github.com/lidofinance/lido-oracle/pull/132))
 
 ### Fixed
 - Upgrade pip in DockerFile ([#0138](https://github.com/lidofinance/lido-oracle/pull/138))
