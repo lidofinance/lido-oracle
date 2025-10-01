@@ -177,9 +177,12 @@ class FrameCheckpointProcessor:
         pivot_index = checkpoint_slot % SLOTS_PER_HISTORICAL_ROOT
         # The oldest root can be missing, so we need to check it and mark it as well as other missing slots
         pivot_block_root = br[pivot_index]
-        slot_by_pivot_block_root = self.cc.get_block_header(pivot_block_root).data.header.message.slot
-        calculated_pivot_slot = max(checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT, 0)
-        is_pivot_missing = slot_by_pivot_block_root != calculated_pivot_slot
+        if pivot_block_root == ZERO_BLOCK_ROOT:
+            is_pivot_missing = True
+        else:
+            slot_by_pivot_block_root = self.cc.get_block_header(pivot_block_root).data.header.message.slot
+            calculated_pivot_slot = max(checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT, 0)
+            is_pivot_missing = slot_by_pivot_block_root != calculated_pivot_slot
 
         # Replace duplicated roots with `None` to mark missing slots
         br = [
