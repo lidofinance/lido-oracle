@@ -8,19 +8,30 @@ from src.providers.execution.contracts.accounting import AccountingContract
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.burner import BurnerContract
 from src.providers.execution.contracts.cs_accounting import CSAccountingContract
-from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from src.providers.execution.contracts.cs_fee_distributor import (
+    CSFeeDistributorContract,
+)
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract
+from src.providers.execution.contracts.cs_parameters_registry import (
+    CSParametersRegistryContract,
+)
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
-from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
+from src.providers.execution.contracts.oracle_daemon_config import (
+    OracleDaemonConfigContract,
+)
+from src.providers.execution.contracts.oracle_report_sanity_checker import (
+    OracleReportSanityCheckerContract,
+)
 from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.lazy_oracle import VaultsLazyOracleContract
-from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.contracts.withdrawal_queue_nft import (
+    WithdrawalQueueNftContract,
+)
 
 
 @pytest.fixture
@@ -136,8 +147,17 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
 def vault_hub_contract(web3_provider_integration, lido_locator_contract):
     return get_contract(
         web3_provider_integration,
-        VaultsLazyOracleContract,
+        VaultHubContract,
         lido_locator_contract.vault_hub(),
+    )
+
+
+@pytest.fixture
+def lazy_oracle_contract(web3_provider_integration, lido_locator_contract):
+    return get_contract(
+        web3_provider_integration,
+        LazyOracleContract,
+        lido_locator_contract.lazy_oracle(),
     )
 
 

@@ -9,8 +9,16 @@ from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
+from src.modules.csm.checkpoint import (
+    FrameCheckpointProcessor,
+    FrameCheckpointsIterator,
+    MinStepIsNotReached,
+)
+from src.modules.csm.distribution import (
+    Distribution,
+    DistributionResult,
+    StrikesValidator,
+)
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -96,12 +104,12 @@ class CSOracle(BaseModule, ConsensusModule):
         if distribution.total_rewards:
             rewards_tree = self.make_rewards_tree(distribution.total_rewards_map)
             rewards_tree_root = rewards_tree.root
-            rewards_cid = self.publish_tree(rewards_tree, blockstamp)
+            rewards_cid = self.publish_tree(rewards_tree)
 
         if distribution.strikes:
             strikes_tree = self.make_strikes_tree(distribution.strikes)
             strikes_tree_root = strikes_tree.root
-            strikes_cid = self.publish_tree(strikes_tree, blockstamp)
+            strikes_cid = self.publish_tree(strikes_tree)
             if strikes_tree_root == last_report.strikes_tree_root:
                 logger.info({"msg": "Strikes tree is the same as the previous one"})
             if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
@@ -110,7 +118,7 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
 
-        logs_cid = self.publish_log(distribution.logs, blockstamp)
+        logs_cid = self.publish_log(distribution.logs)
 
         return ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
@@ -157,8 +165,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
 
-        consensus_version = self.get_consensus_version(blockstamp)
-
         logger.info({"msg": "Collecting data for the report"})
 
         converter = self.converter(blockstamp)
@@ -189,7 +195,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame, consensus_version)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
         if self.state.is_fulfilled:
@@ -242,16 +248,14 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree, blockstamp: ReferenceBlockStamp) -> CID:
-        current_frame = self.get_frame_number_by_slot(blockstamp)
-        tree_cid = self.w3.ipfs.publish(tree.encode(), current_frame)
-        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid), "current_frame": current_frame})
+    def publish_tree(self, tree: Tree) -> CID:
+        tree_cid = self.w3.ipfs.publish(tree.encode())
+        logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 
-    def publish_log(self, logs: list[FramePerfLog], blockstamp: ReferenceBlockStamp) -> CID:
-        current_frame = self.get_frame_number_by_slot(blockstamp)
-        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs), current_frame)
-        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid), "current_frame": current_frame})
+    def publish_log(self, logs: list[FramePerfLog]) -> CID:
+        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs))
+        logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
         return log_cid
 
     @lru_cache(maxsize=1)

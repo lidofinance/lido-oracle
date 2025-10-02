@@ -66,13 +66,13 @@ class TestIPFS:
         initial_providers_order = ipfs.providers[:]
 
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
-        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "test")
+        ipfs.publish(HARDCODED_PUBLISH_CONTENT, "test")
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(2))
 
         assert ipfs.providers == initial_providers_order
 
     @patch('random.shuffle')
-    def test_provider_selection__different_frames__rotates_providers(
+    def test_provider_selection__different_frames__rotates_providers_for_fetch_only(
         self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
     ):
         mock_shuffle.return_value = None
@@ -81,17 +81,14 @@ class TestIPFS:
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(0))
         assert ipfs.provider == mock_provider1
 
-        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "")
+        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(1))
         assert ipfs.provider == mock_provider2
 
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(2))
         assert ipfs.provider == mock_provider1
 
-        ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(3))
-        assert ipfs.provider == mock_provider2
-
     @patch('random.shuffle')
-    def test_provider_selection__same_frame__keeps_same_provider(
+    def test_provider_selection__same_frame__keeps_same_provider_for_fetch(
         self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
     ):
         mock_shuffle.return_value = None
@@ -101,9 +98,6 @@ class TestIPFS:
         assert ipfs.provider == mock_provider2
 
         ipfs.fetch(HARDCODED_FETCH_CID, FrameNumber(1))
-        assert ipfs.provider == mock_provider2
-
-        ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(1), "")
         assert ipfs.provider == mock_provider2
 
     def test_fetch__valid_cid__returns_content(self, mock_w3, mock_provider1):
@@ -114,7 +108,7 @@ class TestIPFS:
     def test_publish__valid_content__returns_cid(self, mock_w3, mock_provider1):
         ipfs = IPFS(mock_w3, [mock_provider1])
         name = "any_name"
-        cid = ipfs.publish(HARDCODED_PUBLISH_CONTENT, FrameNumber(0), name)
+        cid = ipfs.publish(HARDCODED_PUBLISH_CONTENT, name)
         assert cid == HARDCODED_PUBLISH_CID
 
     def test_fetch__first_attempt_fails__retries_and_succeeds(self, mock_w3, mock_provider1):
@@ -174,7 +168,7 @@ class TestIPFS:
         provider = mock_provider1
         provider.publish = MagicMock(side_effect=[IPFSError("fail"), HARDCODED_PUBLISH_CID])
         ipfs = IPFS(mock_w3, [provider], retries=2)
-        result = ipfs.publish(b"test", FrameNumber(0), "test")
+        result = ipfs.publish(b"test", "test")
         assert result == HARDCODED_PUBLISH_CID
         assert provider.publish.call_count == 2
 
@@ -182,23 +176,22 @@ class TestIPFS:
         provider = mock_provider1
         provider.publish = MagicMock(side_effect=IPFSError("fail"))
         ipfs = IPFS(mock_w3, [provider], retries=3)
-        with pytest.raises(NoMoreProvidersError) as excinfo:
-            ipfs.publish(b"test", FrameNumber(0), "test")
-        assert isinstance(excinfo.value.__cause__, MaxRetryError)
+        with pytest.raises(NoMoreProvidersError):
+            ipfs.publish(b"test", "test")
         assert provider.publish.call_count == 3
 
     @patch('random.shuffle')
-    def test_publish__first_provider_fails__falls_back_to_second_provider(
+    def test_publish__all_providers_succeed__uploads_to_all_providers(
         self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
     ):
         mock_shuffle.return_value = None
         provider1 = mock_provider1
-        provider1.publish = MagicMock(side_effect=Exception("fail"))
+        provider1.publish = MagicMock(return_value=HARDCODED_PUBLISH_CID)
         provider2 = mock_provider2
         provider2.publish = MagicMock(return_value=HARDCODED_PUBLISH_CID)
 
         ipfs = IPFS(mock_w3, [provider1, provider2])
-        result = ipfs.publish(b"test", FrameNumber(0), "test")
+        result = ipfs.publish(b"test", "test")
 
         assert result == HARDCODED_PUBLISH_CID
         assert provider1.publish.call_count == 1
@@ -216,9 +209,25 @@ class TestIPFS:
 
         ipfs = IPFS(mock_w3, [provider1, provider2])
 
-        with pytest.raises(NoMoreProvidersError) as excinfo:
-            ipfs.publish(b"test", FrameNumber(0), "test")
-        assert "fail2" in str(excinfo.value.__cause__)
+        with pytest.raises(NoMoreProvidersError):
+            ipfs.publish(b"test", "test")
 
+        assert provider1.publish.call_count == 1
+        assert provider2.publish.call_count == 1
+
+    @patch('random.shuffle')
+    def test_publish__some_providers_fail_some_succeed__returns_successful_cid(
+        self, mock_shuffle, mock_w3, mock_provider1, mock_provider2
+    ):
+        mock_shuffle.return_value = None
+        provider1 = mock_provider1
+        provider1.publish = MagicMock(side_effect=Exception("fail"))
+        provider2 = mock_provider2
+        provider2.publish = MagicMock(return_value=HARDCODED_PUBLISH_CID)
+
+        ipfs = IPFS(mock_w3, [provider1, provider2])
+        result = ipfs.publish(b"test", "test")
+
+        assert result == HARDCODED_PUBLISH_CID
         assert provider1.publish.call_count == 1
         assert provider2.publish.call_count == 1

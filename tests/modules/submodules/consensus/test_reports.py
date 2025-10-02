@@ -65,6 +65,7 @@ def test_process_report_main(consensus, caplog):
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
         vaults_tree_root=bytes([0]),
         vaults_tree_cid="tree_cid",
         is_bunker=True,
@@ -95,6 +96,7 @@ def test_hash_calculations(consensus):
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
         vaults_tree_root=bytes([0]),
         vaults_tree_cid="tree_cid",
         is_bunker=True,
@@ -104,7 +106,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0x67121dd95e262d76aee8747047ae886205e0316661bb7eed9ba407a6b0e61f7f')
+    assert report_hash == HexBytes('0xa55c15fa50d7c974798712ea60ef4dcbc94644c53759c16f69ea5d60e4c2de21')
 
 
 # ------ Process report hash -----------
@@ -237,6 +239,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
         vaults_tree_root=bytes([0]),
         vaults_tree_cid="tree_cid",
         is_bunker=True,
@@ -298,6 +301,7 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
         withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
         is_bunker=True,
         vaults_tree_root=bytes([0]),
         vaults_tree_cid="tree_cid",

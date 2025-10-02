@@ -1,6 +1,6 @@
-from src.modules.accounting.types import ReportResults
+from src.modules.accounting.types import ReportSimulationResults
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
-class ReportResultsFactory(Web3DataclassFactory[ReportResults]):  # noqa: E701
+class ReportSimulationResultsFactory(Web3DataclassFactory[ReportSimulationResults]):  # noqa: E701
     ...

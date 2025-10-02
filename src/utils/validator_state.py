@@ -49,6 +49,13 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
     )
 
 
+def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bool:
+    """
+    Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
+    """
+    return validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
+
+
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
     """
     Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal credential.

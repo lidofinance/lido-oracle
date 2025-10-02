@@ -7,8 +7,15 @@ from dataclasses import dataclass, field
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import Frame, State, ValidatorDuties
-from src.modules.csm.types import RewardsShares, StrikesList, StrikesValidator, ParticipationShares
-from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
+from src.modules.csm.types import (
+    ParticipationShares,
+    RewardsShares,
+    StrikesList,
+    StrikesValidator,
+)
+from src.providers.execution.contracts.cs_parameters_registry import (
+    PerformanceCoefficients,
+)
 from src.providers.execution.exceptions import InconsistentData
 from src.types import (
     EpochNumber,
@@ -17,10 +24,12 @@ from src.types import (
     StakingModuleAddress,
     ValidatorIndex,
 )
-
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator, ValidatorsByNodeOperator
+from src.web3py.extensions.lido_validators import (
+    LidoValidator,
+    ValidatorsByNodeOperator,
+)
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -118,7 +127,7 @@ class Distribution:
         )
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_module_validators_by_node_operators(
+        return self.w3.lido_validators.get_used_module_validators_by_node_operators(
             StakingModuleAddress(self.w3.csm.module.address), blockstamp
         )
 

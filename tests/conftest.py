@@ -103,7 +103,7 @@ def configure_testnet_tests(request, monkeypatch):
 
         # TODO: temporary from https://docs.lido.fi/deployed-contracts/hoodi-lidov3, need to
         # TODO: revert to https://docs.lido.fi/deployed-contracts/hoodi after vaults deploy
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xD7c1B80fA86965B48cCA3aDcCB08E1DAEa291980')
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0x861051869BE0240988918641A9417B10bf4Eed6a')
         monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
     yield

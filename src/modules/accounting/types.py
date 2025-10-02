@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import NewType, Self
@@ -20,7 +20,7 @@ from src.types import (
     StakingModuleId,
     WithdrawalVaultBalance,
 )
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
 
 BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
@@ -29,7 +29,7 @@ ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 type Shares = NewType('Shares', int)
 type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int]
+type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
 
 SECONDS_IN_YEAR = 365 * 24 * 60 * 60
 BLOCKS_PER_YEAR = 2_628_000
@@ -38,11 +38,13 @@ FinalizationShareRate = NewType('FinalizationShareRate', int)
 
 type SharesToBurn = int
 type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationBatches]
+type WqReport = tuple[BunkerMode, FinalizationBatches, FinalizationShareRate]
+
 
 def snake_to_camel(s):
     parts = s.split('_')
     return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
 
 @dataclass
 class ReportData:
@@ -56,6 +58,7 @@ class ReportData:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
+    finalization_share_rate: int
     is_bunker: bool
     vaults_tree_root: VaultsTreeRoot
     vaults_tree_cid: VaultsTreeCid
@@ -76,6 +79,7 @@ class ReportData:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
+            self.finalization_share_rate,
             self.is_bunker,
             self.vaults_tree_root,
             self.vaults_tree_cid,
@@ -97,11 +101,13 @@ class AccountingProcessingState:
     extra_data_items_count: int
     extra_data_items_submitted: int
 
+
 @dataclass
 class OracleReportLimits:
     exited_validators_per_day_limit: int
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
+    simulated_share_rate_deviation_bp_limit: int
     max_validator_exit_requests_per_report: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
@@ -118,13 +124,15 @@ class OracleReportLimits:
         # Unpack structure by order
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
+
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
+
 
 @dataclass
 class BatchState:
     remaining_eth_budget: int
     finished: bool
-    batches: tuple[int, ...]
+    batches: list[int]
     batches_length: int
 
     def as_tuple(self):
@@ -151,6 +159,7 @@ class WithdrawalRequestStatus:
     is_finalized: bool
     is_claimed: bool
 
+
 @dataclass
 class BeaconStat:
     deposited_validators: int
@@ -159,7 +168,7 @@ class BeaconStat:
 
 
 @dataclass(frozen=True)
-class ReportValues:
+class ReportSimulationPayload:
     timestamp: int
     time_elapsed: int
     cl_validators: int
@@ -168,6 +177,7 @@ class ReportValues:
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
     withdrawal_finalization_batches: list[int]
+    simulated_share_rate: int
 
     def as_tuple(self):
         return (
@@ -179,28 +189,28 @@ class ReportValues:
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
             self.withdrawal_finalization_batches,
+            self.simulated_share_rate,
         )
 
 
 @dataclass(frozen=True)
-class StakingRewardsDistribution:
-    recipients: list[ChecksumAddress]
+class ReportSimulationFeeDistribution:
+    module_fee_recipients: list[ChecksumAddress]
     module_ids: list[int]
-    modules_fees: list[int]
-    total_fee: int
-    precision_points: int
+    module_shares_to_mint: list[int]
+    treasury_shares_to_mint: int
 
 
 @dataclass(frozen=True)
-class ReportResults:
-    withdrawals: Wei
-    el_rewards: Wei
+class ReportSimulationResults:
+    withdrawals_vault_transfer: Wei
+    el_rewards_vault_transfer: Wei
     ether_to_finalize_wq: Wei
     shares_to_finalize_wq: Shares
     shares_to_burn_for_withdrawals: Shares
     total_shares_to_burn: SharesToBurn
     shares_to_mint_as_fees: Shares
-    reward_distribution: StakingRewardsDistribution
+    fee_distribution: ReportSimulationFeeDistribution
     principal_cl_balance: Wei
     pre_total_shares: Shares
     pre_total_pooled_ether: Wei
@@ -213,16 +223,20 @@ class ReportResults:
 @dataclass
 class OnChainIpfsVaultReportData(Nested, FromResponse):
     timestamp: int
+    ref_slot: SlotNumber
     tree_root: VaultsTreeRoot
     report_cid: VaultsTreeCid
+
 
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
-    balance: Wei
+    aggregated_balance: Wei
+    in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
-    # Feature smart contract release
+    max_liability_shares: Shares
+    mintable_st_eth: int
     share_limit: int
     reserve_ratio_bp: int
     forced_rebalance_threshold_bp: int
@@ -230,8 +244,8 @@ class VaultInfo(Nested, FromResponse):
     liquidity_fee_bp: int
     reservation_fee_bp: int
     pending_disconnect: bool
-    mintable_st_eth: int
-    in_out_delta: Wei
+
+
 
 @dataclass(frozen=True)
 class VaultFee:
@@ -241,37 +255,37 @@ class VaultFee:
     prev_fee: int
 
     def total(self):
-        return (
-                self.prev_fee
-                + self.infra_fee
-                + self.liquidity_fee
-                + self.reservation_fee
-        )
+        return self.prev_fee + self.infra_fee + self.liquidity_fee + self.reservation_fee
+
 
 VaultToValidators = dict[ChecksumAddress, list[Validator]]
-VaultToPendingDeposits = dict[ChecksumAddress, list[PendingDeposit]]
 
 VaultsMap = dict[ChecksumAddress, VaultInfo]
-VaultTotalValueMap = dict[ChecksumAddress, int]
+VaultTotalValueMap = dict[ChecksumAddress, Wei]
 
 VaultFeeMap = dict[ChecksumAddress, VaultFee]
 VaultReserveMap = dict[ChecksumAddress, int]
 type VaultsReport = tuple[VaultsTreeRoot, VaultsTreeCid]
 type VaultsData = tuple[list[VaultTreeNode], VaultsMap, VaultTotalValueMap]
 
+
 class VaultTreeValueKey(Enum):
     VAULT_ADDRESS = "vaultAddress"
     TOTAL_VALUE = "totalValueWei"
     FEE = "fee"
     LIABILITY_SHARES = "liabilityShares"
+    MAX_LIABILITY_SHARES = "maxLiabilityShares"
     SLASHING_RESERVE = "slashingReserve"
+
 
 class VaultTreeValueIndex(Enum):
     VAULT_ADDRESS = 0
     TOTAL_VALUE_WEI = 1
     FEE = 2
     LIABILITY_SHARES = 3
-    SLASHING_RESERVE = 4
+    MAX_LIABILITY_SHARES = 4
+    SLASHING_RESERVE = 5
+
 
 @dataclass(frozen=True)
 class MerkleValue:
@@ -279,6 +293,7 @@ class MerkleValue:
     total_value_wei: Wei
     fee: int
     liability_shares: int
+    max_liability_shares: int
     slashing_reserve: int
 
     @staticmethod
@@ -288,12 +303,14 @@ class MerkleValue:
             VaultTreeValueKey.TOTAL_VALUE: VaultTreeValueIndex.TOTAL_VALUE_WEI,
             VaultTreeValueKey.FEE: VaultTreeValueIndex.FEE,
             VaultTreeValueKey.LIABILITY_SHARES: VaultTreeValueIndex.LIABILITY_SHARES,
+            VaultTreeValueKey.MAX_LIABILITY_SHARES: VaultTreeValueIndex.MAX_LIABILITY_SHARES,
             VaultTreeValueKey.SLASHING_RESERVE: VaultTreeValueIndex.SLASHING_RESERVE,
         }
 
     @staticmethod
     def get_tree_value_ind(key: VaultTreeValueKey) -> int:
         return MerkleValue.leaf_index_to_data()[key].value
+
 
 @dataclass(frozen=True)
 class ExtraValue:
@@ -306,6 +323,7 @@ class ExtraValue:
     def to_camel_dict(self):
         orig = asdict(self)
         return {snake_to_camel(k): v for k, v in orig.items()}
+
 
 @dataclass
 class StakingVaultIpfsReport:
@@ -332,13 +350,17 @@ class StakingVaultIpfsReport:
         total_value_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.TOTAL_VALUE)
         fee_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.FEE)
         liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.LIABILITY_SHARES)
+        max_liability_shares_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.MAX_LIABILITY_SHARES)
         slashing_reserve_index = MerkleValue.get_tree_value_ind(VaultTreeValueKey.SLASHING_RESERVE)
+
         for entry in data["values"]:
-            values.append(MerkleValue(
-                vault_address=entry["value"][vault_address_index],
-                total_value_wei=Wei(int(entry["value"][total_value_index])),
-                fee=int(entry["value"][fee_index]),
-                liability_shares=int(entry["value"][liability_shares_index]),
+            values.append(
+                MerkleValue(
+                    vault_address=entry["value"][vault_address_index],
+                    total_value_wei=Wei(int(entry["value"][total_value_index])),
+                    fee=int(entry["value"][fee_index]),
+                    liability_shares=int(entry["value"][liability_shares_index]),
+                    max_liability_shares=int(entry["value"][max_liability_shares_index]),
                 slashing_reserve=int(entry["value"][slashing_reserve_index]),
             ))
 
@@ -362,8 +384,9 @@ class StakingVaultIpfsReport:
             block_number=data["blockNumber"],
             timestamp=data["timestamp"],
             prev_tree_cid=data["prevTreeCID"],
-            extra_values=extra_values
+            extra_values=extra_values,
         )
+
 
 @dataclass(frozen=True)
 class StakingFeeAggregateDistribution:
@@ -373,9 +396,31 @@ class StakingFeeAggregateDistribution:
 
     def lido_fee_bp(self):
         total_basis_points_dec = Decimal(TOTAL_BASIS_POINTS)
-        lido_fee_bp = (Decimal(self.modules_fee + self.treasury_fee) * total_basis_points_dec) / Decimal(self.base_precision)
+        numerator = Decimal(self.modules_fee + self.treasury_fee) * total_basis_points_dec
+        denominator = Decimal(self.base_precision)
 
+        lido_fee_bp = numerator / denominator
         if lido_fee_bp >= total_basis_points_dec:
             raise ValueError(f"Got incorrect lido_fee_bp: {lido_fee_bp} >= {total_basis_points_dec} bp")
 
         return lido_fee_bp
+
+
+@dataclass(frozen=True)
+class PendingBalances:
+    pending_deposits: list[PendingDeposit]
+
+    @property
+    def total(self) -> Gwei:
+        return Gwei(sum(deposit.amount for deposit in self.pending_deposits))
+
+    @property
+    def max(self) -> Gwei:
+        return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
+
+class ValidatorStage(Enum):
+    NONE = 0
+    PREDEPOSITED = 1
+    PROVEN = 2
+    ACTIVATED = 3
+    COMPENSATED = 4
