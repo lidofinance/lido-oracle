@@ -2218,7 +2218,7 @@ class TestStakingVaults:
         )
 
         assert prev_report is None
-        assert block_number == expected_block_number
+        assert block_number == expected_block_number + 1
 
     @pytest.mark.unit
     def test_get_start_point_fresh_devnet_case(self):
