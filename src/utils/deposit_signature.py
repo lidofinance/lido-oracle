@@ -1,16 +1,8 @@
 import ssz
-
 from py_ecc.bls import G2ProofOfPossession as BLSVerifier
 from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
-from src import variables
-
-# 0x00000000 for mainnet, but for testnet may be different
-GENESIS_FORK_VERSION = variables.GENESIS_FORK_VERSION.to_bytes(4)
-GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
-
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
-DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
+from src.constants import DOMAIN_DEPOSIT_TYPE
 
 
 class DepositMessage(ssz.Serializable):
@@ -73,8 +65,8 @@ def is_valid_deposit_signature(
     withdrawal_credentials: bytes,
     amount_gwei: int,
     signature: bytes,
-    fork_version: bytes = GENESIS_FORK_VERSION,
-    genesis_validators_root: bytes = GENESIS_VALIDATORS_ROOT,
+    fork_version: bytes,
+    genesis_validators_root: bytes,
 ) -> bool:
     """Return **True** if the deposit proof-of-possession (BLS signature) is valid.
 

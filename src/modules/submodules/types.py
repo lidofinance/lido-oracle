@@ -27,6 +27,8 @@ class ChainConfig:
 @dataclass(frozen=True)
 class ConsensusGenesisConfig:
     genesis_time: int
+    genesis_fork_version: str
+    genesis_validators_root: str
 
 @dataclass(frozen=True)
 class CurrentFrame:

@@ -38,13 +38,12 @@ from src.modules.submodules.consensus import (
 )
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
+from src.providers.consensus.types import PendingDeposit
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.utils.deposit_signature import is_valid_deposit_signature
-from src.utils.types import hex_str_to_bytes
 from src.types import (
     BlockStamp,
     FinalizationBatches,
@@ -55,6 +54,8 @@ from src.types import (
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.deposit_signature import is_valid_deposit_signature
+from src.utils.types import hex_str_to_bytes
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
@@ -348,7 +349,9 @@ class Accounting(BaseModule, ConsensusModule):
 
         valid_deposits_value = Gwei(0)
         valid_found = False
-        genesis_fork_version = variables.GENESIS_FORK_VERSION.to_bytes(4)
+        genesis_config = self.get_cc_genesis_config()
+        genesis_fork_version = genesis_config.genesis_fork_version
+        genesis_validators_root = genesis_config.genesis_validators_root
 
         for deposit in pubkey_deposits:
             # CRITICAL: If already found valid deposit - accept ALL subsequent ones WITHOUT checks
@@ -362,7 +365,8 @@ class Accounting(BaseModule, ConsensusModule):
                 withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
                 amount_gwei=deposit.amount,
                 signature=hex_str_to_bytes(deposit.signature),
-                fork_version=genesis_fork_version,
+                genesis_validators_root=bytes.fromhex(genesis_validators_root),
+                fork_version=bytes.fromhex(genesis_fork_version),
             )
 
             if not is_valid:
