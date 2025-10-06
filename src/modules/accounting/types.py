@@ -138,7 +138,7 @@ type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
 class BatchState:
     remaining_eth_budget: int
     finished: bool
-    batches: tuple[int, ...]
+    batches: list[int]
     batches_length: int
 
     def as_tuple(self):
@@ -237,7 +237,7 @@ class OnChainIpfsVaultReportData(Nested, FromResponse):
 @dataclass
 class VaultInfo(Nested, FromResponse):
     vault: ChecksumAddress
-    aggregate_balance: Wei
+    aggregated_balance: Wei
     in_out_delta: Wei
     withdrawal_credentials: str
     liability_shares: Shares
@@ -423,3 +423,10 @@ class PendingBalances:
     @property
     def max(self) -> Gwei:
         return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
+
+class ValidatorStage(Enum):
+    NONE = 0
+    PREDEPOSITED = 1
+    PROVEN = 2
+    ACTIVATED = 3
+    COMPENSATED = 4

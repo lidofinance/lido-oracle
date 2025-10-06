@@ -25,6 +25,7 @@ from src.modules.accounting.types import (
     MerkleValue,
     OnChainIpfsVaultReportData,
     StakingVaultIpfsReport,
+    ValidatorStage,
     VaultFee,
     VaultFeeMap,
     VaultInfo,
@@ -86,7 +87,7 @@ class TestStakingVaults:
         self.vaults: VaultsMap = {
             self.vault_adr_0: VaultInfo(
                 vault=self.vault_adr_0,
-                aggregate_balance=Wei(1000000000000000000),
+                aggregated_balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials=self.vault_wc_0,
                 liability_shares=0,
@@ -102,7 +103,7 @@ class TestStakingVaults:
             ),
             self.vault_adr_1: VaultInfo(
                 vault=self.vault_adr_1,
-                aggregate_balance=Wei(0),
+                aggregated_balance=Wei(0),
                 in_out_delta=Wei(2000000000000000000),
                 withdrawal_credentials=self.vault_wc_1,
                 liability_shares=490000000000000000,
@@ -118,7 +119,7 @@ class TestStakingVaults:
             ),
             self.vault_adr_2: VaultInfo(
                 vault=self.vault_adr_2,
-                aggregate_balance=Wei(2000900000000000000),
+                aggregated_balance=Wei(2000900000000000000),
                 in_out_delta=Wei(2000900000000000000),
                 withdrawal_credentials=self.vault_wc_2,
                 liability_shares=1200000000000010001,
@@ -134,7 +135,7 @@ class TestStakingVaults:
             ),
             self.vault_adr_3: VaultInfo(
                 vault=self.vault_adr_3,
-                aggregate_balance=Wei(1000000000000000000),
+                aggregated_balance=Wei(1000000000000000000),
                 in_out_delta=Wei(1000000000000000000),
                 withdrawal_credentials=self.vault_wc_3,
                 liability_shares=0,
@@ -242,7 +243,8 @@ class TestStakingVaults:
                 slot=SlotNumber(260393),
             ),
         ]
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits, {})
 
         print(vaults_total_values)
 
@@ -284,7 +286,7 @@ class TestStakingVaults:
                 slot=SlotNumber(259388),
             ),
         ]
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits, {})
 
         expected = {
             self.vault_adr_0: 36834904184000000000,  # includes EL, CL and pending deposit
@@ -338,7 +340,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits, {})
 
         expected = {
             self.vault_adr_0: 1000000000000000000,
@@ -387,7 +389,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits, {})
         expected = {
             self.vault_adr_0: 1000000000000000000,
             self.vault_adr_1: 0,
@@ -441,7 +443,7 @@ class TestStakingVaults:
             ),
         ]
 
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits, {})
 
         expected = {
             self.vault_adr_0: 1000000000000000000,
@@ -449,6 +451,158 @@ class TestStakingVaults:
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
         }
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
+    def test_get_vaults_total_values_with_lazy_oracle_stages(self):
+        validators: list[Validator] = [
+            # Activated validator with 32 ETH effective balance
+            # Included in total value as all available balance
+            Validator(
+                index=ValidatorIndex(1),
+                balance=Gwei(32111111111),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            # PREDEPOSITED validator with 1 ETH balance and not yet eligible for activation
+            # Included in total value as 1 ETH of predeposit (note, balance is 2 ETH, but only 1 ETH counts as predeposit)
+            Validator(
+                index=ValidatorIndex(2),
+                balance=Gwei(2000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(2000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+            # PROVEN validator with 1 ETH balance and not yet eligible for activation
+            # Not included in total value
+            Validator(
+                index=ValidatorIndex(3),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+            # Side-deposited validator with 31 ETH effective balance and not yet eligible for activation
+            # Not included in total value
+            Validator(
+                index=ValidatorIndex(4),
+                balance=Gwei(320000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99004',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(31000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+            # ACTIVATED on-chain deposited validator with 1 ETH balance and not yet eligible for activation (pending deposits in-flight)
+            # Included in total value as total pending deposits + validator balance
+            Validator(
+                index=ValidatorIndex(5),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # for validator index 1, Valid
+            PendingDeposit(
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+            # for validator index 5, Valid
+            PendingDeposit(
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(31000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+            # for validator index 5, Valid extra deposit
+            PendingDeposit(
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_stages = {
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002": ValidatorStage.PREDEPOSITED,
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003": ValidatorStage.PROVEN,
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99004": ValidatorStage.NONE,
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005": ValidatorStage.ACTIVATED,
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,  # vault 0 EL aggregated balance
+                gwei_to_wei(validators[0].balance),  # activated validator 1 full balance
+                gwei_to_wei(Gwei(1000000000)),  # predeposited validator 2 as 1 ETH only (note, balance is 2 ETH)
+                gwei_to_wei(Gwei(0)),  # validator 3 not counted, as deposited and even proven
+                gwei_to_wei(Gwei(0)),  # validator 4 not counted, as side-deposited with not enough effective balance
+                gwei_to_wei(validators[4].balance),  # validator 5 CL balance included as ACTIVATED
+                gwei_to_wei(pending_deposits[0].amount),  # validator 1 extra pending deposit
+                gwei_to_wei(pending_deposits[1].amount),  # validator 5 pending activation deposit of 31 ETH
+                gwei_to_wei(pending_deposits[2].amount),  # validator 5 extra pending deposit of 1 ETH
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
         assert vaults_total_values == expected
 
     @pytest.mark.unit
@@ -463,7 +617,7 @@ class TestStakingVaults:
                     effective_balance=Gwei(1000000000),
                     slashed=False,
                     activation_eligibility_epoch=FAR_FUTURE_EPOCH,
-                    activation_epoch=EpochNumber(0),
+                    activation_epoch=FAR_FUTURE_EPOCH,
                     exit_epoch=FAR_FUTURE_EPOCH,
                     withdrawable_epoch=FAR_FUTURE_EPOCH,
                 ),
@@ -477,7 +631,7 @@ class TestStakingVaults:
                     effective_balance=Gwei(1000000000),
                     slashed=False,
                     activation_eligibility_epoch=FAR_FUTURE_EPOCH,
-                    activation_epoch=EpochNumber(0),
+                    activation_epoch=FAR_FUTURE_EPOCH,
                     exit_epoch=FAR_FUTURE_EPOCH,
                     withdrawable_epoch=FAR_FUTURE_EPOCH,
                 ),
@@ -492,7 +646,7 @@ class TestStakingVaults:
                     effective_balance=Gwei(1000000000),
                     slashed=False,
                     activation_eligibility_epoch=FAR_FUTURE_EPOCH,
-                    activation_epoch=EpochNumber(0),
+                    activation_epoch=FAR_FUTURE_EPOCH,
                     exit_epoch=FAR_FUTURE_EPOCH,
                     withdrawable_epoch=FAR_FUTURE_EPOCH,
                 ),
@@ -532,13 +686,57 @@ class TestStakingVaults:
             ),
         ]
 
+        validator_stages = {
+            "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStage.PROVEN,
+            "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce": ValidatorStage.ACTIVATED,
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124": ValidatorStage.ACTIVATED,
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
 
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,
+                # no validators and no pending deposits should be counted
+            ]
+        )
+
+        expected_vault_adr_1 = sum(
+            [
+                self.vaults[self.vault_adr_1].aggregated_balance,
+                gwei_to_wei(validators[1].balance),  # as validator 1987 is ACTIVATED
+                gwei_to_wei(pending_deposits[2].amount),  # pending deposit of 31 ETH
+                gwei_to_wei(pending_deposits[3].amount),  # pending deposit of 2 ETH
+            ]
+        )
+
+        expected_vault_adr_2 = sum(
+            [
+                self.vaults[self.vault_adr_2].aggregated_balance,
+                gwei_to_wei(validators[2].balance),  # as validator 1988 is ACTIVATED
+            ]
+        )
+
+        expected_vault_adr_3 = sum(
+            [
+                self.vaults[self.vault_adr_3].aggregated_balance,
+                # no validators and no pending deposits for this vault
+            ]
+        )
+
         expected = {
-            self.vault_adr_0: 1000000000000000000,
-            self.vault_adr_1: 34000000000000000000,
-            self.vault_adr_2: 34000900000000000000,
-            self.vault_adr_3: 1000000000000000000,
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: expected_vault_adr_1,
+            self.vault_adr_2: expected_vault_adr_2,
+            self.vault_adr_3: expected_vault_adr_3,
         }
 
         assert vaults_total_values == expected
@@ -666,7 +864,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -683,7 +881,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -700,7 +898,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -717,7 +915,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -734,7 +932,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -754,7 +952,7 @@ class TestStakingVaults:
             liquidity_fee_bp=self.liquidity_feeBP,
             reservation_fee_bp=self.reservation_feeBP,
             mintable_st_eth=self.mintable_capacity_StETH,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             share_limit=MagicMock(),
             forced_rebalance_threshold_bp=MagicMock(),
@@ -1129,7 +1327,7 @@ class TestStakingVaults:
             liquidity_fee_bp=0,
             reservation_fee_bp=0,
             mintable_st_eth=0,
-            aggregate_balance=Wei(0),
+            aggregated_balance=Wei(0),
             withdrawal_credentials="0x0",
             share_limit=0,
             forced_rebalance_threshold_bp=0,
@@ -1350,7 +1548,7 @@ class TestStakingVaults:
         vaults_map = {
             vault_address_1: VaultInfo(
                 vault=vault_address_1,
-                aggregate_balance=MagicMock(),
+                aggregated_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_1,
                 liability_shares=MagicMock(),
                 max_liability_shares=MagicMock(),
@@ -1366,7 +1564,7 @@ class TestStakingVaults:
             ),
             vault_address_2: VaultInfo(
                 vault=vault_address_2,
-                aggregate_balance=MagicMock(),
+                aggregated_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_2,
                 liability_shares=MagicMock(),
                 max_liability_shares=MagicMock(),
@@ -1382,7 +1580,7 @@ class TestStakingVaults:
             ),
             vault_address_3: VaultInfo(
                 vault=vault_address_3,
-                aggregate_balance=MagicMock(),
+                aggregated_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_3,
                 liability_shares=MagicMock(),
                 share_limit=MagicMock(),
@@ -1398,7 +1596,7 @@ class TestStakingVaults:
             ),
             vault_address_4: VaultInfo(
                 vault=vault_address_4,
-                aggregate_balance=MagicMock(),
+                aggregated_balance=MagicMock(),
                 withdrawal_credentials=withdrawal_credentials_4,
                 liability_shares=MagicMock(),
                 max_liability_shares=MagicMock(),
@@ -1526,7 +1724,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             max_liability_shares=2880 * 10**18,
@@ -1682,7 +1880,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             max_liability_shares=2880 * 10**18,
@@ -1716,7 +1914,7 @@ class TestStakingVaults:
 
         vault_info = VaultInfo(
             vault=vault_address,
-            aggregate_balance=MagicMock(),
+            aggregated_balance=MagicMock(),
             withdrawal_credentials=MagicMock(),
             liability_shares=2880 * 10**18,
             share_limit=MagicMock(),
@@ -2020,7 +2218,7 @@ class TestStakingVaults:
         )
 
         assert prev_report is None
-        assert block_number == expected_block_number
+        assert block_number == expected_block_number + 1
 
     @pytest.mark.unit
     def test_get_start_point_fresh_devnet_case(self):

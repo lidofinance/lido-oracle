@@ -250,7 +250,7 @@ class Accounting(BaseModule, ConsensusModule):
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
         logger.info({
             'msg': 'Calculate Lido validators state balance (in Gwei)',
-            'value': lido_validators_state_balance
+            'value': lido_validators_state_balance,
         })
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
@@ -269,22 +269,14 @@ class Accounting(BaseModule, ConsensusModule):
            - Validate deposits with BLS signature verification and withdrawal credentials matching
            - Sum up valid deposits
         """
-        try:
-            pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        except Exception as e:
-            logger.warning({'msg': 'Failed to get pending deposits', 'error': str(e)})
-            return Gwei(0)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
 
         if not pending_deposits:
             logger.info({'msg': 'No pending deposits found'})
             return Gwei(0)
 
         # Get Lido withdrawal credentials
-        try:
-            lido_wc = self.w3.lido_contracts.lido.get_withdrawal_credentials(blockstamp.block_hash)
-        except Exception as e:
-            logger.warning({'msg': 'Failed to get Lido withdrawal credentials', 'error': str(e)})
-            return Gwei(0)
+        lido_wc = self.w3.lido_contracts.lido.get_withdrawal_credentials(blockstamp.block_hash)
 
         # Get all active Lido validators
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
@@ -409,12 +401,8 @@ class Accounting(BaseModule, ConsensusModule):
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
-        try:
-            pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-            pending_balances_by_pubkey = self.staking_vaults._get_pending_balances_by_pubkeys(pending_deposits)
-        except Exception as e:
-            logger.warning({'msg': 'Failed to get pending deposits for modules', 'error': str(e)})
-            pending_balances_by_pubkey = {}
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        pending_balances_by_pubkey = self.staking_vaults.get_total_pending_amount_by_pubkey(pending_deposits)
 
         # Build module address to module ID mapping
         module_address_to_id: dict[str, StakingModuleId] = {}
@@ -440,13 +428,13 @@ class Accounting(BaseModule, ConsensusModule):
         # Build pubkey to module address mapping
         pubkey_to_module_address = {key.key: key.moduleAddress for key in lido_keys}
 
-        for pubkey, pending_balances in pending_balances_by_pubkey.items():
+        for pubkey, pb in pending_balances_by_pubkey.items():
             # Only count pending deposits for validators that don't exist yet
             if pubkey not in lido_validator_pubkeys:
                 if module_address := pubkey_to_module_address.get(pubkey):
                     if module_id := module_address_to_id.get(module_address):
                         module_pending_balances[module_id] = Gwei(
-                            module_pending_balances[module_id] + pending_balances.total
+                            module_pending_balances[module_id] + pb
                         )
 
         # Prepare result lists (only modules with any balance)
@@ -635,7 +623,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
-            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', ''
+            return ZERO_HASH, ''
 
         current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
@@ -644,6 +632,13 @@ class Accounting(BaseModule, ConsensusModule):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            vaults=vaults,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier=blockstamp.block_hash
+        )
+
         core_apr_ratio = calculate_gross_core_apr(
             pre_total_ether=simulation.pre_total_pooled_ether,
             pre_total_shares=simulation.pre_total_shares,
@@ -651,12 +646,6 @@ class Accounting(BaseModule, ConsensusModule):
             post_internal_shares=simulation.post_internal_shares,
             shares_minted_as_fees=simulation.shares_to_mint_as_fees,
             time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp),
-        )
-
-        vaults_total_values = self.staking_vaults.get_vaults_total_values(
-            vaults=vaults,
-            validators=validators,
-            pending_deposits=pending_deposits,
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)
@@ -724,7 +713,7 @@ class Accounting(BaseModule, ConsensusModule):
         report_vaults_part: VaultsReport,
         extra_data: ExtraData,
     ) -> ReportData:
-        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
+        _, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
             report_rebase_part
         )
         staking_module_ids_list, exit_validators_count_list = report_modules_part

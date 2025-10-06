@@ -1,10 +1,15 @@
 import logging
 
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src import variables
-from src.modules.accounting.types import OnChainIpfsVaultReportData, VaultInfo
+from src.modules.accounting.types import (
+    OnChainIpfsVaultReportData,
+    ValidatorStage,
+    VaultInfo,
+)
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
@@ -12,7 +17,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 logger = logging.getLogger(__name__)
 
 
-class VaultsLazyOracleContract(ContractInterface):
+class LazyOracleContract(ContractInterface):
     abi_path = './assets/LazyOracle.json'
 
     @lru_cache(maxsize=1)
@@ -22,28 +27,24 @@ class VaultsLazyOracleContract(ContractInterface):
         """
         response = self.functions.vaultsCount.call(block_identifier=block_identifier)
 
-        logger.info(
-            {
-                'msg': 'Call `vaultsCount().',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `vaultsCount().',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         return response
 
     def get_latest_report_data(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
         response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
-        logger.info(
-            {
-                'msg': 'Call `latestReportData()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': 'Call `latestReportData()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         response = named_tuple_to_dataclass(response, OnChainIpfsVaultReportData)
         return response
@@ -58,7 +59,7 @@ class VaultsLazyOracleContract(ContractInterface):
         for vault in response:
             out.append(VaultInfo(
                 vault=vault.vault,
-                aggregate_balance=vault.aggregateBalance,
+                aggregated_balance=vault.aggregatedBalance,
                 in_out_delta=vault.inOutDelta,
                 withdrawal_credentials=Web3.to_hex(vault.withdrawalCredentials),
                 liability_shares=vault.liabilityShares,
@@ -73,14 +74,12 @@ class VaultsLazyOracleContract(ContractInterface):
                 pending_disconnect=vault.pendingDisconnect,
             ))
 
-        logger.info(
-            {
-                'msg': f'Call `batchVaultsInfo({offset}, {limit}).',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
+        logger.info({
+            'msg': f'Call `batchVaultsInfo({offset}, {limit}).',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
 
         return out
 
@@ -96,10 +95,40 @@ class VaultsLazyOracleContract(ContractInterface):
             return []
 
         while offset < total_count:
-            batch = self.get_vaults(block_identifier=block_identifier, offset=offset, limit=variables.VAULT_PAGINATION_LIMIT)
+            batch = self.get_vaults(
+                block_identifier=block_identifier, offset=offset, limit=variables.VAULT_PAGINATION_LIMIT
+            )
             if not batch:
                 break
             vaults.extend(batch)
             offset += variables.VAULT_PAGINATION_LIMIT
 
         return vaults
+
+    def get_validator_stages(
+        self,
+        pubkeys: list[str],
+        batch_size: int = variables.VAULT_VALIDATOR_STAGES_BATCH_SIZE,
+        block_identifier: BlockIdentifier = 'latest'
+    ) -> dict[str, ValidatorStage]:
+        """
+        Fetch validator stages for a list of pubkeys, batching requests for efficiency.
+        """
+        out: dict[str, ValidatorStage] = {}
+
+        for i in range(0, len(pubkeys), batch_size):
+            batch = list(map(HexBytes, pubkeys[i : i + batch_size]))
+            response = self.functions.batchValidatorStages(batch).call(block_identifier=block_identifier)
+
+            logger.debug({
+                'msg': 'Call `batchValidatorStages()`.',
+                'count': len(batch),
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            })
+
+            out.update({
+                str(pk): ValidatorStage(stage) for pk, stage in zip(batch, response)
+            })
+
+        return out

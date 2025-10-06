@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+from typing import Any, Dict, Union
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
-from typing import Any, Dict, Union
 from web3.types import EventData
+
 
 @dataclass(frozen=True)
 class EventBase:
@@ -144,6 +145,7 @@ class VaultConnectedEvent(EventBase):
             **cls._extract_common(log),
         )
 
+
 @dataclass(frozen=True)
 class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
     vault: str
@@ -158,6 +160,7 @@ class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
             **cls._extract_common(log),
         )
 
+
 VaultEventType = Union[
     MintedSharesOnVaultEvent,
     BurnedSharesOnVaultEvent,
@@ -165,7 +168,7 @@ VaultEventType = Union[
     VaultRebalancedEvent,
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
-    VaultConnectedEvent
+    VaultConnectedEvent,
 ]
 
 

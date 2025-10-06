@@ -10,9 +10,7 @@ from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
 from src.constants import (
-    FAR_FUTURE_EPOCH,
-    MIN_ACTIVATION_BALANCE,
-    PDG_ACTIVATION_DEPOSIT,
+    MIN_DEPOSIT_AMOUNT,
     TOTAL_BASIS_POINTS,
 )
 from src.modules.accounting.events import (
@@ -31,9 +29,9 @@ from src.modules.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
-    PendingBalances,
     Shares,
     StakingVaultIpfsReport,
+    ValidatorStage,
     VaultFee,
     VaultFeeMap,
     VaultInfo,
@@ -46,10 +44,11 @@ from src.modules.accounting.types import (
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.ipfs import CID
-from src.types import BlockHash, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.slot import get_blockstamp
 from src.utils.units import gwei_to_wei
+from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -63,45 +62,65 @@ class StakingVaultsService:
     def __init__(self, w3: Web3) -> None:
         self.w3 = w3
 
-    def get_vaults(self, block_identifier: BlockHash | BlockNumber) -> VaultsMap:
+    def get_vaults(self, block_identifier: BlockIdentifier = 'latest') -> VaultsMap:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         return VaultsMap({v.vault: v for v in vaults})
 
     def get_vaults_total_values(
-        self, vaults: VaultsMap, validators: list[Validator], pending_deposits: list[PendingDeposit]
+        self,
+        vaults: VaultsMap,
+        validators: list[Validator],
+        pending_deposits: list[PendingDeposit],
+        block_identifier: BlockIdentifier = 'latest',
     ) -> VaultTotalValueMap:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
 
         A validator is included in the TV calculation if EITHER of the following conditions is true:
 
-        1. Already passed activation eligibility (see `_is_already_passed_activation_eligibility`)
-        2. Ready for activation (but not yet eligible) (see `_is_ready_for_activation`)
+        1. It has already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+            - add full balance + pending deposits are added to TV, as the validator is for sure will be activated
+        2. If not-yet-eligible, then validator is checked over the registered PDG validator stages:
+            - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
+            - ACTIVATED: count as `already passed activation`, thus add full balance + pending deposits to TV
+            - all other stages are skipped as not related to the non-eligible for activation validators
 
-        NB: According to the PDG validator proving flow, a validator starts with 1 ETH on the consensus layer from the
-            predeposit. Once the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
-            as a pending deposit. If pending deposits are ignored, the TV would seem to drop by 32 ETH until the
-            pending deposit is processed and the validator activates. To prevent this artificial dip, the calculation
-            of a validator's total balance should include pending deposits (of 31+ ETH) and count such validators in
-            the total value (TV) as soon as the proof is submitted.
+        NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
+            predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
+            as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
+            until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
+            the calculation of a validator's total balance must include all pending deposits, but only for those
+            validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
+            validator becomes eligible for activation.
         """
-        validators_by_vaults = self._get_validators_by_vaults(validators, vaults)
-        pending_balances_by_pubkeys = self._get_pending_balances_by_pubkeys(pending_deposits)
+        validators_by_vault = self._get_validators_by_vault(validators, vaults)
+        total_pending_amount_by_pubkey = self.get_total_pending_amount_by_pubkey(pending_deposits)
+        inactive_validator_stages = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
-            vault_total: int = int(vault.aggregate_balance)
+            vault_total: int = int(vault.aggregated_balance)
 
-            for validator in validators_by_vaults.get(vault_address, []):
-                pending_balances = pending_balances_by_pubkeys.get(
-                    validator.pubkey.to_0x_hex(), PendingBalances(pending_deposits=[])
-                )
+            for validator in validators_by_vault.get(vault_address, []):
+                validator_pubkey = validator.pubkey.to_0x_hex()
+                validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
+                total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
 
-                is_already_passed_activation_eligibility = self._is_already_passed_activation_eligibility(validator)
-                is_ready_for_activation = self._is_ready_for_activation(validator, pending_balances)
+                # Include validator balance and all pending deposits in TV when validator is eligible for activation or
+                # has already passed activation
+                if not has_far_future_activation_eligibility_epoch(validator.validator):
+                    vault_total += int(total_validator_balance)
 
-                if is_already_passed_activation_eligibility or is_ready_for_activation:
-                    vault_total += int(gwei_to_wei(Gwei(validator.balance + pending_balances.total)))
+                # For not-yet-eligible validators, use PDG stages:
+                # - PREDEPOSITED: add 1 ETH (guaranteed)
+                # - ACTIVATED: add full balance + pending deposits
+                # All other stages are skipped as not related to the non-eligible for activation validators
+                else:
+                    stage = inactive_validator_stages.get(validator_pubkey, ValidatorStage.NONE)
+                    if stage == ValidatorStage.PREDEPOSITED:
+                        vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+                    elif stage == ValidatorStage.ACTIVATED:
+                        vault_total += int(total_validator_balance)
 
             total_values[vault_address] = Wei(vault_total)
             logger.info({
@@ -111,46 +130,41 @@ class StakingVaultsService:
 
         return total_values
 
-    @staticmethod
-    def _is_already_passed_activation_eligibility(validator: Validator) -> bool:
+    def _get_non_activated_validator_stages(
+        self,
+        validators: list[Validator],
+        vaults: VaultsMap,
+        block_identifier: BlockIdentifier = 'latest',
+    ) -> dict[str, ValidatorStage]:
         """
-        The `activation_eligibility_epoch` is set once when a validator becomes eligible and never changes.
-        This makes it a reliable lifecycle marker.
+        Get PDG validator stages for non-activated validators for connected vaults from the lazy oracle.
         """
-        return validator.validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+        pubkeys = [
+            v.pubkey.to_0x_hex()
+            for v in validators
+            if has_far_future_activation_eligibility_epoch(v.validator)
+            and v.validator.withdrawal_credentials in vault_wcs
+        ]
+
+        return self.w3.lido_contracts.lazy_oracle.get_validator_stages(
+            pubkeys=pubkeys,
+            block_identifier=block_identifier,
+        )
 
     @staticmethod
-    def _is_ready_for_activation(validator: Validator, pending_balances: PendingBalances) -> bool:
-        """
-        A validator is considered ready for activation if it has not yet been marked as eligible but
-        already has sufficient balance (including pending deposits) to meet the activation criteria.
-
-        NB: We align activation readiness with the PDG validator proving flow and only consider pending deposits if one
-            of them is at least 31 ETH. This prevents issues where 1 ETH top-ups could cause activation problems that
-            might be exploited (https://github.com/ethereum/consensus-specs/issues/3049). Since pending deposits are
-            processed every block, but effective balance and activation eligibility are checked only once per epoch, we
-            need to support the state where the effective balance has not yet been updated, but pending deposits are
-            already included in the validator’s balance. In that case, we force a check that the difference between the
-            balance and the effective balance is at least 31 ETH.
-        """
-        total_balance = validator.balance + pending_balances.total
-        has_pdg_pending_deposit = pending_balances.max >= PDG_ACTIVATION_DEPOSIT and total_balance >= MIN_ACTIVATION_BALANCE
-        has_pdg_balance_difference = validator.balance - validator.validator.effective_balance >= PDG_ACTIVATION_DEPOSIT
-
-        return has_pdg_pending_deposit or has_pdg_balance_difference
-
-    @staticmethod
-    def _get_pending_balances_by_pubkeys(
+    def get_total_pending_amount_by_pubkey(
         pending_deposits: list[PendingDeposit],
-    ) -> dict[str, PendingBalances]:
-        deposits = defaultdict(list)
+    ) -> dict[str, Gwei]:
+        deposits: defaultdict[str, int] = defaultdict(int)
         for deposit in pending_deposits:
-            deposits[deposit.pubkey].append(deposit)
+            deposits[deposit.pubkey] += int(deposit.amount)
 
-        return {pubkey: PendingBalances(pending_deposits=deposits) for pubkey, deposits in deposits.items()}
+        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
     @staticmethod
-    def _get_validators_by_vaults(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
+    def _get_validators_by_vault(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
         """
         Groups validators by their associated vault, based on withdrawal credentials.
         """
@@ -182,7 +196,7 @@ class StakingVaultsService:
         2. ref_epoch < (we -36d): use CURRENT validator's balance (before slashing period)
         3. ref_epoch > (we +36d): skip reserve (after slashing period)
         """
-        vaults_validators = self._get_validators_by_vaults(validators, vaults)
+        validators_by_vault = self._get_validators_by_vault(validators, vaults)
         oracle_daemon_config = self.w3.lido_contracts.oracle_daemon_config
 
         slashing_reserve_we_left_shift = oracle_daemon_config.slashing_reserve_we_left_shift(bs.block_hash)
@@ -193,7 +207,7 @@ class StakingVaultsService:
             return int(out.to_integral_value(ROUND_UP))
 
         vaults_reserves: VaultReserveMap = defaultdict(int)
-        for vault_address, vault_validators in vaults_validators.items():
+        for vault_address, vault_validators in validators_by_vault.items():
             for validator in vault_validators:
                 if validator.validator.slashed:
                     withdrawable_epoch = validator.validator.withdrawable_epoch
@@ -262,12 +276,10 @@ class StakingVaultsService:
         def stringify_values(data) -> list[dict[str, str | int]]:
             out = []
             for item in data:
-                out.append(
-                    {
-                        "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
-                        "treeIndex": item["treeIndex"],
-                    }
-                )
+                out.append({
+                    "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
+                    "treeIndex": item["treeIndex"],
+                })
             return out
 
         values = stringify_values(tree.values)
@@ -325,16 +337,14 @@ class StakingVaultsService:
             if vault_address not in vaults_fees:
                 raise ValueError(f'Vault {vault_address} is not in vaults_fees')
 
-            tree_data.append(
-                (
-                    vault_address,
-                    Wei(vaults_total_values[vault_address]),
-                    vaults_fees[vault_address].total(),
-                    vault.liability_shares,
-                    vault.max_liability_shares,
-                    vaults_slashing_reserve.get(vault_address, 0),
-                )
-            )
+            tree_data.append((
+                vault_address,
+                Wei(vaults_total_values[vault_address]),
+                vaults_fees[vault_address].total(),
+                vault.liability_shares,
+                vault.max_liability_shares,
+                vaults_slashing_reserve.get(vault_address, 0),
+            ))
 
         return tree_data
 
@@ -345,16 +355,14 @@ class StakingVaultsService:
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
-            tree_data.append(
-                (
-                    vault.vault_address,
-                    vault.total_value_wei,
-                    vault.fee,
-                    vault.liability_shares,
-                    vault.max_liability_shares,
-                    vault.slashing_reserve,
-                )
-            )
+            tree_data.append((
+                vault.vault_address,
+                vault.total_value_wei,
+                vault.fee,
+                vault.liability_shares,
+                vault.max_liability_shares,
+                vault.slashing_reserve,
+            ))
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)
         root_hex = f'0x{rebuild_merkle_tree.root.hex()}'
@@ -515,7 +523,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number
+            return None, ref_block.block_number + 1
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take

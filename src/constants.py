@@ -14,10 +14,10 @@ PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = Gwei(2**0 * 10**9)
 MAX_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
+MIN_DEPOSIT_AMOUNT = Gwei(2**0 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
 MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
-PDG_ACTIVATION_DEPOSIT = Gwei(31 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
