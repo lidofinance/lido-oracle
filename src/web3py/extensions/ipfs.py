@@ -1,7 +1,9 @@
 import logging
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 from typing import Iterable
+
 from web3 import Web3
 from web3.module import Module
 
@@ -104,14 +106,50 @@ class IPFS(Module):
         })
         return self.provider.fetch(cid)
 
-    @with_fallback
     @retry
-    def publish(self, content: bytes, provider_rotation_frame: FrameNumber, name: str | None = None) -> CID:
-        self._set_provider_for_frame(provider_rotation_frame)
+    def _upload_to_provider(self, provider: IPFSProvider, content: bytes, name: str | None = None) -> CID:
+        return provider.publish(content, name)
+
+    def publish(self, content: bytes, name: str | None = None) -> CID:
         logger.info({
-            "msg": "Called: w3.ipfs.publish(...)",
-            "provider_rotation_frame": provider_rotation_frame,
-            "provider_index": self.current_provider_index,
-            "provider_class": self.provider.__class__.__name__
+            "msg": "Started: w3.ipfs.publish(...)",
+            "total_providers": len(self.providers)
         })
-        return self.provider.publish(content, name)
+
+        successful_uploads = []
+        failed_uploads = []
+
+        with ThreadPoolExecutor(max_workers=len(self.providers)) as executor:
+            future_to_provider = {
+                executor.submit(self._upload_to_provider, provider, content, name): provider
+                for provider in self.providers
+            }
+
+            for future in as_completed(future_to_provider):
+                provider = future_to_provider[future]
+                try:
+                    cid = future.result()
+                    successful_uploads.append({
+                        "provider_class": provider.__class__.__name__,
+                        "cid": str(cid)
+                    })
+                except Exception as ex:  # pylint: disable=broad-exception-caught
+                    failed_uploads.append({
+                        "provider_class": provider.__class__.__name__,
+                        "error": str(ex)
+                    })
+
+        if not successful_uploads:
+            logger.error({
+                "msg": "Failed to upload to all providers",
+                "failed_uploads": failed_uploads
+            })
+            raise NoMoreProvidersError("All providers failed during upload")
+
+        logger.info({
+            "msg": "Completed: w3.ipfs.publish(...)",
+            "successful_uploads": successful_uploads,
+            "failed_uploads": failed_uploads,
+        })
+
+        return CID(successful_uploads[0]["cid"])

@@ -42,7 +42,7 @@ Work is divided into frames (~24 hours / 225 epochs):
 - **Data collection**: Gathers state data from Execution and Consensus layers.
 - **Hash consensus**: Hash of report is submitted to the HashConsensus contract.
 - **Core update report**: Once quorum is reached, actual report is submitted to AccountingOracle to trigger state updates (rebases, withdrawals, bunker check).
-- **Extra data report**: Multi-transactional report for stuck/exited validators, reward unlocking, etc.
+- **Extra data report**: Multi-transactional report for exited validators, reward unlocking, etc.
 
 ### Ejector module
 
@@ -191,6 +191,8 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `STORACHA_AUTH_SECRET`                                 | Secret for Storacha IPFS provider                                                                                                                                        | True     | `uMGVabc...`            |
 | `STORACHA_AUTHORIZATION`                               | Authorization for Storacha IPFS provider                                                                                                                                 | True     | `uMGVabc...`            |
 | `STORACHA_SPACE_DID`                                   | Space DID for Storacha IPFS provider                                                                                                                                     | True     | `did:key:z6Mkabc...`    |
+| `LIDO_IPFS_HOST`                                       | Host to access Lido IPFS cluster                                                                                                                                         | True     | `https://ipfs.lido.fi`  |
+| `LIDO_IPFS_TOKEN`                                      | Bearer token for Lido IPFS cluster authentication                                                                                                                        | True     | `eyJhbG...`             |
 | `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | False    | `localhost`             |
 | `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | False    | `5001`                  |
 | `KUBO_GATEWAY_PORT`                                    | Port to access gateway provided by Kubo IPFS node                                                                                                                        | False    | `8080`                  |
@@ -220,7 +222,8 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                     |
 | `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False    | `<api-key>`             |
 | `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False    | `http://localhost:8080` |
-| `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 1000                                                                                                       | False    | `http://localhost:8080` |
+| `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 1000                                                                                                       | False    | `1000`                  |
+| `VAULT_VALIDATOR_STAGES_BATCH_SIZE`                    | The limit for getting validators stages in one request. Default 100                                                                                                      | False    | `100`                   |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb

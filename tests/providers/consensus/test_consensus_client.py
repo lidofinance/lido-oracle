@@ -9,6 +9,7 @@ import requests
 from src import variables
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
+from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from tests.factory.blockstamp import BlockStampFactory
@@ -65,6 +66,28 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
     assert attestation_committee_by_slot[0].slot == attestation_committee.slot
     assert attestation_committee_by_slot[0].index == attestation_committee.index
     assert attestation_committee_by_slot[0].validators == attestation_committee.validators
+
+
+@pytest.mark.integration
+@pytest.mark.testnet
+def test_get_sync_committee(consensus_client: ConsensusClient):
+    root = consensus_client.get_block_root('finalized').root
+    block_details = consensus_client.get_block_details(root)
+    blockstamp = build_blockstamp(block_details)
+    epoch = blockstamp.slot_number // 32
+
+    sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
+    assert sync_committee
+
+    # Prysm error fallback
+    consensus_client._get = Mock(
+        side_effect=[
+            NotOkResponse(status=404, text=consensus_client.PRYSM_STATE_NOT_FOUND_ERROR),
+            (sync_committee.__dict__, "dummy_metadata"),
+        ]
+    )
+    sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
+    assert sync_committee
 
 
 @pytest.mark.integration

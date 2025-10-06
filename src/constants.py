@@ -14,6 +14,7 @@ PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = Gwei(2**0 * 10**9)
 MAX_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
+MIN_DEPOSIT_AMOUNT = Gwei(2**0 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
 MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
@@ -60,5 +61,6 @@ UINT64_MAX = 2**64 - 1
 UINT256_MAX = 2**256 - 1
 
 ALLOWED_KAPI_VERSION = Version('1.5.0')
+CSM_STATE_VERSION = 1
 
 GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
