@@ -14,6 +14,7 @@ from src.constants import (
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
+from src.utils.units import gwei_to_wei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
@@ -46,6 +47,13 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
         and has_max_effective_balance
         and has_excess_balance
     )
+
+
+def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bool:
+    """
+    Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
+    """
+    return validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
 
 
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
@@ -135,3 +143,7 @@ def get_max_effective_balance(validator: ValidatorState) -> Gwei:
     if has_compounding_withdrawal_credential(validator):
         return MAX_EFFECTIVE_BALANCE_ELECTRA
     return MIN_ACTIVATION_BALANCE
+
+
+def calculate_vault_validators_balances(validators: list[Validator]) -> int:
+    return sum(gwei_to_wei(validator.balance) for validator in validators)
