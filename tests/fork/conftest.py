@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast, get_args
 
 import pytest
+import requests
 import xdist
 from _pytest.nodes import Item
 from eth_account import Account
@@ -260,7 +261,27 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
         str(blockstamp_for_forking.block_number),
     ]
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
-        time.sleep(5)
+        # Wait for Anvil to be ready with health check
+        anvil_ready = False
+        for _ in range(60):
+            try:
+                response = requests.post(
+                    f'http://127.0.0.1:{anvil_port}',
+                    json={'jsonrpc': '2.0', 'method': 'eth_chainId', 'params': [], 'id': 1},
+                    timeout=2,
+                )
+                if response.status_code == 200:
+                    anvil_ready = True
+                    break
+            except (requests.RequestException, requests.ConnectionError):
+                pass
+            time.sleep(1)
+
+        if not anvil_ready:
+            process.terminate()
+            process.wait()
+            raise RuntimeError(f"Anvil failed to start on port {anvil_port} within 60 seconds")
+
         logger.info(f"TESTRUN Started fork on {anvil_port=} from {blockstamp_for_forking.block_number=}")
         web3 = Web3(MultiProvider([f'http://127.0.0.1:{anvil_port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
