@@ -54,6 +54,11 @@ def test_process_report_main(consensus, caplog):
     consensus._send_report_hash = Mock()
     report_data = ReportData(
         consensus_version=1,
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
+        staking_module_ids_with_updated_balance=[],
         ref_slot=SlotNumber(2),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
@@ -83,6 +88,11 @@ def test_process_report_main(consensus, caplog):
 def test_hash_calculations(consensus):
     rd = ReportData(
         consensus_version=1,
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        staking_module_ids_with_updated_balance=[1],
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
         ref_slot=SlotNumber(2),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
@@ -100,7 +110,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xa55c15fa50d7c974798712ea60ef4dcbc94644c53759c16f69ea5d60e4c2de21')
+    assert report_hash == HexBytes('0x8944277c1a5830b73ee81da95dd7c807220d4567096996378761f1f1daa9c380')
 
 
 # ------ Process report hash -----------
@@ -225,6 +235,11 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     report_data = ReportData(
         consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
+        staking_module_ids_with_updated_balance=[0],
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
         withdrawal_vault_balance=Wei(9),
