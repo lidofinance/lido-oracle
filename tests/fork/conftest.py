@@ -260,7 +260,9 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
         '--fork-block-number',
         str(blockstamp_for_forking.block_number),
     ]
-    with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
+    # Capture stderr for debugging
+    with subprocess.Popen(cli_params, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+        logger.info(f"TESTRUN Starting anvil with command: {' '.join(cli_params)}")
         # Wait for Anvil to be ready with health check
         anvil_ready = False
         for _ in range(60):
