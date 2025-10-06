@@ -73,7 +73,7 @@ class Accounting(BaseModule, ConsensusModule):
             Contains exited validator's updates count by each node operator.
     """
 
-    COMPATIBLE_CONTRACT_VERSION = 3
+    COMPATIBLE_CONTRACT_VERSION = 4
     COMPATIBLE_CONSENSUS_VERSION = 5
 
     def __init__(self, w3: Web3):
