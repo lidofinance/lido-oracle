@@ -286,7 +286,13 @@ class ConsensusModule(ABC):
             )
         ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
         if not ready_to_report:
-            logger.info({'msg': 'Oracle waits for contacts to be updated.'})
+            logger.info({
+                'msg': 'Oracle waits for contacts to be updated.',
+                'expected_contract_version': self.COMPATIBLE_CONTRACT_VERSION,
+                'expected_consensus_version': self.COMPATIBLE_CONSENSUS_VERSION,
+                'actual_contract_version': contract_version_latest,
+                'actual_consensus_version': consensus_version_latest,
+            })
         return ready_to_report
 
     # ----- Working with report -----

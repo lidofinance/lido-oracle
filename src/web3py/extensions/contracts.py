@@ -1,4 +1,5 @@
 import logging
+from functools import cached_property
 from typing import cast
 
 from web3 import Web3
@@ -44,9 +45,6 @@ class LidoContracts(Module):
     oracle_report_sanity_checker: OracleReportSanityCheckerContract
     oracle_daemon_config: OracleDaemonConfigContract
     burner: BurnerContract
-    accounting: AccountingContract
-    lazy_oracle: LazyOracleContract
-    vault_hub: VaultHubContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -148,7 +146,9 @@ class LidoContracts(Module):
             ),
         )
 
-        self.accounting: AccountingContract = cast(
+    @cached_property
+    def accounting(self) -> AccountingContract:
+        return cast(
             AccountingContract,
             self.w3.eth.contract(
                 address=self.lido_locator.accounting(),
@@ -157,7 +157,9 @@ class LidoContracts(Module):
             ),
         )
 
-        self.lazy_oracle: LazyOracleContract = cast(
+    @cached_property
+    def lazy_oracle(self) -> LazyOracleContract:
+        return cast(
             LazyOracleContract,
             self.w3.eth.contract(
                 address=self.lido_locator.lazy_oracle(),
@@ -166,7 +168,9 @@ class LidoContracts(Module):
             ),
         )
 
-        self.vault_hub: VaultHubContract = cast(
+    @cached_property
+    def vault_hub(self) -> VaultHubContract:
+        return cast(
             VaultHubContract,
             self.w3.eth.contract(
                 address=self.lido_locator.vault_hub(),
