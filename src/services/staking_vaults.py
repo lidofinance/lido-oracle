@@ -94,7 +94,7 @@ class StakingVaultsService:
             validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
-        total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
+        total_pending_amount_by_pubkey = self.get_total_pending_amount_by_pubkey(pending_deposits)
         inactive_validator_stages = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
@@ -154,7 +154,7 @@ class StakingVaultsService:
         )
 
     @staticmethod
-    def _get_total_pending_amount_by_pubkey(
+    def get_total_pending_amount_by_pubkey(
         pending_deposits: list[PendingDeposit],
     ) -> dict[str, Gwei]:
         deposits: defaultdict[str, int] = defaultdict(int)

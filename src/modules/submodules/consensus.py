@@ -119,7 +119,11 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def get_cc_genesis_config(self) -> ConsensusGenesisConfig:
         genesis = self.w3.cc.get_genesis()
-        return ConsensusGenesisConfig(genesis_time=genesis.genesis_time)
+        return ConsensusGenesisConfig(
+            genesis_time=genesis.genesis_time,
+            genesis_fork_version=genesis.genesis_fork_version,
+            genesis_validators_root=genesis.genesis_validators_root,
+        )
 
     @lru_cache(maxsize=1)
     def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:

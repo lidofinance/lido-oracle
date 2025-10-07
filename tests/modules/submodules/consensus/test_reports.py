@@ -1,17 +1,15 @@
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
-from dataclasses import dataclass
 
 from src import variables
-from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
-from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
-from src.types import SlotNumber, Gwei, StakingModuleId
-
+from src.modules.submodules.types import ZERO_HASH, ChainConfig, FrameConfig
+from src.types import Gwei, SlotNumber, StakingModuleId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 
@@ -56,9 +54,12 @@ def test_process_report_main(consensus, caplog):
     consensus._send_report_hash = Mock()
     report_data = ReportData(
         consensus_version=1,
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
+        staking_module_ids_with_updated_balance=[],
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
         withdrawal_vault_balance=Wei(9),
@@ -87,9 +88,12 @@ def test_process_report_main(consensus, caplog):
 def test_hash_calculations(consensus):
     rd = ReportData(
         consensus_version=1,
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        staking_module_ids_with_updated_balance=[1],
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
         withdrawal_vault_balance=Wei(9),
@@ -106,7 +110,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xa55c15fa50d7c974798712ea60ef4dcbc94644c53759c16f69ea5d60e4c2de21')
+    assert report_hash == HexBytes('0x8944277c1a5830b73ee81da95dd7c807220d4567096996378761f1f1daa9c380')
 
 
 # ------ Process report hash -----------
@@ -231,8 +235,11 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     report_data = ReportData(
         consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
+        staking_module_ids_with_updated_balance=[0],
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
         withdrawal_vault_balance=Wei(9),
@@ -293,8 +300,8 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     report_data = ReportData(
         consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_active_balance_gwei=Gwei(4),
+        cl_pending_balance_gwei=Gwei(0),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
         withdrawal_vault_balance=Wei(9),
@@ -308,6 +315,9 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
         extra_data_format=13,
         extra_data_hash=HexBytes(int.to_bytes(14, 32)),
         extra_data_items_count=15,
+        staking_module_ids_with_updated_balance=[1],
+        active_balances_gwei_by_staking_module=[Gwei(4)],
+        pending_balances_gwei_by_staking_module=[Gwei(0)],
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
