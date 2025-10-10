@@ -6,7 +6,6 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 @pytest.mark.mainnet
 @pytest.mark.integration
-@pytest.mark.skip("LazyOracle contract is not latest on Hoodi.")
 def test_lazy_oracle_contract_call(lazy_oracle_contract, caplog):
     check_contract(
         lazy_oracle_contract,

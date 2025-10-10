@@ -14,15 +14,15 @@ from src.providers.execution.base_interface import ContractInterface
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
-    ConsensusClientModule,
     IPFS,
+    ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from src.web3py.extensions import FallbackProviderModule
 
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
@@ -80,7 +80,7 @@ def configure_mainnet_tests(request, monkeypatch):
                 'must be set in order to run tests on mainnet.'
             )
 
-        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
+        monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
         monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
     yield
