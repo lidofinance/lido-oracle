@@ -4,7 +4,7 @@ from src.modules.accounting.types import OnChainIpfsVaultReportData
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 
-@pytest.mark.mainnet
+@pytest.mark.testnet
 @pytest.mark.integration
 def test_lazy_oracle_contract_call(lazy_oracle_contract, caplog):
     check_contract(
