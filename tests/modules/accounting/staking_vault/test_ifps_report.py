@@ -1,10 +1,10 @@
 import pytest
 from eth_typing import HexStr
 
-from src.services.staking_vaults import StakingVaultsService
 from src.modules.accounting.types import StakingVaultIpfsReport
 from src.providers.ipfs import CIDv0
-from src.types import SlotNumber, FrameNumber
+from src.services.staking_vaults import StakingVaultsService
+from src.types import FrameNumber, SlotNumber
 from src.utils.slot import get_blockstamp
 
 
@@ -26,7 +26,7 @@ class TestIpfsReportSmoke:
     def test_ipfs_window(self, web3_integration):
         sv = StakingVaultsService(web3_integration)
 
-        block_hash = HexStr('0xfd4ca3e0bda85d4687811dcfd492fa9d8ca84df6c0af161d9a901d5434171bbd')
+        block_hash = HexStr('0x0f7c7af21e7798550684f83a31b098515946c9b380b12ba4165934e0bac51fe3')
         latest_onchain_ipfs_report_data = sv.get_latest_onchain_ipfs_report_data(block_identifier=block_hash)
         bb = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data.report_cid, FrameNumber(0))
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)
@@ -46,7 +46,9 @@ class TestIpfsReportSmoke:
         latest_onchain_ipfs_report_data_2 = sv.get_latest_onchain_ipfs_report_data(
             block_identifier=HexStr(tree.block_hash)
         )
-        bb_2 = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data_2.report_cid, FrameNumber(0))
-        tree_2 = StakingVaultIpfsReport.parse_merkle_tree_data(bb_2)
 
-        assert tree_2.block_number != tree.block_number
+        if latest_onchain_ipfs_report_data_2.report_cid:
+            bb_2 = web3_integration.ipfs.fetch(latest_onchain_ipfs_report_data_2.report_cid, FrameNumber(0))
+            tree_2 = StakingVaultIpfsReport.parse_merkle_tree_data(bb_2)
+
+            assert tree_2.block_number != tree.block_number

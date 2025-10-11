@@ -127,8 +127,6 @@ class LazyOracleContract(ContractInterface):
                 'to': self.address,
             })
 
-            out.update({
-                str(pk): ValidatorStage(stage) for pk, stage in zip(batch, response)
-            })
+            out.update({ pk.to_0x_hex(): ValidatorStage(stage) for pk, stage in zip(batch, response) })
 
         return out
