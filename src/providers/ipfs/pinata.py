@@ -15,7 +15,7 @@ class Pinata(IPFSProvider):
     """pinata.cloud IPFS provider"""
 
     API_ENDPOINT = "https://api.pinata.cloud"
-    GATEWAY = "https://gateway.pinata.cloud"
+    GATEWAY = "https://lido.mypinata.cloud"
 
     def __init__(self, jwt_token: str, *, timeout: int) -> None:
         super().__init__()
