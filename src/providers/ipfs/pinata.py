@@ -17,6 +17,7 @@ class Pinata(IPFSProvider):
 
     API_ENDPOINT = "https://api.pinata.cloud"
     PUBLIC_GATEWAY = "https://gateway.pinata.cloud"
+    MAX_DEDICATED_GATEWAY_FAILURES = 2
 
     def __init__(self, jwt_token: str, *, timeout: int, dedicated_gateway_url: str, dedicated_gateway_token: str) -> None:
         super().__init__()
@@ -26,10 +27,9 @@ class Pinata(IPFSProvider):
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
         self.dedicated_gateway_url = dedicated_gateway_url
         self.dedicated_gateway_token = dedicated_gateway_token
-        self.max_dedicated_gateway_failures = 2
 
     def fetch(self, cid: CID) -> bytes:
-        for attempt in range(self.max_dedicated_gateway_failures):
+        for attempt in range(self.MAX_DEDICATED_GATEWAY_FAILURES):
             try:
                 return self._fetch_from_dedicated_gateway(cid)
             except requests.RequestException as ex:
@@ -44,7 +44,6 @@ class Pinata(IPFSProvider):
     def _fetch_from_dedicated_gateway(self, cid: CID) -> bytes:
         url = urljoin(self.dedicated_gateway_url, f"/ipfs/{cid}")
         headers = {"x-pinata-gateway-token": self.dedicated_gateway_token}
-
         resp = requests.get(url, headers=headers, timeout=self.timeout)
         resp.raise_for_status()
         return resp.content
