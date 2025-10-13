@@ -15,10 +15,10 @@ def test_cs_parameters_registry(cs_params_contract, caplog):
     check_contract(
         cs_params_contract,
         [
-            ("get_performance_coefficients", None, check_is_instance_of(PerformanceCoefficients)),
-            ("get_reward_share_data", None, check_is_instance_of(KeyNumberValueIntervalList)),
-            ("get_performance_leeway_data", None, check_is_instance_of(KeyNumberValueIntervalList)),
-            ("get_strikes_params", None, check_is_instance_of(StrikesParams)),
+            ("get_performance_coefficients", (0,), check_is_instance_of(PerformanceCoefficients)),
+            ("get_reward_share_data", (0,), check_is_instance_of(KeyNumberValueIntervalList)),
+            ("get_performance_leeway_data", (0,), check_is_instance_of(KeyNumberValueIntervalList)),
+            ("get_strikes_params", (0,), check_is_instance_of(StrikesParams)),
         ],
         caplog,
     )
