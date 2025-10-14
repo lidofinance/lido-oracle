@@ -3,6 +3,8 @@ from json import JSONDecodeError
 from urllib.parse import urljoin
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from src.utils.jwt import validate_jwt
 
@@ -23,28 +25,36 @@ class Pinata(IPFSProvider):
         super().__init__()
         validate_jwt(jwt_token)
         self.timeout = timeout
+
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
+
+        dedicated_adapter = HTTPAdapter(max_retries=Retry(
+            total=self.MAX_DEDICATED_GATEWAY_FAILURES - 1,
+            status_forcelist=list(range(400, 600)),
+            backoff_factor=3.0,
+        ))
+        self.dedicated_session = requests.Session()
+        self.dedicated_session.headers["x-pinata-gateway-token"] = dedicated_gateway_token
+        self.dedicated_session.mount("https://", dedicated_adapter)
+        self.dedicated_session.mount("http://", dedicated_adapter)
+
         self.dedicated_gateway_url = dedicated_gateway_url
         self.dedicated_gateway_token = dedicated_gateway_token
 
     def fetch(self, cid: CID) -> bytes:
-        for attempt in range(self.MAX_DEDICATED_GATEWAY_FAILURES):
-            try:
-                return self._fetch_from_dedicated_gateway(cid)
-            except requests.RequestException as ex:
-                logger.warning({
-                    "msg": "Dedicated gateway failed, trying public gateway",
-                    "error": str(ex),
-                    "failures": attempt + 1
-                })
-
-        return self._fetch_from_public_gateway(cid)
+        try:
+            return self._fetch_from_dedicated_gateway(cid)
+        except requests.RequestException as ex:
+            logger.warning({
+                "msg": "Dedicated gateway failed after retries, trying public gateway",
+                "error": str(ex)
+            })
+            return self._fetch_from_public_gateway(cid)
 
     def _fetch_from_dedicated_gateway(self, cid: CID) -> bytes:
         url = urljoin(self.dedicated_gateway_url, f"/ipfs/{cid}")
-        headers = {"x-pinata-gateway-token": self.dedicated_gateway_token}
-        resp = requests.get(url, headers=headers, timeout=self.timeout)
+        resp = self.dedicated_session.get(url, timeout=self.timeout)
         resp.raise_for_status()
         return resp.content
 
