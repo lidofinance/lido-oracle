@@ -18,14 +18,13 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
                     1746275159,  # timestamp
                     86400,
                     403105,  # Updated to match current beacon_validators count
-                    8461615483077294000000000,  # Updated to match current beacon_balance
+                    8462132592019028000000000,  # Updated to match current beacon_balance
                     13771995248000000000,
                     478072602914417566,
                     0,
                     accounting_oracle_contract.address,
-                    11620928,
-                    # Call depends on contract state
-                    '0x4b7cf7dbb70179f2e0b6891972fa55903577a11008f6c87a309183829c8aebf1',
+                    11620928,  # ref_slot
+                    '0x9bad2cb4e0ef017912b8c77e9ce1c6ec52a6b79013fe8d0d099a65a51ee4a66e',  # block_identifier
                 ),
                 lambda response: check_value_type(response, LidoReportRebase),
             ),
