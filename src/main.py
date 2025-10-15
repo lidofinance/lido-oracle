@@ -144,10 +144,12 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
-    if variables.PINATA_JWT:
+    if variables.PINATA_JWT and variables.PINATA_DEDICATED_GATEWAY_URL and variables.PINATA_DEDICATED_GATEWAY_TOKEN:
         yield Pinata(
             variables.PINATA_JWT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+            dedicated_gateway_url=variables.PINATA_DEDICATED_GATEWAY_URL,
+            dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
         )
 
     yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
