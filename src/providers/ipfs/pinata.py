@@ -19,7 +19,7 @@ class Pinata(IPFSProvider):
 
     API_ENDPOINT = "https://api.pinata.cloud"
     PUBLIC_GATEWAY = "https://gateway.pinata.cloud"
-    MAX_DEDICATED_GATEWAY_FAILURES = 2
+    MAX_DEDICATED_GATEWAY_RETRIES = 1
 
     def __init__(self, jwt_token: str, *, timeout: int, dedicated_gateway_url: str, dedicated_gateway_token: str) -> None:
         super().__init__()
@@ -30,7 +30,7 @@ class Pinata(IPFSProvider):
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
 
         dedicated_adapter = HTTPAdapter(max_retries=Retry(
-            total=self.MAX_DEDICATED_GATEWAY_FAILURES - 1,
+            total=self.MAX_DEDICATED_GATEWAY_RETRIES,
             status_forcelist=list(range(400, 600)),
             backoff_factor=3.0,
         ))
@@ -59,7 +59,7 @@ class Pinata(IPFSProvider):
         return resp.content
 
     def _fetch_from_public_gateway(self, cid: CID) -> bytes:
-        url = f"{self.PUBLIC_GATEWAY}/ipfs/{cid}"
+        url = urljoin(self.PUBLIC_GATEWAY, f'/ipfs/{cid}')
         try:
             resp = requests.get(url, timeout=self.timeout)
             resp.raise_for_status()
@@ -74,8 +74,7 @@ class Pinata(IPFSProvider):
 
     def _upload(self, content: bytes, name: str | None = None) -> str:
         """Pinata has no dedicated endpoint for uploading, so pinFileToIPFS is used"""
-
-        url = f"{self.API_ENDPOINT}/pinning/pinFileToIPFS"
+        url = urljoin(self.API_ENDPOINT, '/pinning/pinFileToIPFS')
         try:
             with self.session as s:
                 resp = s.post(url, files={"file": content})
