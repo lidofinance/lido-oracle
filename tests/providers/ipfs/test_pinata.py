@@ -157,12 +157,23 @@ class TestPinata:
     def test_fetch__dedicated_gateway_fails_max_attempts__falls_back_to_public(self, pinata_provider):
         cid = CID("QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3")
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", json={"error": "Gateway error"}, status=500
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            json={"error": "Gateway error"},
+            status=500,
         )
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", json={"error": "Gateway error"}, status=500
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            json={"error": "Gateway error"},
+            status=500,
         )
-        responses.add(responses.GET, "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", body=b'public content', status=200)
+        responses.add(
+            responses.GET,
+            "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            body=b'public content',
+            status=200,
+        )
 
         result = pinata_provider.fetch(cid)
 
@@ -176,10 +187,16 @@ class TestPinata:
     def test_fetch__dedicated_gateway_fails_once__retries_and_succeeds(self, pinata_provider):
         cid = CID("QmSQBodZXntqeLDt2G22XQs6w8B4ibF29ShA2cQoURV4j2")
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmSQBodZXntqeLDt2G22XQs6w8B4ibF29ShA2cQoURV4j2", json={"error": "First failure"}, status=500
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmSQBodZXntqeLDt2G22XQs6w8B4ibF29ShA2cQoURV4j2",
+            json={"error": "First failure"},
+            status=500,
         )
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmSQBodZXntqeLDt2G22XQs6w8B4ibF29ShA2cQoURV4j2", body=b'dedicated success', status=200
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmSQBodZXntqeLDt2G22XQs6w8B4ibF29ShA2cQoURV4j2",
+            body=b'dedicated success',
+            status=200,
         )
 
         result = pinata_provider.fetch(cid)
@@ -191,13 +208,22 @@ class TestPinata:
     def test_fetch__both_gateways_fail__raises_fetch_error(self, pinata_provider):
         cid = CID("QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3")
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", json={"error": "Dedicated error"}, status=500
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            json={"error": "Dedicated error"},
+            status=500,
         )
         responses.add(
-            responses.GET, "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", json={"error": "Dedicated error"}, status=500
+            responses.GET,
+            "https://dedicated.gateway.com/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            json={"error": "Dedicated error"},
+            status=500,
         )
         responses.add(
-            responses.GET, "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", json={"error": "Public error"}, status=500
+            responses.GET,
+            "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            json={"error": "Public error"},
+            status=500,
         )
 
         with pytest.raises(FetchError):
@@ -220,7 +246,12 @@ class TestPinata:
             json={"error": "Rate limit exceeded"},
             status=429,
         )
-        responses.add(responses.GET, "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3", body=b'public content', status=200)
+        responses.add(
+            responses.GET,
+            "https://gateway.pinata.cloud/ipfs/QmZCCe4ykD1eeCogv43GYTdz8wGyBWaccoHA2KTpZCpvY3",
+            body=b'public content',
+            status=200,
+        )
 
         result = pinata_provider.fetch(cid)
 

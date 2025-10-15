@@ -23,7 +23,7 @@ STORACHA_AUTH_SECRET: Final = os.getenv('STORACHA_AUTH_SECRET')
 STORACHA_AUTHORIZATION: Final = os.getenv('STORACHA_AUTHORIZATION')
 STORACHA_SPACE_DID: Final = os.getenv('STORACHA_SPACE_DID')
 
-LIDO_IPFS_HOST: Final = os.getenv('LIDO_IPFS_HOST', '').rstrip('/') or None
+LIDO_IPFS_HOST: Final = os.getenv('LIDO_IPFS_HOST') or None
 LIDO_IPFS_TOKEN: Final = os.getenv('LIDO_IPFS_TOKEN')
 
 # - Account -
