@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Optional
+from urllib.parse import urljoin
 
 import requests
 
@@ -141,7 +142,7 @@ class Storacha(IPFSProvider):
             Content bytes
         """
         try:
-            response = requests.get(f"{self.GATEWAY_URL}{cid}", timeout=self.timeout)
+            response = requests.get(urljoin(self.GATEWAY_URL, str(cid)), timeout=self.timeout)
             response.raise_for_status()
             return response.content
         except requests.RequestException as ex:
