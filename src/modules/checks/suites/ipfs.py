@@ -49,7 +49,8 @@ def check_ipfs_providers():
     errors = []
 
     for upload_provider in configured_providers:
-        test_content = "".join(random.choice(string.printable) for _ in range(128))
+        # Content MUST be more then 262144 bytes, to test CAR file chunking
+        test_content = "".join(random.choice(string.printable) for _ in range(362144))
 
         try:
             uploaded_cid = upload_provider.publish(test_content.encode())
