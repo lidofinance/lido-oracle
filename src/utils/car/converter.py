@@ -9,6 +9,7 @@ BytesLike = Union[bytes, bytearray, memoryview]
 Block = Tuple[CID, BytesLike]
 
 CAR_VERSION = 1
+DEFAULT_CHUNK_SIZE = 262144  # Default chunk size for IPFS UnixFS (256KB)
 BYTES_LIKE_TYPES: Final = (bytes, bytearray, memoryview)
 
 
@@ -83,7 +84,7 @@ class CARConverter:
 
         return memoryview(buffer)
 
-    def _chunk_data(self, data_bytes: bytes, chunk_size: int = 262144) -> list[bytes]:
+    def _chunk_data(self, data_bytes: bytes, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[bytes]:
         """Chunk data into fixed-size pieces (matching ipfs-unixfs-importer behavior)."""
         if len(data_bytes) <= chunk_size:
             return [data_bytes]
@@ -154,7 +155,7 @@ class CARConverter:
             i -= 1
             buffer[i] = 0x18  # field 3, varint
 
-        # Name field (tag 2, wire type 2 = length-delimited) - всегда кодируем, даже пустое имя
+        # Name field (tag 2, wire type 2 = length-delimited) - always encode, even empty name
         if name is not None:
             name_bytes = name.encode('utf-8')
             i -= len(name_bytes)
@@ -267,7 +268,7 @@ class CARConverter:
     def create_unixfs_based_cid(self, data_bytes: bytes) -> str:
         """Create UnixFS-based CID matching ipfs-unixfs-importer behavior.
 
-        For files > 262144 bytes, this chunks the data and creates a tree structure
+        For files > DEFAULT_CHUNK_SIZE bytes, this chunks the data and creates a tree structure
         matching the JavaScript ipfs-unixfs-importer with rawLeaves: false.
         """
         chunks = self._chunk_data(data_bytes)
@@ -303,7 +304,7 @@ class CARConverter:
         """Create a complete CAR file using UnixFS structure.
 
         Uses create_unixfs_based_cid to properly handle chunking and create
-        all necessary blocks for files larger than 262144 bytes.
+        all necessary blocks for files larger than DEFAULT_CHUNK_SIZE bytes.
         """
         chunks = self._chunk_data(data_bytes)
         blocks = []
