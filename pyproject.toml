@@ -28,6 +28,8 @@ web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
 py-multiformats-cid = "^0.4.4"
+flask = "^3.0.0"
+waitress = "^3.0.2"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"

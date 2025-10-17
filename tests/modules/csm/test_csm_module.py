@@ -101,17 +101,18 @@ class FrameTestParam:
             ),
             id="holesky_testnet",
         ),
-        pytest.param(
-            FrameTestParam(
-                epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
-                last_processing_ref_slot=0,
-                current_ref_slot=0,
-                finalized_slot=0,
-                expected_frame=(69, 100),
-            ),
-            id="not_yet_reached_initial_epoch",
-        ),
+        # NOTE: Impossible case in current processing
+        # pytest.param(
+        #     FrameTestParam(
+        #         epochs_per_frame=32,
+        #         initial_ref_slot=last_slot_of_epoch(100),
+        #         last_processing_ref_slot=0,
+        #         current_ref_slot=0,
+        #         finalized_slot=0,
+        #         expected_frame=(69, 100),
+        #     ),
+        #     id="not_yet_reached_initial_epoch",
+        # ),
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
@@ -188,11 +189,14 @@ def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, para
     )
     module.get_initial_ref_slot = Mock(return_value=param.initial_ref_slot)
 
+    ref_epoch = slot_to_epoch(param.current_ref_slot)
     if param.expected_frame is ValueError:
         with pytest.raises(ValueError):
-            module.get_epochs_range_to_process(ReferenceBlockStampFactory.build(slot_number=param.finalized_slot))
+            module.get_epochs_range_to_process(
+                ReferenceBlockStampFactory.build(slot_number=param.current_ref_slot, ref_epoch=ref_epoch)
+            )
     else:
-        bs = ReferenceBlockStampFactory.build(slot_number=param.finalized_slot)
+        bs = ReferenceBlockStampFactory.build(slot_number=param.current_ref_slot, ref_epoch=ref_epoch)
 
         l_epoch, r_epoch = module.get_epochs_range_to_process(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
@@ -588,6 +592,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 @pytest.mark.unit
 def test_execute_module_not_collected(module: CSOracle):
     module._check_compatability = Mock(return_value=True)
+    module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.collect_data = Mock(return_value=False)
 
     execute_delay = module.execute_module(

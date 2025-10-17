@@ -35,7 +35,9 @@ from src.variables import (
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils, \
+    FallbackProviderModule
+from src.web3py.extensions.performance import PerformanceClientModule
 
 logger = logging.getLogger('fork_tests')
 
@@ -174,6 +176,15 @@ def real_cl_client():
 
 
 @pytest.fixture
+def real_el_client():
+    return FallbackProviderModule(
+        variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
+    )
+
+
+@pytest.fixture
 def real_finalized_slot(real_cl_client: ConsensusClient) -> SlotNumber:
     finalized_slot = real_cl_client.get_block_header('finalized').data.header.message.slot
     logger.info(f"TESTRUN True finalized slot on CL: {finalized_slot}")
@@ -268,6 +279,7 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
 @pytest.fixture()
 def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_el_client)
+    performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
     forked_el_client.attach_modules(
         {
             'lido_contracts': LidoContracts,
@@ -277,6 +289,7 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
+            'performance': lambda: performance
         }
     )
     yield forked_el_client
