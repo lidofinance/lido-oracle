@@ -3,7 +3,8 @@ from typing import Final, Tuple, Union, cast
 
 import dag_cbor
 from .schemes import merkledag_pb2, unixfs_pb2
-from multiformats import CID, multihash, varint
+from multiformats import CID, multihash
+from multiformats import varint
 
 BytesLike = Union[bytes, bytearray, memoryview]
 Block = Tuple[CID, BytesLike]
@@ -30,6 +31,10 @@ class CARConverter:
 
     Spec: https://ipld.io/specs/transport/car/carv1/
 
+    JavaScript compatibility based on:
+    - js-ipfs-unixfs: /Users/matttolstolytsky/Projects/lido/js-ipfs-unixfs
+    - @ipld/dag-pb: DAG-PB encoding/decoding
+    - Uses multiformats library for varint encoding
     """
 
     def _encode_header(self, roots: list[CID]) -> bytes:
@@ -85,7 +90,10 @@ class CARConverter:
         return memoryview(buffer)
 
     def _chunk_data(self, data_bytes: bytes, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[bytes]:
-        """Chunk data into fixed-size pieces (matching ipfs-unixfs-importer behavior)."""
+        """Chunk data into fixed-size pieces (matching ipfs-unixfs-importer behavior).
+
+        Source: js-ipfs-unixfs/packages/ipfs-unixfs-importer/src/chunker/fixed-size.ts:13-47
+        """
         if len(data_bytes) <= chunk_size:
             return [data_bytes]
 
@@ -98,7 +106,10 @@ class CARConverter:
         return chunks
 
     def _serialize_unixfs_leaf_node(self, data_bytes: bytes) -> bytes:
-        """Serialize UnixFS leaf node (chunk) with rawLeaves: false behavior."""
+        """Serialize UnixFS leaf node (chunk) with rawLeaves: false behavior.
+
+        Source: js-ipfs-unixfs/packages/ipfs-unixfs-importer/src/dag-builder/file.ts:89-96
+        """
         # Create UnixFS data structure for a file chunk
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
@@ -111,45 +122,22 @@ class CARConverter:
         pb_node.Data = unixfs_serialized
         return pb_node.SerializeToString()
 
-    def _js_encode_varint(self, value: int) -> bytes:
-        """Encode varint same as JavaScript implementation"""
-        result = bytearray()
-        while value >= 128:
-            result.append((value & 0x7f) | 0x80)
-            value >>= 7
-        result.append(value)
-        return bytes(result)
-
-    def _js_sov(self, x: int) -> int:
-        """Calculate size of varint (JavaScript sov function)"""
-        if x % 2 == 0:
-            x += 1
-        return (self._js_len64(x) + 6) // 7
-
-    def _js_len64(self, x: int) -> int:
-        """JavaScript len64 function"""
-        n = 0
-        if x >= 2**32:
-            x = x // 2**32
-            n = 32
-        if x >= (1 << 16):
-            x >>= 16
-            n += 16
-        if x >= (1 << 8):
-            x >>= 8
-            n += 8
-        # simplified len8tab lookup
-        return n + (8 if x >= 128 else 7 if x >= 64 else 6 if x >= 32 else 5 if x >= 16 else 4 if x >= 8 else 3 if x >= 4 else 2 if x >= 2 else 1)
+    def _varint_size(self, value: int) -> int:
+        """Calculate the size of a varint-encoded value."""
+        return len(varint.encode(value))
 
     def _js_encode_link(self, cid: CID, name: str, tsize: int, buffer: bytearray, offset: int) -> int:
-        """Encode link JavaScript-style (backwards from offset)"""
+        """Encode link JavaScript-style (backwards from offset).
+
+        Based on: https://github.com/ipld/js-dag-pb/blob/master/src/pb-encode.js encodeLink()
+        """
         i = offset
 
         # Tsize field (tag 3, wire type 0 = varint)
         if tsize is not None:
             if tsize < 0:
                 raise ValueError('Tsize cannot be negative')
-            tsize_bytes = self._js_encode_varint(tsize)
+            tsize_bytes = varint.encode(tsize)
             i -= len(tsize_bytes)
             buffer[i:i+len(tsize_bytes)] = tsize_bytes
             i -= 1
@@ -161,7 +149,7 @@ class CARConverter:
             i -= len(name_bytes)
             if name_bytes:
                 buffer[i:i+len(name_bytes)] = name_bytes
-            name_len_bytes = self._js_encode_varint(len(name_bytes))
+            name_len_bytes = varint.encode(len(name_bytes))
             i -= len(name_len_bytes)
             buffer[i:i+len(name_len_bytes)] = name_len_bytes
             i -= 1
@@ -171,7 +159,7 @@ class CARConverter:
         cid_bytes = bytes(cid)
         i -= len(cid_bytes)
         buffer[i:i+len(cid_bytes)] = cid_bytes
-        cid_len_bytes = self._js_encode_varint(len(cid_bytes))
+        cid_len_bytes = varint.encode(len(cid_bytes))
         i -= len(cid_len_bytes)
         buffer[i:i+len(cid_len_bytes)] = cid_len_bytes
         i -= 1
@@ -180,35 +168,42 @@ class CARConverter:
         return offset - i
 
     def _js_size_link(self, cid: CID, name: str, tsize: int) -> int:
-        """Calculate link size JavaScript-style"""
+        """Calculate link size JavaScript-style.
+
+        Based on: https://github.com/ipld/js-dag-pb/blob/master/src/pb-encode.js sizeLink()
+        """
         n = 0
 
         if cid:
             cid_len = len(bytes(cid))
-            n += 1 + cid_len + self._js_sov(cid_len)
+            n += 1 + cid_len + self._varint_size(cid_len)
 
         if name is not None:
             name_len = len(name.encode('utf-8'))
-            n += 1 + name_len + self._js_sov(name_len)
+            n += 1 + name_len + self._varint_size(name_len)
 
         if tsize is not None:
-            n += 1 + self._js_sov(tsize)
+            n += 1 + self._varint_size(tsize)
 
         return n
 
     def _js_encode_node(self, data: bytes, links: list[tuple[CID, str, int]]) -> bytes:
-        """Encode DAG-PB node JavaScript-style"""
+        """Encode DAG-PB node JavaScript-style.
+
+        Based on: https://github.com/ipld/js-dag-pb/blob/master/src/pb-encode.js
+        Implements encodeNode() and encodeLink() logic with backward encoding approach.
+        """
         # Calculate total size
         size = 0
 
         if data:
             data_len = len(data)
-            size += 1 + data_len + self._js_sov(data_len)
+            size += 1 + data_len + self._varint_size(data_len)
 
         if links:
             for cid, name, tsize in links:
                 link_size = self._js_size_link(cid, name, tsize)
-                size += 1 + link_size + self._js_sov(link_size)
+                size += 1 + link_size + self._varint_size(link_size)
 
         # Create buffer
         buffer = bytearray(size)
@@ -218,7 +213,7 @@ class CARConverter:
         if data:
             i -= len(data)
             buffer[i:i+len(data)] = data
-            data_len_bytes = self._js_encode_varint(len(data))
+            data_len_bytes = varint.encode(len(data))
             i -= len(data_len_bytes)
             buffer[i:i+len(data_len_bytes)] = data_len_bytes
             i -= 1
@@ -229,7 +224,7 @@ class CARConverter:
             for cid, name, tsize in reversed(links):
                 link_size = self._js_encode_link(cid, name, tsize, buffer, i)
                 i -= link_size
-                link_len_bytes = self._js_encode_varint(link_size)
+                link_len_bytes = varint.encode(link_size)
                 i -= len(link_len_bytes)
                 buffer[i:i+len(link_len_bytes)] = link_len_bytes
                 i -= 1
@@ -238,7 +233,10 @@ class CARConverter:
         return bytes(buffer)
 
     def _serialize_unixfs_parent_node(self, chunk_cids: list[CID], chunk_block_sizes: list[int], chunk_data_sizes: list[int], total_size: int) -> bytes:
-        """Serialize UnixFS parent node that links to child chunks."""
+        """Serialize UnixFS parent node that links to child chunks.
+
+        Source: js-ipfs-unixfs/packages/ipfs-unixfs-importer/src/dag-builder/file.ts:122-186
+        """
         # Create UnixFS data structure for parent file node
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
@@ -248,7 +246,7 @@ class CARConverter:
             unixfs.blocksizes.append(size)
 
         # Calculate filesize as sum of blocksizes (matching JavaScript behavior)
-        # In JavaScript: fileSize() { sum = 0n; blockSizes.forEach(size => sum += size); return sum; }
+        # Source: ipfs-unixfs fileSize() implementation
         unixfs.filesize = sum(chunk_data_sizes)
 
         unixfs_serialized = unixfs.SerializeToString()
