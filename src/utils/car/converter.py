@@ -106,29 +106,24 @@ class CARConverter:
         pb_node = PBNode(data=unixfs_serialized, links=[])
         return dag_pb_encode(pb_node)
 
-
-    def _serialize_unixfs_parent_node(self, chunk_cids: list[CID], chunk_block_sizes: list[int], chunk_data_sizes: list[int], total_size: int) -> bytes:
+    def _serialize_unixfs_parent_node(self, leafs_info: list[tuple[CID, int, int]]) -> bytes:
         """Serialize UnixFS parent node that links to child chunks.
 
         Source: https://github.com/ipfs/js-ipfs-unixfs/blob/master/packages/ipfs-unixfs-importer/src/dag-builder/file.ts#L122-L186
         """
-        # Create UnixFS data structure for parent file node
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
 
-        # Add original chunk data sizes (not encoded block sizes) to UnixFS metadata
-        for size in chunk_data_sizes:
-            unixfs.blocksizes.append(size)
-
-        # Calculate filesize as sum of blocksizes (matching JavaScript behavior)
-        # Source: ipfs-unixfs fileSize() implementation
-        unixfs.filesize = sum(chunk_data_sizes)
-
-        unixfs_serialized = unixfs.SerializeToString()
-
         links = []
-        for cid, block_size in zip(chunk_cids, chunk_block_sizes):
+        total_file_size = 0
+
+        for cid, block_size, data_size in leafs_info:
+            unixfs.blocksizes.append(data_size)
+            total_file_size += data_size
             links.append(PBLink(hash=cid, name="", size=block_size))
+
+        unixfs.filesize = total_file_size
+        unixfs_serialized = unixfs.SerializeToString()
 
         pb_node = PBNode(data=unixfs_serialized, links=links)
         return dag_pb_encode(pb_node)
@@ -143,7 +138,7 @@ class CARConverter:
         This method handles the common logic for both CID creation and CAR file generation.
 
         For files > DEFAULT_CHUNK_SIZE bytes, this chunks the data and creates a tree structure
-        matching the JavaScript ipfs-unixfs-importer with rawLeaves: false.
+        matching the ipfs-unixfs-importer with rawLeaves: false.
 
         Returns:
             tuple: (root_cid, blocks) where blocks is a list of (CID, bytes) tuples
@@ -151,36 +146,24 @@ class CARConverter:
         chunks = self._chunk_data(data_bytes)
         blocks = []
 
-        if len(chunks) == 1:
+        if len(chunks) <= 1:
             # Single chunk - create a simple UnixFS file node
-            pb_node_serialized = self._serialize_unixfs_leaf_node(data_bytes)
-            root_cid = self._create_cid_from_pb_node(pb_node_serialized)
-            blocks = [(root_cid, pb_node_serialized)]
+            root_node_serialized = self._serialize_unixfs_leaf_node(data_bytes)
         else:
             # Multiple chunks - create leaf nodes for each chunk and a parent node
-            chunk_cids = []
-            chunk_block_sizes = []  # Size of the encoded DAG-PB blocks
-            chunk_data_sizes = []   # Size of the original chunk data
+            all_chunks_info: list[tuple[CID, int, int]] = []  # (cid, block_size, data_size)
 
             for chunk in chunks:
-                # Create leaf node for each chunk
                 leaf_node_serialized = self._serialize_unixfs_leaf_node(chunk)
                 chunk_cid = self._create_cid_from_pb_node(leaf_node_serialized)
-                chunk_cids.append(chunk_cid)
-                # Track both the encoded block size and original data size
-                chunk_block_sizes.append(len(leaf_node_serialized))
-                chunk_data_sizes.append(len(chunk))
-                # Add chunk block to blocks list
+                all_chunks_info.append((chunk_cid, len(leaf_node_serialized), len(chunk)))
                 blocks.append((chunk_cid, leaf_node_serialized))
 
             # Create parent node that links to all chunks
-            parent_node_serialized = self._serialize_unixfs_parent_node(
-                chunk_cids, chunk_block_sizes, chunk_data_sizes, len(data_bytes)
-            )
-            root_cid = self._create_cid_from_pb_node(parent_node_serialized)
-            # Add parent block to blocks list
-            blocks.append((root_cid, parent_node_serialized))
+            root_node_serialized = self._serialize_unixfs_parent_node(all_chunks_info)
 
+        root_cid = self._create_cid_from_pb_node(root_node_serialized)
+        blocks.append((root_cid, root_node_serialized))
         return root_cid, blocks
 
     def create_unixfs_based_cid(self, data_bytes: bytes) -> str:
