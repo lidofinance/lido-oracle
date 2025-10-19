@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from typing import Final, Tuple, Union, cast
 
 import dag_cbor
+from ipld_dag_pb import PBLink, PBNode, encode as dag_pb_encode
+from multiformats import CID, multihash, varint
+
 from .schemes import unixfs_pb2
-from multiformats import CID, multihash
-from multiformats import varint
-from ipld_dag_pb import PBNode, PBLink, encode as dag_pb_encode
 
 BytesLike = Union[bytes, bytearray, memoryview]
 Block = Tuple[CID, BytesLike]
@@ -87,19 +87,9 @@ class CARConverter:
         return memoryview(buffer)
 
     def _chunk_data(self, data_bytes: bytes, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[bytes]:
-        """Chunk data into fixed-size pieces (matching ipfs-unixfs-importer behavior).
-
-        Source: https://github.com/ipfs/js-ipfs-unixfs/blob/master/packages/ipfs-unixfs-importer/src/chunker/fixed-size.ts#L13-L47
-        """
-        if len(data_bytes) <= chunk_size:
-            return [data_bytes]
-
         chunks = []
-        offset = 0
-        while offset < len(data_bytes):
-            chunk = data_bytes[offset:offset + chunk_size]
-            chunks.append(chunk)
-            offset += chunk_size
+        for i in range(0, len(data_bytes), chunk_size):
+            chunks.append(data_bytes[i:i + chunk_size])
         return chunks
 
     def _serialize_unixfs_leaf_node(self, data_bytes: bytes) -> bytes:
@@ -107,14 +97,12 @@ class CARConverter:
 
         Source: https://github.com/ipfs/js-ipfs-unixfs/blob/master/packages/ipfs-unixfs-importer/src/dag-builder/file.ts#L89-L96
         """
-        # Create UnixFS data structure for a file chunk
         unixfs = unixfs_pb2.Data()  # type: ignore[attr-defined]
         unixfs.Type = unixfs_pb2.Data.File  # type: ignore[attr-defined]
         unixfs.Data = data_bytes
         unixfs.filesize = len(data_bytes)
         unixfs_serialized = unixfs.SerializeToString()
 
-        # Create DAG-PB node using ipld-dag-pb library
         pb_node = PBNode(data=unixfs_serialized, links=[])
         return dag_pb_encode(pb_node)
 
@@ -138,12 +126,10 @@ class CARConverter:
 
         unixfs_serialized = unixfs.SerializeToString()
 
-        # Create links list for DAG-PB encoding using ipld-dag-pb library
         links = []
         for cid, block_size in zip(chunk_cids, chunk_block_sizes):
             links.append(PBLink(hash=cid, name="", size=block_size))
 
-        # Create DAG-PB node using ipld-dag-pb library
         pb_node = PBNode(data=unixfs_serialized, links=links)
         return dag_pb_encode(pb_node)
 
@@ -155,6 +141,9 @@ class CARConverter:
         """Build UnixFS blocks and return root CID with all blocks.
 
         This method handles the common logic for both CID creation and CAR file generation.
+
+        For files > DEFAULT_CHUNK_SIZE bytes, this chunks the data and creates a tree structure
+        matching the JavaScript ipfs-unixfs-importer with rawLeaves: false.
 
         Returns:
             tuple: (root_cid, blocks) where blocks is a list of (CID, bytes) tuples
@@ -195,20 +184,10 @@ class CARConverter:
         return root_cid, blocks
 
     def create_unixfs_based_cid(self, data_bytes: bytes) -> str:
-        """Create UnixFS-based CID matching ipfs-unixfs-importer behavior.
-
-        For files > DEFAULT_CHUNK_SIZE bytes, this chunks the data and creates a tree structure
-        matching the JavaScript ipfs-unixfs-importer with rawLeaves: false.
-        """
         root_cid, _ = self._build_unixfs_blocks_and_root(data_bytes)
         return root_cid.encode()
 
     def create_car_from_data(self, data_bytes: bytes) -> CarFile:
-        """Create a complete CAR file using UnixFS structure.
-
-        Uses _build_unixfs_blocks_and_root to properly handle chunking and create
-        all necessary blocks for files larger than DEFAULT_CHUNK_SIZE bytes.
-        """
         root_cid, blocks = self._build_unixfs_blocks_and_root(data_bytes)
 
         car = self._encode([root_cid], blocks)
