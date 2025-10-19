@@ -48,8 +48,7 @@ def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[s
     errors = []
 
     for upload_provider in configured_providers:
-        # Generate test content of specified size
-        test_content = "".join(random.choice(string.printable) for _ in range(content_size))
+        test_content = "".join(random.choice(string.hexdigits) for _ in range(content_size))
 
         try:
             uploaded_cid = upload_provider.publish(test_content.encode())
