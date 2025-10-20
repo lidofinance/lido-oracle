@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
+from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import Frame, State, ValidatorDuties
@@ -157,7 +158,10 @@ class Distribution:
             curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
-            active_validators.sort(key=lambda v: v.index)
+            # Sort from biggest to smallest balance and by index from oldest to newest.
+            active_validators.sort(
+                key=lambda v: (-min(v.validator.effective_balance, MAX_EFFECTIVE_BALANCE_ELECTRA), v.index)
+            )
             numbered_validators = enumerate(active_validators, 1)
             for key_number, validator in numbered_validators:
                 key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
@@ -254,10 +258,19 @@ class Distribution:
             #    87.55 ≈ 88 of 103 participation shares should be counted for the operator key's reward.
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
-            participation_share = math.ceil(duties.attestation.assigned * reward_share)
-            rebate_share = duties.attestation.assigned - participation_share
+            val_effective_balance = min(validator.validator.effective_balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
+            participation_share_multiplier = max(1, val_effective_balance // MIN_ACTIVATION_BALANCE)
+            #
+            # Due to CL rewarding process, validators are getting rewards in proportion to their effective balance:
+            # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers
+            # Distribution should calculate participation and rebate shares proportional to effective balance as well.
+            # NOTE: Moment of getting 2048 ETH can be too close to the report and trick the distribution.
+            #
+            assigned_att = duties.attestation.assigned * participation_share_multiplier
+            participation_share = math.ceil(assigned_att * reward_share)
+            rebate_share = assigned_att - participation_share
             if rebate_share < 0:
-                raise ValueError(f"Invalid rebate share: {rebate_share=}")
+                raise ValueError(f"Invalid rebate share for validator {validator.index}: {rebate_share=}")
             return ValidatorDutiesOutcome(participation_share, rebate_share, strikes=0)
 
         # In case of bad performance the validator should be striked and assigned attestations are not counted for
