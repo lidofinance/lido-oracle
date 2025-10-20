@@ -138,22 +138,12 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
 
 
 def ipfs_providers() -> Iterator[IPFSProvider]:
-    if variables.KUBO_HOST:
-        yield Kubo(
-            variables.KUBO_HOST,
-            variables.KUBO_RPC_PORT,
-            variables.KUBO_GATEWAY_PORT,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-        )
+    """
+    Create IPFS providers in PRIORITY order.
 
-    if variables.PINATA_JWT and variables.PINATA_DEDICATED_GATEWAY_URL and variables.PINATA_DEDICATED_GATEWAY_TOKEN:
-        yield Pinata(
-            variables.PINATA_JWT,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-            dedicated_gateway_url=variables.PINATA_DEDICATED_GATEWAY_URL,
-            dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
-        )
-
+    WARNING: Yields order here used for CID selection fallback when quorum
+    consensus fails. Do not change order without considering impact.
+    """
     if (
         variables.STORACHA_AUTH_SECRET and
         variables.STORACHA_AUTHORIZATION and
@@ -170,6 +160,22 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
         yield LidoIPFS(
             variables.LIDO_IPFS_HOST,
             variables.LIDO_IPFS_TOKEN,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.PINATA_JWT and variables.PINATA_DEDICATED_GATEWAY_URL and variables.PINATA_DEDICATED_GATEWAY_TOKEN:
+        yield Pinata(
+            variables.PINATA_JWT,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+            dedicated_gateway_url=variables.PINATA_DEDICATED_GATEWAY_URL,
+            dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
+        )
+
+    if variables.KUBO_HOST:
+        yield Kubo(
+            variables.KUBO_HOST,
+            variables.KUBO_RPC_PORT,
+            variables.KUBO_GATEWAY_PORT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
