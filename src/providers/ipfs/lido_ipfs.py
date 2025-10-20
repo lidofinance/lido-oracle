@@ -1,5 +1,6 @@
 import logging
 from json import JSONDecodeError
+from urllib.parse import urljoin
 
 import requests
 
@@ -35,7 +36,7 @@ class LidoIPFS(IPFSProvider):
         the Lido IPFS node. It cannot fetch files from the global IPFS network.
 
         """
-        url = f"{self.host}/ipfs/{cid}"
+        url = urljoin(self.host, f"/ipfs/{cid}")
         try:
             resp = requests.get(url, headers=self._get_headers(), timeout=self.timeout)
             resp.raise_for_status()
@@ -46,7 +47,7 @@ class LidoIPFS(IPFSProvider):
 
     def _upload(self, content: bytes, name: str | None = None) -> str:
         """Upload content to Lido IPFS node with automatic pinning."""
-        url = f"{self.host}/add"
+        url = urljoin(self.host, "/add")
         filename = name or "file"
 
         params = {
