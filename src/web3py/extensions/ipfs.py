@@ -163,7 +163,6 @@ class IPFS(Module):
         raise ProviderConsistencyError(
             f"No priority provider found in successful uploads. "
             f"Priority providers: {[p.__class__.__name__ for p in self.priority_providers]}, "
-            f"Successful uploads: {[u.provider_class for u in successful_uploads]}"
         )
 
     def publish(self, content: bytes, name: str | None = None) -> CID:
@@ -202,12 +201,17 @@ class IPFS(Module):
             })
             raise NoMoreProvidersError("All providers failed during upload")
 
+        if failed_uploads:
+            logger.warning({
+                "msg": "Some providers failed during upload",
+                "failed_uploads": failed_uploads
+            })
+
         selected_cid = self._select_cid_with_quorum(successful_uploads)
 
         logger.info({
             "msg": "Completed: w3.ipfs.publish(...)",
             "successful_uploads": [asdict(upload) for upload in successful_uploads],
-            "failed_uploads": failed_uploads,
             "selected_cid": str(selected_cid)
         })
 
