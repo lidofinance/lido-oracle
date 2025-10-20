@@ -5,7 +5,7 @@ import pytest
 from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import IPFSError, IPFSProvider
 from src.types import FrameNumber
-from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError
+from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError, ProviderConsistencyError
 
 
 HARDCODED_FETCH_CONTENT = b"hardcoded_fetched_content"
@@ -14,12 +14,7 @@ HARDCODED_PUBLISH_CONTENT = b"any_content"
 HARDCODED_PUBLISH_CID = CID("QmdAjYn2fs94anbsRsTxYkjpaRSaCv7uz9pMnSwiivW77J")
 
 
-class MockIPFSProvider(IPFSProvider):
-
-    def __init__(self, name):
-        super().__init__()
-        self.name = name
-
+def create_mock_provider_class(name: str):
     def _fetch(self, cid: CID) -> bytes:
         return HARDCODED_FETCH_CONTENT
 
@@ -28,6 +23,14 @@ class MockIPFSProvider(IPFSProvider):
 
     def pin(self, cid: CID) -> None:
         pass
+
+    return type(name, (IPFSProvider,), {'_fetch': _fetch, '_upload': _upload, 'pin': pin})
+
+
+MockProvider1 = create_mock_provider_class("MockProvider1")
+MockProvider2 = create_mock_provider_class("MockProvider2")
+MockProvider3 = create_mock_provider_class("MockProvider3")
+MockProvider4 = create_mock_provider_class("MockProvider4")
 
 
 @pytest.mark.unit
@@ -39,11 +42,19 @@ class TestIPFS:
 
     @pytest.fixture
     def mock_provider1(self):
-        return MockIPFSProvider("provider1")
+        return MockProvider1()
 
     @pytest.fixture
     def mock_provider2(self):
-        return MockIPFSProvider("provider2")
+        return MockProvider2()
+
+    @pytest.fixture
+    def mock_provider3(self):
+        return MockProvider3()
+
+    @pytest.fixture
+    def mock_provider4(self):
+        return MockProvider4()
 
     def test_init__valid_parameters__creates_ipfs_instance(self, mock_w3, mock_provider1):
         ipfs = IPFS(mock_w3, [mock_provider1])
@@ -231,3 +242,82 @@ class TestIPFS:
         assert result == HARDCODED_PUBLISH_CID
         assert provider1.publish.call_count == 1
         assert provider2.publish.call_count == 1
+
+    def test_publish_quorum__consensus_reached__returns_consensus_cid(
+        self, mock_w3, mock_provider1, mock_provider2, mock_provider3
+    ):
+        consensus_cid = CID("QmConsensus")
+        minority_cid = CID("QmMinority")
+
+        mock_provider1.publish = MagicMock(return_value=consensus_cid)
+        mock_provider2.publish = MagicMock(return_value=consensus_cid)
+        mock_provider3.publish = MagicMock(return_value=minority_cid)
+
+        ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2, mock_provider3])
+        result = ipfs.publish(b"test", "test")
+
+        assert result == consensus_cid
+        assert mock_provider1.publish.call_count == 1
+        assert mock_provider2.publish.call_count == 1
+        assert mock_provider3.publish.call_count == 1
+
+    def test_publish_quorum__no_consensus__falls_back_to_priority_provider(
+        self, mock_w3, mock_provider1, mock_provider2, mock_provider3
+    ):
+        cid1 = CID("QmCID1")
+        cid2 = CID("QmCID2")
+        cid3 = CID("QmCID3")
+
+        mock_provider1.publish = MagicMock(return_value=cid1)
+        mock_provider2.publish = MagicMock(return_value=cid2)
+        mock_provider3.publish = MagicMock(return_value=cid3)
+
+        ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2, mock_provider3])
+        result = ipfs.publish(b"test", "test")
+
+        assert result == cid1
+        assert mock_provider1.publish.call_count == 1
+        assert mock_provider2.publish.call_count == 1
+        assert mock_provider3.publish.call_count == 1
+
+    def test_publish_quorum__four_providers_no_consensus__falls_back_to_second_priority(
+        self, mock_w3, mock_provider1, mock_provider2, mock_provider3, mock_provider4
+    ):
+        cid2 = CID("QmCID2")
+        cid3 = CID("QmCID3")
+        cid4 = CID("QmCID4")
+
+        mock_provider1.publish = MagicMock(side_effect=Exception("fail"))
+        mock_provider2.publish = MagicMock(return_value=cid2)
+        mock_provider3.publish = MagicMock(return_value=cid3)
+        mock_provider4.publish = MagicMock(return_value=cid4)
+
+        ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2, mock_provider3, mock_provider4])
+        result = ipfs.publish(b"test", "test")
+
+        assert result == cid2
+        assert mock_provider1.publish.call_count == 1
+        assert mock_provider2.publish.call_count == 1
+        assert mock_provider3.publish.call_count == 1
+        assert mock_provider4.publish.call_count == 1
+
+    def test_publish_quorum__four_providers_tie__falls_back_to_priority(
+        self, mock_w3, mock_provider1, mock_provider2, mock_provider3, mock_provider4
+    ):
+        cid_a = CID("QmCIDA")
+        cid_b = CID("QmCIDB")
+
+        # Required quorum = (4 // 2) + 1 = 3, but each CID appears only 2 times
+        mock_provider1.publish = MagicMock(return_value=cid_a)
+        mock_provider2.publish = MagicMock(return_value=cid_a)
+        mock_provider3.publish = MagicMock(return_value=cid_b)
+        mock_provider4.publish = MagicMock(return_value=cid_b)
+
+        ipfs = IPFS(mock_w3, [mock_provider1, mock_provider2, mock_provider3, mock_provider4])
+        result = ipfs.publish(b"test", "test")
+
+        assert result == cid_a
+        assert mock_provider1.publish.call_count == 1
+        assert mock_provider2.publish.call_count == 1
+        assert mock_provider3.publish.call_count == 1
+        assert mock_provider4.publish.call_count == 1
