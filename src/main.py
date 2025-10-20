@@ -143,6 +143,13 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
 
     WARNING: Yields order here used for CID selection fallback when quorum
     consensus fails. Do not change order without considering impact.
+
+    Storacha has highest priority because it's the only provider where we control
+    the entire content addressing process. While other providers receive raw content
+    and handle CAR/UnixFS assembly on their side (potentially with different
+    implementations), Storacha receives our locally-assembled CAR files, ensuring
+    the returned CID matches our own CAR conversion logic. This makes consensus
+    more reliable when providers disagree on CID calculation.
     """
     if (
         variables.STORACHA_AUTH_SECRET and
