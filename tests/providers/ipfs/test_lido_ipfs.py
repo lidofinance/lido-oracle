@@ -31,6 +31,44 @@ class TestLidoIPFS:
         assert result == expected_content
         assert len(responses.calls) == 1
         assert responses.calls[0].request.headers["Authorization"] == "Bearer test_bearer_token"
+        # Check that User-Agent header is present and has correct format
+        user_agent = responses.calls[0].request.headers.get("User-Agent")
+        assert user_agent is not None
+        assert user_agent.startswith("Lido-Oracle/v")
+
+    @responses.activate
+    def test_fetch__user_agent_header__is_present(self, lido_ipfs_provider):
+        cid = CID("QmXvrr3gPtddcNrisH7i2nan9rY7v7RcxVQ9jjRreoWwRS")
+
+        responses.add(
+            responses.GET,
+            f"https://ipfs-test.lido.fi/ipfs/{cid}",
+            body=b"test content",
+            status=200,
+        )
+
+        lido_ipfs_provider.fetch(cid)
+
+        assert len(responses.calls) == 1
+        headers = responses.calls[0].request.headers
+        assert "User-Agent" in headers
+        user_agent = headers["User-Agent"]
+        assert user_agent.startswith("Lido-Oracle/v")
+
+    @responses.activate
+    def test_upload__user_agent_header__is_present(self, lido_ipfs_provider):
+        content = b"test content for upload"
+        expected_response = {"cid": "QmTvfdWcdo964nULYqsDtLfUV7Gj7Yrob8msaeVJZo58zc"}
+
+        responses.add(responses.POST, "https://ipfs-test.lido.fi/add", json=expected_response, status=200)
+
+        lido_ipfs_provider.upload(content)
+
+        assert len(responses.calls) == 1
+        headers = responses.calls[0].request.headers
+        assert "User-Agent" in headers
+        user_agent = headers["User-Agent"]
+        assert user_agent.startswith("Lido-Oracle/v")
 
     @responses.activate
     def test_fetch__request_fails__raises_fetch_error(self, lido_ipfs_provider):
