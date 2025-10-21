@@ -7,8 +7,12 @@ import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE, \
-    EFFECTIVE_BALANCE_INCREMENT
+from src.constants import (
+    TOTAL_BASIS_POINTS,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+    EFFECTIVE_BALANCE_INCREMENT,
+)
 from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
 from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
