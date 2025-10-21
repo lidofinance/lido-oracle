@@ -42,7 +42,7 @@ from src.web3py.extensions import (
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
-    PerformanceClientModule
+    PerformanceClientModule,
 )
 
 logger = logging.getLogger('fork_tests')
@@ -295,7 +295,7 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
-            'performance': lambda: performance
+            'performance': lambda: performance,
         }
     )
     yield forked_el_client
