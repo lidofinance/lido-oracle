@@ -1,12 +1,12 @@
 from src.modules.accounting.types import OracleReportLimits
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (
-    BeaconSpecResponse,
-    SlotAttestationCommittee,
-    BlockAttestationResponse,
     AttestationData,
-    Checkpoint,
+    BeaconSpecResponse,
+    BlockAttestationResponse,
     BlockDetailsResponse,
+    Checkpoint,
+    SlotAttestationCommittee,
 )
 from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3DataclassFactory

@@ -10,7 +10,7 @@ from src.metrics.prometheus.validators import (
     ALL_SLASHED_VALIDATORS,
     LIDO_SLASHED_VALIDATORS,
 )
-from src.modules.accounting.types import LidoReportRebase
+from src.modules.accounting.types import ReportSimulationResults
 from src.modules.submodules.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
@@ -37,6 +37,7 @@ class BunkerService:
     For more info about bunker mode see:
     https://research.lido.fi/t/withdrawals-for-lido-on-ethereum-bunker-mode-design-and-implementation/
     """
+
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -46,7 +47,7 @@ class BunkerService:
         blockstamp: ReferenceBlockStamp,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
-        simulated_cl_rebase: LidoReportRebase,
+        simulated_cl_rebase: ReportSimulationResults,
     ) -> bool:
         """If any of cases is True, then bunker mode is ON"""
         bunker_config = self._get_config(blockstamp)
@@ -97,7 +98,7 @@ class BunkerService:
 
         return False
 
-    def get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: LidoReportRebase) -> Gwei:
+    def get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: ReportSimulationResults) -> Gwei:
         """
         Get simulated Cl rebase and subtract total supply before report
         """

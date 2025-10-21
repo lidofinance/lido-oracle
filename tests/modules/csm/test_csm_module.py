@@ -16,7 +16,7 @@ from src.modules.csm.types import StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID
-from src.types import NodeOperatorId, SlotNumber
+from src.types import NodeOperatorId, SlotNumber, FrameNumber
 from src.utils.types import hex_str_to_bytes
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -776,7 +776,7 @@ class TestLastReport:
         web3.csm.get_strikes_tree_root = Mock(return_value=HexBytes(b"17"))
         web3.csm.get_strikes_tree_cid = Mock(return_value=CID("QmST"))
 
-        last_report = LastReport.load(web3, blockstamp)
+        last_report = LastReport.load(web3, blockstamp, FrameNumber(0))
 
         web3.csm.get_rewards_tree_root.assert_called_once_with(blockstamp)
         web3.csm.get_rewards_tree_cid.assert_called_once_with(blockstamp)
@@ -795,6 +795,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=HexBytes(ZERO_HASH),
             strikes_tree_root=Mock(),
             rewards_tree_cid=None,
@@ -812,6 +813,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=rewards_tree.root,
             strikes_tree_root=Mock(),
             rewards_tree_cid=CID("QmRT"),
@@ -821,7 +823,7 @@ class TestLastReport:
         for value in rewards_tree.values:
             assert value in last_report.rewards
 
-        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
+        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
     def test_get_rewards_unexpected_root(self, web3: Web3, rewards_tree: RewardsTree):
@@ -831,6 +833,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
             strikes_tree_root=Mock(),
             rewards_tree_cid=CID("QmRT"),
@@ -840,7 +843,7 @@ class TestLastReport:
         with pytest.raises(ValueError, match="tree root"):
             last_report.rewards
 
-        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid)
+        web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
     def test_get_strikes_empty(self, web3: Web3):
@@ -849,6 +852,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=Mock(),
             strikes_tree_root=HexBytes(ZERO_HASH),
             rewards_tree_cid=Mock(),
@@ -866,6 +870,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=Mock(),
             strikes_tree_root=strikes_tree.root,
             rewards_tree_cid=Mock(),
@@ -875,7 +880,7 @@ class TestLastReport:
         for no_id, pubkey, value in strikes_tree.values:
             assert last_report.strikes[(no_id, pubkey)] == value
 
-        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid)
+        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
     def test_get_strikes_unexpected_root(self, web3: Web3, strikes_tree: StrikesTree):
@@ -885,6 +890,7 @@ class TestLastReport:
         last_report = LastReport(
             w3=web3,
             blockstamp=Mock(),
+            current_frame=FrameNumber(0),
             rewards_tree_root=Mock(),
             strikes_tree_root=HexBytes("DOES NOT MATCH".encode()),
             rewards_tree_cid=Mock(),
@@ -894,7 +900,7 @@ class TestLastReport:
         with pytest.raises(ValueError, match="tree root"):
             last_report.strikes
 
-        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid)
+        web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid, FrameNumber(0))
 
     @pytest.fixture()
     def rewards_tree(self) -> RewardsTree:

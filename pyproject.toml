@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "6.0.0"
-description = "Oracle daemon for Lido decentralized staking service. Collects and reports Ethereum 2.0 beacon chain states (the number of visible validators and their summarized balances) to the Lido dApp contract running on Ethereum 1.0 side."
+version = "7.0.0-beta.0"
+description = "Oracle daemon for Lido decentralized staking service. Collects and reports consensus layer states (the number of visible validators and their summarized balances) to the Lido dApp contracts running on execution layer."
 authors = [
     "Dmitry Chernukhin",
     "Dmitry Suldin",
@@ -18,7 +18,7 @@ license = "GPL 3.0"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-prometheus-client = "0.21.1"
+prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
 pytest = "^7.2.1"
 pytest-xdist = "^3.2.1"
@@ -26,8 +26,10 @@ more-itertools = "^10.1.0"
 web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
-oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree" }
-py-multiformats-cid = "^0.4.4"
+oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
+multiformats = "^0.3.1"
+protobuf="^6.31.1"
+dag-cbor="^0.3.3"
 flask = "^3.0.0"
 waitress = "^3.0.2"
 
@@ -41,6 +43,7 @@ polyfactory = "^2.19.0"
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
+types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
 black = "^24.8"
@@ -70,6 +73,10 @@ addopts = "-s -vv --strict-markers"
 
 [tool.coverage.run]
 branch = true
+
+[tool.pylint.master]
+ignore-patterns = ".*_pb2\\.py"
+generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
 
 [tool.pylint.format]
 max-line-length = "120"
