@@ -183,3 +183,42 @@ class TestStoracha:
 
         with pytest.raises(CIDValidationError):
             storacha_provider.publish(content)
+
+    @responses.activate
+    def test_publish__upload_put_fails__logs_safely_without_sensitive_url(self, storacha_provider, caplog):
+        content = b"mock car content for upload test"
+
+        # URL with sensitive AWS auth tokens (similar to real Storacha response)
+        sensitive_upload_url = "https://carpark-prod-0.s3.us-west-2.amazonaws.com/test/test.car?X-Amz-Credential=SENSITIVE&X-Amz-Security-Token=SENSITIVE_TOKEN"
+
+        store_response_data = [
+            {
+                "p": {
+                    "out": {
+                        "ok": {
+                            "status": "upload",
+                            "url": sensitive_upload_url,
+                            "headers": {"content-length": "12345"},
+                        }
+                    }
+                }
+            }
+        ]
+
+        responses.add(responses.POST, Storacha.BRIDGE_URL, json=store_response_data, status=200)
+        responses.add(responses.PUT, sensitive_upload_url, status=500)
+
+        with pytest.raises(UploadError, match="Upload request failed"):
+            storacha_provider.publish(content)
+
+        log_records = [record.message for record in caplog.records]
+        log_content = ' '.join(log_records)
+
+        assert "X-Amz-Credential" not in log_content
+        assert "X-Amz-Security-Token" not in log_content
+        assert "SENSITIVE" not in log_content
+        assert "carpark-prod-0.s3.us-west-2.amazonaws.com" not in log_content
+
+        assert "Upload request failed" in log_content
+        assert "HTTPError" in log_content
+        assert "500" in log_content
