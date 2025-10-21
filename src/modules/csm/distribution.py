@@ -4,7 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA
+from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import Frame, State, ValidatorDuties
@@ -258,8 +258,11 @@ class Distribution:
             #    87.55 ≈ 88 of 103 participation shares should be counted for the operator key's reward.
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
-            val_effective_balance = min(validator.validator.effective_balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
-            participation_share_multiplier = max(1, val_effective_balance // MIN_ACTIVATION_BALANCE)
+            val_effective_balance = min(
+                max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance),
+                MAX_EFFECTIVE_BALANCE_ELECTRA
+            )
+            participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
             #
             # Due to CL rewarding process, validators are getting rewards in proportion to their effective balance:
             # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers

@@ -7,7 +7,8 @@ import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from src.constants import TOTAL_BASIS_POINTS, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE, \
+    EFFECTIVE_BALANCE_INCREMENT
 from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
 from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
 from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
@@ -912,7 +913,7 @@ def test_get_network_performance_raises_error_for_invalid_performance():
             False,
             0.5,
             1,
-            ValidatorDutiesOutcome(participation_share=10, rebate_share=0, strikes=0),
+            ValidatorDutiesOutcome(participation_share=10 * 32, rebate_share=0, strikes=0),
         ),
         (
             ValidatorDuties(
@@ -923,7 +924,7 @@ def test_get_network_performance_raises_error_for_invalid_performance():
             False,
             0.5,
             0.85,
-            ValidatorDutiesOutcome(participation_share=9, rebate_share=1, strikes=0),
+            ValidatorDutiesOutcome(participation_share=272, rebate_share=48, strikes=0),
         ),
         (
             ValidatorDuties(
@@ -1254,7 +1255,7 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
         log_operator,
     )
 
-    expected_assigned = 10 * multiplier
+    expected_assigned = 10 * MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
     expected_participation = math.ceil(expected_assigned * reward_share)
     expected_rebate = expected_assigned - expected_participation
 
