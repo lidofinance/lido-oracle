@@ -163,6 +163,7 @@ class IPFS(Module):
         raise ProviderConsistencyError(
             f"No priority provider found in successful uploads. "
             f"Priority providers: {[p.__class__.__name__ for p in self.priority_providers]}, "
+            f"Successful uploads: {[upload.provider_class for upload in successful_uploads]}"
         )
 
     def publish(self, content: bytes, name: str | None = None) -> CID:
