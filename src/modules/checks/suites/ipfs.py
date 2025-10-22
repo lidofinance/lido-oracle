@@ -84,8 +84,7 @@ def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[s
                 errors.append(
                     f"Content mismatch: uploaded via {upload_provider.__class__.__name__}, "
                     f"downloaded via {download_provider.__class__.__name__} for CID {uploaded_cid} "
-                    f"(content size: {content_size} bytes): "
-                    f"expected length {len(test_content)}, got length {len(downloaded_content)}"
+                    f"(content size: {content_size} bytes)"
                 )
 
         # Check CID's between different IPFS providers
