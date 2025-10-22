@@ -176,9 +176,15 @@ class CSOracle(BaseModule, ConsensusModule):
 
         for l_epoch, r_epoch in self.state.frames:
             for epoch in sequence(l_epoch, r_epoch):
+                if epoch not in self.state.unprocessed_epochs:
+                    logger.info({"msg": f"Epoch {epoch} is already processed"})
+                    continue
+
                 epoch_data = self.w3.performance.get_epoch(epoch)
                 if epoch_data is None:
-                    raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
+                    logger.warning({"msg": f"Epoch {epoch} is missing in Performance Collector"})
+                    continue
+
                 misses, props, syncs = epoch_data
 
                 for validator in validators:
@@ -187,10 +193,10 @@ class CSOracle(BaseModule, ConsensusModule):
                     is_active = is_active_validator(validator, EpochNumber(epoch))
                     if not is_active and missed_att:
                         raise ValueError(f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active")
-
                     self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
 
                 blocks_in_epoch = 0
+
                 for p in props:
                     vid = ValidatorIndex(p.validator_index)
                     self.state.save_prop_duty(EpochNumber(epoch), vid, included=bool(p.is_proposed))

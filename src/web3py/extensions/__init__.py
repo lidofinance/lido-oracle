@@ -6,3 +6,4 @@ from src.web3py.extensions.lido_validators import LidoValidatorsProvider
 from src.web3py.extensions.fallback import FallbackProviderModule
 from src.web3py.extensions.csm import CSM, LazyCSM
 from src.web3py.extensions.ipfs import IPFS
+from src.web3py.extensions.performance import PerformanceClientModule
