@@ -28,7 +28,7 @@ from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
-from src.utils.web3converter import Web3Converter
+from src.utils.web3converter import ChainConverter
 
 ZERO_BLOCK_ROOT = HexBytes(ZERO_HASH).to_0x_hex()
 
@@ -49,7 +49,7 @@ class FrameCheckpoint:
 
 
 class FrameCheckpointsIterator:
-    converter: Web3Converter
+    converter: ChainConverter
 
     l_epoch: EpochNumber
     r_epoch: EpochNumber
@@ -71,7 +71,7 @@ class FrameCheckpointsIterator:
     CHECKPOINT_SLOT_DELAY_EPOCHS = 2
 
     def __init__(
-        self, converter: Web3Converter, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber
+        self, converter: ChainConverter, l_epoch: EpochNumber, r_epoch: EpochNumber, finalized_epoch: EpochNumber
     ):
         if l_epoch > r_epoch:
             raise ValueError(f"Left border epoch should be less or equal right border epoch: {l_epoch=} > {r_epoch=}")
@@ -131,7 +131,7 @@ SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 class FrameCheckpointProcessor:
     cc: ConsensusClient
-    converter: Web3Converter
+    converter: ChainConverter
 
     db: DutiesDB
     finalized_blockstamp: BlockStamp
@@ -140,7 +140,7 @@ class FrameCheckpointProcessor:
         self,
         cc: ConsensusClient,
         db: DutiesDB,
-        converter: Web3Converter,
+        converter: ChainConverter,
         finalized_blockstamp: BlockStamp,
     ):
         self.cc = cc

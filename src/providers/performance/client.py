@@ -42,10 +42,17 @@ class PerformanceClient(HTTPProvider):
         )
         return data['result']
 
+    def get_epoch_blob(self, epoch: int) -> dict[str, str | None]:
+        data, _ = self._get(
+            self.API_EPOCHS_BLOB + f"/{epoch}",
+            retval_validator=data_is_dict,
+        )
+        return data['result']
+
     def get_epochs(self, l_epoch: int, r_epoch: int) -> list[tuple[set[int], list[ProposalDuty], list[SyncDuty]]]:
         epochs_data = self.get_epoch_blobs(l_epoch, r_epoch)
         return [EpochBlobCodec.decode(bytes.fromhex(epoch_data['blob'])) for epoch_data in epochs_data]
 
-    def get_epoch(self, epoch: int) -> EpochBlob | None:
-        res = self.get_epochs(epoch, epoch)
-        return res[0]
+    def get_epoch(self, epoch: int) -> tuple[set[int], list[ProposalDuty], list[SyncDuty]] | None:
+        blob = self.get_epoch_blob(epoch)
+        return EpochBlobCodec.decode(bytes.fromhex(blob['blob'])) if blob else None

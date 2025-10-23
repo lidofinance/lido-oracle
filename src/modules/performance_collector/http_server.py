@@ -78,8 +78,17 @@ def _create_app(db_path: str) -> Flask:
         except Exception as e:
             return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
 
-    @app.get("/epochs/<int:epoch>")
-    def epoch_details(epoch: int):
+    @app.get("/epochs/blob/<int:epoch>")
+    def epoch_blob(epoch: int):
+        try:
+            db = DutiesDB(app.config["DB_PATH"])
+            blob = db.get_epoch_blob(epoch)
+            return jsonify({"result": blob.hex() if blob is not None else None})
+        except Exception as e:
+            return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
+
+    @app.get("/debug/epochs/<int:epoch>")
+    def debug_epoch_details(epoch: int):
         try:
             db = DutiesDB(app.config["DB_PATH"])
             blob = db.get_epoch_blob(epoch)
@@ -105,6 +114,8 @@ def _create_app(db_path: str) -> Flask:
             )
         except Exception as e:
             return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
+
+    # TODO: POST endpoint for setting r_epoch for FrameCheckpointsIterator softly
 
     return app
 

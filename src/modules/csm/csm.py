@@ -101,6 +101,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 )
                 if not is_data_range_available:
                     logger.warning({"msg": f"Performance data range is not available yet for [{l_epoch_};{r_epoch_}] frame"})
+                    # TODO: set r_epoch r_epoch for FrameCheckpointsIterator softly through POST request
                     return False
             self.fulfill_state()
 
