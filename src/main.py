@@ -15,6 +15,7 @@ from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
+from src.modules.performance_collector.performance_collector import PerformanceCollector
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -29,6 +30,7 @@ from src.web3py.extensions import (
     LidoValidatorsProvider,
     TransactionUtils,
 )
+from src.web3py.extensions.performance import PerformanceClientModule
 from src.web3py.types import Web3
 from decimal import getcontext
 
@@ -75,6 +77,9 @@ def main(module_name: OracleModule):
     logger.info({'msg': 'Initialize IPFS providers.'})
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
 
+    logger.info({'msg': 'Initialize Performance Collector client.'})
+    performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
+
     logger.info({'msg': 'Check configured providers.'})
     if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
         raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
@@ -89,12 +94,13 @@ def main(module_name: OracleModule):
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
+        'performance': lambda: performance,  # type: ignore[dict-item]
     })
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
 
-    instance: Accounting | Ejector | CSOracle
+    instance: Accounting | Ejector | CSOracle | PerformanceCollector
     if module_name == OracleModule.ACCOUNTING:
         logger.info({'msg': 'Initialize Accounting module.'})
         instance = Accounting(web3)
@@ -104,10 +110,13 @@ def main(module_name: OracleModule):
     elif module_name == OracleModule.CSM:
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
         instance = CSOracle(web3)
+    elif module_name == OracleModule.PERFORMANCE_COLLECTOR:
+        instance = PerformanceCollector(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
-    instance.check_contract_configs()
+    if module_name != OracleModule.PERFORMANCE_COLLECTOR:
+        instance.check_contract_configs()
 
     if variables.DAEMON:
         instance.run_as_daemon()

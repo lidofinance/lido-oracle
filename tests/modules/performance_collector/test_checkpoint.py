@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import src.modules.csm.checkpoint as checkpoint_module
+import src.modules.performance_collector.checkpoint as checkpoint_module
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-from src.modules.csm.checkpoint import (
+from src.modules.performance_collector.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
     FrameCheckpointsIterator,
@@ -17,7 +17,7 @@ from src.modules.csm.checkpoint import (
     ValidatorDuty,
     process_attestations,
 )
-from src.modules.csm.state import State
+from src.modules.performance_collector.db import DutiesDB
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
@@ -34,8 +34,8 @@ from tests.factory.configs import (
 
 
 @pytest.fixture(autouse=True)
-def no_commit(monkeypatch):
-    monkeypatch.setattr(State, "commit", Mock())
+def no_db_write(monkeypatch):
+    monkeypatch.setattr(DutiesDB, "store_epoch", Mock())
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 @pytest.fixture
 def sync_committees_cache():
-    with patch('src.modules.csm.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
+    with patch('src.modules.performance_collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
         yield cache
 
 
@@ -371,15 +371,13 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     sync_aggregate.sync_committee_bits = "0xff"
 
     frame_checkpoint_processor.cc.get_block_attestations_and_sync = Mock(return_value=([attestation], sync_aggregate))
-    frame_checkpoint_processor.state.unprocessed_epochs = [duty_epoch]
+    frame_checkpoint_processor.db.has_epoch = lambda: False
 
     frame_checkpoint_processor._check_duties(
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    frame_checkpoint_processor.state.save_att_duty.assert_called()
-    frame_checkpoint_processor.state.save_sync_duty.assert_called()
-    frame_checkpoint_processor.state.save_prop_duty.assert_called()
+    frame_checkpoint_processor.db.store_epoch_from_duties.assert_called()
 
 
 @pytest.mark.unit
@@ -401,15 +399,13 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
     sync_aggregate.sync_committee_bits = "0x00"
 
     frame_checkpoint_processor.cc.get_block_attestations_and_sync = Mock(return_value=([], sync_aggregate))
-    frame_checkpoint_processor.state.unprocessed_epochs = [duty_epoch]
+    frame_checkpoint_processor.db.has_epoch = lambda: False
 
     frame_checkpoint_processor._check_duties(
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    assert frame_checkpoint_processor.state.save_att_duty.call_count == 0
-    assert frame_checkpoint_processor.state.save_sync_duty.call_count == 2
-    assert frame_checkpoint_processor.state.save_prop_duty.call_count == 2
+    frame_checkpoint_processor.db.store_epoch_from_duties.assert_called()
 
 
 @pytest.mark.unit
@@ -484,7 +480,9 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(
     prev_slot_response = Mock()
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
-    with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+    with patch(
+        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+    ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
     assert result.validators == sync_committee.validators
@@ -508,7 +506,9 @@ def test_get_sync_committee_handles_cache_eviction(
     prev_slot_response = Mock()
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
-    with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+    with patch(
+        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+    ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
     assert result == sync_committee
@@ -564,7 +564,9 @@ def test_get_dependent_root_for_proposer_duties_from_cl_when_slot_out_of_range(f
 
     prev_slot_response = Mock()
     prev_slot_response.message.slot = non_missed_slot
-    with patch('src.modules.csm.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)):
+    with patch(
+        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+    ):
         frame_checkpoint_processor.cc.get_block_root = Mock(return_value=Mock(root=checkpoint_block_roots[0]))
 
         dependent_root = frame_checkpoint_processor._get_dependent_root_for_proposer_duties(

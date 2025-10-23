@@ -11,6 +11,7 @@ class OracleModule(StrEnum):
     EJECTOR = 'ejector'
     CHECK = 'check'
     CSM = 'csm'
+    PERFORMANCE_COLLECTOR = 'performance_collector'
 
 
 EpochNumber = NewType('EpochNumber', int)
