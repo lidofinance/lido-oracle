@@ -98,7 +98,14 @@ class Storacha(IPFSProvider):
                 upload_response = requests.put(upload_url, headers=upload_headers, data=car_file.car_bytes, timeout=self.timeout)
                 upload_response.raise_for_status()
             except requests.RequestException as ex:
-                logger.error({"msg": "Upload request failed", "error": str(ex)})
+                # Log error details without exposing upload URL with sensitive info
+                error_info = getattr(ex, 'response', None)
+                status_code = error_info.status_code if error_info is not None else 'unknown'
+                logger.error({
+                    "msg": "Upload request failed",
+                    "error_type": type(ex).__name__,
+                    "status_code": status_code
+                })
                 raise UploadError(f"Upload request failed: {ex}") from ex
 
         upload_payload = {
