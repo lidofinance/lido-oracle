@@ -62,6 +62,14 @@ class PerformanceCollector(BaseModule):
 
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
+        logger.info({
+            'msg': 'Starting epoch range processing',
+            'start_epoch': start_epoch,
+            'end_epoch': end_epoch,
+            'finalized_epoch': finalized_epoch,
+            'db_min_unprocessed_epoch': db_min_unprocessed_epoch
+        })
+
         try:
             checkpoints = FrameCheckpointsIterator(
                 converter,
@@ -74,9 +82,21 @@ class PerformanceCollector(BaseModule):
 
         processor = FrameCheckpointProcessor(self.w3.cc, self.db, converter, last_finalized_blockstamp)
 
+        checkpoint_count = 0
         for checkpoint in checkpoints:
-            processor.exec(checkpoint)
+            processed_epochs = processor.exec(checkpoint)
+            checkpoint_count += 1
+            logger.info({
+                'msg': 'Checkpoint processing completed',
+                'checkpoint_slot': checkpoint.slot,
+                'processed_epochs': processed_epochs
+            })
             # Reset BaseOracle cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
+
+        logger.info({
+            'msg': 'All checkpoints processing completed',
+            'total_checkpoints_processed': checkpoint_count
+        })
 
         return ModuleExecuteDelay.NEXT_SLOT

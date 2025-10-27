@@ -21,8 +21,8 @@ class ChainConverter:
     def get_epoch_last_slot(self, epoch: EpochNumber) -> SlotNumber:
         return SlotNumber((epoch + 1) * self.chain_config.slots_per_epoch - 1)
 
-    def get_epoch_by_slot(self, ref_slot: SlotNumber) -> EpochNumber:
-        return EpochNumber(ref_slot // self.chain_config.slots_per_epoch)
+    def get_epoch_by_slot(self, slot: SlotNumber) -> EpochNumber:
+        return EpochNumber(slot // self.chain_config.slots_per_epoch)
 
     def get_slot_by_timestamp(self, timestamp: int) -> SlotNumber:
         return SlotNumber((timestamp - self.chain_config.genesis_time) // self.chain_config.seconds_per_slot)

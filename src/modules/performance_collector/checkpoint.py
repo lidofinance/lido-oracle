@@ -156,12 +156,26 @@ class FrameCheckpointProcessor:
         if not unprocessed_epochs:
             logger.info({"msg": "Nothing to process in the checkpoint"})
             return 0
+
+        logger.info({
+            'msg': 'Starting epochs batch processing',
+            'unprocessed_epochs_count': len(unprocessed_epochs),
+            'checkpoint_slot': checkpoint.slot
+        })
+
         block_roots = self._get_block_roots(checkpoint.slot)
         duty_epochs_roots = {
             duty_epoch: self._select_block_roots(block_roots, duty_epoch, checkpoint.slot)
             for duty_epoch in unprocessed_epochs
         }
         self._process(block_roots, checkpoint.slot, unprocessed_epochs, duty_epochs_roots)
+
+        logger.info({
+            'msg': 'All epochs processing completed',
+            'processed_epochs': len(unprocessed_epochs),
+            'checkpoint_slot': checkpoint.slot
+        })
+
         return len(unprocessed_epochs)
 
     def _get_block_roots(self, checkpoint_slot: SlotNumber):
@@ -185,6 +199,14 @@ class FrameCheckpointProcessor:
         ]
         if is_pivot_missing:
             br[pivot_index] = None
+
+        logger.debug({
+            'msg': 'Block roots analysis',
+            'total_roots': len(br),
+            'missing_roots_count': br.count(None),
+            'pivot_index': pivot_index,
+            'is_pivot_missing': is_pivot_missing
+        })
 
         return br
 
@@ -311,7 +333,19 @@ class FrameCheckpointProcessor:
     def _get_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
         sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
         if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_period):
+            logger.debug({
+                'msg': 'Sync committee cache hit',
+                'period': sync_committee_period,
+                'cache_size': len(SYNC_COMMITTEES_CACHE)
+            })
             return cached_sync_committee
+
+        logger.debug({
+            'msg': 'Sync committee cache miss',
+            'period': sync_committee_period,
+            'cache_size': len(SYNC_COMMITTEES_CACHE)
+        })
+
         from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
         logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
@@ -399,11 +433,12 @@ def process_attestations(
                 # We already checked that before or check in next epoch processing.
                 continue
             att_committee_bits = att_bits[committee_offset:][: len(committee)]
-            # We can't get unset indices because the committee can attest partially in different blocks.
-            # If some part of the committee attested block X, their bits in block Y will be unset.
+            # We can't use unset indices because the committee can attest partially in different blocks.
+            # If some part of the committee attested block X, their bits in block Y might be unset.
             for index_in_committee in get_set_indices(att_committee_bits):
                 vid = committee[index_in_committee]
-                misses.remove(vid)
+                if vid in misses:
+                    misses.remove(vid)
             committee_offset += len(committee)
 
 

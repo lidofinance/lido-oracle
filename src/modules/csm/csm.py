@@ -96,6 +96,11 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if not self.state.is_fulfilled:
             for l_epoch_, r_epoch_ in self.state.frames:
+                logger.info({
+                    "msg": "Requesting performance data availability check",
+                    "start_epoch": l_epoch_,
+                    "end_epoch": r_epoch_
+                })
                 is_data_range_available = self.w3.performance.is_range_available(
                     l_epoch_, r_epoch_
                 )
@@ -103,6 +108,12 @@ class CSOracle(BaseModule, ConsensusModule):
                     logger.warning({"msg": f"Performance data range is not available yet for [{l_epoch_};{r_epoch_}] frame"})
                     # TODO: set r_epoch r_epoch for FrameCheckpointsIterator softly through POST request
                     return False
+                else:
+                    logger.info({
+                        "msg": "Performance data range is available",
+                        "start_epoch": l_epoch_,
+                        "end_epoch": r_epoch_
+                    })
             self.fulfill_state()
 
         return self.state.is_fulfilled
@@ -175,18 +186,42 @@ class CSOracle(BaseModule, ConsensusModule):
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
+        logger.info({
+            "msg": "Starting state fulfillment",
+            "total_frames": len(self.state.frames),
+            "total_validators": len(validators)
+        })
+
         for l_epoch, r_epoch in self.state.frames:
+            logger.info({
+                "msg": "Processing frame",
+                "start_epoch": l_epoch,
+                "end_epoch": r_epoch,
+                "total_epochs": r_epoch - l_epoch + 1
+            })
+
             for epoch in sequence(l_epoch, r_epoch):
                 if epoch not in self.state.unprocessed_epochs:
-                    logger.info({"msg": f"Epoch {epoch} is already processed"})
+                    logger.debug({"msg": f"Epoch {epoch} is already processed"})
                     continue
 
+                logger.info({
+                    "msg": "Requesting performance data from collector",
+                    "epoch": epoch
+                })
                 epoch_data = self.w3.performance.get_epoch(epoch)
                 if epoch_data is None:
                     logger.warning({"msg": f"Epoch {epoch} is missing in Performance Collector"})
                     continue
 
                 misses, props, syncs = epoch_data
+                logger.info({
+                    "msg": "Performance data received",
+                    "epoch": epoch,
+                    "misses_count": len(misses),
+                    "proposals_count": len(props),
+                    "sync_duties_count": len(syncs)
+                })
 
                 for validator in validators:
                     missed_att = validator.index in misses
