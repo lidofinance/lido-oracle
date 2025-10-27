@@ -33,6 +33,7 @@ MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#sync-committee
+SYNC_COMMITTEE_SIZE = 512
 EPOCHS_PER_SYNC_COMMITTEE_PERIOD = 256
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
 DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000

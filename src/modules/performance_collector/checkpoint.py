@@ -9,7 +9,7 @@ from typing import Iterable, Sequence
 from hexbytes import HexBytes
 
 from src import variables
-from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SYNC_COMMITTEE_SIZE
 from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, AttDutyMisses
 from src.modules.performance_collector.db import DutiesDB
 from src.modules.submodules.types import ZERO_HASH
@@ -295,6 +295,10 @@ class FrameCheckpointProcessor:
 
         with lock:
             propose_duties = list(propose_duties.values())
+            if len(propose_duties) > self.converter.chain_config.slots_per_epoch:
+                raise ValueError(f"Invalid number of propose duties prepared in epoch {duty_epoch}")
+            if len(sync_duties) > SYNC_COMMITTEE_SIZE:
+                raise ValueError(f"Invalid number of sync duties prepared in epoch {duty_epoch}")
             self.db.store_epoch(
                 duty_epoch,
                 att_misses=att_misses,

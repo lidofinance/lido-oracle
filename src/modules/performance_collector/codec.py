@@ -1,15 +1,10 @@
 import struct
 from dataclasses import dataclass
-from typing import Sequence, TypeAlias
+from typing import TypeAlias
 
 from pyroaring import BitMap
 
 from src.types import ValidatorIndex
-
-# TODO: get from config
-SLOTS_PER_EPOCH = 32
-COMMITTEE_SIZE = 512
-
 
 @dataclass
 class ProposalDuty:
@@ -24,9 +19,7 @@ class ProposalDutiesCodec:
     ITEM_SIZE = struct.calcsize(PACK_FMT)
 
     @classmethod
-    def encode(cls, proposals: Sequence[ProposalDuty]) -> bytes:
-        if len(proposals) != SLOTS_PER_EPOCH:
-            raise ValueError("Invalid proposals count")
+    def encode(cls, proposals: list[ProposalDuty]) -> bytes:
         items = sorted(((p.validator_index, p.is_proposed) for p in proposals), key=lambda t: t[0])
         return b"".join(struct.pack(cls.PACK_FMT, vid, flag) for vid, flag in items)
 
@@ -56,12 +49,9 @@ class SyncDutiesCodec:
     ITEM_SIZE = struct.calcsize(PACK_FMT)
 
     @classmethod
-    def encode(cls, syncs: Sequence[SyncDuty]) -> bytes:
+    def encode(cls, syncs: list[SyncDuty]) -> bytes:
         if len(syncs) == 0:
             raise ValueError("Invalid syncs count")
-        for s in syncs:
-            if not (0 <= int(s.missed_count) <= SLOTS_PER_EPOCH):
-                raise ValueError("missed_count out of range [0..32]")
         items_sorted = sorted(((m.validator_index, m.missed_count) for m in syncs), key=lambda t: t[0])
         return b"".join(struct.pack(cls.PACK_FMT, vid, cnt) for vid, cnt in items_sorted)
 

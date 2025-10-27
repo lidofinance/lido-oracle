@@ -3,7 +3,7 @@ from typing import Optional
 
 from src import variables
 from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, EpochDataCodec, AttDutyMisses
-from src.types import EpochNumber, ValidatorIndex
+from src.types import EpochNumber
 
 
 class DutiesDB:
