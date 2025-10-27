@@ -1,10 +1,9 @@
 import sqlite3
-from typing import Dict, Optional, Sequence
+from typing import Optional
 
 from src import variables
-from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, EpochBlobCodec, AttMissDuty
-from src.modules.performance_collector.types import AttestationCommittees, ProposeDuties, SyncCommittees
-from src.types import EpochNumber
+from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, EpochDataCodec, AttDutyMisses
+from src.types import EpochNumber, ValidatorIndex
 
 
 class DutiesDB:
@@ -38,60 +37,26 @@ class DutiesDB:
     def store_epoch(
         self,
         epoch: EpochNumber,
-        att_misses: set[AttMissDuty],
-        proposals: Sequence[ProposalDuty] | None = None,
-        sync_misses: Sequence[SyncDuty] | None = None,
+        att_misses: AttDutyMisses,
+        proposals: list[ProposalDuty],
+        syncs: list[SyncDuty],
     ) -> bytes:
+        blob = EpochDataCodec.encode(att_misses, proposals, syncs)
+        self._store_blob(epoch, blob)
+        self._auto_prune(epoch)
+        return blob
 
-        blob = EpochBlobCodec.encode(att_misses, proposals, sync_misses)
-
+    def _store_blob(self, epoch: int, blob: bytes) -> None:
         conn = self._connect()
         cur = conn.cursor()
-        cur.execute(
-            "INSERT OR REPLACE INTO duties(epoch, blob) VALUES(?, ?)",
-            (epoch, sqlite3.Binary(blob)),
-        )
-        conn.commit()
-        conn.close()
-        return blob
-
-    def store_epoch_from_duties(
-        self,
-        epoch: EpochNumber,
-        att_committees: AttestationCommittees,
-        propose_duties: ProposeDuties,
-        sync_committees: SyncCommittees,
-    ) -> bytes:
-        att_misses = set()
-        for committee in att_committees.values():
-            for duty in committee:
-                if not duty.included:
-                    att_misses.add(duty.validator_index)
-
-        proposals_list: list[ProposalDuty] = []
-        for proposer_duty in propose_duties.values():
-            proposals_list.append(
-                ProposalDuty(validator_index=proposer_duty.validator_index, is_proposed=proposer_duty.included)
+        try:
+            cur.execute(
+                "INSERT OR REPLACE INTO duties(epoch, blob) VALUES(?, ?)",
+                (epoch, sqlite3.Binary(blob)),
             )
-
-        # FIXME: should we get it like a map?
-        sync_miss_map: Dict[int, int] = {}
-        for duties in sync_committees.values():
-            for duty in duties:
-                vid = duty.validator_index
-                if sync_miss_map.get(vid) is None:
-                    sync_miss_map[duty.validator_index] = 0
-                if not duty.included:
-                    sync_miss_map[vid] += 1
-        sync_misses: list[SyncDuty] = [
-            SyncDuty(validator_index=vid, missed_count=cnt) for vid, cnt in sync_miss_map.items()
-        ]
-
-        blob = self.store_epoch(epoch, att_misses, proposals_list, sync_misses)
-
-        self._auto_prune(epoch)
-
-        return blob
+            conn.commit()
+        finally:
+            conn.close()
 
     def _auto_prune(self, current_epoch: int) -> None:
         retention = int(getattr(variables, 'PERFORMANCE_COLLECTOR_RETENTION_EPOCHS', 0))

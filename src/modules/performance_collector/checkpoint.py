@@ -10,20 +10,14 @@ from hexbytes import HexBytes
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, AttDutyMisses
 from src.modules.performance_collector.db import DutiesDB
-from src.modules.performance_collector.types import (
-    SlotBlockRoot,
-    AttestationCommittees,
-    ValidatorDuty,
-    SyncCommittees,
-    ProposeDuties,
-)
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import SyncCommittee, SyncAggregate
 from src.utils.blockstamp import build_blockstamp
 from src.providers.consensus.types import BlockAttestation
-from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber
+from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
@@ -34,6 +28,12 @@ ZERO_BLOCK_ROOT = HexBytes(ZERO_HASH).to_0x_hex()
 
 logger = logging.getLogger(__name__)
 lock = Lock()
+
+type SlotBlockRoot = tuple[SlotNumber, BlockRoot | None]
+
+type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorIndex]]
+
+type SyncDuties = list[SyncDuty]
 
 
 class MinStepIsNotReached(Exception): ...
@@ -257,9 +257,9 @@ class FrameCheckpointProcessor:
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
 
-        att_committees = self._prepare_attestation_duties(duty_epoch)
         propose_duties = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
-        sync_committees = self._prepare_sync_committee_duties(duty_epoch, duty_epoch_roots)
+        att_committees, att_misses = self._prepare_attestation_duties(duty_epoch)
+        sync_duties = self._prepare_sync_committee_duties(duty_epoch)
 
         for slot, root in [*duty_epoch_roots, *next_epoch_roots]:
             missed_slot = root is None
@@ -267,16 +267,17 @@ class FrameCheckpointProcessor:
                 continue
             attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
             if (slot, root) in duty_epoch_roots:
-                propose_duties[slot].included = True
-                process_sync(slot, sync_aggregate, sync_committees)
-            process_attestations(attestations, att_committees)
+                propose_duties[slot].is_proposed = True
+                process_sync(sync_aggregate, sync_duties)
+            process_attestations(attestations, att_committees, att_misses)
 
         with lock:
-            self.db.store_epoch_from_duties(
+            propose_duties = list(propose_duties.values())
+            self.db.store_epoch(
                 duty_epoch,
-                att_committees=att_committees,
-                propose_duties=propose_duties,
-                sync_committees=sync_committees,
+                att_misses=att_misses,
+                proposals=propose_duties,
+                syncs=sync_duties,
             )
 
     @timeit(
@@ -284,37 +285,26 @@ class FrameCheckpointProcessor:
             {"msg": f"Attestation Committees for epoch {args.epoch} prepared in {duration:.2f} seconds"}
         )
     )
-    def _prepare_attestation_duties(self, epoch: EpochNumber) -> AttestationCommittees:
-        committees = {}
+    def _prepare_attestation_duties(self, epoch: EpochNumber) -> tuple[AttestationCommittees, AttDutyMisses]:
+        committees: AttestationCommittees = {}
+        att_misses: AttDutyMisses = set()
         for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
-            validators = []
-            # Order of insertion is used to track the positions in the committees.
-            for validator_index in committee.validators:
-                validators.append(ValidatorDuty(validator_index, included=False))
-            committees[(committee.slot, committee.index)] = validators
-        return committees
+            committees[(committee.slot, committee.index)] = committee.validators
+            att_misses.update(committee.validators)
+        return committees, att_misses
 
     @timeit(
         lambda args, duration: logger.info(
             {"msg": f"Sync Committee for epoch {args.epoch} prepared in {duration:.2f} seconds"}
         )
     )
-    def _prepare_sync_committee_duties(
-        self, epoch: EpochNumber, epoch_block_roots: list[SlotBlockRoot]
-    ) -> dict[SlotNumber, list[ValidatorDuty]]:
-
+    def _prepare_sync_committee_duties(self, epoch: EpochNumber) -> SyncDuties:
         with lock:
             sync_committee = self._get_sync_committee(epoch)
 
-        duties = {}
-        for slot, root in epoch_block_roots:
-            missed_slot = root is None
-            if missed_slot:
-                continue
-            duties[slot] = [
-                ValidatorDuty(validator_index=validator_index, included=False)
-                for validator_index in sync_committee.validators
-            ]
+        duties: SyncDuties = []
+        for vid in sync_committee.validators:
+            duties.append(SyncDuty(vid, missed_count=0))
 
         return duties
 
@@ -341,12 +331,12 @@ class FrameCheckpointProcessor:
     )
     def _prepare_propose_duties(
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
-    ) -> ProposeDuties:
+    ) -> dict[SlotNumber, ProposalDuty]:
         duties = {}
         dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
         proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
         for duty in proposer_duties:
-            duties[duty.slot] = ValidatorDuty(validator_index=duty.validator_index, included=False)
+            duties[duty.slot] = ProposalDuty(duty.validator_index, is_proposed=False)
         return duties
 
     def _get_dependent_root_for_proposer_duties(
@@ -382,26 +372,38 @@ class FrameCheckpointProcessor:
         return dependent_root
 
 
-def process_sync(slot: SlotNumber, sync_aggregate: SyncAggregate, committees: SyncCommittees) -> None:
-    committee = committees[slot]
+def process_sync(
+    sync_aggregate: SyncAggregate,
+    sync_duties: list[SyncDuty]
+) -> None:
     # Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#syncaggregate
     sync_bits = hex_bitvector_to_list(sync_aggregate.sync_committee_bits)
-    for index_in_committee in get_set_indices(sync_bits):
-        committee[index_in_committee].included = True
+    # Go through only UNSET indexes to get misses
+    for index_in_committee in get_unset_indices(sync_bits):
+        sync_duties[index_in_committee].missed_count += 1
 
 
 def process_attestations(
     attestations: Iterable[BlockAttestation],
     committees: AttestationCommittees,
+    misses: AttDutyMisses,
 ) -> None:
     for attestation in attestations:
         committee_offset = 0
         att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
+        att_slot = attestation.data.slot
         for committee_idx in get_committee_indices(attestation):
-            committee = committees.get((attestation.data.slot, committee_idx), [])
+            committee = committees.get((att_slot, committee_idx))
+            if not committee:
+                # It is attestation from prev or future epoch.
+                # We already checked that before or check in next epoch processing.
+                continue
             att_committee_bits = att_bits[committee_offset:][: len(committee)]
+            # We can't get unset indices because the committee can attest partially in different blocks.
+            # If some part of the committee attested block X, their bits in block Y will be unset.
             for index_in_committee in get_set_indices(att_committee_bits):
-                committee[index_in_committee].included = True
+                vid = committee[index_in_committee]
+                misses.remove(vid)
             committee_offset += len(committee)
 
 
@@ -412,6 +414,11 @@ def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]
 def get_set_indices(bits: Sequence[bool]) -> list[int]:
     """Returns indices of truthy values in the supplied sequence"""
     return [i for i, bit in enumerate(bits) if bit]
+
+
+def get_unset_indices(bits: Sequence[bool]) -> list[int]:
+    """Returns indices of false values in the supplied sequence"""
+    return [i for i, bit in enumerate(bits) if not bit]
 
 
 def hex_bitvector_to_list(bitvector: str) -> list[bool]:

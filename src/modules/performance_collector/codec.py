@@ -4,6 +4,8 @@ from typing import Sequence, TypeAlias
 
 from pyroaring import BitMap
 
+from src.types import ValidatorIndex
+
 # TODO: get from config
 SLOTS_PER_EPOCH = 32
 COMMITTEE_SIZE = 512
@@ -76,27 +78,27 @@ class SyncDutiesCodec:
         return out
 
 
-AttMissDuty: TypeAlias = int
+AttDutyMisses: TypeAlias = set[ValidatorIndex]
 
 
 class AttDutiesMissCodec:
 
     @staticmethod
-    def encode(missed: set[AttMissDuty]) -> bytes:
-        bm = BitMap(sorted(v for v in missed))
+    def encode(misses: AttDutyMisses) -> bytes:
+        bm = BitMap(sorted(v for v in misses))
         bm.shrink_to_fit()
         bm.run_optimize()
         return bm.serialize()
 
     @staticmethod
-    def decode(blob: bytes) -> set[AttMissDuty]:
-        return set(BitMap.deserialize(blob))
+    def decode(blob: bytes) -> AttDutyMisses:
+        return set([ValidatorIndex(i) for i in BitMap.deserialize(blob)])
 
 
-EpochBlob: TypeAlias = tuple[set[int], list[ProposalDuty], list[SyncDuty]]
+EpochData: TypeAlias = tuple[AttDutyMisses, list[ProposalDuty], list[SyncDuty]]
 
 
-class EpochBlobCodec:
+class EpochDataCodec:
     # little-endian | uint8 version | uint32 att_count | uint8 prop_count | uint16 sync_count
     # See: https://docs.python.org/3/library/struct.html#format-characters
     HEADER_FMT = "<BIBH"
@@ -106,18 +108,18 @@ class EpochBlobCodec:
     @classmethod
     def encode(
         cls,
-        att_misses: set[AttMissDuty],
-        proposals: Sequence[ProposalDuty],
-        sync_misses: Sequence[SyncDuty],
+        att_misses: set[ValidatorIndex],
+        proposals: list[ProposalDuty],
+        syncs: list[SyncDuty],
     ) -> bytes:
         att_bytes = AttDutiesMissCodec.encode(att_misses)
         prop_bytes = ProposalDutiesCodec.encode(proposals)
-        sync_bytes = SyncDutiesCodec.encode(sync_misses)
-        header = struct.pack(cls.HEADER_FMT, cls.VERSION, len(att_bytes), len(proposals), len(sync_misses))
+        sync_bytes = SyncDutiesCodec.encode(syncs)
+        header = struct.pack(cls.HEADER_FMT, cls.VERSION, len(att_bytes), len(proposals), len(syncs))
         return header + prop_bytes + sync_bytes + att_bytes
 
     @classmethod
-    def decode(cls, blob: bytes) -> EpochBlob:
+    def decode(cls, blob: bytes) -> EpochData:
         if len(blob) < cls.HEADER_SIZE:
             raise ValueError(f"Epoch blob too short to decode: header size is {cls.HEADER_SIZE} but full blob size is {len(blob)}")
         ver, att_count, prop_count, sync_count = struct.unpack_from(cls.HEADER_FMT, blob, 0)

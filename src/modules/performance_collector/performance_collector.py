@@ -53,8 +53,9 @@ class PerformanceCollector(BaseModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         converter = self._build_converter()
 
+        db_min_unprocessed_epoch = self.db.min_unprocessed_epoch()
         start_epoch = EpochNumber(
-            max(self.db.min_unprocessed_epoch(), variables.PERFORMANCE_COLLECTOR_SERVER_START_EPOCH)
+            max(db_min_unprocessed_epoch, variables.PERFORMANCE_COLLECTOR_SERVER_START_EPOCH)
         )
         end_epoch = variables.PERFORMANCE_COLLECTOR_SERVER_END_EPOCH
         # TODO: adjust range by incoming POST requests

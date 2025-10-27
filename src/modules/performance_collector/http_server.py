@@ -6,7 +6,7 @@ from waitress import serve
 import traceback
 
 from src.modules.performance_collector.db import DutiesDB
-from src.modules.performance_collector.codec import EpochBlobCodec
+from src.modules.performance_collector.codec import EpochDataCodec
 from src import variables
 
 
@@ -67,13 +67,10 @@ def _create_app(db_path: str) -> Flask:
                 return jsonify({"error": "Invalid or missing 'from'/'to' params"}), 400
             l, r = parsed
             db = DutiesDB(app.config["DB_PATH"])
-            epochs: list[dict[str, Any]] = []
+            epochs: list[str | None] = []
             for e in range(l, r + 1):
                 blob = db.get_epoch_blob(e)
-                epochs.append({
-                    "epoch": e,
-                    "blob": blob.hex() if blob is not None else None,
-                })
+                epochs.append(blob.hex() if blob is not None else None)
             return jsonify({"result": epochs})
         except Exception as e:
             return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
@@ -95,7 +92,7 @@ def _create_app(db_path: str) -> Flask:
             if blob is None:
                 return jsonify({"error": "epoch not found", "epoch": epoch}), 404
 
-            misses, props, syncs = EpochBlobCodec.decode(blob)
+            misses, props, syncs = EpochDataCodec.decode(blob)
 
             proposals = [
                 {"validator_index": int(p.validator_index), "is_proposed": bool(p.is_proposed)} for p in props
@@ -115,7 +112,7 @@ def _create_app(db_path: str) -> Flask:
         except Exception as e:
             return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
 
-    # TODO: POST endpoint for setting r_epoch for FrameCheckpointsIterator softly
+    # TODO: POST endpoint for setting l_epoch and r_epoch for FrameCheckpointsIterator
 
     return app
 
