@@ -384,7 +384,14 @@ class FrameCheckpointProcessor:
         checkpoint_slot: SlotNumber
     ) -> BlockRoot:
         dependent_root = None
-        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        cc_config = self.cc.get_config_spec()
+        # `dependent_root` on Fulu Fork Epoch duties is equal to the last slot of `epoch - 1`, as usual.
+        # AFTER Fulu Fork Epoch epochs duties have `dependent_root` that equals to the last slot of `epoch - 2`.
+        dependent_epoch = EpochNumber(epoch - 1)
+        is_after_fulu_fork = epoch > cc_config.FULU_FORK_EPOCH
+        if is_after_fulu_fork:
+            dependent_epoch = EpochNumber(epoch - 2)
+        dependent_slot = self.converter.get_epoch_last_slot(dependent_epoch)
         try:
             while not dependent_root:
                 dependent_root = self._select_block_root_by_slot(

@@ -27,6 +27,7 @@ class BeaconSpecResponse(Nested, FromResponse):
     SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
+    FULU_FORK_EPOCH: int
 
 
 @dataclass
