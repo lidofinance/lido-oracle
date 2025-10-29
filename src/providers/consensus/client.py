@@ -190,7 +190,8 @@ class ConsensusClient(HTTPProvider):
             data_is_list(data, meta, endpoint=endpoint)
             # It is recommended by spec to use the dependent root to ensure the epoch is correct
             if meta["dependent_root"] != expected_dependent_root:
-                raise ValueError(
+                # TODO: Rise error when all clients return correct dependent root after Fulu Fork Epoch
+                logger.warning(
                     "Dependent root for proposer duties request mismatch: "
                     f"{meta['dependent_root']=} is not {expected_dependent_root=}. "
                     "Probably, CL node is not fully synced."
